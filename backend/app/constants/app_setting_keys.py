@@ -5,3 +5,7 @@
 """
 
 SERVER_PORT = "server.port"
+THRESHOLD_WARNING_RATIO = "threshold.warning_ratio"
+THRESHOLD_REPLAN_OVERRUN_DAYS = "threshold.replan_overrun_days"
+CALENDAR_DAY_BOUNDARY_HOUR = "calendar.day_boundary_hour"
+HOLIDAY_TREAT_AS_BUFFER = "holiday.treat_as_buffer"

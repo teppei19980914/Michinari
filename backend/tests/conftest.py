@@ -47,3 +47,15 @@ def db_session():
     finally:
         session.rollback()
         session.close()
+
+
+@pytest.fixture
+def seeded_session(db_session):
+    """app_setting・day_type_default 等を投入済みのセッション（サービス層テストで使用）。
+
+    run_all は冪等なため、他テストの実行順に依存せず必要な初期データを保証できる。
+    """
+    from app.init.seed_data import run_all
+
+    run_all(db_session)
+    return db_session
