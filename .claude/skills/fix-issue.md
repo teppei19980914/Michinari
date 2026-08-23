@@ -58,9 +58,9 @@ description: レポートや指摘事項を読み込み、問題を特定して�
 ローカルで以下を実行し全て成功を確認:
 
 ```bash
-{{ANALYZE_COMMAND}}
-{{TEST_COMMAND}}
-{{BUILD_COMMAND}}
+ruff check .
+pytest
+docker build .
 ```
 
 ## ドキュメント更新
