@@ -132,6 +132,31 @@ def test_cycle_speed_none_when_all_records_are_off_day(db_session):
     assert speed_service.compute_cycle_speed(db_session, material.id, cycle_number=1) is None
 
 
+def test_cycle_speeds_batched_groups_results_by_cycle_without_mixing(db_session):
+    """compute_cycle_speeds（Phase3 GET /materials/{id}/cyclesのN+1回避用一括版）が
+    複数周回を1クエリでまとめて取得しても、周回ごとの実績を混同しないこと。
+    """
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 1), amount=10, cycle=1, minutes=60)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 2), amount=40, cycle=2, minutes=60)
+
+    result = speed_service.compute_cycle_speeds(db_session, material.id, [1, 2, 3])
+
+    assert result[1].sample_count == 1
+    assert result[1].speed == pytest.approx(10.0)
+    assert result[2].sample_count == 1
+    assert result[2].speed == pytest.approx(40.0)
+    assert 3 not in result  # 実績が無い周回はキーに含まれない
+
+
+def test_cycle_speeds_batched_empty_when_no_rows(db_session):
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+
+    assert speed_service.compute_cycle_speeds(db_session, material.id, [1, 2]) == {}
+
+
 def test_effective_speed_separated_by_cycle(db_session):
     """周回ごとに分離して算出されること（Phase2必須観点: 周回別速度）。"""
     goal = _make_goal(db_session)

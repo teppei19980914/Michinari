@@ -27,6 +27,11 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI公式のDIパターン（Depends(...)を引数既定値にする）はB008の意図する
+# 「可変な既定値」の落とし穴に該当しないため許可する（ruff/FastAPI公式ドキュメント推奨設定）。
+extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends"]
+
 [tool.ruff.lint.per-file-ignores]
 # Alembic自動生成ファイルはツール生成物のため対象外とする
 "alembic/versions/*.py" = ["E501", "UP007", "UP035", "I001"]
