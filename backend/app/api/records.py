@@ -1,0 +1,144 @@
+"""日次記録のAPI（データ構造編6.2、実装フェーズ分割計画書Phase4）。
+
+AI対話（POST /records/{date}/chat）はPhase5で実装するため本ファイルには含めない。
+"""
+
+import datetime as dt
+
+from fastapi import APIRouter, Depends, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.record import DailyRecord
+from app.schemas.record import (
+    CommentCreate,
+    CommentRead,
+    CommentUpdate,
+    DailyRecordRead,
+    FinalizeRequest,
+    ProgressRegisterRequest,
+    QuotaItemRead,
+    StudyLogInput,
+    StudyLogRead,
+    TodayRead,
+)
+from app.services import goal_service, record_service
+from app.services.record_service import StudyLogItem
+
+router = APIRouter(tags=["records"])
+
+
+def _to_study_log_items(inputs: list[StudyLogInput]) -> list[StudyLogItem]:
+    return [
+        StudyLogItem(
+            material_id=item.material_id,
+            minutes_spent=item.minutes_spent,
+            amount_completed=item.amount_completed,
+            cycle_number=item.cycle_number,
+            quality_value=item.quality_value,
+        )
+        for item in inputs
+    ]
+
+
+def _serialize_record(target_date: dt.date, record: DailyRecord | None) -> DailyRecordRead:
+    """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。"""
+    return DailyRecordRead(
+        record_date=target_date,
+        record_state=record.record_state if record else None,
+        diary_body=record.diary_body if record else None,
+        diary_learned=record.diary_learned if record else None,
+        reported_at=record.reported_at if record else None,
+        study_logs=[
+            StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
+        ],
+        comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
+    )
+
+
+@router.get("/records/today", response_model=TodayRead)
+def get_today(session: Session = Depends(get_db)) -> TodayRead:
+    """論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。"""
+    today = goal_service.resolve_today(session)
+    record = record_service.get_daily_record(session, today)
+    return TodayRead(logical_date=today, record_state=record.record_state if record else None)
+
+
+@router.get("/records/{target_date}", response_model=DailyRecordRead)
+def get_record(target_date: dt.date, session: Session = Depends(get_db)) -> DailyRecordRead:
+    record = record_service.get_daily_record(session, target_date)
+    return _serialize_record(target_date, record)
+
+
+@router.post("/records/{target_date}/progress", response_model=DailyRecordRead)
+def register_progress(
+    target_date: dt.date, payload: ProgressRegisterRequest, session: Session = Depends(get_db)
+) -> DailyRecordRead:
+    today = goal_service.resolve_today(session)
+    record = record_service.register_progress(
+        session, target_date, _to_study_log_items(payload.study_logs), today
+    )
+    session.commit()
+    return _serialize_record(target_date, record)
+
+
+@router.post("/records/{target_date}/finalize", response_model=DailyRecordRead)
+def finalize_record(
+    target_date: dt.date, payload: FinalizeRequest, session: Session = Depends(get_db)
+) -> DailyRecordRead:
+    today = goal_service.resolve_today(session)
+    record = record_service.finalize_record(
+        session,
+        target_date,
+        _to_study_log_items(payload.study_logs),
+        payload.diary_body,
+        payload.diary_learned,
+        today,
+    )
+    session.commit()
+    return _serialize_record(target_date, record)
+
+
+@router.get("/records/{target_date}/quota", response_model=list[QuotaItemRead])
+def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[QuotaItemRead]:
+    items = record_service.compute_daily_quota(session, target_date)
+    return [
+        QuotaItemRead(
+            material_id=item.material_id,
+            material_name=item.material_name,
+            current_cycle=item.current_cycle,
+            planned_cycles=item.planned_cycles,
+            daily_quota=item.daily_quota,
+        )
+        for item in items
+    ]
+
+
+@router.post(
+    "/records/{target_date}/comments",
+    response_model=CommentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_comment(
+    target_date: dt.date, payload: CommentCreate, session: Session = Depends(get_db)
+) -> CommentRead:
+    comment = record_service.add_comment(session, target_date, payload.body)
+    session.commit()
+    return CommentRead.model_validate(comment)
+
+
+@router.patch("/comments/{comment_id}", response_model=CommentRead)
+def update_comment(
+    comment_id: int, payload: CommentUpdate, session: Session = Depends(get_db)
+) -> CommentRead:
+    comment = record_service.get_comment(session, comment_id)
+    record_service.update_comment(session, comment, payload.body)
+    session.commit()
+    return CommentRead.model_validate(comment)
+
+
+@router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_comment(comment_id: int, session: Session = Depends(get_db)) -> None:
+    comment = record_service.get_comment(session, comment_id)
+    record_service.delete_comment(session, comment)
+    session.commit()
