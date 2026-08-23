@@ -1,6 +1,7 @@
 """実効速度の周回別算出、必要速度、完了予測日（設計書 ロジック・プロンプト編 8〜10章）。"""
 
 import datetime as dt
+from collections import defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -53,23 +54,41 @@ def compute_cycle_speed(session: Session, material_id: int, cycle_number: int) -
     """周回 c の実効速度 speed(m, c) を算出する（8.1、8.4）。
 
     minutes_spent が NULL/0 の実績、および OFF日の実績は除外する。
+    複数周回をまとめて扱う場合は compute_cycle_speeds を使う（N+1回避、Phase3実装）。
+    """
+    return compute_cycle_speeds(session, material_id, [cycle_number]).get(cycle_number)
+
+
+def compute_cycle_speeds(
+    session: Session, material_id: int, cycle_numbers: list[int]
+) -> dict[int, CycleSpeed]:
+    """複数周回の実効速度をまとめて算出する（8.1、8.4）。
+
+    minutes_spent が NULL/0 の実績、および OFF日の実績は除外する。
     OFF は calendar_day_override でのみ設定可能なため（4.1）、override テーブルのみ参照すればよい。
+    周回ごとに個別クエリを発行するとN+1になるため、対象教材の実績を一括取得してから
+    周回別に集計する。
     """
     rows = (
-        session.query(StudyLog.amount_completed, StudyLog.minutes_spent, DailyRecord.record_date)
+        session.query(
+            StudyLog.cycle_number,
+            StudyLog.amount_completed,
+            StudyLog.minutes_spent,
+            DailyRecord.record_date,
+        )
         .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
         .filter(
             StudyLog.material_id == material_id,
-            StudyLog.cycle_number == cycle_number,
+            StudyLog.cycle_number.in_(cycle_numbers),
             StudyLog.minutes_spent.isnot(None),
             StudyLog.minutes_spent > 0,
         )
         .all()
     )
     if not rows:
-        return None
+        return {}
 
-    record_dates = {record_date for _, _, record_date in rows}
+    record_dates = {row.record_date for row in rows}
     off_dates = {
         row.target_date
         for row in session.query(CalendarDayOverride).filter(
@@ -78,18 +97,21 @@ def compute_cycle_speed(session: Session, material_id: int, cycle_number: int) -
         )
     }
 
-    filtered = [
-        (amount, minutes) for amount, minutes, record_date in rows if record_date not in off_dates
-    ]
-    if not filtered:
-        return None
+    grouped: dict[int, list[tuple[float, int]]] = defaultdict(list)
+    for cycle_number, amount, minutes, record_date in rows:
+        if record_date not in off_dates:
+            grouped[cycle_number].append((amount, minutes))
 
-    total_amount = sum(amount for amount, _ in filtered)
-    # filtered の各行は minutes_spent > 0 のクエリ条件を満たす行の部分集合のため、
-    # total_hours は必ず正になる（0除算のガードは不要）。
-    total_hours = sum(minutes for _, minutes in filtered) / 60
-
-    return CycleSpeed(sample_count=len(filtered), speed=total_amount / total_hours)
+    result: dict[int, CycleSpeed] = {}
+    for cycle_number, entries in grouped.items():
+        total_amount = sum(amount for amount, _ in entries)
+        # entries の各行は minutes_spent > 0 のクエリ条件を満たす行の部分集合のため、
+        # total_hours は必ず正になる（0除算のガードは不要）。
+        total_hours = sum(minutes for _, minutes in entries) / 60
+        result[cycle_number] = CycleSpeed(
+            sample_count=len(entries), speed=total_amount / total_hours
+        )
+    return result
 
 
 def compute_effective_speed(

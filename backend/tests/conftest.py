@@ -59,3 +59,33 @@ def seeded_session(db_session):
 
     run_all(db_session)
     return db_session
+
+
+@pytest.fixture
+def client(seeded_session):
+    """API層テスト用のTestClient。get_dbをテスト用セッション(seeded_session)へ差し替える。
+
+    API層の各エンドポイントはリクエスト完了時に session.commit() を呼ぶため
+    （通常のREST実装）、db_session フィクスチャのロールバックだけでは後始末できない。
+    そのためテスト終了時に全テーブルを明示的に空にする（PRAGMA foreign_keys=ON のため
+    子テーブルから順に削除する）。
+    """
+    from fastapi.testclient import TestClient
+
+    from app.database import get_db
+    from app.main import app
+    from app.models.base import Base
+
+    def _override_get_db():
+        yield seeded_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
+        seeded_session.rollback()
+        for table in reversed(Base.metadata.sorted_tables):
+            seeded_session.execute(table.delete())
+        seeded_session.commit()

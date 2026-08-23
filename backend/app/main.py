@@ -6,11 +6,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
+from app.api.errors import register_exception_handlers
+from app.api.goals import router as goals_router
+from app.api.materials import router as materials_router
+from app.api.resources import router as resources_router
 from app.config import get_settings
 from app.constants.app_setting_keys import SERVER_PORT
 from app.database import SessionLocal, create_all_tables
 from app.init.seed_data import run_all
 from app.models.setting import AppSetting
+
+#: データ構造編6.1「ベースパス /api/v1」。
+API_V1_PREFIX = "/api/v1"
 
 
 def bootstrap_database() -> None:
@@ -31,10 +38,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="ミチナリ API", lifespan=lifespan)
+    register_exception_handlers(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    app.include_router(goals_router, prefix=API_V1_PREFIX)
+    app.include_router(materials_router, prefix=API_V1_PREFIX)
+    app.include_router(resources_router, prefix=API_V1_PREFIX)
 
     return app
 
