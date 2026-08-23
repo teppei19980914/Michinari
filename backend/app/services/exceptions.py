@@ -59,3 +59,21 @@ class MaterialHasStudyLogsError(DomainError):
     def __init__(self, material_id: int) -> None:
         self.material_id = material_id
         super().__init__(f"教材(id={material_id})には実績が存在するため削除できません")
+
+
+class ImmutableRecordError(DomainError):
+    """確定済み(REPORTED)の日次記録を更新しようとした場合（データ構造編6.3 IMMUTABLE_RECORD）。"""
+
+    def __init__(self, record_date: object) -> None:
+        self.record_date = record_date
+        super().__init__(f"日付({record_date})の記録は確定済みのため更新できません")
+
+
+class BackdateLimitExceededError(DomainError):
+    """報告確定の遡及入力可能期限（当日または前日）を超えた場合
+    （データ構造編6.3 BACKDATE_LIMIT_EXCEEDED、仕様書7.2）。"""
+
+    def __init__(self, record_date: object, today: object) -> None:
+        self.record_date = record_date
+        self.today = today
+        super().__init__(f"日付({record_date})への報告確定は前日までに限られます（本日: {today}）")

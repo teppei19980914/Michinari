@@ -1,11 +1,15 @@
-"""calendar_service のテスト（ロジック・プロンプト編 3〜5章、20章の検証観点）。"""
+"""calendar_service のテスト（ロジック・プロンプト編 3〜5章、20章の検証観点、
+技術選定書6章、実装フェーズ分割計画書Phase4）。"""
 
 import datetime as dt
+
+import pytest
 
 from app.constants.enums import DayType, GoalStatus
 from app.models.goal import Goal, LoadProfile
 from app.models.setting import CalendarDayOverride, DayTypeDefault, Holiday
 from app.services import calendar_service
+from app.services.exceptions import NotFoundError, ValidationError
 
 
 def test_resolve_logical_today_returns_previous_day_before_boundary():
@@ -124,3 +128,130 @@ def test_resolve_load_coefficient_uses_matching_profile(db_session):
     assert (
         calendar_service.resolve_load_coefficient(db_session, goal.id, dt.date(2026, 7, 1)) == 1.0
     )
+
+
+# --- 日種別の個別指定（データ構造編6.2、Phase4） ---
+
+
+def test_set_day_type_override_creates_new_override(db_session):
+    target = dt.date(2026, 4, 1)
+
+    override = calendar_service.set_day_type_override(db_session, target, DayType.OFF, "特別休止日")
+
+    assert override.day_type == DayType.OFF
+    assert override.note == "特別休止日"
+    assert db_session.get(CalendarDayOverride, target) is not None
+
+
+def test_set_day_type_override_updates_existing_override(db_session):
+    target = dt.date(2026, 4, 2)
+    db_session.add(CalendarDayOverride(target_date=target, day_type=DayType.BUFFER, note="旧"))
+    db_session.flush()
+
+    calendar_service.set_day_type_override(db_session, target, DayType.PLAN, "新")
+
+    override = db_session.get(CalendarDayOverride, target)
+    assert override.day_type == DayType.PLAN
+    assert override.note == "新"
+
+
+def test_clear_day_type_override_removes_existing(db_session):
+    target = dt.date(2026, 4, 3)
+    db_session.add(CalendarDayOverride(target_date=target, day_type=DayType.BUFFER))
+    db_session.flush()
+
+    calendar_service.clear_day_type_override(db_session, target)
+
+    assert db_session.get(CalendarDayOverride, target) is None
+
+
+def test_clear_day_type_override_missing_raises_not_found(db_session):
+    with pytest.raises(NotFoundError):
+        calendar_service.clear_day_type_override(db_session, dt.date(2026, 4, 4))
+
+
+# --- 祝日CSVの取込（技術選定書6.2〜6.3） ---
+
+
+def _holiday_csv_bytes(rows: list[tuple[str, str]]) -> bytes:
+    header = "国民の祝日・休日月日,国民の祝日・休日名称"
+    lines = [header] + [f"{date_text},{name}" for date_text, name in rows]
+    return ("\r\n".join(lines) + "\r\n").encode("cp932")
+
+
+def test_import_holidays_parses_cp932_csv_and_inserts_rows(db_session):
+    content = _holiday_csv_bytes([("2026/1/1", "元日"), ("2026/1/12", "成人の日")])
+
+    result = calendar_service.import_holidays(db_session, content)
+
+    assert result.imported_count == 2
+    assert result.year_from == 2026
+    assert result.year_to == 2026
+    assert db_session.get(Holiday, dt.date(2026, 1, 1)).name == "元日"
+    assert db_session.get(Holiday, dt.date(2026, 1, 12)).name == "成人の日"
+
+
+def test_import_holidays_replaces_existing_rows_within_year_range(db_session):
+    db_session.add(Holiday(holiday_date=dt.date(2026, 3, 20), name="旧データ"))
+    db_session.flush()
+
+    content = _holiday_csv_bytes([("2026/1/1", "元日")])
+    result = calendar_service.import_holidays(db_session, content)
+
+    assert result.imported_count == 1
+    assert db_session.get(Holiday, dt.date(2026, 3, 20)) is None
+    assert db_session.get(Holiday, dt.date(2026, 1, 1)) is not None
+
+
+def test_import_holidays_rejects_invalid_encoding(db_session):
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, bytes([0x81, 0xFF]))
+
+
+def test_import_holidays_rejects_malformed_date(db_session):
+    content = "国民の祝日・休日月日,国民の祝日・休日名称\r\n2026-01-01,元日\r\n".encode("cp932")
+
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, content)
+
+
+def test_import_holidays_rejects_header_only_csv(db_session):
+    content = "国民の祝日・休日月日,国民の祝日・休日名称\r\n".encode("cp932")
+
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, content)
+
+
+def test_import_holidays_rejects_empty_bytes(db_session):
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, b"")
+
+
+def test_import_holidays_skips_blank_lines_between_rows(db_session):
+    """内閣府CSVは末尾に空行を含むことがあるため、空行は無視して取り込む。"""
+    content = (
+        "国民の祝日・休日月日,国民の祝日・休日名称\r\n"
+        "\r\n"
+        "2026/1/1,元日\r\n"
+    ).encode("cp932")
+
+    result = calendar_service.import_holidays(db_session, content)
+
+    assert result.imported_count == 1
+
+
+def test_import_holidays_rejects_row_missing_name_column(db_session):
+    content = (
+        "国民の祝日・休日月日,国民の祝日・休日名称\r\n"
+        "2026/1/1\r\n"
+    ).encode("cp932")
+
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, content)
+
+
+def test_import_holidays_rejects_when_only_blank_rows_present(db_session):
+    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n" "\r\n").encode("cp932")
+
+    with pytest.raises(ValidationError):
+        calendar_service.import_holidays(db_session, content)

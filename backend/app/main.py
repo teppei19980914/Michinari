@@ -6,9 +6,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
+from app.api.calendar import router as calendar_router
 from app.api.errors import register_exception_handlers
 from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
+from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.config import get_settings
 from app.constants.app_setting_keys import SERVER_PORT
@@ -47,6 +49,8 @@ def create_app() -> FastAPI:
     app.include_router(goals_router, prefix=API_V1_PREFIX)
     app.include_router(materials_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
+    app.include_router(records_router, prefix=API_V1_PREFIX)
+    app.include_router(calendar_router, prefix=API_V1_PREFIX)
 
     return app
 
