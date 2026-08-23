@@ -20,3 +20,22 @@ secrets.yml
 id_rsa
 id_rsa.pub
 .claude/.git-automation-setup-done
+
+# Python (backend)
+myvenv/
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# データベース・バックアップ（実データを誤ってコミットしないため）
+data/*.db
+data/*.db-journal
+backend/tests/_test.db
+
+# Node（フロントエンド、Phase 6以降）
+node_modules/
+frontend/dist/

@@ -23,6 +23,24 @@
 
 ---
 
+## バックエンド セットアップ（Phase 1）
+
+```bash
+cd backend
+uv sync              # 依存関係のインストール（venv自動作成）
+uv run alembic upgrade head   # スキーマ構築
+uv run python -m app.main     # 起動（app_setting.server.portに従う。既定値8100）
+```
+
+起動時に `app_setting` / `prompt_template` / `day_type_default` の初期データが投入される（冪等）。`GET /health` で疎通確認できる。
+
+```bash
+uv run pytest -q --cov=app --cov-report=term-missing   # テスト（カバレッジ100%）
+uv run ruff check .                                     # 静的解析
+```
+
+---
+
 ## 開発環境について（Claude Code Level 5）
 
 本リポジトリは [ClaudeCodeTemplate](https://github.com/teppei19980914/GrowthEngine) から Claude Code の運用環境（Level 5）を導入している。`setup.sh` / `scripts/` は環境の再セットアップ・検証用に残しているツール類であり、ミチナリ本体の実装には含まれない。以下は導入されている Level 5 環境の内容。
