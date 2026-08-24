@@ -5,13 +5,12 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import { updateGoal, type GoalDetailRead } from '../../api/goals'
 
 /** 基本情報タブ（仕様書6.2「試験名、開始日、状態、備考」）。 */
 export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const [name, setName] = useState(goal.name)
   const [startDate, setStartDate] = useState(goal.start_date)
   const [memo, setMemo] = useState(goal.memo ?? '')
@@ -22,9 +21,7 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
       queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
       showToast(t('common.saveSucceeded'))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

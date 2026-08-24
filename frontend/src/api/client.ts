@@ -26,6 +26,12 @@ export class ApiError extends Error {
   }
 }
 
+/** 例外からユーザー表示用の文言を求める（ApiError以外は既定文言。画面ごとに同じ三項式を
+ * 書かないための共通処理、CLAUDE.md DRYの原則。全画面のエラー表示・Toast.tsxのshowApiErrorが使う）。 */
+export function apiErrorMessage(error: unknown): string {
+  return error instanceof ApiError ? error.localizedMessage : t('errors.default')
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {

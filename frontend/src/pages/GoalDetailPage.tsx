@@ -6,7 +6,7 @@ import { ROUTES } from '../constants/routes'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import { ApiError } from '../api/client'
+import { ApiError, apiErrorMessage } from '../api/client'
 import { activateGoal, closeGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
@@ -35,7 +35,7 @@ function CloseGoalModal({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [needsConfirmWithoutResult, setNeedsConfirmWithoutResult] = useState(false)
 
   const mutation = useMutation({
@@ -51,7 +51,7 @@ function CloseGoalModal({
         setNeedsConfirmWithoutResult(true)
         return
       }
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
+      showApiError(error)
     },
   })
 
@@ -92,24 +92,21 @@ function GoalStatusActions({
   status: string
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [closeModalOpen, setCloseModalOpen] = useState(false)
   const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
-  const handleError = (error: unknown) => {
-    showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-  }
 
   const activateMutation = useMutation({
     mutationFn: () => activateGoal(goalId),
     onSuccess: invalidate,
-    onError: handleError,
+    onError: showApiError,
   })
   const pauseMutation = useMutation({
     mutationFn: () => pauseGoal(goalId),
     onSuccess: invalidate,
-    onError: handleError,
+    onError: showApiError,
   })
   const resumeMutation = useMutation({
     mutationFn: () => resumeGoal(goalId),
@@ -119,7 +116,7 @@ function GoalStatusActions({
         setResumeErrorModalOpen(true)
         return
       }
-      handleError(error)
+      showApiError(error)
     },
   })
 
@@ -187,9 +184,7 @@ export function GoalDetailPage() {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
-    const error = goalQuery.error
-    const message = error instanceof ApiError ? error.localizedMessage : t('errors.default')
-    return <p className="p-6 text-sm text-red-600">{message}</p>
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
   }
 
   const goal = goalQuery.data

@@ -5,7 +5,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError, apiClient } from '../../api/client'
+import { apiClient } from '../../api/client'
 import {
   createMaterial,
   deactivateMaterial,
@@ -43,7 +43,7 @@ function MaterialForm({
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [name, setName] = useState(material?.name ?? '')
   const [unitLabel, setUnitLabel] = useState(material?.unit_label ?? '')
   const [totalAmount, setTotalAmount] = useState(String(material?.total_amount ?? ''))
@@ -93,9 +93,7 @@ function MaterialForm({
       queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
       onDone()
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -236,24 +234,21 @@ function MaterialForm({
 /** 教材タブ（仕様書6.2「総作業量・現在周回・周回進捗・全体進捗」を表示。Phase7完了条件）。 */
 export function MaterialsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const handleError = (error: unknown) => {
-    showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-  }
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
 
   const deleteMutation = useMutation({
     mutationFn: (materialId: number) => deleteMaterial(materialId),
     onSuccess: invalidate,
-    onError: handleError,
+    onError: showApiError,
   })
   const deactivateMutation = useMutation({
     mutationFn: (materialId: number) => deactivateMaterial(materialId),
     onSuccess: invalidate,
-    onError: handleError,
+    onError: showApiError,
   })
 
   return (

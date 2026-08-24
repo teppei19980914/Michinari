@@ -7,7 +7,6 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import { updateGoal, type GoalDetailRead } from '../../api/goals'
 
 /** リソース配分タブ（仕様書6.2「本目標への配分比率の設定」。Phase7完了条件
@@ -20,7 +19,7 @@ export function ResourceAllocationTab({
   readOnly: boolean
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const [ratioPercent, setRatioPercent] = useState(String(Math.round(goal.resource_ratio * 100)))
 
   const mutation = useMutation({
@@ -29,9 +28,7 @@ export function ResourceAllocationTab({
       queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
       showToast(t('common.saveSucceeded'))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

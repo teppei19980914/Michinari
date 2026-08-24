@@ -5,7 +5,6 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import {
   createLoadProfile,
   deleteLoadProfile,
@@ -24,7 +23,7 @@ function LoadProfileForm({
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [dateFrom, setDateFrom] = useState(profile?.date_from ?? '')
   const [dateTo, setDateTo] = useState(profile?.date_to ?? '')
   const [coefficient, setCoefficient] = useState(String(profile?.coefficient ?? '1.0'))
@@ -44,9 +43,7 @@ function LoadProfileForm({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
       onDone()
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -108,16 +105,14 @@ export function LoadProfileTab({
   readOnly: boolean
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
   const deleteMutation = useMutation({
     mutationFn: (profileId: number) => deleteLoadProfile(profileId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] }),
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

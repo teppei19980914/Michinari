@@ -5,7 +5,6 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import { getAiStatus, listAssistants, loginAi } from '../../api/ai'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 
@@ -20,7 +19,7 @@ const ASSISTANT_FIELDS = [
 ] as const
 
 function AuthStatusCard() {
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const queryClient = useQueryClient()
   const statusQuery = useQuery({ queryKey: ['ai-status'], queryFn: getAiStatus })
   const [pat, setPat] = useState('')
@@ -32,9 +31,7 @@ function AuthStatusCard() {
       setPat('')
       queryClient.invalidateQueries({ queryKey: ['ai-status'] })
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -83,7 +80,7 @@ function AuthStatusCard() {
  * （識別子の手入力を求めない）」）。 */
 export function AiConnectionSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const assistantsQuery = useQuery({ queryKey: ['ai-assistants'], queryFn: listAssistants })
 
   const [form, setForm] = useState(settings.ai_connection)
@@ -94,9 +91,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       showToast(t('common.saveSucceeded'))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

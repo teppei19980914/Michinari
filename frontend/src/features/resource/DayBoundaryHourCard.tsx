@@ -5,13 +5,12 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import { getDayBoundaryHour, updateDayBoundaryHour } from '../../api/resources'
 
 /** 1日の境界時刻（仕様書6.3「日付が切り替わる時刻」）。 */
 export function DayBoundaryHourCard() {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const query = useQuery({ queryKey: ['day-boundary-hour'], queryFn: getDayBoundaryHour })
   const [hour, setHour] = useState<string | null>(null)
 
@@ -21,9 +20,7 @@ export function DayBoundaryHourCard() {
       queryClient.invalidateQueries({ queryKey: ['day-boundary-hour'] })
       showToast(t('common.saveSucceeded'))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   const value = hour ?? String(query.data?.day_boundary_hour ?? 0)

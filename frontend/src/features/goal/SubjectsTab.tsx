@@ -7,7 +7,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
+import { isSubjectRangeStartInPast } from './subjectWarnings'
 import {
   createSubject,
   deleteSubject,
@@ -29,7 +29,7 @@ function SubjectForm({
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [name, setName] = useState(subject?.name ?? '')
   const [examDateType, setExamDateType] = useState<(typeof EXAM_DATE_TYPES)[number]>(
     subject?.exam_date_type ?? 'RANGE',
@@ -42,10 +42,6 @@ function SubjectForm({
       ? ''
       : String(subject.passing_score),
   )
-
-  const handleError = (error: unknown) => {
-    showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-  }
 
   const payload = {
     name,
@@ -63,7 +59,7 @@ function SubjectForm({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
       onDone()
     },
-    onError: handleError,
+    onError: showApiError,
   })
 
   return (
@@ -156,7 +152,7 @@ function FixDateModal({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [examDateFixed, setExamDateFixed] = useState(subject.exam_date_from ?? '')
 
   const mutation = useMutation({
@@ -165,9 +161,7 @@ function FixDateModal({
       queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
       onClose()
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -197,7 +191,7 @@ function FixDateModal({
 /** 試験科目タブ（仕様書6.2）。 */
 export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [fixDateSubject, setFixDateSubject] = useState<SubjectRead | null>(null)
@@ -206,9 +200,7 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
   const deleteMutation = useMutation({
     mutationFn: (subjectId: number) => deleteSubject(subjectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] }),
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -232,12 +224,9 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
                   ? `${subject.exam_date_from ?? '-'} 〜 ${subject.exam_date_to ?? '-'}`
                   : (subject.exam_date_fixed ?? '-')}
               </p>
-              {subject.exam_date_type === 'RANGE' &&
-                subject.exam_date_from &&
-                todayQuery.data &&
-                subject.exam_date_from < todayQuery.data.logical_date && (
-                  <p className="text-xs text-amber-700">{t('goals.subjects.pastRangeWarning')}</p>
-                )}
+              {isSubjectRangeStartInPast(subject, todayQuery.data?.logical_date) && (
+                <p className="text-xs text-amber-700">{t('goals.subjects.pastRangeWarning')}</p>
+              )}
             </div>
             {!readOnly && (
               <div className="flex gap-2">
