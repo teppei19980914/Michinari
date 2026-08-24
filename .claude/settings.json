@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(*)",
-      "Read"
+      "Read",
+      "Bash(npm create *)",
+      "Bash(npx openapi-typescript *)",
+      "Bash(curl -s http://127.0.0.1:8100/health)",
+      "Bash(curl -s http://127.0.0.1:8100/api/v1/dashboard)",
+      "Bash(pkill -f \"app.main\")",
+      "Bash(nohup uv run python -m app.main)",
+      "Bash(curl -s http://localhost:5173/api/v1/dashboard)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npx --yes playwright install chromium)",
+      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard.png)",
+      "Read(//c/Users/teppe/AppData/Local/Temp/**)",
+      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard2.png)"
     ]
   },
   "hooks": {
@@ -11,11 +23,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/session-start-git.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/session-start-git.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/session-start-tools-check.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/session-start-tools-check.sh\""
           }
         ]
       }
@@ -26,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/block-dangerous-edit.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/block-dangerous-edit.sh\""
           }
         ]
       }
@@ -37,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"{{PROJECT_DIR}}\" && {{FORMAT_COMMAND}} $(echo $CLAUDE_TOOL_INPUT | grep -oP '\"file_path\":\\s*\"\\K[^\"]+') 2>/dev/null || true"
+            "command": "cd \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori\" && ruff format $(echo $CLAUDE_TOOL_INPUT | grep -oP '\"file_path\":\\s*\"\\K[^\"]+') 2>/dev/null || true"
           }
         ]
       }
@@ -47,19 +59,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/secret-scan.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/secret-scan.sh\""
           },
           {
             "type": "command",
-            "command": "cd \"{{PROJECT_DIR}}\" && echo '=== デプロイチェック ===' && echo '--- 静的解析 ---' && {{ANALYZE_COMMAND}} 2>&1 && echo '--- テスト ---' && {{TEST_COMMAND}} 2>&1 && echo '=== チェック完了 ==='"
+            "command": "cd \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori\" && echo '=== デプロイチェック ===' && echo '--- 静的解析 ---' && ruff check . 2>&1 && echo '--- テスト ---' && pytest 2>&1 && echo '=== チェック完了 ==='"
           },
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/vuln-scan.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/vuln-scan.sh\""
           },
           {
             "type": "command",
-            "command": "bash \"{{PROJECT_DIR}}/.claude/hooks/auto-commit.sh\""
+            "command": "bash \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Mitinori/.claude/hooks/auto-commit.sh\""
           },
           {
             "type": "prompt",

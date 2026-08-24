@@ -1,6 +1,68 @@
-# Claude Code Level 5 テンプレート
+# ミチナリ（Michinari）
 
-新しいリポジトリに Claude Code の運用環境（Level 5）を即座にセットアップするためのテンプレートです。
+資格試験合格を目的とした学習計画の立案・実行・修正を継続的に支援するアプリケーション。
+
+- バックエンド: Python 3.12+ / FastAPI / SQLAlchemy 2.0 / Alembic
+- フロントエンド: TypeScript / Vite / React 19 / Tailwind 4
+- 詳細な技術選定理由は [docs/技術選定書_ミチナリ_v1.0.md](docs/技術選定書_ミチナリ_v1.0.md) を参照
+
+## ドキュメント一覧
+
+| 文書 | 内容 |
+|---|---|
+| [docs/要件定義書_ミチナリ_v1.1.md](docs/要件定義書_ミチナリ_v1.1.md) | 要件定義 |
+| [docs/仕様書_ミチナリ_v1.1.md](docs/仕様書_ミチナリ_v1.1.md) | 機能仕様 |
+| [docs/技術選定書_ミチナリ_v1.0.md](docs/技術選定書_ミチナリ_v1.0.md) | 技術選定・祝日データ方針・コード規約補足 |
+| [docs/設計書_データ構造編_ミチナリ_v1.1.md](docs/設計書_データ構造編_ミチナリ_v1.1.md) | データ構造・API・ディレクトリ構成 |
+| [docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md](docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md) | 算出ロジック・AIプロンプト設計 |
+| [docs/実装フェーズ分割計画書_ミチナリ_v1.1.md](docs/実装フェーズ分割計画書_ミチナリ_v1.1.md) | Phase 1〜11 の実装計画 |
+| [docs/CODING_RULES.md](docs/CODING_RULES.md) | コーディング規約（運用設計ルールの一部） |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 運用手順（運用設計ルールの一部） |
+
+実装は `docs/実装フェーズ分割計画書_ミチナリ_v1.1.md` に従い Phase 1（基盤構築）から着手する。各フェーズの開始時は `CLAUDE.md` を必ず読み込ませること。
+
+---
+
+## バックエンド セットアップ（Phase 1）
+
+```bash
+cd backend
+uv sync              # 依存関係のインストール（venv自動作成）
+uv run alembic upgrade head   # スキーマ構築
+uv run python -m app.main     # 起動（app_setting.server.portに従う。既定値8100）
+```
+
+起動時に `app_setting` / `prompt_template` / `day_type_default` の初期データが投入される（冪等）。`GET /health` で疎通確認できる。
+
+```bash
+uv run pytest -q --cov=app --cov-report=term-missing   # テスト（カバレッジ100%）
+uv run ruff check .                                     # 静的解析
+```
+
+---
+
+## フロントエンド セットアップ（Phase 6〜）
+
+```bash
+cd frontend
+npm install                    # 依存関係のインストール
+npm run generate:api-types     # backend/app/main.py の OpenAPI スキーマから src/types/api.d.ts を生成
+                                # （バックエンドのスキーマ変更時は必ず再実行する。手書き禁止）
+npm run dev                    # 開発サーバ起動（vite.config.ts の proxy で /api を backend:8100 へ転送）
+```
+
+```bash
+npm run build   # 型チェック（tsc -b）+ 本番ビルド
+npm run test    # Vitest（技術選定書4.5「フロントエンドのテスト方針」に基づき最小限のロジックのみ対象）
+```
+
+起動には `backend` を先に起動しておくこと（`uv run python -m app.main`、既定ポート8100）。
+
+---
+
+## 開発環境について（Claude Code Level 5）
+
+本リポジトリは [ClaudeCodeTemplate](https://github.com/teppei19980914/GrowthEngine) から Claude Code の運用環境（Level 5）を導入している。`setup.sh` / `scripts/` は環境の再セットアップ・検証用に残しているツール類であり、ミチナリ本体の実装には含まれない。以下は導入されている Level 5 環境の内容。
 
 ## テンプレートの内容
 
