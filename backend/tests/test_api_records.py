@@ -210,7 +210,9 @@ def test_progress_endpoint_rejects_update_after_reported(client):
 
 
 def test_quota_endpoint_returns_items_for_active_goal_material(client):
-    _goal, material = _make_active_goal_with_material(client, total_amount=100, planned_cycles=1)
+    _goal, material = _make_active_goal_with_material(
+        client, total_amount=100, planned_cycles=1, quality_metric_type="OBJECTIVE"
+    )
     target = dt.date.today().isoformat()
 
     response = client.get(f"/api/v1/records/{target}/quota")
@@ -220,6 +222,10 @@ def test_quota_endpoint_returns_items_for_active_goal_material(client):
     assert len(body) == 1
     assert body[0]["material_id"] == material["id"]
     assert body[0]["current_cycle"] == 1
+    # unit_label・quality_metric_type はSC-06/SC-07の実績入力欄（単位表示・品質指標の
+    # 入力形式切替）に必要なため、レスポンスに含まれることを確認する（仕様書6.5）。
+    assert body[0]["unit_label"] == "ページ"
+    assert body[0]["quality_metric_type"] == "OBJECTIVE"
 
 
 # --- コメント ---

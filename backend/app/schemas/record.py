@@ -10,7 +10,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import ChatRole, RecordState
+from app.constants.enums import ChatRole, QualityMetricType, RecordState
 
 
 class StudyLogInput(BaseModel):
@@ -86,11 +86,20 @@ class TodayRead(BaseModel):
 
 
 class QuotaItemRead(BaseModel):
+    """日次記録画面（SC-06/SC-07）の実績入力行に必要な教材情報（仕様書6.5）。
+
+    unit_label・quality_metric_type は、投下量の単位表示と品質指標の入力形式切替
+    （客観正答率/自己採点得点率＝0〜100の数値、主観的手応え＝5段階選択、NONE＝入力欄なし）
+    をフロントエンド側で判定するために含める（14.1、技術選定書4.5「品質指標の入力形式切替」）。
+    """
+
     material_id: int
     material_name: str
+    unit_label: str
     current_cycle: int
     planned_cycles: int
     daily_quota: float
+    quality_metric_type: QualityMetricType
 
 
 class ChatRequest(BaseModel):
