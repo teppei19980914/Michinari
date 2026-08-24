@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR
+from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
 from app.constants.enums import DayType, Environment, GoalStatus
 from app.models.goal import Goal
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
@@ -154,6 +154,20 @@ def update_day_boundary_hour(session: Session, hour: int) -> int:
     row.value = str(hour)
     session.flush()
     return hour
+
+
+def get_holiday_treat_as_buffer(session: Session) -> bool:
+    """祝日を一律でバッファ日として扱うかを取得する（仕様書6.3「日種別の既定設定」）。"""
+    return setting_reader.get_bool(session, HOLIDAY_TREAT_AS_BUFFER)
+
+
+def update_holiday_treat_as_buffer(session: Session, treat_as_buffer: bool) -> bool:
+    row = session.get(AppSetting, HOLIDAY_TREAT_AS_BUFFER)
+    if row is None:
+        raise AppSettingNotFoundError(HOLIDAY_TREAT_AS_BUFFER)
+    row.value = "true" if treat_as_buffer else "false"
+    session.flush()
+    return treat_as_buffer
 
 
 @dataclass(frozen=True)

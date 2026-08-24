@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { apiErrorMessage } from '../api/client'
 
 type ToastVariant = 'info' | 'error'
 
@@ -10,6 +11,8 @@ type ToastEntry = {
 
 type ToastContextValue = {
   showToast: (message: string, variant?: ToastVariant) => void
+  /** APIエラーをロケール文言でトースト表示する（画面ごとに同じ三項式を書かない、CLAUDE.md DRYの原則）。 */
+  showApiError: (error: unknown) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
@@ -32,8 +35,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, AUTO_DISMISS_MS)
   }, [])
 
+  const showApiError = useCallback(
+    (error: unknown) => {
+      showToast(apiErrorMessage(error), 'error')
+    },
+    [showToast],
+  )
+
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, showApiError }}>
       {children}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map((toast) => (

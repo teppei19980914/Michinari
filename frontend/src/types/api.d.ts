@@ -406,6 +406,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/resources/holiday-treat-as-buffer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Holiday Treat As Buffer */
+        get: operations["get_holiday_treat_as_buffer_api_v1_resources_holiday_treat_as_buffer_get"];
+        /** Update Holiday Treat As Buffer */
+        put: operations["update_holiday_treat_as_buffer_api_v1_resources_holiday_treat_as_buffer_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records/today": {
         parameters: {
             query?: never;
@@ -710,6 +728,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Settings */
+        patch: operations["update_settings_api_v1_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/prompt-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Prompt Templates */
+        get: operations["list_prompt_templates_api_v1_prompt_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prompt-templates/{purpose}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Prompt Template */
+        patch: operations["update_prompt_template_api_v1_prompt_templates__purpose__patch"];
+        trace?: never;
+    };
+    "/api/v1/prompt-templates/{purpose}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reset Prompt Template */
+        post: operations["reset_prompt_template_api_v1_prompt_templates__purpose__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -725,6 +812,56 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+        };
+        /** AiConnectionSettingsRead */
+        AiConnectionSettingsRead: {
+            /** Host */
+            host: string;
+            /** Client Id */
+            client_id: string;
+            /** Tenant Id */
+            tenant_id: string;
+            /** Api Base Url */
+            api_base_url: string;
+            /** Assistant Uid Daily Feedback */
+            assistant_uid_daily_feedback: string;
+            /** Assistant Uid Weekly Summary */
+            assistant_uid_weekly_summary: string;
+            /** Assistant Uid Daily Message */
+            assistant_uid_daily_message: string;
+            /** Assistant Uid Goal Retrospective */
+            assistant_uid_goal_retrospective: string;
+            /** Folder Prefix */
+            folder_prefix: string;
+            /** Timeout Seconds */
+            timeout_seconds: number;
+            /** Min Interval Seconds */
+            min_interval_seconds: number;
+        };
+        /** AiConnectionSettingsUpdate */
+        AiConnectionSettingsUpdate: {
+            /** Host */
+            host?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /** Tenant Id */
+            tenant_id?: string | null;
+            /** Api Base Url */
+            api_base_url?: string | null;
+            /** Assistant Uid Daily Feedback */
+            assistant_uid_daily_feedback?: string | null;
+            /** Assistant Uid Weekly Summary */
+            assistant_uid_weekly_summary?: string | null;
+            /** Assistant Uid Daily Message */
+            assistant_uid_daily_message?: string | null;
+            /** Assistant Uid Goal Retrospective */
+            assistant_uid_goal_retrospective?: string | null;
+            /** Folder Prefix */
+            folder_prefix?: string | null;
+            /** Timeout Seconds */
+            timeout_seconds?: number | null;
+            /** Min Interval Seconds */
+            min_interval_seconds?: number | null;
         };
         /**
          * AiLoginRequest
@@ -744,6 +881,11 @@ export interface components {
             /** Authenticated */
             authenticated: boolean;
         };
+        /**
+         * AiPurpose
+         * @enum {string}
+         */
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -772,6 +914,22 @@ export interface components {
             goal_allocations: components["schemas"]["GoalAllocationRead"][];
             /** Unallocated Ratio */
             unallocated_ratio: number;
+        };
+        /** AppSettingsRead */
+        AppSettingsRead: {
+            ai_connection: components["schemas"]["AiConnectionSettingsRead"];
+            threshold: components["schemas"]["ThresholdSettingsRead"];
+            prompt_degradation: components["schemas"]["PromptDegradationSettingsRead"];
+            display: components["schemas"]["DisplaySettingsRead"];
+            log: components["schemas"]["LogSettingsRead"];
+        };
+        /** AppSettingsUpdate */
+        AppSettingsUpdate: {
+            ai_connection?: components["schemas"]["AiConnectionSettingsUpdate"] | null;
+            threshold?: components["schemas"]["ThresholdSettingsUpdate"] | null;
+            prompt_degradation?: components["schemas"]["PromptDegradationSettingsUpdate"] | null;
+            display?: components["schemas"]["DisplaySettingsUpdate"] | null;
+            log?: components["schemas"]["LogSettingsUpdate"] | null;
         };
         /**
          * BaselineReason
@@ -957,6 +1115,24 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /** DisplaySettingsRead */
+        DisplaySettingsRead: {
+            /** Locale */
+            locale: string;
+            /** Theme */
+            theme: string;
+            /** Default Granularity */
+            default_granularity: string;
+        };
+        /** DisplaySettingsUpdate */
+        DisplaySettingsUpdate: {
+            /** Locale */
+            locale?: string | null;
+            /** Theme */
+            theme?: string | null;
+            /** Default Granularity */
+            default_granularity?: string | null;
+        };
         /**
          * Environment
          * @enum {string}
@@ -1131,6 +1307,16 @@ export interface components {
             /** Year To */
             year_to: number;
         };
+        /** HolidayTreatAsBufferRead */
+        HolidayTreatAsBufferRead: {
+            /** Treat As Buffer */
+            treat_as_buffer: boolean;
+        };
+        /** HolidayTreatAsBufferUpdate */
+        HolidayTreatAsBufferUpdate: {
+            /** Treat As Buffer */
+            treat_as_buffer: boolean;
+        };
         /** LoadProfileCreate */
         LoadProfileCreate: {
             /**
@@ -1179,6 +1365,20 @@ export interface components {
             coefficient?: number | null;
             /** Note */
             note?: string | null;
+        };
+        /** LogSettingsRead */
+        LogSettingsRead: {
+            /** Ai Enabled */
+            ai_enabled: boolean;
+            /** Retention Days */
+            retention_days: number;
+        };
+        /** LogSettingsUpdate */
+        LogSettingsUpdate: {
+            /** Ai Enabled */
+            ai_enabled?: boolean | null;
+            /** Retention Days */
+            retention_days?: number | null;
         };
         /** MaterialCreate */
         MaterialCreate: {
@@ -1336,23 +1536,60 @@ export interface components {
             /** Study Logs */
             study_logs: components["schemas"]["StudyLogInput"][];
         };
+        /** PromptDegradationSettingsRead */
+        PromptDegradationSettingsRead: {
+            /** Max Prompt Chars */
+            max_prompt_chars: number;
+            /** Summary Inject Weeks */
+            summary_inject_weeks: number;
+        };
+        /** PromptDegradationSettingsUpdate */
+        PromptDegradationSettingsUpdate: {
+            /** Max Prompt Chars */
+            max_prompt_chars?: number | null;
+            /** Summary Inject Weeks */
+            summary_inject_weeks?: number | null;
+        };
+        /** PromptTemplateRead */
+        PromptTemplateRead: {
+            purpose: components["schemas"]["AiPurpose"];
+            /** Body */
+            body: string;
+            /** Is Customized */
+            is_customized: boolean;
+        };
+        /** PromptTemplateUpdate */
+        PromptTemplateUpdate: {
+            /** Body */
+            body: string;
+        };
         /**
          * QualityMetricType
          * @enum {string}
          */
         QualityMetricType: "NONE" | "OBJECTIVE" | "SELF_SCORED" | "SUBJECTIVE";
-        /** QuotaItemRead */
+        /**
+         * QuotaItemRead
+         * @description 日次記録画面（SC-06/SC-07）の実績入力行に必要な教材情報（仕様書6.5）。
+         *
+         *     unit_label・quality_metric_type は、投下量の単位表示と品質指標の入力形式切替
+         *     （客観正答率/自己採点得点率＝0〜100の数値、主観的手応え＝5段階選択、NONE＝入力欄なし）
+         *     をフロントエンド側で判定するために含める（14.1、技術選定書4.5「品質指標の入力形式切替」）。
+         */
         QuotaItemRead: {
             /** Material Id */
             material_id: number;
             /** Material Name */
             material_name: string;
+            /** Unit Label */
+            unit_label: string;
             /** Current Cycle */
             current_cycle: number;
             /** Planned Cycles */
             planned_cycles: number;
             /** Daily Quota */
             daily_quota: number;
+            quality_metric_type: components["schemas"]["QualityMetricType"];
         };
         /**
          * RecordState
@@ -1505,6 +1742,20 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+        };
+        /** ThresholdSettingsRead */
+        ThresholdSettingsRead: {
+            /** Warning Ratio */
+            warning_ratio: number;
+            /** Replan Overrun Days */
+            replan_overrun_days: number;
+        };
+        /** ThresholdSettingsUpdate */
+        ThresholdSettingsUpdate: {
+            /** Warning Ratio */
+            warning_ratio?: number | null;
+            /** Replan Overrun Days */
+            replan_overrun_days?: number | null;
         };
         /**
          * TodayQuotaEntryRead
@@ -2592,6 +2843,59 @@ export interface operations {
             };
         };
     };
+    get_holiday_treat_as_buffer_api_v1_resources_holiday_treat_as_buffer_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayTreatAsBufferRead"];
+                };
+            };
+        };
+    };
+    update_holiday_treat_as_buffer_api_v1_resources_holiday_treat_as_buffer_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayTreatAsBufferUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayTreatAsBufferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_today_api_v1_records_today_get: {
         parameters: {
             query?: never;
@@ -3134,6 +3438,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DashboardRead"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppSettingsRead"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppSettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_prompt_templates_api_v1_prompt_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptTemplateRead"][];
+                };
+            };
+        };
+    };
+    update_prompt_template_api_v1_prompt_templates__purpose__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purpose: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromptTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_prompt_template_api_v1_prompt_templates__purpose__reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                purpose: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromptTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
