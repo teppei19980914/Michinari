@@ -4,7 +4,6 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import {
   listPromptTemplates,
   resetPromptTemplate,
@@ -15,12 +14,9 @@ import {
 
 function TemplateEditor({ template }: { template: PromptTemplateRead }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const [body, setBody] = useState(template.body)
 
-  const handleError = (error: unknown) => {
-    showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-  }
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['prompt-templates'] })
 
   const saveMutation = useMutation({
@@ -29,7 +25,7 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
       invalidate()
       showToast(t('common.saveSucceeded'))
     },
-    onError: handleError,
+    onError: showApiError,
   })
   const resetMutation = useMutation({
     mutationFn: () => resetPromptTemplate(template.purpose),
@@ -37,7 +33,7 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
       setBody(reset.body)
       invalidate()
     },
-    onError: handleError,
+    onError: showApiError,
   })
 
   return (

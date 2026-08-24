@@ -5,13 +5,12 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 
 /** 閾値設定（仕様書6.11「警告倍率」「強制リプラン超過日数」）。 */
 export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showToast, showApiError } = useToast()
   const [warningRatioPercent, setWarningRatioPercent] = useState(
     String(Math.round(settings.threshold.warning_ratio * 100)),
   )
@@ -31,9 +30,7 @@ export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       showToast(t('common.saveSucceeded'))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

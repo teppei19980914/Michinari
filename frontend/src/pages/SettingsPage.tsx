@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
-import { ApiError } from '../api/client'
+import { apiErrorMessage } from '../api/client'
 import { getSettings } from '../api/settings'
 import { AiConnectionSection } from '../features/settings/AiConnectionSection'
 import { ThresholdSection } from '../features/settings/ThresholdSection'
@@ -19,9 +19,7 @@ export function SettingsPage() {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (settingsQuery.isError || !settingsQuery.data) {
-    const error = settingsQuery.error
-    const message = error instanceof ApiError ? error.localizedMessage : t('errors.default')
-    return <p className="p-6 text-sm text-red-600">{message}</p>
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(settingsQuery.error)}</p>
   }
 
   const settings = settingsQuery.data

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import {
   getDayTypeDefaults,
   getHolidayTreatAsBuffer,
@@ -16,7 +15,7 @@ const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
 /** 日種別の既定設定（仕様書6.3「曜日ごとに計画日またはバッファ日を選択」「祝日の扱い」）。 */
 export function DayTypeDefaultsCard() {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const defaultsQuery = useQuery({
     queryKey: ['day-type-defaults'],
     queryFn: getDayTypeDefaults,
@@ -28,21 +27,17 @@ export function DayTypeDefaultsCard() {
 
   const defaults = defaultsQuery.data ?? {}
 
-  const handleError = (error: unknown) => {
-    showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-  }
-
   const dayTypeMutation = useMutation({
     mutationFn: ({ weekday, dayType }: { weekday: number; dayType: DayType }) =>
       updateDayTypeDefaults({ [weekday]: dayType }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['day-type-defaults'] }),
-    onError: handleError,
+    onError: showApiError,
   })
 
   const holidayMutation = useMutation({
     mutationFn: (value: boolean) => updateHolidayTreatAsBuffer(value),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['holiday-treat-as-buffer'] }),
-    onError: handleError,
+    onError: showApiError,
   })
 
   return (

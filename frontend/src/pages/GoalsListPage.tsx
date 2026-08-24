@@ -8,14 +8,13 @@ import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import { ApiError } from '../api/client'
 import { createGoal, listGoals } from '../api/goals'
 import { isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
 
@@ -26,9 +25,7 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
       onClose()
       navigate(ROUTES.goalDetail(goal.id))
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (

@@ -5,7 +5,6 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
-import { ApiError } from '../../api/client'
 import {
   createSlot,
   deleteSlot,
@@ -19,7 +18,7 @@ const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
 
 function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => void }) {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [name, setName] = useState(slot?.name ?? '')
   const [startTime, setStartTime] = useState(slot?.start_time ?? '07:00')
   const [endTime, setEndTime] = useState(slot?.end_time ?? '08:00')
@@ -54,9 +53,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
       queryClient.invalidateQueries({ queryKey: ['resource-allocation'] })
       onDone()
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
@@ -145,7 +142,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
 /** 時間スロットの一覧・追加・編集・削除（仕様書6.3）。 */
 export function SlotList() {
   const queryClient = useQueryClient()
-  const { showToast } = useToast()
+  const { showApiError } = useToast()
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
@@ -157,9 +154,7 @@ export function SlotList() {
       queryClient.invalidateQueries({ queryKey: ['resource-slots'] })
       queryClient.invalidateQueries({ queryKey: ['resource-allocation'] })
     },
-    onError: (error) => {
-      showToast(error instanceof ApiError ? error.localizedMessage : t('errors.default'), 'error')
-    },
+    onError: showApiError,
   })
 
   return (
