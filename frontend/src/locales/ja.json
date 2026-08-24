@@ -11,8 +11,26 @@
     "comingSoon": "この画面は準備中です",
     "unit": {
       "minutes": "分",
-      "days": "日"
-    }
+      "days": "日",
+      "hours": "時間"
+    },
+    "action": {
+      "save": "保存",
+      "cancel": "キャンセル",
+      "edit": "編集",
+      "delete": "削除",
+      "add": "追加",
+      "close": "閉じる",
+      "confirm": "確定",
+      "back": "戻る",
+      "reset": "初期値に戻す"
+    },
+    "confirmDelete": "削除しますか？この操作は取り消せません。",
+    "saveSucceeded": "保存しました",
+    "saveFailed": "保存に失敗しました",
+    "yes": "はい",
+    "no": "いいえ",
+    "unset": "未設定"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -58,6 +76,246 @@
       "effectiveSpeedUnavailable": "算出不可",
       "perHour": "/時間"
     }
+  },
+  "goals": {
+    "list": {
+      "title": "目標一覧",
+      "empty": "登録済みの目標はありません",
+      "newGoal": "新規目標作成",
+      "status": {
+        "DRAFT": "下書き",
+        "ACTIVE": "進行中",
+        "PAUSED": "一時停止",
+        "CLOSED_WITH_RESULT": "クローズ（結果あり）",
+        "CLOSED_WITHOUT_RESULT": "クローズ（結果なし）"
+      },
+      "exportLink": "総括・エクスポートへ"
+    },
+    "new": {
+      "title": "新規目標作成",
+      "nameLabel": "試験名",
+      "startDateLabel": "開始日"
+    },
+    "detail": {
+      "backToList": "目標一覧へ戻る",
+      "tabs": {
+        "basicInfo": "基本情報",
+        "subjects": "試験科目",
+        "materials": "教材",
+        "resourceAllocation": "リソース配分",
+        "loadProfile": "負荷プロファイル"
+      },
+      "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
+      "action": {
+        "activate": "開始する",
+        "pause": "一時停止する",
+        "resume": "再開する",
+        "close": "クローズする"
+      },
+      "closeConfirm": {
+        "title": "目標のクローズ",
+        "body": "クローズすると読み取り専用になります。よろしいですか？",
+        "withoutResultBody": "受験結果が未登録の科目があります。結果なしでクローズしますか？"
+      },
+      "resumeError": "リソースの空きが不足しているため再開できません"
+    },
+    "basicInfo": {
+      "nameLabel": "試験名",
+      "startDateLabel": "開始日",
+      "memoLabel": "備考"
+    },
+    "subjects": {
+      "empty": "登録済みの試験科目はありません",
+      "addTitle": "試験科目を追加",
+      "nameLabel": "科目名",
+      "examDateTypeLabel": "受験日タイプ",
+      "examDateType": {
+        "RANGE": "期間",
+        "FIXED": "確定日"
+      },
+      "examDateFromLabel": "期間開始日",
+      "examDateToLabel": "期間終了日",
+      "examDateFixedLabel": "確定日",
+      "passingScoreLabel": "合格基準点",
+      "fixDate": "受験日を確定する",
+      "fixDateConfirm": {
+        "title": "受験日の確定",
+        "body": "確定すると計画基準値が再計算されます。よろしいですか？"
+      },
+      "pastRangeWarning": "期間開始日が本日より過去です",
+      "resultLabel": "受験結果"
+    },
+    "materials": {
+      "empty": "登録済みの教材はありません",
+      "addTitle": "教材を追加",
+      "nameLabel": "教材名",
+      "unitLabel": "分量の単位",
+      "totalAmountLabel": "総量（1周分）",
+      "plannedCyclesLabel": "予定周回数",
+      "subjectsLabel": "対策する科目",
+      "startDateLabel": "開始日",
+      "dueDateLabel": "締切",
+      "dueDateManualLabel": "締切を手動で指定する",
+      "requiredBlockMinutesLabel": "必要連続時間（分）",
+      "requiredEnvironmentLabel": "必要環境",
+      "environment": {
+        "ANY": "制約なし",
+        "PC": "PC",
+        "MOBILE": "携帯端末"
+      },
+      "qualityMetricTypeLabel": "品質指標の方式",
+      "qualityMetricType": {
+        "NONE": "記録しない",
+        "OBJECTIVE": "客観正答率",
+        "SELF_SCORED": "自己採点得点率",
+        "SUBJECTIVE": "主観的手応え"
+      },
+      "totalWork": "総作業量",
+      "currentCycle": "現在周回",
+      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
+      "cycleProgress": "周回進捗",
+      "overallProgress": "全体進捗",
+      "slotInsufficientWarning": "この教材の必要連続時間・必要環境を満たすスロットが不足しています",
+      "deactivate": "この教材を無効化する"
+    },
+    "resourceAllocation": {
+      "title": "本目標へのリソース配分",
+      "ratioLabel": "配分比率（%）",
+      "currentUnallocated": "全目標の未配分の残り"
+    },
+    "loadProfile": {
+      "empty": "登録済みの負荷プロファイルはありません",
+      "addTitle": "負荷プロファイルを追加",
+      "dateFromLabel": "適用開始日",
+      "dateToLabel": "適用終了日",
+      "coefficientLabel": "負荷係数",
+      "noteLabel": "メモ"
+    }
+  },
+  "resources": {
+    "title": "リソースマスタ設定",
+    "slots": {
+      "title": "時間スロット",
+      "empty": "登録済みのスロットはありません",
+      "addTitle": "スロットを追加",
+      "nameLabel": "スロット名",
+      "startTimeLabel": "開始時刻",
+      "endTimeLabel": "終了時刻",
+      "environmentLabel": "環境タグ",
+      "weekdaysLabel": "適用曜日",
+      "durationHours": "連続時間: {{hours}}{{hoursUnit}}",
+      "isActiveLabel": "有効"
+    },
+    "weekdays": {
+      "0": "月",
+      "1": "火",
+      "2": "水",
+      "3": "木",
+      "4": "金",
+      "5": "土",
+      "6": "日"
+    },
+    "dayTypeDefaults": {
+      "title": "日種別の既定設定",
+      "plan": "計画日",
+      "buffer": "バッファ日",
+      "holidayTreatAsBuffer": "祝日を一律でバッファ日として扱う"
+    },
+    "dayBoundaryHour": {
+      "title": "1日の境界時刻",
+      "label": "境界時刻（0〜11時）",
+      "description": "深夜まで学習する習慣がある場合、遅い時刻に設定すると深夜の学習が翌日に計上されなくなります"
+    },
+    "allocation": {
+      "title": "配分状況",
+      "byWeekday": "曜日別の総確保時間",
+      "byEnvironment": "環境タグ別の時間内訳",
+      "byGoal": "各目標への配分状況",
+      "unallocated": "未配分の残り"
+    }
+  },
+  "settings": {
+    "title": "設定",
+    "aiConnection": {
+      "title": "AI接続",
+      "hostLabel": "接続先URL（テナントホスト）",
+      "apiBaseUrlLabel": "APIベースURL（任意・詳細設定）",
+      "clientIdLabel": "クライアント識別子",
+      "tenantIdLabel": "テナント識別子",
+      "folderPrefixLabel": "フォルダ名の接頭辞",
+      "timeoutSecondsLabel": "タイムアウト（秒）",
+      "minIntervalSecondsLabel": "呼び出し間隔の下限（秒）",
+      "assistant": {
+        "dailyFeedback": "日次報告フィードバック用アシスタント",
+        "weeklySummary": "週次要約用アシスタント",
+        "dailyMessage": "今日の一言用アシスタント",
+        "goalRetrospective": "総括レポート用アシスタント",
+        "loading": "アシスタント一覧を取得しています…",
+        "loadFailed": "アシスタント一覧を取得できませんでした"
+      },
+      "authStatus": {
+        "title": "認証状態",
+        "authenticated": "認証済み",
+        "notAuthenticated": "未認証",
+        "reauth": "再認証する",
+        "patLabel": "Personal Access Token",
+        "loginInProgress": "認証処理中です…"
+      },
+      "modelStatusTitle": "稼働状況"
+    },
+    "threshold": {
+      "title": "閾値",
+      "warningRatioLabel": "警告倍率（%）",
+      "replanOverrunDaysLabel": "強制リプラン超過日数"
+    },
+    "promptDegradation": {
+      "title": "プロンプト縮退",
+      "maxPromptCharsLabel": "入力上限（文字数）",
+      "summaryInjectWeeksLabel": "週次要約の注入週数"
+    },
+    "display": {
+      "title": "表示",
+      "localeLabel": "言語",
+      "locale": {
+        "ja": "日本語"
+      },
+      "themeLabel": "テーマ",
+      "theme": {
+        "system": "システム設定に追随",
+        "light": "ライト",
+        "dark": "ダーク"
+      },
+      "defaultGranularityLabel": "分析画面の既定粒度",
+      "granularity": {
+        "DAY": "日別",
+        "WEEK": "週別",
+        "MONTH": "月別"
+      }
+    },
+    "promptTemplate": {
+      "title": "プロンプトテンプレート",
+      "customizedBadge": "編集済み",
+      "resetConfirm": "初期値に戻しますか？編集内容は失われます。",
+      "purpose": {
+        "DAILY_FEEDBACK": "日次報告フィードバック",
+        "WEEKLY_SUMMARY": "週次要約",
+        "DAILY_MESSAGE": "今日の一言",
+        "GOAL_RETROSPECTIVE": "総括レポート"
+      }
+    },
+    "log": {
+      "title": "ログ",
+      "aiEnabledLabel": "AI通信ログの保存",
+      "retentionDaysLabel": "ログ保持期間（日）"
+    },
+    "dataManagementLink": "データ管理へ"
+  },
+  "dataManagement": {
+    "title": "データ管理",
+    "notice": "エクスポート・インポート・バックアップ機能はフェーズ10で実装予定です",
+    "export": "エクスポート",
+    "import": "インポート",
+    "backup": "バックアップ"
   },
   "errors": {
     "VALIDATION_ERROR": "入力内容に誤りがあります",

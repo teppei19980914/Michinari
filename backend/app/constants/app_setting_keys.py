@@ -31,3 +31,8 @@ SUMMARY_INJECT_WEEKS = "summary.inject_weeks"
 
 # ダッシュボード（仕様書6.1、実装フェーズ分割計画書Phase6）。
 DASHBOARD_REPORT_RATE_WINDOW_DAYS = "dashboard.report_rate_window_days"
+
+# 表示設定（仕様書6.11、実装フェーズ分割計画書Phase7）。
+DISPLAY_LOCALE = "display.locale"
+DISPLAY_THEME = "display.theme"
+DISPLAY_DEFAULT_GRANULARITY = "display.default_granularity"
