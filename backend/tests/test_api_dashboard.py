@@ -1,0 +1,267 @@
+"""ダッシュボードAPIのテスト（仕様書6.1 SC-01、実装フェーズ分割計画書Phase6）。
+
+logical_date は calendar.day_boundary_hour=0（初期値）のため常にシステム日付と一致する
+（test_api_records.pyと同じ前提）。日種別は実行日の曜日に依存させないよう、必要な範囲を
+CalendarDayOverrideでPLANに固定してから検証する。
+"""
+
+import datetime as dt
+
+from app.api.dashboard import _goal_remaining_days
+from app.constants.enums import DayType, GoalStatus, RecordState
+from app.models.goal import Goal
+from app.models.record import DailyRecord, StudyLog
+from app.models.setting import AppSetting, CalendarDayOverride
+
+TODAY = dt.date.today()
+
+
+def _override_day_types(session, date_from: dt.date, date_to: dt.date) -> None:
+    d = date_from
+    while d <= date_to:
+        session.add(CalendarDayOverride(target_date=d, day_type=DayType.PLAN))
+        d += dt.timedelta(days=1)
+
+
+def _create_goal_with_subject(client, exam_date_from, exam_date_to):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": (TODAY - dt.timedelta(days=60)).isoformat()},
+    ).json()
+    client.post(
+        f"/api/v1/goals/{goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "RANGE",
+            "exam_date_from": exam_date_from.isoformat(),
+            "exam_date_to": exam_date_to.isoformat(),
+        },
+    )
+    subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
+    return goal, subject_id
+
+
+def _create_material(client, goal_id, subject_ids, **overrides):
+    payload = {
+        "name": "教材A",
+        "unit_label": "ページ",
+        "total_amount": 100,
+        "planned_cycles": 1,
+        "subject_ids": subject_ids,
+        "start_date": (TODAY - dt.timedelta(days=60)).isoformat(),
+        "due_date_is_manual": True,
+        "due_date": (TODAY + dt.timedelta(days=120)).isoformat(),
+    }
+    payload.update(overrides)
+    response = client.post(f"/api/v1/goals/{goal_id}/materials", json=payload)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _make_active_goal_with_material(client, exam_offset_days=180, **material_overrides):
+    exam_date = TODAY + dt.timedelta(days=exam_offset_days)
+    goal, subject_id = _create_goal_with_subject(client, exam_date, exam_date)
+    material = _create_material(client, goal["id"], [subject_id], **material_overrides)
+    activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert activated.status_code == 200, activated.text
+    return goal, material
+
+
+def _add_study_log(session, record_date: dt.date, material_id: int, cycle_number: int = 1) -> None:
+    record = session.query(DailyRecord).filter(DailyRecord.record_date == record_date).first()
+    if record is None:
+        record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    session.add(
+        StudyLog(
+            daily_record_id=record.id,
+            material_id=material_id,
+            minutes_spent=60,
+            amount_completed=10,
+            cycle_number=cycle_number,
+        )
+    )
+    session.flush()
+
+
+def test_dashboard_returns_empty_lists_when_no_active_goals(client, seeded_session):
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+
+    response = client.get("/api/v1/dashboard")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body == {
+        "logical_date": TODAY.isoformat(),
+        "record_state": None,
+        "today_day_type": "PLAN",
+        "report_rate_window_days": 30,
+        "goal_cards": [],
+        "goal_stats": [],
+        "today_quota": [],
+        "available_slot_names": [],
+    }
+
+
+def test_dashboard_includes_logical_date_and_record_state_without_a_separate_call(
+    client, seeded_session
+):
+    """データ構造編6.2「複数のリソースを個別に取得せず1回の呼び出しで返す」。
+    GET /records/today を別途呼ばなくても、ダッシュボード画面に必要な本日の状態が
+    /dashboard 単独で取得できることを確認する。
+    """
+    _goal, material = _make_active_goal_with_material(client)
+    target = TODAY.isoformat()
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "study_logs": [
+                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+            ]
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["logical_date"] == target
+    assert body["record_state"] == "PROGRESS_ONLY"
+
+
+def test_dashboard_reports_buffer_day_type(client, seeded_session):
+    seeded_session.add(CalendarDayOverride(target_date=TODAY, day_type=DayType.BUFFER))
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["today_day_type"] == "BUFFER"
+
+
+def test_dashboard_goal_card_progress_rate_and_remaining_days(client, seeded_session):
+    _override_day_types(seeded_session, TODAY - dt.timedelta(days=1), TODAY)
+    seeded_session.commit()
+    goal, material = _make_active_goal_with_material(client, exam_offset_days=200)
+    _add_study_log(seeded_session, TODAY - dt.timedelta(days=1), material["id"])
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert len(body["goal_cards"]) == 1
+    card = body["goal_cards"][0]
+    assert card["goal_id"] == goal["id"]
+    assert card["progress_rate"] == 10 / 100  # 単一教材のため教材自身の進捗率と一致
+    assert card["remaining_days"] == 200
+    assert card["has_warning"] is False
+
+
+def test_dashboard_goal_card_has_warning_true_when_quota_ratio_exceeds_threshold(
+    client, seeded_session
+):
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    goal, _material = _make_active_goal_with_material(client)
+    # 活動時点のbaselineに対し、閾値を極端に下げることでノルマ比率の超過を発生させる。
+    seeded_session.query(AppSetting).filter_by(key="threshold.warning_ratio").update(
+        {"value": "0.01"}
+    )
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["goal_cards"][0]["has_warning"] is True
+
+
+def test_dashboard_goal_card_empty_when_all_materials_inactive(client, seeded_session):
+    goal, material = _make_active_goal_with_material(client)
+    client.post(f"/api/v1/materials/{material['id']}/deactivate")
+
+    body = client.get("/api/v1/dashboard").json()
+
+    card = body["goal_cards"][0]
+    assert card["progress_rate"] is None
+    assert card["forecast_deviation_days"] is None
+    assert card["has_warning"] is False
+    assert card["has_forced_replan"] is False
+    assert body["goal_stats"][0]["material_speeds"] == []
+
+
+def test_dashboard_material_speed_and_target_minutes_available_after_three_samples(
+    client, seeded_session
+):
+    _override_day_types(seeded_session, TODAY - dt.timedelta(days=3), TODAY)
+    seeded_session.commit()
+    _goal, material = _make_active_goal_with_material(client)
+    for offset in (3, 2, 1):
+        _add_study_log(seeded_session, TODAY - dt.timedelta(days=offset), material["id"])
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    speeds = body["goal_stats"][0]["material_speeds"]
+    assert len(speeds) == 1
+    assert speeds[0]["speed"] == 10.0  # 30サンプル分（10分量/1時間）× 3件
+
+    quota_entries = [e for e in body["today_quota"] if e["material_id"] == material["id"]]
+    assert len(quota_entries) == 1
+    assert quota_entries[0]["target_minutes"] is not None
+
+
+def test_dashboard_today_quota_target_minutes_none_when_speed_unavailable(client, seeded_session):
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    _goal, material = _make_active_goal_with_material(client)
+
+    body = client.get("/api/v1/dashboard").json()
+
+    quota_entries = [e for e in body["today_quota"] if e["material_id"] == material["id"]]
+    assert len(quota_entries) == 1
+    assert quota_entries[0]["target_minutes"] is None
+    assert quota_entries[0]["current_cycle"] == 1
+
+
+def test_dashboard_available_slot_names_filtered_by_weekday(client):
+    other_weekday = (TODAY.weekday() + 1) % 7
+    client.post(
+        "/api/v1/resources/slots",
+        json={
+            "name": "本日のスロット",
+            "start_time": "19:00:00",
+            "end_time": "21:00:00",
+            "environment": "PC",
+            "weekdays": [TODAY.weekday()],
+        },
+    )
+    client.post(
+        "/api/v1/resources/slots",
+        json={
+            "name": "別曜日のスロット",
+            "start_time": "19:00:00",
+            "end_time": "21:00:00",
+            "environment": "PC",
+            "weekdays": [other_weekday],
+        },
+    )
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["available_slot_names"] == ["本日のスロット"]
+
+
+def test_dashboard_multiple_active_goals_each_produce_own_card_and_stats(client):
+    goal_a, _ = _make_active_goal_with_material(client, exam_offset_days=100)
+    goal_b, _ = _make_active_goal_with_material(client, exam_offset_days=50)
+
+    body = client.get("/api/v1/dashboard").json()
+
+    goal_ids = {card["goal_id"] for card in body["goal_cards"]}
+    assert goal_ids == {goal_a["id"], goal_b["id"]}
+    assert len(body["goal_stats"]) == 2
+
+
+def test_goal_remaining_days_none_when_no_exam_subjects():
+    """境界値: 試験科目未登録の目標でも例外が発生しないこと。"""
+    goal = Goal(name="科目未登録", start_date=TODAY, status=GoalStatus.ACTIVE)
+
+    assert _goal_remaining_days(goal, TODAY) is None

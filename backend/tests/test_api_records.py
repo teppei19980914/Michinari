@@ -1,10 +1,19 @@
-"""日次記録APIのテスト（データ構造編6.2、仕様書6.4〜6.7・7.2章、実装フェーズ分割計画書Phase4）。
+"""日次記録APIのテスト（データ構造編6.2、仕様書6.4〜6.7・7.2章、
+実装フェーズ分割計画書Phase4・Phase5）。
 
 logical_date（1日の境界時刻を考慮した論理的な本日）は calendar.day_boundary_hour=0（初期値）
 のため常にシステム日付と一致する。この前提のもと dt.date.today() を基準に相対日付でテストする。
+
+POST /records/{date}/chat（Phase5）は実際のAI基盤へ接続せず、app.ai.client.send_message等を
+モックして検証する。
 """
 
 import datetime as dt
+
+import pytest
+
+from app.ai import client as ai_client
+from app.ai import rate_limiter
 
 
 def _create_goal_with_subject(client, exam_date_from="2026-06-01", exam_date_to="2026-06-10"):
@@ -252,3 +261,113 @@ def test_update_missing_comment_returns_404(client):
     response = client.patch("/api/v1/comments/9999", json={"body": "x"})
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+# --- POST /records/{date}/chat（Phase5） ---
+
+
+@pytest.fixture(autouse=True)
+def _no_rate_limit_sleep(monkeypatch):
+    monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
+
+
+def _stub_ai_client(monkeypatch, *, response="AIからの応答", raise_exc=None):
+    def _fake_send_message(session, *, chat_uid, message):
+        if raise_exc is not None:
+            raise raise_exc
+        return ai_client.SendResult(response_text=response, latency_ms=42)
+
+    monkeypatch.setattr(ai_client, "send_message", _fake_send_message)
+    monkeypatch.setattr(
+        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-api"
+    )
+    monkeypatch.setattr(
+        ai_client,
+        "create_chat_in_folder_by_name",
+        lambda session, *, assistant_uid, folder_name, title: "chat-uid-api",
+    )
+
+
+def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
+    _make_active_goal_with_material(client)
+    _stub_ai_client(monkeypatch, response="今日もよく頑張りましたね")
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/chat",
+        json={"diary_body": "今日は頑張った", "diary_learned": "過去問を解いた"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["assistant_message"]["content"] == "今日もよく頑張りましたね"
+    assert body["assistant_message"]["role"] == "ASSISTANT"
+    assert body["was_truncated"] is False
+    # 実績・日記は下書きのままDBへ確定されない（16.7、Phase5完了条件）。
+    assert body["record"]["study_logs"] == []
+    assert body["record"]["diary_body"] is None
+
+
+def test_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
+    _make_active_goal_with_material(client)
+    _stub_ai_client(monkeypatch, response="1回目の応答")
+    target = dt.date.today().isoformat()
+
+    client.post(f"/api/v1/records/{target}/chat", json={})
+
+    _stub_ai_client(monkeypatch, response="2回目の応答")
+    response = client.post(
+        f"/api/v1/records/{target}/chat", json={"message": "続きを教えてください"}
+    )
+
+    assert response.status_code == 200, response.text
+    record = client.get(f"/api/v1/records/{target}").json()
+    roles = [m["role"] for m in record["chat_messages"]]
+    assert roles == ["ASSISTANT", "USER", "ASSISTANT"]
+
+
+def test_chat_endpoint_rejects_future_date(client, monkeypatch):
+    _make_active_goal_with_material(client)
+    _stub_ai_client(monkeypatch)
+    future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+
+    response = client.post(f"/api/v1/records/{future}/chat", json={})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeypatch):
+    """AI呼び出しが失敗しても実績入力が失われない（16.7、Phase5完了条件）。
+    サーバ側で下書きを保持しないため、失敗時にDBへ何も確定されないことを確認する。
+    """
+    from app.ai.exceptions import AiError
+
+    _make_active_goal_with_material(client)
+    _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/chat",
+        json={"diary_body": "失われてはいけない", "diary_learned": "失われてはいけない"},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "AI_ERROR"
+
+    record = client.get(f"/api/v1/records/{target}").json()
+    assert record["study_logs"] == []
+    assert record["diary_body"] is None
+
+
+def test_chat_endpoint_maps_ai_auth_required_error(client, monkeypatch):
+    from app.ai.exceptions import AiAuthRequiredError
+
+    _make_active_goal_with_material(client)
+    _stub_ai_client(monkeypatch, raise_exc=AiAuthRequiredError("認証が必要です"))
+    target = dt.date.today().isoformat()
+
+    response = client.post(f"/api/v1/records/{target}/chat", json={})
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AI_AUTH_REQUIRED"

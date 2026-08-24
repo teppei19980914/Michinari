@@ -1,8 +1,10 @@
 """日次記録のCRUD・報告確定・カレンダー表示用データの取得（設計書データ構造編5.4・6.2、
 仕様書6.4〜6.7・7.2・14章、実装フェーズ分割計画書Phase4）。
 
-AI連携（chat_message の生成）は本フェーズの対象外とする。報告確定は chat_message が
-空の状態で成立させる（実装フェーズ分割計画書Phase4「注意点」）。
+Phase4時点ではAI連携（chat_message の生成）は対象外としていた。報告確定は chat_message が
+空の状態でも成立する（実装フェーズ分割計画書Phase4「注意点」、AI呼び出し失敗時の動作保証
+16.7）。chat_message自体の生成・保存はapp/services/daily_feedback_service.py（Phase5）が
+担い、本ファイルは日次記録（DailyRecord）の取得・作成のためのヘルパのみ提供する。
 """
 
 import datetime as dt
@@ -30,6 +32,20 @@ _SUBJECTIVE_QUALITY_MAP: dict[int, float] = {1: 20.0, 2: 40.0, 3: 60.0, 4: 80.0,
 def get_daily_record(session: Session, target_date: dt.date) -> DailyRecord | None:
     """指定日の日次記録を取得する。未入力の日は None を返す（例外にしない）。"""
     return session.query(DailyRecord).filter(DailyRecord.record_date == target_date).first()
+
+
+def ensure_daily_record(session: Session, target_date: dt.date) -> DailyRecord:
+    """指定日の日次記録を取得し、なければ空のPROGRESS_ONLYレコードを作成する。
+
+    AI対話（Phase5 POST /records/{date}/chat）は実績・日記の確定前でも実行できるため、
+    chat_messageのFK先として空の日次記録を先に確保する用途で使う。
+    """
+    return get_daily_record(session, target_date) or _create_record(session, target_date)
+
+
+def load_materials_by_id(session: Session, material_ids: set[int]) -> dict[int, Material]:
+    """教材IDの集合からMaterialを一括取得する（AI連携のプロンプト組み立てで使用、Phase5）。"""
+    return _load_materials(session, material_ids)
 
 
 def _normalize_quality(material: Material, raw: float | None) -> float | None:
