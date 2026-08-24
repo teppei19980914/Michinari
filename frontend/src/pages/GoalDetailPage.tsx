@@ -94,6 +94,7 @@ function GoalStatusActions({
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [closeModalOpen, setCloseModalOpen] = useState(false)
+  const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
   const handleError = (error: unknown) => {
@@ -115,7 +116,7 @@ function GoalStatusActions({
     onSuccess: invalidate,
     onError: (error) => {
       if (error instanceof ApiError && error.code === 'RESOURCE_EXCEEDED') {
-        showToast(t('goals.detail.resumeError'), 'error')
+        setResumeErrorModalOpen(true)
         return
       }
       handleError(error)
@@ -152,9 +153,23 @@ function GoalStatusActions({
   }
   if (status === 'PAUSED') {
     return (
-      <Button disabled={resumeMutation.isPending} onClick={() => resumeMutation.mutate()}>
-        {t('goals.detail.action.resume')}
-      </Button>
+      <>
+        <Button disabled={resumeMutation.isPending} onClick={() => resumeMutation.mutate()}>
+          {t('goals.detail.action.resume')}
+        </Button>
+        <Modal
+          open={resumeErrorModalOpen}
+          onClose={() => setResumeErrorModalOpen(false)}
+          title={t('goals.detail.action.resume')}
+        >
+          <p className="text-sm text-gray-700">{t('goals.detail.resumeError')}</p>
+          <div className="mt-4 flex justify-end">
+            <Button variant="secondary" onClick={() => setResumeErrorModalOpen(false)}>
+              {t('common.action.close')}
+            </Button>
+          </div>
+        </Modal>
+      </>
     )
   }
   return null

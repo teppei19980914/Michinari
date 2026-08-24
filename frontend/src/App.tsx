@@ -28,6 +28,10 @@ export function App() {
               path={ROUTE_PATTERNS.goalExport}
               element={<ComingSoonPage title={t('nav.goals')} />}
             />
+            <Route
+              path={ROUTE_PATTERNS.goalResult}
+              element={<ComingSoonPage title={t('nav.goals')} />}
+            />
             <Route path={ROUTE_PATTERNS.resources} element={<ResourceSettingsPage />} />
             <Route path={ROUTE_PATTERNS.calendar} element={<ComingSoonPage title={t('nav.calendar')} />} />
             <Route path={ROUTE_PATTERNS.analytics} element={<ComingSoonPage title={t('nav.analytics')} />} />

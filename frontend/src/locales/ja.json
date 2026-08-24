@@ -89,7 +89,8 @@
         "CLOSED_WITH_RESULT": "クローズ（結果あり）",
         "CLOSED_WITHOUT_RESULT": "クローズ（結果なし）"
       },
-      "exportLink": "総括・エクスポートへ"
+      "exportLink": "総括・エクスポートへ",
+      "resultLink": "結果登録"
     },
     "new": {
       "title": "新規目標作成",
@@ -142,8 +143,7 @@
         "title": "受験日の確定",
         "body": "確定すると計画基準値が再計算されます。よろしいですか？"
       },
-      "pastRangeWarning": "期間開始日が本日より過去です",
-      "resultLabel": "受験結果"
+      "pastRangeWarning": "期間開始日が本日より過去です"
     },
     "materials": {
       "empty": "登録済みの教材はありません",
@@ -180,8 +180,7 @@
     },
     "resourceAllocation": {
       "title": "本目標へのリソース配分",
-      "ratioLabel": "配分比率（%）",
-      "currentUnallocated": "全目標の未配分の残り"
+      "ratioLabel": "配分比率（%）"
     },
     "loadProfile": {
       "empty": "登録済みの負荷プロファイルはありません",

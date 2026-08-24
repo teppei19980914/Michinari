@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
+import { getToday } from '../../api/records'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
@@ -200,6 +201,7 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [fixDateSubject, setFixDateSubject] = useState<SubjectRead | null>(null)
+  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
 
   const deleteMutation = useMutation({
     mutationFn: (subjectId: number) => deleteSubject(subjectId),
@@ -230,6 +232,12 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
                   ? `${subject.exam_date_from ?? '-'} 〜 ${subject.exam_date_to ?? '-'}`
                   : (subject.exam_date_fixed ?? '-')}
               </p>
+              {subject.exam_date_type === 'RANGE' &&
+                subject.exam_date_from &&
+                todayQuery.data &&
+                subject.exam_date_from < todayQuery.data.logical_date && (
+                  <p className="text-xs text-amber-700">{t('goals.subjects.pastRangeWarning')}</p>
+                )}
             </div>
             {!readOnly && (
               <div className="flex gap-2">
