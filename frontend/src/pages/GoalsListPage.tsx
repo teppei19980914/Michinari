@@ -108,6 +108,14 @@ export function GoalsListPage() {
                       {t('goals.list.exportLink')}
                     </Link>
                   )}
+                  {goal.status === 'ACTIVE' && (
+                    <Link
+                      to={ROUTES.goalResult(goal.id)}
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      {t('goals.list.resultLink')}
+                    </Link>
+                  )}
                 </Card>
               </li>
             )

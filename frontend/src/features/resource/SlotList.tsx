@@ -27,6 +27,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
     (slot?.environment as (typeof ENVIRONMENTS)[number]) ?? 'PC',
   )
   const [weekdays, setWeekdays] = useState<number[]>(slot?.weekdays ?? [])
+  const [isActive, setIsActive] = useState(slot?.is_active ?? true)
 
   const toggleWeekday = (weekday: number) => {
     setWeekdays((current) =>
@@ -36,8 +37,17 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
 
   const mutation = useMutation({
     mutationFn: () => {
-      const payload = { name, start_time: startTime, end_time: endTime, environment, weekdays }
-      return slot ? updateSlot(slot.id, payload) : createSlot(payload)
+      if (slot) {
+        return updateSlot(slot.id, {
+          name,
+          start_time: startTime,
+          end_time: endTime,
+          environment,
+          weekdays,
+          is_active: isActive,
+        })
+      }
+      return createSlot({ name, start_time: startTime, end_time: endTime, environment, weekdays })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['resource-slots'] })
@@ -110,6 +120,16 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
           ))}
         </div>
       </fieldset>
+      {slot && (
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
+          {t('resources.slots.isActiveLabel')}
+        </label>
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>
           {t('common.action.cancel')}
@@ -156,11 +176,14 @@ export function SlotList() {
         ) : (
           <div
             key={slot.id}
-            className="flex items-center justify-between rounded-md border border-gray-200 p-3"
+            className={`flex items-center justify-between rounded-md border border-gray-200 p-3 ${
+              slot.is_active ? '' : 'opacity-50'
+            }`}
           >
             <div>
               <p className="text-sm font-medium text-gray-900">
                 {slot.name} ({slot.start_time}〜{slot.end_time})
+                {!slot.is_active && ` (${t('resources.slots.isActiveLabel')}: ${t('common.no')})`}
               </p>
               <p className="text-xs text-gray-500">
                 {t(`goals.materials.environment.${slot.environment}`)} ·{' '}
