@@ -1,0 +1,78 @@
+{
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "goals": "目標一覧",
+    "calendar": "カレンダー",
+    "analytics": "分析",
+    "settings": "設定"
+  },
+  "common": {
+    "loading": "読み込み中…",
+    "comingSoon": "この画面は準備中です",
+    "unit": {
+      "minutes": "分",
+      "days": "日"
+    }
+  },
+  "dashboard": {
+    "title": "ダッシュボード",
+    "reportButton": {
+      "label": "本日の報告"
+    },
+    "todayStatus": {
+      "label": "本日の状態",
+      "unreported": "未入力",
+      "progressOnly": "進捗のみ登録済",
+      "reported": "報告済"
+    },
+    "todayMessage": {
+      "loading": "今日の一言を準備しています…"
+    },
+    "warningBanner": {
+      "warning": "ノルマが計画基準を上回っています。目標の見直しをご検討ください。",
+      "forcedReplan": "計画との乖離が大きくなっています。目標の見直しが必要です。"
+    },
+    "todayQuota": {
+      "title": "本日のノルマ",
+      "empty": "本日予定されている教材はありません",
+      "bufferDayNotice": "本日はバッファ日です。ノルマは0として扱われますが、実績登録は可能です",
+      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
+      "targetMinutesUnavailable": "目標時間: 算出不可",
+      "availableSlots": "本日利用可能なスロット"
+    },
+    "goalCard": {
+      "progressRate": "全体進捗率",
+      "remainingDays": "受験日まで残り{{days}}日",
+      "remainingDaysUnavailable": "受験日未設定",
+      "forecastDeviation": "完了予測日との乖離: {{days}}日",
+      "forecastDeviationUnavailable": "完了予測日との乖離: 算出不可",
+      "notAvailable": "算出不可"
+    },
+    "stats": {
+      "title": "統計サマリ",
+      "consecutiveReportDays": "連続報告日数",
+      "recentReportRate": "直近{{windowDays}}日の報告率",
+      "bufferUsageRate": "バッファ消費率",
+      "bufferUsageRateUnavailable": "算出不可（経過バッファ日なし）",
+      "effectiveSpeed": "実効速度",
+      "effectiveSpeedUnavailable": "算出不可",
+      "perHour": "/時間"
+    }
+  },
+  "errors": {
+    "VALIDATION_ERROR": "入力内容に誤りがあります",
+    "RESOURCE_EXCEEDED": "リソース配分の合計が100%を超えています",
+    "CYCLE_CONFLICT": "周回数の設定に矛盾があります",
+    "BACKDATE_LIMIT_EXCEEDED": "遡って入力できる期間を超えています",
+    "INVALID_STATE_TRANSITION": "現在の状態では実行できません",
+    "IMMUTABLE_RECORD": "確定済みの記録は変更できません",
+    "NOT_FOUND": "対象が見つかりません",
+    "AI_AUTH_REQUIRED": "AI連携の認証が必要です",
+    "AI_CONFIG_ERROR": "AI連携の設定に誤りがあります",
+    "AI_TIMEOUT": "AI連携がタイムアウトしました",
+    "AI_ERROR": "AI連携でエラーが発生しました",
+    "INTERNAL_ERROR": "サーバ内部でエラーが発生しました",
+    "NETWORK_ERROR": "サーバへ接続できませんでした",
+    "default": "エラーが発生しました"
+  }
+}

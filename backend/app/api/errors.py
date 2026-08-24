@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.ai.exceptions import AiAuthRequiredError, AiConfigError, AiError, AiTimeoutError
 from app.services.exceptions import (
     AppSettingNotFoundError,
     BackdateLimitExceededError,
@@ -34,6 +35,11 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
+    # AI連携（ロジック・プロンプト編16.6の対応表）。
+    AiAuthRequiredError: (status.HTTP_401_UNAUTHORIZED, "AI_AUTH_REQUIRED"),
+    AiConfigError: (status.HTTP_400_BAD_REQUEST, "AI_CONFIG_ERROR"),
+    AiTimeoutError: (status.HTTP_504_GATEWAY_TIMEOUT, "AI_TIMEOUT"),
+    AiError: (status.HTTP_502_BAD_GATEWAY, "AI_ERROR"),
 }
 _FALLBACK = (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
 

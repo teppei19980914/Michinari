@@ -10,7 +10,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import RecordState
+from app.constants.enums import ChatRole, RecordState
 
 
 class StudyLogInput(BaseModel):
@@ -49,6 +49,16 @@ class CommentRead(BaseModel):
     updated_at: dt.datetime
 
 
+class ChatMessageRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    role: ChatRole
+    content: str
+    sequence: int
+    created_at: dt.datetime
+
+
 class DailyRecordRead(BaseModel):
     record_date: dt.date
     record_state: RecordState | None
@@ -57,6 +67,7 @@ class DailyRecordRead(BaseModel):
     reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
     comments: list[CommentRead]
+    chat_messages: list[ChatMessageRead]
 
 
 class ProgressRegisterRequest(BaseModel):
@@ -80,3 +91,29 @@ class QuotaItemRead(BaseModel):
     current_cycle: int
     planned_cycles: int
     daily_quota: float
+
+
+class ChatRequest(BaseModel):
+    """AI対話の実行（1往復）リクエスト（データ構造編6.2 POST /records/{date}/chat）。
+
+    study_logs・diary_body・diary_learned はこの時点でDBへ確定させない下書き値であり、
+    プロンプト組み立てにのみ使用する（AI呼び出し失敗時も入力を失わないため、16.7）。
+    message は2往復目以降の自由入力。1往復目（本日最初の呼び出し）は省略できる。
+    """
+
+    message: str | None = Field(default=None, min_length=1)
+    study_logs: list[StudyLogInput] = Field(default_factory=list)
+    diary_body: str = ""
+    diary_learned: str = ""
+
+
+class ChatResponse(BaseModel):
+    record: DailyRecordRead
+    assistant_message: ChatMessageRead
+    was_truncated: bool
+
+
+class DailyMessageRead(BaseModel):
+    target_date: dt.date
+    body: str
+    generated_at: dt.datetime

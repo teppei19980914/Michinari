@@ -67,6 +67,34 @@ def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
     return reported / total_days
 
 
+def compute_recent_report_rate(
+    session: Session, goal: Goal, today: dt.date, window_days: int
+) -> float:
+    """直近window_days日間の報告率を算出する（仕様書6.1「直近30日の報告率」）。
+
+    13.3の報告率（目標開始日からの通算KPI）とは窓が異なる派生指標。目標開始日から
+    今日までの経過日数がwindow_days未満の場合は、経過日数のみを母数とする
+    （compute_report_rateと同様、開始日以前を母数に含めない）。
+    """
+    total_days = (today - goal.start_date).days + 1
+    if total_days <= 0:
+        return 0.0
+    window_start = max(goal.start_date, today - dt.timedelta(days=window_days - 1))
+    window_size = (today - window_start).days + 1
+
+    reported = (
+        session.query(func.count(DailyRecord.id))
+        .filter(
+            DailyRecord.record_date >= window_start,
+            DailyRecord.record_date <= today,
+            DailyRecord.record_state == RecordState.REPORTED,
+        )
+        .scalar()
+        or 0
+    )
+    return reported / window_size
+
+
 def compute_consecutive_report_days(
     session: Session, goal: Goal, today: dt.date, treat_holiday_as_buffer: bool
 ) -> int:

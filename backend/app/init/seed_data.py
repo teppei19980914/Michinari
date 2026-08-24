@@ -7,7 +7,27 @@
 
 from sqlalchemy.orm import Session
 
-from app.constants.app_setting_keys import SERVER_PORT
+from app.constants.app_setting_keys import (
+    AI_API_BASE_URL,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_MESSAGE,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    AI_CLIENT_ID,
+    AI_FOLDER_PREFIX,
+    AI_HOST,
+    AI_MAX_PROMPT_CHARS,
+    AI_MAX_RETRIES,
+    AI_MIN_INTERVAL_SECONDS,
+    AI_TENANT_ID,
+    AI_TIMEOUT_SECONDS,
+    DASHBOARD_REPORT_RATE_WINDOW_DAYS,
+    LOG_AI_ENABLED,
+    LOG_RETENTION_DAYS,
+    SERVER_PORT,
+    SUMMARY_INJECT_WEEKS,
+    SUMMARY_LOOKBACK_WEEKS,
+)
 from app.constants.enums import AiPurpose, AppSettingValueType, DayType
 from app.init import prompt_texts
 from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
@@ -16,31 +36,31 @@ from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
 # ai.assistant_uid.* の値はNewtonX ADK側で発行済みのアシスタント識別子（UUID）であり、
 # 実機確認済みの用途別既定値（実装フェーズ分割計画書 Phase 5前提、設計書 データ構造編 5.2）。
 INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
-    "ai.host": ("", AppSettingValueType.STRING),
-    "ai.client_id": ("", AppSettingValueType.STRING),
-    "ai.tenant_id": ("", AppSettingValueType.STRING),
-    "ai.api_base_url": ("", AppSettingValueType.STRING),
-    "ai.assistant_uid.daily_feedback": (
+    AI_HOST: ("", AppSettingValueType.STRING),
+    AI_CLIENT_ID: ("", AppSettingValueType.STRING),
+    AI_TENANT_ID: ("", AppSettingValueType.STRING),
+    AI_API_BASE_URL: ("", AppSettingValueType.STRING),
+    AI_ASSISTANT_UID_DAILY_FEEDBACK: (
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
-    "ai.assistant_uid.weekly_summary": (
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY: (
         "849c4042-c6de-404e-a1ce-89812eaf850e",
         AppSettingValueType.STRING,
     ),
-    "ai.assistant_uid.daily_message": (
+    AI_ASSISTANT_UID_DAILY_MESSAGE: (
         "8ed280bb-3040-4ee3-9821-66bb7a4db125",
         AppSettingValueType.STRING,
     ),
-    "ai.assistant_uid.goal_retrospective": (
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE: (
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
-    "ai.folder_prefix": ("ミチナリ", AppSettingValueType.STRING),
-    "ai.timeout_seconds": ("60", AppSettingValueType.INTEGER),
-    "ai.max_retries": ("1", AppSettingValueType.INTEGER),
-    "ai.min_interval_seconds": ("2", AppSettingValueType.INTEGER),
-    "ai.max_prompt_chars": ("30000", AppSettingValueType.INTEGER),
+    AI_FOLDER_PREFIX: ("ミチナリ", AppSettingValueType.STRING),
+    AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
+    AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
+    AI_MIN_INTERVAL_SECONDS: ("2", AppSettingValueType.INTEGER),
+    AI_MAX_PROMPT_CHARS: ("30000", AppSettingValueType.INTEGER),
     "threshold.warning_ratio": ("1.20", AppSettingValueType.FLOAT),
     "threshold.replan_overrun_days": ("3", AppSettingValueType.INTEGER),
     "calendar.day_boundary_hour": ("0", AppSettingValueType.INTEGER),
@@ -48,12 +68,13 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     "display.locale": ("ja", AppSettingValueType.STRING),
     "display.theme": ("system", AppSettingValueType.STRING),
     "display.default_granularity": ("WEEK", AppSettingValueType.STRING),
-    "log.ai_enabled": ("true", AppSettingValueType.BOOLEAN),
-    "log.retention_days": ("90", AppSettingValueType.INTEGER),
-    "summary.lookback_weeks": ("4", AppSettingValueType.INTEGER),
-    "summary.inject_weeks": ("4", AppSettingValueType.INTEGER),
+    LOG_AI_ENABLED: ("true", AppSettingValueType.BOOLEAN),
+    LOG_RETENTION_DAYS: ("90", AppSettingValueType.INTEGER),
+    SUMMARY_LOOKBACK_WEEKS: ("4", AppSettingValueType.INTEGER),
+    SUMMARY_INJECT_WEEKS: ("4", AppSettingValueType.INTEGER),
     SERVER_PORT: ("8100", AppSettingValueType.INTEGER),
     "backup.retention_count": ("5", AppSettingValueType.INTEGER),
+    DASHBOARD_REPORT_RATE_WINDOW_DAYS: ("30", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {

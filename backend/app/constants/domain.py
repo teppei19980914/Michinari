@@ -10,3 +10,8 @@ MIN_SPEED_SAMPLE_COUNT = 3
 
 # 完了予測日の反復打ち切り日数（ロジック・プロンプト編 10.1）。
 FORECAST_ITERATION_CAP_DAYS = 365
+
+# プロンプト縮退の段階4（日記の先頭からの切り詰め）で1回に削る文字数
+# （ロジック・プロンプト編 16.5）。縮退アルゴリズムの内部実装値であり、
+# ai.max_prompt_chars のような利用者が調整する閾値ではないためapp_settingの対象外とする。
+PROMPT_DIARY_TRIM_CHUNK_CHARS = 200

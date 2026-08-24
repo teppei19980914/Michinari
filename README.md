@@ -41,6 +41,25 @@ uv run ruff check .                                     # 静的解析
 
 ---
 
+## フロントエンド セットアップ（Phase 6〜）
+
+```bash
+cd frontend
+npm install                    # 依存関係のインストール
+npm run generate:api-types     # backend/app/main.py の OpenAPI スキーマから src/types/api.d.ts を生成
+                                # （バックエンドのスキーマ変更時は必ず再実行する。手書き禁止）
+npm run dev                    # 開発サーバ起動（vite.config.ts の proxy で /api を backend:8100 へ転送）
+```
+
+```bash
+npm run build   # 型チェック（tsc -b）+ 本番ビルド
+npm run test    # Vitest（技術選定書4.5「フロントエンドのテスト方針」に基づき最小限のロジックのみ対象）
+```
+
+起動には `backend` を先に起動しておくこと（`uv run python -m app.main`、既定ポート8100）。
+
+---
+
 ## 開発環境について（Claude Code Level 5）
 
 本リポジトリは [ClaudeCodeTemplate](https://github.com/teppei19980914/GrowthEngine) から Claude Code の運用環境（Level 5）を導入している。`setup.sh` / `scripts/` は環境の再セットアップ・検証用に残しているツール類であり、ミチナリ本体の実装には含まれない。以下は導入されている Level 5 環境の内容。

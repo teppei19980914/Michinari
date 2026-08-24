@@ -146,6 +146,43 @@ def test_report_rate_zero_when_today_before_start_date(db_session):
     assert rate == 0.0
 
 
+def test_recent_report_rate_uses_window_days_when_history_is_longer(db_session):
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 1))
+    # 窓の外（1/1）は分母・分子から除外される
+    _make_record(db_session, dt.date(2026, 1, 1), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 2), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 3), RecordState.PROGRESS_ONLY)
+
+    rate = metrics_service.compute_recent_report_rate(
+        db_session, goal, dt.date(2026, 1, 3), window_days=2
+    )
+
+    assert rate == pytest.approx(1 / 2)  # 窓は1/2〜1/3の2日、報告済みは1/2の1日のみ
+
+
+def test_recent_report_rate_uses_elapsed_days_when_shorter_than_window(db_session):
+    """境界値: 目標開始からの経過日数がwindow_days未満の場合は経過日数のみを母数とする。"""
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 1))
+    _make_record(db_session, dt.date(2026, 1, 1), RecordState.REPORTED)
+
+    rate = metrics_service.compute_recent_report_rate(
+        db_session, goal, dt.date(2026, 1, 2), window_days=30
+    )
+
+    assert rate == pytest.approx(1 / 2)  # 1/1〜1/2の2日中、報告済み1日
+
+
+def test_recent_report_rate_zero_when_today_before_start_date(db_session):
+    """境界値: 本日が開始日より前の場合に例外が発生しないこと。"""
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 10))
+
+    rate = metrics_service.compute_recent_report_rate(
+        db_session, goal, dt.date(2026, 1, 5), window_days=30
+    )
+
+    assert rate == 0.0
+
+
 def test_consecutive_report_days_zero_when_today_before_start_date(db_session):
     """境界値: 本日が開始日より前の場合に例外が発生しないこと。"""
     goal = _make_goal(db_session, start_date=dt.date(2026, 1, 10))

@@ -1,6 +1,6 @@
-"""日次記録のAPI（データ構造編6.2、実装フェーズ分割計画書Phase4）。
+"""日次記録のAPI（データ構造編6.2、実装フェーズ分割計画書Phase4・Phase5）。
 
-AI対話（POST /records/{date}/chat）はPhase5で実装するため本ファイルには含めない。
+AI対話（POST /records/{date}/chat）はPhase5で追加した（daily_feedback_serviceへ委譲する）。
 """
 
 import datetime as dt
@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.record import DailyRecord
 from app.schemas.record import (
+    ChatMessageRead,
+    ChatRequest,
+    ChatResponse,
     CommentCreate,
     CommentRead,
     CommentUpdate,
@@ -22,7 +25,7 @@ from app.schemas.record import (
     StudyLogRead,
     TodayRead,
 )
-from app.services import goal_service, record_service
+from app.services import daily_feedback_service, goal_service, record_service
 from app.services.record_service import StudyLogItem
 
 router = APIRouter(tags=["records"])
@@ -53,6 +56,13 @@ def _serialize_record(target_date: dt.date, record: DailyRecord | None) -> Daily
             StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
         ],
         comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
+        chat_messages=[
+            ChatMessageRead.model_validate(chat_message)
+            for chat_message in sorted(
+                (record.chat_messages if record else []),
+                key=lambda chat_message: chat_message.sequence,
+            )
+        ],
     )
 
 
@@ -97,6 +107,31 @@ def finalize_record(
     )
     session.commit()
     return _serialize_record(target_date, record)
+
+
+@router.post("/records/{target_date}/chat", response_model=ChatResponse)
+def chat(
+    target_date: dt.date, payload: ChatRequest, session: Session = Depends(get_db)
+) -> ChatResponse:
+    """AI対話を1往復実行する（データ構造編6.2）。実績・日記はこのリクエストの下書き値を
+    使うのみで確定させない（AI呼び出し失敗時も入力を失わない、16.7）。
+    """
+    today = goal_service.resolve_today(session)
+    outcome = daily_feedback_service.send_daily_feedback(
+        session,
+        target_date=target_date,
+        today=today,
+        message=payload.message,
+        study_log_items=_to_study_log_items(payload.study_logs),
+        diary_body=payload.diary_body,
+        diary_learned=payload.diary_learned,
+    )
+    session.commit()
+    return ChatResponse(
+        record=_serialize_record(target_date, outcome.daily_record),
+        assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
+        was_truncated=outcome.was_truncated,
+    )
 
 
 @router.get("/records/{target_date}/quota", response_model=list[QuotaItemRead])

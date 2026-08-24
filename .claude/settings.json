@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(*)",
-      "Read"
+      "Read",
+      "Bash(npm create *)",
+      "Bash(npx openapi-typescript *)",
+      "Bash(curl -s http://127.0.0.1:8100/health)",
+      "Bash(curl -s http://127.0.0.1:8100/api/v1/dashboard)",
+      "Bash(pkill -f \"app.main\")",
+      "Bash(nohup uv run python -m app.main)",
+      "Bash(curl -s http://localhost:5173/api/v1/dashboard)",
+      "Bash(npx --yes playwright --version)",
+      "Bash(npx --yes playwright install chromium)",
+      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard.png)",
+      "Read(//c/Users/teppe/AppData/Local/Temp/**)",
+      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard2.png)"
     ]
   },
   "hooks": {
