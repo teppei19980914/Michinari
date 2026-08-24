@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { getDashboard } from '../api/dashboard'
-import { ApiError } from '../api/client'
+import { apiErrorMessage } from '../api/client'
 import { t } from '../locales/t'
 import { TodayMessage } from '../features/dashboard/TodayMessage'
 import { WarningBanner } from '../features/dashboard/WarningBanner'
@@ -23,9 +23,7 @@ export function DashboardPage() {
   }
   if (dashboardQuery.isError || !dashboardQuery.data) {
     // 技術選定書7.3「エラーコードに対応するロケール文言を表示する」。
-    const error = dashboardQuery.error
-    const message = error instanceof ApiError ? error.localizedMessage : t('errors.default')
-    return <p className="p-6 text-sm text-red-600">{message}</p>
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(dashboardQuery.error)}</p>
   }
 
   const dashboard = dashboardQuery.data

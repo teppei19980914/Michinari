@@ -141,9 +141,11 @@ def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[
         QuotaItemRead(
             material_id=item.material_id,
             material_name=item.material_name,
+            unit_label=item.unit_label,
             current_cycle=item.current_cycle,
             planned_cycles=item.planned_cycles,
             daily_quota=item.daily_quota,
+            quality_metric_type=item.quality_metric_type,
         )
         for item in items
     ]

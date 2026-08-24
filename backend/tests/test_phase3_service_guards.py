@@ -9,7 +9,7 @@ import datetime as dt
 
 import pytest
 
-from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR
+from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
 from app.constants.enums import (
     Environment,
     ExamDateType,
@@ -250,3 +250,12 @@ def test_update_day_boundary_hour_missing_setting_raises_app_setting_not_found(s
     seeded_session.flush()
     with pytest.raises(AppSettingNotFoundError):
         resource_service.update_day_boundary_hour(seeded_session, 4)
+
+
+def test_update_holiday_treat_as_buffer_missing_setting_raises_app_setting_not_found(
+    seeded_session,
+):
+    seeded_session.query(AppSetting).filter(AppSetting.key == HOLIDAY_TREAT_AS_BUFFER).delete()
+    seeded_session.flush()
+    with pytest.raises(AppSettingNotFoundError):
+        resource_service.update_holiday_treat_as_buffer(seeded_session, False)

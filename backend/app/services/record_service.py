@@ -216,13 +216,19 @@ def delete_comment(session: Session, comment: RecordComment) -> None:
 
 @dataclass(frozen=True)
 class QuotaItem:
-    """指定日の教材別日次ノルマ（データ構造編6.2 GET /records/{date}/quota）。"""
+    """指定日の教材別日次ノルマ（データ構造編6.2 GET /records/{date}/quota）。
+
+    unit_label・quality_metric_type はSC-06/SC-07の実績入力欄（数量の単位表示、
+    品質指標の入力形式切替）に必要なため保持する（仕様書6.5）。
+    """
 
     material_id: int
     material_name: str
+    unit_label: str
     current_cycle: int
     planned_cycles: int
     daily_quota: float
+    quality_metric_type: QualityMetricType
 
 
 def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaItem]:
@@ -250,9 +256,11 @@ def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaIte
             QuotaItem(
                 material_id=material.id,
                 material_name=material.name,
+                unit_label=material.unit_label,
                 current_cycle=progress.current_cycle,
                 planned_cycles=material.planned_cycles,
                 daily_quota=daily_quota,
+                quality_metric_type=material.quality_metric_type,
             )
         )
     return results

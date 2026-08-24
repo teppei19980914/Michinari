@@ -348,7 +348,13 @@ def test_get_comment_missing_raises_not_found(seeded_session):
 def test_compute_daily_quota_includes_active_goal_materials_before_due_date(seeded_session):
     goal = _make_goal(seeded_session, status=GoalStatus.ACTIVE)
     material = _make_material(
-        seeded_session, goal, due_date=dt.date(2026, 3, 31), total_amount=100.0, planned_cycles=1
+        seeded_session,
+        goal,
+        due_date=dt.date(2026, 3, 31),
+        total_amount=100.0,
+        planned_cycles=1,
+        unit_label="問",
+        quality_metric_type=QualityMetricType.SUBJECTIVE,
     )
     target_date = dt.date(2026, 3, 10)  # 火曜（平日=PLAN既定）
 
@@ -357,6 +363,9 @@ def test_compute_daily_quota_includes_active_goal_materials_before_due_date(seed
     assert len(items) == 1
     assert items[0].material_id == material.id
     assert items[0].daily_quota > 0
+    # 実績入力欄（SC-06/SC-07）の単位表示・品質指標の入力形式切替に必要な値（仕様書6.5）。
+    assert items[0].unit_label == "問"
+    assert items[0].quality_metric_type == QualityMetricType.SUBJECTIVE
 
 
 def test_compute_daily_quota_excludes_past_due_material(seeded_session):

@@ -11,6 +11,8 @@ from app.schemas.resource import (
     DayBoundaryHourRead,
     DayBoundaryHourUpdate,
     GoalAllocationRead,
+    HolidayTreatAsBufferRead,
+    HolidayTreatAsBufferUpdate,
     ResourceSlotCreate,
     ResourceSlotRead,
     ResourceSlotUpdate,
@@ -109,3 +111,21 @@ def update_day_boundary_hour(
     hour = resource_service.update_day_boundary_hour(session, payload.day_boundary_hour)
     session.commit()
     return DayBoundaryHourRead(day_boundary_hour=hour)
+
+
+@router.get("/resources/holiday-treat-as-buffer", response_model=HolidayTreatAsBufferRead)
+def get_holiday_treat_as_buffer(session: Session = Depends(get_db)) -> HolidayTreatAsBufferRead:
+    return HolidayTreatAsBufferRead(
+        treat_as_buffer=resource_service.get_holiday_treat_as_buffer(session)
+    )
+
+
+@router.put("/resources/holiday-treat-as-buffer", response_model=HolidayTreatAsBufferRead)
+def update_holiday_treat_as_buffer(
+    payload: HolidayTreatAsBufferUpdate, session: Session = Depends(get_db)
+) -> HolidayTreatAsBufferRead:
+    treat_as_buffer = resource_service.update_holiday_treat_as_buffer(
+        session, payload.treat_as_buffer
+    )
+    session.commit()
+    return HolidayTreatAsBufferRead(treat_as_buffer=treat_as_buffer)
