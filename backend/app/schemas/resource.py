@@ -61,3 +61,11 @@ class DayBoundaryHourRead(BaseModel):
 
 class DayBoundaryHourUpdate(BaseModel):
     day_boundary_hour: int = Field(ge=0, le=11)
+
+
+class HolidayTreatAsBufferRead(BaseModel):
+    treat_as_buffer: bool
+
+
+class HolidayTreatAsBufferUpdate(BaseModel):
+    treat_as_buffer: bool

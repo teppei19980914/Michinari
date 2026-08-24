@@ -15,6 +15,7 @@ from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
+from app.api.settings import router as settings_router
 from app.config import get_settings
 from app.constants.app_setting_keys import SERVER_PORT
 from app.database import SessionLocal, create_all_tables
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
     app.include_router(ai_router, prefix=API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=API_V1_PREFIX)
+    app.include_router(settings_router, prefix=API_V1_PREFIX)
 
     return app
 

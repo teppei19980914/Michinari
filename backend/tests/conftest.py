@@ -39,13 +39,28 @@ def _migrated_database(alembic_config: Config):
         TEST_DB_PATH.unlink()
 
 
+def _wipe_all_tables(session) -> None:
+    """全テーブルを空にする（PRAGMA foreign_keys=ON のため子テーブルから順に削除する）。
+
+    session.rollback() は commit() 済みの変更を取り消せないため、テスト内で明示的に
+    commit() するケース（例: test_seed_data.py の冪等性検証）があっても、次のテストへ
+    状態が漏れないようにするための後始末（client フィクスチャと共通の後始末処理）。
+    """
+    from app.models.base import Base
+
+    session.rollback()
+    for table in reversed(Base.metadata.sorted_tables):
+        session.execute(table.delete())
+    session.commit()
+
+
 @pytest.fixture
 def db_session():
     session = SessionLocal()
     try:
         yield session
     finally:
-        session.rollback()
+        _wipe_all_tables(session)
         session.close()
 
 
@@ -74,7 +89,6 @@ def client(seeded_session):
 
     from app.database import get_db
     from app.main import app
-    from app.models.base import Base
 
     def _override_get_db():
         yield seeded_session
@@ -85,7 +99,4 @@ def client(seeded_session):
             yield test_client
     finally:
         app.dependency_overrides.clear()
-        seeded_session.rollback()
-        for table in reversed(Base.metadata.sorted_tables):
-            seeded_session.execute(table.delete())
-        seeded_session.commit()
+        _wipe_all_tables(seeded_session)

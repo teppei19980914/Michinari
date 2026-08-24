@@ -173,3 +173,18 @@ def test_day_boundary_hour_rejects_out_of_range(client):
     response = client.put("/api/v1/resources/day-boundary-hour", json={"day_boundary_hour": 12})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_holiday_treat_as_buffer_get_and_put(client):
+    initial = client.get("/api/v1/resources/holiday-treat-as-buffer")
+    assert initial.status_code == 200
+    assert initial.json() == {"treat_as_buffer": True}
+
+    updated = client.put(
+        "/api/v1/resources/holiday-treat-as-buffer", json={"treat_as_buffer": False}
+    )
+    assert updated.status_code == 200
+    assert updated.json() == {"treat_as_buffer": False}
+
+    confirmed = client.get("/api/v1/resources/holiday-treat-as-buffer")
+    assert confirmed.json() == {"treat_as_buffer": False}

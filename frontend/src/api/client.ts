@@ -55,11 +55,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+function _requestWithBody<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return request<T>(path, {
+    method,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+}
+
 export const apiClient = {
   get: <T>(path: string): Promise<T> => request<T>(path),
-  post: <T>(path: string, body?: unknown): Promise<T> =>
-    request<T>(path, {
-      method: 'POST',
-      body: body === undefined ? undefined : JSON.stringify(body),
-    }),
+  post: <T>(path: string, body?: unknown): Promise<T> => _requestWithBody<T>('POST', path, body),
+  patch: <T>(path: string, body?: unknown): Promise<T> => _requestWithBody<T>('PATCH', path, body),
+  put: <T>(path: string, body?: unknown): Promise<T> => _requestWithBody<T>('PUT', path, body),
+  delete: <T>(path: string): Promise<T> => request<T>(path, { method: 'DELETE' }),
 }

@@ -47,7 +47,14 @@ def test_run_ai_startup_tasks_calls_retroactive_generation(db_session, monkeypat
     """実サーバ起動時のみ呼ばれる週次要約の遡及生成（ロジック・プロンプト編15.2、
     実装フェーズ分割計画書Phase5完了条件「週次要約が起動時に遡及生成される」）。
     AI基盤への実通信はweekly_summary_service側の責務のためここではモックする。
+
+    run_ai_startup_tasks は独自にSessionLocal()を開くため、goal_service.resolve_today が
+    参照するapp_settingを本テストのdb_sessionとは別に用意する必要がある（run_allで投入）。
     """
+    from app.init.seed_data import run_all
+
+    run_all(db_session)
+
     calls = []
     monkeypatch.setattr(
         weekly_summary_service,
