@@ -316,6 +316,117 @@
     "import": "インポート",
     "backup": "バックアップ"
   },
+  "calendar": {
+    "title": "カレンダー",
+    "prevMonth": "前月",
+    "nextMonth": "翌月",
+    "weekday": {
+      "0": "日",
+      "1": "月",
+      "2": "火",
+      "3": "水",
+      "4": "木",
+      "5": "金",
+      "6": "土"
+    },
+    "marker": {
+      "unreported": "未入力",
+      "progressOnly": "進捗のみ登録済",
+      "reported": "報告済"
+    },
+    "auxiliaryMarker": {
+      "EXAM_DATE": "受験日",
+      "EXAM_PERIOD": "受験期間",
+      "LOAD_ADJUSTED": "負荷調整中"
+    },
+    "editDayTypeLink": "日種別変更",
+    "dayType": {
+      "PLAN": "計画日",
+      "BUFFER": "バッファ日",
+      "OFF": "除外日"
+    },
+    "dayTypeModal": {
+      "title": "日種別の変更",
+      "targetDateLabel": "対象日",
+      "clearOverride": "個別指定を解除（既定値に戻す）"
+    },
+    "choiceModal": {
+      "title": "登録方法の選択",
+      "report": "日次報告",
+      "progressOnly": "進捗のみ登録"
+    }
+  },
+  "dailyReport": {
+    "title": "日次報告（{{date}}）",
+    "studyLog": {
+      "title": "実績入力",
+      "empty": "本日対象の教材はありません",
+      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
+      "quotaLabel": "本日の目標: {{quota}}{{unit}}",
+      "minutesLabel": "投下時間（分）",
+      "amountLabel": "完了分量（{{unit}}）",
+      "cycleNumberLabel": "周回",
+      "qualityLabel": "品質指標",
+      "qualityUnselected": "選択してください",
+      "subjectiveScale": {
+        "1": "1: とても悪い",
+        "2": "2: 悪い",
+        "3": "3: 普通",
+        "4": "4: 良い",
+        "5": "5: とても良い"
+      }
+    },
+    "diary": {
+      "bodyLabel": "本日の行動・所感",
+      "learnedLabel": "本日学んだこと",
+      "learnedPlaceholder": "例: ○○の仕組みを理解した、△△の解き方のコツをつかんだ"
+    },
+    "chat": {
+      "title": "AI対話",
+      "empty": "まだ対話はありません",
+      "startButton": "実績・日記を送信してAIフィードバックを受け取る",
+      "inputPlaceholder": "AIへのメッセージを入力",
+      "sendButton": "送信",
+      "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました"
+    },
+    "finalizeButton": "報告を確定する",
+    "leaveConfirm": {
+      "title": "この画面から移動しますか？",
+      "body": "報告を確定する前にこの画面を離れると、入力した実績・日記・対話の内容は保存されません。",
+      "stay": "入力を続ける",
+      "leave": "移動する（内容は破棄されます）"
+    }
+  },
+  "progressOnly": {
+    "title": "進捗のみ登録（{{date}}）",
+    "minutesOptionalNotice": "投下時間は未入力にできます。未入力の場合、当該日は実効速度の算出対象から除外されます",
+    "registerButton": "登録する"
+  },
+  "dailyReportView": {
+    "title": "日次報告閲覧（{{date}}）",
+    "studyLog": {
+      "title": "実績",
+      "empty": "実績の登録はありません",
+      "unknownMaterial": "教材ID: {{id}}",
+      "minutes": "投下時間",
+      "minutesUnavailable": "未入力",
+      "amount": "完了分量",
+      "cycle": "周回",
+      "qualityLabel": "品質指標"
+    },
+    "diary": {
+      "title": "日記"
+    },
+    "chatHistory": {
+      "title": "AI対話履歴"
+    },
+    "comments": {
+      "title": "コメント",
+      "empty": "コメントはありません",
+      "newPlaceholder": "コメントを入力",
+      "addButton": "追加"
+    }
+  },
   "errors": {
     "VALIDATION_ERROR": "入力内容に誤りがあります",
     "RESOURCE_EXCEEDED": "リソース配分の合計が100%を超えています",

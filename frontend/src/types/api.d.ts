@@ -1568,18 +1568,28 @@ export interface components {
          * @enum {string}
          */
         QualityMetricType: "NONE" | "OBJECTIVE" | "SELF_SCORED" | "SUBJECTIVE";
-        /** QuotaItemRead */
+        /**
+         * QuotaItemRead
+         * @description 日次記録画面（SC-06/SC-07）の実績入力行に必要な教材情報（仕様書6.5）。
+         *
+         *     unit_label・quality_metric_type は、投下量の単位表示と品質指標の入力形式切替
+         *     （客観正答率/自己採点得点率＝0〜100の数値、主観的手応え＝5段階選択、NONE＝入力欄なし）
+         *     をフロントエンド側で判定するために含める（14.1、技術選定書4.5「品質指標の入力形式切替」）。
+         */
         QuotaItemRead: {
             /** Material Id */
             material_id: number;
             /** Material Name */
             material_name: string;
+            /** Unit Label */
+            unit_label: string;
             /** Current Cycle */
             current_cycle: number;
             /** Planned Cycles */
             planned_cycles: number;
             /** Daily Quota */
             daily_quota: number;
+            quality_metric_type: components["schemas"]["QualityMetricType"];
         };
         /**
          * RecordState
