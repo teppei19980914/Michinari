@@ -39,7 +39,7 @@ from app.constants.app_setting_keys import (
 from app.constants.app_setting_keys import (
     DISPLAY_THEME as _DISPLAY_THEME,
 )
-from app.constants.enums import AiPurpose
+from app.constants.enums import AiPurpose, Granularity
 from app.init.seed_data import INITIAL_PROMPT_TEMPLATES
 from app.models.setting import AppSetting, PromptTemplate
 from app.services import setting_reader
@@ -48,8 +48,9 @@ from app.services.exceptions import AppSettingNotFoundError, NotFoundError, Vali
 #: 表示言語は技術選定書の対象が日本語のみのため、現時点ではこの1件のみを許容する。
 _ALLOWED_LOCALES = frozenset({"ja"})
 _ALLOWED_THEMES = frozenset({"system", "light", "dark"})
-#: 分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。
-_ALLOWED_GRANULARITIES = frozenset({"DAY", "WEEK", "MONTH"})
+#: 分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。Phase9のGranularity Enumと
+#: 同じ値を許容する（CLAUDE.md DRYの原則、値の重複を避けるためEnumの値をそのまま使う）。
+_ALLOWED_GRANULARITIES = frozenset(g.value for g in Granularity)
 
 
 def _set_str(session: Session, key: str, value: str) -> None:

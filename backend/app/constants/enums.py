@@ -78,6 +78,18 @@ class ExportFormat(enum.StrEnum):
     JSON = "JSON"
 
 
+class Granularity(enum.StrEnum):
+    """分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。
+
+    settings_service._ALLOWED_GRANULARITIES（display.default_granularityの許容値）と
+    同じ値を用いる（CLAUDE.md DRYの原則）。
+    """
+
+    DAY = "DAY"
+    WEEK = "WEEK"
+    MONTH = "MONTH"
+
+
 class AppSettingValueType(enum.StrEnum):
     STRING = "STRING"
     INTEGER = "INTEGER"

@@ -8,7 +8,6 @@
   },
   "common": {
     "loading": "読み込み中…",
-    "comingSoon": "この画面は準備中です",
     "unit": {
       "minutes": "分",
       "days": "日",
@@ -74,7 +73,8 @@
       "bufferUsageRateUnavailable": "算出不可（経過バッファ日なし）",
       "effectiveSpeed": "実効速度",
       "effectiveSpeedUnavailable": "算出不可",
-      "perHour": "/時間"
+      "perHour": "/時間",
+      "analyticsLink": "分析を見る"
     }
   },
   "goals": {
@@ -311,10 +311,86 @@
   },
   "dataManagement": {
     "title": "データ管理",
-    "notice": "エクスポート・インポート・バックアップ機能はフェーズ10で実装予定です",
     "export": "エクスポート",
+    "exportSucceeded": "データベースファイルをダウンロードしました",
     "import": "インポート",
-    "backup": "バックアップ"
+    "importConfirm": "既存のデータを上書きしてインポートします。よろしいですか？",
+    "importSucceeded": "インポートしました。画面を再読み込みします",
+    "backup": "バックアップを作成",
+    "backupSucceeded": "バックアップを作成しました",
+    "backups": {
+      "title": "バックアップ一覧",
+      "empty": "バックアップはありません",
+      "createdAtLabel": "作成日時",
+      "sizeLabel": "サイズ",
+      "restore": "復元",
+      "restoreConfirm": "このバックアップの内容で現在のデータを上書きします。よろしいですか？",
+      "restoreSucceeded": "復元しました。画面を再読み込みします"
+    }
+  },
+  "goalResult": {
+    "title": "受験結果登録（{{name}}）",
+    "backToGoal": "目標詳細へ戻る",
+    "empty": "登録済みの試験科目はありません",
+    "resultLabel": "合否",
+    "result": {
+      "PASS": "合格",
+      "FAIL": "不合格",
+      "PENDING": "未判定"
+    },
+    "takenDateLabel": "受験日",
+    "scoreLabel": "得点",
+    "evaluationLabel": "評価",
+    "noteLabel": "所感",
+    "registerButton": "登録する",
+    "editButton": "編集する",
+    "registeredBadge": "登録済み"
+  },
+  "knowledgeExport": {
+    "title": "ナレッジエクスポート（{{name}}）",
+    "backToGoal": "目標一覧へ戻る",
+    "retrospective": {
+      "title": "総括レポート",
+      "empty": "総括レポートは未生成です",
+      "generateButton": "生成する",
+      "regenerateButton": "再生成する",
+      "generating": "生成しています…（数十秒かかる場合があります）"
+    },
+    "summary": {
+      "title": "学習サマリ",
+      "totalHours": "総投下時間",
+      "studyDays": "学習日数",
+      "reportRate": "報告率",
+      "replanCount": "リプラン回数",
+      "latestQuality": "最終到達品質",
+      "unavailable": "算出不可"
+    },
+    "selection": {
+      "title": "出力項目選択",
+      "goalOverview": "目標概要",
+      "materials": "教材構成",
+      "summary": "学習量サマリ",
+      "dailyRecords": "実績推移",
+      "qualityTrend": "品質指標推移",
+      "replanHistory": "リプラン履歴",
+      "weeklySummaries": "週次要約",
+      "diary": "日記本文",
+      "aiDialogue": "AI対話履歴",
+      "examResults": "受験結果",
+      "retrospective": "総括レポート"
+    },
+    "anonymize": {
+      "label": "匿名化する",
+      "description": "有効にすると日記本文を除外し、週次要約・総括レポートを匿名化版として再生成します"
+    },
+    "previewButton": "プレビュー",
+    "previewTitle": "プレビュー",
+    "exportButton": "ファイルを出力する",
+    "exportSucceeded": "エクスポートしました",
+    "exportedPaths": {
+      "markdown": "Markdown: {{path}}",
+      "json": "JSON: {{path}}"
+    }
   },
   "calendar": {
     "title": "カレンダー",
@@ -425,6 +501,74 @@
       "empty": "コメントはありません",
       "newPlaceholder": "コメントを入力",
       "addButton": "追加"
+    }
+  },
+  "analytics": {
+    "title": "分析",
+    "goalSelector": {
+      "label": "対象目標",
+      "empty": "登録済みの目標がありません"
+    },
+    "tabs": {
+      "quality": "品質推移",
+      "progress": "進捗",
+      "forecast": "完了予測",
+      "speed": "実効速度",
+      "gantt": "ガントチャート",
+      "replanHistory": "リプラン履歴",
+      "growthDescription": "成長記述"
+    },
+    "materialEmpty": "この目標には有効な教材がありません",
+    "quality": {
+      "granularityLabel": "粒度",
+      "passingScoreLegend": "合格基準線",
+      "cycleLegend": "{{cycle}}周目",
+      "noData": "品質指標の記録がありません"
+    },
+    "progress": {
+      "actualLegend": "実績",
+      "planLegend": "計画線",
+      "cycleBoundaryLabel": "{{cycle}}周目完了",
+      "unitTotalWork": "総作業量: {{total}}{{unit}}"
+    },
+    "forecast": {
+      "materialHeader": "教材",
+      "dueDateHeader": "締切",
+      "forecastDateHeader": "完了予測日",
+      "deviationHeader": "乖離",
+      "deviationDays": "{{days}}日",
+      "onTrack": "順調",
+      "unavailable": {
+        "NO_SPEED_DATA": "実績不足のため算出不可",
+        "ITERATION_LIMIT_EXCEEDED": "大幅超過（算出打ち切り）"
+      }
+    },
+    "speed": {
+      "cycleLegend": "{{cycle}}周目",
+      "unitPerHour": "/時間",
+      "noData": "実効速度の記録がありません"
+    },
+    "gantt": {
+      "todayLabel": "本日",
+      "empty": "有効な教材がありません"
+    },
+    "replanHistory": {
+      "empty": "リプラン履歴はありません",
+      "materialHeader": "教材",
+      "dateHeader": "日時",
+      "reasonHeader": "契機",
+      "quotaBeforeHeader": "変更前ノルマ",
+      "quotaAfterHeader": "変更後ノルマ",
+      "reason": {
+        "INITIAL": "初回設定",
+        "REPLAN": "リプラン",
+        "EXAM_DATE_FIXED": "受験日確定",
+        "MATERIAL_CHANGED": "教材変更",
+        "CYCLE_CHANGED": "周回数変更"
+      }
+    },
+    "growthDescription": {
+      "empty": "AIによる日次報告フィードバックの履歴はまだありません"
     }
   },
   "errors": {

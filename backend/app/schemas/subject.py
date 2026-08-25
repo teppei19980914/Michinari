@@ -6,7 +6,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import ExamDateType
+from app.constants.enums import ExamDateType, ExamResultType
 
 
 class SubjectCreate(BaseModel):
@@ -43,3 +43,32 @@ class SubjectRead(BaseModel):
     exam_date_fixed: dt.date | None
     passing_score: float | None
     display_order: int
+    exam_result: ExamResultRead | None = None
+
+
+class ExamResultCreate(BaseModel):
+    taken_date: dt.date
+    result: ExamResultType
+    score: float | None = None
+    evaluation: str | None = None
+    note: str | None = None
+
+
+class ExamResultUpdate(BaseModel):
+    taken_date: dt.date | None = None
+    result: ExamResultType | None = None
+    score: float | None = None
+    evaluation: str | None = None
+    note: str | None = None
+
+
+class ExamResultRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    subject_id: int
+    taken_date: dt.date
+    result: ExamResultType
+    score: float | None
+    evaluation: str | None
+    note: str | None

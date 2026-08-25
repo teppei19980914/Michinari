@@ -8,6 +8,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     Enum,
@@ -112,11 +113,20 @@ class RecordComment(TimestampMixin, Base):
 
 
 class WeeklySummary(Base):
-    """週次要約。goal_id + week_start_date で一意。"""
+    """週次要約。goal_id + week_start_date + is_anonymized で一意。
+
+    is_anonymized列は設計書データ構造編7.3「匿名化版の週次要約...は、それぞれ別レコードとして
+    保持する。元の版は削除しない」を満たすために追加した（同5.4の初版テーブル定義には
+    無かったが、5.4はエクスポート機能着手前の定義であり7.3の要件を反映していなかったための
+    後発追加。goal_retrospectiveは初版からis_anonymizedを持ち別レコードを許容しており、
+    本テーブルもそれに揃える。実装フェーズ分割計画書Phase10）。
+    """
 
     __tablename__ = "weekly_summary"
     __table_args__ = (
-        UniqueConstraint("goal_id", "week_start_date", name="uq_weekly_summary_goal_week"),
+        UniqueConstraint(
+            "goal_id", "week_start_date", "is_anonymized", name="uq_weekly_summary_goal_week"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -124,6 +134,7 @@ class WeeklySummary(Base):
     week_start_date: Mapped[date] = mapped_column(Date, nullable=False)
     week_end_date: Mapped[date] = mapped_column(Date, nullable=False)
     summary_body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_anonymized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     goal: Mapped["Goal"] = relationship(back_populates="weekly_summaries")

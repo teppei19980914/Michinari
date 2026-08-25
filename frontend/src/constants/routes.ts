@@ -1,7 +1,6 @@
 /**
  * 画面遷移先のパス定数（仕様書5章）。コンポーネント内にパス文字列を直接書かない
- * （CODING_RULES.md 置き場所ルール）。SC-10/SC-13はPhase10で実装するため、
- * 本フェーズでは準備中プレースホルダーへ遷移する。
+ * （CODING_RULES.md 置き場所ルール）。
  *
  * ROUTE_PATTERNSはReact Routerの<Route path>用（`:param`形式）、
  * ROUTESはリンク生成用（実際の値を埋め込んだパスを返す）。

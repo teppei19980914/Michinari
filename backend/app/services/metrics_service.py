@@ -2,11 +2,12 @@
 
 import datetime as dt
 from collections import defaultdict
+from dataclasses import dataclass
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.constants.enums import BaselineReason, DayType, QualityMetricType, RecordState
+from app.constants.enums import BaselineReason, DayType, Granularity, QualityMetricType, RecordState
 from app.models.goal import Goal
 from app.models.material import Material, PlanBaseline
 from app.models.record import DailyRecord, StudyLog
@@ -128,6 +129,39 @@ def compute_consecutive_report_days(
     return count
 
 
+@dataclass(frozen=True)
+class StudySummary:
+    """総投下時間・学習日数の集計結果（総括レポート・ナレッジエクスポート双方の
+    学習量サマリで使う、実装フェーズ分割計画書Phase10）。"""
+
+    total_minutes: int
+    study_days: int
+
+
+def compute_study_summary(session: Session, material_ids: list[int]) -> StudySummary:
+    """教材群の総投下時間（分）・学習日数を集計する（総括レポート17.5
+    {{overall_metrics}}、ナレッジエクスポート7.1 summary.total_minutes/study_daysの
+    共通算出処理。export_service.pyとai_context_service.pyの双方から呼ぶ、
+    CLAUDE.md DRYの原則）。"""
+    if not material_ids:
+        return StudySummary(total_minutes=0, study_days=0)
+
+    total_minutes = (
+        session.query(func.sum(StudyLog.minutes_spent))
+        .filter(StudyLog.material_id.in_(material_ids))
+        .scalar()
+        or 0
+    )
+    study_days = (
+        session.query(func.count(func.distinct(DailyRecord.record_date)))
+        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(StudyLog.material_id.in_(material_ids))
+        .scalar()
+        or 0
+    )
+    return StudySummary(total_minutes=total_minutes, study_days=study_days)
+
+
 def compute_replan_count(session: Session, goal: Goal) -> int:
     """リプラン回数を算出する（13.5）。INITIAL以外の plan_baseline レコード数。"""
     return (
@@ -167,3 +201,61 @@ def group_quality_by_cycle(session: Session, material_id: int) -> dict[int, list
     for cycle_number, quality_value in rows:
         grouped[cycle_number].append(quality_value)
     return dict(grouped)
+
+
+@dataclass(frozen=True)
+class QualityTrendPoint:
+    """品質推移グラフの1点（分析画面ANL-01、14.2の集約規則で平均化済み）。"""
+
+    period_start: dt.date
+    value: float
+    sample_count: int
+
+
+def _bucket_start(record_date: dt.date, granularity: Granularity) -> dt.date:
+    """粒度に応じた集計区間の開始日を返す（14.2、15.1と同じ「月曜始まり」の週定義）。"""
+    if granularity == Granularity.DAY:
+        return record_date
+    if granularity == Granularity.WEEK:
+        return record_date - dt.timedelta(days=record_date.weekday())
+    return record_date.replace(day=1)
+
+
+def compute_quality_trend(
+    session: Session, material_id: int, granularity: Granularity
+) -> dict[int, list[QualityTrendPoint]]:
+    """品質指標推移を周回別・粒度別に集計する（14.2集約規則、14.3周回別系列分離、
+    分析画面ANL-01・ANL-03）。加重平均ではなく単純平均とする（14.2）。
+    """
+    rows = (
+        session.query(StudyLog.cycle_number, StudyLog.quality_value, DailyRecord.record_date)
+        .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(StudyLog.material_id == material_id, StudyLog.quality_value.isnot(None))
+        .all()
+    )
+    buckets: dict[tuple[int, dt.date], list[float]] = defaultdict(list)
+    for cycle_number, quality_value, record_date in rows:
+        buckets[(cycle_number, _bucket_start(record_date, granularity))].append(quality_value)
+
+    grouped: dict[int, list[QualityTrendPoint]] = defaultdict(list)
+    for (cycle_number, period_start), values in buckets.items():
+        grouped[cycle_number].append(
+            QualityTrendPoint(
+                period_start=period_start,
+                value=sum(values) / len(values),
+                sample_count=len(values),
+            )
+        )
+    for series in grouped.values():
+        series.sort(key=lambda p: p.period_start)
+    return dict(grouped)
+
+
+def resolve_passing_score(material: Material) -> float | None:
+    """合格基準線の値を解決する（14.4）。複数科目に紐づく場合は最も高いpassing_scoreを採用する。"""
+    scores = [
+        link.subject.passing_score
+        for link in material.subject_links
+        if link.subject.passing_score is not None
+    ]
+    return max(scores) if scores else None
