@@ -8,15 +8,17 @@
 import datetime as dt
 
 from app.constants.enums import (
+    BaselineReason,
     Environment,
     ExamDateType,
+    ExamResultType,
     GoalStatus,
     QualityMetricType,
     RecordState,
 )
 from app.models.goal import ExamSubject, Goal
-from app.models.material import Material
-from app.models.record import DailyRecord, StudyLog, WeeklySummary
+from app.models.material import Material, PlanBaseline
+from app.models.record import DailyRecord, ExamResult, StudyLog, WeeklySummary
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.services import ai_context_service
 from app.services.record_service import StudyLogItem
@@ -438,3 +440,187 @@ def test_build_week_metrics_text_summarizes_week(seeded_session):
     assert "総投下時間: 1.0時間" in text
     assert "総完了量: 20.0" in text
     assert "報告日数: 1日" in text
+
+
+# --- 総括レポート向け（Phase10） ---
+
+
+def test_build_material_summary_text_includes_totals_and_hours(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal, planned_cycles=2)
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8))
+    _make_study_log(seeded_session, record, material, minutes_spent=60, amount_completed=100.0)
+
+    text = ai_context_service.build_material_summary_text(seeded_session, [material])
+
+    assert "教材A" in text
+    assert "総量 100.0ページ × 2周" in text
+    assert "実績 1周完了" in text
+    assert "投下時間 1.0時間" in text
+
+
+def test_build_material_summary_text_handles_no_materials():
+    assert "対象教材はありません" in ai_context_service.build_material_summary_text(None, [])
+
+
+def test_build_overall_metrics_text_summarizes_goal(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    record = _make_daily_record(seeded_session, dt.date(2026, 1, 1))
+    _make_study_log(seeded_session, record, material, minutes_spent=90, amount_completed=10.0)
+
+    text = ai_context_service.build_overall_metrics_text(
+        seeded_session, goal, today=dt.date(2026, 1, 1), treat_holiday_as_buffer=True
+    )
+
+    assert "総投下時間: 1.5時間" in text
+    assert "学習日数: 1日" in text
+    assert "報告率: 100%" in text
+    assert "リプラン回数: 0回" in text
+
+
+def test_build_overall_metrics_text_handles_goal_without_materials(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    text = ai_context_service.build_overall_metrics_text(
+        seeded_session, goal, today=dt.date(2026, 1, 1), treat_holiday_as_buffer=True
+    )
+
+    assert "総投下時間: 0.0時間" in text
+
+
+def test_build_quality_trend_text_groups_by_cycle_and_month(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal, quality_metric_type=QualityMetricType.OBJECTIVE)
+    record = _make_daily_record(seeded_session, dt.date(2026, 1, 15))
+    _make_study_log(seeded_session, record, material, cycle_number=1, quality_value=70.0)
+
+    text = ai_context_service.build_quality_trend_text(seeded_session, [material])
+
+    assert "教材A" in text
+    assert "1周目" in text
+    assert "70.0" in text
+
+
+def test_build_quality_trend_text_handles_no_records(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+
+    text = ai_context_service.build_quality_trend_text(seeded_session, [material])
+
+    assert "品質指標の記録はありません" in text
+
+
+def test_build_replan_history_text_shows_before_and_after_quota(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    seeded_session.add(
+        PlanBaseline(
+            material_id=material.id,
+            effective_from=dt.date(2026, 1, 1),
+            baseline_daily_quota=10.0,
+            remaining_at_baseline=100.0,
+            plan_days_at_baseline=10,
+            planned_cycles_at_baseline=1,
+            reason=BaselineReason.INITIAL,
+        )
+    )
+    seeded_session.add(
+        PlanBaseline(
+            material_id=material.id,
+            effective_from=dt.date(2026, 1, 5),
+            baseline_daily_quota=15.0,
+            remaining_at_baseline=80.0,
+            plan_days_at_baseline=6,
+            planned_cycles_at_baseline=1,
+            reason=BaselineReason.REPLAN,
+        )
+    )
+    seeded_session.flush()
+
+    text = ai_context_service.build_replan_history_text(seeded_session, goal)
+
+    assert "初期設定" in text
+    assert "10.0（初期値）" in text
+    assert "リプラン" in text
+    assert "10.0→15.0" in text
+
+
+def test_build_replan_history_text_handles_no_baselines(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    text = ai_context_service.build_replan_history_text(seeded_session, goal)
+
+    assert "計画基準値の記録はありません" in text
+
+
+def test_build_exam_results_text_includes_registered_and_unregistered(seeded_session):
+    goal = _make_goal(seeded_session)
+    registered = _make_subject(seeded_session, goal, name="登録済み科目", display_order=1)
+    _make_subject(seeded_session, goal, name="未登録科目", display_order=2)
+    seeded_session.add(
+        ExamResult(
+            subject_id=registered.id,
+            taken_date=dt.date(2026, 12, 1),
+            result=ExamResultType.PASS,
+            score=88.0,
+        )
+    )
+    seeded_session.flush()
+    seeded_session.refresh(registered)
+
+    text = ai_context_service.build_exam_results_text(goal)
+
+    assert "登録済み科目: 合格、得点 88.0" in text
+    assert "未登録科目: 未登録" in text
+
+
+def test_build_exam_results_text_handles_no_subjects(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    text = ai_context_service.build_exam_results_text(goal)
+
+    assert "試験科目未登録" in text
+
+
+def test_build_all_weekly_summaries_text_orders_chronologically(seeded_session):
+    goal = _make_goal(seeded_session)
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 1, 12),
+            week_end_date=dt.date(2026, 1, 18),
+            summary_body="2週目",
+        )
+    )
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 1, 5),
+            week_end_date=dt.date(2026, 1, 11),
+            summary_body="1週目",
+        )
+    )
+    seeded_session.flush()
+
+    text = ai_context_service.build_all_weekly_summaries_text(seeded_session, goal)
+
+    assert text.index("1週目") < text.index("2週目")
+
+
+def test_build_all_weekly_summaries_text_handles_no_summaries(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    text = ai_context_service.build_all_weekly_summaries_text(seeded_session, goal)
+
+    assert "週次要約はありません" in text
+
+
+def test_build_anonymize_instruction_empty_when_not_anonymizing():
+    assert ai_context_service.build_anonymize_instruction(False) == ""
+
+
+def test_build_anonymize_instruction_returns_text_when_anonymizing():
+    text = ai_context_service.build_anonymize_instruction(True)
+
+    assert "匿名化" in text

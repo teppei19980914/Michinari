@@ -36,3 +36,6 @@ DASHBOARD_REPORT_RATE_WINDOW_DAYS = "dashboard.report_rate_window_days"
 DISPLAY_LOCALE = "display.locale"
 DISPLAY_THEME = "display.theme"
 DISPLAY_DEFAULT_GRANULARITY = "display.default_granularity"
+
+# データ管理（仕様書6.12、データ構造編9章D-02、実装フェーズ分割計画書Phase10）。
+BACKUP_RETENTION_COUNT = "backup.retention_count"

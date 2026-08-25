@@ -7,12 +7,13 @@ import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
-import { activateGoal, closeGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
+import { activateGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
+import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
 const TABS = [
@@ -24,65 +25,6 @@ const TABS = [
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
-
-function CloseGoalModal({
-  goalId,
-  open,
-  onClose,
-}: {
-  goalId: number
-  open: boolean
-  onClose: () => void
-}) {
-  const queryClient = useQueryClient()
-  const { showApiError } = useToast()
-  const [needsConfirmWithoutResult, setNeedsConfirmWithoutResult] = useState(false)
-
-  const mutation = useMutation({
-    mutationFn: (confirmWithoutResult: boolean) =>
-      closeGoal(goalId, { confirm_without_result: confirmWithoutResult }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
-      setNeedsConfirmWithoutResult(false)
-      onClose()
-    },
-    onError: (error) => {
-      if (error instanceof ApiError && error.code === 'INVALID_STATE_TRANSITION') {
-        setNeedsConfirmWithoutResult(true)
-        return
-      }
-      showApiError(error)
-    },
-  })
-
-  return (
-    <Modal
-      open={open}
-      onClose={() => {
-        setNeedsConfirmWithoutResult(false)
-        onClose()
-      }}
-      title={t('goals.detail.closeConfirm.title')}
-    >
-      <p className="text-sm text-gray-700">
-        {needsConfirmWithoutResult
-          ? t('goals.detail.closeConfirm.withoutResultBody')
-          : t('goals.detail.closeConfirm.body')}
-      </p>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          {t('common.action.cancel')}
-        </Button>
-        <Button
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate(needsConfirmWithoutResult)}
-        >
-          {t('common.action.confirm')}
-        </Button>
-      </div>
-    </Modal>
-  )
-}
 
 function GoalStatusActions({
   goalId,
@@ -144,6 +86,10 @@ function GoalStatusActions({
           goalId={goalId}
           open={closeModalOpen}
           onClose={() => setCloseModalOpen(false)}
+          onClosed={() => {
+            invalidate()
+            setCloseModalOpen(false)
+          }}
         />
       </div>
     )

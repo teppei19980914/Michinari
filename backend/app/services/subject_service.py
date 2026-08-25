@@ -7,8 +7,10 @@ import datetime as dt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.constants.enums import BaselineReason, ExamDateType
+from app.constants.enums import BaselineReason, ExamDateType, ExamResultType
+from app.models.base import utcnow
 from app.models.goal import ExamSubject, Goal
+from app.models.record import ExamResult
 from app.services import goal_service, material_service
 from app.services.exceptions import NotFoundError, ValidationError
 
@@ -149,3 +151,71 @@ def fix_exam_date(session: Session, subject: ExamSubject, exam_date_fixed: dt.da
         session, subject, BaselineReason.EXAM_DATE_FIXED, today, treat_holiday_as_buffer
     )
     return subject
+
+
+# --- 受験結果（仕様書6.9 SC-10、実装フェーズ分割計画書Phase10） ---
+
+
+def get_exam_result(session: Session, result_id: int) -> ExamResult:
+    result = session.get(ExamResult, result_id)
+    if result is None:
+        raise NotFoundError("受験結果", result_id)
+    return result
+
+
+def register_exam_result(
+    session: Session,
+    subject: ExamSubject,
+    *,
+    taken_date: dt.date,
+    result: ExamResultType,
+    score: float | None,
+    evaluation: str | None,
+    note: str | None,
+) -> ExamResult:
+    """科目に受験結果を登録する（仕様書6.9）。1科目につき1件のみ（更新はPATCH /results/{id}）。"""
+    goal_service.ensure_goal_editable(subject.goal)
+    if subject.exam_result is not None:
+        raise ValidationError(
+            f"試験科目(id={subject.id})には既に受験結果が登録されています。更新はPATCHで行ってください"
+        )
+
+    exam_result = ExamResult(
+        subject_id=subject.id,
+        taken_date=taken_date,
+        result=result,
+        score=score,
+        evaluation=evaluation,
+        note=note,
+        created_at=utcnow(),
+    )
+    session.add(exam_result)
+    session.flush()
+    return exam_result
+
+
+def update_exam_result(
+    session: Session,
+    exam_result: ExamResult,
+    *,
+    taken_date: dt.date | None = None,
+    result: ExamResultType | None = None,
+    score: float | None = None,
+    evaluation: str | None = None,
+    note: str | None = None,
+) -> ExamResult:
+    """受験結果を更新する（仕様書6.10 PATCH /results/{id}「クローズ前のみ」）。"""
+    goal_service.ensure_goal_editable(exam_result.subject.goal)
+
+    if taken_date is not None:
+        exam_result.taken_date = taken_date
+    if result is not None:
+        exam_result.result = result
+    if score is not None:
+        exam_result.score = score
+    if evaluation is not None:
+        exam_result.evaluation = evaluation
+    if note is not None:
+        exam_result.note = note
+    session.flush()
+    return exam_result

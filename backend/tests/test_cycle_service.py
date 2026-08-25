@@ -125,3 +125,87 @@ def test_validate_planned_cycles_change_rejects_below_current_cycle():
 def test_validate_planned_cycles_change_allows_equal_or_above():
     cycle_service.validate_planned_cycles_change(current_cycle=2, new_planned_cycles=2)
     cycle_service.validate_planned_cycles_change(current_cycle=2, new_planned_cycles=3)
+
+
+def test_cumulative_progress_accumulates_by_date_across_multiple_logs_per_day(db_session):
+    """分析画面「進捗」タブ: 累積完了量が日付順に積み上がること（同日に複数実績があれば合算）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=2)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 2), 10, cycle=1)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 5), 20, cycle=1)
+
+    points = cycle_service.compute_cumulative_progress(db_session, material.id)
+
+    assert [p.record_date for p in points] == [dt.date(2026, 1, 2), dt.date(2026, 1, 5)]
+    assert [p.cumulative_completed for p in points] == [10, 30]
+
+
+def test_cumulative_progress_empty_when_no_study_logs(db_session):
+    """境界値: 実績0件のケースで例外が発生しないこと。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=1)
+
+    assert cycle_service.compute_cumulative_progress(db_session, material.id) == []
+
+
+def test_cycle_boundaries_mark_dates_where_cumulative_crosses_total_amount(db_session):
+    """周回の区切り（累積完了量がtotal_amountの倍数を越えた日付）が特定されること。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=3)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 2), 60, cycle=1)
+    # 累積120 -> 1周目境界(100)を越える
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 3), 60, cycle=2)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 4), 60, cycle=2)  # 累積180
+
+    points = cycle_service.compute_cumulative_progress(db_session, material.id)
+    boundaries = cycle_service.compute_cycle_boundaries(material, points)
+
+    # 2周目(累積200)にはまだ到達していないため、境界は1件のみ
+    assert len(boundaries) == 1
+    assert boundaries[0].cycle_number == 1
+    assert boundaries[0].record_date == dt.date(2026, 1, 3)
+
+
+def test_cycle_boundaries_excludes_not_yet_reached_boundaries(db_session):
+    """境界値: まだ到達していない周回境界は含まれないこと。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=2)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 2), 30, cycle=1)
+
+    points = cycle_service.compute_cumulative_progress(db_session, material.id)
+    boundaries = cycle_service.compute_cycle_boundaries(material, points)
+
+    assert boundaries == []
+
+
+# --- compute_completed_cycles（Phase10: 総括レポート・ナレッジエクスポート向け） ---
+
+
+def test_compute_completed_cycles_counts_full_cycles_only(db_session):
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=3)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 1), amount=150.0, cycle=1)
+
+    progress = cycle_service.get_material_progress(db_session, material)
+
+    assert cycle_service.compute_completed_cycles(material, progress) == 1
+
+
+def test_compute_completed_cycles_caps_at_planned_cycles(db_session):
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, planned_cycles=2)
+    _add_study_log(db_session, material.id, dt.date(2026, 1, 1), amount=250.0, cycle=2)
+
+    progress = cycle_service.get_material_progress(db_session, material)
+
+    assert cycle_service.compute_completed_cycles(material, progress) == 2
+
+
+def test_compute_completed_cycles_returns_zero_when_total_amount_is_zero(db_session):
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=0, planned_cycles=1)
+    progress = cycle_service.MaterialProgress(
+        total_work=0, completed=0, remaining=0, current_cycle=1
+    )
+
+    assert cycle_service.compute_completed_cycles(material, progress) == 0

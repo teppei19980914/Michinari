@@ -191,7 +191,7 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     goal_cards: list[GoalCardRead] = []
     goal_stats: list[GoalStatsRead] = []
     for goal in active_goals:
-        materials = [m for m in goal.materials if m.is_active]
+        materials = material_service.list_active_materials(goal)
         materials_by_id.update({m.id: m for m in materials})
         card, stats = _build_goal_card_and_stats(
             session,

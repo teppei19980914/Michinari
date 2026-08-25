@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Outlet, Route, createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom'
 import { ROUTE_PATTERNS } from './constants/routes'
-import { t } from './locales/t'
 import { ToastProvider } from './components/Toast'
 import { GlobalNav } from './components/GlobalNav'
 import { DashboardPage } from './pages/DashboardPage'
-import { ComingSoonPage } from './pages/ComingSoonPage'
 import { GoalsListPage } from './pages/GoalsListPage'
 import { GoalDetailPage } from './pages/GoalDetailPage'
+import { ExamResultPage } from './pages/ExamResultPage'
+import { KnowledgeExportPage } from './pages/KnowledgeExportPage'
 import { ResourceSettingsPage } from './pages/ResourceSettingsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { DataManagementPage } from './pages/DataManagementPage'
@@ -15,6 +15,7 @@ import { CalendarPage } from './pages/CalendarPage'
 import { DailyReportPage } from './pages/DailyReportPage'
 import { ProgressOnlyPage } from './pages/ProgressOnlyPage'
 import { DailyReportViewPage } from './pages/DailyReportViewPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 
 const queryClient = new QueryClient()
 
@@ -39,11 +40,11 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.dashboard} element={<DashboardPage />} />
       <Route path={ROUTE_PATTERNS.goals} element={<GoalsListPage />} />
       <Route path={ROUTE_PATTERNS.goalDetail} element={<GoalDetailPage />} />
-      <Route path={ROUTE_PATTERNS.goalExport} element={<ComingSoonPage title={t('nav.goals')} />} />
-      <Route path={ROUTE_PATTERNS.goalResult} element={<ComingSoonPage title={t('nav.goals')} />} />
+      <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
+      <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />
       <Route path={ROUTE_PATTERNS.resources} element={<ResourceSettingsPage />} />
       <Route path={ROUTE_PATTERNS.calendar} element={<CalendarPage />} />
-      <Route path={ROUTE_PATTERNS.analytics} element={<ComingSoonPage title={t('nav.analytics')} />} />
+      <Route path={ROUTE_PATTERNS.analytics} element={<AnalyticsPage />} />
       <Route path={ROUTE_PATTERNS.settings} element={<SettingsPage />} />
       <Route path={ROUTE_PATTERNS.settingsData} element={<DataManagementPage />} />
       <Route path={ROUTE_PATTERNS.dailyReport} element={<DailyReportPage />} />
