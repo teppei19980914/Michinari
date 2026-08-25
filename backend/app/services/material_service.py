@@ -32,6 +32,15 @@ def get_material(session: Session, material_id: int) -> Material:
     return material
 
 
+def list_active_materials(goal: Goal) -> list[Material]:
+    """目標配下の有効な教材を返す（is_active=trueのみ）。
+
+    dashboard.py・analytics.py（Phase9）の双方が同じ絞り込みを必要とするため共通化した
+    （CLAUDE.md DRYの原則）。
+    """
+    return [m for m in goal.materials if m.is_active]
+
+
 def effective_exam_date(subject: ExamSubject) -> dt.date:
     """科目の有効受験日を導出する（データ構造編5.3）。RANGEは期間開始日（最も早い日）を採用する。"""
     if subject.exam_date_type == ExamDateType.FIXED:

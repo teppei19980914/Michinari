@@ -18,6 +18,7 @@ from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import AI_ASSISTANT_UID_WEEKLY_SUMMARY, SUMMARY_LOOKBACK_WEEKS
 from app.constants.enums import AiPurpose, ConversationScope
+from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog, WeeklySummary
@@ -64,6 +65,7 @@ def list_pending_weeks(session: Session, today: dt.date, lookback_weeks: int) ->
             for row in session.query(WeeklySummary.goal_id).filter(
                 WeeklySummary.goal_id.in_(goal_ids_with_logs),
                 WeeklySummary.week_start_date == week_start,
+                WeeklySummary.is_anonymized.is_(False),
             )
         }
         target_goal_ids = goal_ids_with_logs - already_generated
@@ -77,10 +79,20 @@ def list_pending_weeks(session: Session, today: dt.date, lookback_weeks: int) ->
 
 
 def generate_for_week(
-    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+    session: Session,
+    goal: Goal,
+    week_start: dt.date,
+    week_end: dt.date,
+    *,
+    anonymize: bool = False,
 ) -> WeeklySummary:
     """1件の(goal, week)について週次要約を生成する（17.3）。失敗時は例外をそのまま送出する
     （呼び出し側 run_retroactive_generation で1件ずつ捕捉し、他の生成を継続させる）。
+
+    anonymize=True の場合、匿名化版として別のAI会話（scope_keyを分離）で生成する
+    （データ構造編7.3「匿名化版の週次要約は別レコードとして保持し、元の版は削除しない」）。
+    既に匿名化版が存在する週の再エクスポートでは、そのレコードを最新内容へ更新する
+    （goal_id・week_start_date・is_anonymizedの一意制約により重複作成できないため）。
     """
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     variables = {
@@ -91,7 +103,7 @@ def generate_for_week(
             session, goal, week_start, week_end, treat_holiday_as_buffer
         ),
         "week_diaries": ai_context_service.build_week_diaries_text(session, week_start, week_end),
-        "anonymize": "",
+        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
     }
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.WEEKLY_SUMMARY)
@@ -99,13 +111,15 @@ def generate_for_week(
     build_result = prompt_builder.build_simple(template_body, variables, max_chars)
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_WEEKLY_SUMMARY)
+    scope_key = f"{week_start.isoformat()}_anon" if anonymize else week_start.isoformat()
+    title = f"{week_start.isoformat()}週 週次要約" + ("（匿名化）" if anonymize else "")
     conversation = ai_conversation.ensure_conversation(
         session,
         goal=goal,
         scope=ConversationScope.WEEKLY_SUMMARY,
-        scope_key=week_start.isoformat(),
+        scope_key=scope_key,
         assistant_uid=assistant_uid,
-        title=f"{week_start.isoformat()}週 週次要約",
+        title=title,
     )
 
     send_result = ai_orchestration.send_and_log(
@@ -117,15 +131,52 @@ def generate_for_week(
         was_truncated=build_result.was_truncated,
     )
 
-    summary = WeeklySummary(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_end,
-        summary_body=send_result.response_text.strip(),
+    summary_body = send_result.response_text.strip()
+    existing = (
+        session.query(WeeklySummary)
+        .filter_by(goal_id=goal.id, week_start_date=week_start, is_anonymized=True)
+        .first()
+        if anonymize
+        else None
     )
-    session.add(summary)
+    if existing is not None:
+        existing.summary_body = summary_body
+        existing.generated_at = utcnow()
+        summary = existing
+    else:
+        summary = WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=week_start,
+            week_end_date=week_end,
+            summary_body=summary_body,
+            is_anonymized=anonymize,
+        )
+        session.add(summary)
     session.flush()
     return summary
+
+
+def regenerate_all_weekly_summaries_anonymized(session: Session, goal: Goal) -> int:
+    """目標の全週の週次要約について、匿名化版を（再）生成する（データ構造編7.3、
+    実装フェーズ分割計画書Phase10注意点「匿名化時の再生成は複数回のAI呼び出しを伴う」）。
+
+    run_retroactive_generationと異なり、1件でも失敗したら例外をそのまま送出して処理全体を
+    中断する。匿名化はセンシティブな記述を除去するための操作であり、一部の週だけ非匿名の
+    元記述が残ったままエクスポートされることは情報漏洩のリスクとなるため、
+    run_retroactive_generationの「1件の失敗を握りつぶして継続する」方針（16.7）を
+    ここでは意図的に採用しない。
+    """
+    weeks = (
+        session.query(WeeklySummary.week_start_date, WeeklySummary.week_end_date)
+        .filter(WeeklySummary.goal_id == goal.id, WeeklySummary.is_anonymized.is_(False))
+        .order_by(WeeklySummary.week_start_date)
+        .all()
+    )
+    count = 0
+    for week_start, week_end in weeks:
+        generate_for_week(session, goal, week_start, week_end, anonymize=True)
+        count += 1
+    return count
 
 
 def run_retroactive_generation(session: Session, today: dt.date) -> int:

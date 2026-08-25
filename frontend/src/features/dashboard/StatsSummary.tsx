@@ -1,6 +1,8 @@
+import { Link } from 'react-router-dom'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { formatPercent } from '../../utils/format'
+import { ROUTES } from '../../constants/routes'
 import type { DashboardRead } from '../../api/dashboard'
 
 type StatsSummaryProps = {
@@ -23,7 +25,15 @@ export function StatsSummary({ goalStats, reportRateWindowDays }: StatsSummaryPr
       <div className="space-y-4">
         {goalStats.map((stats) => (
           <div key={stats.goal_id}>
-            <h3 className="text-sm font-medium text-gray-700">{stats.goal_name}</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-700">{stats.goal_name}</h3>
+              <Link
+                to={`${ROUTES.analytics}?goal=${stats.goal_id}`}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                {t('dashboard.stats.analyticsLink')}
+              </Link>
+            </div>
             <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600 sm:grid-cols-3">
               <div className="flex justify-between">
                 <dt>{t('dashboard.stats.consecutiveReportDays')}</dt>

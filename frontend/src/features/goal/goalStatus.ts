@@ -16,8 +16,6 @@ export function isClosedGoalStatus(status: GoalStatus): boolean {
 
 /**
  * 目標一覧からの遷移先を判定する（仕様書5.2「クローズ済目標選択→SC-13」「目標選択→SC-03」）。
- * SC-13（ナレッジエクスポート）はPhase10で実装するため、クローズ済みの間は
- * 準備中プレースホルダー（goalExport）へ遷移する。
  */
 export function resolveGoalListTarget(goalId: number, status: GoalStatus): string {
   return isClosedGoalStatus(status) ? ROUTES.goalExport(goalId) : ROUTES.goalDetail(goalId)

@@ -21,6 +21,7 @@ from app.constants.app_setting_keys import (
     AI_MIN_INTERVAL_SECONDS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
+    BACKUP_RETENTION_COUNT,
     CALENDAR_DAY_BOUNDARY_HOUR,
     DASHBOARD_REPORT_RATE_WINDOW_DAYS,
     DISPLAY_DEFAULT_GRANULARITY,
@@ -80,7 +81,7 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     SUMMARY_LOOKBACK_WEEKS: ("4", AppSettingValueType.INTEGER),
     SUMMARY_INJECT_WEEKS: ("4", AppSettingValueType.INTEGER),
     SERVER_PORT: ("8100", AppSettingValueType.INTEGER),
-    "backup.retention_count": ("5", AppSettingValueType.INTEGER),
+    BACKUP_RETENTION_COUNT: ("5", AppSettingValueType.INTEGER),
     DASHBOARD_REPORT_RATE_WINDOW_DAYS: ("30", AppSettingValueType.INTEGER),
 }
 

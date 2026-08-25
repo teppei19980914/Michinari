@@ -10,16 +10,26 @@ metrics_service・material_service）を組み合わせるのみで、算出ロ�
 import datetime as dt
 from collections import defaultdict
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.ai.prompt_builder import MaterialStatusEntry
-from app.constants.enums import DayType, GoalStatus, RecordState
+from app.constants.enums import (
+    BaselineReason,
+    DayType,
+    ExamResultType,
+    GoalStatus,
+    Granularity,
+    RecordState,
+)
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog, WeeklySummary
 from app.services import (
+    baseline_service,
     calendar_service,
     cycle_service,
+    goal_service,
     material_service,
     metrics_service,
     quota_service,
@@ -27,6 +37,26 @@ from app.services import (
 )
 from app.services import slot_service as slot_service_module
 from app.services.record_service import StudyLogItem
+
+#: 総括レポート向けの月次集約粒度（ロジック・プロンプト編17.5「{{quality_trend}}:
+#: 品質指標の推移（周回別、月次集約）」）。
+_RETROSPECTIVE_QUALITY_GRANULARITY = Granularity.MONTH
+
+#: リプラン契機の日本語表記（AIプロンプト向け生成テキスト。frontendのja.jsonとは別。
+#: バックエンドのAIプロンプトは常に日本語のため、UI表示ロケールとは独立して定義する）。
+_BASELINE_REASON_LABELS = {
+    BaselineReason.INITIAL: "初期設定",
+    BaselineReason.REPLAN: "リプラン",
+    BaselineReason.EXAM_DATE_FIXED: "受験日確定",
+    BaselineReason.MATERIAL_CHANGED: "教材変更",
+    BaselineReason.CYCLE_CHANGED: "周回数変更",
+}
+
+_EXAM_RESULT_LABELS = {
+    ExamResultType.PASS: "合格",
+    ExamResultType.FAIL: "不合格",
+    ExamResultType.PENDING: "未判定",
+}
 
 
 def list_active_goals(session: Session) -> list[Goal]:
@@ -246,7 +276,7 @@ def build_recent_weekly_summaries(
     goal_names = {goal.id: goal.name for goal in goals}
     rows = (
         session.query(WeeklySummary)
-        .filter(WeeklySummary.goal_id.in_(goal_names))
+        .filter(WeeklySummary.goal_id.in_(goal_names), WeeklySummary.is_anonymized.is_(False))
         .order_by(WeeklySummary.week_start_date.desc())
         .limit(inject_weeks)
         .all()
@@ -380,4 +410,146 @@ def build_week_metrics_text(
         f"品質指標平均: {avg_quality_text}\n"
         f"報告日数: {reported_days}日\n"
         f"バッファ消費率: {buffer_rate_text}"
+    )
+
+
+# --- 総括レポート（GOAL_RETROSPECTIVE、17.5、実装フェーズ分割計画書Phase10） ---
+
+
+def build_material_summary_text(session: Session, materials: list[Material]) -> str:
+    """{{material_summary}}: 教材ごとの総量・予定周回・実績周回・投下時間（17.5）。"""
+    if not materials:
+        return "（対象教材はありません）"
+    lines = []
+    for material in materials:
+        progress = cycle_service.get_material_progress(session, material)
+        completed_cycles = cycle_service.compute_completed_cycles(material, progress)
+        total_minutes = (
+            session.query(func.sum(StudyLog.minutes_spent))
+            .filter(StudyLog.material_id == material.id)
+            .scalar()
+            or 0
+        )
+        lines.append(
+            f"・{material.name}: 総量 {material.total_amount}{material.unit_label} ×"
+            f" {material.planned_cycles}周、実績 {completed_cycles}周完了、"
+            f"投下時間 {total_minutes / 60:.1f}時間"
+        )
+    return "\n".join(lines)
+
+
+def build_overall_metrics_text(
+    session: Session, goal: Goal, today: dt.date, treat_holiday_as_buffer: bool
+) -> str:
+    """{{overall_metrics}}: 総投下時間、学習日数、報告率、バッファ消費率、リプラン回数（17.5）。"""
+    material_ids = [material.id for material in goal.materials]
+    study_summary = metrics_service.compute_study_summary(session, material_ids)
+    total_minutes = study_summary.total_minutes
+    study_days = study_summary.study_days
+    report_rate = metrics_service.compute_report_rate(session, goal, today)
+    buffer_usage_rate = metrics_service.compute_buffer_usage_rate(
+        session, goal, today, treat_holiday_as_buffer
+    )
+    buffer_usage_text = (
+        f"{buffer_usage_rate:.0%}" if buffer_usage_rate is not None else "算出不可"
+    )
+    replan_count = metrics_service.compute_replan_count(session, goal)
+    return (
+        f"総投下時間: {total_minutes / 60:.1f}時間\n"
+        f"学習日数: {study_days}日\n"
+        f"報告率: {report_rate:.0%}\n"
+        f"バッファ消費率: {buffer_usage_text}\n"
+        f"リプラン回数: {replan_count}回"
+    )
+
+
+def build_quality_trend_text(session: Session, materials: list[Material]) -> str:
+    """{{quality_trend}}: 品質指標の推移（周回別、月次集約、17.5）。"""
+    if not materials:
+        return "（対象教材はありません）"
+    lines = []
+    for material in materials:
+        trend = metrics_service.compute_quality_trend(
+            session, material.id, _RETROSPECTIVE_QUALITY_GRANULARITY
+        )
+        if not trend:
+            continue
+        lines.append(f"■ {material.name}")
+        for cycle_number in sorted(trend):
+            points_text = "、".join(
+                f"{point.period_start.isoformat()}: {point.value:.1f}"
+                for point in trend[cycle_number]
+            )
+            lines.append(f"  {cycle_number}周目: {points_text}")
+    return "\n".join(lines) if lines else "（品質指標の記録はありません）"
+
+
+def build_replan_history_text(session: Session, goal: Goal) -> str:
+    """{{replan_history}}: リプラン履歴（日付、契機、変更前後のノルマ、
+    その時点の残量と残日数、17.5）。"""
+    baselines = goal_service.get_baselines(session, goal)
+    changes = baseline_service.compute_baseline_changes(baselines)
+    if not changes:
+        return "（計画基準値の記録はありません）"
+    material_names = {material.id: material.name for material in goal.materials}
+    lines = []
+    for change in changes:
+        reason_text = _BASELINE_REASON_LABELS[change.reason]
+        quota_text = (
+            f"{change.quota_before:.1f}→{change.quota_after:.1f}"
+            if change.quota_before is not None
+            else f"{change.quota_after:.1f}（初期値）"
+        )
+        lines.append(
+            f"・{change.effective_from.isoformat()} {material_names.get(change.material_id, '')}"
+            f"（{reason_text}）: ノルマ {quota_text}、"
+            f"残量 {change.remaining_at_baseline:.1f}、残り{change.plan_days_at_baseline}日"
+        )
+    return "\n".join(lines)
+
+
+def build_exam_results_text(goal: Goal) -> str:
+    """{{exam_results}}: 科目ごとの合否と得点（17.5）。"""
+    if not goal.exam_subjects:
+        return "（試験科目未登録）"
+    lines = []
+    for subject in sorted(goal.exam_subjects, key=lambda s: s.display_order):
+        result = subject.exam_result
+        if result is None:
+            lines.append(f"・{subject.name}: 未登録")
+            continue
+        score_text = f"、得点 {result.score}" if result.score is not None else ""
+        lines.append(
+            f"・{subject.name}: {_EXAM_RESULT_LABELS[result.result]}{score_text}"
+            f"（受験日 {result.taken_date.isoformat()}）"
+        )
+    return "\n".join(lines)
+
+
+def build_all_weekly_summaries_text(session: Session, goal: Goal) -> str:
+    """{{weekly_summaries}}（総括レポート向け）: 全週の要約を時系列順に（17.5「全週の要約」。
+    build_recent_weekly_summariesは日次報告向けに直近N週へ絞る別用途のため分離する）。
+    """
+    rows = (
+        session.query(WeeklySummary)
+        .filter(WeeklySummary.goal_id == goal.id, WeeklySummary.is_anonymized.is_(False))
+        .order_by(WeeklySummary.week_start_date)
+        .all()
+    )
+    if not rows:
+        return "（週次要約はありません）"
+    return "\n\n".join(
+        f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n{row.summary_body}"
+        for row in rows
+    )
+
+
+def build_anonymize_instruction(anonymize: bool) -> str:
+    """{{anonymize}}: 匿名化の指示（匿名化版生成時のみ、17.5、データ構造編7.3）。"""
+    if not anonymize:
+        return ""
+    return (
+        "# 匿名化の指示\n"
+        "業務・家庭など個人や勤務先を特定しうる固有の事情への言及を避け、"
+        "一般化して記述してください。"
     )

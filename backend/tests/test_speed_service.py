@@ -356,6 +356,47 @@ def test_required_speed_none_when_today_after_due_date(db_session):
     assert required is None
 
 
+def test_speed_trend_returns_one_point_per_valid_record_grouped_by_cycle(db_session):
+    """分析画面ANL-06: 実績1件ごとに1点として、周回別に系列分離されること。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 1), amount=10, cycle=1, minutes=60)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 2), amount=20, cycle=1, minutes=60)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 11), amount=30, cycle=2, minutes=60)
+
+    trend = speed_service.compute_speed_trend(db_session, material.id)
+
+    assert [p.speed for p in trend[1]] == [pytest.approx(10.0), pytest.approx(20.0)]
+    assert [p.record_date for p in trend[1]] == [dt.date(2026, 9, 1), dt.date(2026, 9, 2)]
+    assert [p.speed for p in trend[2]] == [pytest.approx(30.0)]
+
+
+def test_speed_trend_excludes_null_zero_minutes_and_off_days(db_session):
+    """実効速度推移も compute_cycle_speed と同じ除外基準（時間未入力・OFF日）を適用すること。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    off_date = dt.date(2026, 9, 5)
+    db_session.add(CalendarDayOverride(target_date=off_date, day_type=DayType.OFF))
+    db_session.flush()
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 1), amount=10, cycle=1, minutes=60)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 2), amount=999, cycle=1, minutes=None)
+    _add_study_log(db_session, material.id, dt.date(2026, 9, 3), amount=999, cycle=1, minutes=0)
+    _add_study_log(db_session, material.id, off_date, amount=999, cycle=1, minutes=60)
+
+    trend = speed_service.compute_speed_trend(db_session, material.id)
+
+    assert len(trend[1]) == 1
+    assert trend[1][0].record_date == dt.date(2026, 9, 1)
+
+
+def test_speed_trend_empty_when_no_valid_records(db_session):
+    """境界値: 有効な実績が0件のケースで例外が発生しないこと。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+
+    assert speed_service.compute_speed_trend(db_session, material.id) == {}
+
+
 def test_required_speed_computed_from_remaining_and_available_hours(db_session):
     goal = _make_goal(db_session)
     due_date = dt.date(2026, 1, 5)

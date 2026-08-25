@@ -4,9 +4,17 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import BaselineReason, DayType, GoalStatus, QualityMetricType, RecordState
-from app.models.goal import Goal
-from app.models.material import Material, PlanBaseline
+from app.constants.enums import (
+    BaselineReason,
+    DayType,
+    ExamDateType,
+    GoalStatus,
+    Granularity,
+    QualityMetricType,
+    RecordState,
+)
+from app.models.goal import ExamSubject, Goal
+from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.record import DailyRecord, StudyLog
 from app.models.setting import CalendarDayOverride
 from app.services import cycle_service, metrics_service
@@ -309,3 +317,118 @@ def test_group_quality_by_cycle_separates_series(db_session):
     grouped = metrics_service.group_quality_by_cycle(db_session, material.id)
 
     assert grouped == {1: [60.0], 2: [90.0]}
+
+
+def _add_quality_log(
+    db_session, material_id: int, record_date: dt.date, quality: float, cycle: int = 1
+) -> None:
+    record = _make_record(db_session, record_date, RecordState.REPORTED)
+    db_session.add(
+        StudyLog(
+            daily_record_id=record.id,
+            material_id=material_id,
+            minutes_spent=30,
+            amount_completed=10,
+            cycle_number=cycle,
+            quality_value=quality,
+        )
+    )
+    db_session.flush()
+
+
+def test_quality_trend_day_granularity_keeps_one_point_per_day(db_session):
+    """分析画面ANL-01: 日別粒度では実績日ごとに1点となること（14.2）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _add_quality_log(db_session, material.id, dt.date(2026, 1, 5), 60.0)
+    _add_quality_log(db_session, material.id, dt.date(2026, 1, 6), 80.0)
+
+    trend = metrics_service.compute_quality_trend(db_session, material.id, Granularity.DAY)
+
+    assert [p.period_start for p in trend[1]] == [dt.date(2026, 1, 5), dt.date(2026, 1, 6)]
+    assert [p.value for p in trend[1]] == [60.0, 80.0]
+
+
+def test_quality_trend_week_granularity_averages_within_monday_start_week(db_session):
+    """週別粒度は月曜始まりの週内で単純平均すること（14.2、15.1と同じ週定義）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    # 2026-01-05は月曜、2026-01-08は同じ週の木曜
+    _add_quality_log(db_session, material.id, dt.date(2026, 1, 5), 60.0)
+    _add_quality_log(db_session, material.id, dt.date(2026, 1, 8), 100.0)
+
+    trend = metrics_service.compute_quality_trend(db_session, material.id, Granularity.WEEK)
+
+    assert len(trend[1]) == 1
+    assert trend[1][0].period_start == dt.date(2026, 1, 5)
+    assert trend[1][0].value == pytest.approx(80.0)  # (60+100)/2の単純平均（加重平均ではない）
+    assert trend[1][0].sample_count == 2
+
+
+def test_quality_trend_month_granularity_buckets_by_first_of_month(db_session):
+    """月別粒度は月の値を単純平均し、区間開始日は月初になること（14.2）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _add_quality_log(db_session, material.id, dt.date(2026, 3, 1), 40.0)
+    _add_quality_log(db_session, material.id, dt.date(2026, 3, 31), 60.0)
+
+    trend = metrics_service.compute_quality_trend(db_session, material.id, Granularity.MONTH)
+
+    assert len(trend[1]) == 1
+    assert trend[1][0].period_start == dt.date(2026, 3, 1)
+    assert trend[1][0].value == pytest.approx(50.0)
+
+
+def test_quality_trend_separates_series_by_cycle(db_session):
+    """周回別に系列分離されること（14.3、2周目以降を1周目と混同しない）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _add_quality_log(db_session, material.id, dt.date(2026, 1, 5), 50.0, cycle=1)
+    _add_quality_log(db_session, material.id, dt.date(2026, 2, 5), 90.0, cycle=2)
+
+    trend = metrics_service.compute_quality_trend(db_session, material.id, Granularity.DAY)
+
+    assert set(trend.keys()) == {1, 2}
+    assert trend[2][0].value == 90.0
+
+
+def test_quality_trend_empty_when_no_quality_values(db_session):
+    """境界値: 品質指標が1件も記録されていない場合に例外が発生しないこと。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+
+    assert metrics_service.compute_quality_trend(db_session, material.id, Granularity.DAY) == {}
+
+
+def _link_subject(
+    db_session, goal_id: int, material_id: int, passing_score: float | None, display_order: int = 1
+) -> None:
+    subject = ExamSubject(
+        goal_id=goal_id,
+        name="科目",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_fixed=dt.date(2026, 12, 1),
+        passing_score=passing_score,
+        display_order=display_order,
+    )
+    db_session.add(subject)
+    db_session.flush()
+    db_session.add(MaterialSubject(material_id=material_id, subject_id=subject.id))
+    db_session.flush()
+
+
+def test_resolve_passing_score_none_when_no_linked_subjects(db_session):
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+
+    assert metrics_service.resolve_passing_score(material) is None
+
+
+def test_resolve_passing_score_uses_highest_when_multiple_subjects_linked(db_session):
+    """14.4: 教材が複数科目に紐づく場合、最も高いpassing_scoreを採用する。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _link_subject(db_session, goal.id, material.id, passing_score=60.0, display_order=1)
+    _link_subject(db_session, goal.id, material.id, passing_score=75.0, display_order=2)
+
+    assert metrics_service.resolve_passing_score(material) == 75.0

@@ -50,6 +50,23 @@ class ForecastResult:
     unavailable_reason: ForecastUnavailableReason | None
 
 
+def _off_dates(session: Session, dates: set[dt.date]) -> set[dt.date]:
+    """指定した日付集合のうちOFF日を返す（4.1、OFFはcalendar_day_overrideでのみ設定可能）。
+
+    compute_cycle_speeds と compute_speed_trend の双方が使う判定ロジックを共通化したもの
+    （CLAUDE.md DRYの原則）。呼び出し側がいずれも rows が空でないことを確認してから
+    呼ぶため（実績が0件ならOFF日判定自体が不要なため早期return済み）、dates は常に
+    非空である前提でよい。
+    """
+    return {
+        row.target_date
+        for row in session.query(CalendarDayOverride).filter(
+            CalendarDayOverride.target_date.in_(dates),
+            CalendarDayOverride.day_type == DayType.OFF,
+        )
+    }
+
+
 def compute_cycle_speed(session: Session, material_id: int, cycle_number: int) -> CycleSpeed | None:
     """周回 c の実効速度 speed(m, c) を算出する（8.1、8.4）。
 
@@ -88,14 +105,7 @@ def compute_cycle_speeds(
     if not rows:
         return {}
 
-    record_dates = {row.record_date for row in rows}
-    off_dates = {
-        row.target_date
-        for row in session.query(CalendarDayOverride).filter(
-            CalendarDayOverride.target_date.in_(record_dates),
-            CalendarDayOverride.day_type == DayType.OFF,
-        )
-    }
+    off_dates = _off_dates(session, {row.record_date for row in rows})
 
     grouped: dict[int, list[tuple[float, int]]] = defaultdict(list)
     for cycle_number, amount, minutes, record_date in rows:
@@ -112,6 +122,54 @@ def compute_cycle_speeds(
             sample_count=len(entries), speed=total_amount / total_hours
         )
     return result
+
+
+@dataclass(frozen=True)
+class SpeedTrendPoint:
+    """実効速度推移グラフの1点（分析画面ANL-06、8.1を実績1件ごとに適用したもの）。"""
+
+    record_date: dt.date
+    speed: float
+
+
+def compute_speed_trend(session: Session, material_id: int) -> dict[int, list[SpeedTrendPoint]]:
+    """周回別の実効速度推移を算出する（8.1、分析画面ANL-06「単位時間あたり完了分量の推移を
+    周回別に表示」）。
+
+    compute_cycle_speeds は周回全体を集計した1点（sample_count・speed）を返すが、
+    本関数は推移グラフ用に実績1件＝1点として日付付きで返す。除外条件（minutes_spentが
+    NULL/0の実績、OFF日の実績）は compute_cycle_speeds と同じ（8.4）。
+    """
+    rows = (
+        session.query(
+            StudyLog.cycle_number,
+            StudyLog.amount_completed,
+            StudyLog.minutes_spent,
+            DailyRecord.record_date,
+        )
+        .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(
+            StudyLog.material_id == material_id,
+            StudyLog.minutes_spent.isnot(None),
+            StudyLog.minutes_spent > 0,
+        )
+        .all()
+    )
+    if not rows:
+        return {}
+
+    off_dates = _off_dates(session, {row.record_date for row in rows})
+
+    grouped: dict[int, list[SpeedTrendPoint]] = defaultdict(list)
+    for cycle_number, amount, minutes, record_date in rows:
+        if record_date in off_dates:
+            continue
+        grouped[cycle_number].append(
+            SpeedTrendPoint(record_date=record_date, speed=amount / (minutes / 60))
+        )
+    for series in grouped.values():
+        series.sort(key=lambda p: p.record_date)
+    return dict(grouped)
 
 
 def compute_effective_speed(

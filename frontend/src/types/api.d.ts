@@ -797,6 +797,290 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Quality Analytics */
+        get: operations["get_quality_analytics_api_v1_analytics_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Progress Analytics */
+        get: operations["get_progress_analytics_api_v1_analytics_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/forecast": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Forecast Analytics */
+        get: operations["get_forecast_analytics_api_v1_analytics_forecast_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/speed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Speed Analytics */
+        get: operations["get_speed_analytics_api_v1_analytics_speed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/gantt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Gantt Analytics */
+        get: operations["get_gantt_analytics_api_v1_analytics_gantt_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/growth-descriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Growth Descriptions */
+        get: operations["get_growth_descriptions_api_v1_analytics_growth_descriptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subjects/{subject_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register Exam Result */
+        post: operations["register_exam_result_api_v1_subjects__subject_id__result_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/results/{result_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Exam Result */
+        patch: operations["update_exam_result_api_v1_results__result_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/retrospective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Retrospective */
+        get: operations["get_retrospective_api_v1_goals__goal_id__retrospective_get"];
+        put?: never;
+        /** Generate Retrospective */
+        post: operations["generate_retrospective_api_v1_goals__goal_id__retrospective_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/knowledge-export/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Knowledge Export
+         * @description プレビュー（読み取りのみ。匿名化版の再生成は行わず、既存レコードのみを参照する）。
+         */
+        get: operations["preview_knowledge_export_api_v1_goals__goal_id__knowledge_export_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/knowledge-export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Execute Knowledge Export */
+        post: operations["execute_knowledge_export_api_v1_goals__goal_id__knowledge_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Data
+         * @description 全データのエクスポート（仕様書6.12、実装フェーズ分割計画書Phase10完了条件
+         *     「JSON出力をインポートして復元できる」）。
+         */
+        get: operations["export_data_api_v1_data_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Data
+         * @description データのインポート（仕様書6.12「既存データの上書きを確認」。確認モーダルはフロント側
+         *     (MD-xx) で行い、本APIは確認済みの上書き実行のみを担う）。
+         */
+        post: operations["import_data_api_v1_data_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Backup */
+        post: operations["create_backup_api_v1_data_backup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Backups */
+        get: operations["list_backups_api_v1_data_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/data/backups/{backup_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Backup */
+        post: operations["restore_backup_api_v1_data_backups__backup_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -931,11 +1215,28 @@ export interface components {
             display?: components["schemas"]["DisplaySettingsUpdate"] | null;
             log?: components["schemas"]["LogSettingsUpdate"] | null;
         };
+        /** BackupRead */
+        BackupRead: {
+            /** Id */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
         /**
          * BaselineReason
          * @enum {string}
          */
         BaselineReason: "INITIAL" | "REPLAN" | "EXAM_DATE_FIXED" | "MATERIAL_CHANGED" | "CYCLE_CHANGED";
+        /** Body_import_data_api_v1_data_import_post */
+        Body_import_data_api_v1_data_import_post: {
+            /** File */
+            file: string;
+        };
         /** Body_import_holidays_api_v1_calendar_holidays_import_post */
         Body_import_holidays_api_v1_calendar_holidays_import_post: {
             /** File */
@@ -1028,6 +1329,16 @@ export interface components {
         CommentUpdate: {
             /** Body */
             body: string;
+        };
+        /** CycleBoundaryRead */
+        CycleBoundaryRead: {
+            /** Cycle Number */
+            cycle_number: number;
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
         };
         /** DailyMessageRead */
         DailyMessageRead: {
@@ -1143,6 +1454,57 @@ export interface components {
          * @enum {string}
          */
         ExamDateType: "RANGE" | "FIXED";
+        /** ExamResultCreate */
+        ExamResultCreate: {
+            /**
+             * Taken Date
+             * Format: date
+             */
+            taken_date: string;
+            result: components["schemas"]["ExamResultType"];
+            /** Score */
+            score?: number | null;
+            /** Evaluation */
+            evaluation?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** ExamResultRead */
+        ExamResultRead: {
+            /** Id */
+            id: number;
+            /** Subject Id */
+            subject_id: number;
+            /**
+             * Taken Date
+             * Format: date
+             */
+            taken_date: string;
+            result: components["schemas"]["ExamResultType"];
+            /** Score */
+            score: number | null;
+            /** Evaluation */
+            evaluation: string | null;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * ExamResultType
+         * @enum {string}
+         */
+        ExamResultType: "PASS" | "FAIL" | "PENDING";
+        /** ExamResultUpdate */
+        ExamResultUpdate: {
+            /** Taken Date */
+            taken_date?: string | null;
+            result?: components["schemas"]["ExamResultType"] | null;
+            /** Score */
+            score?: number | null;
+            /** Evaluation */
+            evaluation?: string | null;
+            /** Note */
+            note?: string | null;
+        };
         /** FinalizeRequest */
         FinalizeRequest: {
             /** Study Logs */
@@ -1157,6 +1519,70 @@ export interface components {
              * @default
              */
             diary_learned: string;
+        };
+        /**
+         * ForecastAnalyticsRead
+         * @description GET /analytics/forecast（仕様書6.8「完了予測」タブ、ANL-05）。
+         */
+        ForecastAnalyticsRead: {
+            /** Materials */
+            materials: components["schemas"]["ForecastEntryRead"][];
+        };
+        /** ForecastEntryRead */
+        ForecastEntryRead: {
+            /** Material Id */
+            material_id: number;
+            /** Material Name */
+            material_name: string;
+            /** Unit Label */
+            unit_label: string;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Forecast Date */
+            forecast_date: string | null;
+            /** Overrun Days */
+            overrun_days: number | null;
+            /** Unavailable Reason */
+            unavailable_reason: string | null;
+        };
+        /**
+         * GanttAnalyticsRead
+         * @description GET /analytics/gantt（仕様書6.8「ガントチャート」タブ、ANL-04）。
+         */
+        GanttAnalyticsRead: {
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Materials */
+            materials: components["schemas"]["GanttEntryRead"][];
+        };
+        /** GanttEntryRead */
+        GanttEntryRead: {
+            /** Material Id */
+            material_id: number;
+            /** Material Name */
+            material_name: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Progress Rate */
+            progress_rate: number;
+            /** Current Cycle */
+            current_cycle: number;
+            /** Planned Cycles */
+            planned_cycles: number;
         };
         /** GoalAllocationRead */
         GoalAllocationRead: {
@@ -1293,6 +1719,31 @@ export interface components {
             /** Resource Ratio */
             resource_ratio?: number | null;
         };
+        /**
+         * Granularity
+         * @description 分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。
+         *
+         *     settings_service._ALLOWED_GRANULARITIES（display.default_granularityの許容値）と
+         *     同じ値を用いる（CLAUDE.md DRYの原則）。
+         * @enum {string}
+         */
+        Granularity: "DAY" | "WEEK" | "MONTH";
+        /**
+         * GrowthDescriptionEntryRead
+         * @description GET /analytics/growth-descriptions（仕様書6.8「成長記述」タブ、ANL-07）。
+         *
+         *     データ構造編8章のエンドポイント一覧に明記のないPhase9実装判断による追加。
+         *     根拠はanalytics_service.list_growth_descriptionsのdocstringを参照。
+         */
+        GrowthDescriptionEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Content */
+            content: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1316,6 +1767,94 @@ export interface components {
         HolidayTreatAsBufferUpdate: {
             /** Treat As Buffer */
             treat_as_buffer: boolean;
+        };
+        /**
+         * KnowledgeExportContentRead
+         * @description プレビュー・実行結果に共通の出力内容（Markdown・JSON両形式を同時に出力する、7.2）。
+         */
+        KnowledgeExportContentRead: {
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Markdown */
+            markdown: string;
+        };
+        /** KnowledgeExportRequest */
+        KnowledgeExportRequest: {
+            /**
+             * Goal Overview
+             * @default true
+             */
+            goal_overview: boolean;
+            /**
+             * Materials
+             * @default true
+             */
+            materials: boolean;
+            /**
+             * Summary
+             * @default true
+             */
+            summary: boolean;
+            /**
+             * Daily Records
+             * @default true
+             */
+            daily_records: boolean;
+            /**
+             * Quality Trend
+             * @default true
+             */
+            quality_trend: boolean;
+            /**
+             * Replan History
+             * @default true
+             */
+            replan_history: boolean;
+            /**
+             * Weekly Summaries
+             * @default true
+             */
+            weekly_summaries: boolean;
+            /**
+             * Diary
+             * @default false
+             */
+            diary: boolean;
+            /**
+             * Ai Dialogue
+             * @default false
+             */
+            ai_dialogue: boolean;
+            /**
+             * Exam Results
+             * @default true
+             */
+            exam_results: boolean;
+            /**
+             * Retrospective
+             * @default true
+             */
+            retrospective: boolean;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
+        };
+        /** KnowledgeExportResultRead */
+        KnowledgeExportResultRead: {
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Markdown */
+            markdown: string;
+            /** Markdown Path */
+            markdown_path: string;
+            /** Json Path */
+            json_path: string;
         };
         /** LoadProfileCreate */
         LoadProfileCreate: {
@@ -1427,6 +1966,34 @@ export interface components {
             /** Quality Average */
             quality_average: number | null;
         };
+        /** MaterialProgressTrendRead */
+        MaterialProgressTrendRead: {
+            /** Material Id */
+            material_id: number;
+            /** Material Name */
+            material_name: string;
+            /** Unit Label */
+            unit_label: string;
+            /** Total Work */
+            total_work: number;
+            /** Actual Points */
+            actual_points: components["schemas"]["ProgressPointRead"][];
+            /** Plan Points */
+            plan_points: components["schemas"]["ProgressPointRead"][];
+            /** Cycle Boundaries */
+            cycle_boundaries: components["schemas"]["CycleBoundaryRead"][];
+        };
+        /** MaterialQualityTrendRead */
+        MaterialQualityTrendRead: {
+            /** Material Id */
+            material_id: number;
+            /** Material Name */
+            material_name: string;
+            /** Passing Score */
+            passing_score: number | null;
+            /** Series */
+            series: components["schemas"]["QualityTrendSeriesRead"][];
+        };
         /** MaterialRead */
         MaterialRead: {
             /** Id */
@@ -1487,6 +2054,17 @@ export interface components {
             /** Speed */
             speed: number | null;
         };
+        /** MaterialSpeedTrendRead */
+        MaterialSpeedTrendRead: {
+            /** Material Id */
+            material_id: number;
+            /** Material Name */
+            material_name: string;
+            /** Unit Label */
+            unit_label: string;
+            /** Series */
+            series: components["schemas"]["SpeedTrendSeriesRead"][];
+        };
         /** MaterialUpdate */
         MaterialUpdate: {
             /** Name */
@@ -1531,6 +2109,27 @@ export interface components {
             planned_cycles_at_baseline: number;
             reason: components["schemas"]["BaselineReason"];
         };
+        /**
+         * ProgressAnalyticsRead
+         * @description GET /analytics/progress（仕様書6.8「進捗」タブ）。
+         */
+        ProgressAnalyticsRead: {
+            /** Materials */
+            materials: components["schemas"]["MaterialProgressTrendRead"][];
+        };
+        /**
+         * ProgressPointRead
+         * @description 累積完了量の1点。実績系列・計画線系列の双方で共通の形状を使う。
+         */
+        ProgressPointRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Cumulative Completed */
+            cumulative_completed: number;
+        };
         /** ProgressRegisterRequest */
         ProgressRegisterRequest: {
             /** Study Logs */
@@ -1564,10 +2163,44 @@ export interface components {
             body: string;
         };
         /**
+         * QualityAnalyticsRead
+         * @description GET /analytics/quality（仕様書6.8「品質推移」タブ、ANL-01〜03）。
+         */
+        QualityAnalyticsRead: {
+            granularity: components["schemas"]["Granularity"];
+            /** Materials */
+            materials: components["schemas"]["MaterialQualityTrendRead"][];
+        };
+        /**
          * QualityMetricType
          * @enum {string}
          */
         QualityMetricType: "NONE" | "OBJECTIVE" | "SELF_SCORED" | "SUBJECTIVE";
+        /**
+         * QualityTrendPointRead
+         * @description 品質推移グラフの1点（14.2の集約規則で平均化済み）。
+         */
+        QualityTrendPointRead: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /** Value */
+            value: number;
+            /** Sample Count */
+            sample_count: number;
+        };
+        /**
+         * QualityTrendSeriesRead
+         * @description 周回別に分離された品質指標の系列（14.3）。
+         */
+        QualityTrendSeriesRead: {
+            /** Cycle Number */
+            cycle_number: number;
+            /** Points */
+            points: components["schemas"]["QualityTrendPointRead"][];
+        };
         /**
          * QuotaItemRead
          * @description 日次記録画面（SC-06/SC-07）の実績入力行に必要な教材情報（仕様書6.5）。
@@ -1654,10 +2287,59 @@ export interface components {
             /** Is Active */
             is_active?: boolean | null;
         };
+        /** RetrospectiveGenerateRequest */
+        RetrospectiveGenerateRequest: {
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
+        };
+        /** RetrospectiveRead */
+        RetrospectiveRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /** Body */
+            body: string;
+            /** Is Anonymized */
+            is_anonymized: boolean;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
         /** SlotCheckRead */
         SlotCheckRead: {
             /** Sufficient */
             sufficient: boolean;
+        };
+        /**
+         * SpeedAnalyticsRead
+         * @description GET /analytics/speed（仕様書6.8「実効速度」タブ、ANL-06）。
+         */
+        SpeedAnalyticsRead: {
+            /** Materials */
+            materials: components["schemas"]["MaterialSpeedTrendRead"][];
+        };
+        /** SpeedTrendPointRead */
+        SpeedTrendPointRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Speed */
+            speed: number;
+        };
+        /** SpeedTrendSeriesRead */
+        SpeedTrendSeriesRead: {
+            /** Cycle Number */
+            cycle_number: number;
+            /** Points */
+            points: components["schemas"]["SpeedTrendPointRead"][];
         };
         /** StudyLogInput */
         StudyLogInput: {
@@ -1728,6 +2410,7 @@ export interface components {
             passing_score: number | null;
             /** Display Order */
             display_order: number;
+            exam_result?: components["schemas"]["ExamResultRead"] | null;
         };
         /** SubjectUpdate */
         SubjectUpdate: {
@@ -3569,6 +4252,519 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PromptTemplateRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_quality_analytics_api_v1_analytics_quality_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+                granularity?: components["schemas"]["Granularity"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QualityAnalyticsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_progress_analytics_api_v1_analytics_progress_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressAnalyticsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_forecast_analytics_api_v1_analytics_forecast_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForecastAnalyticsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_speed_analytics_api_v1_analytics_speed_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpeedAnalyticsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gantt_analytics_api_v1_analytics_gantt_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttAnalyticsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_growth_descriptions_api_v1_analytics_growth_descriptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrowthDescriptionEntryRead"][];
+                };
+            };
+        };
+    };
+    register_exam_result_api_v1_subjects__subject_id__result_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamResultCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_exam_result_api_v1_results__result_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                result_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExamResultUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_retrospective_api_v1_goals__goal_id__retrospective_get: {
+        parameters: {
+            query?: {
+                anonymized?: boolean;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetrospectiveRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_retrospective_api_v1_goals__goal_id__retrospective_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetrospectiveGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetrospectiveRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_knowledge_export_api_v1_goals__goal_id__knowledge_export_preview_get: {
+        parameters: {
+            query?: {
+                anonymized?: boolean;
+                goal_overview?: boolean;
+                materials?: boolean;
+                summary?: boolean;
+                daily_records?: boolean;
+                quality_trend?: boolean;
+                replan_history?: boolean;
+                weekly_summaries?: boolean;
+                diary?: boolean;
+                ai_dialogue?: boolean;
+                exam_results?: boolean;
+                retrospective?: boolean;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeExportContentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_knowledge_export_api_v1_goals__goal_id__knowledge_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeExportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeExportResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_data_api_v1_data_export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    import_data_api_v1_data_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_data_api_v1_data_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_backup_api_v1_data_backup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupRead"];
+                };
+            };
+        };
+    };
+    list_backups_api_v1_data_backups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupRead"][];
+                };
+            };
+        };
+    };
+    restore_backup_api_v1_data_backups__backup_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
