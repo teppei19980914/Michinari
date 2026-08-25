@@ -11,6 +11,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
 DEFAULT_DATA_DIR = REPO_ROOT / "data"
+#: データ構造編8章のディレクトリ構成「data/ データベースファイル、バックアップ、エクスポート」。
+BACKUP_DIR = DEFAULT_DATA_DIR / "backups"
+EXPORT_DIR = DEFAULT_DATA_DIR / "exports"
 
 
 class Settings(BaseSettings):

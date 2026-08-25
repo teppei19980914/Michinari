@@ -277,3 +277,85 @@ def test_run_retroactive_generation_respects_call_interval(seeded_session, monke
     weekly_summary_service.run_retroactive_generation(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(wait_calls) == 2  # 生成2件分、毎回呼び出し間隔を確認している
+
+
+# --- generate_for_week（匿名化版、Phase10） ---
+
+
+def test_generate_for_week_anonymized_creates_separate_record(seeded_session, monkeypatch):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    _stub_send_message(monkeypatch, response="匿名化版の本文")
+
+    summary = weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        anonymize=True,
+    )
+
+    assert summary.is_anonymized is True
+    assert summary.summary_body == "匿名化版の本文"
+    assert seeded_session.query(WeeklySummary).count() == 1
+
+
+def test_generate_for_week_anonymized_twice_updates_existing_record(seeded_session, monkeypatch):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    _stub_send_message(monkeypatch, response="1回目の匿名化")
+
+    first = weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        anonymize=True,
+    )
+
+    _stub_send_message(monkeypatch, response="2回目の匿名化")
+    second = weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        anonymize=True,
+    )
+
+    assert first.id == second.id
+    assert second.summary_body == "2回目の匿名化"
+    assert seeded_session.query(WeeklySummary).count() == 1
+
+
+# --- regenerate_all_weekly_summaries_anonymized（Phase10） ---
+
+
+def test_regenerate_all_weekly_summaries_anonymized_covers_every_original_week(
+    seeded_session, monkeypatch
+):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))  # 週1
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 週2
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 3), week_end=dt.date(2026, 8, 9)
+    )
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+    _stub_send_message(monkeypatch, response="匿名化済み")
+
+    count = weekly_summary_service.regenerate_all_weekly_summaries_anonymized(seeded_session, goal)
+
+    assert count == 2
+    anonymized = (
+        seeded_session.query(WeeklySummary).filter(WeeklySummary.is_anonymized.is_(True)).all()
+    )
+    assert len(anonymized) == 2
+    assert all(row.summary_body == "匿名化済み" for row in anonymized)
+
+
+def test_regenerate_all_weekly_summaries_anonymized_raises_on_failure(seeded_session, monkeypatch):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+    _stub_send_message(monkeypatch, raise_exc_for={"chat-0"})
+
+    with pytest.raises(AiError):
+        weekly_summary_service.regenerate_all_weekly_summaries_anonymized(seeded_session, goal)

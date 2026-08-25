@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.materials import serialize_material
 from app.database import get_db
-from app.models.goal import Goal
+from app.models.goal import ExamSubject, Goal
 from app.schemas.goal import (
     GoalCloseRequest,
     GoalCreate,
@@ -20,16 +20,41 @@ from app.schemas.goal import (
 )
 from app.schemas.load_profile import LoadProfileCreate, LoadProfileRead, LoadProfileUpdate
 from app.schemas.material import MaterialCreate, MaterialRead
-from app.schemas.subject import SubjectCreate, SubjectFixDateRequest, SubjectRead, SubjectUpdate
+from app.schemas.subject import (
+    ExamResultRead,
+    SubjectCreate,
+    SubjectFixDateRequest,
+    SubjectRead,
+    SubjectUpdate,
+)
 from app.services import goal_service, material_service, subject_service
 
 router = APIRouter(tags=["goals"])
 
 
+def serialize_subject(subject: ExamSubject) -> SubjectRead:
+    """受験結果（1:1、任意）を明示的に付与する（materials.serialize_materialと同じ理由で
+    自動のネストfrom_attributes変換に頼らない、CLAUDE.md DRYの原則で共通化）。"""
+    return SubjectRead(
+        id=subject.id,
+        goal_id=subject.goal_id,
+        name=subject.name,
+        exam_date_type=subject.exam_date_type,
+        exam_date_from=subject.exam_date_from,
+        exam_date_to=subject.exam_date_to,
+        exam_date_fixed=subject.exam_date_fixed,
+        passing_score=subject.passing_score,
+        display_order=subject.display_order,
+        exam_result=ExamResultRead.model_validate(subject.exam_result)
+        if subject.exam_result is not None
+        else None,
+    )
+
+
 def _serialize_goal_detail(session: Session, goal: Goal) -> GoalDetailRead:
     return GoalDetailRead(
         **GoalRead.model_validate(goal).model_dump(),
-        exam_subjects=[SubjectRead.model_validate(s) for s in goal.exam_subjects],
+        exam_subjects=[serialize_subject(s) for s in goal.exam_subjects],
         materials=[serialize_material(session, m) for m in goal.materials],
         load_profiles=[LoadProfileRead.model_validate(p) for p in goal.load_profiles],
     )
@@ -121,7 +146,7 @@ def create_subject(
     goal = goal_service.get_goal(session, goal_id)
     subject = subject_service.create_subject(session, goal, **payload.model_dump())
     session.commit()
-    return SubjectRead.model_validate(subject)
+    return serialize_subject(subject)
 
 
 @router.patch("/subjects/{subject_id}", response_model=SubjectRead)
@@ -131,7 +156,7 @@ def update_subject(
     subject = subject_service.get_subject(session, subject_id)
     subject_service.update_subject(session, subject, **payload.model_dump(exclude_unset=True))
     session.commit()
-    return SubjectRead.model_validate(subject)
+    return serialize_subject(subject)
 
 
 @router.delete("/subjects/{subject_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -148,7 +173,7 @@ def fix_subject_date(
     subject = subject_service.get_subject(session, subject_id)
     subject_service.fix_exam_date(session, subject, payload.exam_date_fixed)
     session.commit()
-    return SubjectRead.model_validate(subject)
+    return serialize_subject(subject)
 
 
 # --- 教材（新規作成のみ。個別操作は materials.py） ---

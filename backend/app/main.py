@@ -8,9 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.ai import logger as ai_logger
 from app.api.ai import router as ai_router
+from app.api.analytics import router as analytics_router
 from app.api.calendar import router as calendar_router
+from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
+from app.api.data import router as data_router
 from app.api.errors import register_exception_handlers
+from app.api.export import router as export_router
 from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
 from app.api.records import router as records_router
@@ -68,6 +72,10 @@ def create_app() -> FastAPI:
     app.include_router(ai_router, prefix=API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=API_V1_PREFIX)
     app.include_router(settings_router, prefix=API_V1_PREFIX)
+    app.include_router(analytics_router, prefix=API_V1_PREFIX)
+    app.include_router(closure_router, prefix=API_V1_PREFIX)
+    app.include_router(export_router, prefix=API_V1_PREFIX)
+    app.include_router(data_router, prefix=API_V1_PREFIX)
 
     return app
 
