@@ -35,3 +35,12 @@ class KnowledgeExportContentRead(BaseModel):
 class KnowledgeExportResultRead(KnowledgeExportContentRead):
     markdown_path: str
     json_path: str
+
+
+class KnowledgeExportProgressRead(BaseModel):
+    """GET /goals/{goal_id}/knowledge-export/progress: 匿名化エクスポート実行中の進捗
+    （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。"""
+
+    in_progress: bool
+    completed: int = 0
+    total: int = 0

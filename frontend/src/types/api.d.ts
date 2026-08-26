@@ -971,6 +971,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/knowledge-export/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Knowledge Export Progress
+         * @description 匿名化エクスポート実行中の進捗をポーリングで取得する（Phase10注意点「進捗を表示
+         *     すること」）。DBアクセスを伴わないため、実行中の POST 処理と並行して呼び出せる。
+         */
+        get: operations["get_knowledge_export_progress_api_v1_goals__goal_id__knowledge_export_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/knowledge-export": {
         parameters: {
             query?: never;
@@ -1779,6 +1800,25 @@ export interface components {
             };
             /** Markdown */
             markdown: string;
+        };
+        /**
+         * KnowledgeExportProgressRead
+         * @description GET /goals/{goal_id}/knowledge-export/progress: 匿名化エクスポート実行中の進捗
+         *     （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。
+         */
+        KnowledgeExportProgressRead: {
+            /** In Progress */
+            in_progress: boolean;
+            /**
+             * Completed
+             * @default 0
+             */
+            completed: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** KnowledgeExportRequest */
         KnowledgeExportRequest: {
@@ -4609,6 +4649,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeExportContentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_knowledge_export_progress_api_v1_goals__goal_id__knowledge_export_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeExportProgressRead"];
                 };
             };
             /** @description Validation Error */

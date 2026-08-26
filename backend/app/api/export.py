@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.export import (
     KnowledgeExportContentRead,
+    KnowledgeExportProgressRead,
     KnowledgeExportRequest,
     KnowledgeExportResultRead,
 )
-from app.services import export_service, goal_service
+from app.services import export_progress, export_service, goal_service
 
 router = APIRouter(tags=["export"])
 
@@ -69,6 +70,21 @@ def preview_knowledge_export(
     )
     markdown = export_service.render_markdown(data, selection)
     return KnowledgeExportContentRead(data=data, markdown=markdown)
+
+
+@router.get(
+    "/goals/{goal_id}/knowledge-export/progress", response_model=KnowledgeExportProgressRead
+)
+def get_knowledge_export_progress(goal_id: int) -> KnowledgeExportProgressRead:
+    """匿名化エクスポート実行中の進捗をポーリングで取得する（Phase10注意点「進捗を表示
+    すること」）。DBアクセスを伴わないため、実行中の POST 処理と並行して呼び出せる。
+    """
+    progress = export_progress.get(goal_id)
+    if progress is None:
+        return KnowledgeExportProgressRead(in_progress=False)
+    return KnowledgeExportProgressRead(
+        in_progress=True, completed=progress.completed, total=progress.total
+    )
 
 
 @router.post("/goals/{goal_id}/knowledge-export", response_model=KnowledgeExportResultRead)

@@ -4,7 +4,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
-from app.services import export_service
+from app.services import export_progress, export_service
 
 
 @pytest.fixture(autouse=True)
@@ -80,3 +80,29 @@ def test_execute_export_with_anonymize_calls_ai(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["data"]["retrospective"] == "匿名化レポート"
+
+
+# --- GET /goals/{goal_id}/knowledge-export/progress（Phase10注意点「進捗を表示すること」） ---
+
+
+def test_get_progress_returns_not_in_progress_when_no_export_running(client):
+    goal = _create_goal(client)
+
+    response = client.get(f"/api/v1/goals/{goal['id']}/knowledge-export/progress")
+
+    assert response.status_code == 200
+    assert response.json() == {"in_progress": False, "completed": 0, "total": 0}
+
+
+def test_get_progress_reflects_in_memory_state(client):
+    goal = _create_goal(client)
+    export_progress.start(goal["id"], total=3)
+    try:
+        export_progress.advance(goal["id"])
+
+        response = client.get(f"/api/v1/goals/{goal['id']}/knowledge-export/progress")
+
+        assert response.status_code == 200
+        assert response.json() == {"in_progress": True, "completed": 1, "total": 3}
+    finally:
+        export_progress.finish(goal["id"])

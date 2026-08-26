@@ -41,6 +41,12 @@ from app.services import setting_reader
 #: requests/開発キットが実際に発するメッセージに合わせて判定する（timeoutは英語表記のみ）。
 _TIMEOUT_MESSAGE_MARKERS = ("timeout", "timed out")
 
+#: send_messageが常に失敗することを実機確認済みのアシスタント名（設計書 データ構造編6.2、
+#: 仕様書8.9.1、実装フェーズ分割計画書Phase5前提）。将来この一覧は変動しうるため、
+#: 本リストのみに依存せず、送信失敗時の汎用エラーハンドリング（_translate_error による
+#: AI_ERROR化）と併用する設計とする。
+_UNSUPPORTED_ASSISTANT_NAMES = frozenset({"GPT-4o mini", "GPT-4o"})
+
 
 @dataclass(frozen=True)
 class SendResult:
@@ -130,16 +136,25 @@ def get_model_status(session: Session) -> dict[str, bool]:
 
 
 def get_assistants(session: Session) -> list[dict]:
-    """アシスタント一覧を取得する（データ構造編6.2 GET /ai/assistants）。"""
+    """アシスタント一覧を取得する（データ構造編6.2 GET /ai/assistants）。
+
+    送信が常に失敗することを確認済みのアシスタント（GPT-4o mini・GPT-4o）は
+    選択肢から除外する（データ構造編6.2、仕様書8.9.1）。
+    """
     client = build_client(session)
     timeout_seconds = setting_reader.get_int(session, AI_TIMEOUT_SECONDS)
     started = time.monotonic()
     try:
-        return client.get_assistants()
+        assistants = client.get_assistants()
     except Exception as exc:  # noqa: BLE001
         raise _translate_error(
             exc, elapsed_seconds=time.monotonic() - started, timeout_seconds=timeout_seconds
         ) from exc
+    return [
+        assistant
+        for assistant in assistants
+        if assistant.get("name") not in _UNSUPPORTED_ASSISTANT_NAMES
+    ]
 
 
 def create_chat(session: Session, *, assistant_uid: str, title: str) -> str:
