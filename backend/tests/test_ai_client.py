@@ -169,6 +169,23 @@ def test_get_assistants_returns_client_result(seeded_session):
     assert result == [{"uid": "a1", "name": "アシスタントA"}]
 
 
+def test_get_assistants_excludes_unsupported_assistants(seeded_session, monkeypatch):
+    class _ClientWithUnsupportedAssistants(FakeNewtonXClient):
+        def __init__(self, config_manager):
+            super().__init__(config_manager)
+            self.assistants_result = [
+                {"uid": "a1", "name": "アシスタントA"},
+                {"uid": "a2", "name": "GPT-4o mini"},
+                {"uid": "a3", "name": "GPT-4o"},
+            ]
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _ClientWithUnsupportedAssistants)
+
+    result = ai_client.get_assistants(seeded_session)
+
+    assert result == [{"uid": "a1", "name": "アシスタントA"}]
+
+
 def test_create_chat_returns_chat_uid(seeded_session):
     chat_uid = ai_client.create_chat(seeded_session, assistant_uid="asst-1", title="タイトル")
     assert chat_uid == "chat-uid-1"

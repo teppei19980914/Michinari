@@ -11,6 +11,7 @@ import { getGoal } from '../api/goals'
 import { generateRetrospective, getRetrospective } from '../api/closure'
 import {
   executeKnowledgeExport,
+  getKnowledgeExportProgress,
   previewKnowledgeExport,
   type ExportSelection,
   type KnowledgeExportContentRead,
@@ -141,6 +142,15 @@ export function KnowledgeExportPage() {
     onError: showApiError,
   })
 
+  // 匿名化実行中は複数回のAI呼び出しを伴い時間がかかるため進捗をポーリング表示する
+  // （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。
+  const exportProgressQuery = useQuery({
+    queryKey: ['knowledgeExportProgress', goalId],
+    queryFn: () => getKnowledgeExportProgress(goalId),
+    enabled: exportMutation.isPending && anonymize,
+    refetchInterval: (query) => (query.state.data?.in_progress ? 1000 : false),
+  })
+
   if (goalQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
@@ -201,6 +211,15 @@ export function KnowledgeExportPage() {
           {t('knowledgeExport.exportButton')}
         </Button>
       </div>
+
+      {exportMutation.isPending && anonymize && exportProgressQuery.data?.in_progress && (
+        <p className="text-sm text-gray-500">
+          {t('knowledgeExport.exportProgress', {
+            completed: exportProgressQuery.data.completed,
+            total: exportProgressQuery.data.total,
+          })}
+        </p>
+      )}
 
       {exportMutation.data && (
         <Card className="flex flex-col gap-1 text-sm text-gray-700">

@@ -23,6 +23,7 @@ from app.models.record import ChatMessage, DailyRecord, StudyLog, WeeklySummary
 from app.services import (
     baseline_service,
     cycle_service,
+    export_progress,
     goal_service,
     material_service,
     metrics_service,
@@ -481,15 +482,27 @@ def execute_export(
     組み立てる（データ構造編7.3）。既存の匿名化版がある場合は最新内容へ更新する。
     プレビュー（GET .../preview）はbuild_export_dataのみを呼び、本関数（ファイル書き出しと
     匿名化再生成を伴う実行）とは区別する。
+
+    複数回のAI呼び出し（週次要約1件ずつ＋総括レポート）を伴うため、進捗を
+    app.services.export_progress へ記録する（実装フェーズ分割計画書Phase10注意点）。
+    フロントエンドはGET /goals/{goal_id}/knowledge-export/progress をポーリングして表示する。
     """
     today = goal_service.resolve_today(session)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
 
     if anonymize:
-        weekly_summary_service.regenerate_all_weekly_summaries_anonymized(session, goal)
-        retrospective_service.generate_retrospective(
-            session, goal, today=today, anonymize=True
-        )
+        total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + 1
+        export_progress.start(goal.id, total=total)
+        try:
+            weekly_summary_service.regenerate_all_weekly_summaries_anonymized(
+                session, goal, on_progress=lambda: export_progress.advance(goal.id)
+            )
+            retrospective_service.generate_retrospective(
+                session, goal, today=today, anonymize=True
+            )
+            export_progress.advance(goal.id)
+        finally:
+            export_progress.finish(goal.id)
 
     data = build_export_data(
         session,
