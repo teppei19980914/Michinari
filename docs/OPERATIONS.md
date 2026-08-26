@@ -359,6 +359,33 @@ kubectl rollout undo deployment/<name>
 5. マージ＆デプロイ
 6. 事後に `dev/YYYY-MM-DD` にも取り込む
 
+### 7.4 配布パッケージのビルド（他端末への配布用）
+
+本アプリは個人端末で完結するローカルアプリであるため、7.1〜7.3のサーバーデプロイとは別に、
+Windows端末へ配布するための単一実行ファイル化（PyInstaller）を用意している。
+
+```bash
+cd backend
+uv run python scripts/build_package.py
+```
+
+1. フロントエンドを `npm run build` でビルド（`frontend/dist`）
+2. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
+   `alembic/` を同梱、`backend/dist/Michinari/` に出力）
+3. 起動用 `Michinari.bat` を配置
+
+配布時は `backend/dist/Michinari/` フォルダごと配布先へコピーし、`Michinari.bat` を
+実行する。データ保存先は配布先ごとに `%LOCALAPPDATA%\Michinari\data\` を使う
+（`backend/app/config.py` の `_default_data_dir` が `sys.frozen` を判定して自動切替。
+ソースから起動する開発環境では従来通り `data/` を使うため挙動に影響しない）。
+
+**既知の制約**（初版時点、Phase 11の実環境検証で解消・調整する想定）:
+
+- AI連携（NewtonX ADK）のPAT認証は配布先の端末ごとに利用者本人が設定画面から入力する
+  必要がある（PATは個人アカウントに紐づくため、パッケージに同梱しても共有できない）
+- 新規インストール（`create_all_tables`）のみ対応。既存インストールのスキーマ更新
+  （Alembicマイグレーション）は本スクリプトでは自動化していない
+
 ---
 
 ## 8. トラブルシューティング

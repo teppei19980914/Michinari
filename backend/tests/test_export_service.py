@@ -12,7 +12,7 @@ from app.constants.enums import ExamResultType, GoalStatus, QualityMetricType
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ExamResult, StudyLog, WeeklySummary
-from app.services import export_service
+from app.services import export_progress, export_service
 
 
 @pytest.fixture(autouse=True)
@@ -446,3 +446,43 @@ def test_execute_export_with_anonymize_regenerates_weekly_summaries_and_retrospe
     )
     assert len(original_rows) == 1
     assert original_rows[0].summary_body == "元の週次要約"
+    # 完了後は進捗が後始末される（Phase10注意点「進捗を表示すること」、export_progress）。
+    assert export_progress.get(goal.id) is None
+
+
+def test_execute_export_with_anonymize_records_progress_while_running(
+    seeded_session, monkeypatch, tmp_path
+):
+    """匿名化実行中、週次要約1件ごとの生成完了に合わせて進捗が更新されることを確認する
+    （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。"""
+    monkeypatch.setattr(export_service, "EXPORT_DIR", tmp_path)
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _add_study_log(seeded_session, material, dt.date(2026, 1, 27))
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 1, 26),
+            week_end_date=dt.date(2026, 2, 1),
+            summary_body="元の週次要約",
+        )
+    )
+    seeded_session.commit()
+    _stub_send_message(monkeypatch, response="匿名化された内容")
+
+    observed: list[export_progress.ExportProgress | None] = []
+    original_advance = export_progress.advance
+
+    def _spy_advance(goal_id: int) -> None:
+        original_advance(goal_id)
+        observed.append(export_progress.get(goal_id))
+
+    monkeypatch.setattr(export_progress, "advance", _spy_advance)
+
+    export_service.execute_export(
+        seeded_session, goal, export_service.ExportSelection(), anonymize=True
+    )
+
+    # 週次要約1件＋総括レポート1件 = 合計2ステップ。完了ごとにcompletedが進む。
+    assert [p.completed for p in observed] == [1, 2]
+    assert all(p.total == 2 for p in observed)

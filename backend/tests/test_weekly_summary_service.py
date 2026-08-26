@@ -330,6 +330,9 @@ def test_regenerate_all_weekly_summaries_anonymized_covers_every_original_week(
     material = _make_material(seeded_session, goal)
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))  # 週1
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 週2
+    # 「元の」（非匿名化）週次要約を用意する時点からAI呼び出しをスタブする
+    # （実AI基盤への疎通に依存しないようにするため）。
+    _stub_send_message(monkeypatch, response="元の週次要約")
     weekly_summary_service.generate_for_week(
         seeded_session, goal, week_start=dt.date(2026, 8, 3), week_end=dt.date(2026, 8, 9)
     )
@@ -352,6 +355,7 @@ def test_regenerate_all_weekly_summaries_anonymized_raises_on_failure(seeded_ses
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    _stub_send_message(monkeypatch, response="元の週次要約")
     weekly_summary_service.generate_for_week(
         seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
     )
@@ -359,3 +363,54 @@ def test_regenerate_all_weekly_summaries_anonymized_raises_on_failure(seeded_ses
 
     with pytest.raises(AiError):
         weekly_summary_service.regenerate_all_weekly_summaries_anonymized(seeded_session, goal)
+
+
+def test_regenerate_all_weekly_summaries_anonymized_calls_on_progress_per_week(
+    seeded_session, monkeypatch
+):
+    """1件生成するたびにon_progressが呼ばれる（Phase10注意点「進捗を表示すること」、
+    export_serviceが進捗表示に用いる）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    _stub_send_message(monkeypatch, response="元の週次要約")
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 3), week_end=dt.date(2026, 8, 9)
+    )
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+    _stub_send_message(monkeypatch, response="匿名化済み")
+    calls = []
+
+    weekly_summary_service.regenerate_all_weekly_summaries_anonymized(
+        seeded_session, goal, on_progress=lambda: calls.append(1)
+    )
+
+    assert len(calls) == 2
+
+
+# --- count_pending_anonymization_weeks（Phase10） ---
+
+
+def test_count_pending_anonymization_weeks_counts_non_anonymized_weeks(seeded_session, monkeypatch):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    _stub_send_message(monkeypatch, response="元の週次要約")
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 3), week_end=dt.date(2026, 8, 9)
+    )
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert weekly_summary_service.count_pending_anonymization_weeks(seeded_session, goal) == 2
+
+
+def test_count_pending_anonymization_weeks_is_zero_without_summaries(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    assert weekly_summary_service.count_pending_anonymization_weeks(seeded_session, goal) == 0

@@ -9,6 +9,7 @@
 """
 
 import datetime as dt
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -156,26 +157,43 @@ def generate_for_week(
     return summary
 
 
-def regenerate_all_weekly_summaries_anonymized(session: Session, goal: Goal) -> int:
+def _non_anonymized_weeks_query(session: Session, goal: Goal):
+    return (
+        session.query(WeeklySummary.week_start_date, WeeklySummary.week_end_date)
+        .filter(WeeklySummary.goal_id == goal.id, WeeklySummary.is_anonymized.is_(False))
+        .order_by(WeeklySummary.week_start_date)
+    )
+
+
+def count_pending_anonymization_weeks(session: Session, goal: Goal) -> int:
+    """匿名化がまだ生成されていない週次要約の件数を返す（進捗表示の合計値算出用、
+    実装フェーズ分割計画書Phase10注意点）。"""
+    return _non_anonymized_weeks_query(session, goal).count()
+
+
+def regenerate_all_weekly_summaries_anonymized(
+    session: Session, goal: Goal, *, on_progress: Callable[[], None] | None = None
+) -> int:
     """目標の全週の週次要約について、匿名化版を（再）生成する（データ構造編7.3、
-    実装フェーズ分割計画書Phase10注意点「匿名化時の再生成は複数回のAI呼び出しを伴う」）。
+    実装フェーズ分割計画書Phase10注意点「匿名化時の再生成は複数回のAI呼び出しを伴う。
+    呼び出し間隔の下限を守り、進捗を表示すること」）。
 
     run_retroactive_generationと異なり、1件でも失敗したら例外をそのまま送出して処理全体を
     中断する。匿名化はセンシティブな記述を除去するための操作であり、一部の週だけ非匿名の
     元記述が残ったままエクスポートされることは情報漏洩のリスクとなるため、
     run_retroactive_generationの「1件の失敗を握りつぶして継続する」方針（16.7）を
     ここでは意図的に採用しない。
+
+    on_progress は1件生成するたびに呼び出す通知コールバックで、呼び出し元（export_service）が
+    進捗表示（app.services.export_progress）へ反映するために用いる。
     """
-    weeks = (
-        session.query(WeeklySummary.week_start_date, WeeklySummary.week_end_date)
-        .filter(WeeklySummary.goal_id == goal.id, WeeklySummary.is_anonymized.is_(False))
-        .order_by(WeeklySummary.week_start_date)
-        .all()
-    )
+    weeks = _non_anonymized_weeks_query(session, goal).all()
     count = 0
     for week_start, week_end in weeks:
         generate_for_week(session, goal, week_start, week_end, anonymize=True)
         count += 1
+        if on_progress is not None:
+            on_progress()
     return count
 
 

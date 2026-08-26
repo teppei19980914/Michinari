@@ -39,3 +39,8 @@ backend/tests/_test.db
 # Node（フロントエンド、Phase 6以降）
 node_modules/
 frontend/dist/
+
+# 配布パッケージのビルド成果物（PyInstaller、OPERATIONS.md 7.4参照。build_package.pyで再生成可能）
+backend/build/
+backend/dist/
+backend/Michinari.spec
