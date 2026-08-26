@@ -387,6 +387,7 @@
     "previewTitle": "プレビュー",
     "exportButton": "ファイルを出力する",
     "exportSucceeded": "エクスポートしました",
+    "exportProgress": "匿名化した週次要約・総括レポートを生成しています（{{completed}} / {{total}}）…",
     "exportedPaths": {
       "markdown": "Markdown: {{path}}",
       "json": "JSON: {{path}}"
