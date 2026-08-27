@@ -16,6 +16,7 @@ import { DailyReportPage } from './pages/DailyReportPage'
 import { ProgressOnlyPage } from './pages/ProgressOnlyPage'
 import { DailyReportViewPage } from './pages/DailyReportViewPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
+import { HelpPage } from './pages/HelpPage'
 
 const queryClient = new QueryClient()
 
@@ -50,6 +51,7 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.dailyReport} element={<DailyReportPage />} />
       <Route path={ROUTE_PATTERNS.dailyReportProgress} element={<ProgressOnlyPage />} />
       <Route path={ROUTE_PATTERNS.dailyReportView} element={<DailyReportViewPage />} />
+      <Route path={ROUTE_PATTERNS.help} element={<HelpPage />} />
     </Route>,
   ),
 )

@@ -14,7 +14,11 @@
       "Bash(npx --yes playwright install chromium)",
       "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard.png)",
       "Read(//c/Users/teppe/AppData/Local/Temp/**)",
-      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard2.png)"
+      "Bash(npx --yes playwright screenshot --wait-for-timeout=2000 http://localhost:5173/ /tmp/dashboard2.png)",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/ja.json','utf8'\\)\\); console.log\\('OK'\\)\")",
+      "Bash(pkill -f \"vite --port 5183\")",
+      "Bash(taskkill //F //IM node.exe //FI \"WINDOWTITLE eq *vite*\")",
+      "Bash(wmic process *)"
     ]
   },
   "hooks": {

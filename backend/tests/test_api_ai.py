@@ -74,6 +74,38 @@ def test_login_without_pat_starts_fallback_login(client, monkeypatch):
     assert len(calls) == 1
 
 
+def test_login_with_host_persists_it_to_settings(client, monkeypatch):
+    """再認証時に入力したHostが設定画面（GET /settings）にも反映されること（保存されない
+    ように見える挙動の修正）。"""
+    monkeypatch.setattr(
+        ai_auth, "register_pat", lambda session, *, host, personal_access_token: True
+    )
+
+    response = client.post(
+        "/api/v1/ai/login",
+        json={"host": "example.newton-x.net", "personal_access_token": "1|abcdef"},
+    )
+
+    assert response.status_code == 200
+    settings = client.get("/api/v1/settings").json()
+    assert settings["ai_connection"]["host"] == "example.newton-x.net"
+
+
+def test_login_without_host_does_not_touch_settings(client, monkeypatch):
+    monkeypatch.setattr(
+        ai_auth, "register_pat", lambda session, *, host, personal_access_token: True
+    )
+    before = client.get("/api/v1/settings").json()["ai_connection"]["host"]
+
+    response = client.post(
+        "/api/v1/ai/login", json={"personal_access_token": "1|abcdef"}
+    )
+
+    assert response.status_code == 200
+    after = client.get("/api/v1/settings").json()["ai_connection"]["host"]
+    assert after == before
+
+
 # --- POST /ai/logout ---
 
 
