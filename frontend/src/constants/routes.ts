@@ -19,6 +19,7 @@ export const ROUTE_PATTERNS = {
   dailyReport: '/records/:date/report',
   dailyReportProgress: '/records/:date/progress',
   dailyReportView: '/records/:date/view',
+  help: '/help',
 } as const
 
 export const ROUTES = {
@@ -35,4 +36,5 @@ export const ROUTES = {
   dailyReport: (date: string) => `/records/${date}/report`,
   dailyReportProgress: (date: string) => `/records/${date}/progress`,
   dailyReportView: (date: string) => `/records/${date}/view`,
+  help: ROUTE_PATTERNS.help,
 } as const
