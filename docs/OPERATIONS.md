@@ -375,11 +375,21 @@ uv run python scripts/build_package.py
 3. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
    `alembic/` を同梱、`backend/dist/Michinari/` に出力）
 4. 起動用 `Michinari.bat` を配置
+5. `backend/dist/Michinari/` フォルダを zip 化し `backend/dist/Michinari.zip` を生成
+   （`create_distribution_zip`）
 
-配布時は `backend/dist/Michinari/` フォルダごと配布先へコピーし、`Michinari.bat` を
-実行する。データ保存先は配布先ごとに `%LOCALAPPDATA%\Michinari\data\` を使う
-（`backend/app/config.py` の `_default_data_dir` が `sys.frozen` を判定して自動切替。
-ソースから起動する開発環境では従来通り `data/` を使うため挙動に影響しない）。
+配布時は `backend/dist/Michinari.zip` を配布先へコピーして展開し、
+`Michinari.bat` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
+1で述べたフォルダ手動コピーの代わりにzipを渡すだけで済む）。データ保存先は配布先
+ごとに `%LOCALAPPDATA%\Michinari\data\` を使う（`backend/app/config.py` の
+`_default_data_dir` が `sys.frozen` を判定して自動切替。ソースから起動する開発環境
+では従来通り `data/` を使うため挙動に影響しない）。
+
+zip（`backend/dist/Michinari.zip`）は1のアーカイブ退避（`_archive/`）とは対象・
+実行順序が独立している（zip化はビルド完了後に最新の`Michinari/`のみを対象に行う
+ため、退避済みの旧パッケージを巻き込むことはない）。また、zipは毎回のビルドで
+上書きされ、`_archive/`のような世代保持はしない。旧バージョンのzipが必要な場合は
+`_archive/Michinari_YYYYMMDD_HHMMSS/` を手動でzip化する。
 
 退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
 OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
