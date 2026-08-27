@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: ROUTES.calendar, labelKey: 'nav.calendar' },
   { to: ROUTES.analytics, labelKey: 'nav.analytics' },
   { to: ROUTES.settings, labelKey: 'nav.settings' },
+  { to: ROUTES.help, labelKey: 'nav.help' },
 ] as const
 
 /** グローバルナビゲーション（仕様書5.1）。 */
