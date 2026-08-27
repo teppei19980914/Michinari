@@ -369,15 +369,24 @@ cd backend
 uv run python scripts/build_package.py
 ```
 
-1. フロントエンドを `npm run build` でビルド（`frontend/dist`）
-2. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
+1. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
+   へリネームして退避する（削除しない。旧バージョンとの差分調査用）
+2. フロントエンドを `npm run build` でビルド（`frontend/dist`）
+3. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
    `alembic/` を同梱、`backend/dist/Michinari/` に出力）
-3. 起動用 `Michinari.bat` を配置
+4. 起動用 `Michinari.bat` を配置
 
 配布時は `backend/dist/Michinari/` フォルダごと配布先へコピーし、`Michinari.bat` を
 実行する。データ保存先は配布先ごとに `%LOCALAPPDATA%\Michinari\data\` を使う
 （`backend/app/config.py` の `_default_data_dir` が `sys.frozen` を判定して自動切替。
 ソースから起動する開発環境では従来通り `data/` を使うため挙動に影響しない）。
+
+退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
+OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
+既存出力先を`shutil.rmtree`により再帰削除しようとして`WinError 5 アクセスが拒否
+されました`になる事象も回避できる（リネームはディレクトリエントリの付け替えのみで
+再帰削除を伴わないため）。`backend/dist/_archive/` は自動生成物のため不要になったら
+手動で削除してよい（`.gitignore`で`backend/dist/`ごと除外済み）。
 
 **既知の制約**（初版時点、Phase 11の実環境検証で解消・調整する想定）:
 
@@ -385,6 +394,69 @@ uv run python scripts/build_package.py
   必要がある（PATは個人アカウントに紐づくため、パッケージに同梱しても共有できない）
 - 新規インストール（`create_all_tables`）のみ対応。既存インストールのスキーマ更新
   （Alembicマイグレーション）は本スクリプトでは自動化していない
+
+### 7.5 DBマイグレーションを伴う配布パッケージの更新（既存インストール先への反映）
+
+7.4 の `build_package.py` は `create_all_tables`（`Base.metadata.create_all()`）による
+新規テーブル作成のみを行い、既存DBへのカラム追加等のスキーマ変更は自動反映されない。
+Alembicマイグレーションファイル（`backend/alembic/versions/`）はパッケージに同梱されるが、
+アプリ本体（`Michinari.exe`）から自動実行されることはない。DBスキーマ変更を含む修正を
+既存の配布先へ反映する場合は、以下いずれかの方式を用いる。
+
+#### 方式A: 新規DB作成（データ移行不要な場合）
+
+配布先の学習データを保持する必要がない場合の最短手順。
+
+1. 通常どおり `build_package.py` を実行し新パッケージを生成する
+2. 配布先の `%LOCALAPPDATA%\Michinari\data\` フォルダを削除またはリネーム退避する
+3. 新パッケージ（`backend/dist/Michinari/`）を配布先へコピーし `Michinari.bat` を起動する
+4. 初回起動時の `create_all_tables()` が最新モデル定義から全テーブルを新規作成する
+
+#### 方式B: 全データエクスポート/インポート（GUI操作でデータを引き継ぐ）
+
+アプリ内蔵のデータ管理機能（`GET /api/v1/data/export` / `POST /api/v1/data/import`）を使う。
+
+1. 配布先で旧バージョンのアプリを起動し、データ管理画面からエクスポートしてJSONを保存する
+2. 通常どおり `build_package.py` を実行し新パッケージを生成する
+3. 配布先の `data` フォルダを退避し、新パッケージへ入れ替えて起動する
+   （`create_all_tables()` により新スキーマでDBが作成される）
+4. 新バージョンのアプリのデータ管理画面から、手順1でエクスポートしたJSONをインポートする
+
+**既知の制約**: インポート処理（`backup_service.import_all_data`）はエクスポートJSONに
+含まれる列のみを生SQLで `INSERT` するため、SQLAlchemyモデル側の `default=`（例:
+`WeeklySummary.is_anonymized`）はORM経由の挿入でのみ適用され、このインポート経路には
+適用されない。マイグレーションで**サーバ側デフォルト値を持たないNOT NULL列**を追加した
+場合、旧バージョンのエクスポートJSONにはその列が存在せず、インポート時に
+`NOT NULL constraint failed` で失敗する。該当するマイグレーションを配布する際は方式Cを
+使う。
+
+#### 方式C: Alembicマイグレーション（データをそのまま保持、正式な手段）
+
+配布先の実行ファイル一式にはPython/Alembicの実行環境が同梱されていないため、開発機側で
+マイグレーションを実行してからDBファイルを配布先へ戻す。
+
+1. 配布先の `data\michinari.db` をバックアップコピーしたうえで、開発機の作業用フォルダへ
+   コピーする
+2. 開発機の `backend` ディレクトリで、コピーしてきたDBファイルを指すよう
+   `MICHINARI_DATABASE_URL` を指定してマイグレーションを実行する
+   （`app/config.py` の `Settings` は `env_prefix="MICHINARI_"` のため、この環境変数で
+   `database_url` を上書きできる）
+   ```powershell
+   cd backend
+   $env:MICHINARI_DATABASE_URL = "sqlite:///C:/work/michinari_migrate/michinari.db"
+   uv run alembic upgrade head
+   ```
+3. マイグレーション後のDBファイルの中身を確認する（`sqlite3` 等で主要テーブルを確認）
+4. `build_package.py` で新パッケージを生成し、配布先の実行ファイル一式
+   （`Michinari.exe` 等）を新パッケージへ入れ替える
+5. マイグレーション済みのDBファイルを配布先の `data\michinari.db` へ戻す
+6. 配布先で `Michinari.bat` を起動し、データが保持され新機能が動作することを確認する
+
+| 方式 | データ保持 | 作業の複雑さ | 向いているケース |
+|---|---|---|---|
+| A: 新規DB作成 | ✕（失われる） | 低 | 検証用途、データ保持不要 |
+| B: エクスポート/インポート | ○（GUIで完結） | 中 | NOT NULL列追加を伴わない変更 |
+| C: Alembicマイグレーション | ○（そのまま） | 高（開発環境が必要） | NOT NULL列追加等、正式な移行が必要な変更 |
 
 ---
 

@@ -14,6 +14,7 @@ import {
   type GoalDetailRead,
   type MaterialRead,
 } from '../../api/goals'
+import { computeAutoDueDate } from './materialDueDate'
 import type { components } from '../../types/api.d.ts'
 
 type SlotCheckRead = components['schemas']['SlotCheckRead']
@@ -71,6 +72,13 @@ function MaterialForm({
         : [...current, subjectId],
     )
   }
+
+  const autoDueDate = computeAutoDueDate(goal.exam_subjects, subjectIds)
+  const effectiveDueDate = dueDateIsManual ? dueDate || null : autoDueDate
+  const startDateError =
+    startDate && effectiveDueDate && startDate > effectiveDueDate
+      ? t('goals.materials.startDateAfterDueDateError', { dueDate: effectiveDueDate })
+      : null
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -174,8 +182,14 @@ function MaterialForm({
             onChange={(e) => setDueDate(e.target.value)}
             disabled={!dueDateIsManual}
           />
+          {!dueDateIsManual && autoDueDate && (
+            <p className="text-xs text-gray-500">
+              {t('goals.materials.autoDueDatePreview', { dueDate: autoDueDate })}
+            </p>
+          )}
         </label>
       </div>
+      {startDateError && <p className="text-xs text-red-700">{startDateError}</p>}
       <div className="flex gap-2">
         <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
           {t('goals.materials.requiredBlockMinutesLabel')}
@@ -223,7 +237,10 @@ function MaterialForm({
         <Button type="button" variant="secondary" onClick={onDone}>
           {t('common.action.cancel')}
         </Button>
-        <Button type="submit" disabled={mutation.isPending || subjectIds.length === 0}>
+        <Button
+          type="submit"
+          disabled={mutation.isPending || subjectIds.length === 0 || !!startDateError}
+        >
           {t('common.action.save')}
         </Button>
       </div>

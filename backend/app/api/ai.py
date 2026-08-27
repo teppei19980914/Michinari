@@ -15,7 +15,7 @@ from app.ai import client as ai_client
 from app.database import get_db
 from app.schemas.ai import AiAssistantRead, AiLoginRequest, AiLoginResult, AiStatusRead
 from app.schemas.record import DailyMessageRead
-from app.services import daily_message_service, goal_service
+from app.services import daily_message_service, goal_service, settings_service
 
 router = APIRouter(tags=["ai"])
 
@@ -32,7 +32,15 @@ def get_ai_status(session: Session = Depends(get_db)) -> AiStatusRead:
 
 @router.post("/ai/login", response_model=AiLoginResult)
 def login(payload: AiLoginRequest, session: Session = Depends(get_db)) -> AiLoginResult:
-    """PAT指定時は即時反映・確認する。未指定時はフォールバック認証を非同期に開始する（16.2）。"""
+    """PAT指定時は即時反映・確認する。未指定時はフォールバック認証を非同期に開始する（16.2）。
+
+    Hostが指定された場合は設定画面の値（app_setting）にも反映する。認証操作で入力した値が
+    設定画面の表示と食い違わないようにするため（設定画面の保存ボタンとは別経路のため）。
+    """
+    if payload.host:
+        settings_service.update_app_settings(session, ai_connection={"host": payload.host})
+        session.commit()
+
     if payload.personal_access_token:
         authenticated = ai_auth.register_pat(
             session, host=payload.host, personal_access_token=payload.personal_access_token
