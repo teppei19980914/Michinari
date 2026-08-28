@@ -369,14 +369,26 @@ cd backend
 uv run python scripts/build_package.py
 ```
 
+`backend/build.bat` をダブルクリックしても同じ処理を実行できる（コマンド操作に
+慣れていない開発者向けのGUI実行手段。完了・失敗のいずれでもウィンドウが自動で
+閉じないよう `pause` している）。
+
 1. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
    へリネームして退避する（削除しない。旧バージョンとの差分調査用）
-2. フロントエンドを `npm run build` でビルド（`frontend/dist`）
-3. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
-   `alembic/` を同梱、`backend/dist/Michinari/` に出力）
-4. 起動用 `Michinari.bat` を配置
-5. `backend/dist/Michinari/` フォルダを zip 化し `backend/dist/Michinari.zip` を生成
+2. アプリバージョン・使用ライブラリのスナップショットを `backend/build_info.json` へ生成する
+   （`generate_build_info`。アプリバージョンは`backend/pyproject.toml`の`[project].version`
+   が単一の情報源）
+3. フロントエンドを `npm run build` でビルド（`frontend/dist`）
+4. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
+   `alembic/`・`build_info.json` を同梱、`backend/dist/Michinari/` に出力）
+5. 起動用 `Michinari.bat` を配置
+6. `backend/dist/Michinari/` フォルダを zip 化し `backend/dist/Michinari.zip` を生成
    （`create_distribution_zip`）
+
+`build_info.json`（配布パッケージ同梱後は起動画面「システム情報」SC-15から参照できる、
+仕様書6.14参照）は`built_at`がビルドの都度変わるため`.gitignore`で除外している
+（`frontend/src/types/api.d.ts`のようにAPIスキーマ変更時のみ変わる決定論的な生成物
+（コミット対象）とは性質が異なるため、同じ扱いはしない）。
 
 配布時は `backend/dist/Michinari.zip` を配布先へコピーして展開し、
 `Michinari.bat` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
@@ -397,6 +409,28 @@ OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期�
 されました`になる事象も回避できる（リネームはディレクトリエントリの付け替えのみで
 再帰削除を伴わないため）。`backend/dist/_archive/` は自動生成物のため不要になったら
 手動で削除してよい（`.gitignore`で`backend/dist/`ごと除外済み）。
+
+#### 配布物の公開方法（GitHub Releases）
+
+`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版も
+残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
+GitHub Releasesにzipを添付する方式で行う。
+
+```bash
+cd backend
+uv run python scripts/build_package.py
+uv run python scripts/publish_release.py
+```
+
+`publish_release.py` はバージョンを`pyproject.toml`から自動取得し、`v{version}`タグで
+`gh release create ... --generate-notes` を実行する。同じバージョンで再実行するなど
+既にタグ・Releaseが存在する場合は、自動的に `gh release upload ... --clobber` へ
+フォールバックしてzipを差し替える。`build_package.py`からは一切自動呼び出しされない
+（GitHub上で他者から見える公開操作のため、公開したいタイミングで開発者が明示的に
+実行する）。
+
+配布先には、生成されたReleaseページの固定URLを案内する。ユーザーはそのページから
+`Michinari.zip` をダウンロードし、展開して `Michinari.bat` を実行すればよい。
 
 **既知の制約**（初版時点、Phase 11の実環境検証で解消・調整する想定）:
 

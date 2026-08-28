@@ -28,9 +28,14 @@ export function SettingsPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{t('settings.title')}</h1>
-        <Link to={ROUTES.settingsData} className="text-sm text-blue-600 hover:underline">
-          {t('settings.dataManagementLink')}
-        </Link>
+        <div className="flex gap-4">
+          <Link to={ROUTES.settingsSystemInfo} className="text-sm text-blue-600 hover:underline">
+            {t('settings.systemInfoLink')}
+          </Link>
+          <Link to={ROUTES.settingsData} className="text-sm text-blue-600 hover:underline">
+            {t('settings.dataManagementLink')}
+          </Link>
+        </div>
       </div>
       <AiConnectionSection settings={settings} />
       <ThresholdSection settings={settings} />
