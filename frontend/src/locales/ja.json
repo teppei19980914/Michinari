@@ -309,7 +309,19 @@
       "aiEnabledLabel": "AI通信ログの保存",
       "retentionDaysLabel": "ログ保持期間（日）"
     },
-    "dataManagementLink": "データ管理へ"
+    "dataManagementLink": "データ管理へ",
+    "systemInfoLink": "システム情報へ"
+  },
+  "systemInfo": {
+    "title": "システム情報",
+    "appVersionLabel": "アプリバージョン",
+    "pythonVersionLabel": "Pythonバージョン",
+    "builtAtLabel": "ビルド日時",
+    "builtAtDev": "開発環境で実行中",
+    "backendLibrariesTitle": "バックエンドライブラリ",
+    "frontendLibrariesTitle": "フロントエンドライブラリ",
+    "libraryNameLabel": "ライブラリ名",
+    "libraryVersionLabel": "バージョン"
   },
   "dataManagement": {
     "title": "データ管理",
