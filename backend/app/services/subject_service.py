@@ -7,7 +7,7 @@ import datetime as dt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.constants.enums import BaselineReason, ExamDateType, ExamResultType
+from app.constants.enums import BaselineReason, ExamDateType, ExamResultType, PassingScoreType
 from app.models.base import utcnow
 from app.models.goal import ExamSubject, Goal
 from app.models.record import ExamResult
@@ -40,11 +40,28 @@ def _validate_exam_dates(
         raise ValidationError("受験日タイプが確定日の場合、確定日を指定してください")
 
 
-def _validate_passing_score(passing_score: float | None) -> None:
+def _validate_passing_score(
+    passing_score_type: PassingScoreType,
+    passing_score: float | None,
+    passing_score_max: float | None,
+) -> None:
+    """合格点を検証する。百分率(PERCENTAGE)は0〜100、点数(RAW_SCORE)は0〜満点の範囲とする。"""
     if passing_score is None:
+        if passing_score_max is not None:
+            raise ValidationError("合格点を指定しない場合、満点は指定できません")
         return
-    if not (_PASSING_SCORE_MIN <= passing_score <= _PASSING_SCORE_MAX):
-        raise ValidationError("合格基準点は0〜100で入力してください")
+    if passing_score_type == PassingScoreType.RAW_SCORE:
+        if passing_score_max is None:
+            raise ValidationError("点数で入力する場合、満点を指定してください")
+        if passing_score_max <= 0:
+            raise ValidationError("満点は0より大きい値で入力してください")
+        if not (0 <= passing_score <= passing_score_max):
+            raise ValidationError("合格点は0〜満点の範囲で入力してください")
+    else:
+        if passing_score_max is not None:
+            raise ValidationError("百分率で入力する場合、満点は指定できません")
+        if not (_PASSING_SCORE_MIN <= passing_score <= _PASSING_SCORE_MAX):
+            raise ValidationError("合格基準点は0〜100で入力してください")
 
 
 def create_subject(
@@ -57,10 +74,12 @@ def create_subject(
     exam_date_to: dt.date | None,
     exam_date_fixed: dt.date | None,
     passing_score: float | None,
+    passing_score_type: PassingScoreType = PassingScoreType.PERCENTAGE,
+    passing_score_max: float | None = None,
 ) -> ExamSubject:
     goal_service.ensure_goal_editable(goal)
     _validate_exam_dates(exam_date_type, exam_date_from, exam_date_to, exam_date_fixed)
-    _validate_passing_score(passing_score)
+    _validate_passing_score(passing_score_type, passing_score, passing_score_max)
 
     next_order = (
         session.query(func.max(ExamSubject.display_order))
@@ -76,6 +95,8 @@ def create_subject(
         exam_date_to=exam_date_to,
         exam_date_fixed=exam_date_fixed,
         passing_score=passing_score,
+        passing_score_type=passing_score_type,
+        passing_score_max=passing_score_max,
         display_order=next_order,
     )
     session.add(subject)
@@ -93,6 +114,8 @@ def update_subject(
     exam_date_to: dt.date | None = None,
     exam_date_fixed: dt.date | None = None,
     passing_score: float | None = None,
+    passing_score_type: PassingScoreType | None = None,
+    passing_score_max: float | None = None,
 ) -> ExamSubject:
     """科目を更新する。有効受験日が変化した場合、締切自動導出の教材へMATERIAL_CHANGEDとして
     再計算を伝播する（データ構造編5.3「紐づく科目の受験日が変更されたとき」）。
@@ -104,7 +127,21 @@ def update_subject(
     resolved_to = exam_date_to if exam_date_to is not None else subject.exam_date_to
     resolved_fixed = exam_date_fixed if exam_date_fixed is not None else subject.exam_date_fixed
     _validate_exam_dates(resolved_type, resolved_from, resolved_to, resolved_fixed)
-    _validate_passing_score(passing_score)
+
+    # passing_score_typeが指定された場合はモード切替とみなし、passing_score_maxは
+    # 明示的に渡された値（未指定ならNone＝クリア）で置き換える。未指定の場合は既存値を保持する。
+    if passing_score_type is not None:
+        resolved_passing_score_type = passing_score_type
+        resolved_passing_score_max = passing_score_max
+    else:
+        resolved_passing_score_type = subject.passing_score_type
+        resolved_passing_score_max = (
+            passing_score_max if passing_score_max is not None else subject.passing_score_max
+        )
+    resolved_passing_score = passing_score if passing_score is not None else subject.passing_score
+    _validate_passing_score(
+        resolved_passing_score_type, resolved_passing_score, resolved_passing_score_max
+    )
 
     old_effective_date = material_service.effective_exam_date(subject)
 
@@ -112,6 +149,8 @@ def update_subject(
         subject.name = name
     if passing_score is not None:
         subject.passing_score = passing_score
+    subject.passing_score_type = resolved_passing_score_type
+    subject.passing_score_max = resolved_passing_score_max
     subject.exam_date_type = resolved_type
     subject.exam_date_from = resolved_from
     subject.exam_date_to = resolved_to

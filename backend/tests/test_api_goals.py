@@ -396,6 +396,60 @@ def test_update_subject_passing_score(client):
     response = client.patch(f"/api/v1/subjects/{subject['id']}", json={"passing_score": 70})
     assert response.status_code == 200
     assert response.json()["passing_score"] == 70
+    assert response.json()["passing_score_type"] == "PERCENTAGE"
+
+
+def test_create_subject_with_raw_score_passing_score(client):
+    goal = _create_goal(client)
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "FIXED",
+            "exam_date_fixed": "2026-07-01",
+            "passing_score": 700,
+            "passing_score_type": "RAW_SCORE",
+            "passing_score_max": 1000,
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["passing_score"] == 700
+    assert body["passing_score_type"] == "RAW_SCORE"
+    assert body["passing_score_max"] == 1000
+
+
+def test_create_subject_rejects_raw_score_without_max(client):
+    goal = _create_goal(client)
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "FIXED",
+            "exam_date_fixed": "2026-07-01",
+            "passing_score": 700,
+            "passing_score_type": "RAW_SCORE",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_create_subject_rejects_raw_score_exceeding_max(client):
+    goal = _create_goal(client)
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "FIXED",
+            "exam_date_fixed": "2026-07-01",
+            "passing_score": 1100,
+            "passing_score_type": "RAW_SCORE",
+            "passing_score_max": 1000,
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
 def test_get_missing_subject_returns_404(client):

@@ -4,6 +4,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
+import { Tooltip } from '../../components/Tooltip'
 import { useToast } from '../../components/Toast'
 import { apiClient } from '../../api/client'
 import {
@@ -217,7 +218,9 @@ function MaterialForm({
           </select>
         </label>
         <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('goals.materials.qualityMetricTypeLabel')}
+          <Tooltip label={t('goals.materials.qualityMetricTypeTooltip')}>
+            <span>{t('goals.materials.qualityMetricTypeLabel')}</span>
+          </Tooltip>
           <select
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
             value={qualityMetricType}

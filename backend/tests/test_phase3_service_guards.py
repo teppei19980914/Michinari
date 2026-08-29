@@ -15,6 +15,7 @@ from app.constants.enums import (
     ExamDateType,
     ExamResultType,
     GoalStatus,
+    PassingScoreType,
     QualityMetricType,
 )
 from app.models.goal import Goal
@@ -238,6 +239,133 @@ def test_create_subject_rejects_passing_score_out_of_range(seeded_session):
             exam_date_fixed=dt.date(2026, 6, 1),
             passing_score=150,
         )
+
+
+def test_create_subject_accepts_raw_score_within_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    subject = subject_service.create_subject(
+        seeded_session,
+        goal,
+        name="科目A",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_from=None,
+        exam_date_to=None,
+        exam_date_fixed=dt.date(2026, 6, 1),
+        passing_score=700,
+        passing_score_type=PassingScoreType.RAW_SCORE,
+        passing_score_max=1000,
+    )
+    assert subject.passing_score == 700
+    assert subject.passing_score_max == 1000
+
+
+def test_create_subject_rejects_raw_score_without_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    with pytest.raises(ValidationError):
+        subject_service.create_subject(
+            seeded_session,
+            goal,
+            name="科目A",
+            exam_date_type=ExamDateType.FIXED,
+            exam_date_from=None,
+            exam_date_to=None,
+            exam_date_fixed=dt.date(2026, 6, 1),
+            passing_score=700,
+            passing_score_type=PassingScoreType.RAW_SCORE,
+            passing_score_max=None,
+        )
+
+
+def test_create_subject_rejects_raw_score_exceeding_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    with pytest.raises(ValidationError):
+        subject_service.create_subject(
+            seeded_session,
+            goal,
+            name="科目A",
+            exam_date_type=ExamDateType.FIXED,
+            exam_date_from=None,
+            exam_date_to=None,
+            exam_date_fixed=dt.date(2026, 6, 1),
+            passing_score=1100,
+            passing_score_type=PassingScoreType.RAW_SCORE,
+            passing_score_max=1000,
+        )
+
+
+def test_create_subject_rejects_percentage_with_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    with pytest.raises(ValidationError):
+        subject_service.create_subject(
+            seeded_session,
+            goal,
+            name="科目A",
+            exam_date_type=ExamDateType.FIXED,
+            exam_date_from=None,
+            exam_date_to=None,
+            exam_date_fixed=dt.date(2026, 6, 1),
+            passing_score=60,
+            passing_score_type=PassingScoreType.PERCENTAGE,
+            passing_score_max=100,
+        )
+
+
+def test_create_subject_rejects_max_without_passing_score(seeded_session):
+    goal = _seed_goal(seeded_session)
+    with pytest.raises(ValidationError):
+        subject_service.create_subject(
+            seeded_session,
+            goal,
+            name="科目A",
+            exam_date_type=ExamDateType.FIXED,
+            exam_date_from=None,
+            exam_date_to=None,
+            exam_date_fixed=dt.date(2026, 6, 1),
+            passing_score=None,
+            passing_score_max=1000,
+        )
+
+
+def test_create_subject_rejects_non_positive_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    with pytest.raises(ValidationError):
+        subject_service.create_subject(
+            seeded_session,
+            goal,
+            name="科目A",
+            exam_date_type=ExamDateType.FIXED,
+            exam_date_from=None,
+            exam_date_to=None,
+            exam_date_fixed=dt.date(2026, 6, 1),
+            passing_score=50,
+            passing_score_type=PassingScoreType.RAW_SCORE,
+            passing_score_max=0,
+        )
+
+
+def test_update_subject_switching_to_percentage_clears_max(seeded_session):
+    goal = _seed_goal(seeded_session)
+    subject = subject_service.create_subject(
+        seeded_session,
+        goal,
+        name="科目A",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_from=None,
+        exam_date_to=None,
+        exam_date_fixed=dt.date(2026, 6, 1),
+        passing_score=700,
+        passing_score_type=PassingScoreType.RAW_SCORE,
+        passing_score_max=1000,
+    )
+    subject_service.update_subject(
+        seeded_session,
+        subject,
+        passing_score=60,
+        passing_score_type=PassingScoreType.PERCENTAGE,
+    )
+    assert subject.passing_score_type == PassingScoreType.PERCENTAGE
+    assert subject.passing_score_max is None
+    assert subject.passing_score == 60
 
 
 def test_update_day_boundary_hour_rejects_out_of_range(seeded_session):

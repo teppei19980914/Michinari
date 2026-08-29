@@ -12,11 +12,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from build_package import APP_NAME, distribution_zip_filename
+
 from app.services.system_info_service import read_app_version
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
-ZIP_PATH = BACKEND_DIR / "dist" / "Michinari.zip"
+DIST_DIR = BACKEND_DIR / "dist"
 
 
 def build_release_command(version: str, zip_path: Path) -> list[str]:
@@ -59,7 +61,8 @@ def publish(version: str, zip_path: Path) -> None:
 
 def main() -> None:
     version = read_app_version(REPO_ROOT)
-    publish(version, ZIP_PATH)
+    zip_path = DIST_DIR / distribution_zip_filename(APP_NAME, version)
+    publish(version, zip_path)
 
 
 if __name__ == "__main__":

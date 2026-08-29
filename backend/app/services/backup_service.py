@@ -37,7 +37,9 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 DATA_SCHEMA_VERSION = "1.0"
 
 
-def _database_path() -> Path:
+def database_path() -> Path:
+    """DBファイルの実パスを解決する（app.main.upgrade_database_schemaのマイグレーション前
+    安全退避コピーでも使うため公開関数とする。CLAUDE.md DRYの原則）。"""
     url = get_settings().database_url
     if not url.startswith("sqlite:///"):
         raise ValidationError("バックアップ機構はSQLite以外のデータベースには対応していません")
@@ -92,7 +94,7 @@ def create_backup(session: Session) -> BackupInfo:
     destination = BACKUP_DIR / f"{backup_id}.db"
 
     engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
-    shutil.copy2(_database_path(), destination)
+    shutil.copy2(database_path(), destination)
 
     retention_count = setting_reader.get_int(session, BACKUP_RETENTION_COUNT)
     _prune_old_backups(retention_count)
@@ -102,10 +104,10 @@ def create_backup(session: Session) -> BackupInfo:
     )
 
 
-def _create_safety_copy(db_path: Path, suffix: str) -> None:
-    """復元・インポートで現在のDBを差し替える直前に、安全退避コピーを作成する
-    （誤操作からの回復手段を残すため。restore_backup・import_all_dataで共用、
-    CLAUDE.md DRYの原則）。"""
+def create_safety_copy(db_path: Path, suffix: str) -> None:
+    """現在のDBを差し替える・変更する直前に、安全退避コピーを作成する（誤操作・不具合からの
+    回復手段を残すため。restore_backup・import_all_data・app.main.upgrade_database_schema
+    （起動時のAlembicマイグレーション適用前）で共用。CLAUDE.md DRYの原則）。"""
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = dt.datetime.now(dt.UTC).strftime("%Y%m%d_%H%M%S")
     shutil.copy2(db_path, BACKUP_DIR / f"backup_{timestamp}_{suffix}.db")
@@ -121,8 +123,8 @@ def restore_backup(backup_id: str) -> None:
         raise NotFoundError("バックアップ", backup_id)
 
     engine.dispose()
-    db_path = _database_path()
-    _create_safety_copy(db_path, "pre_restore")
+    db_path = database_path()
+    create_safety_copy(db_path, "pre_restore")
 
     shutil.copy2(source, db_path)
 
@@ -143,7 +145,7 @@ def export_all_data() -> dict:
     （SQLAlchemyの型変換を経由しないため、日付・真偽値等もSQLite上の生の格納表現
     のまま往復し、インポート時の型解釈の齟齬を避けられる）。
     """
-    db_path = _database_path()
+    db_path = database_path()
     connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
     try:
@@ -188,8 +190,8 @@ def import_all_data(data: dict) -> None:
     _validate_full_data_export(data)
 
     engine.dispose()
-    db_path = _database_path()
-    _create_safety_copy(db_path, "pre_import")
+    db_path = database_path()
+    create_safety_copy(db_path, "pre_import")
 
     table_names = _ordered_table_names()
     connection = sqlite3.connect(db_path)
