@@ -649,6 +649,9 @@ export interface paths {
         /**
          * Login
          * @description PAT指定時は即時反映・確認する。未指定時はフォールバック認証を非同期に開始する（16.2）。
+         *
+         *     Hostが指定された場合は設定画面の値（app_setting）にも反映する。認証操作で入力した値が
+         *     設定画面の表示と食い違わないようにするため（設定画面の保存ボタンとは別経路のため）。
          */
         post: operations["login_api_v1_ai_login_post"];
         delete?: never;
@@ -2128,6 +2131,12 @@ export interface components {
             required_environment?: components["schemas"]["Environment"] | null;
             quality_metric_type?: components["schemas"]["QualityMetricType"] | null;
         };
+        /**
+         * PassingScoreType
+         * @description 合格点の入力方式（百分率／点数。設計書 データ構造編 5.3）。
+         * @enum {string}
+         */
+        PassingScoreType: "PERCENTAGE" | "RAW_SCORE";
         /** PlanBaselineRead */
         PlanBaselineRead: {
             /** Id */
@@ -2422,6 +2431,10 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+            /** @default PERCENTAGE */
+            passing_score_type: components["schemas"]["PassingScoreType"];
+            /** Passing Score Max */
+            passing_score_max?: number | null;
         };
         /** SubjectFixDateRequest */
         SubjectFixDateRequest: {
@@ -2448,6 +2461,9 @@ export interface components {
             exam_date_fixed: string | null;
             /** Passing Score */
             passing_score: number | null;
+            passing_score_type: components["schemas"]["PassingScoreType"];
+            /** Passing Score Max */
+            passing_score_max: number | null;
             /** Display Order */
             display_order: number;
             exam_result?: components["schemas"]["ExamResultRead"] | null;
@@ -2465,6 +2481,9 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+            passing_score_type?: components["schemas"]["PassingScoreType"] | null;
+            /** Passing Score Max */
+            passing_score_max?: number | null;
         };
         /** ThresholdSettingsRead */
         ThresholdSettingsRead: {

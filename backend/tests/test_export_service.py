@@ -8,7 +8,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
-from app.constants.enums import ExamResultType, GoalStatus, QualityMetricType
+from app.constants.enums import ExamResultType, GoalStatus, PassingScoreType, QualityMetricType
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ExamResult, StudyLog, WeeklySummary
@@ -29,13 +29,22 @@ def _make_goal(session, name="目標A"):
     return goal
 
 
-def _make_subject(session, goal, name="科目A", passing_score=60.0):
+def _make_subject(
+    session,
+    goal,
+    name="科目A",
+    passing_score=60.0,
+    passing_score_type=PassingScoreType.PERCENTAGE,
+    passing_score_max=None,
+):
     subject = ExamSubject(
         goal_id=goal.id,
         name=name,
         exam_date_type="FIXED",
         exam_date_fixed=dt.date(2026, 6, 1),
         passing_score=passing_score,
+        passing_score_type=passing_score_type,
+        passing_score_max=passing_score_max,
         display_order=1,
     )
     session.add(subject)
@@ -321,6 +330,47 @@ def test_render_markdown_includes_headings_for_selected_sections(seeded_session)
     assert "## 1. 概要" in markdown
     assert "## 3. 学習量" in markdown
     assert "## 4. 教材構成" in markdown
+    assert "合格基準: 60%" in markdown
+
+
+def test_render_markdown_formats_raw_score_passing_score(seeded_session):
+    goal = _make_goal(seeded_session)
+    _make_subject(
+        seeded_session,
+        goal,
+        passing_score=700.0,
+        passing_score_type=PassingScoreType.RAW_SCORE,
+        passing_score_max=1000.0,
+    )
+    data = export_service.build_export_data(
+        seeded_session,
+        goal,
+        export_service.ExportSelection(),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    markdown = export_service.render_markdown(data, export_service.ExportSelection())
+
+    assert "合格基準: 700/1000点" in markdown
+
+
+def test_render_markdown_formats_unset_passing_score(seeded_session):
+    goal = _make_goal(seeded_session)
+    _make_subject(seeded_session, goal, passing_score=None)
+    data = export_service.build_export_data(
+        seeded_session,
+        goal,
+        export_service.ExportSelection(),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    markdown = export_service.render_markdown(data, export_service.ExportSelection())
+
+    assert "合格基準: 未設定" in markdown
 
 
 def test_render_markdown_omits_headings_for_unselected_sections(seeded_session):

@@ -31,9 +31,13 @@ __pycache__/
 .coverage
 htmlcov/
 
-# データベース・バックアップ（実データを誤ってコミットしないため）
-data/*.db
-data/*.db-journal
+# データベース・バックアップ・エクスポート（実データを誤ってコミットしないため）。
+# data/backups/・data/exports/（app/config.py BACKUP_DIR/EXPORT_DIR）配下も含め
+# data/ 配下は.gitkeep以外すべて対象とする（*.dbのみを対象にすると、サブ
+# ディレクトリのバックアップファイル等が漏れるため。CLAUDE.md DRYの原則
+# ＝除外ルールを1箇所に集約し、生成物の種類ごとに追記しない）。
+data/*
+!data/.gitkeep
 backend/tests/_test.db
 
 # Node（フロントエンド、Phase 6以降）

@@ -10,6 +10,7 @@ from app.constants.enums import (
     ExamDateType,
     GoalStatus,
     Granularity,
+    PassingScoreType,
     QualityMetricType,
     RecordState,
 )
@@ -401,7 +402,13 @@ def test_quality_trend_empty_when_no_quality_values(db_session):
 
 
 def _link_subject(
-    db_session, goal_id: int, material_id: int, passing_score: float | None, display_order: int = 1
+    db_session,
+    goal_id: int,
+    material_id: int,
+    passing_score: float | None,
+    display_order: int = 1,
+    passing_score_type: PassingScoreType = PassingScoreType.PERCENTAGE,
+    passing_score_max: float | None = None,
 ) -> None:
     subject = ExamSubject(
         goal_id=goal_id,
@@ -409,6 +416,8 @@ def _link_subject(
         exam_date_type=ExamDateType.FIXED,
         exam_date_fixed=dt.date(2026, 12, 1),
         passing_score=passing_score,
+        passing_score_type=passing_score_type,
+        passing_score_max=passing_score_max,
         display_order=display_order,
     )
     db_session.add(subject)
@@ -432,3 +441,37 @@ def test_resolve_passing_score_uses_highest_when_multiple_subjects_linked(db_ses
     _link_subject(db_session, goal.id, material.id, passing_score=75.0, display_order=2)
 
     assert metrics_service.resolve_passing_score(material) == 75.0
+
+
+def test_resolve_passing_score_normalizes_raw_score_by_max(db_session):
+    """点数入力（RAW_SCORE）は満点で除して百分率に正規化する（ロジック・プロンプト編14.4）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _link_subject(
+        db_session,
+        goal.id,
+        material.id,
+        passing_score=700.0,
+        passing_score_type=PassingScoreType.RAW_SCORE,
+        passing_score_max=1000.0,
+    )
+
+    assert metrics_service.resolve_passing_score(material) == 70.0
+
+
+def test_resolve_passing_score_compares_normalized_values_across_mixed_types(db_session):
+    """百分率入力と点数入力が混在する場合、正規化後の値同士で比較する。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    _link_subject(db_session, goal.id, material.id, passing_score=60.0, display_order=1)
+    _link_subject(
+        db_session,
+        goal.id,
+        material.id,
+        passing_score=800.0,
+        display_order=2,
+        passing_score_type=PassingScoreType.RAW_SCORE,
+        passing_score_max=1000.0,
+    )
+
+    assert metrics_service.resolve_passing_score(material) == 80.0

@@ -6,7 +6,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import ExamDateType, ExamResultType
+from app.constants.enums import ExamDateType, ExamResultType, PassingScoreType
 
 
 class SubjectCreate(BaseModel):
@@ -15,7 +15,9 @@ class SubjectCreate(BaseModel):
     exam_date_from: dt.date | None = None
     exam_date_to: dt.date | None = None
     exam_date_fixed: dt.date | None = None
-    passing_score: float | None = Field(default=None, ge=0, le=100)
+    passing_score: float | None = Field(default=None, ge=0)
+    passing_score_type: PassingScoreType = PassingScoreType.PERCENTAGE
+    passing_score_max: float | None = Field(default=None, gt=0)
 
 
 class SubjectUpdate(BaseModel):
@@ -24,7 +26,9 @@ class SubjectUpdate(BaseModel):
     exam_date_from: dt.date | None = None
     exam_date_to: dt.date | None = None
     exam_date_fixed: dt.date | None = None
-    passing_score: float | None = Field(default=None, ge=0, le=100)
+    passing_score: float | None = Field(default=None, ge=0)
+    passing_score_type: PassingScoreType | None = None
+    passing_score_max: float | None = Field(default=None, gt=0)
 
 
 class SubjectFixDateRequest(BaseModel):
@@ -42,6 +46,8 @@ class SubjectRead(BaseModel):
     exam_date_to: dt.date | None
     exam_date_fixed: dt.date | None
     passing_score: float | None
+    passing_score_type: PassingScoreType
+    passing_score_max: float | None
     display_order: int
     exam_result: ExamResultRead | None = None
 

@@ -16,6 +16,13 @@ class ExamDateType(enum.StrEnum):
     FIXED = "FIXED"
 
 
+class PassingScoreType(enum.StrEnum):
+    """合格点の入力方式（百分率／点数。設計書 データ構造編 5.3）。"""
+
+    PERCENTAGE = "PERCENTAGE"
+    RAW_SCORE = "RAW_SCORE"
+
+
 class DayType(enum.StrEnum):
     PLAN = "PLAN"
     BUFFER = "BUFFER"

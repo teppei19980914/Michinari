@@ -362,34 +362,68 @@ kubectl rollout undo deployment/<name>
 ### 7.4 配布パッケージのビルド（他端末への配布用）
 
 本アプリは個人端末で完結するローカルアプリであるため、7.1〜7.3のサーバーデプロイとは別に、
-Windows端末へ配布するための単一実行ファイル化（PyInstaller）を用意している。
+Windows端末へ配布するための単一実行ファイル化（PyInstaller）を用意している。ビルド〜
+パッケージ化〜zip化は半自動化されており、開発者はバージョンの入力のみ行えばよい
+（GitHub Releasesへのzipアップロードは自動化対象外。開発者が手動で行う）。
+
+**実行方法**（いずれか）
+
+- `backend/scripts/build_and_package.bat` をダブルクリックする
+- または、コマンドラインから以下を実行する
 
 ```bash
 cd backend
 uv run python scripts/build_package.py
 ```
 
-1. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
+`build_and_package.bat`は本体の処理前に`uv sync`を実行する。本リポジトリがOneDrive
+同期フォルダ内にあるため、同期中のファイルロックと競合し`.venv`配下のファイル削除が
+「アクセスが拒否されました」で失敗することがある（1のアーカイブ退避で説明している
+`shutil.rmtree`の`WinError 5`と同種の問題）。`build_and_package.bat`はこの`uv sync`
+失敗を検知すると3秒待って最大5回まで自動的に再試行する。コマンドラインから直接
+`uv run python scripts/build_package.py`を実行して同じ事象に遭遇した場合は、
+`uv sync`を単独で再実行してから改めて実行する。
+
+**処理内容**
+
+1. テストスイート（`pytest`）を実行する。**1件でも失敗すればここでビルドを中止する**
+   （配布パッケージに不具合を含んだまま出荷しないための最終防波堤。2026-08-29、
+   マイグレーション不具合を検出するテストが存在したにもかかわらずビルド時に実行
+   されておらず、そのまま配布されてしまった反省による）
+2. 配布バージョンの入力を求める（コンソールにプロンプトが表示される）。空欄のまま
+   確定することはできず、入力した値がそのままリリースバージョンとなる（現在の
+   `backend/pyproject.toml` のバージョンは参考表示のみで、既定値としての自動採用は
+   しない）。使用できる文字は半角英数字・ドット・ハイフン・アンダースコアのみ
+   （`pyproject.toml` のTOML文字列・zipファイル名へそのまま埋め込むため、それ以外の
+   文字を含む入力は再入力を求める）。確定したバージョンは `backend/pyproject.toml` の
+   `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
+3. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
    へリネームして退避する（削除しない。旧バージョンとの差分調査用）
-2. フロントエンドを `npm run build` でビルド（`frontend/dist`）
-3. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
+4. フロントエンドを `npm run build` でビルド（`frontend/dist`）
+5. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
    `alembic/` を同梱、`backend/dist/Michinari/` に出力）
-4. 起動用 `Michinari.bat` を配置
-5. `backend/dist/Michinari/` フォルダを zip 化し `backend/dist/Michinari.zip` を生成
+6. 起動用 `Michinari.bat` を配置
+7. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
+   `backend/dist/Michinari-v{version}.zip`（例: `Michinari-v0.2.0.zip`）を生成する
    （`create_distribution_zip`）
 
-配布時は `backend/dist/Michinari.zip` を配布先へコピーして展開し、
+配布時は `backend/dist/Michinari-v{version}.zip` を配布先へコピーして展開し、
 `Michinari.bat` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
-1で述べたフォルダ手動コピーの代わりにzipを渡すだけで済む）。データ保存先は配布先
+3で述べたフォルダ手動コピーの代わりにzipを渡すだけで済む）。データ保存先は配布先
 ごとに `%LOCALAPPDATA%\Michinari\data\` を使う（`backend/app/config.py` の
 `_default_data_dir` が `sys.frozen` を判定して自動切替。ソースから起動する開発環境
 では従来通り `data/` を使うため挙動に影響しない）。
 
-zip（`backend/dist/Michinari.zip`）は1のアーカイブ退避（`_archive/`）とは対象・
-実行順序が独立している（zip化はビルド完了後に最新の`Michinari/`のみを対象に行う
-ため、退避済みの旧パッケージを巻き込むことはない）。また、zipは毎回のビルドで
-上書きされ、`_archive/`のような世代保持はしない。旧バージョンのzipが必要な場合は
-`_archive/Michinari_YYYYMMDD_HHMMSS/` を手動でzip化する。
+zip（`backend/dist/Michinari-v{version}.zip`）は3のアーカイブ退避（`_archive/`）とは
+対象・実行順序が独立している（zip化はビルド完了後に最新の`Michinari/`のみを対象に行う
+ため、退避済みの旧パッケージを巻き込むことはない）。zipファイル名にバージョンが入る
+ため、異なるバージョンでビルドすれば過去のzipを上書きせず併存する（同一バージョンで
+再ビルドした場合のみ上書きされる）。過去バージョンのzipが不要になれば手動で削除して
+よい（`backend/dist/` は `.gitignore` で除外済み）。
+
+GitHub Releasesへの公開は本スクリプトの対象外。生成された
+`backend/dist/Michinari-v{version}.zip` を、開発者が手動でリリースのタグ・
+リリースノートと対応付けてアップロードする。
 
 退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
 OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
@@ -402,16 +436,22 @@ OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期�
 
 - AI連携（NewtonX ADK）のPAT認証は配布先の端末ごとに利用者本人が設定画面から入力する
   必要がある（PATは個人アカウントに紐づくため、パッケージに同梱しても共有できない）
-- 新規インストール（`create_all_tables`）のみ対応。既存インストールのスキーマ更新
-  （Alembicマイグレーション）は本スクリプトでは自動化していない
 
 ### 7.5 DBマイグレーションを伴う配布パッケージの更新（既存インストール先への反映）
 
-7.4 の `build_package.py` は `create_all_tables`（`Base.metadata.create_all()`）による
-新規テーブル作成のみを行い、既存DBへのカラム追加等のスキーマ変更は自動反映されない。
-Alembicマイグレーションファイル（`backend/alembic/versions/`）はパッケージに同梱されるが、
-アプリ本体（`Michinari.exe`）から自動実行されることはない。DBスキーマ変更を含む修正を
-既存の配布先へ反映する場合は、以下いずれかの方式を用いる。
+**2026-08-29時点、DBスキーマ更新はアプリ起動時に自動で行われる**（`app/main.py`の
+`upgrade_database_schema`）。配布先の実行ファイル一式（`Michinari.exe`）を新パッケージへ
+入れ替え、`data\michinari.db` はそのまま残した状態で `Michinari.bat` を起動するだけで、
+未適用のマイグレーション（Alembicの`alembic upgrade head`相当）が自動適用され、データは
+保持される。実行前にはDBファイルの安全退避コピー（`data\backups\backup_*_pre_migration.db`）
+が自動で作成される。
+
+この自動マイグレーションは、本機構導入前（`create_all_tables()`のみでスキーマを構築して
+いた時期）に配布されたDBも正しく扱える。それらのDBは`alembic_version`テーブルを持たない
+ため、まず`_PRE_ALEMBIC_BASELINE_REVISION`（実質スキーマが一致する既知のリビジョン）へ
+`stamp`してから未適用分のみを`upgrade`する（テーブルの二重作成エラーを避けるため）。
+
+以下は自動マイグレーションが使えない・使いたくない場合の代替手段。
 
 #### 方式A: 新規DB作成（データ移行不要な場合）
 
@@ -420,16 +460,19 @@ Alembicマイグレーションファイル（`backend/alembic/versions/`）は�
 1. 通常どおり `build_package.py` を実行し新パッケージを生成する
 2. 配布先の `%LOCALAPPDATA%\Michinari\data\` フォルダを削除またはリネーム退避する
 3. 新パッケージ（`backend/dist/Michinari/`）を配布先へコピーし `Michinari.bat` を起動する
-4. 初回起動時の `create_all_tables()` が最新モデル定義から全テーブルを新規作成する
+4. 初回起動時の自動マイグレーション（空DBのため`upgrade head`がチェーンの先頭から適用
+   され、`create_all_tables()`と同じ最終スキーマになる）が全テーブルを新規作成する
 
 #### 方式B: 全データエクスポート/インポート（GUI操作でデータを引き継ぐ）
 
 アプリ内蔵のデータ管理機能（`GET /api/v1/data/export` / `POST /api/v1/data/import`）を使う。
+自動マイグレーションがあるため通常は不要だが、DBファイルを直接扱わずGUI操作のみで
+引き継ぎたい場合や、新旧バージョン間で大きくスキーマが変わる場合に使う。
 
 1. 配布先で旧バージョンのアプリを起動し、データ管理画面からエクスポートしてJSONを保存する
 2. 通常どおり `build_package.py` を実行し新パッケージを生成する
 3. 配布先の `data` フォルダを退避し、新パッケージへ入れ替えて起動する
-   （`create_all_tables()` により新スキーマでDBが作成される）
+   （自動マイグレーションにより新スキーマでDBが作成される）
 4. 新バージョンのアプリのデータ管理画面から、手順1でエクスポートしたJSONをインポートする
 
 **既知の制約**: インポート処理（`backup_service.import_all_data`）はエクスポートJSONに
@@ -437,13 +480,14 @@ Alembicマイグレーションファイル（`backend/alembic/versions/`）は�
 `WeeklySummary.is_anonymized`）はORM経由の挿入でのみ適用され、このインポート経路には
 適用されない。マイグレーションで**サーバ側デフォルト値を持たないNOT NULL列**を追加した
 場合、旧バージョンのエクスポートJSONにはその列が存在せず、インポート時に
-`NOT NULL constraint failed` で失敗する。該当するマイグレーションを配布する際は方式Cを
-使う。
+`NOT NULL constraint failed` で失敗する。該当する変更を配布する場合はエクスポート/
+インポートを使わず、通常どおりDBファイルをそのまま引き継いで自動マイグレーションに
+任せる（方式Aの手順3・4のように、DBファイルを配布先に残したまま新パッケージへ入れ替える）。
 
-#### 方式C: Alembicマイグレーション（データをそのまま保持、正式な手段）
+#### 方式C: 開発機でのAlembic手動実行（自動マイグレーションが使えない例外的なケース）
 
-配布先の実行ファイル一式にはPython/Alembicの実行環境が同梱されていないため、開発機側で
-マイグレーションを実行してからDBファイルを配布先へ戻す。
+自動マイグレーション自体に不具合がある、データを段階的に変換する必要がある等、
+起動時の自動適用に任せられない例外的な修正でのみ使う。
 
 1. 配布先の `data\michinari.db` をバックアップコピーしたうえで、開発機の作業用フォルダへ
    コピーする
