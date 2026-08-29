@@ -1,18 +1,17 @@
-"""配布パッケージビルドスクリプトのアーカイブ処理・zip化のテスト（scripts/build_package.py参照）。
+"""配布パッケージビルドスクリプトのアーカイブ処理・zip化・ビルド情報生成のテスト
+（scripts/build_package.py参照）。
 
 PyInstaller本体の実行はCI環境依存が大きいため対象外とし、既存パッケージの退避ロジック
-（`archive_previous_package`）と配布用zip化ロジック（`create_distribution_zip`）のみを
-検証する。
+（`archive_previous_package`）・配布用zip化ロジック（`create_distribution_zip`）・
+ビルド情報生成ロジック（`generate_build_info`）のみを検証する。
 """
 
 import datetime as dt
-import sys
+import json
 import zipfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
-from build_package import archive_previous_package, create_distribution_zip  # noqa: E402
+from build_package import archive_previous_package, create_distribution_zip, generate_build_info
 
 
 def test_archive_previous_package_returns_none_when_no_existing_output(tmp_path: Path) -> None:
@@ -111,3 +110,49 @@ def test_create_distribution_zip_overwrites_previous_zip_content(tmp_path: Path)
         names = set(zf.namelist())
     assert "Michinari/v2.txt" in names
     assert "Michinari/v1.txt" not in names
+
+
+def _write_fixture_repo(repo_root: Path) -> None:
+    backend_dir = repo_root / "backend"
+    backend_dir.mkdir()
+    (backend_dir / "pyproject.toml").write_text(
+        """
+[project]
+name = "michinari-backend"
+version = "1.2.3"
+dependencies = ["fastapi>=0.115"]
+""".strip(),
+        encoding="utf-8",
+    )
+    frontend_dir = repo_root / "frontend"
+    frontend_dir.mkdir()
+    (frontend_dir / "package.json").write_text(
+        json.dumps({"dependencies": {"react": "^19.2.8"}}), encoding="utf-8"
+    )
+
+
+def test_generate_build_info_writes_expected_json(tmp_path: Path) -> None:
+    _write_fixture_repo(tmp_path)
+    output_path = tmp_path / "backend" / "build_info.json"
+    fixed_now = dt.datetime(2026, 8, 28, 0, 0, 0, tzinfo=dt.UTC)
+
+    result = generate_build_info(tmp_path, output_path, now=fixed_now)
+
+    assert result == output_path
+    data = json.loads(output_path.read_text(encoding="utf-8"))
+    assert data["app_version"] == "1.2.3"
+    assert data["built_at"] == fixed_now.isoformat()
+    assert data["backend_libraries"][0]["name"] == "fastapi"
+    assert data["frontend_libraries"][0]["name"] == "react"
+
+
+def test_generate_build_info_defaults_built_at_to_now(tmp_path: Path) -> None:
+    _write_fixture_repo(tmp_path)
+    output_path = tmp_path / "backend" / "build_info.json"
+
+    generate_build_info(tmp_path, output_path)
+
+    data = json.loads(output_path.read_text(encoding="utf-8"))
+    assert data["built_at"] is not None
+    # ISO8601形式であること（dt.datetime.fromisoformatで解釈できること）を確認する。
+    dt.datetime.fromisoformat(data["built_at"])
