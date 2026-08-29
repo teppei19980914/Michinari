@@ -1105,6 +1105,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get System Info
+         * @description `GET /api/v1/system-info`: システム情報（SC-15）を`SystemInfoRead`で返す。
+         */
+        get: operations["get_system_info_api_v1_system_info_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1899,6 +1919,13 @@ export interface components {
             /** Json Path */
             json_path: string;
         };
+        /** LibraryInfoRead */
+        LibraryInfoRead: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
         /** LoadProfileCreate */
         LoadProfileCreate: {
             /**
@@ -2484,6 +2511,19 @@ export interface components {
             passing_score_type?: components["schemas"]["PassingScoreType"] | null;
             /** Passing Score Max */
             passing_score_max?: number | null;
+        };
+        /** SystemInfoRead */
+        SystemInfoRead: {
+            /** App Version */
+            app_version: string;
+            /** Python Version */
+            python_version: string;
+            /** Built At */
+            built_at: string | null;
+            /** Backend Libraries */
+            backend_libraries: components["schemas"]["LibraryInfoRead"][];
+            /** Frontend Libraries */
+            frontend_libraries: components["schemas"]["LibraryInfoRead"][];
         };
         /** ThresholdSettingsRead */
         ThresholdSettingsRead: {
@@ -4863,6 +4903,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_system_info_api_v1_system_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInfoRead"];
                 };
             };
         };

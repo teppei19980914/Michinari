@@ -33,6 +33,7 @@ from app.api.materials import router as materials_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
+from app.api.system_info import router as system_info_router
 from app.config import BACKEND_DIR, REPO_ROOT, get_settings
 from app.constants.app_setting_keys import SERVER_PORT
 from app.database import SessionLocal, engine
@@ -203,6 +204,7 @@ def create_app() -> FastAPI:
     app.include_router(closure_router, prefix=API_V1_PREFIX)
     app.include_router(export_router, prefix=API_V1_PREFIX)
     app.include_router(data_router, prefix=API_V1_PREFIX)
+    app.include_router(system_info_router, prefix=API_V1_PREFIX)
 
     # フロントエンドの静的配信（配布パッケージ対応）。API/healthルートを登録した後に
     # マウントすることで、それらのパスが静的配信より優先して解決される。開発時は

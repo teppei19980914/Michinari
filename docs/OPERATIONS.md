@@ -368,7 +368,8 @@ Windows端末へ配布するための単一実行ファイル化（PyInstaller�
 
 **実行方法**（いずれか）
 
-- `backend/scripts/build_and_package.bat` をダブルクリックする
+- `backend/build.bat` をダブルクリックする（コマンド操作に慣れていない開発者向けの
+  GUI実行手段。完了・失敗のいずれでもウィンドウが自動で閉じないよう `pause` している）
 - または、コマンドラインから以下を実行する
 
 ```bash
@@ -376,13 +377,12 @@ cd backend
 uv run python scripts/build_package.py
 ```
 
-`build_and_package.bat`は本体の処理前に`uv sync`を実行する。本リポジトリがOneDrive
+`backend/build.bat`は本体の処理前に`uv sync`を実行する。本リポジトリがOneDrive
 同期フォルダ内にあるため、同期中のファイルロックと競合し`.venv`配下のファイル削除が
-「アクセスが拒否されました」で失敗することがある（1のアーカイブ退避で説明している
-`shutil.rmtree`の`WinError 5`と同種の問題）。`build_and_package.bat`はこの`uv sync`
-失敗を検知すると3秒待って最大5回まで自動的に再試行する。コマンドラインから直接
-`uv run python scripts/build_package.py`を実行して同じ事象に遭遇した場合は、
-`uv sync`を単独で再実行してから改めて実行する。
+「アクセスが拒否されました」で失敗することがある（後述の`shutil.rmtree`の`WinError 5`と
+同種の問題）。`backend/build.bat`はこの`uv sync`失敗を検知すると3秒待って最大5回まで
+自動的に再試行する。コマンドラインから直接`uv run python scripts/build_package.py`を
+実行して同じ事象に遭遇した場合は、`uv sync`を単独で再実行してから改めて実行する。
 
 **処理内容**
 
@@ -399,13 +399,21 @@ uv run python scripts/build_package.py
    `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
 3. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
    へリネームして退避する（削除しない。旧バージョンとの差分調査用）
-4. フロントエンドを `npm run build` でビルド（`frontend/dist`）
-5. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
-   `alembic/` を同梱、`backend/dist/Michinari/` に出力）
-6. 起動用 `Michinari.bat` を配置
-7. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
+4. アプリバージョン・使用ライブラリのスナップショットを `backend/build_info.json` へ生成する
+   （`generate_build_info`。2で確定した`backend/pyproject.toml`の`[project].version`を
+   単一の情報源として読む）
+5. フロントエンドを `npm run build` でビルド（`frontend/dist`）
+6. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
+   `alembic/`・`build_info.json` を同梱、`backend/dist/Michinari/` に出力）
+7. 起動用 `Michinari.bat` を配置
+8. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
    `backend/dist/Michinari-v{version}.zip`（例: `Michinari-v0.2.0.zip`）を生成する
    （`create_distribution_zip`）
+
+`build_info.json`（配布パッケージ同梱後は起動画面「システム情報」SC-15から参照できる、
+仕様書6.14参照）は`built_at`がビルドの都度変わるため`.gitignore`で除外している
+（`frontend/src/types/api.d.ts`のようにAPIスキーマ変更時のみ変わる決定論的な生成物
+（コミット対象）とは性質が異なるため、同じ扱いはしない）。
 
 配布時は `backend/dist/Michinari-v{version}.zip` を配布先へコピーして展開し、
 `Michinari.bat` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
@@ -421,16 +429,37 @@ zip（`backend/dist/Michinari-v{version}.zip`）は3のアーカイブ退避（`
 再ビルドした場合のみ上書きされる）。過去バージョンのzipが不要になれば手動で削除して
 よい（`backend/dist/` は `.gitignore` で除外済み）。
 
-GitHub Releasesへの公開は本スクリプトの対象外。生成された
-`backend/dist/Michinari-v{version}.zip` を、開発者が手動でリリースのタグ・
-リリースノートと対応付けてアップロードする。
-
 退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
 OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
 既存出力先を`shutil.rmtree`により再帰削除しようとして`WinError 5 アクセスが拒否
 されました`になる事象も回避できる（リネームはディレクトリエントリの付け替えのみで
 再帰削除を伴わないため）。`backend/dist/_archive/` は自動生成物のため不要になったら
 手動で削除してよい（`.gitignore`で`backend/dist/`ごと除外済み）。
+
+#### 配布物の公開方法（GitHub Releases）
+
+`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版も
+残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
+GitHub Releasesにzipを添付する方式で行う。
+
+```bash
+cd backend
+uv run python scripts/build_package.py
+uv run python scripts/publish_release.py
+```
+
+`publish_release.py` はバージョンを`pyproject.toml`から自動取得し、`v{version}`タグで
+`gh release create ... --generate-notes` を実行する（アップロードするzipファイル名も
+`build_package.py`と同じ`Michinari-v{version}.zip`を使う。命名規則は
+`build_package.distribution_zip_filename`に集約し、二重管理しない）。同じバージョンで
+再実行するなど既にタグ・Releaseが存在する場合は、自動的に `gh release upload ... --clobber`
+へフォールバックしてzipを差し替える。`build_package.py`からは一切自動呼び出しされない
+（GitHub上で他者から見える公開操作のため、公開したいタイミングで開発者が明示的に
+実行する）。
+
+配布先には、生成されたReleaseページの固定URLを案内する。ユーザーはそのページから
+配布用zip（`Michinari-v{version}.zip`）をダウンロードし、展開して `Michinari.bat` を
+実行すればよい。
 
 **既知の制約**（初版時点、Phase 11の実環境検証で解消・調整する想定）:
 
