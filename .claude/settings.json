@@ -18,7 +18,13 @@
       "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/ja.json','utf8'\\)\\); console.log\\('OK'\\)\")",
       "Bash(pkill -f \"vite --port 5183\")",
       "Bash(taskkill //F //IM node.exe //FI \"WINDOWTITLE eq *vite*\")",
-      "Bash(wmic process *)"
+      "Bash(wmic process *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(curl -s http://127.0.0.1:8100/api/v1/system-info)",
+      "Bash(git check-ignore *)",
+      "Bash(xxd build.bat)",
+      "Bash(xxd launcher_template.bat)"
     ]
   },
   "hooks": {

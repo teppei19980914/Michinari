@@ -2,9 +2,10 @@
 
 実行順序: テストスイートの実行（1件でも失敗すればここでビルドを中止する）→
 配布バージョンをユーザ入力で確定（`backend/pyproject.toml`へ反映）→
-既存パッケージのアーカイブ退避 → フロントエンドの静的ビルド（`npm run build`）→
-PyInstallerによるバックエンドのパッケージ化（フロントエンドの静的ファイル・alembicマイグレー
-ションを同梱）→ 起動用batファイルの配置 → 配布用zipの作成。
+既存パッケージのアーカイブ退避 → ビルド情報（バージョン・使用ライブラリ）の生成 →
+フロントエンドの静的ビルド（`npm run build`）→ PyInstallerによるバックエンドの
+パッケージ化（フロントエンドの静的ファイル・alembicマイグレーション・ビルド情報を
+同梱）→ 起動用batファイルの配置 → 配布用zipの作成。
 
 テストを最初に実行するのは、配布後に発覚した不具合（2026-08-29、exam_subject.
 passing_score_type列追加マイグレーションが既存データで失敗する不具合）が、テスト
@@ -14,13 +15,16 @@ passing_score_type列追加マイグレーションが既存データで失敗�
 配布パッケージとして生成できない。
 
 実行例（backendディレクトリから）: `uv run python scripts/build_package.py`
-（`scripts/build_and_package.bat` をダブルクリックしても同じ処理が実行される）
+（`backend/build.bat` をダブルクリックしても同じ処理を実行できる）。
 
 出力先: `backend/dist/Michinari/`（`Michinari.exe` と `Michinari.bat` を含む。この
 フォルダごと他端末へコピーし、`Michinari.bat` をダブルクリックすれば起動できる）に加え、
 同フォルダをzip化した `backend/dist/Michinari-v{version}.zip` も生成する（配布時はzipを
 渡すだけでよい）。zipファイル名には確定した配布バージョンが入るため、バージョンが異なれば
 過去のzipを上書きしない（同一バージョンで再ビルドした場合のみ上書きされる）。
+
+GitHub Releasesへの公開は本スクリプトでは行わない（`scripts/publish_release.py`参照。
+ビルドと公開を分離し、公開は開発者が明示的に実行する）。
 """
 
 import datetime as dt
@@ -32,6 +36,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+from app.services.system_info_service import build_info_to_json, collect_build_info
+
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
@@ -41,6 +47,7 @@ DIST_DIR = BACKEND_DIR / "dist"
 OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
 PYPROJECT_PATH = BACKEND_DIR / "pyproject.toml"
+BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
 #: pyproject.tomlのTOML文字列・zipファイル名へ埋め込むため、`"`によるTOML破損や
@@ -122,7 +129,7 @@ def run_tests() -> None:
     一番最初に置く（バージョン入力より前。失敗する可能性のあるビルドでユーザに
     バージョンを入力させるのは手間の無駄なため）。
     """
-    print("[1/7] テストスイートを実行しています…")
+    print("[1/8] テストスイートを実行しています…")
     result = subprocess.run([sys.executable, "-m", "pytest"], cwd=BACKEND_DIR)
     if result.returncode != 0:
         print("  → テストが失敗しました。配布パッケージのビルドを中止します。")
@@ -130,17 +137,39 @@ def run_tests() -> None:
         sys.exit(1)
 
 
+def generate_build_info(
+    repo_root: Path, output_path: Path, *, now: dt.datetime | None = None
+) -> Path:
+    """アプリバージョン・使用ライブラリのスナップショットを`build_info.json`へ書き出す。
+
+    ここで生成したファイルはPyInstallerの`--add-data`で配布パッケージへ同梱し、
+    配布exe（frozen実行時）はこのファイルを読むだけにする
+    （`app/services/system_info_service.py`のモジュールdocstring参照。frozen環境では
+    `importlib.metadata`がdist-info情報を保持しない場合があるため、ビルド時＝
+    依存関係が正しくインストールされたこの環境でのみライブ計算する）。
+
+    バージョン確定（`resolve_version`/`write_version`）より後に呼ぶこと。
+    `collect_build_info`は`pyproject.toml`から都度読み直すため、確定済みの新しい
+    バージョンが正しく反映される。
+    """
+    built_at = (now or dt.datetime.now(dt.UTC)).isoformat()
+    build_info = collect_build_info(repo_root, built_at=built_at)
+    output_path.write_text(build_info_to_json(build_info), encoding="utf-8")
+    return output_path
+
+
 def build_frontend() -> None:
-    print("[4/7] フロントエンドをビルドしています…")
+    print("[5/8] フロントエンドをビルドしています…")
     subprocess.run(["npm", "run", "build"], cwd=FRONTEND_DIR, check=True, shell=True)
 
 
 def build_backend() -> None:
-    print("[5/7] PyInstallerでバックエンドをパッケージ化しています…")
+    print("[6/8] PyInstallerでバックエンドをパッケージ化しています…")
     add_data = [
         f"{FRONTEND_DIST_DIR}{os.pathsep}frontend_dist",
         f"{BACKEND_DIR / 'alembic.ini'}{os.pathsep}.",
         f"{BACKEND_DIR / 'alembic'}{os.pathsep}alembic",
+        f"{BUILD_INFO_PATH}{os.pathsep}.",
     ]
     args = [sys.executable, "-m", "PyInstaller", "--name", APP_NAME, "--noconfirm"]
     for entry in add_data:
@@ -150,11 +179,18 @@ def build_backend() -> None:
 
 
 def assemble_launcher() -> None:
-    print("[6/7] 起動用batファイルを配置しています…")
+    print("[7/8] 起動用batファイルを配置しています…")
     launcher_src = BACKEND_DIR / "scripts" / "launcher_template.bat"
     launcher_dst = OUTPUT_DIR / f"{APP_NAME}.bat"
     shutil.copy(launcher_src, launcher_dst)
     print(f"完了: {OUTPUT_DIR}")
+
+
+def distribution_zip_filename(app_name: str, version: str) -> str:
+    """配布用zipのファイル名を組み立てる（`create_distribution_zip`・
+    `publish_release.py`の双方から利用し、命名規則を1箇所に集約する。
+    CLAUDE.md DRYの原則）。"""
+    return f"{app_name}-v{version}.zip"
 
 
 def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, version: str) -> Path:
@@ -173,8 +209,9 @@ def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, ver
     戻り値: 生成したzipファイルのパス。同一バージョンで再ビルドした場合のみ
     上書きされる（バージョンが異なれば別ファイルとして残る）。
     """
+    zip_filename = distribution_zip_filename(app_name, version)
     archive_path = shutil.make_archive(
-        base_name=str(dist_dir / f"{app_name}-v{version}"),
+        base_name=str(dist_dir / zip_filename.removesuffix(".zip")),
         format="zip",
         root_dir=str(dist_dir),
         base_dir=app_name,
@@ -185,7 +222,7 @@ def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, ver
 def main() -> None:
     run_tests()
 
-    print("[2/7] 配布バージョンを確認しています…")
+    print("[2/8] 配布バージョンを確認しています…")
     current_version = read_current_version(PYPROJECT_PATH)
     version = resolve_version(current_version)
     if version != current_version:
@@ -193,18 +230,21 @@ def main() -> None:
         print(f"  → pyproject.tomlのバージョンを更新しました: {current_version} → {version}")
     print(f"  → バージョン {version} でビルドします")
 
-    print("[3/7] 既存パッケージを確認しています…")
+    print("[3/8] 既存パッケージを確認しています…")
     archived_to = archive_previous_package(OUTPUT_DIR, ARCHIVE_DIR, APP_NAME)
     if archived_to:
         print(f"  → 既存パッケージを退避しました: {archived_to}")
     else:
         print("  → 既存パッケージはありません")
 
+    print("[4/8] ビルド情報（バージョン・使用ライブラリ）を生成しています…")
+    generate_build_info(REPO_ROOT, BUILD_INFO_PATH)
+
     build_frontend()
     build_backend()
     assemble_launcher()
 
-    print("[7/7] 配布用zipを作成しています…")
+    print("[8/8] 配布用zipを作成しています…")
     zip_path = create_distribution_zip(OUTPUT_DIR, DIST_DIR, APP_NAME, version)
     print(f"完了: {zip_path}")
 

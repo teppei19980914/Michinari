@@ -42,6 +42,10 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.params.Depends", "fastapi.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=app --cov-branch --cov-report=term-missing"
+# scripts/ 配下（build_package.py・publish_release.py）はパッケージ化されていないため、
+# テストからimportできるようpytestにパスを追加する（各テストファイルでの
+# sys.path.insert の重複を避けるため、CODING_RULES.md DRYの原則によりここへ集約）。
+pythonpath = ["scripts"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "pragma: no branch"]
