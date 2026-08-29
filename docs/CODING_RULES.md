@@ -35,6 +35,30 @@
 - **除外可**: 例外処理・想定外エラーのフォールバック等、意図的に発生させにくい異常系は対象外としてよい（除外理由をテストのdescribe/コメントに明記する）
 - 検出は `test-coverage-reviewer` エージェントが担当
 
+### DBマイグレーションのテスト（既存データに対する安全性）
+
+既存テーブルへの列追加・変更を伴うAlembicマイグレーション（`backend/alembic/versions/`）
+を追加する場合、そのテーブルに既存データがある状態で当該マイグレーションを適用し、
+エラーにならず・データが保持されることを検証するテストを必ず追加する。空のDBに対する
+`upgrade head`だけでは検出できない不具合があるため（下記理由）、通常のテストカバレッジ
+とは別に明記する。
+
+- **理由**: 2026-08-29、`exam_subject.passing_score_type`列追加マイグレーションが、
+  SQLiteのbatch mode（`env.py`の`render_as_batch=True`）でのテーブル再作成時に
+  `server_default`を失い、既存行のコピーがNOT NULL制約違反になる不具合を含んだまま
+  配布された。既存のテスト（`conftest.py`のセッション単位フィクスチャ）は常に空DBへ
+  `upgrade head`するだけで、既存データに対する適用は一度も検証していなかったため
+  検出されなかった
+- **判断の目安**: 新規テーブルの`create_table`のみのマイグレーションは対象外（コピー元
+  データが存在しないため、この種の不具合は起きない）。既存テーブルへの`add_column`/
+  `alter_column`等が対象
+- **書き方**: `backend/tests/migration_helpers.py`（`upgrade_to`/`drop_alembic_version_table`）
+  を使い、対象マイグレーションの1つ前のリビジョンまでDBを構築 → 対象テーブルへ生SQLで
+  代表的な行を挿入 → 対象リビジョンへ`upgrade` → エラーが起きないこと・挿入した行が
+  保持されていることを検証する（`backend/tests/test_bootstrap.py`の
+  `test_upgrade_database_schema_migrates_legacy_unversioned_database_without_data_loss`
+  を参考にする）
+
 ---
 
 ## 保守性（複雑度）

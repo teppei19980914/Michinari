@@ -5,6 +5,7 @@ import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
+import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
 import { activateGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
@@ -17,11 +18,31 @@ import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
 const TABS = [
-  { key: 'basicInfo', labelKey: 'goals.detail.tabs.basicInfo' },
-  { key: 'subjects', labelKey: 'goals.detail.tabs.subjects' },
-  { key: 'materials', labelKey: 'goals.detail.tabs.materials' },
-  { key: 'resourceAllocation', labelKey: 'goals.detail.tabs.resourceAllocation' },
-  { key: 'loadProfile', labelKey: 'goals.detail.tabs.loadProfile' },
+  {
+    key: 'basicInfo',
+    labelKey: 'goals.detail.tabs.basicInfo',
+    tooltipKey: 'goals.detail.tabTooltips.basicInfo',
+  },
+  {
+    key: 'subjects',
+    labelKey: 'goals.detail.tabs.subjects',
+    tooltipKey: 'goals.detail.tabTooltips.subjects',
+  },
+  {
+    key: 'materials',
+    labelKey: 'goals.detail.tabs.materials',
+    tooltipKey: 'goals.detail.tabTooltips.materials',
+  },
+  {
+    key: 'resourceAllocation',
+    labelKey: 'goals.detail.tabs.resourceAllocation',
+    tooltipKey: 'goals.detail.tabTooltips.resourceAllocation',
+  },
+  {
+    key: 'loadProfile',
+    labelKey: 'goals.detail.tabs.loadProfile',
+    tooltipKey: 'goals.detail.tabTooltips.loadProfile',
+  },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -155,18 +176,19 @@ export function GoalDetailPage() {
 
       <div className="flex gap-1 border-b border-gray-200">
         {TABS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setTab(item.key)}
-            className={`px-3 py-2 text-sm font-medium ${
-              tab === item.key
-                ? 'border-b-2 border-blue-600 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t(item.labelKey)}
-          </button>
+          <Tooltip key={item.key} label={t(item.tooltipKey)}>
+            <button
+              type="button"
+              onClick={() => setTab(item.key)}
+              className={`px-3 py-2 text-sm font-medium ${
+                tab === item.key
+                  ? 'border-b-2 border-blue-600 text-blue-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t(item.labelKey)}
+            </button>
+          </Tooltip>
         ))}
       </div>
 

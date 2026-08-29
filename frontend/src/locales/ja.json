@@ -107,6 +107,13 @@
         "resourceAllocation": "リソース配分",
         "loadProfile": "負荷プロファイル"
       },
+      "tabTooltips": {
+        "basicInfo": "試験名・開始日・状態・備考など、この目標自体の基本情報を確認・編集するタブです。目標の名称を変えたい、開始日を修正したいときに使用します。",
+        "subjects": "1つの試験の中で科目が複数に分かれる場合（科目ごとに受験日や合格点が異なる資格など）に、科目ごとの受験日・合格点を設定するタブです。科目を追加・編集し、それぞれの合格基準を管理したいときに使用します。",
+        "materials": "学習に使う教材（テキスト・問題集など）を登録し、対策する科目との紐付けや周回数・分量を管理するタブです。新しい教材を追加したい、日々のノルマ計算のもとになる情報を設定したいときに使用します。",
+        "resourceAllocation": "複数の目標を同時に進めている場合に、この目標へどれくらいの学習時間を配分するか（比率）を設定するタブです。並行して複数の資格を目指しており、目標間で学習時間の配分を調整したいときに使用します。",
+        "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。"
+      },
       "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
       "action": {
         "activate": "開始する",
@@ -131,6 +138,7 @@
       "addTitle": "試験科目を追加",
       "nameLabel": "科目名",
       "examDateTypeLabel": "受験日タイプ",
+      "examDateTypeTooltip": "受験日がまだ決まっていない場合は「期間」を選択し、期間開始日・終了日を入力します（最も早い日を基準に計画を算出します）。受験日が確定している場合は「確定日」を選択します。",
       "examDateType": {
         "RANGE": "期間",
         "FIXED": "確定日"
@@ -138,7 +146,19 @@
       "examDateFromLabel": "期間開始日",
       "examDateToLabel": "期間終了日",
       "examDateFixedLabel": "確定日",
+      "passingScoreTypeLabel": "合格点の入力方式",
+      "passingScoreType": {
+        "PERCENTAGE": "百分率（%）",
+        "RAW_SCORE": "点数（何点中何点）"
+      },
       "passingScoreLabel": "合格基準点",
+      "passingScoreRawLabel": "合格点",
+      "passingScoreMaxLabel": "満点",
+      "passingScoreResultLabel": "合格基準",
+      "passingScoreDisplay": {
+        "percentage": "{{score}}%",
+        "raw": "{{score}}/{{max}}点"
+      },
       "fixDate": "受験日を確定する",
       "fixDateConfirm": {
         "title": "受験日の確定",
@@ -167,6 +187,7 @@
         "MOBILE": "携帯端末"
       },
       "qualityMetricTypeLabel": "品質指標の方式",
+      "qualityMetricTypeTooltip": "学習の正誤をどう記録するかを選びます。四択問題など正誤が明確に決まる場合は「客観正答率」、記述式など解答内容からある程度正誤を判断できる場合は「自己採点得点率」、論文など正誤の判断が難しい場合は「主観的手応え」を選択します。品質を記録しない場合は「記録しない」のままにします。",
       "qualityMetricType": {
         "NONE": "記録しない",
         "OBJECTIVE": "客観正答率",

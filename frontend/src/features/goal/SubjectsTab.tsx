@@ -6,8 +6,15 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
+import { Tooltip } from '../../components/Tooltip'
 import { useToast } from '../../components/Toast'
 import { isSubjectRangeStartInPast } from './subjectWarnings'
+import {
+  buildPassingScorePayload,
+  formatPassingScoreDisplay,
+  initPassingScoreFormState,
+  type PassingScoreType,
+} from './passingScore'
 import {
   createSubject,
   deleteSubject,
@@ -18,6 +25,7 @@ import {
 } from '../../api/goals'
 
 const EXAM_DATE_TYPES = ['RANGE', 'FIXED'] as const
+const PASSING_SCORE_TYPES: PassingScoreType[] = ['PERCENTAGE', 'RAW_SCORE']
 
 function SubjectForm({
   goalId,
@@ -37,10 +45,8 @@ function SubjectForm({
   const [examDateFrom, setExamDateFrom] = useState(subject?.exam_date_from ?? '')
   const [examDateTo, setExamDateTo] = useState(subject?.exam_date_to ?? '')
   const [examDateFixed, setExamDateFixed] = useState(subject?.exam_date_fixed ?? '')
-  const [passingScore, setPassingScore] = useState(
-    subject?.passing_score === null || subject?.passing_score === undefined
-      ? ''
-      : String(subject.passing_score),
+  const [passingScoreForm, setPassingScoreForm] = useState(() =>
+    initPassingScoreFormState(subject),
   )
 
   const payload = {
@@ -49,7 +55,7 @@ function SubjectForm({
     exam_date_from: examDateType === 'RANGE' ? examDateFrom || null : null,
     exam_date_to: examDateType === 'RANGE' ? examDateTo || null : null,
     exam_date_fixed: examDateType === 'FIXED' ? examDateFixed || null : null,
-    passing_score: passingScore === '' ? null : Number(passingScore),
+    ...buildPassingScorePayload(passingScoreForm),
   }
 
   const mutation = useMutation({
@@ -75,7 +81,9 @@ function SubjectForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
       <label className="flex flex-col gap-1 text-sm text-gray-700">
-        {t('goals.subjects.examDateTypeLabel')}
+        <Tooltip label={t('goals.subjects.examDateTypeTooltip')}>
+          <span>{t('goals.subjects.examDateTypeLabel')}</span>
+        </Tooltip>
         <select
           className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={examDateType}
@@ -121,15 +129,63 @@ function SubjectForm({
         </label>
       )}
       <label className="flex flex-col gap-1 text-sm text-gray-700">
-        {t('goals.subjects.passingScoreLabel')}
-        <Input
-          type="number"
-          min={0}
-          max={100}
-          value={passingScore}
-          onChange={(e) => setPassingScore(e.target.value)}
-        />
+        {t('goals.subjects.passingScoreTypeLabel')}
+        <select
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          value={passingScoreForm.type}
+          onChange={(e) =>
+            setPassingScoreForm((prev) => ({
+              ...prev,
+              type: e.target.value as PassingScoreType,
+            }))
+          }
+        >
+          {PASSING_SCORE_TYPES.map((value) => (
+            <option key={value} value={value}>
+              {t(`goals.subjects.passingScoreType.${value}`)}
+            </option>
+          ))}
+        </select>
       </label>
+      {passingScoreForm.type === 'RAW_SCORE' ? (
+        <div className="flex gap-2">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+            {t('goals.subjects.passingScoreRawLabel')}
+            <Input
+              type="number"
+              min={0}
+              value={passingScoreForm.rawScoreValue}
+              onChange={(e) =>
+                setPassingScoreForm((prev) => ({ ...prev, rawScoreValue: e.target.value }))
+              }
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+            {t('goals.subjects.passingScoreMaxLabel')}
+            <Input
+              type="number"
+              min={0}
+              value={passingScoreForm.rawMaxValue}
+              onChange={(e) =>
+                setPassingScoreForm((prev) => ({ ...prev, rawMaxValue: e.target.value }))
+              }
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1 text-sm text-gray-700">
+          {t('goals.subjects.passingScoreLabel')}
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            value={passingScoreForm.percentValue}
+            onChange={(e) =>
+              setPassingScoreForm((prev) => ({ ...prev, percentValue: e.target.value }))
+            }
+          />
+        </label>
+      )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>
           {t('common.action.cancel')}
@@ -224,6 +280,12 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
                   ? `${subject.exam_date_from ?? '-'} 〜 ${subject.exam_date_to ?? '-'}`
                   : (subject.exam_date_fixed ?? '-')}
               </p>
+              {formatPassingScoreDisplay(subject) && (
+                <p className="text-sm text-gray-500">
+                  {t('goals.subjects.passingScoreResultLabel')}:{' '}
+                  {formatPassingScoreDisplay(subject)}
+                </p>
+              )}
               {isSubjectRangeStartInPast(subject, todayQuery.data?.logical_date) && (
                 <p className="text-xs text-amber-700">{t('goals.subjects.pastRangeWarning')}</p>
               )}

@@ -44,6 +44,8 @@ def serialize_subject(subject: ExamSubject) -> SubjectRead:
         exam_date_to=subject.exam_date_to,
         exam_date_fixed=subject.exam_date_fixed,
         passing_score=subject.passing_score,
+        passing_score_type=subject.passing_score_type,
+        passing_score_max=subject.passing_score_max,
         display_order=subject.display_order,
         exam_result=ExamResultRead.model_validate(subject.exam_result)
         if subject.exam_result is not None
