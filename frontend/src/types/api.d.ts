@@ -1112,7 +1112,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get System Info */
+        /**
+         * Get System Info
+         * @description `GET /api/v1/system-info`: システム情報（SC-15）を`SystemInfoRead`で返す。
+         */
         get: operations["get_system_info_api_v1_system_info_get"];
         put?: never;
         post?: never;
@@ -2155,6 +2158,12 @@ export interface components {
             required_environment?: components["schemas"]["Environment"] | null;
             quality_metric_type?: components["schemas"]["QualityMetricType"] | null;
         };
+        /**
+         * PassingScoreType
+         * @description 合格点の入力方式（百分率／点数。設計書 データ構造編 5.3）。
+         * @enum {string}
+         */
+        PassingScoreType: "PERCENTAGE" | "RAW_SCORE";
         /** PlanBaselineRead */
         PlanBaselineRead: {
             /** Id */
@@ -2449,6 +2458,10 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+            /** @default PERCENTAGE */
+            passing_score_type: components["schemas"]["PassingScoreType"];
+            /** Passing Score Max */
+            passing_score_max?: number | null;
         };
         /** SubjectFixDateRequest */
         SubjectFixDateRequest: {
@@ -2475,6 +2488,9 @@ export interface components {
             exam_date_fixed: string | null;
             /** Passing Score */
             passing_score: number | null;
+            passing_score_type: components["schemas"]["PassingScoreType"];
+            /** Passing Score Max */
+            passing_score_max: number | null;
             /** Display Order */
             display_order: number;
             exam_result?: components["schemas"]["ExamResultRead"] | null;
@@ -2492,6 +2508,9 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+            passing_score_type?: components["schemas"]["PassingScoreType"] | null;
+            /** Passing Score Max */
+            passing_score_max?: number | null;
         };
         /** SystemInfoRead */
         SystemInfoRead: {

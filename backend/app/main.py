@@ -7,13 +7,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from threading import Timer
 
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from alembic import command
 from app.ai import logger as ai_logger
 from app.api.ai import router as ai_router
 from app.api.analytics import router as analytics_router
@@ -29,12 +34,12 @@ from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
 from app.api.system_info import router as system_info_router
-from app.config import REPO_ROOT, get_settings
+from app.config import BACKEND_DIR, REPO_ROOT, get_settings
 from app.constants.app_setting_keys import SERVER_PORT
-from app.database import SessionLocal, create_all_tables
+from app.database import SessionLocal, engine
 from app.init.seed_data import run_all
 from app.models.setting import AppSetting
-from app.services import goal_service, weekly_summary_service
+from app.services import backup_service, goal_service, weekly_summary_service
 
 #: データ構造編6.1「ベースパス /api/v1」。
 API_V1_PREFIX = "/api/v1"
@@ -55,6 +60,19 @@ def resolve_frontend_dist_dir() -> Path:
     return REPO_ROOT / "frontend" / "dist"
 
 
+def resolve_alembic_ini_path() -> Path:
+    """alembic.iniの配置先を解決する（配布パッケージ対応）。resolve_frontend_dist_dirと同じ
+    理由で、PyInstallerでパッケージ化された実行ファイル（`sys.frozen`）として起動している
+    場合は同梱した`alembic.ini`（ビルドスクリプトbuild_backendが `.`＝バンドル直下へ配置、
+    `alembic/`本体もあわせて同梱）を、ソースから起動する開発環境では`backend/alembic.ini`
+    を参照する。
+    """
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        return base / "alembic.ini"
+    return BACKEND_DIR / "alembic.ini"
+
+
 class _SpaStaticFiles(StaticFiles):
     """未一致パスを index.html へフォールバックする静的ファイル配信。
 
@@ -73,15 +91,83 @@ class _SpaStaticFiles(StaticFiles):
             raise
 
 
+#: upgrade_database_schemaが同一プロセス内での再チェックを省略するためのフラグ
+#: （DBのスキーマ状態はプロセス起動後に外部から変化しない前提。テスト実行時、
+#: TestClientのlifespan経由で毎回呼ばれても2回目以降を軽量にするため）。
+_schema_confirmed_current = False
+
+#: 本関数導入前の配布パッケージは`create_all_tables()`のみでスキーマを構築しており、
+#: alembic_versionテーブル自体を持たない。それらのDBのテーブルは、導入前の最終
+#: マイグレーション（＝このリビジョンの1つ前）までと同じ実質スキーマを持つ
+#: （create_all_tables()は既存テーブルへの列追加は行わないが、テーブル自体は
+#: 作成された時点のモデル定義通りに作られるため、本プロジェクトで配布された全ビルドは
+#: 導入時点のモデル定義を反映済み）。そのためstamp先として固定するのは安全である
+#: （2026-08 exam_subject.passing_score_type欠落インシデントの根本修正時に判明）。
+_PRE_ALEMBIC_BASELINE_REVISION = "a3f9c1d7e2b4"
+
+
+def upgrade_database_schema() -> None:
+    """DBスキーマをAlembicの最新リビジョンへ更新する（データ構造編8章、本番相当の構築）。
+
+    以前は`create_all_tables()`（`Base.metadata.create_all()`）のみを実行していたが、
+    これは未作成のテーブルを新規作成するだけで、既存テーブルへのカラム追加等の
+    スキーマ変更は反映しない。配布パッケージを新バージョンに差し替えた際、既存
+    インストール先のDBに新規カラムが追加されないまま起動し、`no such column`エラーで
+    アプリ自体が起動不能になる不具合があったため、Alembicのマイグレーションチェーン
+    適用に一本化する（`alembic upgrade head`と同等の処理をAPI経由で実行）。
+
+    新規DB（テーブル未作成）はチェーンの先頭から適用されるため、`create_all_tables()`と
+    同じ最終スキーマになる（新規インストールへの挙動は変わらない）。
+
+    `create_all_tables()`のみで構築されてきた既存DB（alembic_versionテーブルが無い）は、
+    テーブルは既に存在するため、そのままchainの先頭から`upgrade`すると`create_table`が
+    「テーブルが既に存在する」エラーになる。この場合は`_PRE_ALEMBIC_BASELINE_REVISION`へ
+    `stamp`（実際にはSQLを実行せず、適用済みとして記録するだけ）してから`upgrade`する
+    ことで、未適用分（このリビジョン以降の変更）のみを反映する。
+
+    現在のリビジョンが既にhead（最新）の場合は何もしない（テスト実行時、TestClientの
+    lifespan経由で毎起動ごとに呼ばれても安全・軽量にするため）。適用が必要な場合のみ、
+    実行前にDBファイルの安全退避コピーを作成する（万一の不具合時の復旧手段を残すため、
+    backup_service.create_safety_copyを再利用。CLAUDE.md DRYの原則）。
+    """
+    global _schema_confirmed_current
+    if _schema_confirmed_current:
+        return
+
+    alembic_cfg = Config(str(resolve_alembic_ini_path()))
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head_revision = script.get_current_head()
+
+    with engine.connect() as connection:
+        current_revision = MigrationContext.configure(connection).get_current_revision()
+        is_legacy_unversioned_database = current_revision is None and inspect(
+            connection
+        ).has_table("goal")
+
+    if current_revision == head_revision:
+        _schema_confirmed_current = True
+        return
+
+    db_path = backup_service.database_path()
+    if db_path.exists():
+        engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
+        backup_service.create_safety_copy(db_path, "pre_migration")
+
+    if is_legacy_unversioned_database:
+        command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
+    command.upgrade(alembic_cfg, "head")
+    _schema_confirmed_current = True
+
+
 def bootstrap_database() -> None:
-    """テーブル作成（本番相当は Alembic）と初期データ投入をまとめて行う。
+    """スキーマ更新（Alembic）と初期データ投入をまとめて行う。
 
     ai_logの保持期間超過分の削除（データ構造編5.5「起動時に削除する」）もここで行う。
     AI基盤への通信を伴わないローカルなDB操作のみのため、テスト実行時（TestClientの
     lifespan経由での毎回起動）に含めても安全（実ネットワーク呼び出しを伴う週次要約の
     遡及生成はここに含めない。run_ai_startup_tasks・__main__ブロックを参照）。
     """
-    create_all_tables()
+    upgrade_database_schema()
     session = SessionLocal()
     try:
         run_all(session)

@@ -16,7 +16,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.config import EXPORT_DIR
-from app.constants.enums import ChatRole, Granularity, RecordState
+from app.constants.enums import ChatRole, Granularity, PassingScoreType, RecordState
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, StudyLog, WeeklySummary
@@ -88,10 +88,25 @@ def _build_goal_and_subjects(goal: Goal) -> tuple[dict, list[dict]]:
             "name": subject.name,
             "exam_date": material_service.effective_exam_date(subject).isoformat(),
             "passing_score": subject.passing_score,
+            "passing_score_type": subject.passing_score_type.value,
+            "passing_score_max": subject.passing_score_max,
         }
         for subject in sorted(goal.exam_subjects, key=lambda s: s.display_order)
     ]
     return goal_data, subjects
+
+
+def _format_passing_score(subject_data: dict) -> str:
+    """合格基準をMarkdown表示用に整形する（百分率は「%」、点数は「/満点点」表記）。"""
+    passing_score = subject_data["passing_score"]
+    if passing_score is None:
+        return "未設定"
+    if (
+        subject_data["passing_score_type"] == PassingScoreType.RAW_SCORE
+        and subject_data["passing_score_max"]
+    ):
+        return f"{passing_score:g}/{subject_data['passing_score_max']:g}点"
+    return f"{passing_score:g}%"
 
 
 def _build_materials(session: Session, materials: list[Material]) -> list[dict]:
@@ -347,7 +362,7 @@ def render_markdown(data: dict, selection: ExportSelection) -> str:
     if "goal" in data:
         goal_data = data["goal"]
         subjects_text = "\n".join(
-            f"- {s['name']}（受験日: {s['exam_date']}、合格基準: {s['passing_score']}）"
+            f"- {s['name']}（受験日: {s['exam_date']}、合格基準: {_format_passing_score(s)}）"
             for s in data.get("subjects", [])
         ) or "（試験科目未登録）"
         closed_at_text = goal_data["closed_at"] or "（未クローズ）"

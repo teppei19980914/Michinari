@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.enums import ExamDateType, GoalStatus
+from app.constants.enums import ExamDateType, GoalStatus, PassingScoreType
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 
 if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
@@ -68,6 +68,12 @@ class ExamSubject(TimestampMixin, Base):
     exam_date_to: Mapped[date | None] = mapped_column(Date, nullable=True)
     exam_date_fixed: Mapped[date | None] = mapped_column(Date, nullable=True)
     passing_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    passing_score_type: Mapped[PassingScoreType] = mapped_column(
+        Enum(PassingScoreType, native_enum=False, validate_strings=True),
+        nullable=False,
+        default=PassingScoreType.PERCENTAGE,
+    )
+    passing_score_max: Mapped[float | None] = mapped_column(Float, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     goal: Mapped["Goal"] = relationship(back_populates="exam_subjects")

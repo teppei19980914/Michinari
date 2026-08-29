@@ -2,7 +2,7 @@
 
 backup_service と同じ理由（Windows環境での共有DBファイルロック回避、かつ
 export_all_data/import_all_data はBase.metadataの全テーブルを対象とするため）で、
-_database_path・BACKUP_DIR・engine を実スキーマのスタブDBへ差し替える。
+database_path・BACKUP_DIR・engine を実スキーマのスタブDBへ差し替える。
 """
 
 import json
@@ -41,7 +41,7 @@ def _stub_db(tmp_path, monkeypatch):
     Base.metadata.create_all(bind=temp_engine)
     temp_engine.dispose()
 
-    monkeypatch.setattr(backup_service, "_database_path", lambda: db_path)
+    monkeypatch.setattr(backup_service, "database_path", lambda: db_path)
     monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup_service, "engine", _NoopEngine())
     return db_path

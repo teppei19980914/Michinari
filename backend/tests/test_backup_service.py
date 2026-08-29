@@ -1,7 +1,7 @@
 """backup_service のテスト（仕様書6.12 SC-12、実装フェーズ分割計画書Phase10）。
 
 pytestが使う実際のDBファイル（tests/_test.db、conftest.py）を書き換えるとテスト全体が
-壊れるため、_database_path をtmp_path配下のスタブDBへ差し替えて検証する
+壊れるため、database_path をtmp_path配下のスタブDBへ差し替えて検証する
 （BACKUP_DIRも同様にtmp_path配下へ差し替える）。
 """
 
@@ -49,7 +49,7 @@ class _NoopEngine:
 def stub_db(tmp_path, monkeypatch):
     db_path = tmp_path / "michinari.db"
     _make_sqlite_db(db_path)
-    monkeypatch.setattr(backup_service, "_database_path", lambda: db_path)
+    monkeypatch.setattr(backup_service, "database_path", lambda: db_path)
     monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup_service, "engine", _NoopEngine())
     return db_path
@@ -137,8 +137,8 @@ def test_restore_backup_with_malformed_id_raises_not_found(stub_db):
 
 
 def test_database_path_resolves_from_configured_database_url(monkeypatch):
-    """_database_path自体（モックしていない実装）がsqlite:///URLを正しくパースすることを検証する
-    （他のテストは_database_pathをスタブへ差し替えるため、実装そのものはここでのみ検証する）。"""
+    """database_path自体（モックしていない実装）がsqlite:///URLを正しくパースすることを検証する
+    （他のテストはdatabase_pathをスタブへ差し替えるため、実装そのものはここでのみ検証する）。"""
     from app.config import Settings
 
     monkeypatch.setattr(
@@ -147,7 +147,7 @@ def test_database_path_resolves_from_configured_database_url(monkeypatch):
         lambda: Settings(database_url="sqlite:///C:/tmp/michinari_test.db"),
     )
 
-    assert backup_service._database_path() == Path("C:/tmp/michinari_test.db")
+    assert backup_service.database_path() == Path("C:/tmp/michinari_test.db")
 
 
 def test_database_path_rejects_non_sqlite_url(monkeypatch):
@@ -161,7 +161,7 @@ def test_database_path_rejects_non_sqlite_url(monkeypatch):
     )
 
     with pytest.raises(ValidationError):
-        backup_service._database_path()
+        backup_service.database_path()
 
 
 # --- export_all_data / import_all_data（全データのエクスポート/インポート、
@@ -181,7 +181,7 @@ def full_schema_db(tmp_path, monkeypatch):
     Base.metadata.create_all(bind=temp_engine)
     temp_engine.dispose()
 
-    monkeypatch.setattr(backup_service, "_database_path", lambda: db_path)
+    monkeypatch.setattr(backup_service, "database_path", lambda: db_path)
     monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
     monkeypatch.setattr(backup_service, "engine", _NoopEngine())
     return db_path

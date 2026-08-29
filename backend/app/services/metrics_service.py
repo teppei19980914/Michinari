@@ -7,8 +7,15 @@ from dataclasses import dataclass
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.constants.enums import BaselineReason, DayType, Granularity, QualityMetricType, RecordState
-from app.models.goal import Goal
+from app.constants.enums import (
+    BaselineReason,
+    DayType,
+    Granularity,
+    PassingScoreType,
+    QualityMetricType,
+    RecordState,
+)
+from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
 from app.models.record import DailyRecord, StudyLog
 from app.services import calendar_service
@@ -251,11 +258,20 @@ def compute_quality_trend(
     return dict(grouped)
 
 
+def _normalize_passing_score(subject: ExamSubject) -> float | None:
+    """合格点を百分率に正規化する。点数入力（RAW_SCORE）の場合は満点で除して百分率に変換する。"""
+    if subject.passing_score is None:
+        return None
+    if subject.passing_score_type == PassingScoreType.RAW_SCORE and subject.passing_score_max:
+        return subject.passing_score / subject.passing_score_max * 100
+    return subject.passing_score
+
+
 def resolve_passing_score(material: Material) -> float | None:
-    """合格基準線の値を解決する（14.4）。複数科目に紐づく場合は最も高いpassing_scoreを採用する。"""
+    """合格基準線の値を解決する（14.4）。複数科目に紐づく場合は正規化後の値が最も高いものを採用する。"""
     scores = [
-        link.subject.passing_score
-        for link in material.subject_links
-        if link.subject.passing_score is not None
+        score
+        for score in (_normalize_passing_score(link.subject) for link in material.subject_links)
+        if score is not None
     ]
     return max(scores) if scores else None
