@@ -11,6 +11,7 @@ import { KnowledgeExportPage } from './pages/KnowledgeExportPage'
 import { ResourceSettingsPage } from './pages/ResourceSettingsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { DataManagementPage } from './pages/DataManagementPage'
+import { SystemInfoPage } from './pages/SystemInfoPage'
 import { CalendarPage } from './pages/CalendarPage'
 import { DailyReportPage } from './pages/DailyReportPage'
 import { ProgressOnlyPage } from './pages/ProgressOnlyPage'
@@ -48,6 +49,7 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.analytics} element={<AnalyticsPage />} />
       <Route path={ROUTE_PATTERNS.settings} element={<SettingsPage />} />
       <Route path={ROUTE_PATTERNS.settingsData} element={<DataManagementPage />} />
+      <Route path={ROUTE_PATTERNS.settingsSystemInfo} element={<SystemInfoPage />} />
       <Route path={ROUTE_PATTERNS.dailyReport} element={<DailyReportPage />} />
       <Route path={ROUTE_PATTERNS.dailyReportProgress} element={<ProgressOnlyPage />} />
       <Route path={ROUTE_PATTERNS.dailyReportView} element={<DailyReportViewPage />} />

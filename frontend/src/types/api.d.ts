@@ -649,6 +649,9 @@ export interface paths {
         /**
          * Login
          * @description PAT指定時は即時反映・確認する。未指定時はフォールバック認証を非同期に開始する（16.2）。
+         *
+         *     Hostが指定された場合は設定画面の値（app_setting）にも反映する。認証操作で入力した値が
+         *     設定画面の表示と食い違わないようにするため（設定画面の保存ボタンとは別経路のため）。
          */
         post: operations["login_api_v1_ai_login_post"];
         delete?: never;
@@ -1096,6 +1099,23 @@ export interface paths {
         put?: never;
         /** Restore Backup */
         post: operations["restore_backup_api_v1_data_backups__backup_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/system-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get System Info */
+        get: operations["get_system_info_api_v1_system_info_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1896,6 +1916,13 @@ export interface components {
             /** Json Path */
             json_path: string;
         };
+        /** LibraryInfoRead */
+        LibraryInfoRead: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
         /** LoadProfileCreate */
         LoadProfileCreate: {
             /**
@@ -2465,6 +2492,19 @@ export interface components {
             exam_date_fixed?: string | null;
             /** Passing Score */
             passing_score?: number | null;
+        };
+        /** SystemInfoRead */
+        SystemInfoRead: {
+            /** App Version */
+            app_version: string;
+            /** Python Version */
+            python_version: string;
+            /** Built At */
+            built_at: string | null;
+            /** Backend Libraries */
+            backend_libraries: components["schemas"]["LibraryInfoRead"][];
+            /** Frontend Libraries */
+            frontend_libraries: components["schemas"]["LibraryInfoRead"][];
         };
         /** ThresholdSettingsRead */
         ThresholdSettingsRead: {
@@ -4844,6 +4884,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_system_info_api_v1_system_info_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInfoRead"];
                 };
             };
         };
