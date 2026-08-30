@@ -27,7 +27,8 @@ from pathlib import Path
 #: 依存にすぎず、開発環境でのライブ計算がそれへ暗黙依存するのを避けるため）。
 _DEPENDENCY_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+")
 
-#: pyproject.tomlの読み込みに失敗しにくくするための想定外エラー用フォールバック表示。
+#: パッケージの実バージョンが引けなかった場合（未インストール・lockファイル未掲載等）の
+#: 想定外エラー用フォールバック表示。
 _UNKNOWN_VERSION = "unknown"
 
 
@@ -76,12 +77,21 @@ def _backend_libraries(repo_root: Path) -> list[LibraryInfo]:
 
 
 def _frontend_libraries(repo_root: Path) -> list[LibraryInfo]:
+    """`package.json`の依存名に対し、`package-lock.json`（lockfileVersion 3）で実際に
+    解決されたバージョンを引く。バックエンドの`importlib.metadata.version()`と同じく、
+    宣言された範囲（例: "^19.2.8"）ではなくインストール済みの実バージョンを表示するため。
+    """
     package_json = repo_root / "frontend" / "package.json"
     package_json_data = json.loads(package_json.read_text(encoding="utf-8"))
-    return [
-        LibraryInfo(name=name, version=version)
-        for name, version in package_json_data.get("dependencies", {}).items()
-    ]
+    package_lock = repo_root / "frontend" / "package-lock.json"
+    lock_packages = json.loads(package_lock.read_text(encoding="utf-8")).get("packages", {})
+
+    libraries = []
+    for name in package_json_data.get("dependencies", {}):
+        lock_entry = lock_packages.get(f"node_modules/{name}")
+        version = lock_entry["version"] if lock_entry else _UNKNOWN_VERSION
+        libraries.append(LibraryInfo(name=name, version=version))
+    return libraries
 
 
 def collect_build_info(repo_root: Path, *, built_at: str | None = None) -> BuildInfo:

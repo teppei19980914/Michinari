@@ -71,14 +71,19 @@ def get_assistants(session: Session = Depends(get_db)) -> list[AiAssistantRead]:
     ]
 
 
-@router.get("/daily-message", response_model=DailyMessageRead)
-def get_daily_message(session: Session = Depends(get_db)) -> DailyMessageRead:
-    """今日の一言を取得する。未生成なら生成する（データ構造編6.2）。"""
+@router.get("/daily-message", response_model=list[DailyMessageRead])
+def get_daily_message(session: Session = Depends(get_db)) -> list[DailyMessageRead]:
+    """今日の一言を目標ごとに取得する。未生成の目標があれば生成する（データ構造編6.2）。"""
     today: dt.date = goal_service.resolve_today(session)
-    daily_message = daily_message_service.get_or_generate(session, today)
+    daily_messages = daily_message_service.get_or_generate(session, today)
     session.commit()
-    return DailyMessageRead(
-        target_date=daily_message.target_date,
-        body=daily_message.body,
-        generated_at=daily_message.generated_at,
-    )
+    return [
+        DailyMessageRead(
+            target_date=message.target_date,
+            goal_id=message.goal_id,
+            goal_name=message.goal.name if message.goal is not None else None,
+            body=message.body,
+            generated_at=message.generated_at,
+        )
+        for message in daily_messages
+    ]

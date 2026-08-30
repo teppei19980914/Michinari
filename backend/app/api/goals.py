@@ -13,6 +13,7 @@ from app.models.goal import ExamSubject, Goal
 from app.schemas.goal import (
     GoalCloseRequest,
     GoalCreate,
+    GoalDeleteArchivedRequest,
     GoalDetailRead,
     GoalRead,
     GoalUpdate,
@@ -92,6 +93,33 @@ def update_goal(goal_id: int, payload: GoalUpdate, session: Session = Depends(ge
 def delete_goal(goal_id: int, session: Session = Depends(get_db)) -> None:
     goal = goal_service.get_goal(session, goal_id)
     goal_service.delete_goal(session, goal)
+    session.commit()
+
+
+@router.patch("/goals/{goal_id}/archive", response_model=GoalRead)
+def archive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
+    goal = goal_service.get_goal(session, goal_id)
+    goal_service.archive_goal(session, goal)
+    session.commit()
+    return GoalRead.model_validate(goal)
+
+
+@router.patch("/goals/{goal_id}/unarchive", response_model=GoalRead)
+def unarchive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
+    goal = goal_service.get_goal(session, goal_id)
+    goal_service.unarchive_goal(session, goal)
+    session.commit()
+    return GoalRead.model_validate(goal)
+
+
+@router.delete("/goals/{goal_id}/archived", status_code=status.HTTP_204_NO_CONTENT)
+def delete_archived_goal(
+    goal_id: int, payload: GoalDeleteArchivedRequest, session: Session = Depends(get_db)
+) -> None:
+    goal = goal_service.get_goal(session, goal_id)
+    goal_service.delete_archived_goal(
+        session, goal, cascade_study_logs=payload.cascade_study_logs
+    )
     session.commit()
 
 

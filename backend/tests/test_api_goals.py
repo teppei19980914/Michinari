@@ -1,5 +1,9 @@
 """目標・試験科目・負荷プロファイルAPIのテスト（データ構造編5.3・6.2、仕様書6.2・7.1・7.3・10章）。"""
 
+import datetime as dt
+
+from app.models.record import DailyRecord, StudyLog
+
 
 def _create_goal(client, name="目標A", start_date="2026-01-01", resource_ratio=None):
     goal = client.post("/api/v1/goals", json={"name": name, "start_date": start_date}).json()
@@ -93,7 +97,7 @@ def test_activate_requires_subject_and_material(client):
     goal = _create_goal(client, resource_ratio=0.3)
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.json()["error"]["code"] == "EXAM_SUBJECT_REQUIRED"
 
 
 def test_activate_records_initial_baseline(client):
@@ -163,6 +167,20 @@ def test_resume_rejects_when_resource_capacity_insufficient(client):
     assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
+def test_resume_requires_resource_ratio_to_be_set(client):
+    """一時停止中にリソース配分を0へ変更した場合、復帰時に再検出して拒否する(activate_goalと同じ
+    横展開先。一時停止中はACTIVEでないため、update_goalの合計超過チェックをすり抜けて0へ変更でき
+    てしまうため、resume_goal側でも起点未設定を検証する)。"""
+    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/pause")
+    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0})
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/resume")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "RESOURCE_RATIO_REQUIRED"
+
+
 def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(client):
     goal = _make_activatable_goal(client, resource_ratio=0.3)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
@@ -171,9 +189,7 @@ def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(
     assert rejected.status_code == 409
     assert rejected.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
-    closed = client.post(
-        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
-    )
+    closed = client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
     assert closed.status_code == 200
     assert closed.json()["status"] == "CLOSED_WITHOUT_RESULT"
 
@@ -334,7 +350,19 @@ def test_activate_requires_material_even_with_subject(client):
     _add_subject(client, goal["id"])
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.json()["error"]["code"] == "MATERIAL_REQUIRED"
+
+
+def test_activate_requires_resource_ratio_to_be_set(client):
+    """仕様書7.1「下書き→進行中」の遷移条件「リソース配分が設定済み」を満たさない場合は拒否する。
+
+    resource_ratio未設定(既定値0)のまま開始すると、slot_service.allocate_dayが常に0時間を
+    配分し続け、完了予測・強制リプラン判定(NT-02)が恒久的に機能しなくなるため、開始前に検出する。
+    """
+    goal = _make_activatable_goal(client, resource_ratio=0)
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "RESOURCE_RATIO_REQUIRED"
 
 
 def test_activate_skips_baseline_for_inactive_material(client):
@@ -573,6 +601,97 @@ def test_update_and_delete_load_profile(client):
     deleted = client.delete(f"/api/v1/load-profiles/{profile['id']}")
     assert deleted.status_code == 204
     assert client.get(f"/api/v1/goals/{goal['id']}/load-profiles").json() == []
+
+
+# --- アーカイブ・完全削除（要件定義書R-61〜R-63、仕様書7.1.1、データ構造編4.2） ---
+
+
+def _close_goal(client, resource_ratio=0.3):
+    goal = _make_activatable_goal(client, resource_ratio=resource_ratio)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    return goal
+
+
+def test_archive_requires_closed_status(client):
+    goal = _create_goal(client)
+    response = client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_archive_and_unarchive_goal(client):
+    goal = _close_goal(client)
+
+    archived = client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["archived_at"] is not None
+
+    unarchived = client.patch(f"/api/v1/goals/{goal['id']}/unarchive")
+    assert unarchived.status_code == 200
+    assert unarchived.json()["archived_at"] is None
+    assert unarchived.json()["status"] == "CLOSED_WITHOUT_RESULT"
+
+
+def test_delete_archived_requires_archived_goal(client):
+    goal = _close_goal(client)
+    response = client.request(
+        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": True}
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
+    client, seeded_session
+):
+    goal = _close_goal(client)
+    material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        StudyLog(
+            daily_record_id=record.id, material_id=material_id, amount_completed=1.0, cycle_number=1
+        )
+    )
+    seeded_session.commit()
+
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.request(
+        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):
+    goal = _close_goal(client)
+    material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        StudyLog(
+            daily_record_id=record.id, material_id=material_id, amount_completed=1.0, cycle_number=1
+        )
+    )
+    seeded_session.commit()
+
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.request(
+        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": True}
+    )
+    assert response.status_code == 204, response.text
+    assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
+
+
+def test_delete_archived_goal_without_study_logs_defaults_to_cascade(client):
+    """cascade_study_logsを省略した場合は画面の既定(ON)通りTrue扱いになる（仕様書MD-08）。"""
+    goal = _close_goal(client)
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.request("DELETE", f"/api/v1/goals/{goal['id']}/archived", json={})
+    assert response.status_code == 204, response.text
 
 
 def test_update_load_profile_without_note_keeps_existing_note(client):
