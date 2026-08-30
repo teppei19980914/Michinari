@@ -24,7 +24,24 @@
       "Bash(curl -s http://127.0.0.1:8100/api/v1/system-info)",
       "Bash(git check-ignore *)",
       "Bash(xxd build.bat)",
-      "Bash(xxd launcher_template.bat)"
+      "Bash(xxd launcher_template.bat)",
+      "Bash(curl -sf http://127.0.0.1:5173/)",
+      "Bash(curl -sf http://localhost:5173/)",
+      "Bash(curl -sv -X POST http://127.0.0.1:8100/api/v1/goals -H \"Content-Type: application/json\" -d '{\"name\":\"目標A\",\"start_date\":\"2026-08-30\"}')",
+      "Bash(date -v+90d +%Y-%m-%d)",
+      "Bash(curl -s -X POST http://127.0.0.1:8100/api/v1/goals -H 'Content-Type: application/json' -d '{\"name\":\"Goal A\",\"start_date\":\"__CMDSUB_OUTPUT__\"}')",
+      "Bash(node smoke.js)",
+      "Bash(curl -s -X POST http://127.0.0.1:8100/api/v1/goals/2/pause)",
+      "Bash(node smoke2.js)",
+      "Bash(rm -rf \"/c/Users/teppe/AppData/Local/Temp/claude/c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari/de041801-f76b-4e1e-8ad4-0528604378b9/scratchpad/smoke_db\" *)",
+      "Bash(tasklist)",
+      "Bash(powershell.exe -NoProfile -Command \"Stop-Process -Id 3572,25036 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(command -v osv-scanner)",
+      "Bash(SCRATCH=\"/c/Users/teppe/AppData/Local/Temp/claude/c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari/de041801-f76b-4e1e-8ad4-0528604378b9/scratchpad\" *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\teppe\\AppData\\Local\\Temp\\claude\\c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari\\de041801-f76b-4e1e-8ad4-0528604378b9\\scratchpad\\smoke_db",
+      "C:\\Users\\teppe\\AppData\\Local\\Temp\\claude\\c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari\\de041801-f76b-4e1e-8ad4-0528604378b9\\scratchpad"
     ]
   },
   "hooks": {
