@@ -6,6 +6,7 @@ export type GoalDetailRead = components['schemas']['GoalDetailRead']
 export type GoalCreate = components['schemas']['GoalCreate']
 export type GoalUpdate = components['schemas']['GoalUpdate']
 export type GoalCloseRequest = components['schemas']['GoalCloseRequest']
+export type GoalDeleteArchivedRequest = components['schemas']['GoalDeleteArchivedRequest']
 export type PlanBaselineRead = components['schemas']['PlanBaselineRead']
 export type SubjectRead = components['schemas']['SubjectRead']
 export type SubjectCreate = components['schemas']['SubjectCreate']
@@ -36,6 +37,21 @@ export function updateGoal(goalId: number, payload: GoalUpdate): Promise<GoalRea
 
 export function deleteGoal(goalId: number): Promise<void> {
   return apiClient.delete<void>(`/goals/${goalId}`)
+}
+
+export function archiveGoal(goalId: number): Promise<GoalRead> {
+  return apiClient.patch<GoalRead>(`/goals/${goalId}/archive`)
+}
+
+export function unarchiveGoal(goalId: number): Promise<GoalRead> {
+  return apiClient.patch<GoalRead>(`/goals/${goalId}/unarchive`)
+}
+
+export function deleteArchivedGoal(
+  goalId: number,
+  payload: GoalDeleteArchivedRequest,
+): Promise<void> {
+  return apiClient.delete<void>(`/goals/${goalId}/archived`, payload)
 }
 
 export function activateGoal(goalId: number): Promise<GoalRead> {
