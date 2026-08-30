@@ -38,6 +38,18 @@ dependencies = [
         json.dumps({"dependencies": {"react": "^19.2.8", "recharts": "^3.10.1"}}),
         encoding="utf-8",
     )
+    (frontend_dir / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "lockfileVersion": 3,
+                "packages": {
+                    "node_modules/react": {"version": "19.2.8"},
+                    # recharts はロックファイル未掲載を想定し、フォールバック分岐を検証する
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     return tmp_path
 
 
@@ -68,7 +80,8 @@ def test_collect_build_info_returns_expected_libraries(tmp_path: Path) -> None:
     assert build_info.built_at == "2026-08-28T00:00:00+00:00"
     backend_names = {lib.name for lib in build_info.backend_libraries}
     assert backend_names == {"fastapi", "uvicorn", "newtonx-adk"}
-    assert LibraryInfo(name="react", version="^19.2.8") in build_info.frontend_libraries
+    assert LibraryInfo(name="react", version="19.2.8") in build_info.frontend_libraries
+    assert LibraryInfo(name="recharts", version="unknown") in build_info.frontend_libraries
 
 
 def test_collect_build_info_built_at_defaults_to_none(tmp_path: Path) -> None:
@@ -106,7 +119,7 @@ def test_get_system_info_reads_bundled_file_when_frozen(monkeypatch, tmp_path: P
         python_version="3.12.0",
         built_at="2026-08-28T00:00:00+00:00",
         backend_libraries=[LibraryInfo(name="fastapi", version="0.115.0")],
-        frontend_libraries=[LibraryInfo(name="react", version="^19.2.8")],
+        frontend_libraries=[LibraryInfo(name="react", version="19.2.8")],
     )
     (tmp_path / "build_info.json").write_text(build_info_to_json(bundled), encoding="utf-8")
     monkeypatch.setattr(sys, "frozen", True, raising=False)

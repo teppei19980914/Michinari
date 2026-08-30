@@ -18,10 +18,10 @@ from app.constants.enums import (
 )
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
-from app.models.record import DailyRecord, ExamResult, StudyLog, WeeklySummary
+from app.models.record import DailyGoalDiary, DailyRecord, ExamResult, StudyLog, WeeklySummary
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.services import ai_context_service
-from app.services.record_service import StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE, resource_ratio=1.0):
@@ -92,6 +92,15 @@ def _make_daily_record(session, record_date, state=RecordState.REPORTED, **overr
     return record
 
 
+def _make_diary_entry(session, daily_record, goal, **overrides):
+    defaults = dict(daily_record_id=daily_record.id, goal_id=goal.id)
+    defaults.update(overrides)
+    entry = DailyGoalDiary(**defaults)
+    session.add(entry)
+    session.flush()
+    return entry
+
+
 def _make_study_log(session, daily_record, material, **overrides):
     defaults = dict(
         daily_record_id=daily_record.id,
@@ -148,6 +157,58 @@ def test_build_goal_summary_includes_subject_and_days_remaining(seeded_session):
 def test_build_goal_summary_empty_when_no_active_goals():
     text = ai_context_service.build_goal_summary([], today=dt.date(2026, 8, 24))
     assert "進行中の目標はありません" in text
+
+
+# --- build_diary_text ---
+
+
+def test_build_diary_text_returns_raw_text_for_single_goal(seeded_session):
+    """1目標のみのときは見出しを付けず、既存の単一目標運用時の出力を変えない。"""
+    goal = _make_goal(seeded_session, name="目標A")
+    entries = [DiaryEntryItem(goal_id=goal.id, diary_body="今日は頑張った", diary_learned="学び")]
+
+    diary_body, diary_learned = ai_context_service.build_diary_text(entries, [goal])
+
+    assert diary_body == "今日は頑張った"
+    assert diary_learned == "学び"
+
+
+def test_build_diary_text_groups_by_goal_when_multiple_goals_have_content(seeded_session):
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    entries = [
+        DiaryEntryItem(goal_id=goal_a.id, diary_body="Aの所感", diary_learned="Aの学び"),
+        DiaryEntryItem(goal_id=goal_b.id, diary_body="Bの所感", diary_learned="Bの学び"),
+    ]
+
+    diary_body, diary_learned = ai_context_service.build_diary_text(entries, [goal_a, goal_b])
+
+    assert "■ 目標A" in diary_body
+    assert "Aの所感" in diary_body
+    assert "■ 目標B" in diary_body
+    assert "Bの所感" in diary_body
+    assert "■ 目標A" in diary_learned
+    assert "Aの学び" in diary_learned
+
+
+def test_build_diary_text_excludes_goals_with_empty_content(seeded_session):
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    entries = [
+        DiaryEntryItem(goal_id=goal_a.id, diary_body="Aの所感", diary_learned=""),
+        DiaryEntryItem(goal_id=goal_b.id, diary_body="", diary_learned=""),
+    ]
+
+    diary_body, diary_learned = ai_context_service.build_diary_text(entries, [goal_a, goal_b])
+
+    assert diary_body == "Aの所感"
+    assert diary_learned == ""
+
+
+def test_build_diary_text_empty_when_no_entries():
+    diary_body, diary_learned = ai_context_service.build_diary_text([], [])
+    assert diary_body == ""
+    assert diary_learned == ""
 
 
 # --- build_material_status_entries ---
@@ -327,6 +388,33 @@ def test_build_recent_activity_text_lists_recent_records(seeded_session):
     assert "報告済み" in text
 
 
+def test_build_recent_activity_text_excludes_other_goals_activity(seeded_session):
+    """複数目標が同時進行している場合、渡された目標以外の実績が混入しないこと
+    （未決事項L-04関連。「今日の一言」の目標別独立生成に必須）。"""
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_a = _make_material(seeded_session, goal_a)
+    material_b = _make_material(seeded_session, goal_b)
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 23))
+    _make_study_log(seeded_session, record, material_a, amount_completed=5.0)
+    _make_study_log(seeded_session, record, material_b, amount_completed=100.0)
+
+    text = ai_context_service.build_recent_activity_text(
+        seeded_session, [goal_a], today=dt.date(2026, 8, 24)
+    )
+
+    assert "完了量計 5.0" in text
+    assert "100.0" not in text
+
+
+def test_build_recent_activity_text_empty_when_goals_have_no_materials(seeded_session):
+    goal = _make_goal(seeded_session)
+    text = ai_context_service.build_recent_activity_text(
+        seeded_session, [goal], today=dt.date(2026, 8, 24)
+    )
+    assert "対象教材はありません" in text
+
+
 # --- build_recent_weekly_summaries ---
 
 
@@ -398,29 +486,49 @@ def test_build_week_logs_text_reports_no_logs_when_material_exists_without_recor
 
 
 def test_build_week_diaries_text_empty_when_no_reported_days(seeded_session):
+    goal = _make_goal(seeded_session)
+
     text = ai_context_service.build_week_diaries_text(
-        seeded_session, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12)
+        seeded_session, goal, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12)
     )
 
     assert "この週の日記はありません" in text
 
 
 def test_build_week_diaries_text_includes_only_reported_days(seeded_session):
-    _make_daily_record(
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8), state=RecordState.REPORTED)
+    _make_diary_entry(
         seeded_session,
-        dt.date(2026, 7, 8),
-        state=RecordState.REPORTED,
+        record,
+        goal,
         diary_body="今日は集中できた",
         diary_learned="ネットワークの基礎",
     )
     _make_daily_record(seeded_session, dt.date(2026, 7, 9), state=RecordState.PROGRESS_ONLY)
 
     text = ai_context_service.build_week_diaries_text(
-        seeded_session, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12)
+        seeded_session, goal, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12)
     )
 
     assert "今日は集中できた" in text
     assert "2026-07-09" not in text
+
+
+def test_build_week_diaries_text_excludes_other_goals_diary(seeded_session):
+    """複数目標が同時進行していた週に、他目標の日記が混入しないこと（未決事項L-04）。"""
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8), state=RecordState.REPORTED)
+    _make_diary_entry(seeded_session, record, goal_a, diary_body="目標Aの日記")
+    _make_diary_entry(seeded_session, record, goal_b, diary_body="目標Bの日記")
+
+    text = ai_context_service.build_week_diaries_text(
+        seeded_session, goal_a, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12)
+    )
+
+    assert "目標Aの日記" in text
+    assert "目標Bの日記" not in text
 
 
 def test_build_week_metrics_text_summarizes_week(seeded_session):

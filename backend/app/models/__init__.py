@@ -6,6 +6,7 @@ from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.record import (
     ChatMessage,
+    DailyGoalDiary,
     DailyMessage,
     DailyRecord,
     ExamResult,
@@ -42,6 +43,7 @@ __all__ = [
     "StudyLog",
     "ChatMessage",
     "RecordComment",
+    "DailyGoalDiary",
     "WeeklySummary",
     "DailyMessage",
     "ExamResult",

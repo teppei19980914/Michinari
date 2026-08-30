@@ -11,7 +11,14 @@ from app.ai import rate_limiter
 from app.constants.enums import ExamResultType, GoalStatus, PassingScoreType, QualityMetricType
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, ExamResult, StudyLog, WeeklySummary
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ExamResult,
+    StudyLog,
+    WeeklySummary,
+)
 from app.services import export_progress, export_service
 
 
@@ -74,14 +81,17 @@ def _make_material(session, goal, **overrides):
 def _add_study_log(session, material, record_date, **overrides):
     record = session.query(DailyRecord).filter_by(record_date=record_date).first()
     if record is None:
-        record = DailyRecord(
-            record_date=record_date,
-            record_state="REPORTED",
-            diary_body="今日の所感",
-            diary_learned="学んだこと",
-        )
+        record = DailyRecord(record_date=record_date, record_state="REPORTED")
         session.add(record)
         session.flush()
+        session.add(
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=material.goal_id,
+                diary_body="今日の所感",
+                diary_learned="学んだこと",
+            )
+        )
     defaults = dict(
         daily_record_id=record.id,
         material_id=material.id,

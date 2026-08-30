@@ -214,6 +214,12 @@ dependencies = ["fastapi>=0.115"]
     (frontend_dir / "package.json").write_text(
         json.dumps({"dependencies": {"react": "^19.2.8"}}), encoding="utf-8"
     )
+    (frontend_dir / "package-lock.json").write_text(
+        json.dumps(
+            {"lockfileVersion": 3, "packages": {"node_modules/react": {"version": "19.2.8"}}}
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_generate_build_info_writes_expected_json(tmp_path: Path) -> None:
