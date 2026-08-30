@@ -11,10 +11,13 @@ export type ChatRequest = components['schemas']['ChatRequest']
 export type ChatResponse = components['schemas']['ChatResponse']
 export type QuotaItemRead = components['schemas']['QuotaItemRead']
 export type CommentRead = components['schemas']['CommentRead']
+export type DiaryEntryInput = components['schemas']['DiaryEntryInput']
+export type DiaryEntryRead = components['schemas']['DiaryEntryRead']
 
-/** 今日の一言を取得する（生成に時間がかかる場合があるため非同期・遅延表示とする）。 */
-export function getDailyMessage(): Promise<DailyMessageRead> {
-  return apiClient.get<DailyMessageRead>('/daily-message')
+/** 今日の一言を目標ごとに取得する（生成に時間がかかる場合があるため非同期・遅延表示
+ * とする）。ACTIVEな目標が無い日はgoal_id=NULLの1件が返る（未決事項L-04）。 */
+export function getDailyMessage(): Promise<DailyMessageRead[]> {
+  return apiClient.get<DailyMessageRead[]>('/daily-message')
 }
 
 /** 論理的な本日を取得する（CLAUDE.md「クライアント側での論理日の判断」禁止のため、
