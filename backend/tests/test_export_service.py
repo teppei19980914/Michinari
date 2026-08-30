@@ -237,6 +237,70 @@ def test_build_export_data_includes_diary_and_dialogue_when_selected(seeded_sess
     assert data["ai_dialogue"][0]["content"] == "今日は順調です"
 
 
+def test_build_diaries_excludes_other_goals_diary_on_same_date(seeded_session):
+    """複数目標が同時進行していた日に他目標の日記が混入しないこと（L-04関連）。"""
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_a = _make_material(seeded_session, goal_a)
+    material_b = _make_material(seeded_session, goal_b, name="教材B")
+    record = DailyRecord(record_date=dt.date(2026, 2, 1), record_state="REPORTED")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add_all(
+        [
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=goal_a.id,
+                diary_body="Aの日記",
+                diary_learned="Aで学んだこと",
+            ),
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=goal_b.id,
+                diary_body="Bの日記",
+                diary_learned="Bで学んだこと",
+            ),
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_a.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_b.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+        ]
+    )
+    seeded_session.flush()
+
+    data_a = export_service.build_export_data(
+        seeded_session,
+        goal_a,
+        export_service.ExportSelection(diary=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+    data_b = export_service.build_export_data(
+        seeded_session,
+        goal_b,
+        export_service.ExportSelection(diary=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    assert [d["body"] for d in data_a["diaries"]] == ["Aの日記"]
+    assert [d["body"] for d in data_b["diaries"]] == ["Bの日記"]
+
+
 def test_build_export_data_excludes_diary_when_anonymized_even_if_selected(seeded_session):
     """仕様書6.10匿名化オプション「日記本文: 全面的に除外」（選択有無に関わらず）。"""
     goal = _make_goal(seeded_session)
