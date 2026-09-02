@@ -16,7 +16,9 @@ import datetime as dt
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.books import serialize_book
 from app.constants.app_setting_keys import DASHBOARD_REPORT_RATE_WINDOW_DAYS
+from app.constants.enums import GoalCategory
 from app.database import get_db
 from app.models.goal import Goal
 from app.models.material import Material
@@ -107,6 +109,7 @@ def _build_goal_card_and_stats(
     card = GoalCardRead(
         goal_id=goal.id,
         goal_name=goal.name,
+        category=goal.category,
         progress_rate=progress_rate,
         remaining_days=_goal_remaining_days(goal, today),
         forecast_deviation_days=forecast_deviation_days,
@@ -203,6 +206,17 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
             report_rate_window_days,
             effective_speed_by_material,
         )
+        if goal.category == GoalCategory.READING and goal.book is not None:
+            # 読書目標は残日数・ページ進捗（任意）を書籍の派生値で表示する（要件定義書R-63）。
+            # 完了予測日との乖離・警告・強制リプランは対象外（EXAM専用の計画管理のため）。
+            book_read = serialize_book(session, goal.book)
+            card = card.model_copy(
+                update={
+                    "progress_rate": book_read.progress_rate,
+                    "remaining_days": book_read.remaining_days,
+                    "book": book_read,
+                }
+            )
         goal_cards.append(card)
         goal_stats.append(stats)
 

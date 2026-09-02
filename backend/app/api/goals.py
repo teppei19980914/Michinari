@@ -7,9 +7,11 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.api.books import serialize_book
 from app.api.materials import serialize_material
 from app.database import get_db
 from app.models.goal import ExamSubject, Goal
+from app.schemas.book import BookCreate, BookRead
 from app.schemas.goal import (
     GoalCloseRequest,
     GoalCreate,
@@ -27,7 +29,7 @@ from app.schemas.subject import (
     SubjectRead,
     SubjectUpdate,
 )
-from app.services import goal_service, material_service, subject_service
+from app.services import book_service, goal_service, material_service, subject_service
 
 router = APIRouter(tags=["goals"])
 
@@ -59,6 +61,7 @@ def _serialize_goal_detail(session: Session, goal: Goal) -> GoalDetailRead:
         exam_subjects=[serialize_subject(s) for s in goal.exam_subjects],
         materials=[serialize_material(session, m) for m in goal.materials],
         load_profiles=[LoadProfileRead.model_validate(p) for p in goal.load_profiles],
+        book=serialize_book(session, goal.book) if goal.book is not None else None,
     )
 
 
@@ -191,6 +194,19 @@ def create_material(
     material = material_service.create_material(session, goal, **payload.model_dump())
     session.commit()
     return serialize_material(session, material)
+
+
+# --- 書籍（新規作成のみ。個別操作は books.py） ---
+
+
+@router.post(
+    "/goals/{goal_id}/book", response_model=BookRead, status_code=status.HTTP_201_CREATED
+)
+def create_book(goal_id: int, payload: BookCreate, session: Session = Depends(get_db)) -> BookRead:
+    goal = goal_service.get_goal(session, goal_id)
+    book = book_service.create_book(session, goal, **payload.model_dump())
+    session.commit()
+    return serialize_book(session, book)
 
 
 # --- 負荷プロファイル ---

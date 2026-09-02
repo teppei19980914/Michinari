@@ -6,22 +6,33 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.enums import ExamDateType, GoalStatus, PassingScoreType
+from app.constants.enums import ExamDateType, GoalCategory, GoalStatus, PassingScoreType
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 
 if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
     from app.models.ai import AiConversation
+    from app.models.book import Book
     from app.models.material import Material, MaterialSubject
     from app.models.record import ExamResult, WeeklySummary
     from app.models.retrospective import GoalRetrospective
 
 
 class Goal(TimestampMixin, Base):
-    """目標（試験合格に向けた学習単位）。"""
+    """目標（試験合格または読書の完遂に向けた学習単位）。
+
+    category（EXAM/READING）は作成後の変更を許容しない（サービス層で検証）。
+    READINGの場合、exam_subject/material/load_profile/weekly_summaryは作成せず、
+    resource_ratioは常に0のまま（配分プールの対象外。要件定義書R-64）とする。
+    """
 
     __tablename__ = "goal"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    category: Mapped[GoalCategory] = mapped_column(
+        Enum(GoalCategory, native_enum=False, validate_strings=True),
+        nullable=False,
+        default=GoalCategory.EXAM,
+    )
     name: Mapped[str] = mapped_column(String, nullable=False)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[GoalStatus] = mapped_column(
@@ -49,6 +60,9 @@ class Goal(TimestampMixin, Base):
     )
     ai_conversations: Mapped[list["AiConversation"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
+    )
+    book: Mapped["Book | None"] = relationship(
+        back_populates="goal", cascade="all, delete-orphan", uselist=False
     )
 
 

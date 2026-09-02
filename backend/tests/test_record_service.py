@@ -9,7 +9,8 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import GoalCategory, GoalStatus, QualityMetricType, RecordState
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, RecordComment
@@ -20,7 +21,7 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.services.record_service import StudyLogItem
+from app.services.record_service import ReadingLogItem, StudyLogItem
 
 
 def _make_goal(session, status=GoalStatus.ACTIVE):
@@ -249,6 +250,139 @@ def test_finalize_record_promotes_progress_only_record(seeded_session):
 
     assert record.record_state == RecordState.REPORTED
     assert len(record.study_logs) == 1  # 進捗のみ登録時点のstudy_logが保持される
+
+
+# --- 読書記録（reading_log。実装フェーズ分割計画書Phase15） ---
+
+
+def _make_reading_goal(session):
+    goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def _make_book(session, goal, **overrides):
+    defaults = dict(
+        goal_id=goal.id,
+        title="書籍A",
+        start_date=dt.date(2026, 1, 1),
+        due_date=dt.date(2026, 12, 31),
+    )
+    defaults.update(overrides)
+    book = Book(**defaults)
+    session.add(book)
+    session.flush()
+    return book
+
+
+def _reading_log(book_id, **overrides):
+    defaults = dict(
+        book_id=book_id, recall_body="今日読んだ内容の想起", pages_read=10, current_page=10
+    )
+    defaults.update(overrides)
+    return ReadingLogItem(**defaults)
+
+
+def test_register_progress_creates_reading_log(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, [_reading_log(book.id)]
+    )
+
+    assert len(record.reading_logs) == 1
+    assert record.reading_logs[0].recall_body == "今日読んだ内容の想起"
+
+
+def test_register_progress_rejects_when_both_lists_empty(seeded_session):
+    """study_logs・reading_logsの両方が空の登録は拒否する（無意味な登録のため）。"""
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service.register_progress(seeded_session, today, [], today, [])
+
+
+def test_register_progress_accepts_reading_only_without_study_logs(seeded_session):
+    """資格試験のstudy_logsが空でも、読書のreading_logsのみで登録できる
+    （両カテゴリの目標が同時進行しうるため、study_logsを必須にできない）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, [_reading_log(book.id)]
+    )
+
+    assert record.record_state == RecordState.PROGRESS_ONLY
+
+
+def test_register_progress_rejects_unknown_book(seeded_session):
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(NotFoundError):
+        record_service.register_progress(seeded_session, today, [], today, [_reading_log(9999)])
+
+
+def test_register_progress_updates_existing_reading_log_for_same_book(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record_service.register_progress(seeded_session, today, [], today, [_reading_log(book.id)])
+    record = record_service.register_progress(
+        seeded_session,
+        today,
+        [],
+        today,
+        [_reading_log(book.id, recall_body="上書き後の想起", current_page=20)],
+    )
+
+    assert len(record.reading_logs) == 1
+    assert record.reading_logs[0].recall_body == "上書き後の想起"
+    assert record.reading_logs[0].current_page == 20
+
+
+def test_finalize_record_persists_reading_log_and_diary(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.finalize_record(
+        seeded_session,
+        today,
+        [],
+        "今日の行動所感",
+        "学んだこと",
+        today,
+        [_reading_log(book.id)],
+    )
+
+    assert record.record_state == RecordState.REPORTED
+    assert len(record.reading_logs) == 1
+    assert record.diary_body == "今日の行動所感"
+
+
+def test_finalize_record_allows_reading_log_without_study_or_diary(seeded_session):
+    """想起のみの入力でも確定できる（要件定義書R-65「数値実績の入力を必須としない」）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.finalize_record(
+        seeded_session, today, [], "", "", today, [_reading_log(book.id)]
+    )
+
+    assert record.record_state == RecordState.REPORTED
+    assert len(record.reading_logs) == 1
 
 
 # --- 品質指標の正規化（ロジック・プロンプト編14.1） ---

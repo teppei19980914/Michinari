@@ -13,6 +13,7 @@ from app.ai.exceptions import AiAuthRequiredError, AiConfigError, AiError, AiTim
 from app.services.exceptions import (
     AppSettingNotFoundError,
     BackdateLimitExceededError,
+    BookAlreadyExistsError,
     DomainError,
     ImmutableRecordError,
     InvalidStateTransitionError,
@@ -30,6 +31,7 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ResourceRatioExceededError: (status.HTTP_400_BAD_REQUEST, "RESOURCE_EXCEEDED"),
     PlannedCyclesBelowCompletedError: (status.HTTP_400_BAD_REQUEST, "CYCLE_CONFLICT"),
     MaterialHasStudyLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
+    BookAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, "BOOK_ALREADY_EXISTS"),
     BackdateLimitExceededError: (status.HTTP_400_BAD_REQUEST, "BACKDATE_LIMIT_EXCEEDED"),
     InvalidStateTransitionError: (status.HTTP_409_CONFLICT, "INVALID_STATE_TRANSITION"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),

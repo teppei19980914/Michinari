@@ -22,6 +22,7 @@ from alembic import command
 from app.ai import logger as ai_logger
 from app.api.ai import router as ai_router
 from app.api.analytics import router as analytics_router
+from app.api.books import router as books_router
 from app.api.calendar import router as calendar_router
 from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
@@ -80,15 +81,30 @@ class _SpaStaticFiles(StaticFiles):
     ビルド後の実ファイルが存在しないパスへの直接アクセスでも index.html を返し、
     フロント側のルーティングに委ねる必要がある（配布パッケージで単一プロセス配信する
     場合のみ関係する。開発時はVite開発サーバー側がこれを処理する）。
+
+    `index.html` はアプリ更新（再ビルド）のたびに参照先アセットのハッシュ付き
+    ファイル名（例: `index-xxxx.js`）が変わる一方、Starlette の StaticFiles は
+    デフォルトで明示的な Cache-Control を付与しない（Last-Modified/ETag 頼み）ため、
+    ブラウザのヒューリスティックキャッシュにより古い `index.html` が使われ続けると
+    存在しないアセットを要求してMIMEタイプエラーとなり画面が真っ白になる不具合が
+    あった。`index.html` の応答にのみ `Cache-Control: no-cache` を付与し毎回再検証
+    させることで回避する（ハッシュ付きアセット自体は不変なので従来通りキャッシュ可）。
     """
 
     async def get_response(self, path: str, scope: Scope) -> Response:
+        #: ルートパス"/"は StaticFiles.get_path内の os.path.normpath("") が "." を
+        #: 返すため、path引数は "" ではなく "." になる。
+        is_index = path in (".", "", "index.html")
         try:
-            return await super().get_response(path, scope)
+            response = await super().get_response(path, scope)
         except HTTPException as exc:
-            if exc.status_code == 404:
-                return await super().get_response("index.html", scope)
-            raise
+            if exc.status_code != 404:
+                raise
+            response = await super().get_response("index.html", scope)
+            is_index = True
+        if is_index:
+            response.headers["cache-control"] = "no-cache"
+        return response
 
 
 #: upgrade_database_schemaが同一プロセス内での再チェックを省略するためのフラグ
@@ -194,6 +210,7 @@ def create_app() -> FastAPI:
 
     app.include_router(goals_router, prefix=API_V1_PREFIX)
     app.include_router(materials_router, prefix=API_V1_PREFIX)
+    app.include_router(books_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)

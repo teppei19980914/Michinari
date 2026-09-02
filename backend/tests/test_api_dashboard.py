@@ -260,6 +260,38 @@ def test_dashboard_multiple_active_goals_each_produce_own_card_and_stats(client)
     assert len(body["goal_stats"]) == 2
 
 
+def test_dashboard_reading_goal_card_shows_book_progress(client, seeded_session):
+    """読書目標のカードは日次ノルマ等ではなく書籍の派生値（残日数・ページ進捗）で表示する
+    （要件定義書R-63、実装フェーズ分割計画書Phase17）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": TODAY.isoformat()},
+    ).json()
+    book = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={
+            "title": "達人プログラマー",
+            "total_pages": 300,
+            "start_date": TODAY.isoformat(),
+            "due_date": (TODAY + dt.timedelta(days=30)).isoformat(),
+        },
+    ).json()
+    activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert activated.status_code == 200, activated.text
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert len(body["goal_cards"]) == 1
+    card = body["goal_cards"][0]
+    assert card["category"] == "READING"
+    assert card["remaining_days"] == 30
+    assert card["forecast_deviation_days"] is None
+    assert card["has_warning"] is False
+    assert card["book"]["id"] == book["id"]
+    assert card["book"]["title"] == "達人プログラマー"
+    assert card["book"]["current_streak"] == 0
+
+
 def test_goal_remaining_days_none_when_no_exam_subjects():
     """境界値: 試験科目未登録の目標でも例外が発生しないこと。"""
     goal = Goal(name="科目未登録", start_date=TODAY, status=GoalStatus.ACTIVE)

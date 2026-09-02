@@ -19,10 +19,12 @@ from app.constants.enums import (
     Environment,
     ExamDateType,
     ExamResultType,
+    GoalCategory,
     GoalStatus,
     RecordState,
 )
 from app.models.ai import AiConversation, AiLog
+from app.models.book import Book
 from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.record import (
@@ -30,6 +32,7 @@ from app.models.record import (
     DailyMessage,
     DailyRecord,
     ExamResult,
+    ReadingLog,
     RecordComment,
     StudyLog,
     WeeklySummary,
@@ -41,6 +44,16 @@ from app.models.setting import CalendarDayOverride, Holiday
 
 def _make_goal(name: str, start_date: dt.date) -> Goal:
     return Goal(name=name, start_date=start_date, status=GoalStatus.ACTIVE, resource_ratio=0.5)
+
+
+def _make_reading_goal(name: str, start_date: dt.date) -> Goal:
+    return Goal(
+        name=name,
+        start_date=start_date,
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+        category=GoalCategory.READING,
+    )
 
 
 def test_goal_and_children_crud(db_session):
@@ -271,3 +284,169 @@ def test_weekly_summary_daily_message_retrospective_ai_conversation_ai_log_crud(
     # daily_message / ai_log は goal に紐づかないため残る
     assert db_session.get(DailyMessage, daily_message.id) is not None
     assert db_session.get(AiLog, ai_log.id) is not None
+
+
+def test_goal_category_defaults_to_exam(db_session):
+    goal = _make_goal("種別デフォルト検証用資格", dt.date(2026, 7, 1))
+    db_session.add(goal)
+    db_session.commit()
+
+    assert db_session.get(Goal, goal.id).category == GoalCategory.EXAM
+
+
+def test_book_and_reading_log_crud(db_session):
+    goal = _make_reading_goal("読書目標CRUD検証用", dt.date(2026, 7, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    book = Book(
+        goal_id=goal.id,
+        title="達人プログラマー",
+        author="デイブトーマス",
+        total_pages=350,
+        start_date=dt.date(2026, 7, 1),
+        due_date=dt.date(2026, 8, 31),
+    )
+    db_session.add(book)
+    db_session.flush()
+
+    daily_record = DailyRecord(
+        record_date=dt.date(2026, 7, 2), record_state=RecordState.REPORTED
+    )
+    db_session.add(daily_record)
+    db_session.flush()
+
+    reading_log = ReadingLog(
+        daily_record_id=daily_record.id,
+        book_id=book.id,
+        recall_body="第1章を読んだ。DRY原則の話が印象的だった。",
+        pages_read=20,
+        current_page=20,
+    )
+    db_session.add(reading_log)
+    db_session.commit()
+
+    assert db_session.get(Book, book.id).title == "達人プログラマー"
+    assert db_session.get(ReadingLog, reading_log.id).recall_body.startswith("第1章")
+    assert len(db_session.get(Book, book.id).reading_logs) == 1
+    # book -> reading_log は RESTRICT のため、reading_log が存在する間は goal 経由の
+    # カスケード削除も成立しない（RESTRICT自体の検証はtest_book_delete_restricted_
+    # when_reading_log_existsで、goal->bookのCASCADE自体の検証はreading_logの無い
+    # test_book_cascade_deletes_with_goalで行う）。
+
+
+def test_book_cascade_deletes_with_goal(db_session):
+    goal = _make_reading_goal("goalカスケード検証用", dt.date(2026, 7, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    book = Book(
+        goal_id=goal.id,
+        title="実績なしの書籍",
+        start_date=dt.date(2026, 7, 1),
+        due_date=dt.date(2026, 8, 31),
+    )
+    db_session.add(book)
+    db_session.commit()
+
+    # goal 削除 -> book が CASCADE で削除されること（reading_logの参照がないため成功する）
+    db_session.delete(db_session.get(Goal, goal.id))
+    db_session.commit()
+
+    assert db_session.get(Goal, goal.id) is None
+    assert db_session.get(Book, book.id) is None
+
+
+def test_book_goal_id_unique_constraint(db_session):
+    goal = _make_reading_goal("1目標1冊検証用", dt.date(2026, 7, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    db_session.add(
+        Book(
+            goal_id=goal.id,
+            title="1冊目",
+            start_date=dt.date(2026, 7, 1),
+            due_date=dt.date(2026, 8, 1),
+        )
+    )
+    db_session.commit()
+
+    db_session.add(
+        Book(
+            goal_id=goal.id,
+            title="2冊目",
+            start_date=dt.date(2026, 7, 1),
+            due_date=dt.date(2026, 8, 1),
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_book_delete_restricted_when_reading_log_exists(db_session):
+    goal = _make_reading_goal("RESTRICT検証用読書目標", dt.date(2026, 8, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    book = Book(
+        goal_id=goal.id,
+        title="実績ありの書籍",
+        start_date=dt.date(2026, 8, 1),
+        due_date=dt.date(2026, 9, 1),
+    )
+    db_session.add(book)
+    db_session.flush()
+
+    daily_record = DailyRecord(
+        record_date=dt.date(2026, 8, 2), record_state=RecordState.REPORTED
+    )
+    db_session.add(daily_record)
+    db_session.flush()
+
+    reading_log = ReadingLog(
+        daily_record_id=daily_record.id, book_id=book.id, recall_body="想起本文"
+    )
+    db_session.add(reading_log)
+    db_session.commit()
+
+    db_session.delete(book)
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+    assert db_session.get(Book, book.id) is not None
+
+
+def test_reading_log_unique_book_and_daily_record(db_session):
+    goal = _make_reading_goal("重複防止検証用読書目標", dt.date(2026, 8, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    book = Book(
+        goal_id=goal.id,
+        title="重複検証用書籍",
+        start_date=dt.date(2026, 8, 1),
+        due_date=dt.date(2026, 9, 1),
+    )
+    db_session.add(book)
+    db_session.flush()
+
+    daily_record = DailyRecord(
+        record_date=dt.date(2026, 8, 3), record_state=RecordState.REPORTED
+    )
+    db_session.add(daily_record)
+    db_session.flush()
+
+    db_session.add(
+        ReadingLog(daily_record_id=daily_record.id, book_id=book.id, recall_body="1件目")
+    )
+    db_session.commit()
+
+    db_session.add(
+        ReadingLog(daily_record_id=daily_record.id, book_id=book.id, recall_body="2件目")
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

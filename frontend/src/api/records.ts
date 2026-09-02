@@ -9,8 +9,12 @@ export type ProgressRegisterRequest = components['schemas']['ProgressRegisterReq
 export type FinalizeRequest = components['schemas']['FinalizeRequest']
 export type ChatRequest = components['schemas']['ChatRequest']
 export type ChatResponse = components['schemas']['ChatResponse']
+export type ReadingChatRequest = components['schemas']['ReadingChatRequest']
 export type QuotaItemRead = components['schemas']['QuotaItemRead']
 export type CommentRead = components['schemas']['CommentRead']
+export type ReadingLogInput = components['schemas']['ReadingLogInput']
+export type ReadingLogRead = components['schemas']['ReadingLogRead']
+export type ChatMessageRead = components['schemas']['ChatMessageRead']
 
 /** 今日の一言を取得する（生成に時間がかかる場合があるため非同期・遅延表示とする）。 */
 export function getDailyMessage(): Promise<DailyMessageRead> {
@@ -49,9 +53,18 @@ export function finalizeRecord(
   return apiClient.post<DailyRecordRead>(`/records/${targetDate}/finalize`, payload)
 }
 
-/** AI対話を1往復実行する（SC-06下段）。 */
+/** AI対話を1往復実行する（SC-06下段、資格試験）。 */
 export function sendChat(targetDate: string, payload: ChatRequest): Promise<ChatResponse> {
   return apiClient.post<ChatResponse>(`/records/${targetDate}/chat`, payload)
+}
+
+/** 読書のAI対話を1往復実行する（SC-06下段、読書。資格試験の/chatとは別の会話・
+ * プロンプトとして分離する、データ構造編6.2「AI対話エンドポイントの分離について」）。 */
+export function sendReadingChat(
+  targetDate: string,
+  payload: ReadingChatRequest,
+): Promise<ChatResponse> {
+  return apiClient.post<ChatResponse>(`/records/${targetDate}/reading-chat`, payload)
 }
 
 export function createComment(targetDate: string, body: string): Promise<CommentRead> {

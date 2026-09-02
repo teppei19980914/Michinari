@@ -8,18 +8,21 @@ import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import { createGoal, listGoals } from '../api/goals'
+import { createGoal, listGoals, type GoalCategory } from '../api/goals'
 import { isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
+
+const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING']
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
+  const [category, setCategory] = useState<GoalCategory>('EXAM')
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
 
   const mutation = useMutation({
-    mutationFn: () => createGoal({ name, start_date: startDate }),
+    mutationFn: () => createGoal({ category, name, start_date: startDate }),
     onSuccess: (goal) => {
       queryClient.invalidateQueries({ queryKey: ['goals'] })
       onClose()
@@ -38,7 +41,21 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
         }}
       >
         <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.new.nameLabel')}
+          {t('goals.new.categoryLabel')}
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as GoalCategory)}
+          >
+            {GOAL_CATEGORIES.map((value) => (
+              <option key={value} value={value}>
+                {t(`goals.new.category.${value}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-gray-700">
+          {category === 'READING' ? t('goals.new.nameLabelReading') : t('goals.new.nameLabel')}
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -94,6 +111,8 @@ export function GoalsListPage() {
                   >
                     <span className="font-medium text-gray-900">{goal.name}</span>
                     <span className="text-xs text-gray-500">
+                      {t(`goals.new.category.${goal.category}`)}
+                      {' ・ '}
                       {t(`goals.list.status.${goal.status}`)}
                     </span>
                   </Link>
@@ -105,7 +124,7 @@ export function GoalsListPage() {
                       {t('goals.list.exportLink')}
                     </Link>
                   )}
-                  {goal.status === 'ACTIVE' && (
+                  {goal.status === 'ACTIVE' && goal.category === 'EXAM' && (
                     <Link
                       to={ROUTES.goalResult(goal.id)}
                       className="text-sm text-blue-600 hover:underline"

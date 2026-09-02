@@ -12,7 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
-from app.constants.enums import BaselineReason, DayType, GoalStatus
+from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus
 from app.models.base import utcnow
 from app.models.goal import Goal, LoadProfile
 from app.models.material import Material, PlanBaseline
@@ -110,9 +110,21 @@ def list_goals(session: Session) -> list[Goal]:
     return session.query(Goal).order_by(Goal.id).all()
 
 
-def create_goal(session: Session, *, name: str, start_date: dt.date, memo: str | None) -> Goal:
+def create_goal(
+    session: Session,
+    *,
+    name: str,
+    start_date: dt.date,
+    memo: str | None,
+    category: GoalCategory = GoalCategory.EXAM,
+) -> Goal:
     goal = Goal(
-        name=name, start_date=start_date, status=GoalStatus.DRAFT, resource_ratio=0.0, memo=memo
+        category=category,
+        name=name,
+        start_date=start_date,
+        status=GoalStatus.DRAFT,
+        resource_ratio=0.0,
+        memo=memo,
     )
     session.add(goal)
     session.flush()
@@ -137,6 +149,9 @@ def update_goal(
     if memo is not None:
         goal.memo = memo
     if resource_ratio is not None:
+        # 読書目標はリソース配分プールの対象外（要件定義書R-64）。resource_ratioは常に0のまま。
+        if goal.category == GoalCategory.READING:
+            raise ValidationError("読書目標にはリソース配分を設定できません")
         if not (0.0 <= resource_ratio <= 1.0):
             raise ValidationError("リソース配分比率は0.0〜1.0で入力してください")
         if goal.status == GoalStatus.ACTIVE:
@@ -155,26 +170,36 @@ def delete_goal(session: Session, goal: Goal) -> None:
 
 
 def activate_goal(session: Session, goal: Goal) -> Goal:
-    """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。"""
+    """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
+
+    読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
+    計画基準値（EXAM固有の計画管理、要件定義書R-63）は対象外とする。
+    """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
-    if not goal.exam_subjects:
-        raise ValidationError("試験科目を1件以上登録してください")
-    if not goal.materials:
-        raise ValidationError("教材を1件以上登録してください")
-    _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+
+    if goal.category == GoalCategory.READING:
+        if goal.book is None:
+            raise ValidationError("書籍を登録してください")
+    else:
+        if not goal.exam_subjects:
+            raise ValidationError("試験科目を1件以上登録してください")
+        if not goal.materials:
+            raise ValidationError("教材を1件以上登録してください")
+        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
 
     goal.status = GoalStatus.ACTIVE
     goal.activated_at = utcnow()
     session.flush()
 
-    today = resolve_today(session)
-    treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
-    for material in goal.materials:
-        if material.is_active:
-            record_baseline_for_material(
-                session, material, BaselineReason.INITIAL, today, treat_holiday_as_buffer
-            )
+    if goal.category == GoalCategory.EXAM:
+        today = resolve_today(session)
+        treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
+        for material in goal.materials:
+            if material.is_active:
+                record_baseline_for_material(
+                    session, material, BaselineReason.INITIAL, today, treat_holiday_as_buffer
+                )
     return goal
 
 
@@ -202,7 +227,12 @@ def close_goal(session: Session, goal: Goal, *, confirm_without_result: bool = F
 
     全科目の受験結果が登録済みなら自動的に「結果あり」でクローズする。
     未登録の科目が残る場合は confirm_without_result=True の明示確認を必須とする。
-    総括レポートの生成（AI連携）はPhase10の責務であり、本関数の成否には影響させない。
+    総括レポートの生成(AI連携)はPhase10の責務であり、本関数の成否には影響させない。
+
+    読書目標（category=READING）は exam_subjects が常に空のため has_all_results は
+    常にFalseとなり、本関数は confirm_without_result=True を要求したうえで
+    CLOSED_WITHOUT_RESULT（中断）へ遷移させる（仕様書7.1）。読了（CLOSED_WITH_RESULT）は
+    本関数ではなく book_service.complete_book（POST /books/{id}/complete）を用いる。
     """
     if goal.status != GoalStatus.ACTIVE:
         raise InvalidStateTransitionError("進行中の目標のみクローズできます")
