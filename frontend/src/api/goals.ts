@@ -17,6 +17,10 @@ export type MaterialCycleProgressRead = components['schemas']['MaterialCycleProg
 export type LoadProfileRead = components['schemas']['LoadProfileRead']
 export type LoadProfileCreate = components['schemas']['LoadProfileCreate']
 export type LoadProfileUpdate = components['schemas']['LoadProfileUpdate']
+export type GoalCategory = components['schemas']['GoalCategory']
+export type BookRead = components['schemas']['BookRead']
+export type BookCreate = components['schemas']['BookCreate']
+export type BookUpdate = components['schemas']['BookUpdate']
 
 export function listGoals(): Promise<GoalRead[]> {
   return apiClient.get<GoalRead[]>('/goals')
@@ -121,4 +125,34 @@ export function updateLoadProfile(
 
 export function deleteLoadProfile(loadProfileId: number): Promise<void> {
   return apiClient.delete<void>(`/load-profiles/${loadProfileId}`)
+}
+
+export function createBook(goalId: number, payload: BookCreate): Promise<BookRead> {
+  return apiClient.post<BookRead>(`/goals/${goalId}/book`, payload)
+}
+
+export function updateBook(bookId: number, payload: BookUpdate): Promise<BookRead> {
+  return apiClient.patch<BookRead>(`/books/${bookId}`, payload)
+}
+
+/** 読了として記録する（仕様書6.2「読了操作」）。目標をCLOSED_WITH_RESULTへ遷移させる。 */
+export function completeBook(bookId: number): Promise<GoalRead> {
+  return apiClient.post<GoalRead>(`/books/${bookId}/complete`)
+}
+
+/**
+ * 進行中の読書目標とその書籍を一覧する（日次報告画面・ダッシュボード補助表示で使用）。
+ * バックエンドに一括取得用のエンドポイントが無いため、目標一覧からREADING×ACTIVEを
+ * 絞り込み、書籍情報（GoalDetailRead.book）を目標ごとに取得して合成する。進行中の読書目標は
+ * 少数（1目標1冊、通常は1〜数件）であることを前提とした構成であり、件数が多い場合はN+1になる
+ * （CLAUDE.md パフォーマンスチェックの原則上は望ましくないが、専用集約エンドポイントを
+ * 新設するほどの規模ではないと判断した。Phase17実装時の判断）。
+ */
+export async function listActiveReadingBooks(): Promise<{ goal: GoalRead; book: BookRead }[]> {
+  const goals = await listGoals()
+  const activeReadingGoals = goals.filter((g) => g.category === 'READING' && g.status === 'ACTIVE')
+  const details = await Promise.all(activeReadingGoals.map((g) => getGoal(g.id)))
+  return details
+    .filter((detail): detail is GoalDetailRead & { book: BookRead } => detail.book !== null)
+    .map((detail) => ({ goal: detail, book: detail.book }))
 }

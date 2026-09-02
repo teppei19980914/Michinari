@@ -11,7 +11,8 @@ import datetime as dt
 
 from pydantic import BaseModel
 
-from app.constants.enums import DayType, RecordState
+from app.constants.enums import DayType, GoalCategory, RecordState
+from app.schemas.book import BookRead
 
 
 class MaterialSpeedRead(BaseModel):
@@ -23,15 +24,23 @@ class MaterialSpeedRead(BaseModel):
 
 class GoalCardRead(BaseModel):
     """目標カード（仕様書6.1「進行中の各目標について、全体進捗率、残日数、
-    完了予測日との乖離を表示」）。"""
+    完了予測日との乖離を表示」）。
+
+    category=READINGの場合、progress_rate・remaining_daysは書籍の派生値（ページ進捗・
+    読了目標日までの残日数）で上書きし、forecast_deviation_days・has_warning・
+    has_forced_replanは対象外（常にNone/false）とする（要件定義書R-63、Phase17）。
+    bookには読書進捗の全体（直近記録日・連続記録日数を含む）を格納する。
+    """
 
     goal_id: int
     goal_name: str
+    category: GoalCategory
     progress_rate: float | None
     remaining_days: int | None
     forecast_deviation_days: float | None
     has_warning: bool
     has_forced_replan: bool
+    book: BookRead | None = None
 
 
 class GoalStatsRead(BaseModel):

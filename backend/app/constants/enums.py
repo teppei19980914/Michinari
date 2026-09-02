@@ -11,6 +11,13 @@ class GoalStatus(enum.StrEnum):
     CLOSED_WITHOUT_RESULT = "CLOSED_WITHOUT_RESULT"
 
 
+class GoalCategory(enum.StrEnum):
+    """目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型。"""
+
+    EXAM = "EXAM"
+    READING = "READING"
+
+
 class ExamDateType(enum.StrEnum):
     RANGE = "RANGE"
     FIXED = "FIXED"
@@ -71,6 +78,8 @@ class AiPurpose(enum.StrEnum):
     WEEKLY_SUMMARY = "WEEKLY_SUMMARY"
     DAILY_MESSAGE = "DAILY_MESSAGE"
     GOAL_RETROSPECTIVE = "GOAL_RETROSPECTIVE"
+    DAILY_FEEDBACK_READING = "DAILY_FEEDBACK_READING"
+    GOAL_RETROSPECTIVE_READING = "GOAL_RETROSPECTIVE_READING"
 
 
 class ConversationScope(enum.StrEnum):
@@ -78,6 +87,8 @@ class ConversationScope(enum.StrEnum):
     WEEKLY_SUMMARY = "WEEKLY_SUMMARY"
     DAILY_MESSAGE = "DAILY_MESSAGE"
     GOAL_RETROSPECTIVE = "GOAL_RETROSPECTIVE"
+    DAILY_FEEDBACK_READING = "DAILY_FEEDBACK_READING"
+    GOAL_RETROSPECTIVE_READING = "GOAL_RETROSPECTIVE_READING"
 
 
 class ExportFormat(enum.StrEnum):

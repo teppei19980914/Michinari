@@ -6,13 +6,15 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import BaselineReason, GoalStatus
+from app.constants.enums import BaselineReason, GoalCategory, GoalStatus
+from app.schemas.book import BookRead
 from app.schemas.load_profile import LoadProfileRead
 from app.schemas.material import MaterialRead
 from app.schemas.subject import SubjectRead
 
 
 class GoalCreate(BaseModel):
+    category: GoalCategory = GoalCategory.EXAM
     name: str = Field(min_length=1)
     start_date: dt.date
     memo: str | None = None
@@ -33,6 +35,7 @@ class GoalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    category: GoalCategory
     name: str
     start_date: dt.date
     status: GoalStatus
@@ -46,6 +49,7 @@ class GoalDetailRead(GoalRead):
     exam_subjects: list[SubjectRead]
     materials: list[MaterialRead]
     load_profiles: list[LoadProfileRead]
+    book: BookRead | None = None
 
 
 class PlanBaselineRead(BaseModel):

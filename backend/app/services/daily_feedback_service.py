@@ -55,7 +55,10 @@ def send_daily_feedback(
         session, {item.material_id for item in study_log_items}
     )
 
-    active_goals = ai_context_service.list_active_goals(session)
+    # 読書目標（category=READING）はexam_subject/materialを持たず、この日次報告フィードバック
+    # は資格試験専用のプロンプト（AiPurpose.DAILY_FEEDBACK）であるため、EXAM目標のみに限定する
+    # （読書用フィードバックはAiPurpose.DAILY_FEEDBACK_READINGとしてPhase16で別途実装する）。
+    active_goals = ai_context_service.list_active_exam_goals(session)
     active_materials = ai_context_service.list_active_materials(active_goals)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, target_date, treat_holiday_as_buffer)
@@ -71,9 +74,14 @@ def send_daily_feedback(
     else:
         load_coefficient_text = "算出不可（進行中の目標なし）"
 
+    # 対話履歴への注入はpurposeで絞り込む。読書のDAILY_FEEDBACK_READING（Phase16）が
+    # 同一daily_recordにchat_messageを持ちうるため、他用途の対話を文脈に混入させない。
     existing_messages = (
         session.query(ChatMessage)
-        .filter(ChatMessage.daily_record_id == record.id)
+        .filter(
+            ChatMessage.daily_record_id == record.id,
+            ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK,
+        )
         .order_by(ChatMessage.sequence)
         .all()
     )
@@ -131,11 +139,12 @@ def send_daily_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = max((m.sequence for m in existing_messages), default=0) + 1
+    next_sequence = record_service.next_chat_sequence(session, record.id)
     if message:
         session.add(
             ChatMessage(
                 daily_record_id=record.id,
+                purpose=AiPurpose.DAILY_FEEDBACK,
                 role=ChatRole.USER,
                 content=message,
                 sequence=next_sequence,
@@ -145,6 +154,7 @@ def send_daily_feedback(
 
     assistant_message = ChatMessage(
         daily_record_id=record.id,
+        purpose=AiPurpose.DAILY_FEEDBACK,
         role=ChatRole.ASSISTANT,
         content=send_result.response_text,
         sequence=next_sequence,

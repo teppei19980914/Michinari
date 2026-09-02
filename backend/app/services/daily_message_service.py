@@ -26,7 +26,10 @@ def get_or_generate(session: Session, today: dt.date) -> DailyMessage:
     if existing is not None:
         return existing
 
-    active_goals = ai_context_service.list_active_goals(session)
+    # 読書目標（category=READING）はexam_subjectを持たず、build_goal_summaryが「試験科目
+    # 未登録」という誤った文脈を混入させるため、資格試験目標のみに限定する
+    # （今日の一言に読書用の変種は設けない設計。要件定義書6.10）。
+    active_goals = ai_context_service.list_active_exam_goals(session)
     active_materials = ai_context_service.list_active_materials(active_goals)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, today, treat_holiday_as_buffer)

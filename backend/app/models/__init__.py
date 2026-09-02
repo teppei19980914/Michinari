@@ -2,6 +2,7 @@
 
 from app.models.ai import AiConversation, AiLog
 from app.models.base import Base
+from app.models.book import Book
 from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.record import (
@@ -9,6 +10,7 @@ from app.models.record import (
     DailyMessage,
     DailyRecord,
     ExamResult,
+    ReadingLog,
     RecordComment,
     StudyLog,
     WeeklySummary,
@@ -40,6 +42,8 @@ __all__ = [
     "PlanBaseline",
     "DailyRecord",
     "StudyLog",
+    "Book",
+    "ReadingLog",
     "ChatMessage",
     "RecordComment",
     "WeeklySummary",

@@ -64,7 +64,12 @@
       "remainingDaysUnavailable": "受験日未設定",
       "forecastDeviation": "完了予測日との乖離: {{days}}日",
       "forecastDeviationUnavailable": "完了予測日との乖離: 算出不可",
-      "notAvailable": "算出不可"
+      "notAvailable": "算出不可",
+      "remainingDaysReading": "読了目標まで残り{{days}}日",
+      "lastReadingDate": "直近記録日: {{date}}",
+      "lastReadingDateUnavailable": "直近記録日: 記録なし",
+      "currentStreak": "連続記録日数: {{days}}日",
+      "pageProgress": "ページ進捗"
     },
     "stats": {
       "title": "統計サマリ",
@@ -95,7 +100,13 @@
     },
     "new": {
       "title": "新規目標作成",
+      "categoryLabel": "目標種別",
+      "category": {
+        "EXAM": "資格試験",
+        "READING": "読書"
+      },
       "nameLabel": "試験名",
+      "nameLabelReading": "書名",
       "startDateLabel": "開始日"
     },
     "detail": {
@@ -105,14 +116,17 @@
         "subjects": "試験科目",
         "materials": "教材",
         "resourceAllocation": "リソース配分",
-        "loadProfile": "負荷プロファイル"
+        "loadProfile": "負荷プロファイル",
+        "book": "書籍"
       },
       "tabTooltips": {
         "basicInfo": "試験名・開始日・状態・備考など、この目標自体の基本情報を確認・編集するタブです。目標の名称を変えたい、開始日を修正したいときに使用します。",
+        "basicInfoReading": "書名・開始日・状態・備考など、この読書目標自体の基本情報を確認・編集するタブです。",
         "subjects": "1つの試験の中で科目が複数に分かれる場合（科目ごとに受験日や合格点が異なる資格など）に、科目ごとの受験日・合格点を設定するタブです。科目を追加・編集し、それぞれの合格基準を管理したいときに使用します。",
         "materials": "学習に使う教材（テキスト・問題集など）を登録し、対策する科目との紐付けや周回数・分量を管理するタブです。新しい教材を追加したい、日々のノルマ計算のもとになる情報を設定したいときに使用します。",
         "resourceAllocation": "複数の目標を同時に進めている場合に、この目標へどれくらいの学習時間を配分するか（比率）を設定するタブです。並行して複数の資格を目指しており、目標間で学習時間の配分を調整したいときに使用します。",
-        "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。"
+        "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。",
+        "book": "書名・著者・総ページ数・読了目標日を登録し、読書の進捗（残日数・直近記録日・連続記録日数）を確認するタブです。読了したときは「読了として記録する」操作もここから行います。"
       },
       "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
       "action": {
@@ -130,6 +144,7 @@
     },
     "basicInfo": {
       "nameLabel": "試験名",
+      "nameLabelReading": "目標名",
       "startDateLabel": "開始日",
       "memoLabel": "備考"
     },
@@ -213,6 +228,26 @@
       "dateToLabel": "適用終了日",
       "coefficientLabel": "負荷係数",
       "noteLabel": "メモ"
+    },
+    "book": {
+      "empty": "書籍が未登録です",
+      "titleLabel": "書名",
+      "authorLabel": "著者",
+      "totalPagesLabel": "総ページ数（任意）",
+      "startDateLabel": "読書開始日",
+      "dueDateLabel": "読了目標日",
+      "remainingDaysLabel": "残日数",
+      "remainingDaysValue": "{{days}}日",
+      "lastReadingDateLabel": "直近記録日",
+      "lastReadingDateUnavailable": "記録なし",
+      "currentStreakLabel": "連続記録日数",
+      "currentStreakValue": "{{days}}日",
+      "progressLabel": "ページ進捗",
+      "completeButton": "読了として記録する",
+      "completeConfirm": {
+        "title": "読了の記録",
+        "body": "読了として記録すると目標は読み取り専用になり、読了レポートの生成が始まります。よろしいですか？"
+      }
     }
   },
   "resources": {
@@ -501,6 +536,18 @@
       "sendButton": "送信",
       "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました"
     },
+    "readingLog": {
+      "title": "想起の記録",
+      "remainingDays": "読了目標まで残り{{days}}日",
+      "recallLabel": "今日読んだ内容の想起",
+      "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
+      "pagesReadLabel": "読んだページ数",
+      "currentPageLabel": "現在ページ（全{{total}}ページ）"
+    },
+    "readingChat": {
+      "title": "AI対話（読書）",
+      "startButton": "想起を送信してAIフィードバックを受け取る"
+    },
     "finalizeButton": "報告を確定する",
     "leaveConfirm": {
       "title": "この画面から移動しますか？",
@@ -531,6 +578,15 @@
     },
     "chatHistory": {
       "title": "AI対話履歴"
+    },
+    "readingLog": {
+      "title": "想起の記録",
+      "unknownBook": "書籍ID: {{id}}",
+      "pagesRead": "読んだページ数",
+      "currentPage": "現在ページ"
+    },
+    "readingChatHistory": {
+      "title": "AI対話履歴（読書）"
     },
     "comments": {
       "title": "コメント",
@@ -751,6 +807,7 @@
     "VALIDATION_ERROR": "入力内容に誤りがあります",
     "RESOURCE_EXCEEDED": "リソース配分の合計が100%を超えています",
     "CYCLE_CONFLICT": "周回数の設定に矛盾があります",
+    "BOOK_ALREADY_EXISTS": "この目標には既に書籍が登録されています",
     "BACKDATE_LIMIT_EXCEEDED": "遡って入力できる期間を超えています",
     "INVALID_STATE_TRANSITION": "現在の状態では実行できません",
     "IMMUTABLE_RECORD": "確定済みの記録は変更できません",

@@ -212,6 +212,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Book */
+        post: operations["create_book_api_v1_goals__goal_id__book_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/load-profiles": {
         parameters: {
             query?: never;
@@ -311,6 +328,40 @@ export interface paths {
         get: operations["get_cycle_progress_api_v1_materials__material_id__cycles_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Book */
+        patch: operations["update_book_api_v1_books__book_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/books/{book_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Book */
+        post: operations["complete_book_api_v1_books__book_id__complete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -510,6 +561,28 @@ export interface paths {
          *     使うのみで確定させない（AI呼び出し失敗時も入力を失わない、16.7）。
          */
         post: operations["chat_api_v1_records__target_date__chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/reading-chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reading Chat
+         * @description 読書目標のAI対話を1往復実行する（データ構造編6.2）。用途と日付ごとに会話を分離する
+         *     既存方針（ロジック・プロンプト編16.3）に従い、資格試験の`/chat`とは独立した会話・
+         *     プロンプト（DAILY_FEEDBACK_READING）として扱う。
+         */
+        post: operations["reading_chat_api_v1_records__target_date__reading_chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1159,6 +1232,10 @@ export interface components {
             assistant_uid_daily_message: string;
             /** Assistant Uid Goal Retrospective */
             assistant_uid_goal_retrospective: string;
+            /** Assistant Uid Daily Feedback Reading */
+            assistant_uid_daily_feedback_reading: string;
+            /** Assistant Uid Goal Retrospective Reading */
+            assistant_uid_goal_retrospective_reading: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -1184,6 +1261,10 @@ export interface components {
             assistant_uid_daily_message?: string | null;
             /** Assistant Uid Goal Retrospective */
             assistant_uid_goal_retrospective?: string | null;
+            /** Assistant Uid Daily Feedback Reading */
+            assistant_uid_daily_feedback_reading?: string | null;
+            /** Assistant Uid Goal Retrospective Reading */
+            assistant_uid_goal_retrospective_reading?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -1213,7 +1294,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -1286,6 +1367,71 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BookCreate */
+        BookCreate: {
+            /** Title */
+            title: string;
+            /** Author */
+            author?: string | null;
+            /** Total Pages */
+            total_pages?: number | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+        };
+        /** BookRead */
+        BookRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /** Title */
+            title: string;
+            /** Author */
+            author: string | null;
+            /** Total Pages */
+            total_pages: number | null;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Remaining Days */
+            remaining_days: number;
+            /** Last Reading Date */
+            last_reading_date: string | null;
+            /** Current Streak */
+            current_streak: number;
+            /** Current Page */
+            current_page: number | null;
+            /** Progress Rate */
+            progress_rate: number | null;
+        };
+        /** BookUpdate */
+        BookUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Author */
+            author?: string | null;
+            /** Total Pages */
+            total_pages?: number | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+        };
         /** CalendarDayRead */
         CalendarDayRead: {
             /**
@@ -1300,6 +1446,7 @@ export interface components {
         ChatMessageRead: {
             /** Id */
             id: number;
+            purpose: components["schemas"]["AiPurpose"];
             role: components["schemas"]["ChatRole"];
             /** Content */
             content: string;
@@ -1415,6 +1562,8 @@ export interface components {
             reported_at: string | null;
             /** Study Logs */
             study_logs: components["schemas"]["StudyLogRead"][];
+            /** Reading Logs */
+            reading_logs: components["schemas"]["ReadingLogRead"][];
             /** Comments */
             comments: components["schemas"]["CommentRead"][];
             /** Chat Messages */
@@ -1553,6 +1702,8 @@ export interface components {
         FinalizeRequest: {
             /** Study Logs */
             study_logs?: components["schemas"]["StudyLogInput"][];
+            /** Reading Logs */
+            reading_logs?: components["schemas"]["ReadingLogInput"][];
             /**
              * Diary Body
              * @default
@@ -1641,12 +1792,18 @@ export interface components {
          * GoalCardRead
          * @description 目標カード（仕様書6.1「進行中の各目標について、全体進捗率、残日数、
          *     完了予測日との乖離を表示」）。
+         *
+         *     category=READINGの場合、progress_rate・remaining_daysは書籍の派生値（ページ進捗・
+         *     読了目標日までの残日数）で上書きし、forecast_deviation_days・has_warning・
+         *     has_forced_replanは対象外（常にNone/false）とする（要件定義書R-63、Phase17）。
+         *     bookには読書進捗の全体（直近記録日・連続記録日数を含む）を格納する。
          */
         GoalCardRead: {
             /** Goal Id */
             goal_id: number;
             /** Goal Name */
             goal_name: string;
+            category: components["schemas"]["GoalCategory"];
             /** Progress Rate */
             progress_rate: number | null;
             /** Remaining Days */
@@ -1657,7 +1814,14 @@ export interface components {
             has_warning: boolean;
             /** Has Forced Replan */
             has_forced_replan: boolean;
+            book?: components["schemas"]["BookRead"] | null;
         };
+        /**
+         * GoalCategory
+         * @description 目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型。
+         * @enum {string}
+         */
+        GoalCategory: "EXAM" | "READING";
         /** GoalCloseRequest */
         GoalCloseRequest: {
             /**
@@ -1668,6 +1832,8 @@ export interface components {
         };
         /** GoalCreate */
         GoalCreate: {
+            /** @default EXAM */
+            category: components["schemas"]["GoalCategory"];
             /** Name */
             name: string;
             /**
@@ -1682,6 +1848,7 @@ export interface components {
         GoalDetailRead: {
             /** Id */
             id: number;
+            category: components["schemas"]["GoalCategory"];
             /** Name */
             name: string;
             /**
@@ -1704,11 +1871,13 @@ export interface components {
             materials: components["schemas"]["MaterialRead"][];
             /** Load Profiles */
             load_profiles: components["schemas"]["LoadProfileRead"][];
+            book?: components["schemas"]["BookRead"] | null;
         };
         /** GoalRead */
         GoalRead: {
             /** Id */
             id: number;
+            category: components["schemas"]["GoalCategory"];
             /** Name */
             name: string;
             /**
@@ -2206,10 +2375,17 @@ export interface components {
             /** Cumulative Completed */
             cumulative_completed: number;
         };
-        /** ProgressRegisterRequest */
+        /**
+         * ProgressRegisterRequest
+         * @description study_logs・reading_logsのいずれかを1件以上含むことをrecord_serviceで検証する
+         *     （両方空の入力を拒否。両カテゴリの目標が同時進行しうるため、schema側では
+         *     どちらか一方のmin_length指定はできない）。
+         */
         ProgressRegisterRequest: {
             /** Study Logs */
-            study_logs: components["schemas"]["StudyLogInput"][];
+            study_logs?: components["schemas"]["StudyLogInput"][];
+            /** Reading Logs */
+            reading_logs?: components["schemas"]["ReadingLogInput"][];
         };
         /** PromptDegradationSettingsRead */
         PromptDegradationSettingsRead: {
@@ -2217,6 +2393,8 @@ export interface components {
             max_prompt_chars: number;
             /** Summary Inject Weeks */
             summary_inject_weeks: number;
+            /** Reading Recall Recent Days */
+            reading_recall_recent_days: number;
         };
         /** PromptDegradationSettingsUpdate */
         PromptDegradationSettingsUpdate: {
@@ -2224,6 +2402,8 @@ export interface components {
             max_prompt_chars?: number | null;
             /** Summary Inject Weeks */
             summary_inject_weeks?: number | null;
+            /** Reading Recall Recent Days */
+            reading_recall_recent_days?: number | null;
         };
         /** PromptTemplateRead */
         PromptTemplateRead: {
@@ -2299,6 +2479,45 @@ export interface components {
             /** Daily Quota */
             daily_quota: number;
             quality_metric_type: components["schemas"]["QualityMetricType"];
+        };
+        /**
+         * ReadingChatRequest
+         * @description 読書目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
+         *     POST /records/{date}/reading-chat）。ChatRequestと同じ設計：reading_logsはこの時点で
+         *     DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+         */
+        ReadingChatRequest: {
+            /** Message */
+            message?: string | null;
+            /** Reading Logs */
+            reading_logs?: components["schemas"]["ReadingLogInput"][];
+        };
+        /**
+         * ReadingLogInput
+         * @description 読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。
+         */
+        ReadingLogInput: {
+            /** Book Id */
+            book_id: number;
+            /** Recall Body */
+            recall_body: string;
+            /** Pages Read */
+            pages_read?: number | null;
+            /** Current Page */
+            current_page?: number | null;
+        };
+        /** ReadingLogRead */
+        ReadingLogRead: {
+            /** Id */
+            id: number;
+            /** Book Id */
+            book_id: number;
+            /** Recall Body */
+            recall_body: string;
+            /** Pages Read */
+            pages_read: number | null;
+            /** Current Page */
+            current_page: number | null;
         };
         /**
          * RecordState
@@ -3089,6 +3308,41 @@ export interface operations {
             };
         };
     };
+    create_book_api_v1_goals__goal_id__book_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_load_profiles_api_v1_goals__goal_id__load_profiles_get: {
         parameters: {
             query?: never;
@@ -3363,6 +3617,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaterialCycleProgressRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_book_api_v1_books__book_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_book_api_v1_books__book_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                book_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRead"];
                 };
             };
             /** @description Validation Error */
@@ -3811,6 +4131,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reading_chat_api_v1_records__target_date__reading_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingChatRequest"];
             };
         };
         responses: {

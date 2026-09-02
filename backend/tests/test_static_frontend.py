@@ -91,6 +91,51 @@ def test_reraises_non_404_errors_without_falling_back_to_index_html(tmp_path, mo
     assert response.status_code == 405
 
 
+def test_index_html_has_no_cache_header_at_root(tmp_path, monkeypatch):
+    """`index.html`はアプリ更新のたびにアセットのハッシュ付きファイル名が変わるため、
+    ブラウザに古い版をキャッシュされ続けないよう毎回再検証させる必要がある。"""
+    app = _make_app_with_dist(monkeypatch, tmp_path / "dist")
+
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_index_html_has_no_cache_header_when_requested_directly(tmp_path, monkeypatch):
+    app = _make_app_with_dist(monkeypatch, tmp_path / "dist")
+
+    with TestClient(app) as client:
+        response = client.get("/index.html")
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_index_html_has_no_cache_header_on_spa_fallback(tmp_path, monkeypatch):
+    """クライアント側ルートへのフォールバック応答も、実体は index.html のため
+    同様に再検証が必要。"""
+    app = _make_app_with_dist(monkeypatch, tmp_path / "dist")
+
+    with TestClient(app) as client:
+        response = client.get("/goals/123")
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_hashed_asset_does_not_get_no_cache_header(tmp_path, monkeypatch):
+    """index.html以外の静的アセット（ハッシュ付きファイル名で内容不変）には
+    no-cacheを付与せず、従来通りブラウザキャッシュを許容する（パフォーマンス維持）。"""
+    dist_dir = tmp_path / "dist"
+    app = _make_app_with_dist(monkeypatch, dist_dir)
+    (dist_dir / "assets").mkdir()
+    (dist_dir / "assets" / "index-abc123.js").write_text("console.log('x')", encoding="utf-8")
+
+    with TestClient(app) as client:
+        response = client.get("/assets/index-abc123.js")
+
+    assert response.headers.get("cache-control") != "no-cache"
+
+
 def test_does_not_mount_static_when_dist_dir_absent(tmp_path, monkeypatch):
     """フロントエンド未ビルドの開発環境では静的配信をマウントせず、これまで通り
     Vite開発サーバー経由のプロキシ利用を想定する（既存の開発フローへの影響なし）。"""

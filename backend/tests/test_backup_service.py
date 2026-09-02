@@ -191,8 +191,8 @@ def _insert_minimal_goal(db_path, *, id_=1, name="マーカー"):
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
-            "INSERT INTO goal (id, name, start_date, status, resource_ratio, "
-            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 0.0, "
+            "INSERT INTO goal (id, name, start_date, status, resource_ratio, category, "
+            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 0.0, 'EXAM', "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')",
             (id_, name),
         )
@@ -211,6 +211,7 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
     assert data["tables"]["goal"] == [
         {
             "id": 1,
+            "category": "EXAM",
             "name": "マーカー",
             "start_date": "2026-01-01",
             "status": "DRAFT",
@@ -245,6 +246,7 @@ def test_import_all_data_replaces_existing_rows_rather_than_appending(full_schem
     data["tables"]["goal"] = [
         {
             "id": 2,
+            "category": "EXAM",
             "name": "新データ",
             "start_date": "2026-02-01",
             "status": "DRAFT",
