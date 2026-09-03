@@ -21,10 +21,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.enums import ChatRole, ExamResultType, RecordState
+from app.constants.enums import AiPurpose, ChatRole, ExamResultType, RecordState
 from app.models.base import Base, CreatedAtMixin, TimestampMixin, utcnow
 
 if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
+    from app.models.book import Book
     from app.models.goal import ExamSubject, Goal
     from app.models.material import Material
 
@@ -42,6 +43,9 @@ class DailyRecord(CreatedAtMixin, Base):
     reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     study_logs: Mapped[list["StudyLog"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    reading_logs: Mapped[list["ReadingLog"]] = relationship(
         back_populates="daily_record", cascade="all, delete-orphan"
     )
     chat_messages: Mapped[list["ChatMessage"]] = relationship(
@@ -79,8 +83,36 @@ class StudyLog(CreatedAtMixin, Base):
     material: Mapped["Material"] = relationship(back_populates="study_logs")
 
 
+class ReadingLog(CreatedAtMixin, Base):
+    """読書記録。study_logの読書版（定量実績ではなく想起した内容を自由記述で保持する）。"""
+
+    __tablename__ = "reading_log"
+    __table_args__ = (
+        UniqueConstraint("book_id", "daily_record_id", name="uq_reading_log_book_record"),
+        Index("ix_reading_log_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    book_id: Mapped[int] = mapped_column(ForeignKey("book.id"), nullable=False)
+    recall_body: Mapped[str] = mapped_column(Text, nullable=False)
+    pages_read: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="reading_logs")
+    book: Mapped["Book"] = relationship(back_populates="reading_logs")
+
+
 class ChatMessage(CreatedAtMixin, Base):
-    """AI対話。文脈維持は sequence 順の全文注入で行う（ロジック・プロンプト編 16.3.1）。"""
+    """AI対話。文脈維持は sequence 順の全文注入で行う（ロジック・プロンプト編 16.3.1）。
+
+    purpose は同一日次記録に複数のAI用途（資格試験のDAILY_FEEDBACK、読書のDAILY_FEEDBACK_
+    READING）が混在しうるようになったため追加した（Phase16）。対話履歴（{{conversation_
+    history}}）への注入時はpurposeで絞り込み、用途間の文脈混入を防ぐ。sequenceは日次記録
+    全体で共有する採番とし、表示上の時系列順序は用途を問わず一貫させる。
+    """
 
     __tablename__ = "chat_message"
     __table_args__ = (Index("ix_chat_message_record_sequence", "daily_record_id", "sequence"),)
@@ -88,6 +120,11 @@ class ChatMessage(CreatedAtMixin, Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     daily_record_id: Mapped[int] = mapped_column(
         ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    purpose: Mapped[AiPurpose] = mapped_column(
+        Enum(AiPurpose, native_enum=False, validate_strings=True),
+        nullable=False,
+        default=AiPurpose.DAILY_FEEDBACK,
     )
     role: Mapped[ChatRole] = mapped_column(
         Enum(ChatRole, native_enum=False, validate_strings=True), nullable=False

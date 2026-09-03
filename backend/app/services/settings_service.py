@@ -14,14 +14,17 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
     AI_HOST,
     AI_MAX_PROMPT_CHARS,
     AI_MIN_INTERVAL_SECONDS,
+    AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
     LOG_AI_ENABLED,
@@ -78,6 +81,8 @@ class AiConnectionSettings:
     assistant_uid_weekly_summary: str
     assistant_uid_daily_message: str
     assistant_uid_goal_retrospective: str
+    assistant_uid_daily_feedback_reading: str
+    assistant_uid_goal_retrospective_reading: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -93,6 +98,7 @@ class ThresholdSettings:
 class PromptDegradationSettings:
     max_prompt_chars: int
     summary_inject_weeks: int
+    reading_recall_recent_days: int
 
 
 @dataclass(frozen=True)
@@ -135,6 +141,12 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_goal_retrospective=setting_reader.get_str(
             session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE
         ),
+        assistant_uid_daily_feedback_reading=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING
+        ),
+        assistant_uid_goal_retrospective_reading=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
+        ),
         folder_prefix=setting_reader.get_str(session, AI_FOLDER_PREFIX),
         timeout_seconds=setting_reader.get_int(session, AI_TIMEOUT_SECONDS),
         min_interval_seconds=setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS),
@@ -146,6 +158,7 @@ def get_app_settings(session: Session) -> AppSettings:
     prompt_degradation = PromptDegradationSettings(
         max_prompt_chars=setting_reader.get_int(session, AI_MAX_PROMPT_CHARS),
         summary_inject_weeks=setting_reader.get_int(session, SUMMARY_INJECT_WEEKS),
+        reading_recall_recent_days=setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS),
     )
     display = DisplaySettings(
         locale=setting_reader.get_str(session, _DISPLAY_LOCALE),
@@ -175,6 +188,8 @@ def _update_ai_connection(session: Session, **fields: object) -> None:
         "assistant_uid_weekly_summary": AI_ASSISTANT_UID_WEEKLY_SUMMARY,
         "assistant_uid_daily_message": AI_ASSISTANT_UID_DAILY_MESSAGE,
         "assistant_uid_goal_retrospective": AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
+        "assistant_uid_daily_feedback_reading": AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+        "assistant_uid_goal_retrospective_reading": AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
         "folder_prefix": AI_FOLDER_PREFIX,
     }
     number_key_by_field = {
@@ -202,6 +217,10 @@ def _update_prompt_degradation(session: Session, **fields: object) -> None:
         _set_number(session, AI_MAX_PROMPT_CHARS, fields["max_prompt_chars"])
     if fields.get("summary_inject_weeks") is not None:
         _set_number(session, SUMMARY_INJECT_WEEKS, fields["summary_inject_weeks"])
+    if fields.get("reading_recall_recent_days") is not None:
+        _set_number(
+            session, AI_READING_RECALL_RECENT_DAYS, fields["reading_recall_recent_days"]
+        )
 
 
 def _update_display(session: Session, **fields: object) -> None:

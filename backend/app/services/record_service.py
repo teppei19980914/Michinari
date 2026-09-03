@@ -10,13 +10,22 @@ Phase4時点ではAI連携（chat_message の生成）は対象外としてい�
 import datetime as dt
 from dataclasses import dataclass
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.constants.enums import DayType, GoalStatus, QualityMetricType, RecordState
 from app.models.base import utcnow
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyGoalDiary, DailyRecord, RecordComment, StudyLog
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    RecordComment,
+    StudyLog,
+)
 from app.services import calendar_service, cycle_service, goal_service, quota_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
@@ -46,6 +55,24 @@ def ensure_daily_record(session: Session, target_date: dt.date) -> DailyRecord:
 def load_materials_by_id(session: Session, material_ids: set[int]) -> dict[int, Material]:
     """教材IDの集合からMaterialを一括取得する（AI連携のプロンプト組み立てで使用、Phase5）。"""
     return _load_materials(session, material_ids)
+
+
+def load_books_by_id(session: Session, book_ids: set[int]) -> dict[int, Book]:
+    """書籍IDの集合からBookを一括取得する（AI連携のプロンプト組み立てで使用、Phase16）。"""
+    return _load_books(session, book_ids)
+
+
+def next_chat_sequence(session: Session, daily_record_id: int) -> int:
+    """chat_messageの次のsequence値を返す。用途（purpose）を問わず日次記録全体で採番を
+    共有し、表示上の時系列順序が用途を跨いで一貫するようにする（Phase16、モデルのdocstring
+    参照）。対話履歴（{{conversation_history}}）への注入時のpurpose絞り込みとは別の関心事。
+    """
+    current_max = (
+        session.query(func.max(ChatMessage.sequence))
+        .filter(ChatMessage.daily_record_id == daily_record_id)
+        .scalar()
+    )
+    return (current_max or 0) + 1
 
 
 def _normalize_quality(material: Material, raw: float | None) -> float | None:
@@ -128,6 +155,53 @@ def _apply_study_logs(
     materials = _load_materials(session, {item.material_id for item in items})
     for item in items:
         _upsert_study_log(session, daily_record, materials[item.material_id], item)
+
+
+@dataclass(frozen=True)
+class ReadingLogItem:
+    """読書記録の登録入力（API層のスキーマから変換して渡す。study_logの読書版）。"""
+
+    book_id: int
+    recall_body: str
+    pages_read: int | None
+    current_page: int | None
+
+
+def _load_books(session: Session, book_ids: set[int]) -> dict[int, Book]:
+    if not book_ids:
+        return {}
+    books = session.query(Book).filter(Book.id.in_(book_ids)).all()
+    found = {b.id: b for b in books}
+    missing = book_ids - set(found)
+    if missing:
+        raise NotFoundError("書籍", sorted(missing))
+    return found
+
+
+def _upsert_reading_log(
+    session: Session, daily_record: DailyRecord, book: Book, item: ReadingLogItem
+) -> ReadingLog:
+    reading_log = (
+        session.query(ReadingLog)
+        .filter(ReadingLog.daily_record_id == daily_record.id, ReadingLog.book_id == book.id)
+        .first()
+    )
+    if reading_log is None:
+        reading_log = ReadingLog(daily_record_id=daily_record.id, book_id=book.id)
+        session.add(reading_log)
+    reading_log.recall_body = item.recall_body
+    reading_log.pages_read = item.pages_read
+    reading_log.current_page = item.current_page
+    session.flush()
+    return reading_log
+
+
+def _apply_reading_logs(
+    session: Session, daily_record: DailyRecord, items: list[ReadingLogItem]
+) -> None:
+    books = _load_books(session, {item.book_id for item in items})
+    for item in items:
+        _upsert_reading_log(session, daily_record, books[item.book_id], item)
 
 
 @dataclass(frozen=True)
@@ -215,19 +289,26 @@ def register_progress(
     target_date: dt.date,
     items: list[StudyLogItem],
     today: dt.date,
+    reading_items: list[ReadingLogItem] | None = None,
 ) -> DailyRecord:
     """進捗のみ登録する（未入力→進捗のみ登録済、または既存の進捗のみ登録済の更新）。
 
     入力可能期間は「対象日が当日または前日以前」（仕様書7.2）であり、未来日は拒否する。
+    study_logs・reading_logsの少なくとも一方に1件以上の入力を要求する（両者とも空の登録は
+    無意味なため。片方のみ必須にできないのは、資格試験・読書の両目標が同時進行しうるため）。
     """
+    reading_items = reading_items or []
     if target_date > today:
         raise ValidationError("未来日への実績登録はできません")
+    if not items and not reading_items:
+        raise ValidationError("実績を1件以上入力してください")
 
     record = get_daily_record(session, target_date)
     _ensure_not_reported(record, target_date)
 
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
+    _apply_reading_logs(session, record, reading_items)
     return record
 
 
@@ -237,12 +318,14 @@ def finalize_record(
     items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
     today: dt.date,
+    reading_items: list[ReadingLogItem] | None = None,
 ) -> DailyRecord:
     """報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
     入力可能期間は「対象日が当日または前日」（仕様書7.2）に限られる。「前日」の判定は
     today（呼び出し側が1日の境界時刻を考慮して算出した論理的な本日）を基準とする。
     """
+    reading_items = reading_items or []
     if target_date > today:
         raise ValidationError("未来日の報告確定はできません")
 
@@ -253,6 +336,7 @@ def finalize_record(
 
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
+    _apply_reading_logs(session, record, reading_items)
     _apply_diary_entries(session, record, diary_entries)
     record.record_state = RecordState.REPORTED
     record.reported_at = utcnow()

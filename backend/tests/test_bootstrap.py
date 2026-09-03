@@ -136,6 +136,17 @@ def test_upgrade_database_schema_migrates_legacy_unversioned_database_without_da
             "display_order, created_at, updated_at) VALUES (1, 1, '科目A', 'FIXED', 60.0, "
             "1, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
         )
+        # daily_record/chat_messageはa3f9c1d7e2b4時点でpurpose列を持たない（9723ab049ecdで
+        # 追加）。CODING_RULES.md「DBマイグレーションのテスト」に従い、既存データがある
+        # 状態でchat_message.purpose追加マイグレーションを適用しても壊れないことを検証する。
+        connection.execute(
+            "INSERT INTO daily_record (id, record_date, record_state, created_at) "
+            "VALUES (1, '2026-01-01', 'REPORTED', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO chat_message (id, daily_record_id, role, content, sequence, "
+            "created_at) VALUES (1, 1, 'ASSISTANT', '既存の応答', 1, '2026-01-01T00:00:00')"
+        )
         connection.commit()
     finally:
         connection.close()
@@ -157,6 +168,24 @@ def test_upgrade_database_schema_migrates_legacy_unversioned_database_without_da
         ).fetchone()
         assert name == "科目A"
         assert passing_score_type == "PERCENTAGE"
+
+        # 読書機能追加（b7a1021fff73）: 既存goalレコードがcategory='EXAM'として
+        # 遡及設定されること（実装フェーズ分割計画書Phase14完了条件）
+        goal_columns = {row[1] for row in connection.execute("PRAGMA table_info(goal)")}
+        assert "category" in goal_columns
+        category = connection.execute("SELECT category FROM goal WHERE id = 1").fetchone()[0]
+        assert category == "EXAM"
+
+        # 読書AI連携追加（9723ab049ecd）: 既存chat_messageレコードがpurpose='DAILY_FEEDBACK'
+        # として遡及設定され、内容が保持されること（実装フェーズ分割計画書Phase16、
+        # CODING_RULES.md「DBマイグレーションのテスト」）
+        chat_columns = {row[1] for row in connection.execute("PRAGMA table_info(chat_message)")}
+        assert "purpose" in chat_columns
+        content, purpose = connection.execute(
+            "SELECT content, purpose FROM chat_message WHERE id = 1"
+        ).fetchone()
+        assert content == "既存の応答"
+        assert purpose == "DAILY_FEEDBACK"
     finally:
         connection.close()
     assert any("pre_migration" in p.name for p in (tmp_path / "backups").glob("*.db"))
@@ -188,6 +217,14 @@ def test_upgrade_database_schema_upgrades_normally_tracked_database_without_stam
             "display_order, created_at, updated_at) VALUES (1, 1, '科目A', 'FIXED', 60.0, "
             "1, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
         )
+        connection.execute(
+            "INSERT INTO daily_record (id, record_date, record_state, created_at) "
+            "VALUES (1, '2026-01-01', 'REPORTED', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO chat_message (id, daily_record_id, role, content, sequence, "
+            "created_at) VALUES (1, 1, 'ASSISTANT', '既存の応答', 1, '2026-01-01T00:00:00')"
+        )
         connection.commit()
     finally:
         connection.close()
@@ -209,5 +246,19 @@ def test_upgrade_database_schema_upgrades_normally_tracked_database_without_stam
         assert {"passing_score_type", "passing_score_max"} <= columns
         name = connection.execute("SELECT name FROM exam_subject WHERE id = 1").fetchone()[0]
         assert name == "科目A"
+
+        # 読書機能追加（b7a1021fff73）: 既存goalレコードがcategory='EXAM'として
+        # 遡及設定されること（実装フェーズ分割計画書Phase14完了条件）
+        category = connection.execute("SELECT category FROM goal WHERE id = 1").fetchone()[0]
+        assert category == "EXAM"
+
+        # 読書AI連携追加（9723ab049ecd）: 既存chat_messageレコードがpurpose='DAILY_FEEDBACK'
+        # として遡及設定され、内容が保持されること（実装フェーズ分割計画書Phase16、
+        # CODING_RULES.md「DBマイグレーションのテスト」）
+        content, purpose = connection.execute(
+            "SELECT content, purpose FROM chat_message WHERE id = 1"
+        ).fetchone()
+        assert content == "既存の応答"
+        assert purpose == "DAILY_FEEDBACK"
     finally:
         connection.close()

@@ -245,3 +245,65 @@ def test_generate_anonymized_retrospective_is_separate_from_original(client, mon
     ).json()
     assert original["body"] == "通常版"
     assert anonymized["body"] == "匿名化版"
+
+
+# --- 読了レポート（GOAL_RETROSPECTIVE_READING、実装フェーズ分割計画書Phase16） ---
+
+
+def _make_reading_goal_with_book(client):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
+    ).json()
+    book = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={"title": "達人プログラマー", "start_date": "2026-01-01", "due_date": "2026-12-31"},
+    ).json()
+    return goal, book
+
+
+def test_generate_retrospective_on_reading_goal_without_book_is_rejected(client, monkeypatch):
+    """読了レポートには対象書籍が必須（データ構造編5.3、goal.book is None時のガード）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
+    ).json()
+    _stub_send_message(monkeypatch)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_generate_retrospective_on_reading_goal_creates_reading_report(client, monkeypatch):
+    """読書目標に対する総括レポート生成は、読了レポート（GOAL_RETROSPECTIVE_READING）
+    として生成される（Phase16完了条件「読了時に読了レポートが生成・再生成できる」）。"""
+    goal, _book = _make_reading_goal_with_book(client)
+    _stub_send_message(monkeypatch, response="読了レポート本文")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["body"] == "読了レポート本文"
+
+    fetched = client.get(f"/api/v1/goals/{goal['id']}/retrospective").json()
+    assert fetched["id"] == body["id"]
+
+
+def test_generate_retrospective_on_reading_goal_does_not_affect_exam_assistant_settings(
+    client, monkeypatch
+):
+    """読書用の総括レポート生成が資格試験用のプロンプト・アシスタント設定
+    （ai.assistant_uid.goal_retrospective）に影響しないこと（Phase16完了条件）。"""
+    reading_goal, _book = _make_reading_goal_with_book(client)
+    _stub_send_message(monkeypatch, response="読了レポート")
+    client.post(f"/api/v1/goals/{reading_goal['id']}/retrospective", json={})
+
+    exam_goal, _subject = _make_active_goal_with_subject(client)
+    _stub_send_message(monkeypatch, response="総括レポート")
+    exam_response = client.post(f"/api/v1/goals/{exam_goal['id']}/retrospective", json={})
+
+    assert exam_response.status_code == 200, exam_response.text
+    assert exam_response.json()["body"] == "総括レポート"

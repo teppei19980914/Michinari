@@ -80,7 +80,10 @@ def _format_weekly_summaries(summaries: list[str]) -> str:
     return "\n\n".join(summaries) if summaries else _NO_WEEKLY_SUMMARIES_TEXT
 
 
-def _format_conversation_history(turns: list[ChatTurn]) -> str:
+def format_conversation_history(turns: list[ChatTurn]) -> str:
+    """{{conversation_history}}の共通フォーマット。DAILY_FEEDBACK・DAILY_FEEDBACK_READING
+    の双方で使う（build_daily_feedback、reading_feedback_service、CLAUDE.md DRYの原則）。
+    """
     if not turns:
         return _NO_CONVERSATION_TEXT
     return "\n".join(f"【{_CHAT_ROLE_LABELS[turn.role]}】{turn.content}" for turn in turns)
@@ -109,7 +112,7 @@ def build_daily_feedback(
             "diary_body": diary_body,
             "diary_learned": context.diary_learned,
             "weekly_summaries": _format_weekly_summaries(weekly_summaries),
-            "conversation_history": _format_conversation_history(history),
+            "conversation_history": format_conversation_history(history),
         }
         return _substitute(template_body, variables)
 

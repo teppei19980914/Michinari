@@ -94,6 +94,24 @@ class MaterialHasStudyLogsError(DomainError):
         super().__init__(f"教材(id={material_id})には実績が存在するため削除できません")
 
 
+class BookHasReadingLogsError(DomainError):
+    """想起記録（reading_log）が存在する書籍を削除しようとした場合
+    （MaterialHasStudyLogsErrorの読書版、データ構造編6.2）。"""
+
+    def __init__(self, book_id: int) -> None:
+        self.book_id = book_id
+        super().__init__(f"書籍(id={book_id})には想起記録が存在するため削除できません")
+
+
+class BookAlreadyExistsError(DomainError):
+    """1目標1冊の制約に反して2件目の書籍を登録しようとした場合
+    （データ構造編6.3 BOOK_ALREADY_EXISTS、要件定義書R-70）。"""
+
+    def __init__(self, goal_id: int) -> None:
+        self.goal_id = goal_id
+        super().__init__(f"目標(id={goal_id})には既に書籍が登録されています")
+
+
 class ImmutableRecordError(DomainError):
     """確定済み(REPORTED)の日次記録を更新しようとした場合（データ構造編6.3 IMMUTABLE_RECORD）。"""
 

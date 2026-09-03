@@ -8,9 +8,10 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
-import { finalizeRecord, getQuota, getRecord, sendChat } from '../api/records'
-import { listGoals } from '../api/goals'
+import { finalizeRecord, getQuota, getRecord, sendChat, sendReadingChat } from '../api/records'
+import { listActiveReadingBooks, listGoals } from '../api/goals'
 import { StudyLogFields } from '../features/record/StudyLogFields'
+import { ReadingLogFields } from '../features/record/ReadingLogFields'
 import { DiaryFields } from '../features/record/DiaryFields'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
@@ -20,6 +21,12 @@ import {
   initStudyLogFormValues,
   type StudyLogFormValue,
 } from '../features/record/studyLogForm'
+import {
+  buildReadingLogPayload,
+  hasAnyReadingLogInput,
+  initReadingLogFormValues,
+  type ReadingLogFormValue,
+} from '../features/record/readingLogForm'
 import {
   buildDiaryEntriesPayload,
   hasAnyDiaryInput,
@@ -33,7 +40,11 @@ type ChatMessageRead = components['schemas']['ChatMessageRead']
 /** SC-06 日次報告（仕様書6.5）。上段=実績入力+日記、下段=AI対話の2段構成。
  * 実績・日記は確定（finalize）まで一切サーバへ保存しない下書き値であり、AI対話
  * （POST /records/{date}/chat）はこの下書きをプロンプトへ渡すのみで永続化しない
- * （16.7「AI呼び出しが失敗しても実績入力が失われない」）ため、ローカルstateを常に正とする。 */
+ * （16.7「AI呼び出しが失敗しても実績入力が失われない」）ため、ローカルstateを常に正とする。
+ *
+ * 読書目標の想起入力・AI対話（DAILY_FEEDBACK_READING）も同じ画面に統合するが、資格試験の
+ * /chatとは別エンドポイント（/reading-chat）・別の対話履歴として扱う（データ構造編6.2）。
+ * chat_messages配列はpurposeで両者が混在するため、表示時にフィルタする。 */
 export function DailyReportPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
@@ -49,37 +60,69 @@ export function DailyReportPage() {
     queryKey: ['quota', targetDate],
     queryFn: () => getQuota(targetDate),
   })
+  const readingBooksQuery = useQuery({
+    queryKey: ['activeReadingBooks'],
+    queryFn: listActiveReadingBooks,
+  })
   const goalsQuery = useQuery({
     queryKey: ['goals'],
     queryFn: () => listGoals(),
   })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
+  const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>(
+    {},
+  )
   const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
   const [wasTruncated, setWasTruncated] = useState(false)
+  const [readingWasTruncated, setReadingWasTruncated] = useState(false)
   const hydratedRef = useRef(false)
 
-  const activeGoals = (goalsQuery.data ?? []).filter((goal) => goal.status === 'ACTIVE')
+  // 日記（DiaryFields）は資格試験の複数目標混同対策（未決事項L-04）が目的のため、対象は
+  // ACTIVEな資格試験目標のみに限定する。読書目標は想起（ReadingLogFields）が同じ役割を
+  // 果たすため、両方の入力欄が並ぶ重複を避ける。
+  const activeGoals = (goalsQuery.data ?? []).filter(
+    (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
+  )
 
   useEffect(() => {
-    if (hydratedRef.current || !recordQuery.data || !quotaQuery.data || !goalsQuery.data) {
+    if (
+      hydratedRef.current ||
+      !recordQuery.data ||
+      !quotaQuery.data ||
+      !readingBooksQuery.data ||
+      !goalsQuery.data
+    ) {
       return
     }
     hydratedRef.current = true
     setStudyLogValues(initStudyLogFormValues(quotaQuery.data, recordQuery.data.study_logs))
+    setReadingLogValues(
+      initReadingLogFormValues(
+        readingBooksQuery.data.map((entry) => entry.book),
+        recordQuery.data.reading_logs,
+      ),
+    )
     setDiaryValues(
       initDiaryFormValues(
-        goalsQuery.data.filter((goal) => goal.status === 'ACTIVE'),
+        goalsQuery.data.filter((goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM'),
         recordQuery.data.diary_entries,
       ),
     )
     setChatMessages(recordQuery.data.chat_messages)
-  }, [recordQuery.data, quotaQuery.data, goalsQuery.data])
+  }, [recordQuery.data, quotaQuery.data, readingBooksQuery.data, goalsQuery.data])
+
+  const examMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
+  const readingMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_READING')
+  const activeBooks = readingBooksQuery.data?.map((entry) => entry.book) ?? []
 
   const isReported = recordQuery.data?.record_state === 'REPORTED'
   const hasUnsavedInput =
-    !isReported && (hasAnyStudyLogInput(studyLogValues) || hasAnyDiaryInput(diaryValues))
+    !isReported &&
+    (hasAnyStudyLogInput(studyLogValues) ||
+      hasAnyReadingLogInput(readingLogValues) ||
+      hasAnyDiaryInput(diaryValues))
   // ブラウザレベルの離脱（タブを閉じる・再読み込み・アドレスバーへの直接入力）を警告する。
   useUnsavedChangesWarning(hasUnsavedInput)
 
@@ -112,6 +155,7 @@ export function DailyReportPage() {
           ? [
               {
                 id: -Date.now(),
+                purpose: 'DAILY_FEEDBACK' as const,
                 role: 'USER' as const,
                 content: message,
                 sequence: current.length,
@@ -126,10 +170,39 @@ export function DailyReportPage() {
     onError: showApiError,
   })
 
+  const readingChatMutation = useMutation({
+    mutationFn: (message: string | null) =>
+      sendReadingChat(targetDate, {
+        message,
+        reading_logs: buildReadingLogPayload(readingLogValues),
+      }),
+    onSuccess: (response, message) => {
+      setChatMessages((current) => [
+        ...current,
+        ...(message
+          ? [
+              {
+                id: -Date.now(),
+                purpose: 'DAILY_FEEDBACK_READING' as const,
+                role: 'USER' as const,
+                content: message,
+                sequence: current.length,
+                created_at: new Date().toISOString(),
+              },
+            ]
+          : []),
+        response.assistant_message,
+      ])
+      setReadingWasTruncated(response.was_truncated)
+    },
+    onError: showApiError,
+  })
+
   const finalizeMutation = useMutation({
     mutationFn: () =>
       finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(studyLogValues),
+        reading_logs: buildReadingLogPayload(readingLogValues),
         diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: () => {
@@ -143,7 +216,12 @@ export function DailyReportPage() {
     onError: showApiError,
   })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading || goalsQuery.isLoading) {
+  if (
+    recordQuery.isLoading ||
+    quotaQuery.isLoading ||
+    readingBooksQuery.isLoading ||
+    goalsQuery.isLoading
+  ) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (
@@ -151,12 +229,15 @@ export function DailyReportPage() {
     !recordQuery.data ||
     quotaQuery.isError ||
     !quotaQuery.data ||
+    readingBooksQuery.isError ||
     goalsQuery.isError ||
     !goalsQuery.data
   ) {
     return (
       <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(recordQuery.error ?? quotaQuery.error ?? goalsQuery.error)}
+        {apiErrorMessage(
+          recordQuery.error ?? quotaQuery.error ?? readingBooksQuery.error ?? goalsQuery.error,
+        )}
       </p>
     )
   }
@@ -197,7 +278,7 @@ export function DailyReportPage() {
 
       <Card className="flex flex-col gap-3">
         <h2 className="font-medium text-gray-900">{t('dailyReport.chat.title')}</h2>
-        {chatMessages.length === 0 && (
+        {examMessages.length === 0 && (
           <Button
             disabled={chatMutation.isPending}
             onClick={() => chatMutation.mutate(null)}
@@ -206,14 +287,52 @@ export function DailyReportPage() {
           </Button>
         )}
         <ChatPanel
-          messages={chatMessages}
+          messages={examMessages}
           wasTruncated={wasTruncated}
           isSending={chatMutation.isPending}
-          onSend={
-            chatMessages.length > 0 ? (message) => chatMutation.mutate(message) : undefined
-          }
+          onSend={examMessages.length > 0 ? (message) => chatMutation.mutate(message) : undefined}
         />
       </Card>
+
+      {activeBooks.length > 0 && (
+        <>
+          <section className="flex flex-col gap-3">
+            <h2 className="font-medium text-gray-900">{t('dailyReport.readingLog.title')}</h2>
+            <ReadingLogFields
+              books={activeBooks}
+              values={readingLogValues}
+              onChangeField={(bookId, field, value) =>
+                setReadingLogValues((current) => ({
+                  ...current,
+                  [bookId]: { ...current[bookId], [field]: value },
+                }))
+              }
+            />
+          </section>
+
+          <Card className="flex flex-col gap-3">
+            <h2 className="font-medium text-gray-900">{t('dailyReport.readingChat.title')}</h2>
+            {readingMessages.length === 0 && (
+              <Button
+                disabled={readingChatMutation.isPending}
+                onClick={() => readingChatMutation.mutate(null)}
+              >
+                {t('dailyReport.readingChat.startButton')}
+              </Button>
+            )}
+            <ChatPanel
+              messages={readingMessages}
+              wasTruncated={readingWasTruncated}
+              isSending={readingChatMutation.isPending}
+              onSend={
+                readingMessages.length > 0
+                  ? (message) => readingChatMutation.mutate(message)
+                  : undefined
+              }
+            />
+          </Card>
+        </>
+      )}
 
       <div className="flex justify-end">
         <Button disabled={finalizeMutation.isPending} onClick={() => finalizeMutation.mutate()}>

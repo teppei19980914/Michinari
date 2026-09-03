@@ -18,13 +18,15 @@ from app.constants.enums import (
     BaselineReason,
     DayType,
     ExamResultType,
+    GoalCategory,
     GoalStatus,
     Granularity,
     RecordState,
 )
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyGoalDiary, DailyRecord, StudyLog, WeeklySummary
+from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog, StudyLog, WeeklySummary
 from app.services import (
     baseline_service,
     calendar_service,
@@ -36,7 +38,7 @@ from app.services import (
     speed_service,
 )
 from app.services import slot_service as slot_service_module
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
 
 #: 総括レポート向けの月次集約粒度（ロジック・プロンプト編17.5「{{quality_trend}}:
 #: 品質指標の推移（周回別、月次集約）」）。
@@ -60,13 +62,46 @@ _EXAM_RESULT_LABELS = {
 
 
 def list_active_goals(session: Session) -> list[Goal]:
-    """進行中（ACTIVE）の目標一覧を取得する。"""
+    """進行中（ACTIVE）の目標一覧を取得する（種別を問わない。dashboard.py等の汎用的な
+    「進行中の目標一覧」表示で使用）。"""
     return session.query(Goal).filter(Goal.status == GoalStatus.ACTIVE).order_by(Goal.id).all()
+
+
+def list_active_exam_goals(session: Session) -> list[Goal]:
+    """進行中（ACTIVE）の資格試験目標一覧を取得する。
+
+    本ファイルの build_goal_summary 等はいずれも試験科目・教材・スロットを前提とした
+    資格試験用プロンプト（DAILY_FEEDBACK、AiPurpose.DAILY_FEEDBACK）の変数組み立てに
+    特化しているため、読書目標（category=READING）を含めると「試験科目未登録」といった
+    誤った文脈が混入する。読書用プロンプト（DAILY_FEEDBACK_READING）はPhase16で別途
+    実装するため、本関数はそちらには使用しない。
+    """
+    return (
+        session.query(Goal)
+        .filter(Goal.status == GoalStatus.ACTIVE, Goal.category == GoalCategory.EXAM)
+        .order_by(Goal.id)
+        .all()
+    )
 
 
 def list_active_materials(goals: list[Goal]) -> list[Material]:
     """指定した目標群に属する有効な教材一覧を取得する。"""
     return [material for goal in goals for material in goal.materials if material.is_active]
+
+
+def list_active_reading_goals(session: Session) -> list[Goal]:
+    """進行中（ACTIVE）の読書目標一覧を取得する（DAILY_FEEDBACK_READING用、Phase16）。"""
+    return (
+        session.query(Goal)
+        .filter(Goal.status == GoalStatus.ACTIVE, Goal.category == GoalCategory.READING)
+        .order_by(Goal.id)
+        .all()
+    )
+
+
+def list_active_books(goals: list[Goal]) -> list[Book]:
+    """指定した読書目標群に属する書籍一覧を取得する（1目標1冊のため高々1件ずつ）。"""
+    return [goal.book for goal in goals if goal.book is not None]
 
 
 def _group_materials_by_goal(materials: list[Material]) -> dict[int, list[Material]]:
@@ -591,6 +626,128 @@ def build_all_weekly_summaries_text(session: Session, goal: Goal) -> str:
     return "\n\n".join(
         f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n{row.summary_body}"
         for row in rows
+    )
+
+
+# --- 読書日次報告フィードバック（DAILY_FEEDBACK_READING、17.6、実装フェーズ分割計画書Phase16） ---
+
+
+def build_daily_book_summary_text(books: list[Book], today: dt.date) -> str:
+    """{{book_summary}}（DAILY_FEEDBACK_READING、17.6）: 書名、著者、読了目標日、残日数。"""
+    if not books:
+        return "（進行中の読書目標はありません）"
+    lines = []
+    for book in books:
+        author_text = f"、著者 {book.author}" if book.author else ""
+        lines.append(
+            f"■ {book.title}{author_text}\n"
+            f"  読了目標日 {book.due_date.isoformat()}"
+            f"（{_format_days_remaining(today, book.due_date)}）"
+        )
+    return "\n".join(lines)
+
+
+def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, Book]) -> str:
+    """{{today_recall}}（DAILY_FEEDBACK_READING、17.6）: 本日の想起本文、読んだページ数、
+    現在ページ（入力があれば）。"""
+    if not items:
+        return "（本日の想起入力はまだありません）"
+    lines = []
+    for item in items:
+        book = books_by_id[item.book_id]
+        pages_text = f"、読んだページ数 {item.pages_read}" if item.pages_read is not None else ""
+        current_page_text = (
+            f"、現在ページ {item.current_page}" if item.current_page is not None else ""
+        )
+        lines.append(f"■ {book.title}{pages_text}{current_page_text}\n{item.recall_body}")
+    return "\n\n".join(lines)
+
+
+def build_recent_recalls_text(
+    session: Session, books: list[Book], today: dt.date, recent_days: int
+) -> str:
+    """{{recent_recalls}}（DAILY_FEEDBACK_READING、17.6）: 直近recent_days日分の想起記録
+    （21.4）。週次要約を経由せず原文を直接注入する（読書目標は週次要約を持たないため）。
+    """
+    if not books:
+        return "（進行中の読書目標はありません）"
+    book_ids = [book.id for book in books]
+    book_titles = {book.id: book.title for book in books}
+    period_start = today - dt.timedelta(days=recent_days - 1)
+    rows = (
+        session.query(DailyRecord.record_date, ReadingLog.book_id, ReadingLog.recall_body)
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(
+            ReadingLog.book_id.in_(book_ids),
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= today,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（直近の想起記録はありません）"
+    return "\n\n".join(
+        f"【{record_date.isoformat()} {book_titles[book_id]}】\n{recall_body}"
+        for record_date, book_id, recall_body in rows
+    )
+
+
+# --- 読了レポート（GOAL_RETROSPECTIVE_READING、17.7、実装フェーズ分割計画書Phase16） ---
+
+
+def build_retrospective_book_summary_text(book: Book) -> str:
+    """{{book_summary}}（GOAL_RETROSPECTIVE_READING、17.7）: 書名、著者、読書期間。"""
+    author_text = f"、著者 {book.author}" if book.author else ""
+    return (
+        f"{book.title}{author_text}\n"
+        f"読書期間: {book.start_date.isoformat()} 〜 {book.due_date.isoformat()}"
+    )
+
+
+def build_reading_overall_metrics_text(session: Session, book: Book) -> str:
+    """{{overall_metrics}}（GOAL_RETROSPECTIVE_READING、17.7）: 記録日数、最長連続記録日数。
+
+    データ構造編7.1の読書用summary（record_days・max_streak_days）と同じ定義。
+    21.3の連続記録日数（Tから遡る現在のストリーク）とは異なり、過去全期間で最長だった
+    連続記録日数を求める点に注意する。
+    """
+    dates = sorted(
+        row[0]
+        for row in session.query(DailyRecord.record_date)
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(ReadingLog.book_id == book.id)
+        .distinct()
+    )
+    record_days = len(dates)
+    max_streak = 0
+    current_streak = 0
+    previous_date: dt.date | None = None
+    for record_date in dates:
+        if previous_date is not None and record_date == previous_date + dt.timedelta(days=1):
+            current_streak += 1
+        else:
+            current_streak = 1
+        max_streak = max(max_streak, current_streak)
+        previous_date = record_date
+    return f"記録日数: {record_days}日\n最長連続記録日数: {max_streak}日"
+
+
+def build_reading_logs_text(session: Session, book: Book) -> str:
+    """{{reading_logs}}（GOAL_RETROSPECTIVE_READING、17.7）: 想起記録を record_date の
+    昇順で連結したもの（21.4）。週次要約による圧縮を経由しない全期間注入。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, ReadingLog.recall_body)
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(ReadingLog.book_id == book.id)
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（想起記録はありません）"
+    return "\n\n".join(
+        f"【{record_date.isoformat()}】\n{recall_body}" for record_date, recall_body in rows
     )
 
 

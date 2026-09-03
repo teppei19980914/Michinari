@@ -14,10 +14,11 @@ import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
+import { BookTab } from '../features/goal/BookTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
-const TABS = [
+const EXAM_TABS = [
   {
     key: 'basicInfo',
     labelKey: 'goals.detail.tabs.basicInfo',
@@ -45,7 +46,23 @@ const TABS = [
   },
 ] as const
 
-type TabKey = (typeof TABS)[number]['key']
+/** 読書目標（category=READING）は基本情報＋書籍のみの簡略構成とする
+ * （仕様書6.2「読書目標（category=READINGの場合）」、試験科目・教材・リソース配分・
+ * 負荷プロファイルは表示しない）。 */
+const READING_TABS = [
+  {
+    key: 'basicInfo',
+    labelKey: 'goals.detail.tabs.basicInfo',
+    tooltipKey: 'goals.detail.tabTooltips.basicInfoReading',
+  },
+  {
+    key: 'book',
+    labelKey: 'goals.detail.tabs.book',
+    tooltipKey: 'goals.detail.tabTooltips.book',
+  },
+] as const
+
+type TabKey = (typeof EXAM_TABS)[number]['key'] | (typeof READING_TABS)[number]['key']
 
 function GoalStatusActions({
   goalId,
@@ -139,7 +156,8 @@ function GoalStatusActions({
   return null
 }
 
-/** SC-03 目標詳細・編集（仕様書6.2、5タブ構成）。 */
+/** SC-03 目標詳細・編集（仕様書6.2）。categoryにより資格試験（5タブ構成）・
+ * 読書（基本情報＋書籍の簡略構成）でタブを出し分ける。 */
 export function GoalDetailPage() {
   const { goalId: goalIdParam } = useParams<{ goalId: string }>()
   const goalId = Number(goalIdParam)
@@ -156,6 +174,11 @@ export function GoalDetailPage() {
 
   const goal = goalQuery.data
   const isReadOnly = isClosedGoalStatus(goal.status)
+  const tabs = goal.category === 'READING' ? READING_TABS : EXAM_TABS
+  // 別の目標（category違い）から遷移してきた場合、直前のタブ選択が現在のタブ構成に
+  // 存在しないことがあるため、その場合のみ基本情報タブへ読み替える（stateは据え置き、
+  // 同一目標内でのタブ切替の挙動には影響させない）。
+  const activeTab: TabKey = tabs.some((item) => item.key === tab) ? tab : 'basicInfo'
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -175,13 +198,13 @@ export function GoalDetailPage() {
       )}
 
       <div className="flex gap-1 border-b border-gray-200">
-        {TABS.map((item) => (
+        {tabs.map((item) => (
           <Tooltip key={item.key} label={t(item.tooltipKey)}>
             <button
               type="button"
               onClick={() => setTab(item.key)}
               className={`px-3 py-2 text-sm font-medium ${
-                tab === item.key
+                activeTab === item.key
                   ? 'border-b-2 border-blue-600 text-blue-700'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -192,11 +215,19 @@ export function GoalDetailPage() {
         ))}
       </div>
 
-      {tab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
-      {tab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
-      {tab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
-      {tab === 'resourceAllocation' && <ResourceAllocationTab goal={goal} readOnly={isReadOnly} />}
-      {tab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
+      {activeTab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
+      {goal.category === 'READING' ? (
+        activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />
+      ) : (
+        <>
+          {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
+          {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
+          {activeTab === 'resourceAllocation' && (
+            <ResourceAllocationTab goal={goal} readOnly={isReadOnly} />
+          )}
+          {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
+        </>
+      )}
     </div>
   )
 }

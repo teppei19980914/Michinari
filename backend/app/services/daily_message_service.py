@@ -28,7 +28,9 @@ def _generate_for_goal(
     """1件分（1目標、またはgoal=Noneで目標非依存）の今日の一言を生成する。
 
     goalsをこの呼び出し内で[goal]（またはgoalがNoneなら[]）に限定して各builderへ渡す
-    ことで、他目標の情報を一切含まないプロンプトを組み立てる。
+    ことで、他目標の情報を一切含まないプロンプトを組み立てる。呼び出し元のget_or_generateが
+    list_active_exam_goalsで資格試験目標のみに絞り込み済みのため、ここに渡るgoalは常に
+    category=EXAM（今日の一言に読書用の変種は設けない設計。要件定義書6.10）。
     """
     goals = [goal] if goal is not None else []
     materials = ai_context_service.list_active_materials(goals)
@@ -78,7 +80,10 @@ def get_or_generate(session: Session, today: dt.date) -> list[DailyMessage]:
     （データ構造編6.2 GET /daily-message）。日中に新たにACTIVEになった目標があれば、
     既存の目標のメッセージは再生成せずその目標の分だけ追加生成する。
     """
-    active_goals = ai_context_service.list_active_goals(session)
+    # 読書目標（category=READING）はexam_subjectを持たず、build_goal_summaryが「試験科目
+    # 未登録」という誤った文脈を混入させるため、資格試験目標のみに限定する
+    # （今日の一言に読書用の変種は設けない設計。要件定義書6.10）。
+    active_goals = ai_context_service.list_active_exam_goals(session)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, today, treat_holiday_as_buffer)
 

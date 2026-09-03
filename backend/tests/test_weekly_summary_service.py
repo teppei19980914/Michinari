@@ -136,6 +136,47 @@ def test_list_pending_weeks_finds_goal_with_logs_in_completed_week(seeded_sessio
     assert pending[0].week_end == dt.date(2026, 8, 23)
 
 
+def test_list_pending_weeks_excludes_reading_goals(seeded_session):
+    """読書目標（category=READING）はstudy_logを持たないため、reading_logがあっても
+    週次要約の生成対象から自動的に除外されエラーも起きないこと（ロジック・プロンプト編21.1、
+    実装フェーズ分割計画書Phase16完了条件）。
+    """
+    from app.constants.enums import GoalCategory, RecordState
+    from app.models.book import Book
+    from app.models.record import ReadingLog
+
+    reading_goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標A",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(reading_goal)
+    seeded_session.flush()
+    book = Book(
+        goal_id=reading_goal.id,
+        title="書籍A",
+        start_date=dt.date(2026, 1, 1),
+        due_date=dt.date(2026, 12, 31),
+    )
+    seeded_session.add(book)
+    seeded_session.flush()
+    record = DailyRecord(record_date=dt.date(2026, 8, 18), record_state=RecordState.PROGRESS_ONLY)
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        ReadingLog(daily_record_id=record.id, book_id=book.id, recall_body="想起本文")
+    )
+    seeded_session.flush()
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+    )
+
+    assert pending == []
+
+
 def test_list_pending_weeks_excludes_already_generated(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
