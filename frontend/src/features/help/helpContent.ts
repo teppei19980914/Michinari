@@ -30,6 +30,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.goals.p2',
       'help.sections.goals.p3',
       'help.sections.goals.p4',
+      'help.sections.goals.p5',
     ],
   },
   {
