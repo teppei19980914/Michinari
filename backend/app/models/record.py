@@ -40,8 +40,6 @@ class DailyRecord(CreatedAtMixin, Base):
     record_state: Mapped[RecordState] = mapped_column(
         Enum(RecordState, native_enum=False, validate_strings=True), nullable=False
     )
-    diary_body: Mapped[str | None] = mapped_column(Text, nullable=True)
-    diary_learned: Mapped[str | None] = mapped_column(Text, nullable=True)
     reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     study_logs: Mapped[list["StudyLog"]] = relationship(
@@ -54,6 +52,9 @@ class DailyRecord(CreatedAtMixin, Base):
         back_populates="daily_record", cascade="all, delete-orphan"
     )
     comments: Mapped[list["RecordComment"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    diary_entries: Mapped[list["DailyGoalDiary"]] = relationship(
         back_populates="daily_record", cascade="all, delete-orphan"
     )
 
@@ -149,6 +150,33 @@ class RecordComment(TimestampMixin, Base):
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="comments")
 
 
+class DailyGoalDiary(CreatedAtMixin, Base):
+    """日記（目標別）。1日1レコードの daily_record に対し、目標ごとに0〜1件持つ。
+
+    goal_id は歴史データ移行時の安全弁としてNULLを許容する（複数目標にまたがり
+    帰属先を機械的に特定できなかった日記を失わずに残すため。設計書ロジック・
+    プロンプト編 未決事項L-04）。
+    """
+
+    __tablename__ = "daily_goal_diary"
+    __table_args__ = (
+        UniqueConstraint("daily_record_id", "goal_id", name="uq_daily_goal_diary_record_goal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
+    )
+    diary_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    diary_learned: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="diary_entries")
+    goal: Mapped["Goal | None"] = relationship(back_populates="diary_entries")
+
+
 class WeeklySummary(Base):
     """週次要約。goal_id + week_start_date + is_anonymized で一意。
 
@@ -178,14 +206,26 @@ class WeeklySummary(Base):
 
 
 class DailyMessage(Base):
-    """今日の一言。"""
+    """今日の一言。目標ごとに独立して生成する（1日1目標につき1件、複数目標が同時進行
+    していても他目標の情報を混ぜない。未決事項L-04関連）。ACTIVEな目標が1件も無い日は
+    goal_id=NULLの1件のみ生成する。goal_id=NULLの行は、目標別生成に変更する前（過去）の
+    目標横断メッセージとしても残りうる。
+    """
 
     __tablename__ = "daily_message"
+    __table_args__ = (
+        UniqueConstraint("target_date", "goal_id", name="uq_daily_message_date_goal"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    target_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    target_date: Mapped[date] = mapped_column(Date, nullable=False)
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
+    )
     body: Mapped[str] = mapped_column(Text, nullable=False)
     generated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    goal: Mapped["Goal | None"] = relationship(back_populates="daily_messages")
 
 
 class ExamResult(CreatedAtMixin, Base):

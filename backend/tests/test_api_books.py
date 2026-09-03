@@ -285,3 +285,18 @@ def test_reading_goal_does_not_count_toward_exam_resource_ratio(client):
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "ACTIVE"
+
+
+def test_reading_goal_pause_then_resume_skips_resource_ratio_validation(client):
+    """読書目標は元よりresource_ratio=0のため、一時停止→進行中の復帰時にactivate_goalと
+    同じくリソース配分検証を適用しない（mainのアーカイブ機能とのマージで発覚したresume_goal
+    の回帰防止。EXAM目標であればresource_ratio<=0はRESOURCE_RATIO_REQUIREDで拒否される）。
+    """
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/pause")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/resume")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ACTIVE"

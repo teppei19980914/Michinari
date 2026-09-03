@@ -45,15 +45,15 @@ def test_ensure_conversation_creates_new_when_absent_with_folder(seeded_session,
     assert seeded_session.query(AiConversation).count() == 1
 
 
-def test_ensure_conversation_creates_without_folder_when_goal_is_none(
+def test_ensure_conversation_creates_in_shared_folder_when_goal_is_none(
     seeded_session, monkeypatch
 ):
     calls = []
     monkeypatch.setattr(
         ai_client,
-        "create_chat",
-        lambda session, *, assistant_uid, title: (
-            calls.append((assistant_uid, title)) or "chat-uid-2"
+        "create_chat_in_folder_by_name",
+        lambda session, *, assistant_uid, folder_name, title: (
+            calls.append((assistant_uid, folder_name, title)) or "chat-uid-2"
         ),
     )
 
@@ -68,7 +68,7 @@ def test_ensure_conversation_creates_without_folder_when_goal_is_none(
 
     assert conversation.goal_id is None
     assert conversation.conversation_uid == "chat-uid-2"
-    assert calls == [("asst-2", "2026-08-24 今日の一言")]
+    assert calls == [("asst-2", "ミチナリ", "2026-08-24 今日の一言")]
 
 
 def test_ensure_conversation_reuses_existing_without_calling_ai(seeded_session, monkeypatch):
@@ -86,7 +86,6 @@ def test_ensure_conversation_reuses_existing_without_calling_ai(seeded_session, 
     def _fail(*args, **kwargs):
         raise AssertionError("既存の会話がある場合はAI基盤へ問い合わせないはず")
 
-    monkeypatch.setattr(ai_client, "create_chat", _fail)
     monkeypatch.setattr(ai_client, "create_chat_in_folder_by_name", _fail)
 
     conversation = ai_conversation.ensure_conversation(
@@ -103,7 +102,11 @@ def test_ensure_conversation_reuses_existing_without_calling_ai(seeded_session, 
 
 
 def test_ensure_conversation_raises_ai_error_when_chat_uid_is_empty(seeded_session, monkeypatch):
-    monkeypatch.setattr(ai_client, "create_chat", lambda session, *, assistant_uid, title: None)
+    monkeypatch.setattr(
+        ai_client,
+        "create_chat_in_folder_by_name",
+        lambda session, *, assistant_uid, folder_name, title: None,
+    )
 
     with pytest.raises(AiError):
         ai_conversation.ensure_conversation(

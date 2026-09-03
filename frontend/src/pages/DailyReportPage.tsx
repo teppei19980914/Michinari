@@ -9,7 +9,7 @@ import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
 import { finalizeRecord, getQuota, getRecord, sendChat, sendReadingChat } from '../api/records'
-import { listActiveReadingBooks } from '../api/goals'
+import { listActiveReadingBooks, listGoals } from '../api/goals'
 import { StudyLogFields } from '../features/record/StudyLogFields'
 import { ReadingLogFields } from '../features/record/ReadingLogFields'
 import { DiaryFields } from '../features/record/DiaryFields'
@@ -27,6 +27,12 @@ import {
   initReadingLogFormValues,
   type ReadingLogFormValue,
 } from '../features/record/readingLogForm'
+import {
+  buildDiaryEntriesPayload,
+  hasAnyDiaryInput,
+  initDiaryFormValues,
+  type DiaryFormValue,
+} from '../features/record/diaryForm'
 import type { components } from '../types/api.d.ts'
 
 type ChatMessageRead = components['schemas']['ChatMessageRead']
@@ -58,24 +64,35 @@ export function DailyReportPage() {
     queryKey: ['activeReadingBooks'],
     queryFn: listActiveReadingBooks,
   })
+  const goalsQuery = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => listGoals(),
+  })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
   const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>(
     {},
   )
-  const [diaryBody, setDiaryBody] = useState('')
-  const [diaryLearned, setDiaryLearned] = useState('')
+  const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
   const [wasTruncated, setWasTruncated] = useState(false)
   const [readingWasTruncated, setReadingWasTruncated] = useState(false)
   const hydratedRef = useRef(false)
+
+  // 日記（DiaryFields）は資格試験の複数目標混同対策（未決事項L-04）が目的のため、対象は
+  // ACTIVEな資格試験目標のみに限定する。読書目標は想起（ReadingLogFields）が同じ役割を
+  // 果たすため、両方の入力欄が並ぶ重複を避ける。
+  const activeGoals = (goalsQuery.data ?? []).filter(
+    (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
+  )
 
   useEffect(() => {
     if (
       hydratedRef.current ||
       !recordQuery.data ||
       !quotaQuery.data ||
-      !readingBooksQuery.data
+      !readingBooksQuery.data ||
+      !goalsQuery.data
     ) {
       return
     }
@@ -87,10 +104,14 @@ export function DailyReportPage() {
         recordQuery.data.reading_logs,
       ),
     )
-    setDiaryBody(recordQuery.data.diary_body ?? '')
-    setDiaryLearned(recordQuery.data.diary_learned ?? '')
+    setDiaryValues(
+      initDiaryFormValues(
+        goalsQuery.data.filter((goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM'),
+        recordQuery.data.diary_entries,
+      ),
+    )
     setChatMessages(recordQuery.data.chat_messages)
-  }, [recordQuery.data, quotaQuery.data, readingBooksQuery.data])
+  }, [recordQuery.data, quotaQuery.data, readingBooksQuery.data, goalsQuery.data])
 
   const examMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
   const readingMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_READING')
@@ -101,8 +122,7 @@ export function DailyReportPage() {
     !isReported &&
     (hasAnyStudyLogInput(studyLogValues) ||
       hasAnyReadingLogInput(readingLogValues) ||
-      diaryBody.trim() !== '' ||
-      diaryLearned.trim() !== '')
+      hasAnyDiaryInput(diaryValues))
   // ブラウザレベルの離脱（タブを閉じる・再読み込み・アドレスバーへの直接入力）を警告する。
   useUnsavedChangesWarning(hasUnsavedInput)
 
@@ -123,8 +143,7 @@ export function DailyReportPage() {
       sendChat(targetDate, {
         message,
         study_logs: buildStudyLogPayload(studyLogValues),
-        diary_body: diaryBody,
-        diary_learned: diaryLearned,
+        diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: (response, message) => {
       // ユーザー発言もサーバ側では保存されるが、レスポンスにはassistant_messageしか
@@ -184,8 +203,7 @@ export function DailyReportPage() {
       finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(studyLogValues),
         reading_logs: buildReadingLogPayload(readingLogValues),
-        diary_body: diaryBody,
-        diary_learned: diaryLearned,
+        diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: () => {
       finalizedRef.current = true
@@ -198,7 +216,12 @@ export function DailyReportPage() {
     onError: showApiError,
   })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading || readingBooksQuery.isLoading) {
+  if (
+    recordQuery.isLoading ||
+    quotaQuery.isLoading ||
+    readingBooksQuery.isLoading ||
+    goalsQuery.isLoading
+  ) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (
@@ -206,11 +229,15 @@ export function DailyReportPage() {
     !recordQuery.data ||
     quotaQuery.isError ||
     !quotaQuery.data ||
-    readingBooksQuery.isError
+    readingBooksQuery.isError ||
+    goalsQuery.isError ||
+    !goalsQuery.data
   ) {
     return (
       <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(recordQuery.error ?? quotaQuery.error ?? readingBooksQuery.error)}
+        {apiErrorMessage(
+          recordQuery.error ?? quotaQuery.error ?? readingBooksQuery.error ?? goalsQuery.error,
+        )}
       </p>
     )
   }
@@ -238,10 +265,14 @@ export function DailyReportPage() {
           }
         />
         <DiaryFields
-          diaryBody={diaryBody}
-          diaryLearned={diaryLearned}
-          onChangeDiaryBody={setDiaryBody}
-          onChangeDiaryLearned={setDiaryLearned}
+          activeGoals={activeGoals}
+          values={diaryValues}
+          onChangeField={(goalId, field, value) =>
+            setDiaryValues((current) => ({
+              ...current,
+              [goalId]: { ...current[goalId], [field]: value },
+            }))
+          }
         />
       </section>
 

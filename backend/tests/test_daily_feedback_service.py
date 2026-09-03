@@ -18,7 +18,7 @@ from app.models.material import Material
 from app.models.record import ChatMessage
 from app.services import daily_feedback_service, record_service
 from app.services.exceptions import ValidationError
-from app.services.record_service import StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 
 @pytest.fixture(autouse=True)
@@ -81,9 +81,6 @@ def _stub_send_message(monkeypatch, *, response="AIからの応答", raise_exc=N
 
     monkeypatch.setattr(ai_client, "send_message", _fake)
     monkeypatch.setattr(
-        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-daily"
-    )
-    monkeypatch.setattr(
         ai_client,
         "create_chat_in_folder_by_name",
         lambda session, *, assistant_uid, folder_name, title: "chat-uid-daily",
@@ -107,8 +104,7 @@ def test_send_daily_feedback_raises_when_prompt_template_missing(seeded_session)
             today=dt.date(2026, 8, 24),
             message=None,
             study_log_items=[],
-            diary_body="",
-            diary_learned="",
+            diary_entries=[],
         )
 
 
@@ -123,8 +119,7 @@ def test_send_daily_feedback_reports_no_active_goals_in_load_coefficient(
         today=dt.date(2026, 8, 24),
         message=None,
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
 
     assert "算出不可" in calls[0]["message"]
@@ -138,8 +133,7 @@ def test_send_daily_feedback_rejects_future_date(seeded_session):
             today=dt.date(2026, 8, 24),
             message=None,
             study_log_items=[],
-            diary_body="",
-            diary_learned="",
+            diary_entries=[],
         )
 
 
@@ -162,8 +156,11 @@ def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, 
                 quality_value=None,
             )
         ],
-        diary_body="今日は頑張った",
-        diary_learned="過去問を解いた",
+        diary_entries=[
+            DiaryEntryItem(
+                goal_id=goal.id, diary_body="今日は頑張った", diary_learned="過去問を解いた"
+            )
+        ],
     )
 
     messages = (
@@ -191,8 +188,7 @@ def test_send_daily_feedback_followup_turn_adds_user_and_assistant_messages(
         today=dt.date(2026, 8, 24),
         message=None,
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
 
     calls = _stub_send_message(monkeypatch, response="2回目の応答")
@@ -202,8 +198,7 @@ def test_send_daily_feedback_followup_turn_adds_user_and_assistant_messages(
         today=dt.date(2026, 8, 24),
         message="もう少し詳しく教えて",
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
 
     messages = (
@@ -235,8 +230,7 @@ def test_send_daily_feedback_reuses_conversation_across_turns(seeded_session, mo
         today=dt.date(2026, 8, 24),
         message=None,
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
     daily_feedback_service.send_daily_feedback(
         seeded_session,
@@ -244,8 +238,7 @@ def test_send_daily_feedback_reuses_conversation_across_turns(seeded_session, mo
         today=dt.date(2026, 8, 24),
         message="続きです",
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
 
     conversation = seeded_session.query(AiConversation).one()
@@ -269,8 +262,7 @@ def test_send_daily_feedback_disables_web_search_via_ai_client(seeded_session, m
         today=dt.date(2026, 8, 24),
         message=None,
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
 
     assert len(calls) == 1
@@ -300,14 +292,19 @@ def test_send_daily_feedback_does_not_persist_study_logs_or_diary(seeded_session
                     quality_value=None,
                 )
             ],
-            diary_body="失われてはいけない日記",
-            diary_learned="失われてはいけない学び",
+            diary_entries=[
+                DiaryEntryItem(
+                    goal_id=goal.id,
+                    diary_body="失われてはいけない日記",
+                    diary_learned="失われてはいけない学び",
+                )
+            ],
         )
 
     record = record_service.get_daily_record(seeded_session, dt.date(2026, 8, 24))
     assert record is not None
     assert record.study_logs == []
-    assert record.diary_body is None
+    assert record_service.get_diary_entries(seeded_session, record) == []
 
 
 def test_send_daily_feedback_records_failure_to_ai_log(seeded_session, monkeypatch):
@@ -322,8 +319,7 @@ def test_send_daily_feedback_records_failure_to_ai_log(seeded_session, monkeypat
             today=dt.date(2026, 8, 24),
             message=None,
             study_log_items=[],
-            diary_body="",
-            diary_learned="",
+            diary_entries=[],
         )
 
     log = seeded_session.query(AiLog).one()

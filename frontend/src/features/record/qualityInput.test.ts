@@ -3,6 +3,7 @@ import {
   isValidPercentValue,
   isValidSubjectiveValue,
   resolveQualityInputKind,
+  resolveQualityLabelKey,
   subjectiveScaleFromNormalized,
 } from './qualityInput'
 
@@ -21,6 +22,26 @@ describe('resolveQualityInputKind', () => {
 
   it('shows a 5-level scale for SUBJECTIVE', () => {
     expect(resolveQualityInputKind('SUBJECTIVE')).toBe('SUBJECTIVE_SCALE')
+  })
+})
+
+describe('resolveQualityLabelKey', () => {
+  it('resolves to the correctness-rate label for OBJECTIVE', () => {
+    expect(resolveQualityLabelKey('OBJECTIVE')).toBe(
+      'dailyReport.studyLog.qualityShortLabel.PERCENT',
+    )
+  })
+
+  it('resolves to the correctness-rate label for SELF_SCORED', () => {
+    expect(resolveQualityLabelKey('SELF_SCORED')).toBe(
+      'dailyReport.studyLog.qualityShortLabel.PERCENT',
+    )
+  })
+
+  it('resolves to the impression label for SUBJECTIVE', () => {
+    expect(resolveQualityLabelKey('SUBJECTIVE')).toBe(
+      'dailyReport.studyLog.qualityShortLabel.SUBJECTIVE_SCALE',
+    )
   })
 })
 

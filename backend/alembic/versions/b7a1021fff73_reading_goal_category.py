@@ -1,7 +1,7 @@
 """add goal.category and reading tables: book, reading_log (data structure doc 5.1/5.3/5.4)
 
 Revision ID: b7a1021fff73
-Revises: 2b8b04b91e47
+Revises: c7d391a6f0e5
 Create Date: 2026-08-31 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'b7a1021fff73'
-down_revision: Union[str, Sequence[str], None] = '2b8b04b91e47'
+down_revision: Union[str, Sequence[str], None] = 'c7d391a6f0e5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

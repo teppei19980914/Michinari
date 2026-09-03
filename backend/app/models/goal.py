@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.ai import AiConversation
     from app.models.book import Book
     from app.models.material import Material, MaterialSubject
-    from app.models.record import ExamResult, WeeklySummary
+    from app.models.record import DailyGoalDiary, DailyMessage, ExamResult, WeeklySummary
     from app.models.retrospective import GoalRetrospective
 
 
@@ -42,6 +42,7 @@ class Goal(TimestampMixin, Base):
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     exam_subjects: Mapped[list["ExamSubject"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
@@ -63,6 +64,12 @@ class Goal(TimestampMixin, Base):
     )
     book: Mapped["Book | None"] = relationship(
         back_populates="goal", cascade="all, delete-orphan", uselist=False
+    )
+    diary_entries: Mapped[list["DailyGoalDiary"]] = relationship(
+        back_populates="goal", cascade="all, delete-orphan"
+    )
+    daily_messages: Mapped[list["DailyMessage"]] = relationship(
+        back_populates="goal", cascade="all, delete-orphan"
     )
 
 

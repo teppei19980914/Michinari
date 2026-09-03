@@ -157,22 +157,6 @@ def get_assistants(session: Session) -> list[dict]:
     ]
 
 
-def create_chat(session: Session, *, assistant_uid: str, title: str) -> str:
-    """フォルダ指定なしでチャットを作成する（今日の一言・日次報告用、16.3）。"""
-    client = build_client(session)
-    timeout_seconds = setting_reader.get_int(session, AI_TIMEOUT_SECONDS)
-    started = time.monotonic()
-    try:
-        chat_uid = client.create_chat(assistant_uid=assistant_uid, title=title)
-    except Exception as exc:  # noqa: BLE001
-        raise _translate_error(
-            exc, elapsed_seconds=time.monotonic() - started, timeout_seconds=timeout_seconds
-        ) from exc
-    if not chat_uid:
-        raise AiError("チャットの作成に失敗しました")
-    return chat_uid
-
-
 def create_chat_in_folder_by_name(
     session: Session, *, assistant_uid: str, folder_name: str, title: str
 ) -> str:

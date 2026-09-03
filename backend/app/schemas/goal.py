@@ -31,6 +31,15 @@ class GoalCloseRequest(BaseModel):
     confirm_without_result: bool = False
 
 
+class GoalDeleteArchivedRequest(BaseModel):
+    """アーカイブ済み目標の完全削除リクエスト（仕様書7.1.1、MD-08）。
+
+    画面上のチェックボックスは既定ONのため、cascade_study_logsの既定値もTrueとする。
+    """
+
+    cascade_study_logs: bool = True
+
+
 class GoalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -43,6 +52,7 @@ class GoalRead(BaseModel):
     memo: str | None
     activated_at: dt.datetime | None
     closed_at: dt.datetime | None
+    archived_at: dt.datetime | None
 
 
 class GoalDetailRead(GoalRead):

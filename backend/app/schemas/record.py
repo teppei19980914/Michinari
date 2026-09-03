@@ -51,6 +51,23 @@ class ReadingLogRead(BaseModel):
     current_page: int | None
 
 
+class DiaryEntryInput(BaseModel):
+    """日記（目標別）の登録入力。本文・学んだこと両方が空の目標は送信対象から除外する
+    （フロントエンドのbuildDiaryEntriesPayloadと同じ考え方、StudyLogInputと同じ配列パターン）。
+    """
+
+    goal_id: int
+    diary_body: str = ""
+    diary_learned: str = ""
+
+
+class DiaryEntryRead(BaseModel):
+    goal_id: int | None
+    goal_name: str | None
+    diary_body: str | None
+    diary_learned: str | None
+
+
 class CommentCreate(BaseModel):
     body: str = Field(min_length=1)
 
@@ -82,8 +99,7 @@ class ChatMessageRead(BaseModel):
 class DailyRecordRead(BaseModel):
     record_date: dt.date
     record_state: RecordState | None
-    diary_body: str | None
-    diary_learned: str | None
+    diary_entries: list[DiaryEntryRead]
     reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
     reading_logs: list[ReadingLogRead]
@@ -103,8 +119,7 @@ class ProgressRegisterRequest(BaseModel):
 class FinalizeRequest(BaseModel):
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
-    diary_body: str = ""
-    diary_learned: str = ""
+    diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
 
 
 class TodayRead(BaseModel):
@@ -127,20 +142,21 @@ class QuotaItemRead(BaseModel):
     planned_cycles: int
     daily_quota: float
     quality_metric_type: QualityMetricType
+    goal_id: int
+    goal_name: str
 
 
 class ChatRequest(BaseModel):
     """AI対話の実行（1往復）リクエスト（データ構造編6.2 POST /records/{date}/chat）。
 
-    study_logs・diary_body・diary_learned はこの時点でDBへ確定させない下書き値であり、
+    study_logs・diary_entries はこの時点でDBへ確定させない下書き値であり、
     プロンプト組み立てにのみ使用する（AI呼び出し失敗時も入力を失わないため、16.7）。
     message は2往復目以降の自由入力。1往復目（本日最初の呼び出し）は省略できる。
     """
 
     message: str | None = Field(default=None, min_length=1)
     study_logs: list[StudyLogInput] = Field(default_factory=list)
-    diary_body: str = ""
-    diary_learned: str = ""
+    diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -161,5 +177,7 @@ class ReadingChatRequest(BaseModel):
 
 class DailyMessageRead(BaseModel):
     target_date: dt.date
+    goal_id: int | None
+    goal_name: str | None
     body: str
     generated_at: dt.datetime

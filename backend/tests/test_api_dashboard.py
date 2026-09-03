@@ -23,10 +23,10 @@ def _override_day_types(session, date_from: dt.date, date_to: dt.date) -> None:
         d += dt.timedelta(days=1)
 
 
-def _create_goal_with_subject(client, exam_date_from, exam_date_to):
+def _create_goal_with_subject(client, exam_date_from, exam_date_to, name="目標A"):
     goal = client.post(
         "/api/v1/goals",
-        json={"name": "目標A", "start_date": (TODAY - dt.timedelta(days=60)).isoformat()},
+        json={"name": name, "start_date": (TODAY - dt.timedelta(days=60)).isoformat()},
     ).json()
     client.post(
         f"/api/v1/goals/{goal['id']}/subjects",
@@ -58,10 +58,13 @@ def _create_material(client, goal_id, subject_ids, **overrides):
     return response.json()
 
 
-def _make_active_goal_with_material(client, exam_offset_days=180, **material_overrides):
+def _make_active_goal_with_material(
+    client, exam_offset_days=180, goal_name="目標A", **material_overrides
+):
     exam_date = TODAY + dt.timedelta(days=exam_offset_days)
-    goal, subject_id = _create_goal_with_subject(client, exam_date, exam_date)
+    goal, subject_id = _create_goal_with_subject(client, exam_date, exam_date, name=goal_name)
     material = _create_material(client, goal["id"], [subject_id], **material_overrides)
+    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.1})
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
     return goal, material
@@ -173,6 +176,27 @@ def test_dashboard_goal_card_has_warning_true_when_quota_ratio_exceeds_threshold
     assert body["goal_cards"][0]["has_warning"] is True
 
 
+def test_dashboard_goal_card_no_warning_for_material_before_start_date(client, seeded_session):
+    """学習期間開始前の教材は、閾値を極端に下げても警告バッジの対象にならないこと。
+
+    quota_service.compute_material_quotaが今日のノルマを0として扱うため、活動時点の
+    baseline自体が0で記録され、check_warningのbaseline<=0ガードで常にFalseとなる。
+    """
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    goal, _material = _make_active_goal_with_material(
+        client, start_date=(TODAY + dt.timedelta(days=1)).isoformat()
+    )
+    seeded_session.query(AppSetting).filter_by(key="threshold.warning_ratio").update(
+        {"value": "0.01"}
+    )
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["goal_cards"][0]["has_warning"] is False
+
+
 def test_dashboard_goal_card_empty_when_all_materials_inactive(client, seeded_session):
     goal, material = _make_active_goal_with_material(client)
     client.post(f"/api/v1/materials/{material['id']}/deactivate")
@@ -221,6 +245,19 @@ def test_dashboard_today_quota_target_minutes_none_when_speed_unavailable(client
     assert quota_entries[0]["current_cycle"] == 1
 
 
+def test_dashboard_today_quota_excludes_material_before_start_date(client, seeded_session):
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    _goal, material = _make_active_goal_with_material(
+        client, start_date=(TODAY + dt.timedelta(days=1)).isoformat()
+    )
+
+    body = client.get("/api/v1/dashboard").json()
+
+    quota_entries = [e for e in body["today_quota"] if e["material_id"] == material["id"]]
+    assert quota_entries == []
+
+
 def test_dashboard_available_slot_names_filtered_by_weekday(client):
     other_weekday = (TODAY.weekday() + 1) % 7
     client.post(
@@ -250,8 +287,12 @@ def test_dashboard_available_slot_names_filtered_by_weekday(client):
 
 
 def test_dashboard_multiple_active_goals_each_produce_own_card_and_stats(client):
-    goal_a, _ = _make_active_goal_with_material(client, exam_offset_days=100)
-    goal_b, _ = _make_active_goal_with_material(client, exam_offset_days=50)
+    goal_a, material_a = _make_active_goal_with_material(
+        client, exam_offset_days=100, goal_name="目標A"
+    )
+    goal_b, material_b = _make_active_goal_with_material(
+        client, exam_offset_days=50, goal_name="目標B"
+    )
 
     body = client.get("/api/v1/dashboard").json()
 
@@ -259,10 +300,17 @@ def test_dashboard_multiple_active_goals_each_produce_own_card_and_stats(client)
     assert goal_ids == {goal_a["id"], goal_b["id"]}
     assert len(body["goal_stats"]) == 2
 
+    # 「本日のノルマ」一覧も、教材ごとに正しい目標へ帰属していること（L-04関連）。
+    quota_by_material = {item["material_id"]: item for item in body["today_quota"]}
+    assert quota_by_material[material_a["id"]]["goal_id"] == goal_a["id"]
+    assert quota_by_material[material_a["id"]]["goal_name"] == "目標A"
+    assert quota_by_material[material_b["id"]]["goal_id"] == goal_b["id"]
+    assert quota_by_material[material_b["id"]]["goal_name"] == "目標B"
+
 
 def test_dashboard_reading_goal_card_shows_book_progress(client, seeded_session):
     """読書目標のカードは日次ノルマ等ではなく書籍の派生値（残日数・ページ進捗）で表示する
-    （要件定義書R-63、実装フェーズ分割計画書Phase17）。"""
+    （要件定義書R-66、実装フェーズ分割計画書Phase17）。"""
     goal = client.post(
         "/api/v1/goals",
         json={"category": "READING", "name": "読書目標A", "start_date": TODAY.isoformat()},

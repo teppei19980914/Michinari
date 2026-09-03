@@ -1,7 +1,8 @@
 import { eachDayOfInterval, endOfMonth, endOfWeek, format, isSameMonth, startOfMonth, startOfWeek } from 'date-fns'
 import { t } from '../../locales/t'
 import { resolveCalendarCellBackgroundClass, resolveCalendarCellMarkerKey } from './calendarCellStyle'
-import type { AuxiliaryMarker } from './resolveAuxiliaryMarkers'
+import type { AttributedAuxiliaryMarker, AuxiliaryMarker } from './resolveAuxiliaryMarkers'
+import { groupByGoal } from '../../utils/groupByGoal'
 import type { CalendarDayRead } from '../../api/calendar'
 
 const WEEKDAY_KEYS = [0, 1, 2, 3, 4, 5, 6] as const
@@ -11,9 +12,18 @@ const AUXILIARY_MARKER_ORDER: AuxiliaryMarker[] = ['EXAM_DATE', 'EXAM_PERIOD', '
 type CalendarGridProps = {
   month: Date
   daysByDate: Map<string, CalendarDayRead>
-  auxiliaryMarkersByDate: Map<string, AuxiliaryMarker[]>
+  auxiliaryMarkersByDate: Map<string, AttributedAuxiliaryMarker[]>
   onSelectDate: (date: string) => void
   onEditDayType: (date: string) => void
+}
+
+/** マーカー種別をラベルへ整形する（表示順を固定するためAUXILIARY_MARKER_ORDERで並べる）。 */
+function formatMarkerLabels(markers: AuxiliaryMarker[]): string {
+  return markers
+    .slice()
+    .sort((a, b) => AUXILIARY_MARKER_ORDER.indexOf(a) - AUXILIARY_MARKER_ORDER.indexOf(b))
+    .map((marker) => t(`calendar.auxiliaryMarker.${marker}`))
+    .join(' / ')
 }
 
 /** カレンダー本体（月グリッド）。表示ロジック（背景色・マーカーの判定）は
@@ -62,15 +72,21 @@ export function CalendarGrid({
                 {t(resolveCalendarCellMarkerKey(dayInfo.record_state))}
               </span>
             )}
-            {markers.length > 0 && (
-              <span className="text-[10px] text-blue-700">
-                {markers
-                  .slice()
-                  .sort((a, b) => AUXILIARY_MARKER_ORDER.indexOf(a) - AUXILIARY_MARKER_ORDER.indexOf(b))
-                  .map((marker) => t(`calendar.auxiliaryMarker.${marker}`))
-                  .join(' / ')}
-              </span>
-            )}
+            {markers.length > 0 &&
+              (() => {
+                const groups = groupByGoal(markers)
+                const showGoalName = groups.length > 1
+                return (
+                  <span className="flex flex-col text-[10px] text-blue-700">
+                    {groups.map((group) => (
+                      <span key={group.goalId}>
+                        {showGoalName && `${group.goalName}: `}
+                        {formatMarkerLabels(group.items.map((item) => item.marker))}
+                      </span>
+                    ))}
+                  </span>
+                )
+              })()}
             <button
               type="button"
               className="self-end text-[10px] text-gray-400 hover:text-gray-600"

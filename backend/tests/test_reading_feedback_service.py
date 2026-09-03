@@ -20,7 +20,7 @@ from app.models.material import Material
 from app.models.record import ChatMessage
 from app.services import daily_feedback_service, reading_feedback_service, record_service
 from app.services.exceptions import ValidationError
-from app.services.record_service import ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
 
 
 @pytest.fixture(autouse=True)
@@ -105,9 +105,6 @@ def _stub_send_message(monkeypatch, *, response="AIからの応答", raise_exc=N
         return ai_client.SendResult(response_text=response, latency_ms=123)
 
     monkeypatch.setattr(ai_client, "send_message", _fake)
-    monkeypatch.setattr(
-        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-reading"
-    )
     monkeypatch.setattr(
         ai_client,
         "create_chat_in_folder_by_name",
@@ -253,8 +250,11 @@ def test_reading_feedback_conversation_history_does_not_leak_exam_messages(
                 quality_value=None,
             )
         ],
-        diary_body="今日は頑張った",
-        diary_learned="過去問を解いた",
+        diary_entries=[
+            DiaryEntryItem(
+                goal_id=exam_goal.id, diary_body="今日は頑張った", diary_learned="過去問を解いた"
+            )
+        ],
     )
 
     _stub_send_message(monkeypatch, response="読書フィードバック1回目")
@@ -273,8 +273,7 @@ def test_reading_feedback_conversation_history_does_not_leak_exam_messages(
         today=dt.date(2026, 8, 24),
         message="続きです（資格試験）",
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
     # 資格試験2回目の送信内容に、読書フィードバックの応答が混入していないこと。
     assert "資格試験フィードバック1回目" in exam_calls[0]["message"]
@@ -308,8 +307,7 @@ def test_reading_feedback_uses_separate_ai_conversation_from_exam(seeded_session
         today=dt.date(2026, 8, 24),
         message=None,
         study_log_items=[],
-        diary_body="",
-        diary_learned="",
+        diary_entries=[],
     )
     reading_feedback_service.send_reading_feedback(
         seeded_session,

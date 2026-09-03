@@ -19,7 +19,7 @@ from app.config import EXPORT_DIR
 from app.constants.enums import ChatRole, Granularity, PassingScoreType, RecordState
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, StudyLog, WeeklySummary
+from app.models.record import ChatMessage, DailyGoalDiary, DailyRecord, StudyLog, WeeklySummary
 from app.services import (
     baseline_service,
     cycle_service,
@@ -246,27 +246,28 @@ def _build_results(goal: Goal) -> list[dict]:
 
 
 def _build_diaries(session: Session, goal: Goal) -> list[dict]:
-    material_ids = [material.id for material in goal.materials]
-    if not material_ids:
-        return []
-    records = (
-        session.query(DailyRecord)
-        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+    """日記は目標別（DailyGoalDiary）に保持しているため、goal_idで絞り込む
+    （複数目標が同時進行していた日に他目標の日記が混入しないようにする、L-04関連）。
+    """
+    rows = (
+        session.query(
+            DailyRecord.record_date, DailyGoalDiary.diary_body, DailyGoalDiary.diary_learned
+        )
+        .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
         .filter(
-            StudyLog.material_id.in_(material_ids),
+            DailyGoalDiary.goal_id == goal.id,
             DailyRecord.record_state == RecordState.REPORTED,
         )
-        .distinct()
         .order_by(DailyRecord.record_date)
         .all()
     )
     return [
         {
-            "date": record.record_date.isoformat(),
-            "body": record.diary_body or "",
-            "learned": record.diary_learned or "",
+            "date": record_date.isoformat(),
+            "body": diary_body or "",
+            "learned": diary_learned or "",
         }
-        for record in records
+        for record_date, diary_body, diary_learned in rows
     ]
 
 

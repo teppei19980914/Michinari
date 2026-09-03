@@ -23,8 +23,15 @@ def compute_material_quota(
 ) -> float:
     """教材の日次ノルマ quota(m, T) を算出する（7.1）。
 
-    今日がPLAN日でない場合、または残計画日が0（W(m)=0）の場合は0を返す（例外を発生させない）。
+    今日がPLAN日でない場合、残計画日が0（W(m)=0）の場合、または今日がまだ教材の学習期間
+    （開始日〜締切）に入っていない場合は0を返す（例外を発生させない）。学習期間開始前の
+    教材は「今日時点では未着手」として一貫して扱い、警告判定・基準値記録・AI向け状況出力の
+    いずれにおいても今日のノルマとしては計上しない（この関数を経由する呼び出し元すべてに
+    共通適用するため、ここで一元的に判定する）。
     """
+    if today < material.start_date:
+        return 0.0
+
     day_types = calendar_service.resolve_day_types(
         session, today, material.due_date, treat_holiday_as_buffer
     )

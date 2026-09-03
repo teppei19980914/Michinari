@@ -16,8 +16,10 @@ from app.ai import client as ai_client
 from app.ai import rate_limiter
 
 
-def _create_goal_with_subject(client, exam_date_from="2026-06-01", exam_date_to="2026-06-10"):
-    goal = client.post("/api/v1/goals", json={"name": "目標A", "start_date": "2026-01-01"}).json()
+def _create_goal_with_subject(
+    client, exam_date_from="2026-06-01", exam_date_to="2026-06-10", name="目標A"
+):
+    goal = client.post("/api/v1/goals", json={"name": name, "start_date": "2026-01-01"}).json()
     client.post(
         f"/api/v1/goals/{goal['id']}/subjects",
         json={
@@ -48,9 +50,10 @@ def _create_material(client, goal_id, subject_ids, **overrides):
     return response.json()
 
 
-def _make_active_goal_with_material(client, **material_overrides):
-    goal, subject_id = _create_goal_with_subject(client)
+def _make_active_goal_with_material(client, goal_name="目標A", **material_overrides):
+    goal, subject_id = _create_goal_with_subject(client, name=goal_name)
     material = _create_material(client, goal["id"], [subject_id], **material_overrides)
+    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.1})
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
     return goal, material
@@ -75,7 +78,7 @@ def test_get_record_for_unentered_date_returns_empty_structure(client):
     assert body["record_state"] is None
     assert body["study_logs"] == []
     assert body["comments"] == []
-    assert body["diary_body"] is None
+    assert body["diary_entries"] == []
 
 
 # --- POST /records/{date}/progress ---
@@ -134,7 +137,7 @@ def test_register_progress_endpoint_rejects_unknown_material(client):
 
 
 def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
-    _goal, material = _make_active_goal_with_material(client)
+    goal, material = _make_active_goal_with_material(client)
     target = dt.date.today().isoformat()
 
     response = client.post(
@@ -143,15 +146,22 @@ def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
             "study_logs": [
                 {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
             ],
-            "diary_body": "今日はよく頑張った",
-            "diary_learned": "過去問を解いた",
+            "diary_entries": [
+                {
+                    "goal_id": goal["id"],
+                    "diary_body": "今日はよく頑張った",
+                    "diary_learned": "過去問を解いた",
+                }
+            ],
         },
     )
 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["record_state"] == "REPORTED"
-    assert body["diary_body"] == "今日はよく頑張った"
+    assert len(body["diary_entries"]) == 1
+    assert body["diary_entries"][0]["goal_id"] == goal["id"]
+    assert body["diary_entries"][0]["diary_body"] == "今日はよく頑張った"
 
     today_response = client.get("/api/v1/records/today")
     assert today_response.json()["record_state"] == "REPORTED"
@@ -162,7 +172,7 @@ def test_finalize_endpoint_rejects_backdate_beyond_yesterday(client):
 
     response = client.post(
         f"/api/v1/records/{two_days_ago}/finalize",
-        json={"study_logs": [], "diary_body": "所感", "diary_learned": "学び"},
+        json={"study_logs": [], "diary_entries": []},
     )
 
     assert response.status_code == 400
@@ -173,12 +183,12 @@ def test_finalize_endpoint_rejects_update_after_reported(client):
     target = dt.date.today().isoformat()
     client.post(
         f"/api/v1/records/{target}/finalize",
-        json={"study_logs": [], "diary_body": "所感", "diary_learned": "学び"},
+        json={"study_logs": [], "diary_entries": []},
     )
 
     response = client.post(
         f"/api/v1/records/{target}/finalize",
-        json={"study_logs": [], "diary_body": "上書き", "diary_learned": "上書き"},
+        json={"study_logs": [], "diary_entries": []},
     )
 
     assert response.status_code == 409
@@ -190,7 +200,7 @@ def test_progress_endpoint_rejects_update_after_reported(client):
     target = dt.date.today().isoformat()
     client.post(
         f"/api/v1/records/{target}/finalize",
-        json={"study_logs": [], "diary_body": "所感", "diary_learned": "学び"},
+        json={"study_logs": [], "diary_entries": []},
     )
 
     response = client.post(
@@ -321,6 +331,35 @@ def test_quota_endpoint_returns_items_for_active_goal_material(client):
     # 入力形式切替）に必要なため、レスポンスに含まれることを確認する（仕様書6.5）。
     assert body[0]["unit_label"] == "ページ"
     assert body[0]["quality_metric_type"] == "OBJECTIVE"
+    # 複数目標が同時進行する場合の表示グルーピング（ダッシュボード/日次報告）に必要な値。
+    assert body[0]["goal_id"] == _goal["id"]
+    assert body[0]["goal_name"] == "目標A"
+
+
+def test_quota_endpoint_attributes_each_material_to_its_own_goal_when_multiple_active(client):
+    """複数目標が同時進行する場合、レスポンスの各項目が正しい目標へ帰属すること（L-04関連）。"""
+    goal_a, material_a = _make_active_goal_with_material(client, goal_name="目標A")
+    goal_b, material_b = _make_active_goal_with_material(client, goal_name="目標B")
+    target = dt.date.today().isoformat()
+
+    response = client.get(f"/api/v1/records/{target}/quota")
+
+    assert response.status_code == 200
+    body_by_material = {item["material_id"]: item for item in response.json()}
+    assert body_by_material[material_a["id"]]["goal_id"] == goal_a["id"]
+    assert body_by_material[material_a["id"]]["goal_name"] == "目標A"
+    assert body_by_material[material_b["id"]]["goal_id"] == goal_b["id"]
+    assert body_by_material[material_b["id"]]["goal_name"] == "目標B"
+
+
+def test_quota_endpoint_excludes_material_before_start_date(client):
+    _goal, _material = _make_active_goal_with_material(client, start_date="2026-07-01")
+    target = "2026-03-10"
+
+    response = client.get(f"/api/v1/records/{target}/quota")
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 # --- コメント ---
@@ -330,7 +369,7 @@ def test_comment_create_update_delete_flow(client):
     target = dt.date.today().isoformat()
     client.post(
         f"/api/v1/records/{target}/finalize",
-        json={"study_logs": [], "diary_body": "所感", "diary_learned": "学び"},
+        json={"study_logs": [], "diary_entries": []},
     )
 
     created = client.post(f"/api/v1/records/{target}/comments", json={"body": "初回コメント"})
@@ -380,9 +419,6 @@ def _stub_ai_client(monkeypatch, *, response="AIからの応答", raise_exc=None
 
     monkeypatch.setattr(ai_client, "send_message", _fake_send_message)
     monkeypatch.setattr(
-        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-api"
-    )
-    monkeypatch.setattr(
         ai_client,
         "create_chat_in_folder_by_name",
         lambda session, *, assistant_uid, folder_name, title: "chat-uid-api",
@@ -390,13 +426,21 @@ def _stub_ai_client(monkeypatch, *, response="AIからの応答", raise_exc=None
 
 
 def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
-    _make_active_goal_with_material(client)
+    goal, _material = _make_active_goal_with_material(client)
     _stub_ai_client(monkeypatch, response="今日もよく頑張りましたね")
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/chat",
-        json={"diary_body": "今日は頑張った", "diary_learned": "過去問を解いた"},
+        json={
+            "diary_entries": [
+                {
+                    "goal_id": goal["id"],
+                    "diary_body": "今日は頑張った",
+                    "diary_learned": "過去問を解いた",
+                }
+            ]
+        },
     )
 
     assert response.status_code == 200, response.text
@@ -406,7 +450,7 @@ def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
     assert body["was_truncated"] is False
     # 実績・日記は下書きのままDBへ確定されない（16.7、Phase5完了条件）。
     assert body["record"]["study_logs"] == []
-    assert body["record"]["diary_body"] is None
+    assert body["record"]["diary_entries"] == []
 
 
 def test_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
@@ -444,13 +488,21 @@ def test_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeyp
     """
     from app.ai.exceptions import AiError
 
-    _make_active_goal_with_material(client)
+    goal, _material = _make_active_goal_with_material(client)
     _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/chat",
-        json={"diary_body": "失われてはいけない", "diary_learned": "失われてはいけない"},
+        json={
+            "diary_entries": [
+                {
+                    "goal_id": goal["id"],
+                    "diary_body": "失われてはいけない",
+                    "diary_learned": "失われてはいけない",
+                }
+            ]
+        },
     )
 
     assert response.status_code == 502
@@ -458,7 +510,7 @@ def test_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeyp
 
     record = client.get(f"/api/v1/records/{target}").json()
     assert record["study_logs"] == []
-    assert record["diary_body"] is None
+    assert record["diary_entries"] == []
 
 
 def test_chat_endpoint_maps_ai_auth_required_error(client, monkeypatch):

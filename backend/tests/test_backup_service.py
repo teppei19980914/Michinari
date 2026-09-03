@@ -219,6 +219,7 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
             "memo": None,
             "activated_at": None,
             "closed_at": None,
+            "archived_at": None,
             "created_at": "2026-01-01T00:00:00",
             "updated_at": "2026-01-01T00:00:00",
         }

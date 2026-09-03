@@ -16,6 +16,14 @@ from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatu
 from app.models.base import utcnow
 from app.models.goal import Goal, LoadProfile
 from app.models.material import Material, PlanBaseline
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    RecordComment,
+    StudyLog,
+)
 from app.services import (
     baseline_service,
     calendar_service,
@@ -24,9 +32,14 @@ from app.services import (
     setting_reader,
 )
 from app.services.exceptions import (
+    BookHasReadingLogsError,
+    ExamSubjectRequiredError,
     InvalidStateTransitionError,
+    MaterialHasStudyLogsError,
+    MaterialRequiredError,
     NotFoundError,
     ResourceRatioExceededError,
+    ResourceRatioRequiredError,
     ValidationError,
 )
 
@@ -58,13 +71,27 @@ def record_baseline_for_material(
 
     quota・remaining・残計画日数は本関数がPhase2サービスを組み合わせて算出する
     （baseline_serviceは記録・取得のみを担うため、算出はAPI層=Phase3の責務）。
+
+    quota・残計画日数の算出には today ではなく max(today, material.start_date)（quota_base_date、
+    P(m)の起点）を用いる。基準値の再設定はユーザー操作（目標開始・教材変更・リプラン等）が
+    契機であり、開始日到来をトリガーとした自動再設定は存在しない。学習期間開始前に today の
+    まま算出すると quota(m, T)=0（quota_service.compute_material_quota、7.1式のS(m)≤T条件）
+    が baseline_daily_quotaとして固定され、check_warning（threshold_service.py）の
+    「baseline<=0なら判定しない」ガードにより、教材が開始日を迎えた後もペースが乱れた際の
+    警告が永久に発火しなくなる（デグレ）。開始日時点で見込まれるペースを基準値として
+    記録することでこれを避ける。quotaとplan_days_at_baselineが異なる日付窓（P(m)の起点）
+    から算出されると baseline_daily_quota × plan_days_at_baseline ≠ remaining_at_baseline
+    という不整合が生じるため、両者は同じ quota_base_date を起点に統一する（記録レコード自体の
+    effective_from は、baseline_service.get_current_baseline が「現在時点で有効な基準値」を
+    検索するための実際の記録日=todayのままとし、quota_base_dateとは区別する）。
     """
+    quota_base_date = max(today, material.start_date)
     quota = quota_service.compute_material_quota(
-        session, material.goal, material, today, treat_holiday_as_buffer
+        session, material.goal, material, quota_base_date, treat_holiday_as_buffer
     )
     progress = cycle_service.get_material_progress(session, material)
     day_types = calendar_service.resolve_day_types(
-        session, today, material.due_date, treat_holiday_as_buffer
+        session, quota_base_date, material.due_date, treat_holiday_as_buffer
     )
     plan_days = sum(1 for day_type in day_types.values() if day_type == DayType.PLAN)
     return baseline_service.record_baseline(
@@ -169,11 +196,140 @@ def delete_goal(session: Session, goal: Goal) -> None:
     session.flush()
 
 
+def archive_goal(session: Session, goal: Goal) -> Goal:
+    """クローズ済み目標をアーカイブする（論理削除、仕様書7.1.1）。"""
+    if goal.status not in _CLOSED_STATUSES:
+        raise InvalidStateTransitionError("クローズ済みの目標のみアーカイブできます")
+    if goal.archived_at is not None:
+        raise InvalidStateTransitionError("既にアーカイブ済みです")
+    goal.archived_at = utcnow()
+    session.flush()
+    return goal
+
+
+def unarchive_goal(session: Session, goal: Goal) -> Goal:
+    """アーカイブを解除し、通常の一覧表示へ戻す（仕様書7.1.1）。statusは変更しない。"""
+    if goal.archived_at is None:
+        raise InvalidStateTransitionError("アーカイブされていません")
+    goal.archived_at = None
+    session.flush()
+    return goal
+
+
+def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
+    """完全削除でstudy_log／reading_logも道連れにする場合の先行削除（データ構造編4.2）。
+
+    material→study_log・book→reading_logはいずれもDB上RESTRICT（PRAGMA foreign_keys=ON、
+    database.py）のため、Goal本体をsession.delete()する前に本関数で明示的に削除し
+    flushしておく必要がある（1目標はEXAM/READINGいずれか一方のため、goal.materialsと
+    goal.bookは常にどちらか一方のみ実データを持つ）。daily_recordは日付単位で他goalの
+    実績・日記と共存しうるため、対象ログ削除後に完全に空（他goalのstudy_log・
+    reading_log・chat_message・record_comment・日記本文のいずれも無い）になったものだけを
+    追加で削除し、他goalのデータは保持する。
+    """
+    material_ids = [m.id for m in goal.materials]
+    study_logs = session.query(StudyLog).filter(StudyLog.material_id.in_(material_ids)).all()
+    book_ids = [goal.book.id] if goal.book is not None else []
+    reading_logs = session.query(ReadingLog).filter(ReadingLog.book_id.in_(book_ids)).all()
+    diary_entries = session.query(DailyGoalDiary).filter(DailyGoalDiary.goal_id == goal.id).all()
+    if not study_logs and not reading_logs and not diary_entries:
+        return
+    record_ids = (
+        {log.daily_record_id for log in study_logs}
+        | {log.daily_record_id for log in reading_logs}
+        | {entry.daily_record_id for entry in diary_entries}
+    )
+    for log in study_logs:
+        session.delete(log)
+    for log in reading_logs:
+        session.delete(log)
+    for entry in diary_entries:
+        session.delete(entry)
+    session.flush()
+
+    remaining_log_counts = dict(
+        session.query(StudyLog.daily_record_id, func.count(StudyLog.id))
+        .filter(StudyLog.daily_record_id.in_(record_ids))
+        .group_by(StudyLog.daily_record_id)
+        .all()
+    )
+    remaining_reading_log_counts = dict(
+        session.query(ReadingLog.daily_record_id, func.count(ReadingLog.id))
+        .filter(ReadingLog.daily_record_id.in_(record_ids))
+        .group_by(ReadingLog.daily_record_id)
+        .all()
+    )
+    chat_counts = dict(
+        session.query(ChatMessage.daily_record_id, func.count(ChatMessage.id))
+        .filter(ChatMessage.daily_record_id.in_(record_ids))
+        .group_by(ChatMessage.daily_record_id)
+        .all()
+    )
+    comment_counts = dict(
+        session.query(RecordComment.daily_record_id, func.count(RecordComment.id))
+        .filter(RecordComment.daily_record_id.in_(record_ids))
+        .group_by(RecordComment.daily_record_id)
+        .all()
+    )
+    remaining_diary_counts = dict(
+        session.query(DailyGoalDiary.daily_record_id, func.count(DailyGoalDiary.id))
+        .filter(DailyGoalDiary.daily_record_id.in_(record_ids))
+        .group_by(DailyGoalDiary.daily_record_id)
+        .all()
+    )
+    records = session.query(DailyRecord).filter(DailyRecord.id.in_(record_ids)).all()
+    for record in records:
+        if remaining_log_counts.get(record.id, 0) > 0:
+            continue
+        if remaining_reading_log_counts.get(record.id, 0) > 0:
+            continue
+        if chat_counts.get(record.id, 0) > 0 or comment_counts.get(record.id, 0) > 0:
+            continue
+        if remaining_diary_counts.get(record.id, 0) > 0:
+            continue
+        session.delete(record)
+    session.flush()
+
+
+def delete_archived_goal(session: Session, goal: Goal, *, cascade_study_logs: bool) -> None:
+    """アーカイブ済み目標を完全削除する（物理削除、仕様書7.1.1、データ構造編4.2）。
+
+    cascade_study_logs=Falseの場合、実績(study_log、読書目標はreading_log)が1件でも
+    残る教材・書籍があれば削除全体を拒否する（material→study_log・book→reading_logの
+    通常のRESTRICT挙動のまま）。
+    """
+    if goal.archived_at is None:
+        raise InvalidStateTransitionError("アーカイブ済みの目標のみ完全削除できます")
+
+    if cascade_study_logs:
+        _cascade_delete_activity_logs(session, goal)
+    else:
+        material_ids = [m.id for m in goal.materials]
+        offending = (
+            session.query(StudyLog.material_id)
+            .filter(StudyLog.material_id.in_(material_ids))
+            .first()
+        )
+        if offending is not None:
+            raise MaterialHasStudyLogsError(offending[0])
+        if goal.book is not None:
+            offending_reading_log = (
+                session.query(ReadingLog.book_id)
+                .filter(ReadingLog.book_id == goal.book.id)
+                .first()
+            )
+            if offending_reading_log is not None:
+                raise BookHasReadingLogsError(offending_reading_log[0])
+
+    session.delete(goal)
+    session.flush()
+
+
 def activate_goal(session: Session, goal: Goal) -> Goal:
     """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
 
     読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
-    計画基準値（EXAM固有の計画管理、要件定義書R-63）は対象外とする。
+    計画基準値（EXAM固有の計画管理、要件定義書R-66）は対象外とする。
     """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
@@ -183,9 +339,11 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
             raise ValidationError("書籍を登録してください")
     else:
         if not goal.exam_subjects:
-            raise ValidationError("試験科目を1件以上登録してください")
+            raise ExamSubjectRequiredError
         if not goal.materials:
-            raise ValidationError("教材を1件以上登録してください")
+            raise MaterialRequiredError
+        if goal.resource_ratio <= 0:
+            raise ResourceRatioRequiredError
         _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
 
     goal.status = GoalStatus.ACTIVE
@@ -213,10 +371,17 @@ def pause_goal(session: Session, goal: Goal) -> Goal:
 
 
 def resume_goal(session: Session, goal: Goal) -> Goal:
-    """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。"""
+    """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。
+
+    読書目標（category=READING）はリソース配分プールの対象外（要件定義書R-64）で
+    resource_ratioが常に0のため、この検証を適用しない（activate_goalと同じ扱い）。
+    """
     if goal.status != GoalStatus.PAUSED:
         raise InvalidStateTransitionError("一時停止中の目標のみ復帰できます")
-    _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+    if goal.category == GoalCategory.EXAM:
+        if goal.resource_ratio <= 0:
+            raise ResourceRatioRequiredError
+        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
     goal.status = GoalStatus.ACTIVE
     session.flush()
     return goal

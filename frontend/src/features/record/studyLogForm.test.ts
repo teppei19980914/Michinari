@@ -18,6 +18,8 @@ const QUOTA_PERCENT: QuotaItemRead = {
   planned_cycles: 3,
   daily_quota: 5,
   quality_metric_type: 'OBJECTIVE',
+  goal_id: 1,
+  goal_name: '目標A',
 }
 
 const QUOTA_SUBJECTIVE: QuotaItemRead = {
@@ -28,6 +30,8 @@ const QUOTA_SUBJECTIVE: QuotaItemRead = {
   planned_cycles: 1,
   daily_quota: 10,
   quality_metric_type: 'SUBJECTIVE',
+  goal_id: 1,
+  goal_name: '目標A',
 }
 
 describe('initStudyLogFormValues', () => {

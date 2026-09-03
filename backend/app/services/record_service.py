@@ -18,7 +18,14 @@ from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, ReadingLog, RecordComment, StudyLog
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    RecordComment,
+    StudyLog,
+)
 from app.services import calendar_service, cycle_service, goal_service, quota_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
@@ -92,6 +99,17 @@ def _load_materials(session: Session, material_ids: set[int]) -> dict[int, Mater
     missing = material_ids - set(found)
     if missing:
         raise NotFoundError("教材", sorted(missing))
+    return found
+
+
+def _load_goals(session: Session, goal_ids: set[int]) -> dict[int, Goal]:
+    if not goal_ids:
+        return {}
+    goals = session.query(Goal).filter(Goal.id.in_(goal_ids)).all()
+    found = {g.id: g for g in goals}
+    missing = goal_ids - set(found)
+    if missing:
+        raise NotFoundError("目標", sorted(missing))
     return found
 
 
@@ -186,6 +204,72 @@ def _apply_reading_logs(
         _upsert_reading_log(session, daily_record, books[item.book_id], item)
 
 
+@dataclass(frozen=True)
+class DiaryEntryItem:
+    """日記（目標別）の登録入力（API層のスキーマから変換して渡す）。"""
+
+    goal_id: int
+    diary_body: str
+    diary_learned: str
+
+
+@dataclass(frozen=True)
+class DiaryEntry:
+    """日記（目標別）の読み取り結果（目標名は表示用に付与、DBには保存しない）。"""
+
+    goal_id: int | None
+    goal_name: str | None
+    diary_body: str | None
+    diary_learned: str | None
+
+
+def _upsert_diary_entry(
+    session: Session, daily_record: DailyRecord, goal: Goal, item: DiaryEntryItem
+) -> DailyGoalDiary:
+    entry = (
+        session.query(DailyGoalDiary)
+        .filter(
+            DailyGoalDiary.daily_record_id == daily_record.id, DailyGoalDiary.goal_id == goal.id
+        )
+        .first()
+    )
+    if entry is None:
+        entry = DailyGoalDiary(daily_record_id=daily_record.id, goal_id=goal.id)
+        session.add(entry)
+    entry.diary_body = item.diary_body
+    entry.diary_learned = item.diary_learned
+    session.flush()
+    return entry
+
+
+def _apply_diary_entries(
+    session: Session, daily_record: DailyRecord, items: list[DiaryEntryItem]
+) -> None:
+    goals = _load_goals(session, {item.goal_id for item in items})
+    for item in items:
+        _upsert_diary_entry(session, daily_record, goals[item.goal_id], item)
+
+
+def get_diary_entries(session: Session, daily_record: DailyRecord) -> list[DiaryEntry]:
+    """日次記録に紐づく目標別の日記を取得する（compute_daily_quotaと同じくjoinedloadで
+    N+1を回避する、CLAUDE.md）。"""
+    entries = (
+        session.query(DailyGoalDiary)
+        .options(joinedload(DailyGoalDiary.goal))
+        .filter(DailyGoalDiary.daily_record_id == daily_record.id)
+        .all()
+    )
+    return [
+        DiaryEntry(
+            goal_id=entry.goal_id,
+            goal_name=entry.goal.name if entry.goal else None,
+            diary_body=entry.diary_body,
+            diary_learned=entry.diary_learned,
+        )
+        for entry in entries
+    ]
+
+
 def _create_record(session: Session, target_date: dt.date) -> DailyRecord:
     """新規の日次記録を作成する。呼び出し側は事前に get_daily_record で不在を確認済み。"""
     record = DailyRecord(record_date=target_date, record_state=RecordState.PROGRESS_ONLY)
@@ -232,8 +316,7 @@ def finalize_record(
     session: Session,
     target_date: dt.date,
     items: list[StudyLogItem],
-    diary_body: str,
-    diary_learned: str,
+    diary_entries: list[DiaryEntryItem],
     today: dt.date,
     reading_items: list[ReadingLogItem] | None = None,
 ) -> DailyRecord:
@@ -254,8 +337,7 @@ def finalize_record(
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
     _apply_reading_logs(session, record, reading_items)
-    record.diary_body = diary_body
-    record.diary_learned = diary_learned
+    _apply_diary_entries(session, record, diary_entries)
     record.record_state = RecordState.REPORTED
     record.reported_at = utcnow()
     session.flush()
@@ -306,10 +388,15 @@ class QuotaItem:
     planned_cycles: int
     daily_quota: float
     quality_metric_type: QualityMetricType
+    goal_id: int
+    goal_name: str
 
 
 def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaItem]:
-    """進行中の全教材について、当日締切前の教材の日次ノルマを算出する（仕様書6.5）。"""
+    """進行中の全教材について、当日が学習期間内（開始日〜締切）の教材の日次ノルマを
+    算出する（仕様書6.5）。開始日前の教材は対象外とする（先行着手した実績は日記欄で
+    記録する運用とし、ノルマ未算出の状態でSC-06/SC-07/SC-01に混在させない）。
+    """
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     # material.goal を後段でgoalの参照に使うため joinedload で事前取得する（N+1禁止、CLAUDE.md）。
     materials = (
@@ -319,6 +406,7 @@ def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaIte
         .filter(
             Goal.status == GoalStatus.ACTIVE,
             Material.is_active.is_(True),
+            Material.start_date <= target_date,
             Material.due_date >= target_date,
         )
         .all()
@@ -338,6 +426,8 @@ def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaIte
                 planned_cycles=material.planned_cycles,
                 daily_quota=daily_quota,
                 quality_metric_type=material.quality_metric_type,
+                goal_id=material.goal_id,
+                goal_name=material.goal.name,
             )
         )
     return results

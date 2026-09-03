@@ -103,7 +103,9 @@ def generate_for_week(
         "week_metrics": ai_context_service.build_week_metrics_text(
             session, goal, week_start, week_end, treat_holiday_as_buffer
         ),
-        "week_diaries": ai_context_service.build_week_diaries_text(session, week_start, week_end),
+        "week_diaries": ai_context_service.build_week_diaries_text(
+            session, goal, week_start, week_end
+        ),
         "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
     }
 
