@@ -11,7 +11,14 @@ from app.ai import rate_limiter
 from app.constants.enums import ExamResultType, GoalStatus, PassingScoreType, QualityMetricType
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, ExamResult, StudyLog, WeeklySummary
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ExamResult,
+    StudyLog,
+    WeeklySummary,
+)
 from app.services import export_progress, export_service
 
 
@@ -74,14 +81,17 @@ def _make_material(session, goal, **overrides):
 def _add_study_log(session, material, record_date, **overrides):
     record = session.query(DailyRecord).filter_by(record_date=record_date).first()
     if record is None:
-        record = DailyRecord(
-            record_date=record_date,
-            record_state="REPORTED",
-            diary_body="今日の所感",
-            diary_learned="学んだこと",
-        )
+        record = DailyRecord(record_date=record_date, record_state="REPORTED")
         session.add(record)
         session.flush()
+        session.add(
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=material.goal_id,
+                diary_body="今日の所感",
+                diary_learned="学んだこと",
+            )
+        )
     defaults = dict(
         daily_record_id=record.id,
         material_id=material.id,
@@ -225,6 +235,70 @@ def test_build_export_data_includes_diary_and_dialogue_when_selected(seeded_sess
 
     assert data["diaries"][0]["body"] == "今日の所感"
     assert data["ai_dialogue"][0]["content"] == "今日は順調です"
+
+
+def test_build_diaries_excludes_other_goals_diary_on_same_date(seeded_session):
+    """複数目標が同時進行していた日に他目標の日記が混入しないこと（L-04関連）。"""
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_a = _make_material(seeded_session, goal_a)
+    material_b = _make_material(seeded_session, goal_b, name="教材B")
+    record = DailyRecord(record_date=dt.date(2026, 2, 1), record_state="REPORTED")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add_all(
+        [
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=goal_a.id,
+                diary_body="Aの日記",
+                diary_learned="Aで学んだこと",
+            ),
+            DailyGoalDiary(
+                daily_record_id=record.id,
+                goal_id=goal_b.id,
+                diary_body="Bの日記",
+                diary_learned="Bで学んだこと",
+            ),
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_a.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_b.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+        ]
+    )
+    seeded_session.flush()
+
+    data_a = export_service.build_export_data(
+        seeded_session,
+        goal_a,
+        export_service.ExportSelection(diary=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+    data_b = export_service.build_export_data(
+        seeded_session,
+        goal_b,
+        export_service.ExportSelection(diary=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    assert [d["body"] for d in data_a["diaries"]] == ["Aの日記"]
+    assert [d["body"] for d in data_b["diaries"]] == ["Bの日記"]
 
 
 def test_build_export_data_excludes_diary_when_anonymized_even_if_selected(seeded_session):

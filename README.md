@@ -1,359 +1,96 @@
 # ミチナリ（Michinari）
 
-資格試験合格を目的とした学習計画の立案・実行・修正を継続的に支援するアプリケーション。
+資格試験合格を目的とした学習計画の立案・実行・修正を継続的に支援するアプリケーションです。
 
-- バックエンド: Python 3.12+ / FastAPI / SQLAlchemy 2.0 / Alembic
-- フロントエンド: TypeScript / Vite / React 19 / Tailwind 4
-- 詳細な技術選定理由は [docs/技術選定書_ミチナリ_v1.0.md](docs/技術選定書_ミチナリ_v1.0.md) を参照
+名称は、カーナビゲーションの案内表現「道なりに進んでください」に由来します。示された道をたどるだけで目的地（合格）に到達できること、状況に応じて道が引き直されることの両方を意味しています。
 
-## ドキュメント一覧
+## ミチナリとは
+
+資格学習では、努力そのものよりも「計画をどう立て、どう修正し続けるか」で結果が左右されます。ミチナリは学習計画を一度きりの静的な文書として扱いません。**実際の学習実績に応じて、日々の目標（ノルマ）をその都度自動で再計算し続ける「適応型リプランニング・エンジン」**です。
+
+- 未達分をそのまま翌日に積み上げず、残量と残り日数から負荷を平準化して再配分します
+- 学習しない日を決めても罰にはならず、その日に学習すれば以降の負荷が軽くなります
+- 「時間をかけたか」だけでなく「どれだけ進んだか」「理解の質」を分けて記録します
+- AIとの対話による日次フィードバック、計画修正の提案、受験後の合否要因分析を受けられます
+
+## 主な機能
+
+| 機能 | できること |
+| --- | --- |
+| ダッシュボード | 起動時に本日のノルマ・進捗状況・警告をひと目で確認 |
+| 目標管理 | 試験・科目・教材・受験日を登録し、教材の複数周回にも対応 |
+| カレンダー | 月次カレンダーで学習日・バッファ日・記録状況を確認 |
+| 日次報告 | 実績（時間・分量・品質）と日記を記録し、AIから対話形式でフィードバックを受領 |
+| 分析 | 品質指標の推移、ガントチャート、完了予測をグラフで確認 |
+| 受験結果・総括レポート | 合否と得点を登録し、AIによる合否要因分析を生成 |
+| ナレッジエクスポート | 学習記録を人が読める形式・機械可読形式で出力（匿名化も可能） |
+| データ管理 | 全データのエクスポート／インポート／バックアップ |
+
+AI機能（日次フィードバック・計画修正提案・合否要因分析など）を使わない場合でも、実績の記録・閲覧・カレンダー等の基本機能は利用できます。
+
+## 動作環境
+
+- Windows PC（配布パッケージは Windows 向けの単一実行ファイル形式です）
+- 主要モダンブラウザの最新版（Chrome / Edge 等）
+- インターネット接続は不要です（AI連携機能を使う場合のみ通信します）
+- 学習データは端末内に保存され、外部のサーバーへは送信されません
+
+## インストールと起動
+
+1. [GitHub Releases](https://github.com/teppei19980914/Mitinori/releases/latest) から最新版の `Michinari-v<バージョン>.zip` をダウンロードします
+2. 任意のフォルダに zip を展開します（`Michinari` フォルダが作成されます）
+3. `Michinari` フォルダ内の **`Michinari.bat`** をダブルクリックします
+4. 自動的にブラウザが起動し、`http://127.0.0.1:8100` でアプリが表示されます（自動で開かない場合は同じURLに手動でアクセスしてください）
+
+起動したままウィンドウを閉じずに使用してください。使い終わったら、起動時に開いたコンソールウィンドウを閉じることでアプリを終了できます。
+
+## AI連携機能を使うには（任意）
+
+日次フィードバックや計画修正提案、合否要因分析などのAI機能を使うには、NewtonX ADK（AI基盤の開発キット）への接続設定が必要です。
+
+1. NewtonXのWeb版アカウント画面で Personal Access Token（PAT）を発行します（画面内の「設定」から発行手順を確認できます）
+2. アプリの「設定」画面で接続先ホストとPATを入力します
+
+PATは端末ごとに個人で設定する必要があり、配布パッケージには含まれていません。設定しなくても記録・閲覧などの基本機能は利用できます。
+
+## データの保存場所
+
+学習データは端末ごとに以下のフォルダへ保存されます。
+
+```
+%LOCALAPPDATA%\Michinari\data\
+├── michinari.db     # 学習データ本体
+├── backups\         # バックアップ（アップデート時の自動退避を含む）
+└── exports\         # エクスポートしたファイルの出力先
+```
+
+## アップデート方法
+
+1. [GitHub Releases](https://github.com/teppei19980914/Mitinori/releases/latest) から新しいバージョンの zip をダウンロードして展開します
+2. 旧バージョンの実行ファイル一式を新しいものに入れ替えます（`data` フォルダはそのまま残してください）
+3. `Michinari.bat` を起動します
+
+データベースの構造が変わっている場合も、起動時に自動で更新され、学習データはそのまま引き継がれます（更新前にはバックアップが自動作成されます）。
+
+## アンインストール
+
+1. 展開したアプリのフォルダを削除します
+2. 学習データも削除する場合は `%LOCALAPPDATA%\Michinari` フォルダを削除します（削除前に「データ管理」画面からのエクスポートを推奨します）
+
+## 困ったときは
+
+アプリ内の「ヘルプ」画面で、全画面・全設定項目・よくある質問を確認できます。解決しない場合は [GitHub Issues](https://github.com/teppei19980914/Mitinori/issues) からお問い合わせください。
+
+## ドキュメント
 
 | 文書 | 内容 |
 |---|---|
 | [docs/要件定義書_ミチナリ_v1.1.md](docs/要件定義書_ミチナリ_v1.1.md) | 要件定義 |
 | [docs/仕様書_ミチナリ_v1.1.md](docs/仕様書_ミチナリ_v1.1.md) | 機能仕様 |
-| [docs/技術選定書_ミチナリ_v1.0.md](docs/技術選定書_ミチナリ_v1.0.md) | 技術選定・祝日データ方針・コード規約補足 |
+| [docs/技術選定書_ミチナリ_v1.0.md](docs/技術選定書_ミチナリ_v1.0.md) | 技術選定 |
 | [docs/設計書_データ構造編_ミチナリ_v1.1.md](docs/設計書_データ構造編_ミチナリ_v1.1.md) | データ構造・API・ディレクトリ構成 |
 | [docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md](docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md) | 算出ロジック・AIプロンプト設計 |
-| [docs/実装フェーズ分割計画書_ミチナリ_v1.1.md](docs/実装フェーズ分割計画書_ミチナリ_v1.1.md) | Phase 1〜11 の実装計画 |
-| [docs/CODING_RULES.md](docs/CODING_RULES.md) | コーディング規約（運用設計ルールの一部） |
-| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 運用手順（運用設計ルールの一部） |
+| [docs/OPERATIONS.md](docs/OPERATIONS.md) | 開発環境セットアップ・ビルド・リリース・運用手順 |
+| [docs/CODING_RULES.md](docs/CODING_RULES.md) | コーディング規約 |
 
-実装は `docs/実装フェーズ分割計画書_ミチナリ_v1.1.md` に従い Phase 1（基盤構築）から着手する。各フェーズの開始時は `CLAUDE.md` を必ず読み込ませること。
-
----
-
-## バックエンド セットアップ（Phase 1）
-
-```bash
-cd backend
-uv sync              # 依存関係のインストール（venv自動作成）
-uv run alembic upgrade head   # スキーマ構築
-uv run python -m app.main     # 起動（app_setting.server.portに従う。既定値8100）
-```
-
-起動時に `app_setting` / `prompt_template` / `day_type_default` の初期データが投入される（冪等）。`GET /health` で疎通確認できる。
-
-```bash
-uv run pytest -q --cov=app --cov-report=term-missing   # テスト（カバレッジ100%）
-uv run ruff check .                                     # 静的解析
-```
-
----
-
-## フロントエンド セットアップ（Phase 6〜）
-
-```bash
-cd frontend
-npm install                    # 依存関係のインストール
-npm run generate:api-types     # backend/app/main.py の OpenAPI スキーマから src/types/api.d.ts を生成
-                                # （バックエンドのスキーマ変更時は必ず再実行する。手書き禁止）
-npm run dev                    # 開発サーバ起動（vite.config.ts の proxy で /api を backend:8100 へ転送）
-```
-
-```bash
-npm run build   # 型チェック（tsc -b）+ 本番ビルド
-npm run test    # Vitest（技術選定書4.5「フロントエンドのテスト方針」に基づき最小限のロジックのみ対象）
-```
-
-起動には `backend` を先に起動しておくこと（`uv run python -m app.main`、既定ポート8100）。
-
----
-
-## 開発環境について（Claude Code Level 5）
-
-本リポジトリは [ClaudeCodeTemplate](https://github.com/teppei19980914/GrowthEngine) から Claude Code の運用環境（Level 5）を導入している。`setup.sh` / `scripts/` は環境の再セットアップ・検証用に残しているツール類であり、ミチナリ本体の実装には含まれない。以下は導入されている Level 5 環境の内容。
-
-## テンプレートの内容
-
-```
-ClaudeCodeTemplate/
-├── README.md              # 本ファイル（運用手順）
-├── setup.sh               # 対話式セットアップスクリプト
-├── CLAUDE.md              # プロジェクトルール（テンプレート）
-├── docs/templates/        # ドキュメント雛形（DESIGN/REQUIREMENTS/OPERATIONS/CODING_RULES/SPECIFICATION）
-├── .github/workflows/
-│   └── security.yml.template  # CI セキュリティスキャン雛形
-└── .claude/
-    ├── settings.json      # 許可設定 + Hooks (SessionStart/PreToolUse/PostToolUse/Stop)
-    ├── .git-automation-config    # Git自動化設定（オプトイン時に生成）
-    ├── memory-seed/             # 新プロジェクトに展開するメモリ（ユーザー情報・横断フィードバック）
-    ├── hooks/
-    │   ├── session-start-git.sh         # SessionStart: 日次ブランチ自動化
-    │   ├── session-start-tools-check.sh # SessionStart: セキュリティツール導入状況を可視化
-    │   ├── block-dangerous-edit.sh      # PreToolUse: 危険API/機密ファイルをブロック
-    │   ├── secret-scan.sh               # Stop: 機密情報スキャン
-    │   ├── vuln-scan.sh                 # Stop: 依存関係の既知脆弱性をOSVでスコアリング（非ブロッキング）
-    │   └── auto-commit.sh               # Stop: テスト成功時に自動コミット&プッシュ
-    ├── skills/
-    │   ├── fix-issue.md     # 問題修正 + 並列セキュリティレビュー（/fix-issue）
-    │   ├── threat-model.md  # STRIDE 脅威モデリング（/threat-model）
-    │   ├── release.md       # リリース作業（/release）
-    │   ├── check-deploy.md  # デプロイ確認（/check-deploy）
-    │   └── update-labels.md # ラベル更新（/update-labels）
-    └── agents/
-        ├── auth-reviewer.md       # 認証/認可/IDOR
-        ├── injection-reviewer.md  # SQL/コマンド/SSRF/Path
-        ├── xss-reviewer.md        # XSS/CSP/CSRF
-        ├── secret-reviewer.md     # 機密情報/ログ漏洩
-        ├── dependency-reviewer.md # 既知脆弱性/サプライチェーン
-        ├── performance-reviewer.md # パフォーマンス
-        ├── label-checker.md        # ハードコード文字列検出
-        ├── dry-reviewer.md         # 重複コード/重複定数・ID（DRY原則）
-        ├── style-reviewer.md       # 命名規則/コメント規約
-        └── test-coverage-reviewer.md # テストカバレッジ
-```
-
-## セットアップ手順
-
-### 方法1: スクリプトで自動セットアップ（推奨）
-
-```bash
-# 1. 新しいリポジトリに移動
-cd /path/to/new-repo
-
-# 2. セットアップスクリプトを実行
-bash /path/to/ClaudeCodeTemplate/setup.sh
-```
-
-対話形式でプロジェクト情報を入力すると、テンプレートがコピーされプレースホルダが自動置換されます。
-
-> **Windows (PowerShell) の注意点**: PowerShell 上で単に `bash setup.sh` と実行すると、
-> `bash` コマンドが Git Bash ではなく WSL の中継スタブ (`C:\Windows\System32\bash.exe`) に解決され、
-> `execvpe(/bin/bash) failed: No such file or directory` のようなエラーになることがあります
-> （WSL に通常の Linux ディストリビューションが入っていない場合など）。
-> その場合は Git Bash のフルパスを明示して実行してください。
->
-> ```powershell
-> & "C:\Program Files\Git\bin\bash.exe" /path/to/ClaudeCodeTemplate/setup.sh
-> ```
-
-```
-=== Claude Code Level 5 セットアップ ===
-プロジェクト名 (例: ユメログ): MyProject
-技術スタック (例: Flutter / Dart): Python / FastAPI
-テストコマンド (例: flutter test): pytest
-静的解析コマンド (例: flutter analyze): ruff check .
-ビルドコマンド (例: flutter build web): docker build .
-フォーマットコマンド (例: dart format --fix): ruff format
-プロジェクトの絶対パス: /path/to/MyProject
-```
-
-### 方法2: 手動コピー
-
-```bash
-# 1. ファイルをコピー
-cp -r /path/to/ClaudeCodeTemplate/.claude /path/to/new-repo/
-cp /path/to/ClaudeCodeTemplate/CLAUDE.md /path/to/new-repo/
-
-# 2. プレースホルダを手動で置換（全ファイル内の以下を書き換え）
-```
-
-## プレースホルダ一覧
-
-テンプレート内の `{{...}}` をプロジェクトに合わせて書き換えてください。
-
-| プレースホルダ | 説明 | Flutter の例 | Python の例 |
-|---|---|---|---|
-| `{{PROJECT_NAME}}` | プロジェクト名 | ユメログ | MyAPI |
-| `{{TECH_STACK}}` | 技術スタック | Flutter / Dart | Python / FastAPI |
-| `{{TEST_COMMAND}}` | テスト実行 | `flutter test` | `pytest` |
-| `{{ANALYZE_COMMAND}}` | 静的解析 | `flutter analyze` | `ruff check .` |
-| `{{BUILD_COMMAND}}` | ビルド | `flutter build web` | `docker build .` |
-| `{{FORMAT_COMMAND}}` | フォーマット | `dart format --fix` | `ruff format` |
-| `{{PROJECT_DIR}}` | 絶対パス | `c:\Users\...\GrowthEngine` | `/home/user/myapi` |
-| `{{LABEL_FILE_PATH}}` | ラベル/文言の定義ファイル | `lib/labels.dart` | `src/labels.py` |
-| `{{CONSTANTS_FILE_PATH}}` | 画面ID・定数の定義ファイル | `lib/screens.dart` | `src/constants.py` |
-| `{{UTILS_DIR}}` | 共通処理ディレクトリ | `lib/utils/` | `src/utils/` |
-| `{{COMPONENTS_DIR}}` | 共通コンポーネントディレクトリ | `lib/widgets/` | `src/components/` |
-| `{{NAMING_CONVENTION_SUMMARY}}` | 命名規則の要約 | `Widget:PascalCase / 変数:camelCase` | `関数/変数:snake_case / クラス:PascalCase` |
-
-## セットアップ後の構成
-
-新しいリポジトリに以下が作成されます（テンプレート自体はコピーされません）:
-
-```
-new-repo/
-├── CLAUDE.md              # プロジェクトルール（毎セッション自動読み込み）
-├── CODING_RULES.md        # コーディングルール（DRY/ゼロハードコーディング等の詳細）
-├── SPECIFICATION.md       # 機能仕様（コード内コメントから #N で参照）
-├── DESIGN.md / REQUIREMENTS.md / OPERATIONS.md
-└── .claude/
-    ├── settings.json      # 許可設定 + Hooks
-    ├── skills/            # スキル（5ファイル）
-    └── agents/            # エージェント（10ファイル）
-```
-
-## 各レベルの機能
-
-| Level | 構成 | 機能 | トークン効果 |
-|---|---|---|---|
-| **2** | CLAUDE.md | ルール自動読み込み | 基準 |
-| **3** | + Skills | `/fix-issue` 等でオンデマンド手順注入 | -64% |
-| **4** | + Hooks | 自動フォーマット + セッション終了時チェック | -67% |
-| **5** | + Agents | セキュリティ/パフォーマンス並行レビュー | **-70%** |
-
-## Skills の使い方
-
-| コマンド | 用途 |
-|---|---|
-| `/fix-issue` | 問題の調査・修正 + 専門エージェント並列レビュー + 全チェック実施 |
-| `/threat-model` | 新機能の実装前に STRIDE で脅威モデリング |
-| `/release` | バージョンアップ・リリース作業 |
-| `/check-deploy` | CI/CDデプロイ失敗の調査・修正 |
-| `/update-labels` | ラベル・メッセージの変更と横展開 |
-
-## Git 自動化（日次ブランチ運用・オプトイン）
-
-`setup.sh` 実行時に「Git 自動化を有効にしますか？」で `y` を選ぶと、以下のフローが自動化されます。
-
-### 開発開始時（SessionStart Hook）
-1. 前日以前の `dev/YYYY-MM-DD` ブランチを検出
-2. 未コミット変更があればコミット＆プッシュ
-3. PR 未作成なら `gh pr create` で自動作成
-4. PR が `MERGED` 状態ならローカル/リモートブランチを削除（未マージなら保持）
-5. 当日の `dev/YYYY-MM-DD` ブランチを作成・チェックアウト（既存ならチェックアウトのみ）
-
-### 開発中（Stop Hook）
-1. `secret-scan.sh` → 静的解析 → テスト → すべて成功した場合のみ `auto-commit.sh` が発火
-2. 日次パターンのブランチでのみコミット（`main`/`master`/`develop`/`release/*`/`hotfix/*` は保護）
-3. コミット＆プッシュを自動実行
-
-### マージ
-- 開発者が GitHub 上で PR をマージ（手動）
-- 翌日のセッション開始時に旧ブランチが自動削除される
-
-### 前提条件（初回のみ）
-- `gh` CLI のインストールと認証（`gh auth login`）
-- GitHub リモートの設定
-- 準備完了後 `touch .claude/.git-automation-setup-done` で初回セットアップフラグを作成
-- **有効化前に確認**: 「1日1ブランチ・翌朝手動マージ」という前提が実際の開発頻度と合っているか。1日に何度もセッションを回すスタイルでは合わないこともあるため、その場合は無効のまま手動コミットで運用する
-
-### 無効化
-`.claude/.git-automation-config` を削除または `enabled=false` に変更
-
-## Hooks の動作（多層セキュリティ）
-
-Hook（正規表現による即時ブロック）と Agent（文脈を読む事後レビュー）は役割が異なるため、意図的に両方を残しています。Hookは検知範囲が狭い代わりに編集の瞬間に無条件で止められ、Agentは検知範囲が広い代わりに実行コストがかかります。パターンを増やす場合は、まず `block-dangerous-edit.sh`（高確度な一部パターンのみ）に追加すべきか、`injection-reviewer` 等のAgent側の観点で十分かを先に判断してください。
-
-### PreToolUse（ファイル編集前）
-
-`block-dangerous-edit.sh` が以下をブロック:
-- 危険API: `eval` / `new Function` / `innerHTML` / `dangerouslySetInnerHTML` / `document.write` / 動的 `exec`
-- 機密ファイル: `.env` / `*.pem` / `*.key` / `credentials.json` / `id_rsa`
-- SQL 文字列連結
-
-### PostToolUse（ファイル編集ごと）
-
-ファイル編集後に自動フォーマットを実行します。
-
-### SessionStart（セッション開始時）
-
-- Git 自動化が有効な場合、`session-start-git.sh` が日次ブランチ運用を実行します（詳細は上記「Git 自動化」セクション）
-- `session-start-tools-check.sh` が常時実行され、`gitleaks` / `osv-scanner` / CI(`security.yml`) の導入・有効化状況を毎回表示します（未導入でもブロックしません。`secret-scan.sh`/`vuln-scan.sh`はopt-inで無音スキップするため、導入し忘れに気づけるようにするための可視化用Hookです）
-
-### Stop（セッション終了時）
-
-以下が順番に自動実行されます:
-
-1. **機密情報スキャン** — `secret-scan.sh`（gitleaks 優先、フォールバックで grep）
-2. **静的解析** — 静的解析コマンドを実行
-3. **テスト** — テストコマンドを実行
-4. **依存脆弱性スキャン** — `vuln-scan.sh`（osv-scanner導入時のみ。OSVデータベースとCVSSスコアを表示、非ブロッキング）
-5. **自動コミット** — `auto-commit.sh`（Git 自動化有効時のみ、1-3 成功時のみ）
-6. **AIチェック** — 横展開/コーディングルール/セキュリティ/パフォーマンス/テスト整合性/ドキュメント更新を確認
-
-## Agents の使い方（観点別並列レビュー）
-
-| Agent | 担当領域 |
-|---|---|
-| `auth-reviewer` | 認証/認可/セッション/IDOR/権限境界 |
-| `injection-reviewer` | SQL/コマンド/Path/SSRF/NoSQL/ReDoS |
-| `xss-reviewer` | XSS/CSP/CSRF/クリックジャッキング |
-| `secret-reviewer` | ハードコード機密情報/ログ漏洩/クライアント流出 |
-| `dependency-reviewer` | 既知脆弱性/ロックファイル/サプライチェーン |
-| `performance-reviewer` | N+1/再描画/並列化 |
-| `label-checker` | ハードコード文字列検出 |
-| `dry-reviewer` | 重複コード/重複定数・ID検出（DRY原則）＋複雑度・保守性 |
-| `style-reviewer` | 命名規則/コメント規約 |
-| `test-coverage-reviewer` | テストカバレッジ（例外処理除き100%目標） |
-
-`/fix-issue` 実行時、観点別レビューエージェントが **並列で自動起動** されます（判定基準は `CODING_RULES.md` / `DESIGN.md` を参照）。
-
-## ドキュメント雛形
-
-`docs/templates/` にセキュリティ要件・コーディングルールを含んだ雛形を同梱しています:
-
-- `DESIGN.template.md` — 信頼境界・STRIDE 脅威表・受容リスクのセクション付き
-- `REQUIREMENTS.template.md` — 認証/認可/データ保護/コンプライアンス要件
-- `OPERATIONS.template.md` — セキュリティ監視・インシデント対応・シークレットローテーション
-- `CODING_RULES.template.md` — DRY/ゼロハードコーディング/置き場所ルール/命名規則/コメント規約/テストカバレッジ/保守性（複雑度）
-- `SPECIFICATION.template.md` — 機能仕様の通し番号一覧。コード内コメントの「仕様書 #N」参照先
-
-## CI セキュリティスキャン
-
-`.github/workflows/security.yml.template` を `.yml` にリネームすると以下が有効化:
-
-- **gitleaks** — 機密情報スキャン
-- **npm audit / pip-audit** — 既知脆弱性スキャン
-- **Semgrep** — SAST（静的解析）
-- **CodeQL** — 高度な SAST
-
-**ローカル（`vuln-scan.sh`）とCIの役割分担**: ローカルはセッション終了ごとに `osv-scanner` で軽量・高速に依存脆弱性のCVSSスコアを確認するための即時フィードバック用（非ブロッキング）。CIの `npm audit`/`pip-audit`/Semgrep/CodeQL はマージ前のより網羅的なゲートとして機能する。両方を維持することで「早く気づく」と「厳密に止める」を両立する。
-
-## カスタマイズ
-
-### スキルの追加
-
-`.claude/skills/` に新しい `.md` ファイルを作成:
-
-```markdown
----
-name: my-skill
-description: スキルの説明
----
-
-# スキル名
-
-## 手順
-1. ...
-```
-
-### エージェントの追加
-
-`.claude/agents/` に新しい `.md` ファイルを作成:
-
-```markdown
----
-name: my-agent
-description: エージェントの説明
-tools:
-  - Read
-  - Grep
-  - Bash
----
-
-# エージェント名
-
-## チェック項目
-1. ...
-```
-
-### Hook の追加
-
-`.claude/settings.json` の `hooks` セクションに追記。
-
-## テンプレートの更新
-
-テンプレート自体を改善した場合は、このリポジトリを更新してください。既存プロジェクトへの反映は各プロジェクト側で手動実施します。
-
-`.claude/agents` / `.claude/skills` / `.claude/hooks` にファイルを追加・削除した場合は、コミット前に以下を実行し、
-README.md / setup.sh の件数表記が実ファイル数とずれていないか機械的に検証してください（LLMのgrep確認だけに頼らないため）:
-
-```bash
-bash scripts/verify-template.sh
-```
-
-## 元プロジェクト
-
-このテンプレートは [GrowthEngine（ユメログ）](https://github.com/teppei19980914/GrowthEngine) の開発運用から抽出されました。
+開発・ビルド・配布パッケージの作成手順は [docs/OPERATIONS.md](docs/OPERATIONS.md) を参照してください。

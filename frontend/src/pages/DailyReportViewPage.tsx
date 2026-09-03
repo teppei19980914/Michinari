@@ -36,10 +36,17 @@ export function DailyReportViewPage() {
   }
 
   const record = recordQuery.data
+  const diaryEntries = record.diary_entries.filter(
+    (entry) => entry.diary_body || entry.diary_learned,
+  )
   const materialLabels = new Map<number, MaterialLabel>(
     (quotaQuery.data ?? []).map((item) => [
       item.material_id,
-      { name: item.material_name, unitLabel: item.unit_label },
+      {
+        name: item.material_name,
+        unitLabel: item.unit_label,
+        qualityMetricType: item.quality_metric_type,
+      },
     ]),
   )
 
@@ -54,21 +61,30 @@ export function DailyReportViewPage() {
         <StudyLogSummaryList studyLogs={record.study_logs} materialLabels={materialLabels} />
       </section>
 
-      {(record.diary_body || record.diary_learned) && (
-        <Card className="flex flex-col gap-3">
+      {diaryEntries.length > 0 && (
+        <Card className="flex flex-col gap-4">
           <h2 className="font-medium text-gray-900">{t('dailyReportView.diary.title')}</h2>
-          {record.diary_body && (
-            <div>
-              <p className="text-xs text-gray-400">{t('dailyReport.diary.bodyLabel')}</p>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{record.diary_body}</p>
+          {diaryEntries.map((entry, index) => (
+            <div key={entry.goal_id ?? index} className="flex flex-col gap-3">
+              {diaryEntries.length > 1 && entry.goal_name && (
+                <h3 className="font-medium text-gray-900">{entry.goal_name}</h3>
+              )}
+              {entry.diary_body && (
+                <div>
+                  <p className="text-xs text-gray-400">{t('dailyReport.diary.bodyLabel')}</p>
+                  <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.diary_body}</p>
+                </div>
+              )}
+              {entry.diary_learned && (
+                <div>
+                  <p className="text-xs text-gray-400">{t('dailyReport.diary.learnedLabel')}</p>
+                  <p className="whitespace-pre-wrap text-sm text-gray-900">
+                    {entry.diary_learned}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
-          {record.diary_learned && (
-            <div>
-              <p className="text-xs text-gray-400">{t('dailyReport.diary.learnedLabel')}</p>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{record.diary_learned}</p>
-            </div>
-          )}
+          ))}
         </Card>
       )}
 

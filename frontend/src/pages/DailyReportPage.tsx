@@ -9,6 +9,7 @@ import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
 import { finalizeRecord, getQuota, getRecord, sendChat } from '../api/records'
+import { listGoals } from '../api/goals'
 import { StudyLogFields } from '../features/record/StudyLogFields'
 import { DiaryFields } from '../features/record/DiaryFields'
 import { ChatPanel } from '../features/record/ChatPanel'
@@ -19,6 +20,12 @@ import {
   initStudyLogFormValues,
   type StudyLogFormValue,
 } from '../features/record/studyLogForm'
+import {
+  buildDiaryEntriesPayload,
+  hasAnyDiaryInput,
+  initDiaryFormValues,
+  type DiaryFormValue,
+} from '../features/record/diaryForm'
 import type { components } from '../types/api.d.ts'
 
 type ChatMessageRead = components['schemas']['ChatMessageRead']
@@ -42,29 +49,37 @@ export function DailyReportPage() {
     queryKey: ['quota', targetDate],
     queryFn: () => getQuota(targetDate),
   })
+  const goalsQuery = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => listGoals(),
+  })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
-  const [diaryBody, setDiaryBody] = useState('')
-  const [diaryLearned, setDiaryLearned] = useState('')
+  const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
   const [wasTruncated, setWasTruncated] = useState(false)
   const hydratedRef = useRef(false)
 
+  const activeGoals = (goalsQuery.data ?? []).filter((goal) => goal.status === 'ACTIVE')
+
   useEffect(() => {
-    if (hydratedRef.current || !recordQuery.data || !quotaQuery.data) {
+    if (hydratedRef.current || !recordQuery.data || !quotaQuery.data || !goalsQuery.data) {
       return
     }
     hydratedRef.current = true
     setStudyLogValues(initStudyLogFormValues(quotaQuery.data, recordQuery.data.study_logs))
-    setDiaryBody(recordQuery.data.diary_body ?? '')
-    setDiaryLearned(recordQuery.data.diary_learned ?? '')
+    setDiaryValues(
+      initDiaryFormValues(
+        goalsQuery.data.filter((goal) => goal.status === 'ACTIVE'),
+        recordQuery.data.diary_entries,
+      ),
+    )
     setChatMessages(recordQuery.data.chat_messages)
-  }, [recordQuery.data, quotaQuery.data])
+  }, [recordQuery.data, quotaQuery.data, goalsQuery.data])
 
   const isReported = recordQuery.data?.record_state === 'REPORTED'
   const hasUnsavedInput =
-    !isReported &&
-    (hasAnyStudyLogInput(studyLogValues) || diaryBody.trim() !== '' || diaryLearned.trim() !== '')
+    !isReported && (hasAnyStudyLogInput(studyLogValues) || hasAnyDiaryInput(diaryValues))
   // ブラウザレベルの離脱（タブを閉じる・再読み込み・アドレスバーへの直接入力）を警告する。
   useUnsavedChangesWarning(hasUnsavedInput)
 
@@ -85,8 +100,7 @@ export function DailyReportPage() {
       sendChat(targetDate, {
         message,
         study_logs: buildStudyLogPayload(studyLogValues),
-        diary_body: diaryBody,
-        diary_learned: diaryLearned,
+        diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: (response, message) => {
       // ユーザー発言もサーバ側では保存されるが、レスポンスにはassistant_messageしか
@@ -116,8 +130,7 @@ export function DailyReportPage() {
     mutationFn: () =>
       finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(studyLogValues),
-        diary_body: diaryBody,
-        diary_learned: diaryLearned,
+        diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: () => {
       finalizedRef.current = true
@@ -130,13 +143,20 @@ export function DailyReportPage() {
     onError: showApiError,
   })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading) {
+  if (recordQuery.isLoading || quotaQuery.isLoading || goalsQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (recordQuery.isError || !recordQuery.data || quotaQuery.isError || !quotaQuery.data) {
+  if (
+    recordQuery.isError ||
+    !recordQuery.data ||
+    quotaQuery.isError ||
+    !quotaQuery.data ||
+    goalsQuery.isError ||
+    !goalsQuery.data
+  ) {
     return (
       <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(recordQuery.error ?? quotaQuery.error)}
+        {apiErrorMessage(recordQuery.error ?? quotaQuery.error ?? goalsQuery.error)}
       </p>
     )
   }
@@ -164,10 +184,14 @@ export function DailyReportPage() {
           }
         />
         <DiaryFields
-          diaryBody={diaryBody}
-          diaryLearned={diaryLearned}
-          onChangeDiaryBody={setDiaryBody}
-          onChangeDiaryLearned={setDiaryLearned}
+          activeGoals={activeGoals}
+          values={diaryValues}
+          onChangeField={(goalId, field, value) =>
+            setDiaryValues((current) => ({
+              ...current,
+              [goalId]: { ...current[goalId], [field]: value },
+            }))
+          }
         />
       </section>
 

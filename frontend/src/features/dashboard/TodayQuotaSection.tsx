@@ -1,6 +1,7 @@
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import type { DashboardRead } from '../../api/dashboard'
+import { groupByGoal } from '../../utils/groupByGoal'
 
 type TodayQuotaSectionProps = {
   todayQuota: DashboardRead['today_quota']
@@ -15,6 +16,8 @@ export function TodayQuotaSection({
   availableSlotNames,
   isBufferDay,
 }: TodayQuotaSectionProps) {
+  const goalGroups = groupByGoal(todayQuota)
+
   return (
     <Card>
       <h2 className="mb-2 font-medium text-gray-900">{t('dashboard.todayQuota.title')}</h2>
@@ -24,32 +27,42 @@ export function TodayQuotaSection({
       {todayQuota.length === 0 ? (
         <p className="text-sm text-gray-500">{t('dashboard.todayQuota.empty')}</p>
       ) : (
-        <ul className="divide-y divide-gray-100">
-          {todayQuota.map((item) => (
-            <li key={item.material_id} className="flex items-center justify-between py-2 text-sm">
-              <div>
-                <p className="text-gray-900">{item.material_name}</p>
-                <p className="text-gray-500">
-                  {t('dashboard.todayQuota.cycleLabel', {
-                    current: item.current_cycle,
-                    planned: item.planned_cycles,
-                  })}
-                </p>
-              </div>
-              <div className="text-right text-gray-700">
-                <p>
-                  {isBufferDay ? 0 : Math.round(item.daily_quota * 10) / 10}
-                  {item.unit_label}
-                </p>
-                <p className="text-gray-500">
-                  {item.target_minutes === null || isBufferDay
-                    ? t('dashboard.todayQuota.targetMinutesUnavailable')
-                    : `${Math.round(item.target_minutes)}${t('common.unit.minutes')}`}
-                </p>
-              </div>
-            </li>
-          ))}
-        </ul>
+        goalGroups.map((group) => (
+          <div key={group.goalId} className="mb-3 last:mb-0">
+            {goalGroups.length > 1 && (
+              <h3 className="mb-1 font-medium text-gray-900">{group.goalName}</h3>
+            )}
+            <ul className="divide-y divide-gray-100">
+              {group.items.map((item) => (
+                <li
+                  key={item.material_id}
+                  className="flex items-center justify-between py-2 text-sm"
+                >
+                  <div>
+                    <p className="text-gray-900">{item.material_name}</p>
+                    <p className="text-gray-500">
+                      {t('dashboard.todayQuota.cycleLabel', {
+                        current: item.current_cycle,
+                        planned: item.planned_cycles,
+                      })}
+                    </p>
+                  </div>
+                  <div className="text-right text-gray-700">
+                    <p>
+                      {isBufferDay ? 0 : Math.round(item.daily_quota * 10) / 10}
+                      {item.unit_label}
+                    </p>
+                    <p className="text-gray-500">
+                      {item.target_minutes === null || isBufferDay
+                        ? t('dashboard.todayQuota.targetMinutesUnavailable')
+                        : `${Math.round(item.target_minutes)}${t('common.unit.minutes')}`}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
       )}
       {availableSlotNames.length > 0 && (
         <p className="mt-3 text-xs text-gray-500">

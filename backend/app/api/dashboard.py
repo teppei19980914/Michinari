@@ -171,6 +171,8 @@ def _build_today_quota(
                 daily_quota=item.daily_quota,
                 unit_label=material.unit_label,
                 target_minutes=target_minutes,
+                goal_id=item.goal_id,
+                goal_name=item.goal_name,
             )
         )
     return entries

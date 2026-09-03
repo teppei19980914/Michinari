@@ -41,6 +41,39 @@ class ValidationError(DomainError):
     """入力値・状態整合の検証エラー（データ構造編6.3 VALIDATION_ERROR、仕様書10章）。"""
 
 
+class ExamSubjectRequiredError(DomainError):
+    """目標開始に必要な試験科目が1件も登録されていない場合（仕様書7.1）。
+
+    教材未登録・リソース配分未設定と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("試験科目を1件以上登録してください")
+
+
+class MaterialRequiredError(DomainError):
+    """目標開始に必要な教材が1件も登録されていない場合（仕様書7.1）。
+
+    試験科目未登録・リソース配分未設定と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("教材を1件以上登録してください")
+
+
+class ResourceRatioRequiredError(DomainError):
+    """目標の開始・再開時にリソース配分が未設定（0のまま）の場合（仕様書7.1）。
+
+    試験科目未登録・教材未登録と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("リソース配分を設定してください")
+
+
 class ResourceRatioExceededError(DomainError):
     """ACTIVEな目標のresource_ratio合計が1.0を超える場合（データ構造編5.3、仕様書7.1）。"""
 

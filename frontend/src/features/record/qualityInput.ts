@@ -44,3 +44,13 @@ export function subjectiveScaleFromNormalized(normalized: number): number | null
   const scale = normalized / 20
   return isValidSubjectiveValue(scale) ? scale : null
 }
+
+/**
+ * 品質指標の入力欄・表示欄のラベル文言キーを返す。「品質指標」という抽象名では
+ * 何を入力すべきか伝わらないため、入力形式（正答率入力/主観スケール）に応じた
+ * 具体的なラベル（dailyReport.studyLog.qualityShortLabel）を返す。
+ */
+export function resolveQualityLabelKey(qualityMetricType: QualityMetricType): string {
+  const kind = resolveQualityInputKind(qualityMetricType)
+  return `dailyReport.studyLog.qualityShortLabel.${kind}`
+}

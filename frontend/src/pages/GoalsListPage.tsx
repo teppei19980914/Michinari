@@ -7,9 +7,44 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Modal } from '../components/Modal'
+import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
-import { createGoal, listGoals } from '../api/goals'
-import { isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
+import {
+  archiveGoal,
+  createGoal,
+  deleteArchivedGoal,
+  listGoals,
+  unarchiveGoal,
+  type GoalRead,
+} from '../api/goals'
+import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
+
+function GoalTypeSelectModal({
+  open,
+  onClose,
+  onSelectExam,
+}: {
+  open: boolean
+  onClose: () => void
+  onSelectExam: () => void
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title={t('goals.typeSelect.title')}>
+      <div className="flex flex-col gap-2">
+        <Button variant="secondary" className="justify-start" onClick={onSelectExam}>
+          {t('goals.typeSelect.exam')}
+        </Button>
+        {(['reading', 'work'] as const).map((typeKey) => (
+          <Tooltip key={typeKey} label={t('goals.typeSelect.comingSoonTooltip')}>
+            <Button variant="secondary" className="w-full justify-start" disabled>
+              {t(`goals.typeSelect.${typeKey}`)}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
+    </Modal>
+  )
+}
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -63,16 +98,149 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
   )
 }
 
-/** SC-02 目標一覧（仕様書4章・5.2「新規作成/目標選択/クローズ済目標選択」）。 */
+/** MD-08 完全削除確認（仕様書5.3・6.15）。学習実績も含めるかのチェックボックスを持つ。 */
+function DeleteArchivedGoalModal({
+  goal,
+  onClose,
+}: {
+  goal: GoalRead | null
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const { showApiError } = useToast()
+  const [cascadeStudyLogs, setCascadeStudyLogs] = useState(true)
+
+  const mutation = useMutation({
+    mutationFn: (goalId: number) =>
+      deleteArchivedGoal(goalId, { cascade_study_logs: cascadeStudyLogs }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goals'] })
+      onClose()
+    },
+    onError: showApiError,
+  })
+
+  return (
+    <Modal open={goal !== null} onClose={onClose} title={t('goals.list.deleteModal.title')}>
+      <div className="flex flex-col gap-3 text-sm text-gray-700">
+        <p>{t('goals.list.deleteModal.warning')}</p>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={cascadeStudyLogs}
+            onChange={(e) => setCascadeStudyLogs(e.target.checked)}
+          />
+          <span>
+            {t('goals.list.deleteModal.cascadeCheckbox')}
+            <span className="mt-0.5 block text-xs text-gray-500">
+              {t('goals.list.deleteModal.cascadeHint')}
+            </span>
+          </span>
+        </label>
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t('common.action.cancel')}
+          </Button>
+          <Button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => goal && mutation.mutate(goal.id)}
+          >
+            {t('goals.list.deleteModal.confirmButton')}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function GoalCard({
+  goal,
+  onArchive,
+  onUnarchive,
+  onRequestDelete,
+}: {
+  goal: GoalRead
+  onArchive: (goalId: number) => void
+  onUnarchive: (goalId: number) => void
+  onRequestDelete: (goal: GoalRead) => void
+}) {
+  const isClosed = isClosedGoalStatus(goal.status)
+  const isArchived = goal.archived_at !== null
+
+  return (
+    <Card className="flex items-center justify-between gap-3 hover:border-blue-300">
+      <Link to={resolveGoalListTarget(goal.id, goal.status)} className="flex flex-1 flex-col">
+        <span className="font-medium text-gray-900">{goal.name}</span>
+        <span className="text-xs text-gray-500">{t(`goals.list.status.${goal.status}`)}</span>
+      </Link>
+      {isClosed && !isArchived && (
+        <Link to={ROUTES.goalExport(goal.id)} className="text-sm text-blue-600 hover:underline">
+          {t('goals.list.exportLink')}
+        </Link>
+      )}
+      {goal.status === 'ACTIVE' && (
+        <Link to={ROUTES.goalResult(goal.id)} className="text-sm text-blue-600 hover:underline">
+          {t('goals.list.resultLink')}
+        </Link>
+      )}
+      {canArchiveGoal(goal.status, goal.archived_at) && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            if (window.confirm(t('goals.list.archiveConfirm'))) {
+              onArchive(goal.id)
+            }
+          }}
+        >
+          {t('goals.list.archiveButton')}
+        </Button>
+      )}
+      {isArchived && (
+        <>
+          <Button type="button" variant="secondary" onClick={() => onUnarchive(goal.id)}>
+            {t('goals.list.restoreButton')}
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => onRequestDelete(goal)}>
+            {t('goals.list.deleteCompletelyButton')}
+          </Button>
+        </>
+      )}
+    </Card>
+  )
+}
+
+/** SC-02 目標一覧（仕様書4章・5.2「新規作成/目標選択/クローズ済目標選択」、6.15）。 */
 export function GoalsListPage() {
-  const [modalOpen, setModalOpen] = useState(false)
+  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
+  const [examModalOpen, setExamModalOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
+  const queryClient = useQueryClient()
+  const { showApiError } = useToast()
   const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: listGoals })
+
+  const archiveMutation = useMutation({
+    mutationFn: archiveGoal,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: showApiError,
+  })
+  const unarchiveMutation = useMutation({
+    mutationFn: unarchiveGoal,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onError: showApiError,
+  })
+
+  const visibleGoals = goalsQuery.data?.filter((goal) => goal.archived_at === null) ?? []
+  const archivedGoals = goalsQuery.data?.filter((goal) => goal.archived_at !== null) ?? []
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{t('goals.list.title')}</h1>
-        <Button onClick={() => setModalOpen(true)}>{t('goals.list.newGoal')}</Button>
+        <Button onClick={() => setTypeSelectOpen(true)}>{t('goals.list.newGoal')}</Button>
       </div>
 
       {goalsQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
@@ -81,46 +249,62 @@ export function GoalsListPage() {
         <p className="text-sm text-gray-500">{t('goals.list.empty')}</p>
       )}
 
-      {goalsQuery.data && goalsQuery.data.length > 0 && (
+      {visibleGoals.length > 0 && (
         <ul className="flex flex-col gap-2">
-          {goalsQuery.data.map((goal) => {
-            const isClosed = isClosedGoalStatus(goal.status)
-            return (
-              <li key={goal.id}>
-                <Card className="flex items-center justify-between hover:border-blue-300">
-                  <Link
-                    to={resolveGoalListTarget(goal.id, goal.status)}
-                    className="flex flex-1 flex-col"
-                  >
-                    <span className="font-medium text-gray-900">{goal.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {t(`goals.list.status.${goal.status}`)}
-                    </span>
-                  </Link>
-                  {isClosed && (
-                    <Link
-                      to={ROUTES.goalExport(goal.id)}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      {t('goals.list.exportLink')}
-                    </Link>
-                  )}
-                  {goal.status === 'ACTIVE' && (
-                    <Link
-                      to={ROUTES.goalResult(goal.id)}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      {t('goals.list.resultLink')}
-                    </Link>
-                  )}
-                </Card>
-              </li>
-            )
-          })}
+          {visibleGoals.map((goal) => (
+            <li key={goal.id}>
+              <GoalCard
+                goal={goal}
+                onArchive={archiveMutation.mutate}
+                onUnarchive={unarchiveMutation.mutate}
+                onRequestDelete={setDeleteTarget}
+              />
+            </li>
+          ))}
         </ul>
       )}
 
-      <NewGoalModal open={modalOpen} onClose={() => setModalOpen(false)} />
+      {archivedGoals.length > 0 && (
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          {t('goals.list.showArchivedToggle')}
+        </label>
+      )}
+
+      {showArchived && archivedGoals.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-gray-700">
+            {t('goals.list.archivedSectionTitle')}
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {archivedGoals.map((goal) => (
+              <li key={goal.id}>
+                <GoalCard
+                  goal={goal}
+                  onArchive={archiveMutation.mutate}
+                  onUnarchive={unarchiveMutation.mutate}
+                  onRequestDelete={setDeleteTarget}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <GoalTypeSelectModal
+        open={typeSelectOpen}
+        onClose={() => setTypeSelectOpen(false)}
+        onSelectExam={() => {
+          setTypeSelectOpen(false)
+          setExamModalOpen(true)
+        }}
+      />
+      <NewGoalModal open={examModalOpen} onClose={() => setExamModalOpen(false)} />
+      <DeleteArchivedGoalModal goal={deleteTarget} onClose={() => setDeleteTarget(null)} />
     </div>
   )
 }

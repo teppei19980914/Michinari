@@ -154,13 +154,18 @@ def test_get_daily_message_generates_on_first_call(client, monkeypatch):
 
     monkeypatch.setattr(ai_client, "send_message", _fake_send_message)
     monkeypatch.setattr(
-        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-msg"
+        ai_client,
+        "create_chat_in_folder_by_name",
+        lambda session, *, assistant_uid, folder_name, title: "chat-uid-msg",
     )
 
     response = client.get("/api/v1/daily-message")
 
     assert response.status_code == 200
-    assert response.json()["body"] == "今日も一歩前進しましょう"
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["body"] == "今日も一歩前進しましょう"
+    assert body[0]["goal_id"] is None
     assert len(calls) == 1
 
 
@@ -173,7 +178,9 @@ def test_get_daily_message_does_not_regenerate_same_day(client, monkeypatch):
 
     monkeypatch.setattr(ai_client, "send_message", _fake_send_message)
     monkeypatch.setattr(
-        ai_client, "create_chat", lambda session, *, assistant_uid, title: "chat-uid-msg"
+        ai_client,
+        "create_chat_in_folder_by_name",
+        lambda session, *, assistant_uid, folder_name, title: "chat-uid-msg",
     )
 
     first = client.get("/api/v1/daily-message")
@@ -181,5 +188,5 @@ def test_get_daily_message_does_not_regenerate_same_day(client, monkeypatch):
 
     assert first.status_code == 200
     assert second.status_code == 200
-    assert first.json()["generated_at"] == second.json()["generated_at"]
+    assert first.json()[0]["generated_at"] == second.json()[0]["generated_at"]
     assert call_count["n"] == 1

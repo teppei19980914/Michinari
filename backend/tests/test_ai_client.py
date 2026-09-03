@@ -69,10 +69,6 @@ class FakeNewtonXClient:
         self._maybe_raise()
         return self.assistants_result
 
-    def create_chat(self, assistant_uid, title=None, folder_uid=None):
-        self._maybe_raise()
-        return self.create_chat_result
-
     def create_chat_in_folder_by_name(self, assistant_uid, folder_name, title=None):
         self._maybe_raise()
         return self.create_chat_result
@@ -186,21 +182,6 @@ def test_get_assistants_excludes_unsupported_assistants(seeded_session, monkeypa
     assert result == [{"uid": "a1", "name": "アシスタントA"}]
 
 
-def test_create_chat_returns_chat_uid(seeded_session):
-    chat_uid = ai_client.create_chat(seeded_session, assistant_uid="asst-1", title="タイトル")
-    assert chat_uid == "chat-uid-1"
-
-
-def test_create_chat_raises_ai_error_when_result_is_empty(seeded_session, monkeypatch):
-    class _EmptyResultClient(FakeNewtonXClient):
-        def create_chat(self, assistant_uid, title=None, folder_uid=None):
-            return None
-
-    monkeypatch.setattr(ai_client, "NewtonXClient", _EmptyResultClient)
-    with pytest.raises(AiError):
-        ai_client.create_chat(seeded_session, assistant_uid="asst-1", title="タイトル")
-
-
 def test_create_chat_in_folder_by_name_returns_chat_uid(seeded_session):
     chat_uid = ai_client.create_chat_in_folder_by_name(
         seeded_session, assistant_uid="asst-1", folder_name="フォルダ", title="タイトル"
@@ -284,16 +265,6 @@ def test_get_assistants_translates_error(seeded_session, monkeypatch):
     monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
     with pytest.raises(AiAuthRequiredError):
         ai_client.get_assistants(seeded_session)
-
-
-def test_create_chat_translates_error(seeded_session, monkeypatch):
-    class _ErrorClient(FakeNewtonXClient):
-        def create_chat(self, assistant_uid, title=None, folder_uid=None):
-            raise AuthenticationError("未認証")
-
-    monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
-    with pytest.raises(AiAuthRequiredError):
-        ai_client.create_chat(seeded_session, assistant_uid="asst-1", title="タイトル")
 
 
 def test_create_chat_in_folder_by_name_translates_error(seeded_session, monkeypatch):

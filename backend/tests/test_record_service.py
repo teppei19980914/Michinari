@@ -20,11 +20,11 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.services.record_service import StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 
-def _make_goal(session, status=GoalStatus.ACTIVE):
-    goal = Goal(name="目標A", start_date=dt.date(2026, 1, 1), status=status)
+def _make_goal(session, status=GoalStatus.ACTIVE, name="目標A"):
+    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=status)
     session.add(goal)
     session.flush()
     return goal
@@ -57,6 +57,10 @@ def _log(material_id, **overrides):
     )
     defaults.update(overrides)
     return StudyLogItem(**defaults)
+
+
+def _diary(goal_id, diary_body="", diary_learned=""):
+    return DiaryEntryItem(goal_id=goal_id, diary_body=diary_body, diary_learned=diary_learned)
 
 
 # --- register_progress ---
@@ -132,6 +136,31 @@ def test_register_progress_rejects_unknown_material(seeded_session):
         record_service.register_progress(seeded_session, today, [_log(9999)], today)
 
 
+def test_finalize_record_rejects_unknown_goal_in_diary_entry(seeded_session):
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(NotFoundError):
+        record_service.finalize_record(seeded_session, today, [], [_diary(9999)], today)
+
+
+def test_finalize_record_duplicate_goal_in_diary_entries_last_one_wins(seeded_session):
+    """同一goal_idの日記エントリが複数渡された場合、後勝ちで1件に更新される。"""
+    goal = _make_goal(seeded_session)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.finalize_record(
+        seeded_session,
+        today,
+        [],
+        [_diary(goal.id, "1件目", "学び1"), _diary(goal.id, "2件目", "学び2")],
+        today,
+    )
+
+    entries = record_service.get_diary_entries(seeded_session, record)
+    assert len(entries) == 1
+    assert entries[0].diary_body == "2件目"
+
+
 def test_register_progress_time_not_entered_is_excluded_from_speed_by_design(seeded_session):
     """時間未入力（minutes_spent=None）でも登録自体は成立する（実効速度算出からの除外はspeed_service側の責務）。"""
     goal = _make_goal(seeded_session)
@@ -194,13 +223,20 @@ def test_finalize_record_marks_reported_and_sets_diary(seeded_session):
     today = dt.date(2026, 3, 10)
 
     record = record_service.finalize_record(
-        seeded_session, today, [_log(material.id)], "今日はよく頑張った", "過去問を解いた", today
+        seeded_session,
+        today,
+        [_log(material.id)],
+        [_diary(goal.id, "今日はよく頑張った", "過去問を解いた")],
+        today,
     )
 
     assert record.record_state == RecordState.REPORTED
     assert record.reported_at is not None
-    assert record.diary_body == "今日はよく頑張った"
-    assert record.diary_learned == "過去問を解いた"
+    entries = record_service.get_diary_entries(seeded_session, record)
+    assert len(entries) == 1
+    assert entries[0].goal_id == goal.id
+    assert entries[0].diary_body == "今日はよく頑張った"
+    assert entries[0].diary_learned == "過去問を解いた"
 
 
 def test_finalize_record_allows_yesterday(seeded_session):
@@ -208,7 +244,7 @@ def test_finalize_record_allows_yesterday(seeded_session):
     today = dt.date(2026, 3, 10)
     yesterday = today - dt.timedelta(days=1)
 
-    record = record_service.finalize_record(seeded_session, yesterday, [], "所感", "学び", today)
+    record = record_service.finalize_record(seeded_session, yesterday, [], [], today)
     assert record.record_state == RecordState.REPORTED
 
 
@@ -217,7 +253,7 @@ def test_finalize_record_rejects_two_days_ago(seeded_session):
     two_days_ago = today - dt.timedelta(days=2)
 
     with pytest.raises(BackdateLimitExceededError):
-        record_service.finalize_record(seeded_session, two_days_ago, [], "所感", "学び", today)
+        record_service.finalize_record(seeded_session, two_days_ago, [], [], today)
 
 
 def test_finalize_record_rejects_future_date(seeded_session):
@@ -225,7 +261,7 @@ def test_finalize_record_rejects_future_date(seeded_session):
 
     with pytest.raises(ValidationError):
         record_service.finalize_record(
-            seeded_session, today + dt.timedelta(days=1), [], "所感", "学び", today
+            seeded_session, today + dt.timedelta(days=1), [], [], today
         )
 
 
@@ -235,7 +271,7 @@ def test_finalize_record_rejects_already_reported(seeded_session):
     seeded_session.flush()
 
     with pytest.raises(ImmutableRecordError):
-        record_service.finalize_record(seeded_session, today, [], "所感", "学び", today)
+        record_service.finalize_record(seeded_session, today, [], [], today)
 
 
 def test_finalize_record_promotes_progress_only_record(seeded_session):
@@ -245,7 +281,7 @@ def test_finalize_record_promotes_progress_only_record(seeded_session):
     today = dt.date(2026, 3, 10)
 
     record_service.register_progress(seeded_session, today, [_log(material.id)], today)
-    record = record_service.finalize_record(seeded_session, today, [], "所感", "学び", today)
+    record = record_service.finalize_record(seeded_session, today, [], [], today)
 
     assert record.record_state == RecordState.REPORTED
     assert len(record.study_logs) == 1  # 進捗のみ登録時点のstudy_logが保持される
@@ -366,11 +402,44 @@ def test_compute_daily_quota_includes_active_goal_materials_before_due_date(seed
     # 実績入力欄（SC-06/SC-07）の単位表示・品質指標の入力形式切替に必要な値（仕様書6.5）。
     assert items[0].unit_label == "問"
     assert items[0].quality_metric_type == QualityMetricType.SUBJECTIVE
+    # 複数目標が同時進行する場合の表示グルーピング（ダッシュボード/日次報告）に必要な値。
+    assert items[0].goal_id == goal.id
+    assert items[0].goal_name == goal.name
+
+
+def test_compute_daily_quota_attributes_each_material_to_its_own_goal(seeded_session):
+    """複数目標が同時進行する場合、教材ごとに正しい目標へ帰属すること（L-04関連）。"""
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_a = _make_material(seeded_session, goal_a, due_date=dt.date(2026, 3, 31))
+    material_b = _make_material(seeded_session, goal_b, due_date=dt.date(2026, 3, 31))
+    target_date = dt.date(2026, 3, 10)
+
+    items = record_service.compute_daily_quota(seeded_session, target_date)
+
+    items_by_material = {item.material_id: item for item in items}
+    assert items_by_material[material_a.id].goal_id == goal_a.id
+    assert items_by_material[material_a.id].goal_name == "目標A"
+    assert items_by_material[material_b.id].goal_id == goal_b.id
+    assert items_by_material[material_b.id].goal_name == "目標B"
 
 
 def test_compute_daily_quota_excludes_past_due_material(seeded_session):
     goal = _make_goal(seeded_session, status=GoalStatus.ACTIVE)
     _make_material(seeded_session, goal, due_date=dt.date(2026, 3, 1))
+
+    items = record_service.compute_daily_quota(seeded_session, dt.date(2026, 3, 10))
+    assert items == []
+
+
+def test_compute_daily_quota_excludes_material_before_start_date(seeded_session):
+    goal = _make_goal(seeded_session, status=GoalStatus.ACTIVE)
+    _make_material(
+        seeded_session,
+        goal,
+        start_date=dt.date(2026, 4, 1),
+        due_date=dt.date(2026, 12, 31),
+    )
 
     items = record_service.compute_daily_quota(seeded_session, dt.date(2026, 3, 10))
     assert items == []

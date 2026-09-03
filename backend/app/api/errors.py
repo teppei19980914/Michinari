@@ -14,12 +14,15 @@ from app.services.exceptions import (
     AppSettingNotFoundError,
     BackdateLimitExceededError,
     DomainError,
+    ExamSubjectRequiredError,
     ImmutableRecordError,
     InvalidStateTransitionError,
     MaterialHasStudyLogsError,
+    MaterialRequiredError,
     NotFoundError,
     PlannedCyclesBelowCompletedError,
     ResourceRatioExceededError,
+    ResourceRatioRequiredError,
     ValidationError,
 )
 
@@ -27,6 +30,9 @@ from app.services.exceptions import (
 #: 未登録の DomainError サブクラスは INTERNAL_ERROR として扱う（想定外の内部エラー）。
 _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ValidationError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
+    ExamSubjectRequiredError: (status.HTTP_400_BAD_REQUEST, "EXAM_SUBJECT_REQUIRED"),
+    MaterialRequiredError: (status.HTTP_400_BAD_REQUEST, "MATERIAL_REQUIRED"),
+    ResourceRatioRequiredError: (status.HTTP_400_BAD_REQUEST, "RESOURCE_RATIO_REQUIRED"),
     ResourceRatioExceededError: (status.HTTP_400_BAD_REQUEST, "RESOURCE_EXCEEDED"),
     PlannedCyclesBelowCompletedError: (status.HTTP_400_BAD_REQUEST, "CYCLE_CONFLICT"),
     MaterialHasStudyLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
