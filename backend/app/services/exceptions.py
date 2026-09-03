@@ -105,7 +105,7 @@ class BookHasReadingLogsError(DomainError):
 
 class BookAlreadyExistsError(DomainError):
     """1目標1冊の制約に反して2件目の書籍を登録しようとした場合
-    （データ構造編6.3 BOOK_ALREADY_EXISTS、要件定義書R-65）。"""
+    （データ構造編6.3 BOOK_ALREADY_EXISTS、要件定義書R-70）。"""
 
     def __init__(self, goal_id: int) -> None:
         self.goal_id = goal_id

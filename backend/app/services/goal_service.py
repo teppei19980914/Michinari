@@ -329,7 +329,7 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
 
     読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
-    計画基準値（EXAM固有の計画管理、要件定義書R-66）は対象外とする。
+    計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。
     """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")

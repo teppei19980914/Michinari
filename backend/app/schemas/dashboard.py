@@ -28,7 +28,7 @@ class GoalCardRead(BaseModel):
 
     category=READINGの場合、progress_rate・remaining_daysは書籍の派生値（ページ進捗・
     読了目標日までの残日数）で上書きし、forecast_deviation_days・has_warning・
-    has_forced_replanは対象外（常にNone/false）とする（要件定義書R-66、Phase17）。
+    has_forced_replanは対象外（常にNone/false）とする（要件定義書R-71、Phase17）。
     bookには読書進捗の全体（直近記録日・連続記録日数を含む）を格納する。
     """
 
