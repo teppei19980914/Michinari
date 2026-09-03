@@ -23,12 +23,20 @@ from app.schemas.record import (
     FinalizeRequest,
     ProgressRegisterRequest,
     QuotaItemRead,
+    ReadingChatRequest,
+    ReadingLogInput,
+    ReadingLogRead,
     StudyLogInput,
     StudyLogRead,
     TodayRead,
 )
-from app.services import daily_feedback_service, goal_service, record_service
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services import (
+    daily_feedback_service,
+    goal_service,
+    reading_feedback_service,
+    record_service,
+)
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
 
 router = APIRouter(tags=["records"])
 
@@ -41,6 +49,18 @@ def _to_study_log_items(inputs: list[StudyLogInput]) -> list[StudyLogItem]:
             amount_completed=item.amount_completed,
             cycle_number=item.cycle_number,
             quality_value=item.quality_value,
+        )
+        for item in inputs
+    ]
+
+
+def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]:
+    return [
+        ReadingLogItem(
+            book_id=item.book_id,
+            recall_body=item.recall_body,
+            pages_read=item.pages_read,
+            current_page=item.current_page,
         )
         for item in inputs
     ]
@@ -76,6 +96,9 @@ def _serialize_record(
         study_logs=[
             StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
         ],
+        reading_logs=[
+            ReadingLogRead.model_validate(log) for log in (record.reading_logs if record else [])
+        ],
         comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
         chat_messages=[
             ChatMessageRead.model_validate(chat_message)
@@ -107,7 +130,11 @@ def register_progress(
 ) -> DailyRecordRead:
     today = goal_service.resolve_today(session)
     record = record_service.register_progress(
-        session, target_date, _to_study_log_items(payload.study_logs), today
+        session,
+        target_date,
+        _to_study_log_items(payload.study_logs),
+        today,
+        _to_reading_log_items(payload.reading_logs),
     )
     session.commit()
     return _serialize_record(session, target_date, record)
@@ -124,6 +151,7 @@ def finalize_record(
         _to_study_log_items(payload.study_logs),
         _to_diary_entry_items(payload.diary_entries),
         today,
+        _to_reading_log_items(payload.reading_logs),
     )
     session.commit()
     return _serialize_record(session, target_date, record)
@@ -144,6 +172,30 @@ def chat(
         message=payload.message,
         study_log_items=_to_study_log_items(payload.study_logs),
         diary_entries=_to_diary_entry_items(payload.diary_entries),
+    )
+    session.commit()
+    return ChatResponse(
+        record=_serialize_record(session, target_date, outcome.daily_record),
+        assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
+        was_truncated=outcome.was_truncated,
+    )
+
+
+@router.post("/records/{target_date}/reading-chat", response_model=ChatResponse)
+def reading_chat(
+    target_date: dt.date, payload: ReadingChatRequest, session: Session = Depends(get_db)
+) -> ChatResponse:
+    """読書目標のAI対話を1往復実行する（データ構造編6.2）。用途と日付ごとに会話を分離する
+    既存方針（ロジック・プロンプト編16.3）に従い、資格試験の`/chat`とは独立した会話・
+    プロンプト（DAILY_FEEDBACK_READING）として扱う。
+    """
+    today = goal_service.resolve_today(session)
+    outcome = reading_feedback_service.send_reading_feedback(
+        session,
+        target_date=target_date,
+        today=today,
+        message=payload.message,
+        reading_log_items=_to_reading_log_items(payload.reading_logs),
     )
     session.commit()
     return ChatResponse(

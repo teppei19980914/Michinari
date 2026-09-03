@@ -24,10 +24,15 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
     onError: showApiError,
   })
 
+  const nameLabel =
+    goal.category === 'READING'
+      ? t('goals.basicInfo.nameLabelReading')
+      : t('goals.basicInfo.nameLabel')
+
   return (
     <Card className="flex flex-col gap-3">
       <label className="flex flex-col gap-1 text-sm text-gray-700">
-        {t('goals.basicInfo.nameLabel')}
+        {nameLabel}
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}

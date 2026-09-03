@@ -12,16 +12,25 @@ from app.constants.enums import (
     Environment,
     ExamDateType,
     ExamResultType,
+    GoalCategory,
     GoalStatus,
     QualityMetricType,
     RecordState,
 )
+from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
-from app.models.record import DailyGoalDiary, DailyRecord, ExamResult, StudyLog, WeeklySummary
+from app.models.record import (
+    DailyGoalDiary,
+    DailyRecord,
+    ExamResult,
+    ReadingLog,
+    StudyLog,
+    WeeklySummary,
+)
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.services import ai_context_service
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE, resource_ratio=1.0):
@@ -732,3 +741,204 @@ def test_build_anonymize_instruction_returns_text_when_anonymizing():
     text = ai_context_service.build_anonymize_instruction(True)
 
     assert "匿名化" in text
+
+
+def test_list_active_exam_goals_excludes_reading_goals(seeded_session):
+    """読書目標（category=READING）は資格試験用プロンプトの文脈から除外されること
+    （試験科目未登録という誤った文脈の混入を防ぐ、実装フェーズ分割計画書Phase15）。
+    """
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    reading_goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(reading_goal)
+    seeded_session.commit()
+
+    active_goals = ai_context_service.list_active_exam_goals(seeded_session)
+
+    assert exam_goal.id in {g.id for g in active_goals}
+    assert reading_goal.id not in {g.id for g in active_goals}
+
+
+def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
+    """読書目標を list_active_exam_goals で除外した後は、資格試験プロンプトの
+    goal_summaryに読書目標の名前が現れないこと。"""
+    reading_goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(reading_goal)
+    seeded_session.commit()
+
+    active_exam_goals = ai_context_service.list_active_exam_goals(seeded_session)
+    text = ai_context_service.build_goal_summary(active_exam_goals, dt.date(2026, 1, 10))
+
+    assert "読書目標" not in text
+
+
+# --- 読書向けビルダー（DAILY_FEEDBACK_READING・GOAL_RETROSPECTIVE_READING、Phase16） ---
+
+
+def _make_reading_goal(session, name="読書目標A"):
+    goal = Goal(
+        category=GoalCategory.READING,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def _make_book(session, goal, **overrides):
+    defaults = dict(
+        goal_id=goal.id,
+        title="書籍A",
+        start_date=dt.date(2026, 1, 1),
+        due_date=dt.date(2026, 12, 31),
+    )
+    defaults.update(overrides)
+    book = Book(**defaults)
+    session.add(book)
+    session.flush()
+    return book
+
+
+def _add_reading_log(session, book_id, record_date, **overrides):
+    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    defaults = dict(daily_record_id=record.id, book_id=book_id, recall_body="想起本文")
+    defaults.update(overrides)
+    session.add(ReadingLog(**defaults))
+    session.flush()
+
+
+def test_list_active_reading_goals_excludes_exam_goals(seeded_session):
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    reading_goal = _make_reading_goal(seeded_session)
+
+    active = ai_context_service.list_active_reading_goals(seeded_session)
+
+    assert reading_goal.id in {g.id for g in active}
+    assert exam_goal.id not in {g.id for g in active}
+
+
+def test_list_active_books_returns_book_of_each_goal(seeded_session):
+    goal_with_book = _make_reading_goal(seeded_session, name="読書目標A")
+    book = _make_book(seeded_session, goal_with_book)
+    goal_without_book = _make_reading_goal(seeded_session, name="読書目標B")
+
+    books = ai_context_service.list_active_books([goal_with_book, goal_without_book])
+
+    assert books == [book]
+
+
+def test_build_daily_book_summary_text_includes_title_and_remaining_days(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, title="達人プログラマー", due_date=dt.date(2026, 1, 20))
+
+    text = ai_context_service.build_daily_book_summary_text([book], dt.date(2026, 1, 10))
+
+    assert "達人プログラマー" in text
+    assert "残り10日" in text
+
+
+def test_build_daily_book_summary_text_handles_no_books(seeded_session):
+    text = ai_context_service.build_daily_book_summary_text([], dt.date(2026, 1, 10))
+    assert "進行中の読書目標はありません" in text
+
+
+def test_build_today_recall_text_includes_book_title_and_recall_body(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, title="達人プログラマー")
+    item = ReadingLogItem(
+        book_id=book.id, recall_body="DRY原則の話が印象的だった", pages_read=20, current_page=20
+    )
+
+    text = ai_context_service.build_today_recall_text([item], {book.id: book})
+
+    assert "達人プログラマー" in text
+    assert "DRY原則の話が印象的だった" in text
+    assert "読んだページ数 20" in text
+
+
+def test_build_today_recall_text_handles_no_items():
+    text = ai_context_service.build_today_recall_text([], {})
+    assert "本日の想起入力はまだありません" in text
+
+
+def test_build_recent_recalls_text_excludes_entries_outside_window(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, title="書籍A")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="窓内の記録")
+    _add_reading_log(seeded_session, book.id, dt.date(2025, 12, 1), recall_body="窓外の記録")
+
+    text = ai_context_service.build_recent_recalls_text(
+        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+    )
+
+    assert "窓内の記録" in text
+    assert "窓外の記録" not in text
+
+
+def test_build_retrospective_book_summary_text_includes_period(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(
+        seeded_session,
+        goal,
+        title="達人プログラマー",
+        author="デイブトーマス",
+        start_date=dt.date(2026, 1, 1),
+        due_date=dt.date(2026, 3, 1),
+    )
+
+    text = ai_context_service.build_retrospective_book_summary_text(book)
+
+    assert "達人プログラマー" in text
+    assert "デイブトーマス" in text
+    assert "2026-01-01" in text and "2026-03-01" in text
+
+
+def test_build_reading_overall_metrics_text_computes_max_streak(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    # 1/1〜1/3が3日連続、1/10が単発（最長は3日）。
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 1))
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 2))
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 3))
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 10))
+
+    text = ai_context_service.build_reading_overall_metrics_text(seeded_session, book)
+
+    assert "記録日数: 4日" in text
+    assert "最長連続記録日数: 3日" in text
+
+
+def test_build_reading_logs_text_orders_chronologically(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 2), recall_body="2日目の想起")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 1), recall_body="1日目の想起")
+
+    text = ai_context_service.build_reading_logs_text(seeded_session, book)
+
+    assert text.index("1日目の想起") < text.index("2日目の想起")
+
+
+def test_build_reading_logs_text_handles_no_logs(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+
+    text = ai_context_service.build_reading_logs_text(seeded_session, book)
+
+    assert "想起記録はありません" in text

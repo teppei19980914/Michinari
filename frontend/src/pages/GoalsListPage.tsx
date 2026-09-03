@@ -7,7 +7,6 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Input } from '../components/Input'
 import { Modal } from '../components/Modal'
-import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import {
   archiveGoal,
@@ -15,46 +14,23 @@ import {
   deleteArchivedGoal,
   listGoals,
   unarchiveGoal,
+  type GoalCategory,
   type GoalRead,
 } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
 
-function GoalTypeSelectModal({
-  open,
-  onClose,
-  onSelectExam,
-}: {
-  open: boolean
-  onClose: () => void
-  onSelectExam: () => void
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title={t('goals.typeSelect.title')}>
-      <div className="flex flex-col gap-2">
-        <Button variant="secondary" className="justify-start" onClick={onSelectExam}>
-          {t('goals.typeSelect.exam')}
-        </Button>
-        {(['reading', 'work'] as const).map((typeKey) => (
-          <Tooltip key={typeKey} label={t('goals.typeSelect.comingSoonTooltip')}>
-            <Button variant="secondary" className="w-full justify-start" disabled>
-              {t(`goals.typeSelect.${typeKey}`)}
-            </Button>
-          </Tooltip>
-        ))}
-      </div>
-    </Modal>
-  )
-}
+const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING']
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
+  const [category, setCategory] = useState<GoalCategory>('EXAM')
   const [name, setName] = useState('')
   const [startDate, setStartDate] = useState('')
 
   const mutation = useMutation({
-    mutationFn: () => createGoal({ name, start_date: startDate }),
+    mutationFn: () => createGoal({ category, name, start_date: startDate }),
     onSuccess: (goal) => {
       queryClient.invalidateQueries({ queryKey: ['goals'] })
       onClose()
@@ -73,7 +49,21 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
         }}
       >
         <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.new.nameLabel')}
+          {t('goals.new.categoryLabel')}
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value as GoalCategory)}
+          >
+            {GOAL_CATEGORIES.map((value) => (
+              <option key={value} value={value}>
+                {t(`goals.new.category.${value}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-gray-700">
+          {category === 'READING' ? t('goals.new.nameLabelReading') : t('goals.new.nameLabel')}
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -173,14 +163,18 @@ function GoalCard({
     <Card className="flex items-center justify-between gap-3 hover:border-blue-300">
       <Link to={resolveGoalListTarget(goal.id, goal.status)} className="flex flex-1 flex-col">
         <span className="font-medium text-gray-900">{goal.name}</span>
-        <span className="text-xs text-gray-500">{t(`goals.list.status.${goal.status}`)}</span>
+        <span className="text-xs text-gray-500">
+          {t(`goals.new.category.${goal.category}`)}
+          {' ・ '}
+          {t(`goals.list.status.${goal.status}`)}
+        </span>
       </Link>
       {isClosed && !isArchived && (
         <Link to={ROUTES.goalExport(goal.id)} className="text-sm text-blue-600 hover:underline">
           {t('goals.list.exportLink')}
         </Link>
       )}
-      {goal.status === 'ACTIVE' && (
+      {goal.status === 'ACTIVE' && goal.category === 'EXAM' && (
         <Link to={ROUTES.goalResult(goal.id)} className="text-sm text-blue-600 hover:underline">
           {t('goals.list.resultLink')}
         </Link>
@@ -214,8 +208,7 @@ function GoalCard({
 
 /** SC-02 目標一覧（仕様書4章・5.2「新規作成/目標選択/クローズ済目標選択」、6.15）。 */
 export function GoalsListPage() {
-  const [typeSelectOpen, setTypeSelectOpen] = useState(false)
-  const [examModalOpen, setExamModalOpen] = useState(false)
+  const [newGoalModalOpen, setNewGoalModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
   const queryClient = useQueryClient()
@@ -240,7 +233,7 @@ export function GoalsListPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{t('goals.list.title')}</h1>
-        <Button onClick={() => setTypeSelectOpen(true)}>{t('goals.list.newGoal')}</Button>
+        <Button onClick={() => setNewGoalModalOpen(true)}>{t('goals.list.newGoal')}</Button>
       </div>
 
       {goalsQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
@@ -295,15 +288,7 @@ export function GoalsListPage() {
         </div>
       )}
 
-      <GoalTypeSelectModal
-        open={typeSelectOpen}
-        onClose={() => setTypeSelectOpen(false)}
-        onSelectExam={() => {
-          setTypeSelectOpen(false)
-          setExamModalOpen(true)
-        }}
-      />
-      <NewGoalModal open={examModalOpen} onClose={() => setExamModalOpen(false)} />
+      <NewGoalModal open={newGoalModalOpen} onClose={() => setNewGoalModalOpen(false)} />
       <DeleteArchivedGoalModal goal={deleteTarget} onClose={() => setDeleteTarget(null)} />
     </div>
   )

@@ -216,6 +216,101 @@ def test_progress_endpoint_rejects_update_after_reported(client):
     assert response.json()["error"]["code"] == "IMMUTABLE_RECORD"
 
 
+# --- 読書記録（reading_logs。実装フェーズ分割計画書Phase15） ---
+
+
+def _make_active_reading_goal_with_book(client):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
+    ).json()
+    book = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-12-31"},
+    ).json()
+    activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert activated.status_code == 200, activated.text
+    return goal, book
+
+
+def test_register_progress_endpoint_accepts_reading_only(client):
+    """study_logsが空でもreading_logsのみで進捗のみ登録ができる（要件定義書R-65）。"""
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "reading_logs": [
+                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "pages_read": 10}
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["record_state"] == "PROGRESS_ONLY"
+    assert body["study_logs"] == []
+    assert len(body["reading_logs"]) == 1
+    assert body["reading_logs"][0]["recall_body"] == "今日読んだ内容の想起"
+
+
+def test_register_progress_endpoint_rejects_both_lists_empty(client):
+    target = dt.date.today().isoformat()
+
+    response = client.post(f"/api/v1/records/{target}/progress", json={})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_finalize_endpoint_persists_reading_log(client):
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "reading_logs": [{"book_id": book["id"], "recall_body": "読了に向けた想起"}],
+            "diary_body": "所感",
+            "diary_learned": "学び",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["record_state"] == "REPORTED"
+    assert len(body["reading_logs"]) == 1
+
+    fetched = client.get(f"/api/v1/records/{target}").json()
+    assert fetched["reading_logs"][0]["recall_body"] == "読了に向けた想起"
+
+
+def test_register_progress_endpoint_rejects_unknown_book(client):
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={"reading_logs": [{"book_id": 9999, "recall_body": "想起"}]},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_reading_log_recall_body_is_required(client):
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": ""}]},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 # --- GET /records/{date}/quota ---
 
 
@@ -429,3 +524,74 @@ def test_chat_endpoint_maps_ai_auth_required_error(client, monkeypatch):
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AI_AUTH_REQUIRED"
+
+
+# --- POST /records/{date}/reading-chat（実装フェーズ分割計画書Phase16） ---
+
+
+def test_reading_chat_endpoint_returns_assistant_message(client, monkeypatch):
+    _goal, book = _make_active_reading_goal_with_book(client)
+    _stub_ai_client(monkeypatch, response="想起を深める応答")
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/reading-chat",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "今日の想起"}]},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["assistant_message"]["content"] == "想起を深める応答"
+    assert body["assistant_message"]["purpose"] == "DAILY_FEEDBACK_READING"
+    # 想起は下書きのままDBへ確定されない（16.7と同じ保証）。
+    assert body["record"]["reading_logs"] == []
+
+
+def test_reading_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
+    _goal, book = _make_active_reading_goal_with_book(client)
+    _stub_ai_client(monkeypatch, response="1回目の応答")
+    target = dt.date.today().isoformat()
+
+    client.post(f"/api/v1/records/{target}/reading-chat", json={})
+
+    _stub_ai_client(monkeypatch, response="2回目の応答")
+    response = client.post(
+        f"/api/v1/records/{target}/reading-chat", json={"message": "続きを教えてください"}
+    )
+
+    assert response.status_code == 200, response.text
+    record = client.get(f"/api/v1/records/{target}").json()
+    reading_messages = [
+        m for m in record["chat_messages"] if m["purpose"] == "DAILY_FEEDBACK_READING"
+    ]
+    assert [m["role"] for m in reading_messages] == ["ASSISTANT", "USER", "ASSISTANT"]
+
+
+def test_reading_chat_endpoint_rejects_future_date(client, monkeypatch):
+    _make_active_reading_goal_with_book(client)
+    _stub_ai_client(monkeypatch)
+    future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+
+    response = client.post(f"/api/v1/records/{future}/reading-chat", json={})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_reading_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeypatch):
+    from app.ai.exceptions import AiError
+
+    _goal, book = _make_active_reading_goal_with_book(client)
+    _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/reading-chat",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "失われてはいけない想起"}]},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "AI_ERROR"
+
+    record = client.get(f"/api/v1/records/{target}").json()
+    assert record["reading_logs"] == []

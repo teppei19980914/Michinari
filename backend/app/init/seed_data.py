@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
@@ -19,6 +21,7 @@ from app.constants.app_setting_keys import (
     AI_MAX_PROMPT_CHARS,
     AI_MAX_RETRIES,
     AI_MIN_INTERVAL_SECONDS,
+    AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
     BACKUP_RETENTION_COUNT,
@@ -64,6 +67,11 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
+    # 読書用アシスタントは未選定（実装フェーズ分割計画書Phase16で疎通確認のうえ選定。
+    # 仕様書12章S-07、設計書データ構造編5.2）。空欄のまま初期投入し、設定画面から補う。
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING: ("", AppSettingValueType.STRING),
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING: ("", AppSettingValueType.STRING),
+    AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
     AI_FOLDER_PREFIX: ("ミチナリ", AppSettingValueType.STRING),
     AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
     AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
@@ -90,6 +98,8 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.WEEKLY_SUMMARY: prompt_texts.WEEKLY_SUMMARY,
     AiPurpose.DAILY_MESSAGE: prompt_texts.DAILY_MESSAGE,
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts.GOAL_RETROSPECTIVE,
+    AiPurpose.DAILY_FEEDBACK_READING: prompt_texts.DAILY_FEEDBACK_READING,
+    AiPurpose.GOAL_RETROSPECTIVE_READING: prompt_texts.GOAL_RETROSPECTIVE_READING,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

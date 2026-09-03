@@ -4,7 +4,9 @@ import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { Card } from '../components/Card'
 import { getQuota, getRecord } from '../api/records'
+import { listActiveReadingBooks } from '../api/goals'
 import { StudyLogSummaryList, type MaterialLabel } from '../features/record/StudyLogSummaryList'
+import { ReadingLogSummaryList, type BookLabel } from '../features/record/ReadingLogSummaryList'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { CommentSection } from '../features/record/CommentSection'
 
@@ -27,8 +29,12 @@ export function DailyReportViewPage() {
     queryKey: ['quota', targetDate],
     queryFn: () => getQuota(targetDate),
   })
+  const readingBooksQuery = useQuery({
+    queryKey: ['activeReadingBooks'],
+    queryFn: listActiveReadingBooks,
+  })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading) {
+  if (recordQuery.isLoading || quotaQuery.isLoading || readingBooksQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (recordQuery.isError || !recordQuery.data) {
@@ -49,6 +55,13 @@ export function DailyReportViewPage() {
       },
     ]),
   )
+  const bookLabels = new Map<number, BookLabel>(
+    (readingBooksQuery.data ?? []).map((entry) => [entry.book.id, { title: entry.book.title }]),
+  )
+  const examMessages = record.chat_messages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
+  const readingMessages = record.chat_messages.filter(
+    (m) => m.purpose === 'DAILY_FEEDBACK_READING',
+  )
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -60,6 +73,13 @@ export function DailyReportViewPage() {
         <h2 className="font-medium text-gray-900">{t('dailyReportView.studyLog.title')}</h2>
         <StudyLogSummaryList studyLogs={record.study_logs} materialLabels={materialLabels} />
       </section>
+
+      {record.reading_logs.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium text-gray-900">{t('dailyReportView.readingLog.title')}</h2>
+          <ReadingLogSummaryList readingLogs={record.reading_logs} bookLabels={bookLabels} />
+        </section>
+      )}
 
       {diaryEntries.length > 0 && (
         <Card className="flex flex-col gap-4">
@@ -88,10 +108,19 @@ export function DailyReportViewPage() {
         </Card>
       )}
 
-      {record.chat_messages.length > 0 && (
+      {examMessages.length > 0 && (
         <Card className="flex flex-col gap-2">
           <h2 className="font-medium text-gray-900">{t('dailyReportView.chatHistory.title')}</h2>
-          <ChatPanel messages={record.chat_messages} readOnly />
+          <ChatPanel messages={examMessages} readOnly />
+        </Card>
+      )}
+
+      {readingMessages.length > 0 && (
+        <Card className="flex flex-col gap-2">
+          <h2 className="font-medium text-gray-900">
+            {t('dailyReportView.readingChatHistory.title')}
+          </h2>
+          <ChatPanel messages={readingMessages} readOnly />
         </Card>
       )}
 

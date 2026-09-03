@@ -21,6 +21,8 @@ class AiConnectionSettingsRead(BaseModel):
     assistant_uid_weekly_summary: str
     assistant_uid_daily_message: str
     assistant_uid_goal_retrospective: str
+    assistant_uid_daily_feedback_reading: str
+    assistant_uid_goal_retrospective_reading: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -35,6 +37,8 @@ class AiConnectionSettingsUpdate(BaseModel):
     assistant_uid_weekly_summary: str | None = None
     assistant_uid_daily_message: str | None = None
     assistant_uid_goal_retrospective: str | None = None
+    assistant_uid_daily_feedback_reading: str | None = None
+    assistant_uid_goal_retrospective_reading: str | None = None
     folder_prefix: str | None = Field(default=None, min_length=1)
     timeout_seconds: int | None = Field(default=None, ge=1)
     min_interval_seconds: int | None = Field(default=None, ge=0)
@@ -53,11 +57,13 @@ class ThresholdSettingsUpdate(BaseModel):
 class PromptDegradationSettingsRead(BaseModel):
     max_prompt_chars: int
     summary_inject_weeks: int
+    reading_recall_recent_days: int
 
 
 class PromptDegradationSettingsUpdate(BaseModel):
     max_prompt_chars: int | None = Field(default=None, ge=1000)
     summary_inject_weeks: int | None = Field(default=None, ge=1)
+    reading_recall_recent_days: int | None = Field(default=None, ge=1)
 
 
 class DisplaySettingsRead(BaseModel):

@@ -12,11 +12,18 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
-from app.constants.enums import BaselineReason, DayType, GoalStatus
+from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus
 from app.models.base import utcnow
 from app.models.goal import Goal, LoadProfile
 from app.models.material import Material, PlanBaseline
-from app.models.record import ChatMessage, DailyGoalDiary, DailyRecord, RecordComment, StudyLog
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    RecordComment,
+    StudyLog,
+)
 from app.services import (
     baseline_service,
     calendar_service,
@@ -25,6 +32,7 @@ from app.services import (
     setting_reader,
 )
 from app.services.exceptions import (
+    BookHasReadingLogsError,
     ExamSubjectRequiredError,
     InvalidStateTransitionError,
     MaterialHasStudyLogsError,
@@ -129,9 +137,21 @@ def list_goals(session: Session) -> list[Goal]:
     return session.query(Goal).order_by(Goal.id).all()
 
 
-def create_goal(session: Session, *, name: str, start_date: dt.date, memo: str | None) -> Goal:
+def create_goal(
+    session: Session,
+    *,
+    name: str,
+    start_date: dt.date,
+    memo: str | None,
+    category: GoalCategory = GoalCategory.EXAM,
+) -> Goal:
     goal = Goal(
-        name=name, start_date=start_date, status=GoalStatus.DRAFT, resource_ratio=0.0, memo=memo
+        category=category,
+        name=name,
+        start_date=start_date,
+        status=GoalStatus.DRAFT,
+        resource_ratio=0.0,
+        memo=memo,
     )
     session.add(goal)
     session.flush()
@@ -156,6 +176,9 @@ def update_goal(
     if memo is not None:
         goal.memo = memo
     if resource_ratio is not None:
+        # 読書目標はリソース配分プールの対象外（要件定義書R-64）。resource_ratioは常に0のまま。
+        if goal.category == GoalCategory.READING:
+            raise ValidationError("読書目標にはリソース配分を設定できません")
         if not (0.0 <= resource_ratio <= 1.0):
             raise ValidationError("リソース配分比率は0.0〜1.0で入力してください")
         if goal.status == GoalStatus.ACTIVE:
@@ -193,24 +216,32 @@ def unarchive_goal(session: Session, goal: Goal) -> Goal:
     return goal
 
 
-def _cascade_delete_study_logs(session: Session, goal: Goal) -> None:
-    """完全削除でstudy_logも道連れにする場合の先行削除（データ構造編4.2）。
+def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
+    """完全削除でstudy_log／reading_logも道連れにする場合の先行削除（データ構造編4.2）。
 
-    material→study_logはDB上RESTRICT（PRAGMA foreign_keys=ON、database.py）のため、
-    Goal本体をsession.delete()する前に本関数でstudy_logを明示的に削除しflushしておく
-    必要がある。daily_recordは日付単位で他goalの実績・日記と共存しうるため、対象
-    study_log削除後に完全に空（他goalのstudy_log・chat_message・record_comment・
-    日記本文のいずれも無い）になったものだけを追加で削除し、他goalのデータは保持する。
+    material→study_log・book→reading_logはいずれもDB上RESTRICT（PRAGMA foreign_keys=ON、
+    database.py）のため、Goal本体をsession.delete()する前に本関数で明示的に削除し
+    flushしておく必要がある（1目標はEXAM/READINGいずれか一方のため、goal.materialsと
+    goal.bookは常にどちらか一方のみ実データを持つ）。daily_recordは日付単位で他goalの
+    実績・日記と共存しうるため、対象ログ削除後に完全に空（他goalのstudy_log・
+    reading_log・chat_message・record_comment・日記本文のいずれも無い）になったものだけを
+    追加で削除し、他goalのデータは保持する。
     """
     material_ids = [m.id for m in goal.materials]
     study_logs = session.query(StudyLog).filter(StudyLog.material_id.in_(material_ids)).all()
+    book_ids = [goal.book.id] if goal.book is not None else []
+    reading_logs = session.query(ReadingLog).filter(ReadingLog.book_id.in_(book_ids)).all()
     diary_entries = session.query(DailyGoalDiary).filter(DailyGoalDiary.goal_id == goal.id).all()
-    if not study_logs and not diary_entries:
+    if not study_logs and not reading_logs and not diary_entries:
         return
-    record_ids = {log.daily_record_id for log in study_logs} | {
-        entry.daily_record_id for entry in diary_entries
-    }
+    record_ids = (
+        {log.daily_record_id for log in study_logs}
+        | {log.daily_record_id for log in reading_logs}
+        | {entry.daily_record_id for entry in diary_entries}
+    )
     for log in study_logs:
+        session.delete(log)
+    for log in reading_logs:
         session.delete(log)
     for entry in diary_entries:
         session.delete(entry)
@@ -220,6 +251,12 @@ def _cascade_delete_study_logs(session: Session, goal: Goal) -> None:
         session.query(StudyLog.daily_record_id, func.count(StudyLog.id))
         .filter(StudyLog.daily_record_id.in_(record_ids))
         .group_by(StudyLog.daily_record_id)
+        .all()
+    )
+    remaining_reading_log_counts = dict(
+        session.query(ReadingLog.daily_record_id, func.count(ReadingLog.id))
+        .filter(ReadingLog.daily_record_id.in_(record_ids))
+        .group_by(ReadingLog.daily_record_id)
         .all()
     )
     chat_counts = dict(
@@ -244,6 +281,8 @@ def _cascade_delete_study_logs(session: Session, goal: Goal) -> None:
     for record in records:
         if remaining_log_counts.get(record.id, 0) > 0:
             continue
+        if remaining_reading_log_counts.get(record.id, 0) > 0:
+            continue
         if chat_counts.get(record.id, 0) > 0 or comment_counts.get(record.id, 0) > 0:
             continue
         if remaining_diary_counts.get(record.id, 0) > 0:
@@ -255,14 +294,15 @@ def _cascade_delete_study_logs(session: Session, goal: Goal) -> None:
 def delete_archived_goal(session: Session, goal: Goal, *, cascade_study_logs: bool) -> None:
     """アーカイブ済み目標を完全削除する（物理削除、仕様書7.1.1、データ構造編4.2）。
 
-    cascade_study_logs=Falseの場合、実績(study_log)が1件でも残る教材があれば
-    削除全体を拒否する（material→study_logの通常のRESTRICT挙動のまま）。
+    cascade_study_logs=Falseの場合、実績(study_log、読書目標はreading_log)が1件でも
+    残る教材・書籍があれば削除全体を拒否する（material→study_log・book→reading_logの
+    通常のRESTRICT挙動のまま）。
     """
     if goal.archived_at is None:
         raise InvalidStateTransitionError("アーカイブ済みの目標のみ完全削除できます")
 
     if cascade_study_logs:
-        _cascade_delete_study_logs(session, goal)
+        _cascade_delete_activity_logs(session, goal)
     else:
         material_ids = [m.id for m in goal.materials]
         offending = (
@@ -272,34 +312,52 @@ def delete_archived_goal(session: Session, goal: Goal, *, cascade_study_logs: bo
         )
         if offending is not None:
             raise MaterialHasStudyLogsError(offending[0])
+        if goal.book is not None:
+            offending_reading_log = (
+                session.query(ReadingLog.book_id)
+                .filter(ReadingLog.book_id == goal.book.id)
+                .first()
+            )
+            if offending_reading_log is not None:
+                raise BookHasReadingLogsError(offending_reading_log[0])
 
     session.delete(goal)
     session.flush()
 
 
 def activate_goal(session: Session, goal: Goal) -> Goal:
-    """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。"""
+    """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
+
+    読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
+    計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。
+    """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
-    if not goal.exam_subjects:
-        raise ExamSubjectRequiredError
-    if not goal.materials:
-        raise MaterialRequiredError
-    if goal.resource_ratio <= 0:
-        raise ResourceRatioRequiredError
-    _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+
+    if goal.category == GoalCategory.READING:
+        if goal.book is None:
+            raise ValidationError("書籍を登録してください")
+    else:
+        if not goal.exam_subjects:
+            raise ExamSubjectRequiredError
+        if not goal.materials:
+            raise MaterialRequiredError
+        if goal.resource_ratio <= 0:
+            raise ResourceRatioRequiredError
+        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
 
     goal.status = GoalStatus.ACTIVE
     goal.activated_at = utcnow()
     session.flush()
 
-    today = resolve_today(session)
-    treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
-    for material in goal.materials:
-        if material.is_active:
-            record_baseline_for_material(
-                session, material, BaselineReason.INITIAL, today, treat_holiday_as_buffer
-            )
+    if goal.category == GoalCategory.EXAM:
+        today = resolve_today(session)
+        treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
+        for material in goal.materials:
+            if material.is_active:
+                record_baseline_for_material(
+                    session, material, BaselineReason.INITIAL, today, treat_holiday_as_buffer
+                )
     return goal
 
 
@@ -313,12 +371,17 @@ def pause_goal(session: Session, goal: Goal) -> Goal:
 
 
 def resume_goal(session: Session, goal: Goal) -> Goal:
-    """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。"""
+    """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。
+
+    読書目標（category=READING）はリソース配分プールの対象外（要件定義書R-64）で
+    resource_ratioが常に0のため、この検証を適用しない（activate_goalと同じ扱い）。
+    """
     if goal.status != GoalStatus.PAUSED:
         raise InvalidStateTransitionError("一時停止中の目標のみ復帰できます")
-    if goal.resource_ratio <= 0:
-        raise ResourceRatioRequiredError
-    _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+    if goal.category == GoalCategory.EXAM:
+        if goal.resource_ratio <= 0:
+            raise ResourceRatioRequiredError
+        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
     goal.status = GoalStatus.ACTIVE
     session.flush()
     return goal
@@ -329,7 +392,12 @@ def close_goal(session: Session, goal: Goal, *, confirm_without_result: bool = F
 
     全科目の受験結果が登録済みなら自動的に「結果あり」でクローズする。
     未登録の科目が残る場合は confirm_without_result=True の明示確認を必須とする。
-    総括レポートの生成（AI連携）はPhase10の責務であり、本関数の成否には影響させない。
+    総括レポートの生成(AI連携)はPhase10の責務であり、本関数の成否には影響させない。
+
+    読書目標（category=READING）は exam_subjects が常に空のため has_all_results は
+    常にFalseとなり、本関数は confirm_without_result=True を要求したうえで
+    CLOSED_WITHOUT_RESULT（中断）へ遷移させる（仕様書7.1）。読了（CLOSED_WITH_RESULT）は
+    本関数ではなく book_service.complete_book（POST /books/{id}/complete）を用いる。
     """
     if goal.status != GoalStatus.ACTIVE:
         raise InvalidStateTransitionError("進行中の目標のみクローズできます")

@@ -10,7 +10,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.constants.enums import ChatRole, QualityMetricType, RecordState
+from app.constants.enums import AiPurpose, ChatRole, QualityMetricType, RecordState
 
 
 class StudyLogInput(BaseModel):
@@ -30,6 +30,25 @@ class StudyLogRead(BaseModel):
     amount_completed: float
     cycle_number: int
     quality_value: float | None
+
+
+class ReadingLogInput(BaseModel):
+    """読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。"""
+
+    book_id: int
+    recall_body: str = Field(min_length=1)
+    pages_read: int | None = Field(default=None, ge=0)
+    current_page: int | None = Field(default=None, ge=0)
+
+
+class ReadingLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    book_id: int
+    recall_body: str
+    pages_read: int | None
+    current_page: int | None
 
 
 class DiaryEntryInput(BaseModel):
@@ -70,6 +89,7 @@ class ChatMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    purpose: AiPurpose
     role: ChatRole
     content: str
     sequence: int
@@ -82,16 +102,23 @@ class DailyRecordRead(BaseModel):
     diary_entries: list[DiaryEntryRead]
     reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
+    reading_logs: list[ReadingLogRead]
     comments: list[CommentRead]
     chat_messages: list[ChatMessageRead]
 
 
 class ProgressRegisterRequest(BaseModel):
-    study_logs: list[StudyLogInput] = Field(min_length=1)
+    """study_logs・reading_logsのいずれかを1件以上含むことをrecord_serviceで検証する
+    （両方空の入力を拒否。両カテゴリの目標が同時進行しうるため、schema側では
+    どちらか一方のmin_length指定はできない）。"""
+
+    study_logs: list[StudyLogInput] = Field(default_factory=list)
+    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
 
 
 class FinalizeRequest(BaseModel):
     study_logs: list[StudyLogInput] = Field(default_factory=list)
+    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
 
 
@@ -136,6 +163,16 @@ class ChatResponse(BaseModel):
     record: DailyRecordRead
     assistant_message: ChatMessageRead
     was_truncated: bool
+
+
+class ReadingChatRequest(BaseModel):
+    """読書目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
+    POST /records/{date}/reading-chat）。ChatRequestと同じ設計：reading_logsはこの時点で
+    DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+    """
+
+    message: str | None = Field(default=None, min_length=1)
+    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
 
 
 class DailyMessageRead(BaseModel):

@@ -4,13 +4,25 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import BaselineReason, DayType, GoalStatus, RecordState
+from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus, RecordState
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyGoalDiary, DailyRecord, RecordComment, StudyLog
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    RecordComment,
+    StudyLog,
+)
 from app.models.setting import CalendarDayOverride
 from app.services import goal_service
-from app.services.exceptions import InvalidStateTransitionError, MaterialHasStudyLogsError
+from app.services.exceptions import (
+    BookHasReadingLogsError,
+    InvalidStateTransitionError,
+    MaterialHasStudyLogsError,
+)
 
 
 def _make_goal(db_session, status=GoalStatus.ACTIVE, name="目標A") -> Goal:
@@ -137,6 +149,42 @@ def _make_diary_entry(
     return entry
 
 
+def _make_reading_goal(db_session, status=GoalStatus.ACTIVE, name="読書目標A") -> Goal:
+    goal = Goal(
+        category=GoalCategory.READING,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=status,
+        resource_ratio=0,
+    )
+    db_session.add(goal)
+    db_session.flush()
+    return goal
+
+
+def _make_book(db_session, goal_id: int, **overrides) -> Book:
+    defaults = dict(
+        goal_id=goal_id,
+        title="書籍A",
+        start_date=dt.date(2026, 1, 1),
+        due_date=dt.date(2026, 12, 31),
+    )
+    defaults.update(overrides)
+    book = Book(**defaults)
+    db_session.add(book)
+    db_session.flush()
+    return book
+
+
+def _make_reading_log(db_session, daily_record_id: int, book_id: int, **overrides) -> ReadingLog:
+    defaults = dict(daily_record_id=daily_record_id, book_id=book_id, recall_body="想起")
+    defaults.update(overrides)
+    log = ReadingLog(**defaults)
+    db_session.add(log)
+    db_session.flush()
+    return log
+
+
 def test_archive_goal_requires_closed_status(db_session):
     goal = _make_goal(db_session, status=GoalStatus.ACTIVE)
     with pytest.raises(InvalidStateTransitionError):
@@ -186,6 +234,19 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(db_
         goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=False)
 
 
+def test_delete_archived_goal_without_cascade_rejects_when_reading_logs_remain(db_session):
+    """study_logのreading_log版（BookHasReadingLogsError、mainのアーカイブ機能との
+    マージで追加した読書対応）。"""
+    goal = _make_reading_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    book = _make_book(db_session, goal.id)
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    _make_reading_log(db_session, record.id, book.id)
+    goal_service.archive_goal(db_session, goal)
+
+    with pytest.raises(BookHasReadingLogsError):
+        goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=False)
+
+
 def test_delete_archived_goal_without_cascade_succeeds_when_no_study_logs(db_session):
     goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
     _make_material(db_session, goal.id)
@@ -214,6 +275,67 @@ def test_delete_archived_goal_with_cascade_removes_study_logs_and_deletes_empty_
     assert db_session.get(Goal, goal_id) is None
     assert db_session.get(Material, material.id) is None
     assert db_session.get(DailyRecord, record_id) is None
+
+
+def test_delete_archived_goal_with_cascade_removes_reading_logs_and_deletes_empty_daily_record(
+    db_session,
+):
+    """study_logのreading_log版。_cascade_delete_activity_logsがbook経由のreading_logも
+    削除し、空になったdaily_recordを物理削除すること（mainのアーカイブ機能とのマージで
+    追加した読書対応）。"""
+    goal = _make_reading_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    book = _make_book(db_session, goal.id)
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    _make_reading_log(db_session, record.id, book.id)
+    record_id = record.id
+    goal_id = goal.id
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=True)
+
+    assert db_session.get(Goal, goal_id) is None
+    assert db_session.get(Book, book.id) is None
+    assert db_session.get(DailyRecord, record_id) is None
+
+
+def test_delete_archived_goal_without_cascade_succeeds_when_book_has_no_reading_logs(db_session):
+    """読書目標の書籍に想起記録が1件も無ければ、非cascadeでも削除を許可する
+    （test_delete_archived_goal_without_cascade_succeeds_when_no_study_logsの読書版）。"""
+    goal = _make_reading_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    _make_book(db_session, goal.id)
+    goal_id = goal.id
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=False)
+
+    assert db_session.get(Goal, goal_id) is None
+
+
+def test_delete_archived_goal_with_cascade_preserves_daily_record_shared_by_other_reading_goal(
+    db_session,
+):
+    """同じ日次報告に他の読書目標のreading_logが残る場合、daily_record自体は保持する
+    （test_delete_archived_goal_with_cascade_preserves_daily_record_shared_by_other_goalの
+    読書版）。"""
+    goal_a = _make_reading_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT, name="削除対象")
+    book_a = _make_book(db_session, goal_a.id)
+    goal_b = _make_reading_goal(db_session, name="他の読書目標")
+    book_b = _make_book(db_session, goal_b.id)
+
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    log_a = _make_reading_log(db_session, record.id, book_a.id)
+    log_b = _make_reading_log(db_session, record.id, book_b.id)
+    record_id = record.id
+    goal_a_id = goal_a.id
+    goal_service.archive_goal(db_session, goal_a)
+
+    goal_service.delete_archived_goal(db_session, goal_a, cascade_study_logs=True)
+
+    assert db_session.get(Goal, goal_a_id) is None
+    assert db_session.get(ReadingLog, log_a.id) is None
+    # goal_bの想起記録・daily_record自体は巻き添えにしない。
+    assert db_session.get(DailyRecord, record_id) is not None
+    assert db_session.get(ReadingLog, log_b.id) is not None
 
 
 def test_delete_archived_goal_with_cascade_preserves_daily_record_shared_by_other_goal(

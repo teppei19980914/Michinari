@@ -11,6 +11,7 @@ import type { GoalRead } from '../../api/goals'
 function makeGoal(id: number, name: string): GoalRead {
   return {
     id,
+    category: 'EXAM',
     name,
     start_date: '2026-01-01',
     status: 'ACTIVE',
