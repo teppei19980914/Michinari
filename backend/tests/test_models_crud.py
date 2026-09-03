@@ -258,14 +258,28 @@ def test_weekly_summary_daily_message_retrospective_ai_conversation_ai_log_crud(
         scope_key="2026-06-01",
         conversation_uid="conv-uid-001",
     )
-    daily_message = DailyMessage(target_date=dt.date(2026, 6, 1), body="今日も一歩前進です")
+    daily_message = DailyMessage(
+        target_date=dt.date(2026, 6, 1), goal_id=goal.id, body="今日も一歩前進です"
+    )
+    daily_message_goal_independent = DailyMessage(
+        target_date=dt.date(2026, 6, 2), body="目標非依存の一言"
+    )
     ai_log = AiLog(
         purpose=AiPurpose.DAILY_FEEDBACK,
         conversation_uid="conv-uid-001",
         request_body="{}",
         prompt_chars=2,
     )
-    db_session.add_all([weekly_summary, retrospective, conversation, daily_message, ai_log])
+    db_session.add_all(
+        [
+            weekly_summary,
+            retrospective,
+            conversation,
+            daily_message,
+            daily_message_goal_independent,
+            ai_log,
+        ]
+    )
     db_session.commit()
 
     assert db_session.get(WeeklySummary, weekly_summary.id).goal_id == goal.id
@@ -277,12 +291,14 @@ def test_weekly_summary_daily_message_retrospective_ai_conversation_ai_log_crud(
     db_session.delete(db_session.get(Goal, goal.id))
     db_session.commit()
 
-    # goal -> weekly_summary / goal_retrospective / ai_conversation は CASCADE
+    # goal -> weekly_summary / goal_retrospective / ai_conversation / 目標に紐づくdaily_message
+    # は CASCADE（未決事項L-04: daily_messageは目標ごとに独立生成するようになったため）
     assert db_session.get(WeeklySummary, weekly_summary.id) is None
     assert db_session.get(GoalRetrospective, retrospective.id) is None
     assert db_session.get(AiConversation, conversation.id) is None
-    # daily_message / ai_log は goal に紐づかないため残る
-    assert db_session.get(DailyMessage, daily_message.id) is not None
+    assert db_session.get(DailyMessage, daily_message.id) is None
+    # goal_id=NULL（目標非依存）のdaily_message・ai_logはgoalに紐づかないため残る
+    assert db_session.get(DailyMessage, daily_message_goal_independent.id) is not None
     assert db_session.get(AiLog, ai_log.id) is not None
 
 

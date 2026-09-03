@@ -18,6 +18,8 @@ from app.schemas.record import (
     CommentRead,
     CommentUpdate,
     DailyRecordRead,
+    DiaryEntryInput,
+    DiaryEntryRead,
     FinalizeRequest,
     ProgressRegisterRequest,
     QuotaItemRead,
@@ -34,7 +36,7 @@ from app.services import (
     reading_feedback_service,
     record_service,
 )
-from app.services.record_service import ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
 
 router = APIRouter(tags=["records"])
 
@@ -64,13 +66,32 @@ def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]
     ]
 
 
-def _serialize_record(target_date: dt.date, record: DailyRecord | None) -> DailyRecordRead:
+def _to_diary_entry_items(inputs: list[DiaryEntryInput]) -> list[DiaryEntryItem]:
+    return [
+        DiaryEntryItem(
+            goal_id=item.goal_id, diary_body=item.diary_body, diary_learned=item.diary_learned
+        )
+        for item in inputs
+    ]
+
+
+def _serialize_record(
+    session: Session, target_date: dt.date, record: DailyRecord | None
+) -> DailyRecordRead:
     """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。"""
+    diary_entries = record_service.get_diary_entries(session, record) if record else []
     return DailyRecordRead(
         record_date=target_date,
         record_state=record.record_state if record else None,
-        diary_body=record.diary_body if record else None,
-        diary_learned=record.diary_learned if record else None,
+        diary_entries=[
+            DiaryEntryRead(
+                goal_id=entry.goal_id,
+                goal_name=entry.goal_name,
+                diary_body=entry.diary_body,
+                diary_learned=entry.diary_learned,
+            )
+            for entry in diary_entries
+        ],
         reported_at=record.reported_at if record else None,
         study_logs=[
             StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
@@ -100,7 +121,7 @@ def get_today(session: Session = Depends(get_db)) -> TodayRead:
 @router.get("/records/{target_date}", response_model=DailyRecordRead)
 def get_record(target_date: dt.date, session: Session = Depends(get_db)) -> DailyRecordRead:
     record = record_service.get_daily_record(session, target_date)
-    return _serialize_record(target_date, record)
+    return _serialize_record(session, target_date, record)
 
 
 @router.post("/records/{target_date}/progress", response_model=DailyRecordRead)
@@ -116,7 +137,7 @@ def register_progress(
         _to_reading_log_items(payload.reading_logs),
     )
     session.commit()
-    return _serialize_record(target_date, record)
+    return _serialize_record(session, target_date, record)
 
 
 @router.post("/records/{target_date}/finalize", response_model=DailyRecordRead)
@@ -128,13 +149,12 @@ def finalize_record(
         session,
         target_date,
         _to_study_log_items(payload.study_logs),
-        payload.diary_body,
-        payload.diary_learned,
+        _to_diary_entry_items(payload.diary_entries),
         today,
         _to_reading_log_items(payload.reading_logs),
     )
     session.commit()
-    return _serialize_record(target_date, record)
+    return _serialize_record(session, target_date, record)
 
 
 @router.post("/records/{target_date}/chat", response_model=ChatResponse)
@@ -151,12 +171,11 @@ def chat(
         today=today,
         message=payload.message,
         study_log_items=_to_study_log_items(payload.study_logs),
-        diary_body=payload.diary_body,
-        diary_learned=payload.diary_learned,
+        diary_entries=_to_diary_entry_items(payload.diary_entries),
     )
     session.commit()
     return ChatResponse(
-        record=_serialize_record(target_date, outcome.daily_record),
+        record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
     )
@@ -180,7 +199,7 @@ def reading_chat(
     )
     session.commit()
     return ChatResponse(
-        record=_serialize_record(target_date, outcome.daily_record),
+        record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
     )
@@ -198,6 +217,8 @@ def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[
             planned_cycles=item.planned_cycles,
             daily_quota=item.daily_quota,
             quality_metric_type=item.quality_metric_type,
+            goal_id=item.goal_id,
+            goal_name=item.goal_name,
         )
         for item in items
     ]

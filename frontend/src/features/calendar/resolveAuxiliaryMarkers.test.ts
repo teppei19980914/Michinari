@@ -22,8 +22,10 @@ function makeGoal(overrides: Partial<GoalDetailRead>): GoalDetailRead {
 }
 
 describe('resolveAuxiliaryMarkers', () => {
-  it('marks a fixed exam date', () => {
+  it('marks a fixed exam date, attributed to the goal', () => {
     const goal = makeGoal({
+      id: 1,
+      name: '目標A',
       exam_subjects: [
         {
           id: 1,
@@ -40,7 +42,9 @@ describe('resolveAuxiliaryMarkers', () => {
         },
       ],
     })
-    expect(resolveAuxiliaryMarkers('2026-08-24', [goal])).toEqual(['EXAM_DATE'])
+    expect(resolveAuxiliaryMarkers('2026-08-24', [goal])).toEqual([
+      { marker: 'EXAM_DATE', goal_id: 1, goal_name: '目標A' },
+    ])
   })
 
   it('marks an exam period (range type) inclusively', () => {
@@ -61,8 +65,12 @@ describe('resolveAuxiliaryMarkers', () => {
         },
       ],
     })
-    expect(resolveAuxiliaryMarkers('2026-08-20', [goal])).toEqual(['EXAM_PERIOD'])
-    expect(resolveAuxiliaryMarkers('2026-08-26', [goal])).toEqual(['EXAM_PERIOD'])
+    expect(resolveAuxiliaryMarkers('2026-08-20', [goal])).toEqual([
+      { marker: 'EXAM_PERIOD', goal_id: 1, goal_name: '目標A' },
+    ])
+    expect(resolveAuxiliaryMarkers('2026-08-26', [goal])).toEqual([
+      { marker: 'EXAM_PERIOD', goal_id: 1, goal_name: '目標A' },
+    ])
     expect(resolveAuxiliaryMarkers('2026-08-27', [goal])).toEqual([])
   })
 
@@ -77,13 +85,53 @@ describe('resolveAuxiliaryMarkers', () => {
         { id: 1, goal_id: 1, date_from: '2026-08-01', date_to: '2026-08-31', coefficient: 1, note: null },
       ],
     })
-    expect(resolveAuxiliaryMarkers('2026-08-15', [adjusted])).toEqual(['LOAD_ADJUSTED'])
+    expect(resolveAuxiliaryMarkers('2026-08-15', [adjusted])).toEqual([
+      { marker: 'LOAD_ADJUSTED', goal_id: 1, goal_name: '目標A' },
+    ])
     expect(resolveAuxiliaryMarkers('2026-08-15', [unadjusted])).toEqual([])
   })
 
-  it('combines markers across multiple active goals without duplicates', () => {
+  it('deduplicates repeated markers of the same kind within a single goal', () => {
+    const goal = makeGoal({
+      id: 1,
+      exam_subjects: [
+        {
+          id: 1,
+          goal_id: 1,
+          name: '科目A',
+          exam_date_type: 'FIXED',
+          exam_date_from: null,
+          exam_date_to: null,
+          exam_date_fixed: '2026-08-24',
+          passing_score: null,
+          passing_score_type: 'PERCENTAGE',
+          passing_score_max: null,
+          display_order: 1,
+        },
+        {
+          id: 2,
+          goal_id: 1,
+          name: '科目B',
+          exam_date_type: 'FIXED',
+          exam_date_from: null,
+          exam_date_to: null,
+          exam_date_fixed: '2026-08-24',
+          passing_score: null,
+          passing_score_type: 'PERCENTAGE',
+          passing_score_max: null,
+          display_order: 2,
+        },
+      ],
+    })
+    expect(resolveAuxiliaryMarkers('2026-08-24', [goal])).toEqual([
+      { marker: 'EXAM_DATE', goal_id: 1, goal_name: '目標A' },
+    ])
+  })
+
+  it('attributes markers from multiple active goals to their own goal, without cross-goal deduplication', () => {
     const goalWithExam = makeGoal({
       id: 1,
+      name: '目標A',
       exam_subjects: [
         {
           id: 1,
@@ -102,12 +150,62 @@ describe('resolveAuxiliaryMarkers', () => {
     })
     const goalWithLoad = makeGoal({
       id: 2,
+      name: '目標B',
       load_profiles: [
         { id: 1, goal_id: 2, date_from: '2026-08-24', date_to: '2026-08-24', coefficient: 2, note: null },
       ],
     })
-    expect(resolveAuxiliaryMarkers('2026-08-24', [goalWithExam, goalWithLoad]).sort()).toEqual(
-      ['EXAM_DATE', 'LOAD_ADJUSTED'].sort(),
-    )
+    expect(resolveAuxiliaryMarkers('2026-08-24', [goalWithExam, goalWithLoad])).toEqual([
+      { marker: 'EXAM_DATE', goal_id: 1, goal_name: '目標A' },
+      { marker: 'LOAD_ADJUSTED', goal_id: 2, goal_name: '目標B' },
+    ])
+  })
+
+  it('keeps both goals visible when they share the same marker kind on the same date', () => {
+    const goalA = makeGoal({
+      id: 1,
+      name: '目標A',
+      exam_subjects: [
+        {
+          id: 1,
+          goal_id: 1,
+          name: '科目A',
+          exam_date_type: 'FIXED',
+          exam_date_from: null,
+          exam_date_to: null,
+          exam_date_fixed: '2026-08-24',
+          passing_score: null,
+          passing_score_type: 'PERCENTAGE',
+          passing_score_max: null,
+          display_order: 1,
+        },
+      ],
+    })
+    const goalB = makeGoal({
+      id: 2,
+      name: '目標B',
+      exam_subjects: [
+        {
+          id: 2,
+          goal_id: 2,
+          name: '科目B',
+          exam_date_type: 'FIXED',
+          exam_date_from: null,
+          exam_date_to: null,
+          exam_date_fixed: '2026-08-24',
+          passing_score: null,
+          passing_score_type: 'PERCENTAGE',
+          passing_score_max: null,
+          display_order: 1,
+        },
+      ],
+    })
+
+    const result = resolveAuxiliaryMarkers('2026-08-24', [goalA, goalB])
+
+    // 目標をまたいだ重複排除は行わないため、同じ種別でも両方の目標分が残ること
+    // （旧Set実装ではここで片方が消えていた回帰）。
+    expect(result).toHaveLength(2)
+    expect(result.map((item) => item.goal_id).sort()).toEqual([1, 2])
   })
 })

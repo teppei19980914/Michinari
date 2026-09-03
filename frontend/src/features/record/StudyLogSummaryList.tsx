@@ -1,10 +1,12 @@
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { resolveQualityLabelKey } from './qualityInput'
 import type { components } from '../../types/api.d.ts'
 
 type StudyLogRead = components['schemas']['StudyLogRead']
+type QualityMetricType = components['schemas']['QualityMetricType']
 
-export type MaterialLabel = { name: string; unitLabel: string }
+export type MaterialLabel = { name: string; unitLabel: string; qualityMetricType: QualityMetricType }
 
 /** 実績の読み取り専用表示（SC-08 日次報告閲覧、および進捗のみ登録済で2日以上前の閲覧、
  * 仕様書6.7）。教材名・単位はGET /records/{date}/quotaから取得したものを
@@ -51,7 +53,11 @@ export function StudyLogSummaryList({
               </div>
               {log.quality_value !== null && (
                 <div>
-                  <dt className="text-gray-400">{t('dailyReportView.studyLog.qualityLabel')}</dt>
+                  <dt className="text-gray-400">
+                    {label
+                      ? t(resolveQualityLabelKey(label.qualityMetricType))
+                      : t('dailyReportView.studyLog.qualityLabel')}
+                  </dt>
                   <dd>{log.quality_value}</dd>
                 </div>
               )}
