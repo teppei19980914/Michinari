@@ -1,10 +1,13 @@
 """会話とフォルダの管理（設計書 ロジック・プロンプト編16.3、データ構造編5.5 ai_conversation）。
 
-用途と日付ごとに会話を分離する。フォルダは目標ごとに作成する（週次要約・総括レポートが
-対象。日次報告・今日の一言は複数の目標にまたがりうるため goal_id=NULL とし、フォルダに
-紐付けない — ai_conversationのgoal_id列がNULL許容である設計（5.5）を日次報告にも適用した
-実装判断。目標が単一の場合と挙動は変わらないが、複数目標が同時にACTIVEな場合の folder 帰属が
-設計書で明記されていないため、この整理で解決する）。
+用途と日付ごとに会話を分離する（16.3手順1〜3）。フォルダは目標ごとに
+"{ai.folder_prefix}_{目標名}" として作成する。日次報告は複数の目標にまたがりうるため
+goal_id=NULL とする（ai_conversationのgoal_id列がNULL許容である設計、5.5）。今日の一言は
+目標ごとに独立して生成するため goal=goal を渡すが、ACTIVEな目標が1件も無い日のみ
+goal_id=NULL とする（未決事項L-04、daily_message_service参照）。goal_id=NULL の会話は
+ai.folder_prefix が指す共通フォルダ（既定値「ミチナリ」）配下に作成する。NewtonX側で
+フォルダを削除するだけでアプリ由来の会話を一括解放できるようにする運用要件のため、
+goal非依存の会話も無条件でフォルダに収める。
 """
 
 from sqlalchemy.orm import Session
@@ -51,14 +54,11 @@ def ensure_conversation(
     if existing is not None:
         return existing
 
-    if goal is not None:
-        folder_prefix = setting_reader.get_str(session, AI_FOLDER_PREFIX)
-        folder_name = f"{folder_prefix}_{goal.name}"
-        chat_uid = ai_client.create_chat_in_folder_by_name(
-            session, assistant_uid=assistant_uid, folder_name=folder_name, title=title
-        )
-    else:
-        chat_uid = ai_client.create_chat(session, assistant_uid=assistant_uid, title=title)
+    folder_prefix = setting_reader.get_str(session, AI_FOLDER_PREFIX)
+    folder_name = f"{folder_prefix}_{goal.name}" if goal is not None else folder_prefix
+    chat_uid = ai_client.create_chat_in_folder_by_name(
+        session, assistant_uid=assistant_uid, folder_name=folder_name, title=title
+    )
 
     if not chat_uid:
         raise AiError("会話の作成に失敗しました")

@@ -58,6 +58,57 @@ export interface paths {
         patch: operations["update_goal_api_v1_goals__goal_id__patch"];
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Archive Goal */
+        patch: operations["archive_goal_api_v1_goals__goal_id__archive_patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Unarchive Goal */
+        patch: operations["unarchive_goal_api_v1_goals__goal_id__unarchive_patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/archived": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Archived Goal */
+        delete: operations["delete_archived_goal_api_v1_goals__goal_id__archived_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/activate": {
         parameters: {
             query?: never;
@@ -703,7 +754,7 @@ export interface paths {
         };
         /**
          * Get Daily Message
-         * @description 今日の一言を取得する。未生成なら生成する（データ構造編6.2）。
+         * @description 今日の一言を目標ごとに取得する。未生成の目標があれば生成する（データ構造編6.2）。
          */
         get: operations["get_daily_message_api_v1_daily_message_get"];
         put?: never;
@@ -1315,7 +1366,7 @@ export interface components {
          * ChatRequest
          * @description AI対話の実行（1往復）リクエスト（データ構造編6.2 POST /records/{date}/chat）。
          *
-         *     study_logs・diary_body・diary_learned はこの時点でDBへ確定させない下書き値であり、
+         *     study_logs・diary_entries はこの時点でDBへ確定させない下書き値であり、
          *     プロンプト組み立てにのみ使用する（AI呼び出し失敗時も入力を失わないため、16.7）。
          *     message は2往復目以降の自由入力。1往復目（本日最初の呼び出し）は省略できる。
          */
@@ -1324,16 +1375,8 @@ export interface components {
             message?: string | null;
             /** Study Logs */
             study_logs?: components["schemas"]["StudyLogInput"][];
-            /**
-             * Diary Body
-             * @default
-             */
-            diary_body: string;
-            /**
-             * Diary Learned
-             * @default
-             */
-            diary_learned: string;
+            /** Diary Entries */
+            diary_entries?: components["schemas"]["DiaryEntryInput"][];
         };
         /** ChatResponse */
         ChatResponse: {
@@ -1391,6 +1434,10 @@ export interface components {
              * Format: date
              */
             target_date: string;
+            /** Goal Id */
+            goal_id: number | null;
+            /** Goal Name */
+            goal_name: string | null;
             /** Body */
             body: string;
             /**
@@ -1407,10 +1454,8 @@ export interface components {
              */
             record_date: string;
             record_state: components["schemas"]["RecordState"] | null;
-            /** Diary Body */
-            diary_body: string | null;
-            /** Diary Learned */
-            diary_learned: string | null;
+            /** Diary Entries */
+            diary_entries: components["schemas"]["DiaryEntryRead"][];
             /** Reported At */
             reported_at: string | null;
             /** Study Logs */
@@ -1469,6 +1514,36 @@ export interface components {
             day_type: components["schemas"]["DayType"];
             /** Note */
             note?: string | null;
+        };
+        /**
+         * DiaryEntryInput
+         * @description 日記（目標別）の登録入力。本文・学んだこと両方が空の目標は送信対象から除外する
+         *     （フロントエンドのbuildDiaryEntriesPayloadと同じ考え方、StudyLogInputと同じ配列パターン）。
+         */
+        DiaryEntryInput: {
+            /** Goal Id */
+            goal_id: number;
+            /**
+             * Diary Body
+             * @default
+             */
+            diary_body: string;
+            /**
+             * Diary Learned
+             * @default
+             */
+            diary_learned: string;
+        };
+        /** DiaryEntryRead */
+        DiaryEntryRead: {
+            /** Goal Id */
+            goal_id: number | null;
+            /** Goal Name */
+            goal_name: string | null;
+            /** Diary Body */
+            diary_body: string | null;
+            /** Diary Learned */
+            diary_learned: string | null;
         };
         /** DisplaySettingsRead */
         DisplaySettingsRead: {
@@ -1553,16 +1628,8 @@ export interface components {
         FinalizeRequest: {
             /** Study Logs */
             study_logs?: components["schemas"]["StudyLogInput"][];
-            /**
-             * Diary Body
-             * @default
-             */
-            diary_body: string;
-            /**
-             * Diary Learned
-             * @default
-             */
-            diary_learned: string;
+            /** Diary Entries */
+            diary_entries?: components["schemas"]["DiaryEntryInput"][];
         };
         /**
          * ForecastAnalyticsRead
@@ -1678,6 +1745,19 @@ export interface components {
             /** Memo */
             memo?: string | null;
         };
+        /**
+         * GoalDeleteArchivedRequest
+         * @description アーカイブ済み目標の完全削除リクエスト（仕様書7.1.1、MD-08）。
+         *
+         *     画面上のチェックボックスは既定ONのため、cascade_study_logsの既定値もTrueとする。
+         */
+        GoalDeleteArchivedRequest: {
+            /**
+             * Cascade Study Logs
+             * @default true
+             */
+            cascade_study_logs: boolean;
+        };
         /** GoalDetailRead */
         GoalDetailRead: {
             /** Id */
@@ -1698,6 +1778,8 @@ export interface components {
             activated_at: string | null;
             /** Closed At */
             closed_at: string | null;
+            /** Archived At */
+            archived_at: string | null;
             /** Exam Subjects */
             exam_subjects: components["schemas"]["SubjectRead"][];
             /** Materials */
@@ -1725,6 +1807,8 @@ export interface components {
             activated_at: string | null;
             /** Closed At */
             closed_at: string | null;
+            /** Archived At */
+            archived_at: string | null;
         };
         /**
          * GoalStatsRead
@@ -2299,6 +2383,10 @@ export interface components {
             /** Daily Quota */
             daily_quota: number;
             quality_metric_type: components["schemas"]["QualityMetricType"];
+            /** Goal Id */
+            goal_id: number;
+            /** Goal Name */
+            goal_name: string;
         };
         /**
          * RecordState
@@ -2559,6 +2647,10 @@ export interface components {
             unit_label: string;
             /** Target Minutes */
             target_minutes: number | null;
+            /** Goal Id */
+            goal_id: number;
+            /** Goal Name */
+            goal_name: string;
         };
         /** TodayRead */
         TodayRead: {
@@ -2749,6 +2841,101 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GoalRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_goal_api_v1_goals__goal_id__archive_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unarchive_goal_api_v1_goals__goal_id__unarchive_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_archived_goal_api_v1_goals__goal_id__archived_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalDeleteArchivedRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4199,7 +4386,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DailyMessageRead"];
+                    "application/json": components["schemas"]["DailyMessageRead"][];
                 };
             };
         };

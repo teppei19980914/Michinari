@@ -190,6 +190,22 @@ def test_quota_zero_when_total_weight_is_zero(db_session):
     assert quota == 0.0
 
 
+def test_quota_zero_when_today_is_before_start_date(db_session):
+    """境界値: 今日がまだ教材の学習期間（開始日）に入っていない場合は0を返すこと。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, total_amount=100, due_date=dt.date(2026, 1, 10))
+    material.start_date = dt.date(2026, 1, 5)
+    db_session.flush()
+    _override_all_plan(db_session, dt.date(2026, 1, 1), dt.date(2026, 1, 10))
+    db_session.flush()
+
+    quota = quota_service.compute_material_quota(
+        db_session, goal, material, dt.date(2026, 1, 3), treat_holiday_as_buffer=True
+    )
+
+    assert quota == 0.0
+
+
 def test_quota_zero_when_no_plan_days_remain_before_deadline(db_session):
     """境界値: 残計画日が0の場合に例外が発生しないこと（締切超過状態でノルマ0）。"""
     goal = _make_goal(db_session)

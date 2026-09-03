@@ -25,7 +25,12 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'goals',
     titleKey: 'help.sections.goals.title',
-    bodyKeys: ['help.sections.goals.p1', 'help.sections.goals.p2', 'help.sections.goals.p3'],
+    bodyKeys: [
+      'help.sections.goals.p1',
+      'help.sections.goals.p2',
+      'help.sections.goals.p3',
+      'help.sections.goals.p4',
+    ],
   },
   {
     id: 'resources',

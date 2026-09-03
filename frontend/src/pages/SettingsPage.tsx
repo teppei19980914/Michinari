@@ -29,6 +29,9 @@ export function SettingsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{t('settings.title')}</h1>
         <div className="flex gap-4">
+          <Link to={ROUTES.resources} className="text-sm text-blue-600 hover:underline">
+            {t('settings.resourcesLink')}
+          </Link>
           <Link to={ROUTES.settingsSystemInfo} className="text-sm text-blue-600 hover:underline">
             {t('settings.systemInfoLink')}
           </Link>

@@ -39,7 +39,7 @@ def _validate_slot_fields(
     if start_time >= end_time:
         raise ValidationError("開始時刻は終了時刻より前にしてください")
     if environment == Environment.ANY:
-        raise ValidationError("環境タグはPCまたは携帯端末を指定してください")
+        raise ValidationError("環境タグは机上のみまたは移動中でも可を指定してください")
     if not weekdays:
         raise ValidationError("適用曜日を1件以上指定してください")
     if not set(weekdays) <= _VALID_WEEKDAYS:

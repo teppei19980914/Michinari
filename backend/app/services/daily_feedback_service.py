@@ -26,7 +26,7 @@ from app.services import (
     setting_reader,
 )
 from app.services.exceptions import ValidationError
-from app.services.record_service import StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 
 @dataclass(frozen=True)
@@ -43,8 +43,7 @@ def send_daily_feedback(
     today: dt.date,
     message: str | None,
     study_log_items: list[StudyLogItem],
-    diary_body: str,
-    diary_learned: str,
+    diary_entries: list[DiaryEntryItem],
 ) -> ChatOutcome:
     """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/chat）。"""
     if target_date > today:
@@ -84,6 +83,8 @@ def send_daily_feedback(
     # フィードバック依頼として扱う（17.2の変数群で状況は伝わるため、対話履歴には積まない）。
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
+
+    diary_body, diary_learned = ai_context_service.build_diary_text(diary_entries, active_goals)
 
     context = prompt_builder.DailyFeedbackContext(
         today=target_date.isoformat(),

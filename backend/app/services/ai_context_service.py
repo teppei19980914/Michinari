@@ -24,7 +24,7 @@ from app.constants.enums import (
 )
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyRecord, StudyLog, WeeklySummary
+from app.models.record import DailyGoalDiary, DailyRecord, StudyLog, WeeklySummary
 from app.services import (
     baseline_service,
     calendar_service,
@@ -36,7 +36,7 @@ from app.services import (
     speed_service,
 )
 from app.services import slot_service as slot_service_module
-from app.services.record_service import StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 #: 総括レポート向けの月次集約粒度（ロジック・プロンプト編17.5「{{quality_trend}}:
 #: 品質指標の推移（周回別、月次集約）」）。
@@ -76,6 +76,28 @@ def _group_materials_by_goal(materials: list[Material]) -> dict[int, list[Materi
     for material in materials:
         by_goal[material.goal_id].append(material)
     return by_goal
+
+
+def build_diary_text(entries: list[DiaryEntryItem], goals: list[Goal]) -> tuple[str, str]:
+    """{{diary_body}}/{{diary_learned}}: 複数目標分の日記エントリを1本の文字列に整形する
+    （17.2）。内容のある目標が2件以上のときのみ`■ 目標名`見出しを付けて結合し、1件のみ
+    なら見出しなしでそのまま返す（既存の単一目標運用時のプロンプト出力を変えない）。
+    """
+    goal_names = {goal.id: goal.name for goal in goals}
+
+    def join_texts(texts: list[tuple[int, str]]) -> str:
+        non_empty = [(goal_id, text) for goal_id, text in texts if text]
+        if not non_empty:
+            return ""
+        if len(non_empty) == 1:
+            return non_empty[0][1]
+        return "\n\n".join(
+            f"■ {goal_names.get(goal_id, '')}\n{text}" for goal_id, text in non_empty
+        )
+
+    diary_body = join_texts([(entry.goal_id, entry.diary_body) for entry in entries])
+    diary_learned = join_texts([(entry.goal_id, entry.diary_learned) for entry in entries])
+    return diary_body, diary_learned
 
 
 def _format_days_remaining(today: dt.date, target: dt.date) -> str:
@@ -247,23 +269,41 @@ def build_progress_summary(
 def build_recent_activity_text(
     session: Session, goals: list[Goal], today: dt.date, lookback_days: int = 7
 ) -> str:
-    """{{recent_activity}}: 直近N日間の報告状況と実績（17.4、既定7日）。"""
+    """{{recent_activity}}: 直近N日間の報告状況と実績（17.4、既定7日）。
+
+    渡された目標群の教材に紐づくstudy_logのみを集計する（他目標の実績が混入しないよう
+    study_log.material_idで絞り込む、未決事項L-04関連。「今日の一言」を目標ごとに独立
+    生成する際、他目標の活動量が混ざらないようにするために必須）。
+    """
     if not goals:
         return "（進行中の目標はありません）"
+    material_ids = [material.id for goal in goals for material in goal.materials]
+    if not material_ids:
+        return "（対象教材はありません）"
     period_start = today - dt.timedelta(days=lookback_days - 1)
-    records = (
-        session.query(DailyRecord)
-        .filter(DailyRecord.record_date >= period_start, DailyRecord.record_date <= today)
-        .order_by(DailyRecord.record_date)
+    rows = (
+        session.query(
+            DailyRecord.record_date, DailyRecord.record_state, StudyLog.amount_completed
+        )
+        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(
+            StudyLog.material_id.in_(material_ids),
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= today,
+        )
         .all()
     )
-    if not records:
+    if not rows:
         return "（直近の実績はありません）"
-    lines = []
-    for record in records:
-        state_text = "報告済み" if record.record_state == RecordState.REPORTED else "進捗のみ"
-        total_amount = sum(log.amount_completed for log in record.study_logs)
-        lines.append(f"・{record.record_date.isoformat()}: {state_text}、完了量計 {total_amount}")
+    totals: dict[tuple[dt.date, RecordState], float] = defaultdict(float)
+    for record_date, record_state, amount in rows:
+        totals[(record_date, record_state)] += amount
+    lines = [
+        f"・{record_date.isoformat()}: "
+        f"{'報告済み' if record_state == RecordState.REPORTED else '進捗のみ'}、"
+        f"完了量計 {amount}"
+        for (record_date, record_state), amount in sorted(totals.items())
+    ]
     return "\n".join(lines)
 
 
@@ -325,11 +365,21 @@ def build_week_logs_text(
     return "\n".join(lines)
 
 
-def build_week_diaries_text(session: Session, week_start: dt.date, week_end: dt.date) -> str:
-    """{{week_diaries}}: 週内の日記（行動・所感、学んだこと、17.3）。"""
-    records = (
-        session.query(DailyRecord)
+def build_week_diaries_text(
+    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+) -> str:
+    """{{week_diaries}}: 週内の日記（行動・所感、学んだこと、17.3）。
+
+    日記は目標別（DailyGoalDiary）に保持しているため、goal_idで絞り込む
+    （複数目標が同時進行していた週に他目標の日記が混入しないようにする、L-04関連）。
+    """
+    rows = (
+        session.query(
+            DailyRecord.record_date, DailyGoalDiary.diary_body, DailyGoalDiary.diary_learned
+        )
+        .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
         .filter(
+            DailyGoalDiary.goal_id == goal.id,
             DailyRecord.record_date >= week_start,
             DailyRecord.record_date <= week_end,
             DailyRecord.record_state == RecordState.REPORTED,
@@ -337,13 +387,13 @@ def build_week_diaries_text(session: Session, week_start: dt.date, week_end: dt.
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not records:
+    if not rows:
         return "（この週の日記はありません）"
     return "\n\n".join(
-        f"【{record.record_date.isoformat()}】\n"
-        f"行動・所感: {record.diary_body or ''}\n"
-        f"学んだこと: {record.diary_learned or ''}"
-        for record in records
+        f"【{record_date.isoformat()}】\n"
+        f"行動・所感: {diary_body or ''}\n"
+        f"学んだこと: {diary_learned or ''}"
+        for record_date, diary_body, diary_learned in rows
     )
 
 

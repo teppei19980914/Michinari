@@ -60,6 +60,8 @@ class TodayQuotaEntryRead(BaseModel):
     daily_quota: float
     unit_label: str
     target_minutes: float | None
+    goal_id: int
+    goal_name: str
 
 
 class DashboardRead(BaseModel):
