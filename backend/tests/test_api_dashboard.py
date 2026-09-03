@@ -310,7 +310,7 @@ def test_dashboard_multiple_active_goals_each_produce_own_card_and_stats(client)
 
 def test_dashboard_reading_goal_card_shows_book_progress(client, seeded_session):
     """読書目標のカードは日次ノルマ等ではなく書籍の派生値（残日数・ページ進捗）で表示する
-    （要件定義書R-66、実装フェーズ分割計画書Phase17）。"""
+    （要件定義書R-71、実装フェーズ分割計画書Phase17）。"""
     goal = client.post(
         "/api/v1/goals",
         json={"category": "READING", "name": "読書目標A", "start_date": TODAY.isoformat()},

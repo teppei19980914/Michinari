@@ -29,7 +29,7 @@ function formatForecastDeviation(days: number | null): string {
 
 type GoalCard = DashboardRead['goal_cards'][number]
 
-/** 読書目標のカード内容（仕様書6.1、要件定義書R-66「ノルマではなく残日数・直近記録日・
+/** 読書目標のカード内容（仕様書6.1、要件定義書R-71「ノルマではなく残日数・直近記録日・
  * 連続記録日数」）。完了予測日との乖離は表示しない（EXAM専用の計画管理のため）。 */
 function ReadingGoalCard({ goal }: { goal: GoalCard }) {
   const book = goal.book

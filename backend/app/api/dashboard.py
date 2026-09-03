@@ -209,7 +209,7 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
             effective_speed_by_material,
         )
         if goal.category == GoalCategory.READING and goal.book is not None:
-            # 読書目標は残日数・ページ進捗（任意）を書籍の派生値で表示する（要件定義書R-66）。
+            # 読書目標は残日数・ページ進捗（任意）を書籍の派生値で表示する（要件定義書R-71）。
             # 完了予測日との乖離・警告・強制リプランは対象外（EXAM専用の計画管理のため）。
             book_read = serialize_book(session, goal.book)
             card = card.model_copy(
