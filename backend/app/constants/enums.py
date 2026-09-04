@@ -12,10 +12,11 @@ class GoalStatus(enum.StrEnum):
 
 
 class GoalCategory(enum.StrEnum):
-    """目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型。"""
+    """目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型、WORKは定期報告型。"""
 
     EXAM = "EXAM"
     READING = "READING"
+    WORK = "WORK"
 
 
 class ExamDateType(enum.StrEnum):
@@ -80,6 +81,9 @@ class AiPurpose(enum.StrEnum):
     GOAL_RETROSPECTIVE = "GOAL_RETROSPECTIVE"
     DAILY_FEEDBACK_READING = "DAILY_FEEDBACK_READING"
     GOAL_RETROSPECTIVE_READING = "GOAL_RETROSPECTIVE_READING"
+    DAILY_FEEDBACK_WORK = "DAILY_FEEDBACK_WORK"
+    GOAL_RETROSPECTIVE_WORK_MONTHLY = "GOAL_RETROSPECTIVE_WORK_MONTHLY"
+    GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
 
 
 class ConversationScope(enum.StrEnum):
@@ -89,6 +93,18 @@ class ConversationScope(enum.StrEnum):
     GOAL_RETROSPECTIVE = "GOAL_RETROSPECTIVE"
     DAILY_FEEDBACK_READING = "DAILY_FEEDBACK_READING"
     GOAL_RETROSPECTIVE_READING = "GOAL_RETROSPECTIVE_READING"
+    DAILY_FEEDBACK_WORK = "DAILY_FEEDBACK_WORK"
+    GOAL_RETROSPECTIVE_WORK_MONTHLY = "GOAL_RETROSPECTIVE_WORK_MONTHLY"
+    GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
+
+
+class RetrospectivePeriodType(enum.StrEnum):
+    """goal_retrospective.period_type（WORKの月次報告・半期評価のみ使用。設計書
+    データ構造編5.4「goal_retrospective（総括レポート／読了レポート／定期報告）」）。
+    """
+
+    MONTHLY = "MONTHLY"
+    SEMI_ANNUAL = "SEMI_ANNUAL"
 
 
 class ExportFormat(enum.StrEnum):

@@ -22,6 +22,14 @@ AI_ASSISTANT_UID_GOAL_RETROSPECTIVE = "ai.assistant_uid.goal_retrospective"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_READING = "ai.assistant_uid.daily_feedback_reading"
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING = "ai.assistant_uid.goal_retrospective_reading"
 AI_READING_RECALL_RECENT_DAYS = "ai.reading_recall_recent_days"
+AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK = "ai.assistant_uid.daily_feedback_work"
+AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY = (
+    "ai.assistant_uid.goal_retrospective_work_monthly"
+)
+AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = (
+    "ai.assistant_uid.goal_retrospective_work_semiannual"
+)
+AI_WORK_RECENT_LOG_DAYS = "ai.work_recent_log_days"
 AI_FOLDER_PREFIX = "ai.folder_prefix"
 AI_TIMEOUT_SECONDS = "ai.timeout_seconds"
 AI_MAX_RETRIES = "ai.max_retries"

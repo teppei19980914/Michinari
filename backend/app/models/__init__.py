@@ -15,6 +15,7 @@ from app.models.record import (
     RecordComment,
     StudyLog,
     WeeklySummary,
+    WorkLog,
 )
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
@@ -25,6 +26,7 @@ from app.models.setting import (
     Holiday,
     PromptTemplate,
 )
+from app.models.work import WorkAssignment
 
 __all__ = [
     "Base",
@@ -45,6 +47,8 @@ __all__ = [
     "StudyLog",
     "Book",
     "ReadingLog",
+    "WorkAssignment",
+    "WorkLog",
     "ChatMessage",
     "RecordComment",
     "DailyGoalDiary",

@@ -28,6 +28,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.book import Book
     from app.models.goal import ExamSubject, Goal
     from app.models.material import Material
+    from app.models.work import WorkAssignment
 
 
 class DailyRecord(CreatedAtMixin, Base):
@@ -46,6 +47,9 @@ class DailyRecord(CreatedAtMixin, Base):
         back_populates="daily_record", cascade="all, delete-orphan"
     )
     reading_logs: Mapped[list["ReadingLog"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    work_logs: Mapped[list["WorkLog"]] = relationship(
         back_populates="daily_record", cascade="all, delete-orphan"
     )
     chat_messages: Mapped[list["ChatMessage"]] = relationship(
@@ -103,6 +107,32 @@ class ReadingLog(CreatedAtMixin, Base):
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="reading_logs")
     book: Mapped["Book"] = relationship(back_populates="reading_logs")
+
+
+class WorkLog(CreatedAtMixin, Base):
+    """業務記録。study_logの仕事版（定量実績ではなく当日の業務内容を自由記述1本で保持する。
+    人間関係・成果・学び等をタグ分けした個別列は持たない。要件定義書6.11本文）。
+    """
+
+    __tablename__ = "work_log"
+    __table_args__ = (
+        UniqueConstraint(
+            "work_assignment_id", "daily_record_id", name="uq_work_log_assignment_record"
+        ),
+        Index("ix_work_log_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    work_assignment_id: Mapped[int] = mapped_column(
+        ForeignKey("work_assignment.id"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="work_logs")
+    work_assignment: Mapped["WorkAssignment"] = relationship(back_populates="work_logs")
 
 
 class ChatMessage(CreatedAtMixin, Base):
