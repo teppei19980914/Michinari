@@ -437,7 +437,9 @@
     "backToGoal": "目標一覧へ戻る",
     "retrospective": {
       "title": "総括レポート",
+      "readingTitle": "読了レポート",
       "empty": "総括レポートは未生成です",
+      "readingEmpty": "読了レポートは未生成です",
       "generateButton": "生成する",
       "regenerateButton": "再生成する",
       "generating": "生成しています…（数十秒かかる場合があります）"
@@ -449,25 +451,32 @@
       "reportRate": "報告率",
       "replanCount": "リプラン回数",
       "latestQuality": "最終到達品質",
-      "unavailable": "算出不可"
+      "unavailable": "算出不可",
+      "readingTitle": "読書サマリ",
+      "recordDays": "記録日数",
+      "maxStreakDays": "最長連続記録日数"
     },
     "selection": {
       "title": "出力項目選択",
       "goalOverview": "目標概要",
       "materials": "教材構成",
       "summary": "学習量サマリ",
+      "readingSummary": "読書サマリ",
       "dailyRecords": "実績推移",
+      "readingDailyRecords": "日別の想起記録",
       "qualityTrend": "品質指標推移",
       "replanHistory": "リプラン履歴",
       "weeklySummaries": "週次要約",
       "diary": "日記本文",
       "aiDialogue": "AI対話履歴",
       "examResults": "受験結果",
-      "retrospective": "総括レポート"
+      "retrospective": "総括レポート",
+      "readingRetrospective": "読了レポート"
     },
     "anonymize": {
       "label": "匿名化する",
-      "description": "有効にすると日記本文を除外し、週次要約・総括レポートを匿名化版として再生成します"
+      "description": "有効にすると日記本文を除外し、週次要約・総括レポートを匿名化版として再生成します",
+      "readingDescription": "有効にすると想起記録を除外し、読了レポートを匿名化版として再生成します"
     },
     "previewButton": "プレビュー",
     "previewTitle": "プレビュー",
