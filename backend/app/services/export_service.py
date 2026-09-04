@@ -424,7 +424,9 @@ def build_export_data(
     }
 
     if goal.category == GoalCategory.READING:
-        return _build_reading_export_data(session, goal, selection, anonymized=anonymized, data=data)
+        return _build_reading_export_data(
+            session, goal, selection, anonymized=anonymized, data=data
+        )
 
     materials = [material for material in goal.materials if material.is_active]
 
