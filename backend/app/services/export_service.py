@@ -334,7 +334,7 @@ def _compute_max_streak_days(record_dates: set[dt.date]) -> int:
         return 0
     sorted_dates = sorted(record_dates)
     longest = current = 1
-    for previous, current_date in zip(sorted_dates, sorted_dates[1:]):
+    for previous, current_date in zip(sorted_dates, sorted_dates[1:], strict=False):
         if current_date - previous == dt.timedelta(days=1):
             current += 1
             longest = max(longest, current)
