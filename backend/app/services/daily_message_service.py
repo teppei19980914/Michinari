@@ -39,7 +39,9 @@ def _generate_for_goal(
         "today": today.isoformat(),
         "day_type": day_type_value,
         "goal_summary": ai_context_service.build_goal_summary(goals, today),
-        "progress_summary": ai_context_service.build_progress_summary(session, materials),
+        "progress_summary": ai_context_service.build_progress_summary(
+            session, materials, today
+        ),
         "recent_activity": ai_context_service.build_recent_activity_text(session, goals, today),
     }
 
