@@ -11,6 +11,11 @@ export type ExportSummary = {
   report_rate: number
   replan_count: number
 }
+/** 読書目標の学習サマリ（設計書データ構造編7.1「読書目標の場合」）。 */
+export type ReadingExportSummary = {
+  record_days: number
+  max_streak_days: number
+}
 
 /**
  * 学習サマリの「最終到達品質」（仕様書6.10）を算出する。

@@ -20,6 +20,7 @@ import {
   computeLatestQualityValue,
   type ExportSummary,
   type QualityTrendEntry,
+  type ReadingExportSummary,
 } from '../features/export/knowledgeExportSummary'
 
 const DEFAULT_SELECTION: ExportSelection = {
@@ -36,21 +37,70 @@ const DEFAULT_SELECTION: ExportSelection = {
   retrospective: true,
 }
 
-const SELECTION_ITEMS: { field: keyof ExportSelection; labelKey: string }[] = [
+/** 教材構成・品質指標推移・リプラン履歴・週次要約・日記本文・AI対話履歴・受験結果は、
+ * 読書目標には該当データが無いため選択肢自体を表示しない（仕様書6.10「読書目標の場合」、
+ * 設計書データ構造編7.1）。summary・daily_records・retrospectiveは読書向けの読み替え
+ * ラベルを別途表示する。 */
+const SELECTION_ITEMS: {
+  field: keyof ExportSelection
+  labelKey: string
+  readingLabelKey?: string
+  hiddenForReading?: boolean
+}[] = [
   { field: 'goal_overview', labelKey: 'knowledgeExport.selection.goalOverview' },
-  { field: 'materials', labelKey: 'knowledgeExport.selection.materials' },
-  { field: 'summary', labelKey: 'knowledgeExport.selection.summary' },
-  { field: 'daily_records', labelKey: 'knowledgeExport.selection.dailyRecords' },
-  { field: 'quality_trend', labelKey: 'knowledgeExport.selection.qualityTrend' },
-  { field: 'replan_history', labelKey: 'knowledgeExport.selection.replanHistory' },
-  { field: 'weekly_summaries', labelKey: 'knowledgeExport.selection.weeklySummaries' },
-  { field: 'diary', labelKey: 'knowledgeExport.selection.diary' },
-  { field: 'ai_dialogue', labelKey: 'knowledgeExport.selection.aiDialogue' },
-  { field: 'exam_results', labelKey: 'knowledgeExport.selection.examResults' },
-  { field: 'retrospective', labelKey: 'knowledgeExport.selection.retrospective' },
+  { field: 'materials', labelKey: 'knowledgeExport.selection.materials', hiddenForReading: true },
+  {
+    field: 'summary',
+    labelKey: 'knowledgeExport.selection.summary',
+    readingLabelKey: 'knowledgeExport.selection.readingSummary',
+  },
+  {
+    field: 'daily_records',
+    labelKey: 'knowledgeExport.selection.dailyRecords',
+    readingLabelKey: 'knowledgeExport.selection.readingDailyRecords',
+  },
+  {
+    field: 'quality_trend',
+    labelKey: 'knowledgeExport.selection.qualityTrend',
+    hiddenForReading: true,
+  },
+  {
+    field: 'replan_history',
+    labelKey: 'knowledgeExport.selection.replanHistory',
+    hiddenForReading: true,
+  },
+  {
+    field: 'weekly_summaries',
+    labelKey: 'knowledgeExport.selection.weeklySummaries',
+    hiddenForReading: true,
+  },
+  { field: 'diary', labelKey: 'knowledgeExport.selection.diary', hiddenForReading: true },
+  {
+    field: 'ai_dialogue',
+    labelKey: 'knowledgeExport.selection.aiDialogue',
+    hiddenForReading: true,
+  },
+  {
+    field: 'exam_results',
+    labelKey: 'knowledgeExport.selection.examResults',
+    hiddenForReading: true,
+  },
+  {
+    field: 'retrospective',
+    labelKey: 'knowledgeExport.selection.retrospective',
+    readingLabelKey: 'knowledgeExport.selection.readingRetrospective',
+  },
 ]
 
-function RetrospectiveSection({ goalId, anonymize }: { goalId: number; anonymize: boolean }) {
+function RetrospectiveSection({
+  goalId,
+  anonymize,
+  isReading,
+}: {
+  goalId: number
+  anonymize: boolean
+  isReading: boolean
+}) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const retrospectiveQuery = useQuery({
@@ -70,13 +120,21 @@ function RetrospectiveSection({ goalId, anonymize }: { goalId: number; anonymize
 
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('knowledgeExport.retrospective.title')}</h2>
+      <h2 className="font-medium text-gray-900">
+        {t(
+          isReading ? 'knowledgeExport.retrospective.readingTitle' : 'knowledgeExport.retrospective.title',
+        )}
+      </h2>
       {mutation.isPending ? (
         <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.generating')}</p>
       ) : body ? (
         <p className="whitespace-pre-wrap text-sm text-gray-700">{body}</p>
       ) : (
-        <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.empty')}</p>
+        <p className="text-sm text-gray-500">
+          {t(
+            isReading ? 'knowledgeExport.retrospective.readingEmpty' : 'knowledgeExport.retrospective.empty',
+          )}
+        </p>
       )}
       <div>
         <Button
