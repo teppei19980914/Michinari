@@ -30,12 +30,19 @@ def test_patch_settings_updates_only_specified_group(client):
 
 def test_get_settings_includes_reading_assistant_uids_and_recall_window(client):
     """読書用のアシスタント設定・想起注入日数が設定画面（GET/PATCH /settings）から
-    変更可能であること（仕様書6.11「全ての設定項目を画面上から変更可能」、Phase16）。"""
+    変更可能であり、実環境での疎通確認済みの既定値が入っていること
+    （仕様書6.11「全ての設定項目を画面上から変更可能」、8.9.1、12章S-07解消）。"""
     response = client.get("/api/v1/settings")
     assert response.status_code == 200
     body = response.json()
-    assert body["ai_connection"]["assistant_uid_daily_feedback_reading"] == ""
-    assert body["ai_connection"]["assistant_uid_goal_retrospective_reading"] == ""
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_reading"]
+        == "8ed280bb-3040-4ee3-9821-66bb7a4db125"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_goal_retrospective_reading"]
+        == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
+    )
     assert body["prompt_degradation"]["reading_recall_recent_days"] == 14
 
 

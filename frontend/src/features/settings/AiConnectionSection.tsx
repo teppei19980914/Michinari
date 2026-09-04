@@ -11,13 +11,33 @@ import { resolveReauthOutcome } from './aiReauthOutcome'
 
 const ASSISTANT_FIELDS = [
   { field: 'assistant_uid_daily_feedback', labelKey: 'settings.aiConnection.assistant.dailyFeedback' },
+  {
+    field: 'assistant_uid_daily_feedback_reading',
+    labelKey: 'settings.aiConnection.assistant.dailyFeedbackReading',
+  },
   { field: 'assistant_uid_weekly_summary', labelKey: 'settings.aiConnection.assistant.weeklySummary' },
   { field: 'assistant_uid_daily_message', labelKey: 'settings.aiConnection.assistant.dailyMessage' },
   {
     field: 'assistant_uid_goal_retrospective',
     labelKey: 'settings.aiConnection.assistant.goalRetrospective',
   },
+  {
+    field: 'assistant_uid_goal_retrospective_reading',
+    labelKey: 'settings.aiConnection.assistant.goalRetrospectiveReading',
+  },
 ] as const
+
+// assistant_uid_*設定項目を画面に追加し忘れる回帰（読書用の2項目が長期間UI未対応だった実例）を
+// tscのビルドエラーとして検出するための網羅性チェック。型が一致しない場合はコンパイルが失敗する。
+type AssistantUidField = Extract<keyof AppSettingsRead['ai_connection'], `assistant_uid_${string}`>
+type DeclaredAssistantField = (typeof ASSISTANT_FIELDS)[number]['field']
+type _AssistantFieldsAreExhaustive = [AssistantUidField] extends [DeclaredAssistantField]
+  ? [DeclaredAssistantField] extends [AssistantUidField]
+    ? true
+    : never
+  : never
+const _assistantFieldsAreExhaustive: _AssistantFieldsAreExhaustive = true
+void _assistantFieldsAreExhaustive
 
 /** AI接続設定（仕様書6.11。Phase7完了条件「アシスタントが用途ごとに一覧から選択できる
  * （識別子の手入力を求めない）」）。接続用パラメータはHost・PATのみに絞る（UIの簡素化）。

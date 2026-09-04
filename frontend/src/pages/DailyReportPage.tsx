@@ -44,7 +44,11 @@ type ChatMessageRead = components['schemas']['ChatMessageRead']
  *
  * 読書目標の想起入力・AI対話（DAILY_FEEDBACK_READING）も同じ画面に統合するが、資格試験の
  * /chatとは別エンドポイント（/reading-chat）・別の対話履歴として扱う（データ構造編6.2）。
- * chat_messages配列はpurposeで両者が混在するため、表示時にフィルタする。 */
+ * chat_messages配列はpurposeで両者が混在するため、表示時にフィルタする。
+ *
+ * 着手中の目標が2件以上ある場合、目標タブで表示対象を切り替える（selectedGoalId）。
+ * 切り替えは表示のみに作用し、下書き値（studyLogValues等）は全目標分を常に保持したまま
+ * 一括で確定するため、非表示のタブに入力済みの内容が確定時に失われることはない。 */
 export function DailyReportPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
@@ -74,6 +78,7 @@ export function DailyReportPage() {
     {},
   )
   const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
   const [wasTruncated, setWasTruncated] = useState(false)
   const [readingWasTruncated, setReadingWasTruncated] = useState(false)
@@ -85,6 +90,12 @@ export function DailyReportPage() {
   const activeGoals = (goalsQuery.data ?? []).filter(
     (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
   )
+
+  // 着手中の目標が複数ある場合、日次報告の対象を目標単位で切り替えられるようにする
+  // （目標設定画面のカテゴリ選択と同様、選択肢はACTIVEな目標のみに絞る）。0〜1件のときは
+  // 切替の必要がないため、従来通り全項目を1画面に表示する（下記visible*・show*変数を参照）。
+  const reportableGoals = (goalsQuery.data ?? []).filter((goal) => goal.status === 'ACTIVE')
+  const showGoalSelector = reportableGoals.length > 1
 
   useEffect(() => {
     if (
@@ -111,6 +122,8 @@ export function DailyReportPage() {
       ),
     )
     setChatMessages(recordQuery.data.chat_messages)
+    const firstActiveGoal = goalsQuery.data.find((goal) => goal.status === 'ACTIVE')
+    setSelectedGoalId(firstActiveGoal?.id ?? null)
   }, [recordQuery.data, quotaQuery.data, readingBooksQuery.data, goalsQuery.data])
 
   const examMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
@@ -246,60 +259,120 @@ export function DailyReportPage() {
     return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
 
+  // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、selectedGoalIdに関わらず
+  // 常に全件をそのまま表示する（従来の挙動を維持し、切替UIがある場合にのみ絞り込む）。
+  const selectedGoal = showGoalSelector
+    ? reportableGoals.find((goal) => goal.id === selectedGoalId)
+    : undefined
+
+  const visibleQuotaItems = showGoalSelector
+    ? selectedGoal && selectedGoal.category === 'EXAM'
+      ? quotaQuery.data.filter((item) => item.goal_id === selectedGoal.id)
+      : []
+    : quotaQuery.data
+
+  const visibleDiaryGoals = showGoalSelector
+    ? selectedGoal && selectedGoal.category === 'EXAM'
+      ? [selectedGoal]
+      : []
+    : activeGoals
+
+  const visibleBooks = showGoalSelector
+    ? selectedGoal && selectedGoal.category === 'READING'
+      ? (readingBooksQuery.data ?? [])
+          .filter((entry) => entry.goal.id === selectedGoal.id)
+          .map((entry) => entry.book)
+      : []
+    : activeBooks
+
+  const showExamSection = showGoalSelector
+    ? !!selectedGoal && selectedGoal.category === 'EXAM'
+    : true
+  const showReadingSection = showGoalSelector
+    ? !!selectedGoal && selectedGoal.category === 'READING' && visibleBooks.length > 0
+    : activeBooks.length > 0
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">
         {t('dailyReport.title', { date: targetDate })}
       </h1>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-medium text-gray-900">{t('dailyReport.studyLog.title')}</h2>
-        <StudyLogFields
-          quotaItems={quotaQuery.data}
-          values={studyLogValues}
-          onChangeField={(materialId, field, value) =>
-            setStudyLogValues((current) => ({
-              ...current,
-              [materialId]: { ...current[materialId], [field]: value },
-            }))
-          }
-        />
-        <DiaryFields
-          activeGoals={activeGoals}
-          values={diaryValues}
-          onChangeField={(goalId, field, value) =>
-            setDiaryValues((current) => ({
-              ...current,
-              [goalId]: { ...current[goalId], [field]: value },
-            }))
-          }
-        />
-      </section>
+      {showGoalSelector && (
+        <div className="flex gap-1 overflow-x-auto border-b border-gray-200">
+          {reportableGoals.map((goal) => (
+            <button
+              key={goal.id}
+              type="button"
+              onClick={() => setSelectedGoalId(goal.id)}
+              className={`whitespace-nowrap px-3 py-2 text-sm font-medium ${
+                selectedGoalId === goal.id
+                  ? 'border-b-2 border-blue-600 text-blue-700'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {t(`goals.new.category.${goal.category}`)}
+              {' ・ '}
+              {goal.name}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-medium text-gray-900">{t('dailyReport.chat.title')}</h2>
-        {examMessages.length === 0 && (
-          <Button
-            disabled={chatMutation.isPending}
-            onClick={() => chatMutation.mutate(null)}
-          >
-            {t('dailyReport.chat.startButton')}
-          </Button>
-        )}
-        <ChatPanel
-          messages={examMessages}
-          wasTruncated={wasTruncated}
-          isSending={chatMutation.isPending}
-          onSend={examMessages.length > 0 ? (message) => chatMutation.mutate(message) : undefined}
-        />
-      </Card>
+      {showExamSection && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-medium text-gray-900">{t('dailyReport.studyLog.title')}</h2>
+          <StudyLogFields
+            quotaItems={visibleQuotaItems}
+            values={studyLogValues}
+            onChangeField={(materialId, field, value) =>
+              setStudyLogValues((current) => ({
+                ...current,
+                [materialId]: { ...current[materialId], [field]: value },
+              }))
+            }
+          />
+          <DiaryFields
+            activeGoals={visibleDiaryGoals}
+            values={diaryValues}
+            onChangeField={(goalId, field, value) =>
+              setDiaryValues((current) => ({
+                ...current,
+                [goalId]: { ...current[goalId], [field]: value },
+              }))
+            }
+          />
+        </section>
+      )}
 
-      {activeBooks.length > 0 && (
+      {showExamSection && (
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-medium text-gray-900">{t('dailyReport.chat.title')}</h2>
+          {examMessages.length === 0 && (
+            <Button
+              disabled={chatMutation.isPending}
+              onClick={() => chatMutation.mutate(null)}
+            >
+              {t('dailyReport.chat.startButton')}
+            </Button>
+          )}
+          <ChatPanel
+            messages={examMessages}
+            wasTruncated={wasTruncated}
+            isSending={chatMutation.isPending}
+            onSend={
+              examMessages.length > 0 ? (message) => chatMutation.mutate(message) : undefined
+            }
+          />
+        </Card>
+      )}
+
+      {showReadingSection && (
         <>
           <section className="flex flex-col gap-3">
             <h2 className="font-medium text-gray-900">{t('dailyReport.readingLog.title')}</h2>
             <ReadingLogFields
-              books={activeBooks}
+              books={visibleBooks}
               values={readingLogValues}
               onChangeField={(bookId, field, value) =>
                 setReadingLogValues((current) => ({

@@ -68,7 +68,7 @@ def preview_knowledge_export(
         treat_holiday_as_buffer=treat_holiday_as_buffer,
         anonymized=anonymized,
     )
-    markdown = export_service.render_markdown(data, selection)
+    markdown = export_service.render_markdown(data, selection, goal.category)
     return KnowledgeExportContentRead(data=data, markdown=markdown)
 
 

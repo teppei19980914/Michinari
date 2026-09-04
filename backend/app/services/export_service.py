@@ -16,10 +16,18 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.config import EXPORT_DIR
-from app.constants.enums import ChatRole, Granularity, PassingScoreType, RecordState
+from app.constants.enums import ChatRole, GoalCategory, Granularity, PassingScoreType, RecordState
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyGoalDiary, DailyRecord, StudyLog, WeeklySummary
+from app.models.record import (
+    ChatMessage,
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    StudyLog,
+    WeeklySummary,
+)
 from app.services import (
     baseline_service,
     cycle_service,
@@ -301,6 +309,99 @@ def _build_ai_dialogue(session: Session, goal: Goal) -> list[dict]:
     ]
 
 
+def _build_book(book: Book) -> dict:
+    return {
+        "title": book.title,
+        "author": book.author,
+        "total_pages": book.total_pages,
+        "start_date": book.start_date.isoformat(),
+        "due_date": book.due_date.isoformat(),
+    }
+
+
+def _reading_log_dates(session: Session, book: Book) -> set[dt.date]:
+    return {
+        row[0]
+        for row in session.query(DailyRecord.record_date)
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(ReadingLog.book_id == book.id)
+        .distinct()
+    }
+
+
+def _compute_max_streak_days(record_dates: set[dt.date]) -> int:
+    if not record_dates:
+        return 0
+    sorted_dates = sorted(record_dates)
+    longest = current = 1
+    for previous, current_date in zip(sorted_dates, sorted_dates[1:]):
+        if current_date - previous == dt.timedelta(days=1):
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 1
+    return longest
+
+
+def _build_reading_summary(session: Session, book: Book) -> dict:
+    """読書サマリ（設計書データ構造編7.1「読書目標の場合」）：記録日数・最長連続記録日数。"""
+    record_dates = _reading_log_dates(session, book)
+    return {
+        "record_days": len(record_dates),
+        "max_streak_days": _compute_max_streak_days(record_dates),
+    }
+
+
+def _build_reading_daily_records(session: Session, book: Book) -> list[dict]:
+    """日別の想起記録一覧（仕様書6.10「実績推移」は日別の想起記録一覧と読み替え）。"""
+    rows = (
+        session.query(
+            DailyRecord.record_date,
+            ReadingLog.recall_body,
+            ReadingLog.pages_read,
+            ReadingLog.current_page,
+        )
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(ReadingLog.book_id == book.id)
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    return [
+        {
+            "date": record_date.isoformat(),
+            "recall": recall_body,
+            "pages_read": pages_read,
+            "current_page": current_page,
+        }
+        for record_date, recall_body, pages_read, current_page in rows
+    ]
+
+
+def _build_reading_export_data(
+    session: Session, goal: Goal, selection: ExportSelection, *, anonymized: bool, data: dict
+) -> dict:
+    """読書目標（category=READING）向けのエクスポートデータ組み立て（仕様書6.10、
+    設計書データ構造編7.1「読書目標の場合」）。
+
+    教材構成・品質指標推移・受験結果・週次要約・リプラン履歴は該当データを持たないため
+    出力しない。日記本文・AI対話履歴も、想起記録（daily_records）がその代替であるため
+    出力しない（データ構造編7.3「日記本文・AI対話履歴は出力から除外する」）。
+    """
+    book = goal.book
+    if selection.goal_overview and book is not None:
+        data["book"] = _build_book(book)
+    if selection.summary and book is not None:
+        data["summary"] = _build_reading_summary(session, book)
+    if selection.daily_records and not anonymized and book is not None:
+        data["daily_records"] = _build_reading_daily_records(session, book)
+    if selection.retrospective:
+        retrospective = retrospective_service.get_latest_retrospective(
+            session, goal, anonymized=anonymized
+        )
+        data["retrospective"] = retrospective.body if retrospective is not None else None
+    return data
+
+
 def build_export_data(
     session: Session,
     goal: Goal,
@@ -316,12 +417,16 @@ def build_export_data(
     （元版へフォールバックしない。フォールバックすると匿名化の目的が果たせないため、
     未生成であれば空のまま返す。呼び出し元 execute_export が事前に匿名化版を生成する）。
     """
-    materials = [material for material in goal.materials if material.is_active]
     data: dict = {
         "schema_version": SCHEMA_VERSION,
         "exported_at": dt.datetime.now(dt.UTC).isoformat(),
         "anonymized": anonymized,
     }
+
+    if goal.category == GoalCategory.READING:
+        return _build_reading_export_data(session, goal, selection, anonymized=anonymized, data=data)
+
+    materials = [material for material in goal.materials if material.is_active]
 
     if selection.goal_overview:
         goal_data, subjects = _build_goal_and_subjects(goal)
@@ -356,8 +461,57 @@ def build_export_data(
     return data
 
 
-def render_markdown(data: dict, selection: ExportSelection) -> str:
+def _render_reading_markdown(data: dict) -> str:
+    """読書目標のMarkdown構成（設計書データ構造編7.2「読書目標の場合」）。"""
+    sections: list[str] = []
+
+    if "book" in data:
+        book = data["book"]
+        sections.append(
+            "## 1. 概要\n\n"
+            f"- 書名: {book['title']}\n"
+            f"- 著者: {book['author'] or '（未登録）'}\n"
+            f"- 読了目標日: {book['due_date']}\n"
+            f"- 読書期間: {book['start_date']} 〜 {book['due_date']}"
+        )
+
+    if "retrospective" in data:
+        body = data["retrospective"] or "（読了レポートは未生成です）"
+        sections.append(f"## 2. 読了レポート\n\n{body}")
+
+    if "summary" in data:
+        s = data["summary"]
+        sections.append(
+            "## 3. 記録量\n\n"
+            f"- 記録日数: {s['record_days']}日\n"
+            f"- 最長連続記録日数: {s['max_streak_days']}日"
+        )
+
+    if "daily_records" in data:
+        rows = "\n".join(
+            f"| {r['date']} | {r['recall']} | "
+            f"{r['pages_read'] if r['pages_read'] is not None else '-'} | "
+            f"{r['current_page'] if r['current_page'] is not None else '-'} |"
+            for r in data["daily_records"]
+        )
+        sections.append(
+            "## 4. 付録：日別の想起記録\n\n"
+            "| 日付 | 想起内容 | 読んだページ数 | 現在ページ |\n"
+            "| --- | --- | --- | --- |\n"
+            f"{rows}"
+        )
+
+    title = data.get("book", {}).get("title", "ナレッジエクスポート")
+    return f"# {title}\n\n" + "\n\n".join(sections)
+
+
+def render_markdown(
+    data: dict, selection: ExportSelection, category: GoalCategory = GoalCategory.EXAM
+) -> str:
     """データ構造編7.2のMarkdown構成に沿って本文を生成する。"""
+    if category == GoalCategory.READING:
+        return _render_reading_markdown(data)
+
     sections: list[str] = []
 
     if "goal" in data:
@@ -528,7 +682,7 @@ def execute_export(
         treat_holiday_as_buffer=treat_holiday_as_buffer,
         anonymized=anonymize,
     )
-    markdown = render_markdown(data, selection)
+    markdown = render_markdown(data, selection, goal.category)
     content = ExportContent(data=data, markdown=markdown)
     markdown_path, json_path = write_export_files(goal, content)
     return ExportContent(
