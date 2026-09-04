@@ -151,9 +151,29 @@ function RetrospectiveSection({
   )
 }
 
-function SummarySection({ content }: { content: KnowledgeExportContentRead | undefined }) {
+function SummarySection({
+  content,
+  isReading,
+}: {
+  content: KnowledgeExportContentRead | undefined
+  isReading: boolean
+}) {
   if (!content?.data.summary) {
     return null
+  }
+  if (isReading) {
+    const summary = content.data.summary as ReadingExportSummary
+    return (
+      <Card className="flex flex-col gap-2">
+        <h2 className="font-medium text-gray-900">{t('knowledgeExport.summary.readingTitle')}</h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
+          <dt className="text-gray-500">{t('knowledgeExport.summary.recordDays')}</dt>
+          <dd>{summary.record_days}</dd>
+          <dt className="text-gray-500">{t('knowledgeExport.summary.maxStreakDays')}</dt>
+          <dd>{summary.max_streak_days}</dd>
+        </dl>
+      </Card>
+    )
   }
   const summary = content.data.summary as ExportSummary
   const qualityTrend = (content.data.quality_trend as QualityTrendEntry[] | undefined) ?? []
@@ -216,6 +236,10 @@ export function KnowledgeExportPage() {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
   }
   const goal = goalQuery.data
+  const isReading = goal.category === 'READING'
+  const visibleSelectionItems = SELECTION_ITEMS.filter(
+    (item) => !(isReading && item.hiddenForReading),
+  )
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -227,13 +251,13 @@ export function KnowledgeExportPage() {
         {t('knowledgeExport.title', { name: goal.name })}
       </h1>
 
-      <RetrospectiveSection goalId={goal.id} anonymize={anonymize} />
-      <SummarySection content={previewMutation.data ?? exportMutation.data} />
+      <RetrospectiveSection goalId={goal.id} anonymize={anonymize} isReading={isReading} />
+      <SummarySection content={previewMutation.data ?? exportMutation.data} isReading={isReading} />
 
       <Card className="flex flex-col gap-2">
         <h2 className="font-medium text-gray-900">{t('knowledgeExport.selection.title')}</h2>
         <div className="grid grid-cols-2 gap-1">
-          {SELECTION_ITEMS.map((item) => (
+          {visibleSelectionItems.map((item) => (
             <label key={item.field} className="flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="checkbox"
@@ -242,7 +266,7 @@ export function KnowledgeExportPage() {
                   setSelection((current) => ({ ...current, [item.field]: e.target.checked }))
                 }
               />
-              {t(item.labelKey)}
+              {t(isReading && item.readingLabelKey ? item.readingLabelKey : item.labelKey)}
             </label>
           ))}
         </div>
@@ -254,7 +278,13 @@ export function KnowledgeExportPage() {
           />
           {t('knowledgeExport.anonymize.label')}
         </label>
-        <p className="text-xs text-gray-500">{t('knowledgeExport.anonymize.description')}</p>
+        <p className="text-xs text-gray-500">
+          {t(
+            isReading
+              ? 'knowledgeExport.anonymize.readingDescription'
+              : 'knowledgeExport.anonymize.description',
+          )}
+        </p>
       </Card>
 
       <div className="flex gap-2">
