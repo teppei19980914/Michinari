@@ -29,6 +29,7 @@ from app.schemas.record import (
     StudyLogInput,
     StudyLogRead,
     TodayRead,
+    WorkChatRequest,
     WorkLogInput,
     WorkLogRead,
 )
@@ -37,6 +38,7 @@ from app.services import (
     goal_service,
     reading_feedback_service,
     record_service,
+    work_feedback_service,
 )
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
@@ -70,8 +72,7 @@ def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]
 
 def _to_work_log_items(inputs: list[WorkLogInput]) -> list[WorkLogItem]:
     return [
-        WorkLogItem(work_assignment_id=item.work_assignment_id, body=item.body)
-        for item in inputs
+        WorkLogItem(work_assignment_id=item.work_assignment_id, body=item.body) for item in inputs
     ]
 
 
@@ -108,9 +109,7 @@ def _serialize_record(
         reading_logs=[
             ReadingLogRead.model_validate(log) for log in (record.reading_logs if record else [])
         ],
-        work_logs=[
-            WorkLogRead.model_validate(log) for log in (record.work_logs if record else [])
-        ],
+        work_logs=[WorkLogRead.model_validate(log) for log in (record.work_logs if record else [])],
         comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
         chat_messages=[
             ChatMessageRead.model_validate(chat_message)
@@ -210,6 +209,30 @@ def reading_chat(
         today=today,
         message=payload.message,
         reading_log_items=_to_reading_log_items(payload.reading_logs),
+    )
+    session.commit()
+    return ChatResponse(
+        record=_serialize_record(session, target_date, outcome.daily_record),
+        assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
+        was_truncated=outcome.was_truncated,
+    )
+
+
+@router.post("/records/{target_date}/work-chat", response_model=ChatResponse)
+def work_chat(
+    target_date: dt.date, payload: WorkChatRequest, session: Session = Depends(get_db)
+) -> ChatResponse:
+    """仕事目標のAI対話を1往復実行する（データ構造編6.2）。用途と日付ごとに会話を分離する
+    既存方針（ロジック・プロンプト編16.3）に従い、資格試験の`/chat`・読書の`/reading-chat`
+    とは独立した会話・プロンプト（DAILY_FEEDBACK_WORK）として扱う。
+    """
+    today = goal_service.resolve_today(session)
+    outcome = work_feedback_service.send_work_feedback(
+        session,
+        target_date=target_date,
+        today=today,
+        message=payload.message,
+        work_log_items=_to_work_log_items(payload.work_logs),
     )
     session.commit()
     return ChatResponse(

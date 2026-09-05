@@ -26,7 +26,15 @@ from app.constants.enums import (
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog, StudyLog, WeeklySummary
+from app.models.record import (
+    DailyGoalDiary,
+    DailyRecord,
+    ReadingLog,
+    StudyLog,
+    WeeklySummary,
+    WorkLog,
+)
+from app.models.work import WorkAssignment
 from app.services import (
     baseline_service,
     calendar_service,
@@ -38,7 +46,7 @@ from app.services import (
     speed_service,
 )
 from app.services import slot_service as slot_service_module
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 #: 総括レポート向けの月次集約粒度（ロジック・プロンプト編17.5「{{quality_trend}}:
 #: 品質指標の推移（周回別、月次集約）」）。
@@ -84,6 +92,25 @@ def list_active_exam_goals(session: Session) -> list[Goal]:
     )
 
 
+def list_daily_message_target_goals(session: Session) -> list[Goal]:
+    """今日の一言（DAILY_MESSAGE）の対象となる進行中（ACTIVE）の目標一覧を取得する。
+
+    対象はEXAM・WORK（要件定義書R-77）。READINGは要件定義書6.10により対象外のまま
+    （読書用の一言相当機能は設けない設計）。list_active_exam_goalsとは別の関数とする
+    のは、既存のDAILY_FEEDBACK・DAILY_MESSAGEがEXAM専用として`list_active_exam_goals`に
+    依存し続けられるようにするため（実装フェーズ分割計画書Phase22）。
+    """
+    return (
+        session.query(Goal)
+        .filter(
+            Goal.status == GoalStatus.ACTIVE,
+            Goal.category.in_([GoalCategory.EXAM, GoalCategory.WORK]),
+        )
+        .order_by(Goal.id)
+        .all()
+    )
+
+
 def list_active_materials(goals: list[Goal]) -> list[Material]:
     """指定した目標群に属する有効な教材一覧を取得する。"""
     return [material for goal in goals for material in goal.materials if material.is_active]
@@ -102,6 +129,22 @@ def list_active_reading_goals(session: Session) -> list[Goal]:
 def list_active_books(goals: list[Goal]) -> list[Book]:
     """指定した読書目標群に属する書籍一覧を取得する（1目標1冊のため高々1件ずつ）。"""
     return [goal.book for goal in goals if goal.book is not None]
+
+
+def list_active_work_goals(session: Session) -> list[Goal]:
+    """進行中（ACTIVE）の仕事目標一覧を取得する（DAILY_FEEDBACK_WORK用、実装フェーズ
+    分割計画書Phase22）。"""
+    return (
+        session.query(Goal)
+        .filter(Goal.status == GoalStatus.ACTIVE, Goal.category == GoalCategory.WORK)
+        .order_by(Goal.id)
+        .all()
+    )
+
+
+def list_active_work_assignments(goals: list[Goal]) -> list[WorkAssignment]:
+    """指定した仕事目標群に属する案件情報一覧を取得する（1目標1案件のため高々1件ずつ）。"""
+    return [goal.work_assignment for goal in goals if goal.work_assignment is not None]
 
 
 def _group_materials_by_goal(materials: list[Material]) -> dict[int, list[Material]]:
@@ -232,9 +275,7 @@ def build_material_status_entries(
     return entries
 
 
-def build_slot_summary(
-    session: Session, materials: list[Material], today: dt.date
-) -> str:
+def build_slot_summary(session: Session, materials: list[Material], today: dt.date) -> str:
     """{{slot_summary}}: 本日利用可能なスロットと教材への割当（17.2）。"""
     slots_by_weekday = slot_service_module.group_slots_by_weekday(
         slot_service_module.get_active_slots(session)
@@ -292,9 +333,7 @@ def build_today_logs_text(items: list[StudyLogItem], materials_by_id: dict[int, 
     return "\n".join(lines)
 
 
-def build_progress_summary(
-    session: Session, materials: list[Material], today: dt.date
-) -> str:
+def build_progress_summary(session: Session, materials: list[Material], today: dt.date) -> str:
     """{{progress_summary}}: 教材ごとの進捗率と現在周回（17.4）。
 
     開始日が本日より後の教材は今日時点でまだ学習期間に入っていないため対象外とする
@@ -307,9 +346,7 @@ def build_progress_summary(
     for material in started_materials:
         progress = cycle_service.get_material_progress(session, material)
         rate = metrics_service.compute_progress_rate(progress)
-        lines.append(
-            f"・{material.name}: {rate:.0%}（現在{progress.current_cycle}周目）"
-        )
+        lines.append(f"・{material.name}: {rate:.0%}（現在{progress.current_cycle}周目）")
     return "\n".join(lines)
 
 
@@ -329,9 +366,7 @@ def build_recent_activity_text(
         return "（対象教材はありません）"
     period_start = today - dt.timedelta(days=lookback_days - 1)
     rows = (
-        session.query(
-            DailyRecord.record_date, DailyRecord.record_state, StudyLog.amount_completed
-        )
+        session.query(DailyRecord.record_date, DailyRecord.record_state, StudyLog.amount_completed)
         .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
         .filter(
             StudyLog.material_id.in_(material_ids),
@@ -547,9 +582,7 @@ def build_overall_metrics_text(
     buffer_usage_rate = metrics_service.compute_buffer_usage_rate(
         session, goal, today, treat_holiday_as_buffer
     )
-    buffer_usage_text = (
-        f"{buffer_usage_rate:.0%}" if buffer_usage_rate is not None else "算出不可"
-    )
+    buffer_usage_text = f"{buffer_usage_rate:.0%}" if buffer_usage_rate is not None else "算出不可"
     replan_count = metrics_service.compute_replan_count(session, goal)
     return (
         f"総投下時間: {total_minutes / 60:.1f}時間\n"
@@ -761,6 +794,165 @@ def build_reading_logs_text(session: Session, book: Book) -> str:
     return "\n\n".join(
         f"【{record_date.isoformat()}】\n{recall_body}" for record_date, recall_body in rows
     )
+
+
+# --- 仕事日次報告フィードバック（DAILY_FEEDBACK_WORK、17.8、実装フェーズ分割計画書Phase22） ---
+
+
+def build_daily_work_summary_text(work_assignments: list[WorkAssignment], today: dt.date) -> str:
+    """{{work_summary}}（DAILY_FEEDBACK_WORK、17.8）: 案件名、取引先・案件の呼称、
+    想定業務内容、着手日からの経過日数。"""
+    if not work_assignments:
+        return "（進行中の仕事目標はありません）"
+    lines = []
+    for work_assignment in work_assignments:
+        client_text = f"（{work_assignment.client_name}）" if work_assignment.client_name else ""
+        elapsed_days = (today - work_assignment.start_date).days
+        lines.append(
+            f"■ {work_assignment.goal.name}{client_text}\n"
+            f"  想定業務内容: {work_assignment.expected_content}\n"
+            f"  着手日からの経過日数: {elapsed_days}日"
+        )
+    return "\n".join(lines)
+
+
+def build_today_work_text(
+    items: list[WorkLogItem], work_assignments_by_id: dict[int, WorkAssignment]
+) -> str:
+    """{{today_work}}（DAILY_FEEDBACK_WORK、17.8）: 本日の業務記録本文。"""
+    if not items:
+        return "（本日の業務記録はまだありません）"
+    lines = []
+    for item in items:
+        work_assignment = work_assignments_by_id[item.work_assignment_id]
+        lines.append(f"■ {work_assignment.goal.name}\n{item.body}")
+    return "\n\n".join(lines)
+
+
+def build_recent_work_logs_text(
+    session: Session, work_assignments: list[WorkAssignment], today: dt.date, recent_days: int
+) -> str:
+    """{{recent_work_logs}}（DAILY_FEEDBACK_WORK、17.8）: 直近recent_days日分の業務記録
+    （22.4）。月次報告を経由せず原文を直接注入する（読書の{{recent_recalls}}と同じ考え方）。
+    """
+    if not work_assignments:
+        return "（進行中の仕事目標はありません）"
+    work_assignment_ids = [wa.id for wa in work_assignments]
+    goal_names = {wa.id: wa.goal.name for wa in work_assignments}
+    period_start = today - dt.timedelta(days=recent_days - 1)
+    rows = (
+        session.query(DailyRecord.record_date, WorkLog.work_assignment_id, WorkLog.body)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(
+            WorkLog.work_assignment_id.in_(work_assignment_ids),
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= today,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（直近の業務記録はありません）"
+    return "\n\n".join(
+        f"【{record_date.isoformat()} {goal_names[work_assignment_id]}】\n{body}"
+        for record_date, work_assignment_id, body in rows
+    )
+
+
+# --- 月次報告・半期評価（GOAL_RETROSPECTIVE_WORK_MONTHLY/SEMIANNUAL、17.9〜17.10、22章、
+# --- 実装フェーズ分割計画書Phase22） ---
+
+
+def build_retrospective_work_summary_text(work_assignment: WorkAssignment) -> str:
+    """{{work_summary}}（GOAL_RETROSPECTIVE_WORK_MONTHLY/SEMIANNUAL、17.9〜17.10）:
+    案件名、取引先・案件の呼称、想定業務内容、着手日。"""
+    client_text = (
+        f"、取引先・案件の呼称 {work_assignment.client_name}" if work_assignment.client_name else ""
+    )
+    return (
+        f"{work_assignment.goal.name}{client_text}\n"
+        f"想定業務内容: {work_assignment.expected_content}\n"
+        f"着手日: {work_assignment.start_date.isoformat()}"
+    )
+
+
+def build_work_logs_text_for_period(
+    session: Session, work_assignment: WorkAssignment, date_from: dt.date, date_to: dt.date
+) -> str:
+    """{{month_logs}}／{{period_logs}}（17.9〜17.10）: 対象期間分の業務記録を record_date
+    の昇順で連結したもの（22.4）。月次報告のロールアップではなく、生の日次記録を直接参照
+    する（読書のgoal_retrospectiveと同じ「生ログ直接参照」方式。半期評価が月次報告を
+    ロールアップしない設計の根拠）。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, WorkLog.body)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(
+            WorkLog.work_assignment_id == work_assignment.id,
+            DailyRecord.record_date >= date_from,
+            DailyRecord.record_date <= date_to,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（対象期間の業務記録はありません）"
+    return "\n\n".join(f"【{record_date.isoformat()}】\n{body}" for record_date, body in rows)
+
+
+# --- 今日の一言（DAILY_MESSAGE）のWORK対応（17.4、実装フェーズ分割計画書Phase22） ---
+# READINGは今日の一言の対象外のまま（要件定義書6.10）だが、WORKは要件定義書R-77により
+# 対象に含める。goal_summary/progress_summary/recent_activityはEXAM専用の実装を流用できない
+# （試験科目・教材を前提とするため）ため、WORK用の変数ビルダーを別途用意する。
+
+
+def build_work_progress_summary(
+    session: Session, work_assignments: list[WorkAssignment], today: dt.date
+) -> str:
+    """{{progress_summary}}のWORK版: 案件ごとの経過日数・直近記録日・連続記録日数
+    （22.2）。build_progress_summary（EXAM用）と同じ役割。"""
+    from app.services import work_service  # 循環importを避けるため関数内でimportする
+
+    if not work_assignments:
+        return "（対象案件はありません）"
+    lines = []
+    for work_assignment in work_assignments:
+        progress = work_service.get_work_assignment_progress(session, work_assignment, today)
+        last_work_text = (
+            progress.last_work_date.isoformat() if progress.last_work_date is not None else "なし"
+        )
+        lines.append(
+            f"・{work_assignment.goal.name}: 経過{progress.elapsed_days}日"
+            f"（連続記録{progress.current_streak}日、直近記録日 {last_work_text}）"
+        )
+    return "\n".join(lines)
+
+
+def build_work_recent_activity_text(
+    session: Session, work_assignments: list[WorkAssignment], today: dt.date, lookback_days: int = 7
+) -> str:
+    """{{recent_activity}}のWORK版: 直近lookback_days日間の業務記録件数（17.4、既定7日）。
+    build_recent_activity_text（EXAM用）と同じ役割。他目標の実績が混入しないよう
+    work_assignment_idで絞り込む（未決事項L-04関連）。"""
+    if not work_assignments:
+        return "（対象案件はありません）"
+    work_assignment_ids = [wa.id for wa in work_assignments]
+    period_start = today - dt.timedelta(days=lookback_days - 1)
+    rows = (
+        session.query(DailyRecord.record_date, DailyRecord.record_state)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(
+            WorkLog.work_assignment_id.in_(work_assignment_ids),
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= today,
+        )
+        .distinct()
+        .all()
+    )
+    if not rows:
+        return "（直近の業務記録はありません）"
+    reported_days = sum(1 for _, state in rows if state == RecordState.REPORTED)
+    return f"直近{lookback_days}日間の記録日数: {len(rows)}日（うち報告確定 {reported_days}日）"
 
 
 def build_anonymize_instruction(anonymize: bool) -> str:

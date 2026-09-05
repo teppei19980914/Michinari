@@ -126,9 +126,7 @@ def delete_archived_goal(
     goal_id: int, payload: GoalDeleteArchivedRequest, session: Session = Depends(get_db)
 ) -> None:
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.delete_archived_goal(
-        session, goal, cascade_study_logs=payload.cascade_study_logs
-    )
+    goal_service.delete_archived_goal(session, goal, cascade_study_logs=payload.cascade_study_logs)
     session.commit()
 
 
@@ -238,9 +236,7 @@ def create_material(
 # --- 書籍（新規作成のみ。個別操作は books.py） ---
 
 
-@router.post(
-    "/goals/{goal_id}/book", response_model=BookRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/goals/{goal_id}/book", response_model=BookRead, status_code=status.HTTP_201_CREATED)
 def create_book(goal_id: int, payload: BookCreate, session: Session = Depends(get_db)) -> BookRead:
     goal = goal_service.get_goal(session, goal_id)
     book = book_service.create_book(session, goal, **payload.model_dump())

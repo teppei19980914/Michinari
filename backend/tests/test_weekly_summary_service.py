@@ -177,6 +177,44 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
     assert pending == []
 
 
+def test_list_pending_weeks_excludes_work_goals(seeded_session):
+    """仕事目標（category=WORK）はstudy_logを持たないため、work_logがあっても
+    週次要約の生成対象から自動的に除外されエラーも起きないこと（読書と同じ理由。
+    実装フェーズ分割計画書Phase22回帰防止観点）。
+    """
+    from app.constants.enums import GoalCategory, RecordState
+    from app.models.record import WorkLog
+    from app.models.work import WorkAssignment
+
+    work_goal = Goal(
+        category=GoalCategory.WORK,
+        name="仕事目標A",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(work_goal)
+    seeded_session.flush()
+    work_assignment = WorkAssignment(
+        goal_id=work_goal.id, expected_content="想定業務内容", start_date=dt.date(2026, 1, 1)
+    )
+    seeded_session.add(work_assignment)
+    seeded_session.flush()
+    record = DailyRecord(record_date=dt.date(2026, 8, 18), record_state=RecordState.PROGRESS_ONLY)
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(daily_record_id=record.id, work_assignment_id=work_assignment.id, body="業務内容")
+    )
+    seeded_session.flush()
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+    )
+
+    assert pending == []
+
+
 def test_list_pending_weeks_excludes_already_generated(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
