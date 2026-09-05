@@ -176,7 +176,7 @@
     },
     "basicInfo": {
       "nameLabel": "試験名",
-      "nameLabelReading": "目標名",
+      "nameLabelReading": "書名",
       "nameLabelWork": "案件名",
       "startDateLabel": "開始日",
       "memoLabel": "備考"
