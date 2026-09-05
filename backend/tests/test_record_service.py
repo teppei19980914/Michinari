@@ -54,7 +54,10 @@ def _make_material(session, goal, **overrides):
 
 def _log(material_id, **overrides):
     defaults = dict(
-        material_id=material_id, minutes_spent=30, amount_completed=10, cycle_number=1,
+        material_id=material_id,
+        minutes_spent=30,
+        amount_completed=10,
+        cycle_number=1,
         quality_value=None,
     )
     defaults.update(overrides)
@@ -262,9 +265,7 @@ def test_finalize_record_rejects_future_date(seeded_session):
     today = dt.date(2026, 3, 10)
 
     with pytest.raises(ValidationError):
-        record_service.finalize_record(
-            seeded_session, today + dt.timedelta(days=1), [], [], today
-        )
+        record_service.finalize_record(seeded_session, today + dt.timedelta(days=1), [], [], today)
 
 
 def test_finalize_record_rejects_already_reported(seeded_session):

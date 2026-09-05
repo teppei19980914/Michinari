@@ -118,7 +118,9 @@ class WorkAssignmentHasWorkLogsError(DomainError):
 
     def __init__(self, work_assignment_id: int) -> None:
         self.work_assignment_id = work_assignment_id
-        super().__init__(f"案件情報(id={work_assignment_id})には業務記録が存在するため削除できません")
+        super().__init__(
+            f"案件情報(id={work_assignment_id})には業務記録が存在するため削除できません"
+        )
 
 
 class WorkAssignmentAlreadyExistsError(DomainError):

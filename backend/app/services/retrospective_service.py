@@ -17,7 +17,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
 )
-from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, RetrospectivePeriodType
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
 from app.services import ai_context_service, goal_service, setting_reader
@@ -30,15 +30,31 @@ _SCOPE_KEY = "main"
 
 
 def get_latest_retrospective(
-    session: Session, goal: Goal, *, anonymized: bool = False
+    session: Session,
+    goal: Goal,
+    *,
+    anonymized: bool = False,
+    period_type: RetrospectivePeriodType | None = None,
+    period_key: str | None = None,
 ) -> GoalRetrospective | None:
-    """最新の総括レポートを取得する（5.4「最新のものを既定で表示する」）。"""
-    return (
-        session.query(GoalRetrospective)
-        .filter(GoalRetrospective.goal_id == goal.id, GoalRetrospective.is_anonymized == anonymized)
-        .order_by(GoalRetrospective.generated_at.desc())
-        .first()
+    """最新の総括レポートを取得する（5.4「最新のものを既定で表示する」）。
+
+    period_type／period_keyを指定しない場合はperiod_type IS NULLの行（EXAM総括レポート・
+    READING読了レポート）のみを対象とする（データ構造編5.4「『最新の総括レポートを取得
+    する』ロジックの拡張」、実装フェーズ分割計画書Phase22）。指定した場合はWORKの月次
+    報告・半期評価を対象とし、該当行は高々1件のため実質的に完全一致の取得となる。
+    """
+    query = session.query(GoalRetrospective).filter(
+        GoalRetrospective.goal_id == goal.id, GoalRetrospective.is_anonymized == anonymized
     )
+    if period_type is None:
+        query = query.filter(GoalRetrospective.period_type.is_(None))
+    else:
+        query = query.filter(
+            GoalRetrospective.period_type == period_type,
+            GoalRetrospective.period_key == period_key,
+        )
+    return query.order_by(GoalRetrospective.generated_at.desc()).first()
 
 
 def _build_exam_variables(
@@ -79,7 +95,15 @@ def generate_retrospective(
     再生成は新規レコードとして追加し、旧レコードは削除しない＝5.4「再生成を許容するため
     複数レコードを持てる」）。goal_retrospectiveテーブルはEXAM・READINGで共用する
     （データ構造編5.4「読書目標での流用」）。
+
+    仕事目標（category=WORK）は対象外とする（恒久的な仕様。読書がPhase15〜16で経由した
+    暫定ガードとは異なり、月次報告・半期評価という別エンドポイント（work_report_service.py）
+    を新設するため、本関数はWORKに対して常にVALIDATION_ERRORで拒否する。データ構造編6.2）。
     """
+    if goal.category == GoalCategory.WORK:
+        raise ValidationError(
+            "仕事目標には総括レポートを生成できません（月次報告・半期評価を使用してください）"
+        )
     if goal.category == GoalCategory.READING:
         purpose = AiPurpose.GOAL_RETROSPECTIVE_READING
         scope = ConversationScope.GOAL_RETROSPECTIVE_READING

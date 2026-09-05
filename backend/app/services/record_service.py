@@ -64,6 +64,14 @@ def load_books_by_id(session: Session, book_ids: set[int]) -> dict[int, Book]:
     return _load_books(session, book_ids)
 
 
+def load_work_assignments_by_id(
+    session: Session, work_assignment_ids: set[int]
+) -> dict[int, WorkAssignment]:
+    """案件情報IDの集合からWorkAssignmentを一括取得する（AI連携のプロンプト組み立てで
+    使用、Phase22）。"""
+    return _load_work_assignments(session, work_assignment_ids)
+
+
 def next_chat_sequence(session: Session, daily_record_id: int) -> int:
     """chat_messageの次のsequence値を返す。用途（purpose）を問わず日次記録全体で採番を
     共有し、表示上の時系列順序が用途を跨いで一貫するようにする（Phase16、モデルのdocstring
@@ -250,9 +258,7 @@ def _upsert_work_log(
 
 
 def _apply_work_logs(session: Session, daily_record: DailyRecord, items: list[WorkLogItem]) -> None:
-    work_assignments = _load_work_assignments(
-        session, {item.work_assignment_id for item in items}
-    )
+    work_assignments = _load_work_assignments(session, {item.work_assignment_id for item in items})
     for item in items:
         _upsert_work_log(session, daily_record, work_assignments[item.work_assignment_id], item)
 

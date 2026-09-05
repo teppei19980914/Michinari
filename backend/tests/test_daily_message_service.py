@@ -10,11 +10,12 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
-from app.constants.enums import GoalStatus, QualityMetricType
+from app.constants.enums import GoalCategory, GoalStatus, QualityMetricType
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyMessage
+from app.models.work import WorkAssignment
 from app.services import daily_message_service
 
 
@@ -226,3 +227,94 @@ def test_get_or_generate_raises_when_ai_fails_and_does_not_save_partial_message(
         daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
 
     assert seeded_session.query(DailyMessage).count() == 0
+
+
+# --- 対象の拡張（EXAM・WORK、READINGは対象外のまま。要件定義書R-77、
+# --- 実装フェーズ分割計画書Phase22） ---
+
+
+def _make_work_goal(session, name="仕事目標A"):
+    goal = Goal(
+        category=GoalCategory.WORK,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def _make_work_assignment(session, goal, **overrides):
+    defaults = dict(
+        goal_id=goal.id, expected_content="想定業務内容", start_date=dt.date(2026, 1, 1)
+    )
+    defaults.update(overrides)
+    work_assignment = WorkAssignment(**defaults)
+    session.add(work_assignment)
+    session.flush()
+    return work_assignment
+
+
+def _make_reading_goal(session, name="読書目標A"):
+    goal = Goal(
+        category=GoalCategory.READING,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def test_get_or_generate_includes_work_goal(seeded_session, monkeypatch):
+    """仕事目標（category=WORK）は今日の一言の対象に含める（要件定義書R-77）。"""
+    goal = _make_work_goal(seeded_session)
+    _make_work_assignment(seeded_session, goal)
+    calls = _stub_send_message(monkeypatch, response="今日もお疲れさまでした")
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert len(result) == 1
+    assert result[0].goal_id == goal.id
+    assert result[0].body == "今日もお疲れさまでした"
+    assert len(calls) == 1
+
+
+def test_get_or_generate_excludes_reading_goal(seeded_session, monkeypatch):
+    """読書目標（category=READING）は今日の一言の対象外のまま（要件定義書6.10）。"""
+    _make_reading_goal(seeded_session)
+    _stub_send_message(monkeypatch)
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    # ACTIVEな対象目標（EXAM・WORK）が0件のため、goal_id=NULLの1件のみ生成される。
+    assert len(result) == 1
+    assert result[0].goal_id is None
+
+
+def test_get_or_generate_work_and_exam_goals_do_not_cross_contaminate(seeded_session, monkeypatch):
+    """仕事目標と資格試験目標が同時にACTIVEでも、互いの情報が混入しないこと（未決事項L-04）。"""
+    exam_goal = _make_goal(seeded_session, name="資格目標A")
+    _make_material(seeded_session, exam_goal, name="教材Xのみ")
+    work_goal = _make_work_goal(seeded_session, name="仕事目標B")
+    _make_work_assignment(seeded_session, work_goal, expected_content="案件Yのみ")
+    calls = _stub_send_message(monkeypatch)
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert len(result) == 2
+    assert {message.goal_id for message in result} == {exam_goal.id, work_goal.id}
+
+    call_by_goal = {}
+    for call in calls:
+        if "教材Xのみ" in call["message"]:
+            call_by_goal["exam"] = call["message"]
+        elif "案件Yのみ" in call["message"]:
+            call_by_goal["work"] = call["message"]
+
+    assert "案件Yのみ" not in call_by_goal["exam"]
+    assert "教材Xのみ" not in call_by_goal["work"]

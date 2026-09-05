@@ -595,3 +595,95 @@ def test_reading_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client,
 
     record = client.get(f"/api/v1/records/{target}").json()
     assert record["reading_logs"] == []
+
+
+# --- 業務記録（work_logs、実装フェーズ分割計画書Phase21） ---
+
+
+def _make_active_work_goal_with_assignment(client):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "WORK", "name": "仕事目標A", "start_date": "2026-01-01"},
+    ).json()
+    work_assignment = client.post(
+        f"/api/v1/goals/{goal['id']}/work-assignment",
+        json={"expected_content": "想定業務内容", "start_date": "2026-01-01"},
+    ).json()
+    activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert activated.status_code == 200, activated.text
+    return goal, work_assignment
+
+
+# --- POST /records/{date}/work-chat（実装フェーズ分割計画書Phase22） ---
+
+
+def test_work_chat_endpoint_returns_assistant_message(client, monkeypatch):
+    _goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    _stub_ai_client(monkeypatch, response="今日の業務、お疲れさまでした")
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/work-chat",
+        json={
+            "work_logs": [{"work_assignment_id": work_assignment["id"], "body": "今日の業務内容"}]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["assistant_message"]["content"] == "今日の業務、お疲れさまでした"
+    assert body["assistant_message"]["purpose"] == "DAILY_FEEDBACK_WORK"
+    # 業務記録は下書きのままDBへ確定されない（16.7と同じ保証）。
+    assert body["record"]["work_logs"] == []
+
+
+def test_work_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
+    _make_active_work_goal_with_assignment(client)
+    _stub_ai_client(monkeypatch, response="1回目の応答")
+    target = dt.date.today().isoformat()
+
+    client.post(f"/api/v1/records/{target}/work-chat", json={})
+
+    _stub_ai_client(monkeypatch, response="2回目の応答")
+    response = client.post(
+        f"/api/v1/records/{target}/work-chat", json={"message": "続きを教えてください"}
+    )
+
+    assert response.status_code == 200, response.text
+    record = client.get(f"/api/v1/records/{target}").json()
+    work_messages = [m for m in record["chat_messages"] if m["purpose"] == "DAILY_FEEDBACK_WORK"]
+    assert [m["role"] for m in work_messages] == ["ASSISTANT", "USER", "ASSISTANT"]
+
+
+def test_work_chat_endpoint_rejects_future_date(client, monkeypatch):
+    _make_active_work_goal_with_assignment(client)
+    _stub_ai_client(monkeypatch)
+    future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
+
+    response = client.post(f"/api/v1/records/{future}/work-chat", json={})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_work_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeypatch):
+    from app.ai.exceptions import AiError
+
+    _goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/work-chat",
+        json={
+            "work_logs": [
+                {"work_assignment_id": work_assignment["id"], "body": "失われてはいけない業務内容"}
+            ]
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "AI_ERROR"
+
+    record = client.get(f"/api/v1/records/{target}").json()
+    assert record["work_logs"] == []

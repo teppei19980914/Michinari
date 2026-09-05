@@ -16,33 +16,51 @@ from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_MESSAGE
-from app.constants.enums import AiPurpose, ConversationScope
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import DailyMessage
 from app.services import ai_context_service, calendar_service, goal_service, setting_reader
 
 
+def _build_variables(session: Session, today: dt.date, goal: Goal | None) -> dict[str, str]:
+    """goal.categoryに応じてgoal_summary/progress_summary/recent_activityを組み立てる。
+
+    goalsをこの呼び出し内で[goal]（またはgoalがNoneなら[]）に限定して各builderへ渡す
+    ことで、他目標の情報を一切含まないプロンプトを組み立てる（未決事項L-04関連）。
+    呼び出し元のget_or_generateがlist_daily_message_target_goalsでEXAM・WORKのみに
+    絞り込み済みのため、ここに渡るgoalはcategory=EXAMまたはWORKのいずれか
+    （READINGは要件定義書6.10により対象外のまま。実装フェーズ分割計画書Phase22）。
+    """
+    if goal is not None and goal.category == GoalCategory.WORK:
+        work_assignments = ai_context_service.list_active_work_assignments([goal])
+        return {
+            "goal_summary": ai_context_service.build_daily_work_summary_text(
+                work_assignments, today
+            ),
+            "progress_summary": ai_context_service.build_work_progress_summary(
+                session, work_assignments, today
+            ),
+            "recent_activity": ai_context_service.build_work_recent_activity_text(
+                session, work_assignments, today
+            ),
+        }
+    goals = [goal] if goal is not None else []
+    materials = ai_context_service.list_active_materials(goals)
+    return {
+        "goal_summary": ai_context_service.build_goal_summary(goals, today),
+        "progress_summary": ai_context_service.build_progress_summary(session, materials, today),
+        "recent_activity": ai_context_service.build_recent_activity_text(session, goals, today),
+    }
+
+
 def _generate_for_goal(
     session: Session, today: dt.date, day_type_value: str, goal: Goal | None
 ) -> DailyMessage:
-    """1件分（1目標、またはgoal=Noneで目標非依存）の今日の一言を生成する。
-
-    goalsをこの呼び出し内で[goal]（またはgoalがNoneなら[]）に限定して各builderへ渡す
-    ことで、他目標の情報を一切含まないプロンプトを組み立てる。呼び出し元のget_or_generateが
-    list_active_exam_goalsで資格試験目標のみに絞り込み済みのため、ここに渡るgoalは常に
-    category=EXAM（今日の一言に読書用の変種は設けない設計。要件定義書6.10）。
-    """
-    goals = [goal] if goal is not None else []
-    materials = ai_context_service.list_active_materials(goals)
-
+    """1件分（1目標、またはgoal=Noneで目標非依存）の今日の一言を生成する。"""
     variables = {
         "today": today.isoformat(),
         "day_type": day_type_value,
-        "goal_summary": ai_context_service.build_goal_summary(goals, today),
-        "progress_summary": ai_context_service.build_progress_summary(
-            session, materials, today
-        ),
-        "recent_activity": ai_context_service.build_recent_activity_text(session, goals, today),
+        **_build_variables(session, today, goal),
     }
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_MESSAGE)
@@ -83,18 +101,15 @@ def get_or_generate(session: Session, today: dt.date) -> list[DailyMessage]:
     既存の目標のメッセージは再生成せずその目標の分だけ追加生成する。
     """
     # 読書目標（category=READING）はexam_subjectを持たず、build_goal_summaryが「試験科目
-    # 未登録」という誤った文脈を混入させるため、資格試験目標のみに限定する
-    # （今日の一言に読書用の変種は設けない設計。要件定義書6.10）。
-    active_goals = ai_context_service.list_active_exam_goals(session)
+    # 未登録」という誤った文脈を混入させるため対象外とする（今日の一言に読書用の変種は
+    # 設けない設計。要件定義書6.10）。仕事目標（category=WORK）は要件定義書R-77により
+    # 対象に含める（実装フェーズ分割計画書Phase22）。
+    active_goals = ai_context_service.list_daily_message_target_goals(session)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, today, treat_holiday_as_buffer)
 
     if not active_goals:
-        existing = (
-            session.query(DailyMessage)
-            .filter_by(target_date=today, goal_id=None)
-            .first()
-        )
+        existing = session.query(DailyMessage).filter_by(target_date=today, goal_id=None).first()
         if existing is not None:
             return [existing]
         return [_generate_for_goal(session, today, day_type.value, None)]

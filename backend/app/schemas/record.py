@@ -194,6 +194,16 @@ class ReadingChatRequest(BaseModel):
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
 
 
+class WorkChatRequest(BaseModel):
+    """仕事目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
+    POST /records/{date}/work-chat）。ChatRequest・ReadingChatRequestと同じ設計：
+    work_logsはこの時点でDBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+    """
+
+    message: str | None = Field(default=None, min_length=1)
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
+
+
 class DailyMessageRead(BaseModel):
     target_date: dt.date
     goal_id: int | None
