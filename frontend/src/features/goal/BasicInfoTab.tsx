@@ -27,7 +27,9 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
   const nameLabel =
     goal.category === 'READING'
       ? t('goals.basicInfo.nameLabelReading')
-      : t('goals.basicInfo.nameLabel')
+      : goal.category === 'WORK'
+        ? t('goals.basicInfo.nameLabelWork')
+        : t('goals.basicInfo.nameLabel')
 
   return (
     <Card className="flex flex-col gap-3">

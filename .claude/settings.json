@@ -37,7 +37,11 @@
       "Bash(tasklist)",
       "Bash(powershell.exe -NoProfile -Command \"Stop-Process -Id 3572,25036 -Force -ErrorAction SilentlyContinue\")",
       "Bash(command -v osv-scanner)",
-      "Bash(SCRATCH=\"/c/Users/teppe/AppData/Local/Temp/claude/c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari/de041801-f76b-4e1e-8ad4-0528604378b9/scratchpad\" *)"
+      "Bash(SCRATCH=\"/c/Users/teppe/AppData/Local/Temp/claude/c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari/de041801-f76b-4e1e-8ad4-0528604378b9/scratchpad\" *)",
+      "Bash(python -m pytest -q)",
+      "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
+      "Bash(uv --version)",
+      "Bash(.venv/Scripts/python -m pytest -q)"
     ],
     "additionalDirectories": [
       "C:\\Users\\teppe\\AppData\\Local\\Temp\\claude\\c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari\\de041801-f76b-4e1e-8ad4-0528604378b9\\scratchpad\\smoke_db",

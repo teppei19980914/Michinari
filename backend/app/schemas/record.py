@@ -51,6 +51,22 @@ class ReadingLogRead(BaseModel):
     current_page: int | None
 
 
+class WorkLogInput(BaseModel):
+    """業務記録の入力（study_logの仕事版。自由記述本文のみ、数値実績は必須としない。
+    要件定義書R-75）。"""
+
+    work_assignment_id: int
+    body: str = Field(min_length=1)
+
+
+class WorkLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    work_assignment_id: int
+    body: str
+
+
 class DiaryEntryInput(BaseModel):
     """日記（目標別）の登録入力。本文・学んだこと両方が空の目標は送信対象から除外する
     （フロントエンドのbuildDiaryEntriesPayloadと同じ考え方、StudyLogInputと同じ配列パターン）。
@@ -97,29 +113,61 @@ class ChatMessageRead(BaseModel):
 
 
 class DailyRecordRead(BaseModel):
+    """確定状態（*_record_state/*_reported_at）はカテゴリ（EXAM/READING/WORK）ごとに
+    独立して持つ（仕様変更2026-09-05: 資格勉強を確定しても読書・仕事は引き続き入力・
+    確定できるようにするため）。値がNoneのカテゴリは、その日一度もそのカテゴリを
+    操作していないことを表す。
+    """
+
     record_date: dt.date
-    record_state: RecordState | None
+    exam_record_state: RecordState | None
+    exam_reported_at: dt.datetime | None
+    reading_record_state: RecordState | None
+    reading_reported_at: dt.datetime | None
+    work_record_state: RecordState | None
+    work_reported_at: dt.datetime | None
     diary_entries: list[DiaryEntryRead]
-    reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
     reading_logs: list[ReadingLogRead]
+    work_logs: list[WorkLogRead]
     comments: list[CommentRead]
     chat_messages: list[ChatMessageRead]
 
 
 class ProgressRegisterRequest(BaseModel):
-    """study_logs・reading_logsのいずれかを1件以上含むことをrecord_serviceで検証する
-    （両方空の入力を拒否。両カテゴリの目標が同時進行しうるため、schema側では
-    どちらか一方のmin_length指定はできない）。"""
+    """study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_serviceで
+    検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行しうるため、schema側では
+    特定の1つのみのmin_length指定はできない）。"""
 
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
 class FinalizeRequest(BaseModel):
+    """資格勉強（EXAM）の報告確定リクエスト（データ構造編6.2 POST /records/{date}/finalize）。
+    読書・仕事は別エンドポイント（ReadingFinalizeRequest/WorkFinalizeRequest）に分離した
+    （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
+    """
+
     study_logs: list[StudyLogInput] = Field(default_factory=list)
-    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
+
+
+class ReadingFinalizeRequest(BaseModel):
+    """読書の報告確定リクエスト（データ構造編6.2 POST /records/{date}/reading-finalize）。
+    ChatRequest/ReadingChatRequestと同じ設計方針でカテゴリ別に分離する。
+    """
+
+    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+
+
+class WorkFinalizeRequest(BaseModel):
+    """仕事の報告確定リクエスト（データ構造編6.2 POST /records/{date}/work-finalize）。
+    ChatRequest/WorkChatRequestと同じ設計方針でカテゴリ別に分離する。
+    """
+
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
 class TodayRead(BaseModel):
@@ -173,6 +221,16 @@ class ReadingChatRequest(BaseModel):
 
     message: str | None = Field(default=None, min_length=1)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+
+
+class WorkChatRequest(BaseModel):
+    """仕事目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
+    POST /records/{date}/work-chat）。ChatRequest・ReadingChatRequestと同じ設計：
+    work_logsはこの時点でDBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+    """
+
+    message: str | None = Field(default=None, min_length=1)
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
 class DailyMessageRead(BaseModel):

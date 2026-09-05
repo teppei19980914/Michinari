@@ -55,7 +55,7 @@ def _add_study_log(
     cycle: int,
     minutes: int | None,
 ) -> None:
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
     db_session.add(record)
     db_session.flush()
     db_session.add(

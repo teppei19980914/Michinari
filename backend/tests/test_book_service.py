@@ -44,7 +44,7 @@ def _make_book(session, goal, *, total_pages=None, due_date=dt.date(2026, 3, 1))
 
 
 def _add_reading_log(session, book_id: int, record_date: dt.date, **overrides) -> None:
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     defaults = dict(daily_record_id=record.id, book_id=book_id, recall_body="想起本文")

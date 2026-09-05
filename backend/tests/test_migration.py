@@ -102,7 +102,9 @@ def test_chat_message_has_purpose_column_defaulting_to_daily_feedback(db_session
     columns = {col["name"] for col in inspector.get_columns("chat_message")}
     assert "purpose" in columns
 
-    record = DailyRecord(record_date=dt.date(2026, 1, 1), record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(
+        record_date=dt.date(2026, 1, 1), exam_record_state=RecordState.PROGRESS_ONLY
+    )
     db_session.add(record)
     db_session.flush()
     message = ChatMessage(
@@ -123,6 +125,23 @@ def test_daily_record_no_longer_has_diary_columns():
     assert "diary_learned" not in columns
     diary_columns = {col["name"] for col in inspector.get_columns("daily_goal_diary")}
     assert diary_columns >= {"id", "daily_record_id", "goal_id", "diary_body", "diary_learned"}
+
+
+def test_daily_record_has_category_state_columns_and_no_longer_has_record_state():
+    """完了条件: daily_recordがカテゴリ別の確定状態6列を持ち、旧record_state/reported_at
+    列は残っていないこと（仕様変更2026-09-05、7c2e5a1d9f4b）。"""
+    inspector = inspect(engine)
+    columns = {col["name"] for col in inspector.get_columns("daily_record")}
+    assert columns >= {
+        "exam_record_state",
+        "exam_reported_at",
+        "reading_record_state",
+        "reading_reported_at",
+        "work_record_state",
+        "work_reported_at",
+    }
+    assert "record_state" not in columns
+    assert "reported_at" not in columns
 
 
 def test_daily_message_has_nullable_goal_id_and_composite_unique():
@@ -457,3 +476,177 @@ def test_daily_feedback_prompt_migration_preserves_customized_template(tmp_path,
         connection.close()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_daily_record_category_state_migration_backfills_by_category_presence(
+    tmp_path, monkeypatch
+):
+    """確定状態のカテゴリ別分割マイグレーション（7c2e5a1d9f4b）を、既存データがある状態への
+    適用として検証する（CODING_RULES.md「DBマイグレーションのテスト」）。旧モデルは日付単位
+    でしか確定状態を持たなかったため、「そのカテゴリに該当するログ／日記／AI対話が存在する
+    場合のみ」旧record_state/reported_atを引き継ぐベストエフォート移行になる。
+    """
+    db_path = tmp_path / "daily_record_category_state_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("e1f4a9c3b6d8")  # カテゴリ別確定状態分離（head）の1つ前
+
+    now = "2026-01-01T00:00:00"
+    connection = sqlite3.connect(db_path)
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO goal (name, start_date, status, resource_ratio, category, "
+            "updated_at, created_at) VALUES ('資格目標', '2026-01-01', 'ACTIVE', 1.0, "
+            "'EXAM', ?, ?)",
+            (now, now),
+        )
+        exam_goal_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO material (goal_id, name, unit_label, total_amount, "
+            "planned_cycles, start_date, due_date, due_date_is_manual, "
+            "required_environment, quality_metric_type, is_active, display_order, "
+            "updated_at, created_at) VALUES (?, '教材A', 'ページ', 100, 1, '2026-01-01', "
+            "'2026-12-31', 1, 'ANY', 'NONE', 1, 1, ?, ?)",
+            (exam_goal_id, now, now),
+        )
+        material_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO goal (name, start_date, status, resource_ratio, category, "
+            "updated_at, created_at) VALUES ('読書目標', '2026-01-01', 'ACTIVE', 0, "
+            "'READING', ?, ?)",
+            (now, now),
+        )
+        reading_goal_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO book (goal_id, title, start_date, due_date, updated_at, created_at) "
+            "VALUES (?, '書籍A', '2026-01-01', '2026-12-31', ?, ?)",
+            (reading_goal_id, now, now),
+        )
+        book_id = cursor.lastrowid
+
+        cursor.execute(
+            "INSERT INTO goal (name, start_date, status, resource_ratio, category, "
+            "updated_at, created_at) VALUES ('仕事目標', '2026-01-01', 'ACTIVE', 0, "
+            "'WORK', ?, ?)",
+            (now, now),
+        )
+        work_goal_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO work_assignment (goal_id, expected_content, start_date, "
+            "updated_at, created_at) VALUES (?, '想定業務内容', '2026-01-01', ?, ?)",
+            (work_goal_id, now, now),
+        )
+        work_assignment_id = cursor.lastrowid
+
+        def insert_record(record_date: str, record_state: str) -> int:
+            cursor.execute(
+                "INSERT INTO daily_record (record_date, record_state, reported_at, "
+                "created_at) VALUES (?, ?, ?, ?)",
+                (record_date, record_state, now if record_state == "REPORTED" else None, now),
+            )
+            return cursor.lastrowid
+
+        # ケース1: study_logのみ（EXAM）、REPORTED
+        record_exam_id = insert_record("2026-03-01", "REPORTED")
+        cursor.execute(
+            "INSERT INTO study_log (daily_record_id, material_id, amount_completed, "
+            "cycle_number, created_at) VALUES (?, ?, 10, 1, ?)",
+            (record_exam_id, material_id, now),
+        )
+
+        # ケース2: reading_logのみ、PROGRESS_ONLY（未確定はreported_atを引き継がない）
+        record_reading_id = insert_record("2026-03-02", "PROGRESS_ONLY")
+        cursor.execute(
+            "INSERT INTO reading_log (daily_record_id, book_id, recall_body, created_at) "
+            "VALUES (?, ?, '想起', ?)",
+            (record_reading_id, book_id, now),
+        )
+
+        # ケース3: work_logのみ、REPORTED
+        record_work_id = insert_record("2026-03-03", "REPORTED")
+        cursor.execute(
+            "INSERT INTO work_log (daily_record_id, work_assignment_id, body, created_at) "
+            "VALUES (?, ?, '業務内容', ?)",
+            (record_work_id, work_assignment_id, now),
+        )
+
+        # ケース4: study_log + work_log（複数カテゴリが同日に同時進行）、REPORTED
+        record_multi_id = insert_record("2026-03-04", "REPORTED")
+        cursor.execute(
+            "INSERT INTO study_log (daily_record_id, material_id, amount_completed, "
+            "cycle_number, created_at) VALUES (?, ?, 5, 1, ?)",
+            (record_multi_id, material_id, now),
+        )
+        cursor.execute(
+            "INSERT INTO work_log (daily_record_id, work_assignment_id, body, created_at) "
+            "VALUES (?, ?, '業務内容2', ?)",
+            (record_multi_id, work_assignment_id, now),
+        )
+
+        # ケース5: 実績ログは無いがchat_message(DAILY_FEEDBACK)のみ存在、PROGRESS_ONLY
+        # （AI対話は確定前でも実行できるため、実績0件の日もEXAMに触れたとみなす）
+        record_chat_only_id = insert_record("2026-03-05", "PROGRESS_ONLY")
+        cursor.execute(
+            "INSERT INTO chat_message (daily_record_id, purpose, role, content, sequence, "
+            "created_at) VALUES (?, 'DAILY_FEEDBACK', 'ASSISTANT', '応答', 1, ?)",
+            (record_chat_only_id, now),
+        )
+
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(daily_record)")}
+        rows = {
+            row[0]: row[1:]
+            for row in connection.execute(
+                "SELECT id, exam_record_state, exam_reported_at, reading_record_state, "
+                "reading_reported_at, work_record_state, work_reported_at FROM daily_record "
+                "WHERE id IN (?, ?, ?, ?, ?)",
+                (
+                    record_exam_id,
+                    record_reading_id,
+                    record_work_id,
+                    record_multi_id,
+                    record_chat_only_id,
+                ),
+            )
+        }
+    finally:
+        connection.close()
+
+    assert "record_state" not in columns
+    assert "reported_at" not in columns
+
+    exam_state, exam_reported_at, reading_state, _, work_state, _ = rows[record_exam_id]
+    assert exam_state == "REPORTED"
+    assert exam_reported_at is not None
+    assert reading_state is None
+    assert work_state is None
+
+    _, _, reading_state, reading_reported_at, work_state, _ = rows[record_reading_id]
+    assert reading_state == "PROGRESS_ONLY"
+    assert reading_reported_at is None
+    assert work_state is None
+
+    exam_state, _, reading_state, _, work_state, work_reported_at = rows[record_work_id]
+    assert work_state == "REPORTED"
+    assert work_reported_at is not None
+    assert exam_state is None
+    assert reading_state is None
+
+    exam_state, _, reading_state, _, work_state, _ = rows[record_multi_id]
+    assert exam_state == "REPORTED"
+    assert work_state == "REPORTED"
+    assert reading_state is None  # 触れていないカテゴリはNULLのまま
+
+    exam_state, _, reading_state, _, work_state, _ = rows[record_chat_only_id]
+    assert exam_state == "PROGRESS_ONLY"  # chat_messageのみでもEXAMに触れたとみなす
+    assert reading_state is None
+    assert work_state is None

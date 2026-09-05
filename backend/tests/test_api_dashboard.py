@@ -73,7 +73,7 @@ def _make_active_goal_with_material(
 def _add_study_log(session, record_date: dt.date, material_id: int, cycle_number: int = 1) -> None:
     record = session.query(DailyRecord).filter(DailyRecord.record_date == record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+        record = DailyRecord(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     session.add(
@@ -338,6 +338,39 @@ def test_dashboard_reading_goal_card_shows_book_progress(client, seeded_session)
     assert card["book"]["id"] == book["id"]
     assert card["book"]["title"] == "達人プログラマー"
     assert card["book"]["current_streak"] == 0
+
+
+def test_dashboard_work_goal_card_shows_work_assignment_progress(client, seeded_session):
+    """仕事目標のカードは日次ノルマ等を対象外のまま、work_assignmentの派生値
+    （経過日数・連続記録日数・直近の月次報告有無）を表示する（要件定義書R-74、
+    実装フェーズ分割計画書Phase23）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "WORK", "name": "仕事目標A", "start_date": TODAY.isoformat()},
+    ).json()
+    work_assignment = client.post(
+        f"/api/v1/goals/{goal['id']}/work-assignment",
+        json={
+            "client_name": "A社",
+            "expected_content": "想定業務内容",
+            "start_date": TODAY.isoformat(),
+        },
+    ).json()
+    activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert activated.status_code == 200, activated.text
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert len(body["goal_cards"]) == 1
+    card = body["goal_cards"][0]
+    assert card["category"] == "WORK"
+    assert card["progress_rate"] is None
+    assert card["remaining_days"] is None
+    assert card["forecast_deviation_days"] is None
+    assert card["has_warning"] is False
+    assert card["work_assignment"]["id"] == work_assignment["id"]
+    assert card["work_assignment"]["client_name"] == "A社"
+    assert card["work_assignment"]["elapsed_days"] == 0
 
 
 def test_goal_remaining_days_none_when_no_exam_subjects():

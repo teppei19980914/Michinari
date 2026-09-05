@@ -16,19 +16,22 @@ import {
   type GoalDetailRead,
 } from '../../api/goals'
 import { generateRetrospective } from '../../api/closure'
+import { resolveInitialBookTitle } from './bookTitle'
 
 function BookForm({
   goalId,
+  goalName,
   book,
   onDone,
 }: {
   goalId: number
+  goalName: string
   book?: BookRead
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
-  const [title, setTitle] = useState(book?.title ?? '')
+  const [title, setTitle] = useState(resolveInitialBookTitle(book?.title, goalName))
   const [author, setAuthor] = useState(book?.author ?? '')
   const [totalPages, setTotalPages] = useState(
     book?.total_pages === null || book?.total_pages === undefined ? '' : String(book.total_pages),
@@ -182,13 +185,13 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
     if (readOnly) {
       return <p className="text-sm text-gray-500">{t('goals.book.empty')}</p>
     }
-    return <BookForm goalId={goal.id} onDone={() => undefined} />
+    return <BookForm goalId={goal.id} goalName={goal.name} onDone={() => undefined} />
   }
 
   const book = goal.book
 
   if (editing) {
-    return <BookForm goalId={goal.id} book={book} onDone={() => setEditing(false)} />
+    return <BookForm goalId={goal.id} goalName={goal.name} book={book} onDone={() => setEditing(false)} />
   }
 
   return (

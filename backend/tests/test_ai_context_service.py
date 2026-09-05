@@ -27,10 +27,12 @@ from app.models.record import (
     ReadingLog,
     StudyLog,
     WeeklySummary,
+    WorkLog,
 )
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
+from app.models.work import WorkAssignment
 from app.services import ai_context_service
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE, resource_ratio=1.0):
@@ -93,7 +95,7 @@ def _make_slot(session, start_time, end_time, weekdays, environment=Environment.
 
 
 def _make_daily_record(session, record_date, state=RecordState.REPORTED, **overrides):
-    defaults = dict(record_date=record_date, record_state=state)
+    defaults = dict(record_date=record_date, exam_record_state=state)
     defaults.update(overrides)
     record = DailyRecord(**defaults)
     session.add(record)
@@ -276,9 +278,7 @@ def test_build_material_status_entries_includes_forecast_when_computable(seeded_
     # （ロジック・プロンプト編8.2・8.5）。
     for day in (18, 19, 20):
         record = _make_daily_record(seeded_session, dt.date(2026, 8, day))
-        _make_study_log(
-            seeded_session, record, material, amount_completed=10.0, minutes_spent=60
-        )
+        _make_study_log(seeded_session, record, material, amount_completed=10.0, minutes_spent=60)
     monday = dt.date(2026, 8, 24)
     _make_slot(seeded_session, dt.time(19, 0), dt.time(21, 0), weekdays=list(range(7)))
 
@@ -336,9 +336,7 @@ def test_build_slot_summary_omits_material_with_no_allocated_hours(seeded_sessio
         environment=Environment.PC,
     )
 
-    text = ai_context_service.build_slot_summary(
-        seeded_session, [matched, unmatched], today=monday
-    )
+    text = ai_context_service.build_slot_summary(seeded_session, [matched, unmatched], today=monday)
 
     assert matched.name in text
     assert unmatched.name not in text
@@ -594,12 +592,19 @@ def test_build_week_metrics_text_summarizes_week(seeded_session):
     material = _make_material(seeded_session, goal, quality_metric_type=QualityMetricType.OBJECTIVE)
     record = _make_daily_record(seeded_session, dt.date(2026, 7, 8))
     _make_study_log(
-        seeded_session, record, material, minutes_spent=60, amount_completed=20.0,
+        seeded_session,
+        record,
+        material,
+        minutes_spent=60,
+        amount_completed=20.0,
         quality_value=90.0,
     )
 
     text = ai_context_service.build_week_metrics_text(
-        seeded_session, goal, week_start=dt.date(2026, 7, 6), week_end=dt.date(2026, 7, 12),
+        seeded_session,
+        goal,
+        week_start=dt.date(2026, 7, 6),
+        week_end=dt.date(2026, 7, 12),
         treat_holiday_as_buffer=True,
     )
 
@@ -813,6 +818,27 @@ def test_list_active_exam_goals_excludes_reading_goals(seeded_session):
     assert reading_goal.id not in {g.id for g in active_goals}
 
 
+def test_list_active_exam_goals_excludes_work_goals(seeded_session):
+    """仕事目標（category=WORK）も資格試験用プロンプトの文脈から除外されること
+    （読書と同じ理由。実装フェーズ分割計画書Phase21回帰防止観点）。
+    """
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    work_goal = Goal(
+        category=GoalCategory.WORK,
+        name="仕事目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(work_goal)
+    seeded_session.commit()
+
+    active_goals = ai_context_service.list_active_exam_goals(seeded_session)
+
+    assert exam_goal.id in {g.id for g in active_goals}
+    assert work_goal.id not in {g.id for g in active_goals}
+
+
 def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
     """読書目標を list_active_exam_goals で除外した後は、資格試験プロンプトの
     goal_summaryに読書目標の名前が現れないこと。"""
@@ -863,7 +889,7 @@ def _make_book(session, goal, **overrides):
 
 
 def _add_reading_log(session, book_id, record_date, **overrides):
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     defaults = dict(daily_record_id=record.id, book_id=book_id, recall_body="想起本文")
@@ -991,3 +1017,258 @@ def test_build_reading_logs_text_handles_no_logs(seeded_session):
     text = ai_context_service.build_reading_logs_text(seeded_session, book)
 
     assert "想起記録はありません" in text
+
+
+# --- 仕事目標（WORK、実装フェーズ分割計画書Phase22） ---
+
+
+def _make_work_goal(session, name="仕事目標A"):
+    goal = Goal(
+        category=GoalCategory.WORK,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def _make_work_assignment(session, goal, **overrides):
+    defaults = dict(
+        goal_id=goal.id,
+        expected_content="想定業務内容",
+        start_date=dt.date(2026, 1, 1),
+    )
+    defaults.update(overrides)
+    work_assignment = WorkAssignment(**defaults)
+    session.add(work_assignment)
+    session.flush()
+    return work_assignment
+
+
+def _add_work_log(session, work_assignment_id, record_date, **overrides):
+    record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    defaults = dict(
+        daily_record_id=record.id, work_assignment_id=work_assignment_id, body="業務内容本文"
+    )
+    defaults.update(overrides)
+    session.add(WorkLog(**defaults))
+    session.flush()
+
+
+def test_list_active_work_goals_excludes_exam_goals(seeded_session):
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    work_goal = _make_work_goal(seeded_session)
+
+    active = ai_context_service.list_active_work_goals(seeded_session)
+
+    assert work_goal.id in {g.id for g in active}
+    assert exam_goal.id not in {g.id for g in active}
+
+
+def test_list_active_work_assignments_returns_assignment_of_each_goal(seeded_session):
+    goal_with_assignment = _make_work_goal(seeded_session, name="仕事目標A")
+    work_assignment = _make_work_assignment(seeded_session, goal_with_assignment)
+    goal_without_assignment = _make_work_goal(seeded_session, name="仕事目標B")
+
+    assignments = ai_context_service.list_active_work_assignments(
+        [goal_with_assignment, goal_without_assignment]
+    )
+
+    assert assignments == [work_assignment]
+
+
+def test_build_daily_work_summary_text_includes_name_and_elapsed_days(seeded_session):
+    goal = _make_work_goal(seeded_session, name="仕事目標X")
+    work_assignment = _make_work_assignment(
+        seeded_session, goal, client_name="A社", start_date=dt.date(2026, 1, 1)
+    )
+
+    text = ai_context_service.build_daily_work_summary_text([work_assignment], dt.date(2026, 1, 11))
+
+    assert "仕事目標X" in text
+    assert "A社" in text
+    assert "経過日数: 10日" in text
+
+
+def test_build_daily_work_summary_text_handles_no_assignments():
+    text = ai_context_service.build_daily_work_summary_text([], dt.date(2026, 1, 10))
+    assert "進行中の仕事目標はありません" in text
+
+
+def test_build_today_work_text_includes_goal_name_and_body(seeded_session):
+    goal = _make_work_goal(seeded_session, name="仕事目標X")
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    item = WorkLogItem(work_assignment_id=work_assignment.id, body="今日はAPIを実装した")
+
+    text = ai_context_service.build_today_work_text([item], {work_assignment.id: work_assignment})
+
+    assert "仕事目標X" in text
+    assert "今日はAPIを実装した" in text
+
+
+def test_build_today_work_text_handles_no_items():
+    text = ai_context_service.build_today_work_text([], {})
+    assert "本日の業務記録はまだありません" in text
+
+
+def test_build_recent_work_logs_text_excludes_entries_outside_window(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="窓内の記録")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2025, 12, 1), body="窓外の記録")
+
+    text = ai_context_service.build_recent_work_logs_text(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+    )
+
+    assert "窓内の記録" in text
+    assert "窓外の記録" not in text
+
+
+def test_build_recent_work_logs_text_handles_no_assignments(seeded_session):
+    text = ai_context_service.build_recent_work_logs_text(
+        seeded_session, [], dt.date(2026, 1, 10), recent_days=14
+    )
+    assert "進行中の仕事目標はありません" in text
+
+
+def test_build_recent_work_logs_text_handles_no_logs(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+
+    text = ai_context_service.build_recent_work_logs_text(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+    )
+
+    assert "直近の業務記録はありません" in text
+
+
+def test_build_retrospective_work_summary_text_includes_client_and_start_date(seeded_session):
+    goal = _make_work_goal(seeded_session, name="仕事目標X")
+    work_assignment = _make_work_assignment(
+        seeded_session,
+        goal,
+        client_name="B社",
+        expected_content="Webサイト改修",
+        start_date=dt.date(2026, 2, 1),
+    )
+
+    text = ai_context_service.build_retrospective_work_summary_text(work_assignment)
+
+    assert "仕事目標X" in text
+    assert "B社" in text
+    assert "Webサイト改修" in text
+    assert "2026-02-01" in text
+
+
+def test_build_work_logs_text_for_period_orders_chronologically(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 2), body="2日目の業務")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 1), body="1日目の業務")
+
+    text = ai_context_service.build_work_logs_text_for_period(
+        seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
+    )
+
+    assert text.index("1日目の業務") < text.index("2日目の業務")
+
+
+def test_build_work_logs_text_for_period_excludes_entries_outside_range(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 15), body="範囲内の業務")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 2, 1), body="範囲外の業務")
+
+    text = ai_context_service.build_work_logs_text_for_period(
+        seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
+    )
+
+    assert "範囲内の業務" in text
+    assert "範囲外の業務" not in text
+
+
+def test_build_work_logs_text_for_period_handles_no_logs(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+
+    text = ai_context_service.build_work_logs_text_for_period(
+        seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
+    )
+
+    assert "対象期間の業務記録はありません" in text
+
+
+def test_build_work_progress_summary_includes_elapsed_days_and_streak(seeded_session):
+    goal = _make_work_goal(seeded_session, name="仕事目標X")
+    work_assignment = _make_work_assignment(seeded_session, goal, start_date=dt.date(2026, 1, 1))
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 10))
+
+    text = ai_context_service.build_work_progress_summary(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10)
+    )
+
+    assert "仕事目標X" in text
+    assert "経過9日" in text
+    assert "連続記録1日" in text
+    assert "直近記録日 2026-01-10" in text
+
+
+def test_build_work_progress_summary_handles_no_assignments(seeded_session):
+    text = ai_context_service.build_work_progress_summary(seeded_session, [], dt.date(2026, 1, 10))
+    assert "対象案件はありません" in text
+
+
+def test_build_work_recent_activity_text_counts_reported_days(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    record = DailyRecord(record_date=dt.date(2026, 1, 9), work_record_state=RecordState.REPORTED)
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(daily_record_id=record.id, work_assignment_id=work_assignment.id, body="業務内容")
+    )
+    seeded_session.flush()
+
+    text = ai_context_service.build_work_recent_activity_text(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10)
+    )
+
+    assert "記録日数: 1日" in text
+    assert "報告確定 1日" in text
+
+
+def test_build_work_recent_activity_text_handles_no_assignments(seeded_session):
+    text = ai_context_service.build_work_recent_activity_text(
+        seeded_session, [], dt.date(2026, 1, 10)
+    )
+    assert "対象案件はありません" in text
+
+
+def test_build_work_recent_activity_text_handles_no_logs(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+
+    text = ai_context_service.build_work_recent_activity_text(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10)
+    )
+
+    assert "直近の業務記録はありません" in text
+
+
+def test_list_daily_message_target_goals_includes_exam_and_work_excludes_reading(seeded_session):
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    work_goal = _make_work_goal(seeded_session, name="仕事目標")
+    reading_goal = _make_reading_goal(seeded_session, name="読書目標")
+
+    targets = ai_context_service.list_daily_message_target_goals(seeded_session)
+
+    target_ids = {g.id for g in targets}
+    assert exam_goal.id in target_ids
+    assert work_goal.id in target_ids
+    assert reading_goal.id not in target_ids

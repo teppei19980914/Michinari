@@ -61,6 +61,44 @@ function ReadingGoalCard({ goal }: { goal: GoalCard }) {
   )
 }
 
+/** 仕事目標のカード内容（仕様書6.1、要件定義書R-74「ノルマではなく経過日数・直近記録日・
+ * 連続記録日数・直近の月次報告有無」、DSH-07）。読書と同様、進捗率・完了予測日は表示しない
+ * （EXAM専用の計画管理のため）。月次報告タブへの遷移は、読書のReadingGoalCardと同様、
+ * カード全体のリンク先（目標詳細、基本情報タブ）から利用者が手動でタブ切替する
+ * （URLベースのタブ深いリンクは現状の実装方針に無いため導入しない）。 */
+function WorkGoalCard({ goal }: { goal: GoalCard }) {
+  const workAssignment = goal.work_assignment
+  return (
+    <>
+      <h3 className="mb-2 font-medium text-gray-900">{goal.goal_name}</h3>
+      <dl className="space-y-1 text-sm text-gray-600">
+        {workAssignment && (
+          <>
+            <div>
+              {t('dashboard.goalCard.elapsedDays', { days: workAssignment.elapsed_days })}
+            </div>
+            <div>
+              {workAssignment.last_work_date
+                ? t('dashboard.goalCard.lastWorkDate', { date: workAssignment.last_work_date })
+                : t('dashboard.goalCard.lastWorkDateUnavailable')}
+            </div>
+            <div>
+              {t('dashboard.goalCard.currentStreakWork', {
+                days: workAssignment.current_streak,
+              })}
+            </div>
+            <div>
+              {workAssignment.has_recent_monthly_report
+                ? t('dashboard.goalCard.hasRecentMonthlyReport')
+                : t('dashboard.goalCard.hasRecentMonthlyReportNone')}
+            </div>
+          </>
+        )}
+      </dl>
+    </>
+  )
+}
+
 function ExamGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
@@ -92,6 +130,8 @@ export function GoalCardList({ goalCards }: { goalCards: DashboardRead['goal_car
           <Card className="h-full hover:border-blue-300">
             {goal.category === 'READING' ? (
               <ReadingGoalCard goal={goal} />
+            ) : goal.category === 'WORK' ? (
+              <WorkGoalCard goal={goal} />
             ) : (
               <ExamGoalCard goal={goal} />
             )}

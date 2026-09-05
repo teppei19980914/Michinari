@@ -6,17 +6,7 @@ import { Button } from '../components/Button'
 import { useToast } from '../components/Toast'
 import { createBackup, downloadExportFile, importDataFile, listBackups, restoreBackup } from '../api/data'
 import { formatBytes } from '../features/data/formatBytes'
-
-/** ブラウザへファイルをダウンロードさせる（GET /data/exportのJSON応答を
- * 受け取ったBlobをローカルファイルとして保存する、SC-12「エクスポート」）。 */
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
+import { downloadBlob } from '../utils/downloadBlob'
 
 /** SC-12 データ管理（仕様書6.12）。 */
 export function DataManagementPage() {
