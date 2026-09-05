@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.books import serialize_book
+from app.api.work import serialize_work_assignment
 from app.constants.app_setting_keys import DASHBOARD_REPORT_RATE_WINDOW_DAYS
 from app.constants.enums import GoalCategory
 from app.database import get_db
@@ -217,6 +218,15 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
                     "progress_rate": book_read.progress_rate,
                     "remaining_days": book_read.remaining_days,
                     "book": book_read,
+                }
+            )
+        if goal.category == GoalCategory.WORK and goal.work_assignment is not None:
+            # 仕事目標はprogress_rate・remaining_days等を対象外のまま（materials・
+            # exam_subjectsを持たないため元々None）、work_assignmentのみ付与する
+            # （要件定義書R-74、実装フェーズ分割計画書Phase23）。
+            card = card.model_copy(
+                update={
+                    "work_assignment": serialize_work_assignment(session, goal.work_assignment),
                 }
             )
         goal_cards.append(card)

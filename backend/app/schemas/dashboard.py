@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.constants.enums import DayType, GoalCategory, RecordState
 from app.schemas.book import BookRead
+from app.schemas.work import WorkAssignmentRead
 
 
 class MaterialSpeedRead(BaseModel):
@@ -30,6 +31,12 @@ class GoalCardRead(BaseModel):
     読了目標日までの残日数）で上書きし、forecast_deviation_days・has_warning・
     has_forced_replanは対象外（常にNone/false）とする（要件定義書R-71、Phase17）。
     bookには読書進捗の全体（直近記録日・連続記録日数を含む）を格納する。
+
+    category=WORKの場合、progress_rate・remaining_days・forecast_deviation_days・
+    has_warning・has_forced_replanはいずれも対象外（materials・exam_subjectsを
+    持たないため元々Noneのまま。要件定義書R-74）。work_assignmentに仕事進捗の全体
+    （経過日数・直近記録日・連続記録日数・直近の月次報告有無を含む）を格納する
+    （実装フェーズ分割計画書Phase23、読書のDSH-06相当のDSH-07）。
     """
 
     goal_id: int
@@ -41,6 +48,7 @@ class GoalCardRead(BaseModel):
     has_warning: bool
     has_forced_replan: bool
     book: BookRead | None = None
+    work_assignment: WorkAssignmentRead | None = None
 
 
 class GoalStatsRead(BaseModel):

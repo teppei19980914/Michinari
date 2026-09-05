@@ -14,6 +14,9 @@ export type QuotaItemRead = components['schemas']['QuotaItemRead']
 export type CommentRead = components['schemas']['CommentRead']
 export type ReadingLogInput = components['schemas']['ReadingLogInput']
 export type ReadingLogRead = components['schemas']['ReadingLogRead']
+export type WorkChatRequest = components['schemas']['WorkChatRequest']
+export type WorkLogInput = components['schemas']['WorkLogInput']
+export type WorkLogRead = components['schemas']['WorkLogRead']
 export type ChatMessageRead = components['schemas']['ChatMessageRead']
 export type DiaryEntryInput = components['schemas']['DiaryEntryInput']
 export type DiaryEntryRead = components['schemas']['DiaryEntryRead']
@@ -68,6 +71,12 @@ export function sendReadingChat(
   payload: ReadingChatRequest,
 ): Promise<ChatResponse> {
   return apiClient.post<ChatResponse>(`/records/${targetDate}/reading-chat`, payload)
+}
+
+/** 仕事のAI対話を1往復実行する（SC-06下段、仕事。資格試験の/chat・読書の/reading-chatとは
+ * 別の会話・プロンプトとして分離する、データ構造編6.2）。 */
+export function sendWorkChat(targetDate: string, payload: WorkChatRequest): Promise<ChatResponse> {
+  return apiClient.post<ChatResponse>(`/records/${targetDate}/work-chat`, payload)
 }
 
 export function createComment(targetDate: string, body: string): Promise<CommentRead> {

@@ -4,9 +4,13 @@ import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { Card } from '../components/Card'
 import { getQuota, getRecord } from '../api/records'
-import { listActiveReadingBooks } from '../api/goals'
+import { listActiveReadingBooks, listActiveWorkAssignments } from '../api/goals'
 import { StudyLogSummaryList, type MaterialLabel } from '../features/record/StudyLogSummaryList'
 import { ReadingLogSummaryList, type BookLabel } from '../features/record/ReadingLogSummaryList'
+import {
+  WorkLogSummaryList,
+  type WorkAssignmentLabel,
+} from '../features/record/WorkLogSummaryList'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { CommentSection } from '../features/record/CommentSection'
 
@@ -33,8 +37,17 @@ export function DailyReportViewPage() {
     queryKey: ['activeReadingBooks'],
     queryFn: listActiveReadingBooks,
   })
+  const workAssignmentsQuery = useQuery({
+    queryKey: ['activeWorkAssignments'],
+    queryFn: listActiveWorkAssignments,
+  })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading || readingBooksQuery.isLoading) {
+  if (
+    recordQuery.isLoading ||
+    quotaQuery.isLoading ||
+    readingBooksQuery.isLoading ||
+    workAssignmentsQuery.isLoading
+  ) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
   if (recordQuery.isError || !recordQuery.data) {
@@ -58,10 +71,17 @@ export function DailyReportViewPage() {
   const bookLabels = new Map<number, BookLabel>(
     (readingBooksQuery.data ?? []).map((entry) => [entry.book.id, { title: entry.book.title }]),
   )
+  const workAssignmentLabels = new Map<number, WorkAssignmentLabel>(
+    (workAssignmentsQuery.data ?? []).map((entry) => [
+      entry.workAssignment.id,
+      { clientName: entry.workAssignment.client_name },
+    ]),
+  )
   const examMessages = record.chat_messages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
   const readingMessages = record.chat_messages.filter(
     (m) => m.purpose === 'DAILY_FEEDBACK_READING',
   )
+  const workMessages = record.chat_messages.filter((m) => m.purpose === 'DAILY_FEEDBACK_WORK')
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -78,6 +98,16 @@ export function DailyReportViewPage() {
         <section className="flex flex-col gap-2">
           <h2 className="font-medium text-gray-900">{t('dailyReportView.readingLog.title')}</h2>
           <ReadingLogSummaryList readingLogs={record.reading_logs} bookLabels={bookLabels} />
+        </section>
+      )}
+
+      {record.work_logs.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-medium text-gray-900">{t('dailyReportView.workLog.title')}</h2>
+          <WorkLogSummaryList
+            workLogs={record.work_logs}
+            workAssignmentLabels={workAssignmentLabels}
+          />
         </section>
       )}
 
@@ -121,6 +151,15 @@ export function DailyReportViewPage() {
             {t('dailyReportView.readingChatHistory.title')}
           </h2>
           <ChatPanel messages={readingMessages} readOnly />
+        </Card>
+      )}
+
+      {workMessages.length > 0 && (
+        <Card className="flex flex-col gap-2">
+          <h2 className="font-medium text-gray-900">
+            {t('dailyReportView.workChatHistory.title')}
+          </h2>
+          <ChatPanel messages={workMessages} readOnly />
         </Card>
       )}
 

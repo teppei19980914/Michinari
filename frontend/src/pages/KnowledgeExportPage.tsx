@@ -21,6 +21,7 @@ import {
   type ExportSummary,
   type QualityTrendEntry,
   type ReadingExportSummary,
+  type WorkExportSummary,
 } from '../features/export/knowledgeExportSummary'
 
 const DEFAULT_SELECTION: ExportSelection = {
@@ -38,57 +39,65 @@ const DEFAULT_SELECTION: ExportSelection = {
 }
 
 /** 教材構成・品質指標推移・リプラン履歴・週次要約・日記本文・AI対話履歴・受験結果は、
- * 読書目標には該当データが無いため選択肢自体を表示しない（仕様書6.10「読書目標の場合」、
- * 設計書データ構造編7.1）。summary・daily_records・retrospectiveは読書向けの読み替え
- * ラベルを別途表示する。 */
+ * 読書目標・仕事目標には該当データが無いため選択肢自体を表示しない（仕様書6.10「読書目標の
+ * 場合」「仕事目標の場合」、設計書データ構造編7.1）。summary・daily_records・retrospectiveは
+ * 読書・仕事それぞれの読み替えラベルを別途表示する。 */
 const SELECTION_ITEMS: {
   field: keyof ExportSelection
   labelKey: string
   readingLabelKey?: string
-  hiddenForReading?: boolean
+  workLabelKey?: string
+  hiddenForReadingOrWork?: boolean
 }[] = [
   { field: 'goal_overview', labelKey: 'knowledgeExport.selection.goalOverview' },
-  { field: 'materials', labelKey: 'knowledgeExport.selection.materials', hiddenForReading: true },
+  {
+    field: 'materials',
+    labelKey: 'knowledgeExport.selection.materials',
+    hiddenForReadingOrWork: true,
+  },
   {
     field: 'summary',
     labelKey: 'knowledgeExport.selection.summary',
     readingLabelKey: 'knowledgeExport.selection.readingSummary',
+    workLabelKey: 'knowledgeExport.selection.workSummary',
   },
   {
     field: 'daily_records',
     labelKey: 'knowledgeExport.selection.dailyRecords',
     readingLabelKey: 'knowledgeExport.selection.readingDailyRecords',
+    workLabelKey: 'knowledgeExport.selection.workDailyRecords',
   },
   {
     field: 'quality_trend',
     labelKey: 'knowledgeExport.selection.qualityTrend',
-    hiddenForReading: true,
+    hiddenForReadingOrWork: true,
   },
   {
     field: 'replan_history',
     labelKey: 'knowledgeExport.selection.replanHistory',
-    hiddenForReading: true,
+    hiddenForReadingOrWork: true,
   },
   {
     field: 'weekly_summaries',
     labelKey: 'knowledgeExport.selection.weeklySummaries',
-    hiddenForReading: true,
+    hiddenForReadingOrWork: true,
   },
-  { field: 'diary', labelKey: 'knowledgeExport.selection.diary', hiddenForReading: true },
+  { field: 'diary', labelKey: 'knowledgeExport.selection.diary', hiddenForReadingOrWork: true },
   {
     field: 'ai_dialogue',
     labelKey: 'knowledgeExport.selection.aiDialogue',
-    hiddenForReading: true,
+    hiddenForReadingOrWork: true,
   },
   {
     field: 'exam_results',
     labelKey: 'knowledgeExport.selection.examResults',
-    hiddenForReading: true,
+    hiddenForReadingOrWork: true,
   },
   {
     field: 'retrospective',
     labelKey: 'knowledgeExport.selection.retrospective',
     readingLabelKey: 'knowledgeExport.selection.readingRetrospective',
+    workLabelKey: 'knowledgeExport.selection.workRetrospective',
   },
 ]
 
@@ -151,21 +160,45 @@ function RetrospectiveSection({
   )
 }
 
+/** 仕事目標では、月次報告・半期評価（複数期間分）は既存の総括レポート専用エンドポイント
+ * （generateRetrospective/getRetrospective）を使えない（総括レポートは仕事目標を恒久的に
+ * 拒否する。データ構造編6.2）。生成・編集は目標詳細画面の月次報告・半期評価タブ
+ * （WorkReportTab）で行う設計のため、本画面では案内文のみを表示し、実際の内容は
+ * プレビュー・エクスポート結果のMarkdown全文（retrospective選択時）で確認する。 */
+function WorkRetrospectivesNote() {
+  return (
+    <Card className="flex flex-col gap-2">
+      <h2 className="font-medium text-gray-900">
+        {t('knowledgeExport.retrospective.workTitle')}
+      </h2>
+      <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.workNotice')}</p>
+    </Card>
+  )
+}
+
 function SummarySection({
   content,
   isReading,
+  isWork,
 }: {
   content: KnowledgeExportContentRead | undefined
   isReading: boolean
+  isWork: boolean
 }) {
   if (!content?.data.summary) {
     return null
   }
-  if (isReading) {
-    const summary = content.data.summary as ReadingExportSummary
+  if (isReading || isWork) {
+    const summary = content.data.summary as ReadingExportSummary | WorkExportSummary
     return (
       <Card className="flex flex-col gap-2">
-        <h2 className="font-medium text-gray-900">{t('knowledgeExport.summary.readingTitle')}</h2>
+        <h2 className="font-medium text-gray-900">
+          {t(
+            isWork
+              ? 'knowledgeExport.summary.workTitle'
+              : 'knowledgeExport.summary.readingTitle',
+          )}
+        </h2>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
           <dt className="text-gray-500">{t('knowledgeExport.summary.recordDays')}</dt>
           <dd>{summary.record_days}</dd>
@@ -237,8 +270,9 @@ export function KnowledgeExportPage() {
   }
   const goal = goalQuery.data
   const isReading = goal.category === 'READING'
+  const isWork = goal.category === 'WORK'
   const visibleSelectionItems = SELECTION_ITEMS.filter(
-    (item) => !(isReading && item.hiddenForReading),
+    (item) => !((isReading || isWork) && item.hiddenForReadingOrWork),
   )
 
   return (
@@ -251,24 +285,39 @@ export function KnowledgeExportPage() {
         {t('knowledgeExport.title', { name: goal.name })}
       </h1>
 
-      <RetrospectiveSection goalId={goal.id} anonymize={anonymize} isReading={isReading} />
-      <SummarySection content={previewMutation.data ?? exportMutation.data} isReading={isReading} />
+      {isWork ? (
+        <WorkRetrospectivesNote />
+      ) : (
+        <RetrospectiveSection goalId={goal.id} anonymize={anonymize} isReading={isReading} />
+      )}
+      <SummarySection
+        content={previewMutation.data ?? exportMutation.data}
+        isReading={isReading}
+        isWork={isWork}
+      />
 
       <Card className="flex flex-col gap-2">
         <h2 className="font-medium text-gray-900">{t('knowledgeExport.selection.title')}</h2>
         <div className="grid grid-cols-2 gap-1">
-          {visibleSelectionItems.map((item) => (
-            <label key={item.field} className="flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={selection[item.field]}
-                onChange={(e) =>
-                  setSelection((current) => ({ ...current, [item.field]: e.target.checked }))
-                }
-              />
-              {t(isReading && item.readingLabelKey ? item.readingLabelKey : item.labelKey)}
-            </label>
-          ))}
+          {visibleSelectionItems.map((item) => {
+            const labelKey = isWork
+              ? (item.workLabelKey ?? item.labelKey)
+              : isReading
+                ? (item.readingLabelKey ?? item.labelKey)
+                : item.labelKey
+            return (
+              <label key={item.field} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={selection[item.field]}
+                  onChange={(e) =>
+                    setSelection((current) => ({ ...current, [item.field]: e.target.checked }))
+                  }
+                />
+                {t(labelKey)}
+              </label>
+            )
+          })}
         </div>
         <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
           <input
@@ -280,9 +329,11 @@ export function KnowledgeExportPage() {
         </label>
         <p className="text-xs text-gray-500">
           {t(
-            isReading
-              ? 'knowledgeExport.anonymize.readingDescription'
-              : 'knowledgeExport.anonymize.description',
+            isWork
+              ? 'knowledgeExport.anonymize.workDescription'
+              : isReading
+                ? 'knowledgeExport.anonymize.readingDescription'
+                : 'knowledgeExport.anonymize.description',
           )}
         </p>
       </Card>
