@@ -23,6 +23,7 @@ from app.models.record import (
     ReadingLog,
     RecordComment,
     StudyLog,
+    WorkLog,
 )
 from app.services import (
     baseline_service,
@@ -41,6 +42,7 @@ from app.services.exceptions import (
     ResourceRatioExceededError,
     ResourceRatioRequiredError,
     ValidationError,
+    WorkAssignmentHasWorkLogsError,
 )
 
 #: resource_ratio合計の浮動小数点誤差許容値（100.0%ちょうどの保存を誤って拒否しないため）。
@@ -176,9 +178,10 @@ def update_goal(
     if memo is not None:
         goal.memo = memo
     if resource_ratio is not None:
-        # 読書目標はリソース配分プールの対象外（要件定義書R-64）。resource_ratioは常に0のまま。
-        if goal.category == GoalCategory.READING:
-            raise ValidationError("読書目標にはリソース配分を設定できません")
+        # 読書・仕事目標はリソース配分プールの対象外（要件定義書R-64・R-74）。
+        # resource_ratioは常に0のまま。
+        if goal.category in (GoalCategory.READING, GoalCategory.WORK):
+            raise ValidationError("読書・仕事目標にはリソース配分を設定できません")
         if not (0.0 <= resource_ratio <= 1.0):
             raise ValidationError("リソース配分比率は0.0〜1.0で入力してください")
         if goal.status == GoalStatus.ACTIVE:
@@ -231,17 +234,24 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     study_logs = session.query(StudyLog).filter(StudyLog.material_id.in_(material_ids)).all()
     book_ids = [goal.book.id] if goal.book is not None else []
     reading_logs = session.query(ReadingLog).filter(ReadingLog.book_id.in_(book_ids)).all()
+    work_assignment_ids = [goal.work_assignment.id] if goal.work_assignment is not None else []
+    work_logs = (
+        session.query(WorkLog).filter(WorkLog.work_assignment_id.in_(work_assignment_ids)).all()
+    )
     diary_entries = session.query(DailyGoalDiary).filter(DailyGoalDiary.goal_id == goal.id).all()
-    if not study_logs and not reading_logs and not diary_entries:
+    if not study_logs and not reading_logs and not work_logs and not diary_entries:
         return
     record_ids = (
         {log.daily_record_id for log in study_logs}
         | {log.daily_record_id for log in reading_logs}
+        | {log.daily_record_id for log in work_logs}
         | {entry.daily_record_id for entry in diary_entries}
     )
     for log in study_logs:
         session.delete(log)
     for log in reading_logs:
+        session.delete(log)
+    for log in work_logs:
         session.delete(log)
     for entry in diary_entries:
         session.delete(entry)
@@ -257,6 +267,12 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
         session.query(ReadingLog.daily_record_id, func.count(ReadingLog.id))
         .filter(ReadingLog.daily_record_id.in_(record_ids))
         .group_by(ReadingLog.daily_record_id)
+        .all()
+    )
+    remaining_work_log_counts = dict(
+        session.query(WorkLog.daily_record_id, func.count(WorkLog.id))
+        .filter(WorkLog.daily_record_id.in_(record_ids))
+        .group_by(WorkLog.daily_record_id)
         .all()
     )
     chat_counts = dict(
@@ -282,6 +298,8 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
         if remaining_log_counts.get(record.id, 0) > 0:
             continue
         if remaining_reading_log_counts.get(record.id, 0) > 0:
+            continue
+        if remaining_work_log_counts.get(record.id, 0) > 0:
             continue
         if chat_counts.get(record.id, 0) > 0 or comment_counts.get(record.id, 0) > 0:
             continue
@@ -314,12 +332,18 @@ def delete_archived_goal(session: Session, goal: Goal, *, cascade_study_logs: bo
             raise MaterialHasStudyLogsError(offending[0])
         if goal.book is not None:
             offending_reading_log = (
-                session.query(ReadingLog.book_id)
-                .filter(ReadingLog.book_id == goal.book.id)
-                .first()
+                session.query(ReadingLog.book_id).filter(ReadingLog.book_id == goal.book.id).first()
             )
             if offending_reading_log is not None:
                 raise BookHasReadingLogsError(offending_reading_log[0])
+        if goal.work_assignment is not None:
+            offending_work_log = (
+                session.query(WorkLog.work_assignment_id)
+                .filter(WorkLog.work_assignment_id == goal.work_assignment.id)
+                .first()
+            )
+            if offending_work_log is not None:
+                raise WorkAssignmentHasWorkLogsError(offending_work_log[0])
 
     session.delete(goal)
     session.flush()
@@ -329,7 +353,8 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
 
     読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
-    計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。
+    計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。仕事目標
+    （category=WORK）は案件情報の登録のみを前提とする（要件定義書R-74）。
     """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
@@ -337,6 +362,9 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     if goal.category == GoalCategory.READING:
         if goal.book is None:
             raise ValidationError("書籍を登録してください")
+    elif goal.category == GoalCategory.WORK:
+        if goal.work_assignment is None:
+            raise ValidationError("案件情報を登録してください")
     else:
         if not goal.exam_subjects:
             raise ExamSubjectRequiredError
@@ -387,7 +415,13 @@ def resume_goal(session: Session, goal: Goal) -> Goal:
     return goal
 
 
-def close_goal(session: Session, goal: Goal, *, confirm_without_result: bool = False) -> Goal:
+def close_goal(
+    session: Session,
+    goal: Goal,
+    *,
+    confirm_without_result: bool = False,
+    with_result: bool = False,
+) -> Goal:
     """進行中→クローズ（仕様書7.1）。
 
     全科目の受験結果が登録済みなら自動的に「結果あり」でクローズする。
@@ -398,21 +432,35 @@ def close_goal(session: Session, goal: Goal, *, confirm_without_result: bool = F
     常にFalseとなり、本関数は confirm_without_result=True を要求したうえで
     CLOSED_WITHOUT_RESULT（中断）へ遷移させる（仕様書7.1）。読了（CLOSED_WITH_RESULT）は
     本関数ではなく book_service.complete_book（POST /books/{id}/complete）を用いる。
+
+    仕事目標（category=WORK）は exam_subjects の概念自体を持たないため、上記の
+    自動判定・confirm_without_resultによる分岐を適用せず、with_resultの指定のみで
+    遷移先を決める（with_result=True→CLOSED_WITH_RESULT＝納品等の成果を伴う終了、
+    False（既定）→CLOSED_WITHOUT_RESULT＝中止・打ち切り。要件定義書R-72、
+    データ構造編6.2）。with_resultはWORK専用のパラメータであり、EXAM/READINGで
+    True指定された場合は拒否する。
     """
     if goal.status != GoalStatus.ACTIVE:
         raise InvalidStateTransitionError("進行中の目標のみクローズできます")
 
-    has_all_results = bool(goal.exam_subjects) and all(
-        subject.exam_result is not None for subject in goal.exam_subjects
-    )
-    if has_all_results:
-        goal.status = GoalStatus.CLOSED_WITH_RESULT
+    if goal.category == GoalCategory.WORK:
+        goal.status = (
+            GoalStatus.CLOSED_WITH_RESULT if with_result else GoalStatus.CLOSED_WITHOUT_RESULT
+        )
     else:
-        if not confirm_without_result:
-            raise InvalidStateTransitionError(
-                "受験結果が未登録の科目があります。結果なしでクローズする場合は確認が必要です"
-            )
-        goal.status = GoalStatus.CLOSED_WITHOUT_RESULT
+        if with_result:
+            raise ValidationError("with_resultは仕事目標にのみ指定できます")
+        has_all_results = bool(goal.exam_subjects) and all(
+            subject.exam_result is not None for subject in goal.exam_subjects
+        )
+        if has_all_results:
+            goal.status = GoalStatus.CLOSED_WITH_RESULT
+        else:
+            if not confirm_without_result:
+                raise InvalidStateTransitionError(
+                    "受験結果が未登録の科目があります。結果なしでクローズする場合は確認が必要です"
+                )
+            goal.status = GoalStatus.CLOSED_WITHOUT_RESULT
 
     goal.closed_at = utcnow()
     session.flush()

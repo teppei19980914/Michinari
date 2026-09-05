@@ -813,6 +813,27 @@ def test_list_active_exam_goals_excludes_reading_goals(seeded_session):
     assert reading_goal.id not in {g.id for g in active_goals}
 
 
+def test_list_active_exam_goals_excludes_work_goals(seeded_session):
+    """仕事目標（category=WORK）も資格試験用プロンプトの文脈から除外されること
+    （読書と同じ理由。実装フェーズ分割計画書Phase21回帰防止観点）。
+    """
+    exam_goal = _make_goal(seeded_session, name="資格目標")
+    work_goal = Goal(
+        category=GoalCategory.WORK,
+        name="仕事目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        resource_ratio=0,
+    )
+    seeded_session.add(work_goal)
+    seeded_session.commit()
+
+    active_goals = ai_context_service.list_active_exam_goals(seeded_session)
+
+    assert exam_goal.id in {g.id for g in active_goals}
+    assert work_goal.id not in {g.id for g in active_goals}
+
+
 def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
     """読書目標を list_active_exam_goals で除外した後は、資格試験プロンプトの
     goal_summaryに読書目標の名前が現れないこと。"""

@@ -112,6 +112,24 @@ class BookAlreadyExistsError(DomainError):
         super().__init__(f"目標(id={goal_id})には既に書籍が登録されています")
 
 
+class WorkAssignmentHasWorkLogsError(DomainError):
+    """業務記録（work_log）が存在する案件情報を削除しようとした場合
+    （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。"""
+
+    def __init__(self, work_assignment_id: int) -> None:
+        self.work_assignment_id = work_assignment_id
+        super().__init__(f"案件情報(id={work_assignment_id})には業務記録が存在するため削除できません")
+
+
+class WorkAssignmentAlreadyExistsError(DomainError):
+    """1目標1案件の制約に反して2件目の案件情報を登録しようとした場合
+    （データ構造編6.3 WORK_ASSIGNMENT_ALREADY_EXISTS、要件定義書R-72）。"""
+
+    def __init__(self, goal_id: int) -> None:
+        self.goal_id = goal_id
+        super().__init__(f"目標(id={goal_id})には既に案件情報が登録されています")
+
+
 class ImmutableRecordError(DomainError):
     """確定済み(REPORTED)の日次記録を更新しようとした場合（データ構造編6.3 IMMUTABLE_RECORD）。"""
 
