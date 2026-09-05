@@ -83,9 +83,15 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         AppSettingValueType.STRING,
     ),
     AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
-    # 仕事用アシスタントも読書と同様に未選定（Phase22で疎通確認のうえ選定）。
-    # 空欄のまま初期投入し、設定画面から補う（実装フェーズ分割計画書Phase20）。
-    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK: ("", AppSettingValueType.STRING),
+    # 仕事の日次フィードバックは読書の日次フィードバックと同一アシスタント
+    # （GPT-5.4-mini・高速）を既定値とする。要件定義時点で「読書機能同様に日々の頑張りを
+    # 労うフィードバック」と明示されており、高頻度・低負荷という性質も読書と一致するため
+    # （実装フェーズ分割計画書Phase22）。月次報告・半期評価用アシスタントは低頻度・高品質
+    # 重視の判断がまだ実環境で検証できていないため、読書と同様に未選定のまま投入する。
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK: (
+        "8ed280bb-3040-4ee3-9821-66bb7a4db125",
+        AppSettingValueType.STRING,
+    ),
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY: ("", AppSettingValueType.STRING),
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: ("", AppSettingValueType.STRING),
     AI_WORK_RECENT_LOG_DAYS: ("14", AppSettingValueType.INTEGER),
@@ -158,18 +164,21 @@ def seed_day_type_defaults(session: Session) -> None:
         session.add(DayTypeDefault(weekday=weekday, day_type=day_type))
 
 
-# 読書用アシスタント既定値の一度きりの補正（仕様書8.9.1・12章S-07解消）。
-# Phase16時点では実環境での疎通確認前だったため空欄で投入されており、seed_app_settingsの
-# 「既存キーは上書きしない」仕組みだけでは既存DBの空欄値が更新されない。ユーザーが設定画面から
-# 既に値を入れている場合（空文字以外）は上書きしない。
+# カテゴリ別アシスタント既定値の一度きりの補正（仕様書8.9.1・12章S-07解消）。
+# 実環境での疎通確認前は空欄で投入されており、seed_app_settingsの「既存キーは上書きしない」
+# 仕組みだけでは既存DBの空欄値が更新されない。ユーザーが設定画面から既に値を入れている場合
+# （空文字以外）は上書きしない。
 _READING_ASSISTANT_DEFAULT_KEYS = (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
 )
 
+# 仕事は日次フィードバックのみ選定済み（月次報告・半期評価は未選定のため対象外）。
+_WORK_ASSISTANT_DEFAULT_KEYS = (AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,)
 
-def backfill_reading_assistant_defaults(session: Session) -> None:
-    for key in _READING_ASSISTANT_DEFAULT_KEYS:
+
+def _backfill_assistant_defaults(session: Session, keys: tuple[str, ...]) -> None:
+    for key in keys:
         default_value, _ = INITIAL_APP_SETTINGS[key]
         row = (
             session.query(AppSetting)
@@ -180,9 +189,18 @@ def backfill_reading_assistant_defaults(session: Session) -> None:
             row.value = default_value
 
 
+def backfill_reading_assistant_defaults(session: Session) -> None:
+    _backfill_assistant_defaults(session, _READING_ASSISTANT_DEFAULT_KEYS)
+
+
+def backfill_work_assistant_defaults(session: Session) -> None:
+    _backfill_assistant_defaults(session, _WORK_ASSISTANT_DEFAULT_KEYS)
+
+
 def run_all(session: Session) -> None:
     seed_app_settings(session)
     seed_prompt_templates(session)
     seed_day_type_defaults(session)
     backfill_reading_assistant_defaults(session)
+    backfill_work_assistant_defaults(session)
     session.commit()

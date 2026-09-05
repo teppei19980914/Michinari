@@ -15,6 +15,8 @@ import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
 import { BookTab } from '../features/goal/BookTab'
+import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
+import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
@@ -62,14 +64,45 @@ const READING_TABS = [
   },
 ] as const
 
-type TabKey = (typeof EXAM_TABS)[number]['key'] | (typeof READING_TABS)[number]['key']
+/** 仕事目標（category=WORK）は基本情報＋案件情報＋月次報告＋半期評価の構成とする
+ * （仕様書6.2「仕事目標（category=WORKの場合）」、試験科目・教材・リソース配分・
+ * 負荷プロファイルは表示しない。読書と異なり、周期的なレポートタブを2つ持つ）。 */
+const WORK_TABS = [
+  {
+    key: 'basicInfo',
+    labelKey: 'goals.detail.tabs.basicInfo',
+    tooltipKey: 'goals.detail.tabTooltips.basicInfoWork',
+  },
+  {
+    key: 'workAssignment',
+    labelKey: 'goals.detail.tabs.workAssignment',
+    tooltipKey: 'goals.detail.tabTooltips.workAssignment',
+  },
+  {
+    key: 'monthlyReport',
+    labelKey: 'goals.detail.tabs.monthlyReport',
+    tooltipKey: 'goals.detail.tabTooltips.monthlyReport',
+  },
+  {
+    key: 'semiannualReview',
+    labelKey: 'goals.detail.tabs.semiannualReview',
+    tooltipKey: 'goals.detail.tabTooltips.semiannualReview',
+  },
+] as const
+
+type TabKey =
+  | (typeof EXAM_TABS)[number]['key']
+  | (typeof READING_TABS)[number]['key']
+  | (typeof WORK_TABS)[number]['key']
 
 function GoalStatusActions({
   goalId,
   status,
+  category,
 }: {
   goalId: number
   status: string
+  category: 'EXAM' | 'READING' | 'WORK'
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
@@ -122,6 +155,7 @@ function GoalStatusActions({
         </Button>
         <CloseGoalModal
           goalId={goalId}
+          category={category}
           open={closeModalOpen}
           onClose={() => setCloseModalOpen(false)}
           onClosed={() => {
@@ -174,7 +208,8 @@ export function GoalDetailPage() {
 
   const goal = goalQuery.data
   const isReadOnly = isClosedGoalStatus(goal.status)
-  const tabs = goal.category === 'READING' ? READING_TABS : EXAM_TABS
+  const tabs =
+    goal.category === 'READING' ? READING_TABS : goal.category === 'WORK' ? WORK_TABS : EXAM_TABS
   // 別の目標（category違い）から遷移してきた場合、直前のタブ選択が現在のタブ構成に
   // 存在しないことがあるため、その場合のみ基本情報タブへ読み替える（stateは据え置き、
   // 同一目標内でのタブ切替の挙動には影響させない）。
@@ -188,7 +223,9 @@ export function GoalDetailPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{goal.name}</h1>
-        {!isReadOnly && <GoalStatusActions goalId={goal.id} status={goal.status} />}
+        {!isReadOnly && (
+          <GoalStatusActions goalId={goal.id} status={goal.status} category={goal.category} />
+        )}
       </div>
 
       {isReadOnly && (
@@ -216,9 +253,21 @@ export function GoalDetailPage() {
       </div>
 
       {activeTab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
-      {goal.category === 'READING' ? (
-        activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />
-      ) : (
+      {goal.category === 'READING' && (
+        <>{activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />}</>
+      )}
+      {goal.category === 'WORK' && (
+        <>
+          {activeTab === 'workAssignment' && (
+            <WorkAssignmentTab goal={goal} readOnly={isReadOnly} />
+          )}
+          {activeTab === 'monthlyReport' && <WorkReportTab goalId={goal.id} kind="monthly" />}
+          {activeTab === 'semiannualReview' && (
+            <WorkReportTab goalId={goal.id} kind="semiannual" />
+          )}
+        </>
+      )}
+      {goal.category === 'EXAM' && (
         <>
           {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}

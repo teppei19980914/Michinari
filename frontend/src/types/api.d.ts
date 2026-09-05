@@ -280,6 +280,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/work-assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Work Assignment */
+        post: operations["create_work_assignment_api_v1_goals__goal_id__work_assignment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Work Assignment */
+        patch: operations["update_work_assignment_api_v1_goals__goal_id__work_assignment_patch"];
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/load-profiles": {
         parameters: {
             query?: never;
@@ -634,6 +652,28 @@ export interface paths {
          *     プロンプト（DAILY_FEEDBACK_READING）として扱う。
          */
         post: operations["reading_chat_api_v1_records__target_date__reading_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/work-chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Work Chat
+         * @description 仕事目標のAI対話を1往復実行する（データ構造編6.2）。用途と日付ごとに会話を分離する
+         *     既存方針（ロジック・プロンプト編16.3）に従い、資格試験の`/chat`・読書の`/reading-chat`
+         *     とは独立した会話・プロンプト（DAILY_FEEDBACK_WORK）として扱う。
+         */
+        post: operations["work_chat_api_v1_records__target_date__work_chat_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1078,6 +1118,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/monthly-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Monthly Report */
+        get: operations["get_monthly_report_api_v1_goals__goal_id__monthly_report_get"];
+        put?: never;
+        /** Generate Monthly Report */
+        post: operations["generate_monthly_report_api_v1_goals__goal_id__monthly_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Monthly Report */
+        patch: operations["update_monthly_report_api_v1_goals__goal_id__monthly_report_patch"];
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/semiannual-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Semiannual Review */
+        get: operations["get_semiannual_review_api_v1_goals__goal_id__semiannual_review_get"];
+        put?: never;
+        /** Generate Semiannual Review */
+        post: operations["generate_semiannual_review_api_v1_goals__goal_id__semiannual_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Semiannual Review */
+        patch: operations["update_semiannual_review_api_v1_goals__goal_id__semiannual_review_patch"];
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/knowledge-export/preview": {
         parameters: {
             query?: never;
@@ -1345,7 +1423,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -1609,6 +1687,8 @@ export interface components {
             study_logs: components["schemas"]["StudyLogRead"][];
             /** Reading Logs */
             reading_logs: components["schemas"]["ReadingLogRead"][];
+            /** Work Logs */
+            work_logs: components["schemas"]["WorkLogRead"][];
             /** Comments */
             comments: components["schemas"]["CommentRead"][];
             /** Chat Messages */
@@ -1779,6 +1859,8 @@ export interface components {
             study_logs?: components["schemas"]["StudyLogInput"][];
             /** Reading Logs */
             reading_logs?: components["schemas"]["ReadingLogInput"][];
+            /** Work Logs */
+            work_logs?: components["schemas"]["WorkLogInput"][];
             /** Diary Entries */
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
         };
@@ -1864,6 +1946,12 @@ export interface components {
          *     読了目標日までの残日数）で上書きし、forecast_deviation_days・has_warning・
          *     has_forced_replanは対象外（常にNone/false）とする（要件定義書R-71、Phase17）。
          *     bookには読書進捗の全体（直近記録日・連続記録日数を含む）を格納する。
+         *
+         *     category=WORKの場合、progress_rate・remaining_days・forecast_deviation_days・
+         *     has_warning・has_forced_replanはいずれも対象外（materials・exam_subjectsを
+         *     持たないため元々Noneのまま。要件定義書R-74）。work_assignmentに仕事進捗の全体
+         *     （経過日数・直近記録日・連続記録日数・直近の月次報告有無を含む）を格納する
+         *     （実装フェーズ分割計画書Phase23、読書のDSH-06相当のDSH-07）。
          */
         GoalCardRead: {
             /** Goal Id */
@@ -1882,13 +1970,14 @@ export interface components {
             /** Has Forced Replan */
             has_forced_replan: boolean;
             book?: components["schemas"]["BookRead"] | null;
+            work_assignment?: components["schemas"]["WorkAssignmentRead"] | null;
         };
         /**
          * GoalCategory
-         * @description 目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型。
+         * @description 目標種別（要件定義書6.10）。EXAMは管理型、READINGは記録・活用型、WORKは定期報告型。
          * @enum {string}
          */
-        GoalCategory: "EXAM" | "READING";
+        GoalCategory: "EXAM" | "READING" | "WORK";
         /** GoalCloseRequest */
         GoalCloseRequest: {
             /**
@@ -1896,6 +1985,11 @@ export interface components {
              * @default false
              */
             confirm_without_result: boolean;
+            /**
+             * With Result
+             * @default false
+             */
+            with_result: boolean;
         };
         /** GoalCreate */
         GoalCreate: {
@@ -1954,6 +2048,7 @@ export interface components {
             /** Load Profiles */
             load_profiles: components["schemas"]["LoadProfileRead"][];
             book?: components["schemas"]["BookRead"] | null;
+            work_assignment?: components["schemas"]["WorkAssignmentRead"] | null;
         };
         /** GoalRead */
         GoalRead: {
@@ -2411,6 +2506,21 @@ export interface components {
             required_environment?: components["schemas"]["Environment"] | null;
             quality_metric_type?: components["schemas"]["QualityMetricType"] | null;
         };
+        /** MonthlyReportUpdateRequest */
+        MonthlyReportUpdateRequest: {
+            /** Target Goal Text */
+            target_goal_text?: string | null;
+            /** Business Summary */
+            business_summary?: string | null;
+            /** Achievement Score */
+            achievement_score?: number | null;
+            /** Achievement Reflection */
+            achievement_reflection?: string | null;
+            /** Next Goal Text */
+            next_goal_text?: string | null;
+            /** Report Notes */
+            report_notes?: string | null;
+        };
         /**
          * PassingScoreType
          * @description 合格点の入力方式（百分率／点数。設計書 データ構造編 5.3）。
@@ -2461,15 +2571,17 @@ export interface components {
         };
         /**
          * ProgressRegisterRequest
-         * @description study_logs・reading_logsのいずれかを1件以上含むことをrecord_serviceで検証する
-         *     （両方空の入力を拒否。両カテゴリの目標が同時進行しうるため、schema側では
-         *     どちらか一方のmin_length指定はできない）。
+         * @description study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_serviceで
+         *     検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行しうるため、schema側では
+         *     特定の1つのみのmin_length指定はできない）。
          */
         ProgressRegisterRequest: {
             /** Study Logs */
             study_logs?: components["schemas"]["StudyLogInput"][];
             /** Reading Logs */
             reading_logs?: components["schemas"]["ReadingLogInput"][];
+            /** Work Logs */
+            work_logs?: components["schemas"]["WorkLogInput"][];
         };
         /** PromptDegradationSettingsRead */
         PromptDegradationSettingsRead: {
@@ -2678,6 +2790,13 @@ export interface components {
              */
             anonymize: boolean;
         };
+        /**
+         * RetrospectivePeriodType
+         * @description goal_retrospective.period_type（WORKの月次報告・半期評価のみ使用。設計書
+         *     データ構造編5.4「goal_retrospective（総括レポート／読了レポート／定期報告）」）。
+         * @enum {string}
+         */
+        RetrospectivePeriodType: "MONTHLY" | "SEMI_ANNUAL";
         /** RetrospectiveRead */
         RetrospectiveRead: {
             /** Id */
@@ -2693,6 +2812,19 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+        };
+        /** SemiannualReviewUpdateRequest */
+        SemiannualReviewUpdateRequest: {
+            /** Target Goal Text */
+            target_goal_text?: string | null;
+            /** Business Summary */
+            business_summary?: string | null;
+            /** Achievement Score */
+            achievement_score?: number | null;
+            /** Achievement Reflection */
+            achievement_reflection?: string | null;
+            /** Next Goal Text */
+            next_goal_text?: string | null;
         };
         /** SlotCheckRead */
         SlotCheckRead: {
@@ -2892,6 +3024,126 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WorkAssignmentCreate */
+        WorkAssignmentCreate: {
+            /** Client Name */
+            client_name?: string | null;
+            /** Expected Content */
+            expected_content: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+        };
+        /** WorkAssignmentRead */
+        WorkAssignmentRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /** Client Name */
+            client_name: string | null;
+            /** Expected Content */
+            expected_content: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /** Elapsed Days */
+            elapsed_days: number;
+            /** Last Work Date */
+            last_work_date: string | null;
+            /** Current Streak */
+            current_streak: number;
+            /** Has Recent Monthly Report */
+            has_recent_monthly_report: boolean;
+        };
+        /** WorkAssignmentUpdate */
+        WorkAssignmentUpdate: {
+            /** Client Name */
+            client_name?: string | null;
+            /** Expected Content */
+            expected_content?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+        };
+        /**
+         * WorkChatRequest
+         * @description 仕事目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
+         *     POST /records/{date}/work-chat）。ChatRequest・ReadingChatRequestと同じ設計：
+         *     work_logsはこの時点でDBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+         */
+        WorkChatRequest: {
+            /** Message */
+            message?: string | null;
+            /** Work Logs */
+            work_logs?: components["schemas"]["WorkLogInput"][];
+        };
+        /**
+         * WorkLogInput
+         * @description 業務記録の入力（study_logの仕事版。自由記述本文のみ、数値実績は必須としない。
+         *     要件定義書R-75）。
+         */
+        WorkLogInput: {
+            /** Work Assignment Id */
+            work_assignment_id: number;
+            /** Body */
+            body: string;
+        };
+        /** WorkLogRead */
+        WorkLogRead: {
+            /** Id */
+            id: number;
+            /** Work Assignment Id */
+            work_assignment_id: number;
+            /** Body */
+            body: string;
+        };
+        /** WorkReportGenerateRequest */
+        WorkReportGenerateRequest: {
+            /** Period */
+            period?: string | null;
+            /**
+             * Anonymize
+             * @default false
+             */
+            anonymize: boolean;
+        };
+        /** WorkReportRead */
+        WorkReportRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            period_type: components["schemas"]["RetrospectivePeriodType"];
+            /** Period Key */
+            period_key: string;
+            /** Body */
+            body: string;
+            /** Target Goal Text */
+            target_goal_text: string | null;
+            /** Business Summary */
+            business_summary: string | null;
+            /** Achievement Score */
+            achievement_score: number | null;
+            /** Achievement Reflection */
+            achievement_reflection: string | null;
+            /** Next Goal Text */
+            next_goal_text: string | null;
+            /** Report Notes */
+            report_notes: string | null;
+            /** Is Anonymized */
+            is_anonymized: boolean;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Edited At */
+            edited_at: string | null;
         };
     };
     responses: never;
@@ -3517,6 +3769,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_work_assignment_api_v1_goals__goal_id__work_assignment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_work_assignment_api_v1_goals__goal_id__work_assignment_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkAssignmentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkAssignmentRead"];
                 };
             };
             /** @description Validation Error */
@@ -4376,6 +4698,41 @@ export interface operations {
             };
         };
     };
+    work_chat_api_v1_records__target_date__work_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_quota_api_v1_records__target_date__quota_get: {
         parameters: {
             query?: never;
@@ -5206,6 +5563,218 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RetrospectiveRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_monthly_report_api_v1_goals__goal_id__monthly_report_get: {
+        parameters: {
+            query?: {
+                period?: string | null;
+                anonymized?: boolean;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_monthly_report_api_v1_goals__goal_id__monthly_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkReportGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_monthly_report_api_v1_goals__goal_id__monthly_report_patch: {
+        parameters: {
+            query: {
+                period: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonthlyReportUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_semiannual_review_api_v1_goals__goal_id__semiannual_review_get: {
+        parameters: {
+            query?: {
+                period?: string | null;
+                anonymized?: boolean;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_semiannual_review_api_v1_goals__goal_id__semiannual_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkReportGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_semiannual_review_api_v1_goals__goal_id__semiannual_review_patch: {
+        parameters: {
+            query: {
+                period: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SemiannualReviewUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkReportRead"];
                 };
             };
             /** @description Validation Error */

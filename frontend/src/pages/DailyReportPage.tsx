@@ -8,10 +8,18 @@ import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
-import { finalizeRecord, getQuota, getRecord, sendChat, sendReadingChat } from '../api/records'
-import { listActiveReadingBooks, listGoals } from '../api/goals'
+import {
+  finalizeRecord,
+  getQuota,
+  getRecord,
+  sendChat,
+  sendReadingChat,
+  sendWorkChat,
+} from '../api/records'
+import { listActiveReadingBooks, listActiveWorkAssignments, listGoals } from '../api/goals'
 import { StudyLogFields } from '../features/record/StudyLogFields'
 import { ReadingLogFields } from '../features/record/ReadingLogFields'
+import { WorkLogFields } from '../features/record/WorkLogFields'
 import { DiaryFields } from '../features/record/DiaryFields'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
@@ -27,6 +35,12 @@ import {
   initReadingLogFormValues,
   type ReadingLogFormValue,
 } from '../features/record/readingLogForm'
+import {
+  buildWorkLogPayload,
+  hasAnyWorkLogInput,
+  initWorkLogFormValues,
+  type WorkLogFormValue,
+} from '../features/record/workLogForm'
 import {
   buildDiaryEntriesPayload,
   hasAnyDiaryInput,
@@ -68,6 +82,10 @@ export function DailyReportPage() {
     queryKey: ['activeReadingBooks'],
     queryFn: listActiveReadingBooks,
   })
+  const workAssignmentsQuery = useQuery({
+    queryKey: ['activeWorkAssignments'],
+    queryFn: listActiveWorkAssignments,
+  })
   const goalsQuery = useQuery({
     queryKey: ['goals'],
     queryFn: () => listGoals(),
@@ -77,11 +95,13 @@ export function DailyReportPage() {
   const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>(
     {},
   )
+  const [workLogValues, setWorkLogValues] = useState<Record<number, WorkLogFormValue>>({})
   const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
   const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
   const [wasTruncated, setWasTruncated] = useState(false)
   const [readingWasTruncated, setReadingWasTruncated] = useState(false)
+  const [workWasTruncated, setWorkWasTruncated] = useState(false)
   const hydratedRef = useRef(false)
 
   // 日記（DiaryFields）は資格試験の複数目標混同対策（未決事項L-04）が目的のため、対象は
@@ -103,6 +123,7 @@ export function DailyReportPage() {
       !recordQuery.data ||
       !quotaQuery.data ||
       !readingBooksQuery.data ||
+      !workAssignmentsQuery.data ||
       !goalsQuery.data
     ) {
       return
@@ -115,6 +136,12 @@ export function DailyReportPage() {
         recordQuery.data.reading_logs,
       ),
     )
+    setWorkLogValues(
+      initWorkLogFormValues(
+        workAssignmentsQuery.data.map((entry) => entry.workAssignment),
+        recordQuery.data.work_logs,
+      ),
+    )
     setDiaryValues(
       initDiaryFormValues(
         goalsQuery.data.filter((goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM'),
@@ -124,17 +151,26 @@ export function DailyReportPage() {
     setChatMessages(recordQuery.data.chat_messages)
     const firstActiveGoal = goalsQuery.data.find((goal) => goal.status === 'ACTIVE')
     setSelectedGoalId(firstActiveGoal?.id ?? null)
-  }, [recordQuery.data, quotaQuery.data, readingBooksQuery.data, goalsQuery.data])
+  }, [
+    recordQuery.data,
+    quotaQuery.data,
+    readingBooksQuery.data,
+    workAssignmentsQuery.data,
+    goalsQuery.data,
+  ])
 
   const examMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
   const readingMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_READING')
+  const workMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_WORK')
   const activeBooks = readingBooksQuery.data?.map((entry) => entry.book) ?? []
+  const activeWorkAssignments = workAssignmentsQuery.data?.map((entry) => entry.workAssignment) ?? []
 
   const isReported = recordQuery.data?.record_state === 'REPORTED'
   const hasUnsavedInput =
     !isReported &&
     (hasAnyStudyLogInput(studyLogValues) ||
       hasAnyReadingLogInput(readingLogValues) ||
+      hasAnyWorkLogInput(workLogValues) ||
       hasAnyDiaryInput(diaryValues))
   // ブラウザレベルの離脱（タブを閉じる・再読み込み・アドレスバーへの直接入力）を警告する。
   useUnsavedChangesWarning(hasUnsavedInput)
@@ -211,11 +247,40 @@ export function DailyReportPage() {
     onError: showApiError,
   })
 
+  const workChatMutation = useMutation({
+    mutationFn: (message: string | null) =>
+      sendWorkChat(targetDate, {
+        message,
+        work_logs: buildWorkLogPayload(workLogValues),
+      }),
+    onSuccess: (response, message) => {
+      setChatMessages((current) => [
+        ...current,
+        ...(message
+          ? [
+              {
+                id: -Date.now(),
+                purpose: 'DAILY_FEEDBACK_WORK' as const,
+                role: 'USER' as const,
+                content: message,
+                sequence: current.length,
+                created_at: new Date().toISOString(),
+              },
+            ]
+          : []),
+        response.assistant_message,
+      ])
+      setWorkWasTruncated(response.was_truncated)
+    },
+    onError: showApiError,
+  })
+
   const finalizeMutation = useMutation({
     mutationFn: () =>
       finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(studyLogValues),
         reading_logs: buildReadingLogPayload(readingLogValues),
+        work_logs: buildWorkLogPayload(workLogValues),
         diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
     onSuccess: () => {
@@ -233,6 +298,7 @@ export function DailyReportPage() {
     recordQuery.isLoading ||
     quotaQuery.isLoading ||
     readingBooksQuery.isLoading ||
+    workAssignmentsQuery.isLoading ||
     goalsQuery.isLoading
   ) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
@@ -243,13 +309,18 @@ export function DailyReportPage() {
     quotaQuery.isError ||
     !quotaQuery.data ||
     readingBooksQuery.isError ||
+    workAssignmentsQuery.isError ||
     goalsQuery.isError ||
     !goalsQuery.data
   ) {
     return (
       <p className="p-6 text-sm text-red-600">
         {apiErrorMessage(
-          recordQuery.error ?? quotaQuery.error ?? readingBooksQuery.error ?? goalsQuery.error,
+          recordQuery.error ??
+            quotaQuery.error ??
+            readingBooksQuery.error ??
+            workAssignmentsQuery.error ??
+            goalsQuery.error,
         )}
       </p>
     )
@@ -285,12 +356,23 @@ export function DailyReportPage() {
       : []
     : activeBooks
 
+  const visibleWorkAssignments = showGoalSelector
+    ? selectedGoal && selectedGoal.category === 'WORK'
+      ? (workAssignmentsQuery.data ?? [])
+          .filter((entry) => entry.goal.id === selectedGoal.id)
+          .map((entry) => entry.workAssignment)
+      : []
+    : activeWorkAssignments
+
   const showExamSection = showGoalSelector
     ? !!selectedGoal && selectedGoal.category === 'EXAM'
     : true
   const showReadingSection = showGoalSelector
     ? !!selectedGoal && selectedGoal.category === 'READING' && visibleBooks.length > 0
     : activeBooks.length > 0
+  const showWorkSection = showGoalSelector
+    ? !!selectedGoal && selectedGoal.category === 'WORK' && visibleWorkAssignments.length > 0
+    : activeWorkAssignments.length > 0
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -401,6 +483,44 @@ export function DailyReportPage() {
                 readingMessages.length > 0
                   ? (message) => readingChatMutation.mutate(message)
                   : undefined
+              }
+            />
+          </Card>
+        </>
+      )}
+
+      {showWorkSection && (
+        <>
+          <section className="flex flex-col gap-3">
+            <h2 className="font-medium text-gray-900">{t('dailyReport.workLog.title')}</h2>
+            <WorkLogFields
+              workAssignments={visibleWorkAssignments}
+              values={workLogValues}
+              onChangeField={(workAssignmentId, field, value) =>
+                setWorkLogValues((current) => ({
+                  ...current,
+                  [workAssignmentId]: { ...current[workAssignmentId], [field]: value },
+                }))
+              }
+            />
+          </section>
+
+          <Card className="flex flex-col gap-3">
+            <h2 className="font-medium text-gray-900">{t('dailyReport.workChat.title')}</h2>
+            {workMessages.length === 0 && (
+              <Button
+                disabled={workChatMutation.isPending}
+                onClick={() => workChatMutation.mutate(null)}
+              >
+                {t('dailyReport.workChat.startButton')}
+              </Button>
+            )}
+            <ChatPanel
+              messages={workMessages}
+              wasTruncated={workWasTruncated}
+              isSending={workChatMutation.isPending}
+              onSend={
+                workMessages.length > 0 ? (message) => workChatMutation.mutate(message) : undefined
               }
             />
           </Card>

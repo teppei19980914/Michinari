@@ -22,6 +22,9 @@ export type GoalCategory = components['schemas']['GoalCategory']
 export type BookRead = components['schemas']['BookRead']
 export type BookCreate = components['schemas']['BookCreate']
 export type BookUpdate = components['schemas']['BookUpdate']
+export type WorkAssignmentRead = components['schemas']['WorkAssignmentRead']
+export type WorkAssignmentCreate = components['schemas']['WorkAssignmentCreate']
+export type WorkAssignmentUpdate = components['schemas']['WorkAssignmentUpdate']
 
 export function listGoals(): Promise<GoalRead[]> {
   return apiClient.get<GoalRead[]>('/goals')
@@ -171,4 +174,36 @@ export async function listActiveReadingBooks(): Promise<{ goal: GoalRead; book: 
   return details
     .filter((detail): detail is GoalDetailRead & { book: BookRead } => detail.book !== null)
     .map((detail) => ({ goal: detail, book: detail.book }))
+}
+
+export function createWorkAssignment(
+  goalId: number,
+  payload: WorkAssignmentCreate,
+): Promise<WorkAssignmentRead> {
+  return apiClient.post<WorkAssignmentRead>(`/goals/${goalId}/work-assignment`, payload)
+}
+
+export function updateWorkAssignment(
+  goalId: number,
+  payload: WorkAssignmentUpdate,
+): Promise<WorkAssignmentRead> {
+  return apiClient.patch<WorkAssignmentRead>(`/goals/${goalId}/work-assignment`, payload)
+}
+
+/**
+ * 進行中の仕事目標とその案件情報を一覧する（listActiveReadingBooksの仕事版、
+ * 実装フェーズ分割計画書Phase23。同じ理由でN+1構成を許容する）。
+ */
+export async function listActiveWorkAssignments(): Promise<
+  { goal: GoalRead; workAssignment: WorkAssignmentRead }[]
+> {
+  const goals = await listGoals()
+  const activeWorkGoals = goals.filter((g) => g.category === 'WORK' && g.status === 'ACTIVE')
+  const details = await Promise.all(activeWorkGoals.map((g) => getGoal(g.id)))
+  return details
+    .filter(
+      (detail): detail is GoalDetailRead & { work_assignment: WorkAssignmentRead } =>
+        detail.work_assignment !== null,
+    )
+    .map((detail) => ({ goal: detail, workAssignment: detail.work_assignment }))
 }

@@ -19,7 +19,7 @@ import {
 } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
 
-const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING']
+const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING', 'WORK']
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -63,7 +63,11 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {category === 'READING' ? t('goals.new.nameLabelReading') : t('goals.new.nameLabel')}
+          {category === 'READING'
+            ? t('goals.new.nameLabelReading')
+            : category === 'WORK'
+              ? t('goals.new.nameLabelWork')
+              : t('goals.new.nameLabel')}
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
