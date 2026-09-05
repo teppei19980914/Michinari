@@ -44,6 +44,8 @@ EXPECTED_TABLES = {
     "goal_retrospective",
     "ai_conversation",
     "ai_log",
+    "work_assignment",
+    "work_log",
     "alembic_version",
 }
 
@@ -307,6 +309,122 @@ def test_daily_feedback_prompt_migration_updates_non_customized_template(tmp_pat
         connection.close()
 
     assert "複数目標がある場合の注意" in row[0]
+
+
+def test_work_goal_category_migration_creates_work_tables_and_retrospective_columns():
+    """完了条件: work_assignment・work_logテーブルが作成され、goal_retrospectiveに
+    period_type以下9列が追加されること（実装フェーズ分割計画書Phase20、e1f4a9c3b6d8）。"""
+    inspector = inspect(engine)
+
+    work_assignment_columns = {col["name"] for col in inspector.get_columns("work_assignment")}
+    assert work_assignment_columns >= {
+        "id",
+        "goal_id",
+        "client_name",
+        "expected_content",
+        "start_date",
+        "created_at",
+        "updated_at",
+    }
+    work_assignment_unique = inspector.get_unique_constraints("work_assignment")
+    assert any(uc["column_names"] == ["goal_id"] for uc in work_assignment_unique)
+
+    work_log_columns = {col["name"] for col in inspector.get_columns("work_log")}
+    assert work_log_columns >= {
+        "id",
+        "daily_record_id",
+        "work_assignment_id",
+        "body",
+        "created_at",
+    }
+    work_log_unique = inspector.get_unique_constraints("work_log")
+    assert any(
+        set(uc["column_names"]) == {"work_assignment_id", "daily_record_id"}
+        for uc in work_log_unique
+    )
+
+    retrospective_columns = {col["name"] for col in inspector.get_columns("goal_retrospective")}
+    assert retrospective_columns >= {
+        "period_type",
+        "period_key",
+        "target_goal_text",
+        "business_summary",
+        "achievement_score",
+        "achievement_reflection",
+        "next_goal_text",
+        "report_notes",
+        "edited_at",
+    }
+    retrospective_unique = inspector.get_unique_constraints("goal_retrospective")
+    assert any(
+        set(uc["column_names"]) == {"goal_id", "period_type", "period_key", "is_anonymized"}
+        for uc in retrospective_unique
+    )
+
+
+def test_goal_retrospective_migration_preserves_existing_exam_rows_with_data(
+    tmp_path, monkeypatch
+):
+    """goal_retrospectiveへの9列追加マイグレーション（e1f4a9c3b6d8）を、既存データ
+    （EXAM総括レポート想定の行、period_type等の概念が無かった旧スキーマ行）がある状態への
+    適用として検証する（CODING_RULES.md「DBマイグレーションのテスト」）。列追加後も
+    既存行のbody等が保持され、新設列はNULLとして引き継がれることを確認する。
+    """
+    db_path = tmp_path / "goal_retrospective_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("9723ab049ecd")  # work列追加（head）の1つ前
+
+    now = "2026-01-01T00:00:00"
+    connection = sqlite3.connect(db_path)
+    try:
+        cursor = connection.cursor()
+        cursor.execute(
+            "INSERT INTO goal (name, start_date, status, resource_ratio, category, "
+            "updated_at, created_at) VALUES ('既存資格目標', '2026-01-01', 'ACTIVE', 1.0, "
+            "'EXAM', ?, ?)",
+            (now, now),
+        )
+        goal_id = cursor.lastrowid
+
+        # 既存のEXAM総括レポート行を複数件（再生成による複数レコード）挿入する
+        cursor.execute(
+            "INSERT INTO goal_retrospective (goal_id, body, is_anonymized, generated_at) "
+            "VALUES (?, '旧スキーマでの総括レポート1回目', 0, ?)",
+            (goal_id, now),
+        )
+        first_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT INTO goal_retrospective (goal_id, body, is_anonymized, generated_at) "
+            "VALUES (?, '旧スキーマでの総括レポート2回目（再生成）', 0, ?)",
+            (goal_id, now),
+        )
+        second_id = cursor.lastrowid
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT id, body, period_type, period_key, achievement_score, edited_at "
+            "FROM goal_retrospective WHERE id IN (?, ?)",
+            (first_id, second_id),
+        ).fetchall()
+    finally:
+        connection.close()
+
+    by_id = {row[0]: row for row in rows}
+    assert by_id[first_id][1] == "旧スキーマでの総括レポート1回目"
+    assert by_id[second_id][1] == "旧スキーマでの総括レポート2回目（再生成）"
+    # 新設列はいずれもNULLのまま引き継がれる（遡及設定なし。Phase20注意点）
+    for row in rows:
+        assert row[2] is None  # period_type
+        assert row[3] is None  # period_key
+        assert row[4] is None  # achievement_score
+        assert row[5] is None  # edited_at
 
 
 def test_daily_feedback_prompt_migration_preserves_customized_template(tmp_path, monkeypatch):

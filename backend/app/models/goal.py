@@ -15,14 +15,15 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.material import Material, MaterialSubject
     from app.models.record import DailyGoalDiary, DailyMessage, ExamResult, WeeklySummary
     from app.models.retrospective import GoalRetrospective
+    from app.models.work import WorkAssignment
 
 
 class Goal(TimestampMixin, Base):
-    """目標（試験合格または読書の完遂に向けた学習単位）。
+    """目標（試験合格・読書の完遂・仕事の案件遂行に向けた単位）。
 
-    category（EXAM/READING）は作成後の変更を許容しない（サービス層で検証）。
-    READINGの場合、exam_subject/material/load_profile/weekly_summaryは作成せず、
-    resource_ratioは常に0のまま（配分プールの対象外。要件定義書R-64）とする。
+    category（EXAM/READING/WORK）は作成後の変更を許容しない（サービス層で検証）。
+    READING/WORKの場合、exam_subject/material/load_profile/weekly_summaryは作成せず、
+    resource_ratioは常に0のまま（配分プールの対象外。要件定義書R-64・R-74）とする。
     """
 
     __tablename__ = "goal"
@@ -63,6 +64,9 @@ class Goal(TimestampMixin, Base):
         back_populates="goal", cascade="all, delete-orphan"
     )
     book: Mapped["Book | None"] = relationship(
+        back_populates="goal", cascade="all, delete-orphan", uselist=False
+    )
+    work_assignment: Mapped["WorkAssignment | None"] = relationship(
         back_populates="goal", cascade="all, delete-orphan", uselist=False
     )
     diary_entries: Mapped[list["DailyGoalDiary"]] = relationship(
