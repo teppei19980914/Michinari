@@ -195,14 +195,21 @@ def update_goal(
 def delete_goal(session: Session, goal: Goal) -> None:
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ削除できます")
+    if goal.archived_at is not None:
+        raise InvalidStateTransitionError(
+            "アーカイブ済みの目標は削除できません。復元するか、アーカイブ済み一覧から完全削除してください"
+        )
     session.delete(goal)
     session.flush()
 
 
 def archive_goal(session: Session, goal: Goal) -> Goal:
-    """クローズ済み目標をアーカイブする（論理削除、仕様書7.1.1）。"""
-    if goal.status not in _CLOSED_STATUSES:
-        raise InvalidStateTransitionError("クローズ済みの目標のみアーカイブできます")
+    """進行中でない目標をアーカイブする（論理削除、仕様書7.1.1）。
+
+    下書き・一時停止・クローズ済みが対象（進行中の目標はアーカイブできない）。
+    """
+    if goal.status == GoalStatus.ACTIVE:
+        raise InvalidStateTransitionError("進行中の目標はアーカイブできません")
     if goal.archived_at is not None:
         raise InvalidStateTransitionError("既にアーカイブ済みです")
     goal.archived_at = utcnow()
@@ -358,6 +365,8 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     """
     if goal.status != GoalStatus.DRAFT:
         raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
+    if goal.archived_at is not None:
+        raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから開始してください")
 
     if goal.category == GoalCategory.READING:
         if goal.book is None:
@@ -406,6 +415,8 @@ def resume_goal(session: Session, goal: Goal) -> Goal:
     """
     if goal.status != GoalStatus.PAUSED:
         raise InvalidStateTransitionError("一時停止中の目標のみ復帰できます")
+    if goal.archived_at is not None:
+        raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから再開してください")
     if goal.category == GoalCategory.EXAM:
         if goal.resource_ratio <= 0:
             raise ResourceRatioRequiredError

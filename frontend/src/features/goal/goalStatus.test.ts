@@ -26,18 +26,19 @@ describe('resolveGoalListTarget', () => {
 })
 
 describe('canArchiveGoal', () => {
-  it('returns false for non-closed statuses', () => {
-    expect(canArchiveGoal('DRAFT', null)).toBe(false)
+  it('returns false for ACTIVE (進行中はアーカイブ不可)', () => {
     expect(canArchiveGoal('ACTIVE', null)).toBe(false)
-    expect(canArchiveGoal('PAUSED', null)).toBe(false)
   })
 
-  it('returns true for closed statuses that are not yet archived', () => {
+  it('returns true for non-active statuses that are not yet archived', () => {
+    expect(canArchiveGoal('DRAFT', null)).toBe(true)
+    expect(canArchiveGoal('PAUSED', null)).toBe(true)
     expect(canArchiveGoal('CLOSED_WITH_RESULT', null)).toBe(true)
     expect(canArchiveGoal('CLOSED_WITHOUT_RESULT', null)).toBe(true)
   })
 
   it('returns false when already archived', () => {
     expect(canArchiveGoal('CLOSED_WITH_RESULT', '2026-08-30T00:00:00')).toBe(false)
+    expect(canArchiveGoal('DRAFT', '2026-08-30T00:00:00')).toBe(false)
   })
 })

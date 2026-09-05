@@ -22,9 +22,9 @@ export function resolveGoalListTarget(goalId: number, status: GoalStatus): strin
 }
 
 /**
- * アーカイブ可能（クローズ済みかつ未アーカイブ）かどうかを判定する（仕様書6.15「アーカイブ
- * 操作が可能なのはCLOSED_WITH_RESULT/CLOSED_WITHOUT_RESULTの目標のみ」）。
+ * アーカイブ可能（進行中でない、かつ未アーカイブ）かどうかを判定する（仕様書6.15「アーカイブ
+ * 操作が可能なのはACTIVE以外（下書き・一時停止・クローズ済み）の目標」）。
  */
 export function canArchiveGoal(status: GoalStatus, archivedAt: string | null): boolean {
-  return isClosedGoalStatus(status) && archivedAt === null
+  return status !== 'ACTIVE' && archivedAt === null
 }

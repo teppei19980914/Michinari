@@ -227,10 +227,56 @@ def _make_work_log(
     return log
 
 
-def test_archive_goal_requires_closed_status(db_session):
+def test_archive_goal_rejects_active_status(db_session):
     goal = _make_goal(db_session, status=GoalStatus.ACTIVE)
     with pytest.raises(InvalidStateTransitionError):
         goal_service.archive_goal(db_session, goal)
+
+
+def test_archive_draft_goal_succeeds(db_session):
+    """下書き（一時保存）中の目標もアーカイブできる（進行中でなければ対象、仕様書7.1.1）。"""
+    goal = _make_goal(db_session, status=GoalStatus.DRAFT)
+    goal_service.archive_goal(db_session, goal)
+    assert goal.archived_at is not None
+    assert goal.status == GoalStatus.DRAFT
+
+
+def test_archive_paused_goal_succeeds(db_session):
+    goal = _make_goal(db_session, status=GoalStatus.PAUSED)
+    goal_service.archive_goal(db_session, goal)
+    assert goal.archived_at is not None
+    assert goal.status == GoalStatus.PAUSED
+
+
+def test_activate_archived_draft_goal_is_rejected(db_session):
+    """アーカイブ中は先に復元しないと開始できない（新規に発生する遷移の穴の防止）。"""
+    goal = _make_goal(db_session, status=GoalStatus.DRAFT)
+    goal_service.archive_goal(db_session, goal)
+    with pytest.raises(InvalidStateTransitionError):
+        goal_service.activate_goal(db_session, goal)
+
+
+def test_resume_archived_paused_goal_is_rejected(db_session):
+    """アーカイブ中は先に復元しないと再開できない（新規に発生する遷移の穴の防止）。"""
+    goal = _make_goal(db_session, status=GoalStatus.PAUSED)
+    goal_service.archive_goal(db_session, goal)
+    with pytest.raises(InvalidStateTransitionError):
+        goal_service.resume_goal(db_session, goal)
+
+
+def test_delete_archived_draft_goal_is_rejected(db_session):
+    """アーカイブ中の下書きは即時削除ではなく復元または完全削除の経路に統一する。"""
+    goal = _make_goal(db_session, status=GoalStatus.DRAFT)
+    goal_service.archive_goal(db_session, goal)
+    with pytest.raises(InvalidStateTransitionError):
+        goal_service.delete_goal(db_session, goal)
+
+
+def test_delete_draft_goal_succeeds(db_session):
+    goal = _make_goal(db_session, status=GoalStatus.DRAFT)
+    goal_id = goal.id
+    goal_service.delete_goal(db_session, goal)
+    assert db_session.get(Goal, goal_id) is None
 
 
 def test_archive_then_unarchive_goal_round_trip(db_session):
