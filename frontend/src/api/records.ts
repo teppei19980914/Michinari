@@ -7,6 +7,8 @@ export type DailyRecordRead = components['schemas']['DailyRecordRead']
 export type StudyLogInput = components['schemas']['StudyLogInput']
 export type ProgressRegisterRequest = components['schemas']['ProgressRegisterRequest']
 export type FinalizeRequest = components['schemas']['FinalizeRequest']
+export type ReadingFinalizeRequest = components['schemas']['ReadingFinalizeRequest']
+export type WorkFinalizeRequest = components['schemas']['WorkFinalizeRequest']
 export type ChatRequest = components['schemas']['ChatRequest']
 export type ChatResponse = components['schemas']['ChatResponse']
 export type ReadingChatRequest = components['schemas']['ReadingChatRequest']
@@ -51,12 +53,30 @@ export function registerProgress(
   return apiClient.post<DailyRecordRead>(`/records/${targetDate}/progress`, payload)
 }
 
-/** 報告を確定する（SC-06）。 */
+/** 資格勉強（EXAM）の報告を確定する（SC-06）。読書・仕事の確定状態には影響しない
+ * （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。 */
 export function finalizeRecord(
   targetDate: string,
   payload: FinalizeRequest,
 ): Promise<DailyRecordRead> {
   return apiClient.post<DailyRecordRead>(`/records/${targetDate}/finalize`, payload)
+}
+
+/** 読書の報告を確定する（SC-06）。資格勉強・仕事の確定状態には影響しない
+ * （既存の/chat・/reading-chat・/work-chatと同じカテゴリ別命名規則）。 */
+export function finalizeReadingRecord(
+  targetDate: string,
+  payload: ReadingFinalizeRequest,
+): Promise<DailyRecordRead> {
+  return apiClient.post<DailyRecordRead>(`/records/${targetDate}/reading-finalize`, payload)
+}
+
+/** 仕事の報告を確定する（SC-06）。資格勉強・読書の確定状態には影響しない。 */
+export function finalizeWorkRecord(
+  targetDate: string,
+  payload: WorkFinalizeRequest,
+): Promise<DailyRecordRead> {
+  return apiClient.post<DailyRecordRead>(`/records/${targetDate}/work-finalize`, payload)
 }
 
 /** AI対話を1往復実行する（SC-06下段、資格試験）。 */

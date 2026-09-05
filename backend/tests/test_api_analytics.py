@@ -67,7 +67,7 @@ def _add_study_log(
 ) -> None:
     record = session.query(DailyRecord).filter(DailyRecord.record_date == record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+        record = DailyRecord(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
         session.add(record)
         session.flush()
     session.add(
@@ -191,7 +191,7 @@ def test_gantt_analytics_includes_today_and_material_span(client):
 
 
 def test_growth_descriptions_returns_assistant_messages_across_goals(client, seeded_session):
-    record = DailyRecord(record_date=TODAY, record_state=RecordState.REPORTED)
+    record = DailyRecord(record_date=TODAY, exam_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(

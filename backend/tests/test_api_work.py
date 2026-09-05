@@ -336,12 +336,12 @@ def test_finalize_record_with_work_log(client):
     target = dt.date.today().isoformat()
 
     response = client.post(
-        f"/api/v1/records/{target}/finalize",
+        f"/api/v1/records/{target}/work-finalize",
         json={"work_logs": [{"work_assignment_id": work_assignment_id, "body": "業務内容A"}]},
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["record_state"] == "REPORTED"
+    assert response.json()["work_record_state"] == "REPORTED"
 
     progress = client.get(f"/api/v1/goals/{goal['id']}").json()["work_assignment"]
     assert progress["last_work_date"] == target

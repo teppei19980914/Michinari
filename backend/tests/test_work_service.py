@@ -42,7 +42,7 @@ def _make_work_assignment(session, goal, *, start_date=dt.date(2026, 1, 1)) -> W
 
 
 def _add_work_log(session, work_assignment_id: int, record_date: dt.date, body="業務内容") -> None:
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     session.add(

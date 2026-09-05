@@ -63,7 +63,7 @@ def _make_work_assignment(session, goal, **overrides):
 
 
 def _add_work_log(session, work_assignment_id, record_date, body="業務内容"):
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     session.add(

@@ -80,7 +80,7 @@ def test_register_progress_creates_record_and_study_log(seeded_session):
         seeded_session, today, [_log(material.id, cycle_number=None)], today
     )
 
-    assert record.record_state == RecordState.PROGRESS_ONLY
+    assert record.exam_record_state == RecordState.PROGRESS_ONLY
     assert len(record.study_logs) == 1
     assert record.study_logs[0].cycle_number == 1  # 既定値=算出された現在周回（Phase4完了条件）
 
@@ -105,14 +105,14 @@ def test_register_progress_allows_far_past_date(seeded_session):
     record = record_service.register_progress(
         seeded_session, dt.date(2026, 1, 1), [_log(material.id)], today
     )
-    assert record.record_state == RecordState.PROGRESS_ONLY
+    assert record.exam_record_state == RecordState.PROGRESS_ONLY
 
 
 def test_register_progress_rejects_update_to_reported_record(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
     today = dt.date(2026, 3, 10)
-    seeded_session.add(DailyRecord(record_date=today, record_state=RecordState.REPORTED))
+    seeded_session.add(DailyRecord(record_date=today, exam_record_state=RecordState.REPORTED))
     seeded_session.flush()
 
     with pytest.raises(ImmutableRecordError):
@@ -132,6 +132,23 @@ def test_register_progress_updates_existing_study_log_for_same_material(seeded_s
     assert len(record.study_logs) == 1
     assert record.study_logs[0].amount_completed == 15
     assert record.study_logs[0].minutes_spent == 45
+
+
+def test_register_progress_reading_items_succeed_when_only_exam_is_reported(seeded_session):
+    """資格勉強が確定済みでも、読書に入力があれば読書分のみ登録できる
+    （カテゴリ単位のガード、仕様変更2026-09-05）。"""
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    today = dt.date(2026, 3, 10)
+    seeded_session.add(DailyRecord(record_date=today, exam_record_state=RecordState.REPORTED))
+    seeded_session.flush()
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, [_reading_log(book.id)]
+    )
+
+    assert record.reading_record_state == RecordState.PROGRESS_ONLY
+    assert record.exam_record_state == RecordState.REPORTED
 
 
 def test_register_progress_rejects_unknown_material(seeded_session):
@@ -235,8 +252,8 @@ def test_finalize_record_marks_reported_and_sets_diary(seeded_session):
         today,
     )
 
-    assert record.record_state == RecordState.REPORTED
-    assert record.reported_at is not None
+    assert record.exam_record_state == RecordState.REPORTED
+    assert record.exam_reported_at is not None
     entries = record_service.get_diary_entries(seeded_session, record)
     assert len(entries) == 1
     assert entries[0].goal_id == goal.id
@@ -250,7 +267,7 @@ def test_finalize_record_allows_yesterday(seeded_session):
     yesterday = today - dt.timedelta(days=1)
 
     record = record_service.finalize_record(seeded_session, yesterday, [], [], today)
-    assert record.record_state == RecordState.REPORTED
+    assert record.exam_record_state == RecordState.REPORTED
 
 
 def test_finalize_record_rejects_two_days_ago(seeded_session):
@@ -270,7 +287,7 @@ def test_finalize_record_rejects_future_date(seeded_session):
 
 def test_finalize_record_rejects_already_reported(seeded_session):
     today = dt.date(2026, 3, 10)
-    seeded_session.add(DailyRecord(record_date=today, record_state=RecordState.REPORTED))
+    seeded_session.add(DailyRecord(record_date=today, exam_record_state=RecordState.REPORTED))
     seeded_session.flush()
 
     with pytest.raises(ImmutableRecordError):
@@ -286,7 +303,7 @@ def test_finalize_record_promotes_progress_only_record(seeded_session):
     record_service.register_progress(seeded_session, today, [_log(material.id)], today)
     record = record_service.finalize_record(seeded_session, today, [], [], today)
 
-    assert record.record_state == RecordState.REPORTED
+    assert record.exam_record_state == RecordState.REPORTED
     assert len(record.study_logs) == 1  # 進捗のみ登録時点のstudy_logが保持される
 
 
@@ -360,7 +377,8 @@ def test_register_progress_accepts_reading_only_without_study_logs(seeded_sessio
         seeded_session, today, [], today, [_reading_log(book.id)]
     )
 
-    assert record.record_state == RecordState.PROGRESS_ONLY
+    assert record.reading_record_state == RecordState.PROGRESS_ONLY
+    assert record.exam_record_state is None
 
 
 def test_register_progress_rejects_unknown_book(seeded_session):
@@ -389,38 +407,81 @@ def test_register_progress_updates_existing_reading_log_for_same_book(seeded_ses
     assert record.reading_logs[0].current_page == 20
 
 
-def test_finalize_record_persists_reading_log_and_diary(seeded_session):
+def test_finalize_reading_record_persists_reading_log(seeded_session):
+    """読書の確定は/finalize（EXAM）とは独立した専用関数（仕様変更2026-09-05:
+    カテゴリごとに独立して確定できるようにするため）。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
-    record = record_service.finalize_record(
-        seeded_session,
-        today,
-        [],
-        [_diary(goal.id, "今日の行動所感", "学んだこと")],
-        today,
-        [_reading_log(book.id)],
+    record = record_service.finalize_reading_record(
+        seeded_session, today, [_reading_log(book.id)], today
     )
 
-    assert record.record_state == RecordState.REPORTED
+    assert record.reading_record_state == RecordState.REPORTED
+    assert record.exam_record_state is None
     assert len(record.reading_logs) == 1
+
+
+def test_finalize_record_and_finalize_reading_record_are_independent(seeded_session):
+    """資格勉強（EXAM）の確定と読書の確定は互いに影響しない
+    （仕様変更2026-09-05のコア要件: 一方を確定しても他方は引き続き入力・確定できる）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record_service.finalize_record(
+        seeded_session, today, [], [_diary(goal.id, "今日の行動所感", "学んだこと")], today
+    )
+    record = record_service.finalize_reading_record(
+        seeded_session, today, [_reading_log(book.id)], today
+    )
+
+    assert record.exam_record_state == RecordState.REPORTED
+    assert record.reading_record_state == RecordState.REPORTED
     entries = record_service.get_diary_entries(seeded_session, record)
     assert entries[0].diary_body == "今日の行動所感"
 
 
-def test_finalize_record_allows_reading_log_without_study_or_diary(seeded_session):
+def test_finalize_reading_record_allows_reading_log_without_diary(seeded_session):
     """想起のみの入力でも確定できる（要件定義書R-65「数値実績の入力を必須としない」）。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
-    record = record_service.finalize_record(
-        seeded_session, today, [], [], today, [_reading_log(book.id)]
+    record = record_service.finalize_reading_record(
+        seeded_session, today, [_reading_log(book.id)], today
     )
 
-    assert record.record_state == RecordState.REPORTED
+    assert record.reading_record_state == RecordState.REPORTED
     assert len(record.reading_logs) == 1
+
+
+def test_finalize_reading_record_rejects_already_reported(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+    record_service.finalize_reading_record(seeded_session, today, [_reading_log(book.id)], today)
+
+    with pytest.raises(ImmutableRecordError):
+        record_service.finalize_reading_record(
+            seeded_session, today, [_reading_log(book.id)], today
+        )
+
+
+def test_finalize_reading_record_does_not_block_exam_finalize(seeded_session):
+    """読書を確定した後でも、資格勉強は引き続き確定できる（仕様変更2026-09-05）。"""
+    exam_goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, exam_goal)
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    today = dt.date(2026, 3, 10)
+
+    record_service.finalize_reading_record(seeded_session, today, [_reading_log(book.id)], today)
+    record = record_service.finalize_record(seeded_session, today, [_log(material.id)], [], today)
+
+    assert record.reading_record_state == RecordState.REPORTED
+    assert record.exam_record_state == RecordState.REPORTED
 
 
 # --- 業務記録（work_logs、実装フェーズ分割計画書Phase21） ---
@@ -490,7 +551,8 @@ def test_register_progress_accepts_work_only_without_study_logs(seeded_session):
         seeded_session, today, [], today, work_items=[_work_log(work_assignment.id)]
     )
 
-    assert record.record_state == RecordState.PROGRESS_ONLY
+    assert record.work_record_state == RecordState.PROGRESS_ONLY
+    assert record.exam_record_state is None
 
 
 def test_register_progress_rejects_unknown_work_assignment(seeded_session):
@@ -522,36 +584,75 @@ def test_register_progress_updates_existing_work_log_for_same_assignment(seeded_
     assert record.work_logs[0].body == "上書き後の業務内容"
 
 
-def test_finalize_record_persists_work_log_and_diary(seeded_session):
+def test_finalize_work_record_persists_work_log(seeded_session):
+    """仕事の確定は/finalize（EXAM）とは独立した専用関数（仕様変更2026-09-05）。"""
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
-    record = record_service.finalize_record(
-        seeded_session,
-        today,
-        [],
-        [],
-        today,
-        work_items=[_work_log(work_assignment.id)],
+    record = record_service.finalize_work_record(
+        seeded_session, today, [_work_log(work_assignment.id)], today
     )
 
-    assert record.record_state == RecordState.REPORTED
+    assert record.work_record_state == RecordState.REPORTED
+    assert record.exam_record_state is None
     assert len(record.work_logs) == 1
 
 
-def test_finalize_record_allows_work_log_without_study_or_diary(seeded_session):
+def test_finalize_work_record_allows_work_log_without_study_or_diary(seeded_session):
     """業務記録のみの入力でも確定できる（要件定義書R-75「数値実績の入力を必須としない」）。"""
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
-    record = record_service.finalize_record(
-        seeded_session, today, [], [], today, work_items=[_work_log(work_assignment.id)]
+    record = record_service.finalize_work_record(
+        seeded_session, today, [_work_log(work_assignment.id)], today
     )
 
-    assert record.record_state == RecordState.REPORTED
+    assert record.work_record_state == RecordState.REPORTED
     assert len(record.work_logs) == 1
+
+
+def test_finalize_work_record_rejects_already_reported(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+    record_service.finalize_work_record(
+        seeded_session, today, [_work_log(work_assignment.id)], today
+    )
+
+    with pytest.raises(ImmutableRecordError):
+        record_service.finalize_work_record(
+            seeded_session, today, [_work_log(work_assignment.id)], today
+        )
+
+
+def test_finalize_work_record_does_not_affect_exam_or_reading_state(seeded_session):
+    """仕事を確定しても資格勉強・読書は未着手のまま引き続き入力・確定できる
+    （仕様変更2026-09-05のコア要件）。"""
+    exam_goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, exam_goal)
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    work_goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, work_goal)
+    today = dt.date(2026, 3, 10)
+
+    record_service.finalize_work_record(
+        seeded_session, today, [_work_log(work_assignment.id)], today
+    )
+
+    assert record_service.get_daily_record(seeded_session, today).exam_record_state is None
+    assert record_service.get_daily_record(seeded_session, today).reading_record_state is None
+
+    record_service.register_progress(seeded_session, today, [_log(material.id)], today)
+    record = record_service.finalize_reading_record(
+        seeded_session, today, [_reading_log(book.id)], today
+    )
+
+    assert record.exam_record_state == RecordState.PROGRESS_ONLY
+    assert record.reading_record_state == RecordState.REPORTED
+    assert record.work_record_state == RecordState.REPORTED
 
 
 # --- 品質指標の正規化（ロジック・プロンプト編14.1） ---
@@ -627,7 +728,7 @@ def test_add_comment_requires_existing_record(seeded_session):
 
 def test_add_update_delete_comment(seeded_session):
     today = dt.date(2026, 3, 10)
-    seeded_session.add(DailyRecord(record_date=today, record_state=RecordState.REPORTED))
+    seeded_session.add(DailyRecord(record_date=today, exam_record_state=RecordState.REPORTED))
     seeded_session.flush()
 
     comment = record_service.add_comment(seeded_session, today, "初回コメント")
@@ -733,7 +834,7 @@ def test_compute_daily_quota_excludes_inactive_material(seeded_session):
 
 def test_get_calendar_days_combines_day_type_and_record_state(seeded_session):
     seeded_session.add(
-        DailyRecord(record_date=dt.date(2026, 3, 10), record_state=RecordState.REPORTED)
+        DailyRecord(record_date=dt.date(2026, 3, 10), exam_record_state=RecordState.REPORTED)
     )
     seeded_session.flush()
 
@@ -748,9 +849,69 @@ def test_get_calendar_days_combines_day_type_and_record_state(seeded_session):
     assert unreported_day.record_state is None
 
 
+def test_get_calendar_days_reports_partial_category_as_progress_only(seeded_session):
+    """資格勉強のみ確定・読書は未確定の日は、カレンダー上は「進捗のみ登録済」として
+    表示される（触れたカテゴリのうち1つでも未確定なら集約はPROGRESS_ONLY、仕様変更
+    2026-09-05のaggregate_record_stateルール）。"""
+    seeded_session.add(
+        DailyRecord(
+            record_date=dt.date(2026, 3, 10),
+            exam_record_state=RecordState.REPORTED,
+            reading_record_state=RecordState.PROGRESS_ONLY,
+        )
+    )
+    seeded_session.flush()
+
+    days = record_service.get_calendar_days(
+        seeded_session, dt.date(2026, 3, 10), dt.date(2026, 3, 10)
+    )
+
+    assert days[0].record_state == RecordState.PROGRESS_ONLY
+
+
 def test_get_calendar_days_returns_empty_when_range_inverted(seeded_session):
     """境界値: 期間が逆転している場合に例外が発生しないこと（Phase2完了条件の踏襲）。"""
     days = record_service.get_calendar_days(
         seeded_session, dt.date(2026, 3, 10), dt.date(2026, 3, 1)
     )
     assert days == []
+
+
+# --- aggregate_record_state（カテゴリ横断の単一状態算出、仕様変更2026-09-05） ---
+
+
+def test_aggregate_record_state_none_when_no_category_touched():
+    assert record_service.aggregate_record_state(None, None, None) is None
+
+
+def test_aggregate_record_state_reported_when_only_touched_category_is_reported():
+    """触れていないカテゴリ（None）は判定から除外され、確定のブロッカーにならない。"""
+    assert (
+        record_service.aggregate_record_state(RecordState.REPORTED, None, None)
+        == RecordState.REPORTED
+    )
+
+
+def test_aggregate_record_state_reported_when_all_touched_categories_reported():
+    assert (
+        record_service.aggregate_record_state(
+            RecordState.REPORTED, RecordState.REPORTED, RecordState.REPORTED
+        )
+        == RecordState.REPORTED
+    )
+
+
+def test_aggregate_record_state_progress_only_when_any_touched_category_is_progress_only():
+    assert (
+        record_service.aggregate_record_state(
+            RecordState.REPORTED, RecordState.PROGRESS_ONLY, None
+        )
+        == RecordState.PROGRESS_ONLY
+    )
+
+
+def test_aggregate_record_state_progress_only_when_single_category_in_progress():
+    assert (
+        record_service.aggregate_record_state(None, None, RecordState.PROGRESS_ONLY)
+        == RecordState.PROGRESS_ONLY
+    )

@@ -68,8 +68,9 @@ export function ProgressOnlyPage() {
       </p>
     )
   }
-  if (recordQuery.data.record_state === 'REPORTED') {
-    // 報告済は変更不可（仕様書7.2）。閲覧画面へ誘導する。
+  if (recordQuery.data.exam_record_state === 'REPORTED') {
+    // このページはEXAM専用（study_logsのみ扱う）のため、資格勉強が確定済みなら
+    // 変更不可（仕様書7.2）。閲覧画面へ誘導する。
     return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
 

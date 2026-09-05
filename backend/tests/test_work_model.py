@@ -53,7 +53,7 @@ def test_work_assignment_and_work_log_crud(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 9, 2), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 9, 2), work_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -129,7 +129,7 @@ def test_work_assignment_delete_restricted_when_work_log_exists(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 9, 3), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 9, 3), work_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -161,7 +161,7 @@ def test_work_log_unique_assignment_and_daily_record(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 9, 4), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 9, 4), work_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -195,7 +195,7 @@ def test_daily_record_cascade_deletes_work_logs(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 9, 5), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 9, 5), work_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()

@@ -24,12 +24,14 @@ from app.schemas.record import (
     ProgressRegisterRequest,
     QuotaItemRead,
     ReadingChatRequest,
+    ReadingFinalizeRequest,
     ReadingLogInput,
     ReadingLogRead,
     StudyLogInput,
     StudyLogRead,
     TodayRead,
     WorkChatRequest,
+    WorkFinalizeRequest,
     WorkLogInput,
     WorkLogRead,
 )
@@ -92,7 +94,12 @@ def _serialize_record(
     diary_entries = record_service.get_diary_entries(session, record) if record else []
     return DailyRecordRead(
         record_date=target_date,
-        record_state=record.record_state if record else None,
+        exam_record_state=record.exam_record_state if record else None,
+        exam_reported_at=record.exam_reported_at if record else None,
+        reading_record_state=record.reading_record_state if record else None,
+        reading_reported_at=record.reading_reported_at if record else None,
+        work_record_state=record.work_record_state if record else None,
+        work_reported_at=record.work_reported_at if record else None,
         diary_entries=[
             DiaryEntryRead(
                 goal_id=entry.goal_id,
@@ -102,7 +109,6 @@ def _serialize_record(
             )
             for entry in diary_entries
         ],
-        reported_at=record.reported_at if record else None,
         study_logs=[
             StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
         ],
@@ -123,10 +129,21 @@ def _serialize_record(
 
 @router.get("/records/today", response_model=TodayRead)
 def get_today(session: Session = Depends(get_db)) -> TodayRead:
-    """論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。"""
+    """論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。
+
+    record_state はカテゴリ横断の集約値（record_service.aggregate_record_state）であり、
+    カレンダー・ダッシュボードの単一状態表示にのみ使う（仕様変更2026-09-05）。
+    """
     today = goal_service.resolve_today(session)
     record = record_service.get_daily_record(session, today)
-    return TodayRead(logical_date=today, record_state=record.record_state if record else None)
+    aggregate_state = (
+        record_service.aggregate_record_state(
+            record.exam_record_state, record.reading_record_state, record.work_record_state
+        )
+        if record
+        else None
+    )
+    return TodayRead(logical_date=today, record_state=aggregate_state)
 
 
 @router.get("/records/{target_date}", response_model=DailyRecordRead)
@@ -156,6 +173,9 @@ def register_progress(
 def finalize_record(
     target_date: dt.date, payload: FinalizeRequest, session: Session = Depends(get_db)
 ) -> DailyRecordRead:
+    """資格勉強（EXAM）の報告を確定する。読書・仕事の確定状態には影響しない
+    （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
+    """
     today = goal_service.resolve_today(session)
     record = record_service.finalize_record(
         session,
@@ -163,8 +183,34 @@ def finalize_record(
         _to_study_log_items(payload.study_logs),
         _to_diary_entry_items(payload.diary_entries),
         today,
-        _to_reading_log_items(payload.reading_logs),
-        _to_work_log_items(payload.work_logs),
+    )
+    session.commit()
+    return _serialize_record(session, target_date, record)
+
+
+@router.post("/records/{target_date}/reading-finalize", response_model=DailyRecordRead)
+def finalize_reading_record(
+    target_date: dt.date, payload: ReadingFinalizeRequest, session: Session = Depends(get_db)
+) -> DailyRecordRead:
+    """読書の報告を確定する。資格勉強・仕事の確定状態には影響しない
+    （既存の `/chat`, `/reading-chat`, `/work-chat` と同じカテゴリ別命名規則）。
+    """
+    today = goal_service.resolve_today(session)
+    record = record_service.finalize_reading_record(
+        session, target_date, _to_reading_log_items(payload.reading_logs), today
+    )
+    session.commit()
+    return _serialize_record(session, target_date, record)
+
+
+@router.post("/records/{target_date}/work-finalize", response_model=DailyRecordRead)
+def finalize_work_record(
+    target_date: dt.date, payload: WorkFinalizeRequest, session: Session = Depends(get_db)
+) -> DailyRecordRead:
+    """仕事の報告を確定する。資格勉強・読書の確定状態には影響しない。"""
+    today = goal_service.resolve_today(session)
+    record = record_service.finalize_work_record(
+        session, target_date, _to_work_log_items(payload.work_logs), today
     )
     session.commit()
     return _serialize_record(session, target_date, record)

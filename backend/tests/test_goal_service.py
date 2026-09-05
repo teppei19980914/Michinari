@@ -119,7 +119,7 @@ def test_record_baseline_for_material_on_or_after_start_date_uses_today_quota(db
 
 
 def _make_daily_record(db_session, record_date: dt.date, **overrides) -> DailyRecord:
-    defaults = dict(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    defaults = dict(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
     defaults.update(overrides)
     record = DailyRecord(**defaults)
     db_session.add(record)
@@ -532,7 +532,9 @@ def test_delete_archived_goal_with_cascade_deletes_own_diary_but_keeps_others(db
     goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT, name="削除対象")
     other_goal = _make_goal(db_session, name="他の目標")
     material = _make_material(db_session, goal.id)
-    record = _make_daily_record(db_session, dt.date(2026, 1, 5), record_state=RecordState.REPORTED)
+    record = _make_daily_record(
+        db_session, dt.date(2026, 1, 5), exam_record_state=RecordState.REPORTED
+    )
     _make_study_log(db_session, record.id, material.id)
     _make_diary_entry(db_session, record.id, goal.id, diary_body="削除対象の日記")
     other_entry = _make_diary_entry(
@@ -561,7 +563,9 @@ def test_delete_archived_goal_with_cascade_deletes_daily_record_when_no_other_da
     （データ構造編4.2）。"""
     goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
     material = _make_material(db_session, goal.id)
-    record = _make_daily_record(db_session, dt.date(2026, 1, 5), record_state=RecordState.REPORTED)
+    record = _make_daily_record(
+        db_session, dt.date(2026, 1, 5), exam_record_state=RecordState.REPORTED
+    )
     _make_study_log(db_session, record.id, material.id)
     _make_diary_entry(db_session, record.id, goal.id, diary_body="削除対象の日記")
     record_id = record.id

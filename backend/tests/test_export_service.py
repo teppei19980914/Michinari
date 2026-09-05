@@ -91,7 +91,7 @@ def _make_material(session, goal, **overrides):
 def _add_study_log(session, material, record_date, **overrides):
     record = session.query(DailyRecord).filter_by(record_date=record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state="REPORTED")
+        record = DailyRecord(record_date=record_date, exam_record_state="REPORTED")
         session.add(record)
         session.flush()
         session.add(
@@ -151,7 +151,7 @@ def _make_book(session, goal, **overrides):
 def _add_reading_log(session, book, record_date, **overrides):
     record = session.query(DailyRecord).filter_by(record_date=record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state="REPORTED")
+        record = DailyRecord(record_date=record_date, reading_record_state="REPORTED")
         session.add(record)
         session.flush()
     defaults = dict(
@@ -197,7 +197,7 @@ def _make_work_assignment(session, goal, **overrides):
 def _add_work_log(session, work_assignment, record_date, **overrides):
     record = session.query(DailyRecord).filter_by(record_date=record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state="REPORTED")
+        record = DailyRecord(record_date=record_date, work_record_state="REPORTED")
         session.add(record)
         session.flush()
     defaults = dict(
@@ -343,7 +343,7 @@ def test_build_diaries_excludes_other_goals_diary_on_same_date(seeded_session):
     goal_b = _make_goal(seeded_session, name="目標B")
     material_a = _make_material(seeded_session, goal_a)
     material_b = _make_material(seeded_session, goal_b, name="教材B")
-    record = DailyRecord(record_date=dt.date(2026, 2, 1), record_state="REPORTED")
+    record = DailyRecord(record_date=dt.date(2026, 2, 1), exam_record_state="REPORTED")
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add_all(
