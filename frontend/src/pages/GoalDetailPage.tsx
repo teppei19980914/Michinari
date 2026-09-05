@@ -207,6 +207,7 @@ export function GoalDetailPage() {
   }
 
   const goal = goalQuery.data
+  const isArchived = goal.archived_at !== null
   const isReadOnly = isClosedGoalStatus(goal.status)
   const tabs =
     goal.category === 'READING' ? READING_TABS : goal.category === 'WORK' ? WORK_TABS : EXAM_TABS
@@ -223,15 +224,21 @@ export function GoalDetailPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{goal.name}</h1>
-        {!isReadOnly && (
+        {!isReadOnly && !isArchived && (
           <GoalStatusActions goalId={goal.id} status={goal.status} category={goal.category} />
         )}
       </div>
 
-      {isReadOnly && (
+      {isArchived ? (
         <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-600">
-          {t('goals.detail.readOnlyNotice')}
+          {t('goals.detail.archivedNotice')}
         </p>
+      ) : (
+        isReadOnly && (
+          <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-600">
+            {t('goals.detail.readOnlyNotice')}
+          </p>
+        )
       )}
 
       <div className="flex gap-1 border-b border-gray-200">
