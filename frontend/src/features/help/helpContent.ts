@@ -30,6 +30,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.goals.p2',
       'help.sections.goals.p3',
       'help.sections.goals.p4',
+      'help.sections.goals.p5',
     ],
   },
   {
@@ -49,6 +50,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.dailyReport.p1',
       'help.sections.dailyReport.p2',
       'help.sections.dailyReport.p3',
+      'help.sections.dailyReport.p4',
     ],
   },
   {
@@ -59,7 +61,11 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'examAndExport',
     titleKey: 'help.sections.examAndExport.title',
-    bodyKeys: ['help.sections.examAndExport.p1', 'help.sections.examAndExport.p2'],
+    bodyKeys: [
+      'help.sections.examAndExport.p1',
+      'help.sections.examAndExport.p2',
+      'help.sections.examAndExport.p3',
+    ],
   },
   {
     id: 'aiConnection',

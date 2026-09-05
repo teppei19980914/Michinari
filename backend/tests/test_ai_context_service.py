@@ -241,6 +241,32 @@ def test_build_material_status_entries_includes_core_numbers(seeded_session):
     assert "日次ノルマ" in text
 
 
+def test_build_material_status_entries_excludes_not_yet_started_material(seeded_session):
+    """開始日が本日より後の教材は、現在の学習スコープ外としてAIへの状況出力から除外する
+    （quota_serviceが日次ノルマを一貫して0とする対象と同じ教材。含めるとAIが未着手の
+    教材へ不適切に言及・提案してしまう）。"""
+    goal = _make_goal(seeded_session)
+    started = _make_material(seeded_session, goal, name="午前対策", start_date=dt.date(2026, 1, 1))
+    not_started = _make_material(
+        seeded_session,
+        goal,
+        name="午後過去問",
+        start_date=dt.date(2026, 10, 28),
+        display_order=2,
+    )
+
+    entries = ai_context_service.build_material_status_entries(
+        seeded_session,
+        [started, not_started],
+        today=dt.date(2026, 8, 24),
+        treat_holiday_as_buffer=True,
+    )
+
+    assert len(entries) == 1
+    assert "午前対策" in entries[0].text
+    assert "午後過去問" not in entries[0].text
+
+
 def test_build_material_status_entries_includes_forecast_when_computable(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(
@@ -377,10 +403,33 @@ def test_build_progress_summary_includes_current_cycle(seeded_session):
     record = _make_daily_record(seeded_session, dt.date(2026, 8, 20))
     _make_study_log(seeded_session, record, material, amount_completed=100.0)
 
-    text = ai_context_service.build_progress_summary(seeded_session, [material])
+    text = ai_context_service.build_progress_summary(
+        seeded_session, [material], today=dt.date(2026, 8, 24)
+    )
 
     assert material.name in text
     assert "現在2周目" in text
+
+
+def test_build_progress_summary_excludes_not_yet_started_material(seeded_session):
+    """開始日が本日より後の教材は、現在の学習スコープ外として「今日の一言」向けの
+    進捗要約からも除外する（build_material_status_entriesと同じ判定基準）。"""
+    goal = _make_goal(seeded_session)
+    started = _make_material(seeded_session, goal, name="午前対策", start_date=dt.date(2026, 1, 1))
+    not_started = _make_material(
+        seeded_session,
+        goal,
+        name="午後過去問",
+        start_date=dt.date(2026, 10, 28),
+        display_order=2,
+    )
+
+    text = ai_context_service.build_progress_summary(
+        seeded_session, [started, not_started], today=dt.date(2026, 8, 24)
+    )
+
+    assert "午前対策" in text
+    assert "午後過去問" not in text
 
 
 def test_build_recent_activity_text_lists_recent_records(seeded_session):

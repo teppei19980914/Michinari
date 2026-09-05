@@ -170,6 +170,11 @@ def build_material_status_entries(
 ) -> list[MaterialStatusEntry]:
     """{{material_status}}: 教材ごとの総量・予定周回・現在周回・残量・締切・日次ノルマ・
     必要速度・実効速度・完了予測日・乖離日数（17.2）。
+
+    開始日が本日より後（today < material.start_date）の教材は今日時点でまだ学習期間に
+    入っていない（quota_service.compute_material_quotaが日次ノルマを一貫して0とする対象と
+    同じ教材）ため、AIへの状況出力からも除外する。含めてしまうと、AIが現在の学習スコープ
+    外の教材（例: 開始日が数ヶ月先の午後過去問）へ言及・提案してしまう不具合につながる。
     """
     by_goal = _group_materials_by_goal(materials)
 
@@ -178,6 +183,8 @@ def build_material_status_entries(
         goal = goal_materials[0].goal
         contention = [m for m in goal.materials if m.is_active]
         for material in goal_materials:
+            if today < material.start_date:
+                continue
             progress = cycle_service.get_material_progress(session, material)
             quota = quota_service.compute_material_quota(
                 session, goal, material, today, treat_holiday_as_buffer
@@ -286,13 +293,18 @@ def build_today_logs_text(items: list[StudyLogItem], materials_by_id: dict[int, 
 
 
 def build_progress_summary(
-    session: Session, materials: list[Material]
+    session: Session, materials: list[Material], today: dt.date
 ) -> str:
-    """{{progress_summary}}: 教材ごとの進捗率と現在周回（17.4）。"""
-    if not materials:
+    """{{progress_summary}}: 教材ごとの進捗率と現在周回（17.4）。
+
+    開始日が本日より後の教材は今日時点でまだ学習期間に入っていないため対象外とする
+    （build_material_status_entriesと同じ判定基準。DRYの原則）。
+    """
+    started_materials = [m for m in materials if today >= m.start_date]
+    if not started_materials:
         return "（対象教材はありません）"
     lines = []
-    for material in materials:
+    for material in started_materials:
         progress = cycle_service.get_material_progress(session, material)
         rate = metrics_service.compute_progress_rate(progress)
         lines.append(

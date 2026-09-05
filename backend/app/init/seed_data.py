@@ -11,9 +11,12 @@ from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
@@ -24,6 +27,7 @@ from app.constants.app_setting_keys import (
     AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
+    AI_WORK_RECENT_LOG_DAYS,
     BACKUP_RETENTION_COUNT,
     CALENDAR_DAY_BOUNDARY_HOUR,
     DASHBOARD_REPORT_RATE_WINDOW_DAYS,
@@ -67,11 +71,24 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
-    # 読書用アシスタントは未選定（実装フェーズ分割計画書Phase16で疎通確認のうえ選定。
-    # 仕様書12章S-07、設計書データ構造編5.2）。空欄のまま初期投入し、設定画面から補う。
-    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING: ("", AppSettingValueType.STRING),
-    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING: ("", AppSettingValueType.STRING),
+    # 読書用アシスタントは実環境での疎通確認のうえ選定済み（仕様書8.9.1・12章S-07解消）。
+    # AI-06は負荷が低くAI-03(今日の一言)と同系統の高速寄りアシスタント、
+    # AI-07は低頻度・高品質重視でAI-04(総括レポート)と同一アシスタントを既定値とする。
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING: (
+        "8ed280bb-3040-4ee3-9821-66bb7a4db125",
+        AppSettingValueType.STRING,
+    ),
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING: (
+        "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
+        AppSettingValueType.STRING,
+    ),
     AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
+    # 仕事用アシスタントも読書と同様に未選定（Phase22で疎通確認のうえ選定）。
+    # 空欄のまま初期投入し、設定画面から補う（実装フェーズ分割計画書Phase20）。
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK: ("", AppSettingValueType.STRING),
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY: ("", AppSettingValueType.STRING),
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: ("", AppSettingValueType.STRING),
+    AI_WORK_RECENT_LOG_DAYS: ("14", AppSettingValueType.INTEGER),
     AI_FOLDER_PREFIX: ("ミチナリ", AppSettingValueType.STRING),
     AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
     AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
@@ -100,6 +117,9 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts.GOAL_RETROSPECTIVE,
     AiPurpose.DAILY_FEEDBACK_READING: prompt_texts.DAILY_FEEDBACK_READING,
     AiPurpose.GOAL_RETROSPECTIVE_READING: prompt_texts.GOAL_RETROSPECTIVE_READING,
+    AiPurpose.DAILY_FEEDBACK_WORK: prompt_texts.DAILY_FEEDBACK_WORK,
+    AiPurpose.GOAL_RETROSPECTIVE_WORK_MONTHLY: prompt_texts.GOAL_RETROSPECTIVE_WORK_MONTHLY,
+    AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: prompt_texts.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。
@@ -138,8 +158,31 @@ def seed_day_type_defaults(session: Session) -> None:
         session.add(DayTypeDefault(weekday=weekday, day_type=day_type))
 
 
+# 読書用アシスタント既定値の一度きりの補正（仕様書8.9.1・12章S-07解消）。
+# Phase16時点では実環境での疎通確認前だったため空欄で投入されており、seed_app_settingsの
+# 「既存キーは上書きしない」仕組みだけでは既存DBの空欄値が更新されない。ユーザーが設定画面から
+# 既に値を入れている場合（空文字以外）は上書きしない。
+_READING_ASSISTANT_DEFAULT_KEYS = (
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+)
+
+
+def backfill_reading_assistant_defaults(session: Session) -> None:
+    for key in _READING_ASSISTANT_DEFAULT_KEYS:
+        default_value, _ = INITIAL_APP_SETTINGS[key]
+        row = (
+            session.query(AppSetting)
+            .filter(AppSetting.key == key, AppSetting.value == "")
+            .first()
+        )
+        if row is not None:
+            row.value = default_value
+
+
 def run_all(session: Session) -> None:
     seed_app_settings(session)
     seed_prompt_templates(session)
     seed_day_type_defaults(session)
+    backfill_reading_assistant_defaults(session)
     session.commit()
