@@ -51,6 +51,22 @@ class ReadingLogRead(BaseModel):
     current_page: int | None
 
 
+class WorkLogInput(BaseModel):
+    """業務記録の入力（study_logの仕事版。自由記述本文のみ、数値実績は必須としない。
+    要件定義書R-75）。"""
+
+    work_assignment_id: int
+    body: str = Field(min_length=1)
+
+
+class WorkLogRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    work_assignment_id: int
+    body: str
+
+
 class DiaryEntryInput(BaseModel):
     """日記（目標別）の登録入力。本文・学んだこと両方が空の目標は送信対象から除外する
     （フロントエンドのbuildDiaryEntriesPayloadと同じ考え方、StudyLogInputと同じ配列パターン）。
@@ -103,22 +119,25 @@ class DailyRecordRead(BaseModel):
     reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
     reading_logs: list[ReadingLogRead]
+    work_logs: list[WorkLogRead]
     comments: list[CommentRead]
     chat_messages: list[ChatMessageRead]
 
 
 class ProgressRegisterRequest(BaseModel):
-    """study_logs・reading_logsのいずれかを1件以上含むことをrecord_serviceで検証する
-    （両方空の入力を拒否。両カテゴリの目標が同時進行しうるため、schema側では
-    どちらか一方のmin_length指定はできない）。"""
+    """study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_serviceで
+    検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行しうるため、schema側では
+    特定の1つのみのmin_length指定はできない）。"""
 
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
 class FinalizeRequest(BaseModel):
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
 
 

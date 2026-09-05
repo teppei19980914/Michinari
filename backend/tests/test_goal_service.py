@@ -15,13 +15,16 @@ from app.models.record import (
     ReadingLog,
     RecordComment,
     StudyLog,
+    WorkLog,
 )
 from app.models.setting import CalendarDayOverride
+from app.models.work import WorkAssignment
 from app.services import goal_service
 from app.services.exceptions import (
     BookHasReadingLogsError,
     InvalidStateTransitionError,
     MaterialHasStudyLogsError,
+    WorkAssignmentHasWorkLogsError,
 )
 
 
@@ -185,6 +188,45 @@ def _make_reading_log(db_session, daily_record_id: int, book_id: int, **override
     return log
 
 
+def _make_work_goal(db_session, status=GoalStatus.ACTIVE, name="仕事目標A") -> Goal:
+    goal = Goal(
+        category=GoalCategory.WORK,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=status,
+        resource_ratio=0,
+    )
+    db_session.add(goal)
+    db_session.flush()
+    return goal
+
+
+def _make_work_assignment(db_session, goal_id: int, **overrides) -> WorkAssignment:
+    defaults = dict(
+        goal_id=goal_id,
+        expected_content="想定業務内容",
+        start_date=dt.date(2026, 1, 1),
+    )
+    defaults.update(overrides)
+    work_assignment = WorkAssignment(**defaults)
+    db_session.add(work_assignment)
+    db_session.flush()
+    return work_assignment
+
+
+def _make_work_log(
+    db_session, daily_record_id: int, work_assignment_id: int, **overrides
+) -> WorkLog:
+    defaults = dict(
+        daily_record_id=daily_record_id, work_assignment_id=work_assignment_id, body="業務内容"
+    )
+    defaults.update(overrides)
+    log = WorkLog(**defaults)
+    db_session.add(log)
+    db_session.flush()
+    return log
+
+
 def test_archive_goal_requires_closed_status(db_session):
     goal = _make_goal(db_session, status=GoalStatus.ACTIVE)
     with pytest.raises(InvalidStateTransitionError):
@@ -296,6 +338,79 @@ def test_delete_archived_goal_with_cascade_removes_reading_logs_and_deletes_empt
     assert db_session.get(Goal, goal_id) is None
     assert db_session.get(Book, book.id) is None
     assert db_session.get(DailyRecord, record_id) is None
+
+
+def test_delete_archived_goal_without_cascade_rejects_when_work_logs_remain(db_session):
+    """study_logのwork_log版（WorkAssignmentHasWorkLogsError、実装フェーズ分割計画書Phase21）。"""
+    goal = _make_work_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    work_assignment = _make_work_assignment(db_session, goal.id)
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    _make_work_log(db_session, record.id, work_assignment.id)
+    goal_service.archive_goal(db_session, goal)
+
+    with pytest.raises(WorkAssignmentHasWorkLogsError):
+        goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=False)
+
+
+def test_delete_archived_goal_with_cascade_removes_work_logs_and_deletes_empty_daily_record(
+    db_session,
+):
+    """study_logのwork_log版。_cascade_delete_activity_logsがwork_assignment経由の
+    work_logも削除し、空になったdaily_recordを物理削除すること（実装フェーズ分割計画書
+    Phase21）。"""
+    goal = _make_work_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    work_assignment = _make_work_assignment(db_session, goal.id)
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    _make_work_log(db_session, record.id, work_assignment.id)
+    record_id = record.id
+    goal_id = goal.id
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=True)
+
+    assert db_session.get(Goal, goal_id) is None
+    assert db_session.get(WorkAssignment, work_assignment.id) is None
+    assert db_session.get(DailyRecord, record_id) is None
+
+
+def test_delete_archived_goal_without_cascade_succeeds_when_work_assignment_has_no_work_logs(
+    db_session,
+):
+    """仕事目標の案件情報に業務記録が1件も無ければ、非cascadeでも削除を許可する
+    （test_delete_archived_goal_without_cascade_succeeds_when_book_has_no_reading_logsの
+    仕事版）。"""
+    goal = _make_work_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    _make_work_assignment(db_session, goal.id)
+    goal_id = goal.id
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_archived_goal(db_session, goal, cascade_study_logs=False)
+
+    assert db_session.get(Goal, goal_id) is None
+
+
+def test_delete_archived_goal_with_cascade_preserves_daily_record_shared_by_other_work_goal(
+    db_session,
+):
+    """同じ日次報告に他の仕事目標のwork_logが残る場合、daily_record自体は保持する
+    （test_delete_archived_goal_with_cascade_preserves_daily_record_shared_by_other_reading_goal
+    の仕事版）。"""
+    goal_a = _make_work_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT, name="削除対象")
+    work_assignment_a = _make_work_assignment(db_session, goal_a.id)
+    goal_b = _make_work_goal(db_session, name="他の仕事目標")
+    work_assignment_b = _make_work_assignment(db_session, goal_b.id)
+
+    record = _make_daily_record(db_session, dt.date(2026, 1, 5))
+    _make_work_log(db_session, record.id, work_assignment_a.id)
+    _make_work_log(db_session, record.id, work_assignment_b.id)
+    record_id = record.id
+    goal_a_id = goal_a.id
+    goal_service.archive_goal(db_session, goal_a)
+
+    goal_service.delete_archived_goal(db_session, goal_a, cascade_study_logs=True)
+
+    assert db_session.get(Goal, goal_a_id) is None
+    assert db_session.get(DailyRecord, record_id) is not None
 
 
 def test_delete_archived_goal_without_cascade_succeeds_when_book_has_no_reading_logs(db_session):

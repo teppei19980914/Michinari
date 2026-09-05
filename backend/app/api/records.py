@@ -29,6 +29,8 @@ from app.schemas.record import (
     StudyLogInput,
     StudyLogRead,
     TodayRead,
+    WorkLogInput,
+    WorkLogRead,
 )
 from app.services import (
     daily_feedback_service,
@@ -36,7 +38,7 @@ from app.services import (
     reading_feedback_service,
     record_service,
 )
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 router = APIRouter(tags=["records"])
 
@@ -62,6 +64,13 @@ def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]
             pages_read=item.pages_read,
             current_page=item.current_page,
         )
+        for item in inputs
+    ]
+
+
+def _to_work_log_items(inputs: list[WorkLogInput]) -> list[WorkLogItem]:
+    return [
+        WorkLogItem(work_assignment_id=item.work_assignment_id, body=item.body)
         for item in inputs
     ]
 
@@ -99,6 +108,9 @@ def _serialize_record(
         reading_logs=[
             ReadingLogRead.model_validate(log) for log in (record.reading_logs if record else [])
         ],
+        work_logs=[
+            WorkLogRead.model_validate(log) for log in (record.work_logs if record else [])
+        ],
         comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
         chat_messages=[
             ChatMessageRead.model_validate(chat_message)
@@ -135,6 +147,7 @@ def register_progress(
         _to_study_log_items(payload.study_logs),
         today,
         _to_reading_log_items(payload.reading_logs),
+        _to_work_log_items(payload.work_logs),
     )
     session.commit()
     return _serialize_record(session, target_date, record)
@@ -152,6 +165,7 @@ def finalize_record(
         _to_diary_entry_items(payload.diary_entries),
         today,
         _to_reading_log_items(payload.reading_logs),
+        _to_work_log_items(payload.work_logs),
     )
     session.commit()
     return _serialize_record(session, target_date, record)

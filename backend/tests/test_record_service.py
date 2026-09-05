@@ -14,6 +14,7 @@ from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, RecordComment
+from app.models.work import WorkAssignment
 from app.services import cycle_service, record_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
@@ -21,7 +22,7 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 
 def _make_goal(session, status=GoalStatus.ACTIVE, name="目標A"):
@@ -419,6 +420,137 @@ def test_finalize_record_allows_reading_log_without_study_or_diary(seeded_sessio
 
     assert record.record_state == RecordState.REPORTED
     assert len(record.reading_logs) == 1
+
+
+# --- 業務記録（work_logs、実装フェーズ分割計画書Phase21） ---
+
+
+def _make_work_goal(session, status=GoalStatus.ACTIVE, name="仕事目標A"):
+    goal = Goal(
+        category=GoalCategory.WORK,
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=status,
+        resource_ratio=0,
+    )
+    session.add(goal)
+    session.flush()
+    return goal
+
+
+def _make_work_assignment(session, goal, **overrides):
+    defaults = dict(
+        goal_id=goal.id,
+        expected_content="想定業務内容",
+        start_date=dt.date(2026, 1, 1),
+    )
+    defaults.update(overrides)
+    work_assignment = WorkAssignment(**defaults)
+    session.add(work_assignment)
+    session.flush()
+    return work_assignment
+
+
+def _work_log(work_assignment_id, **overrides):
+    defaults = dict(work_assignment_id=work_assignment_id, body="今日の業務内容")
+    defaults.update(overrides)
+    return WorkLogItem(**defaults)
+
+
+def test_register_progress_creates_work_log(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, work_items=[_work_log(work_assignment.id)]
+    )
+
+    assert len(record.work_logs) == 1
+    assert record.work_logs[0].body == "今日の業務内容"
+
+
+def test_register_progress_rejects_when_all_lists_empty(seeded_session):
+    """study_logs・reading_logs・work_logsすべてが空の登録は拒否する（無意味な登録のため）。"""
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service.register_progress(seeded_session, today, [], today)
+
+
+def test_register_progress_accepts_work_only_without_study_logs(seeded_session):
+    """資格試験のstudy_logsが空でも、仕事のwork_logsのみで登録できる
+    （複数カテゴリの目標が同時進行しうるため、study_logsを必須にできない）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, work_items=[_work_log(work_assignment.id)]
+    )
+
+    assert record.record_state == RecordState.PROGRESS_ONLY
+
+
+def test_register_progress_rejects_unknown_work_assignment(seeded_session):
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(NotFoundError):
+        record_service.register_progress(
+            seeded_session, today, [], today, work_items=[_work_log(9999)]
+        )
+
+
+def test_register_progress_updates_existing_work_log_for_same_assignment(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record_service.register_progress(
+        seeded_session, today, [], today, work_items=[_work_log(work_assignment.id)]
+    )
+    record = record_service.register_progress(
+        seeded_session,
+        today,
+        [],
+        today,
+        work_items=[_work_log(work_assignment.id, body="上書き後の業務内容")],
+    )
+
+    assert len(record.work_logs) == 1
+    assert record.work_logs[0].body == "上書き後の業務内容"
+
+
+def test_finalize_record_persists_work_log_and_diary(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.finalize_record(
+        seeded_session,
+        today,
+        [],
+        [],
+        today,
+        work_items=[_work_log(work_assignment.id)],
+    )
+
+    assert record.record_state == RecordState.REPORTED
+    assert len(record.work_logs) == 1
+
+
+def test_finalize_record_allows_work_log_without_study_or_diary(seeded_session):
+    """業務記録のみの入力でも確定できる（要件定義書R-75「数値実績の入力を必須としない」）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.finalize_record(
+        seeded_session, today, [], [], today, work_items=[_work_log(work_assignment.id)]
+    )
+
+    assert record.record_state == RecordState.REPORTED
+    assert len(record.work_logs) == 1
 
 
 # --- 品質指標の正規化（ロジック・プロンプト編14.1） ---

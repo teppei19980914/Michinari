@@ -25,7 +25,9 @@ from app.models.record import (
     ReadingLog,
     RecordComment,
     StudyLog,
+    WorkLog,
 )
+from app.models.work import WorkAssignment
 from app.services import calendar_service, cycle_service, goal_service, quota_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
@@ -205,6 +207,57 @@ def _apply_reading_logs(
 
 
 @dataclass(frozen=True)
+class WorkLogItem:
+    """業務記録の登録入力（API層のスキーマから変換して渡す。study_logの仕事版。
+    読書と異なりページ数等の付随フィールドは持たない、自由記述1本）。"""
+
+    work_assignment_id: int
+    body: str
+
+
+def _load_work_assignments(
+    session: Session, work_assignment_ids: set[int]
+) -> dict[int, WorkAssignment]:
+    if not work_assignment_ids:
+        return {}
+    work_assignments = (
+        session.query(WorkAssignment).filter(WorkAssignment.id.in_(work_assignment_ids)).all()
+    )
+    found = {w.id: w for w in work_assignments}
+    missing = work_assignment_ids - set(found)
+    if missing:
+        raise NotFoundError("案件情報", sorted(missing))
+    return found
+
+
+def _upsert_work_log(
+    session: Session, daily_record: DailyRecord, work_assignment: WorkAssignment, item: WorkLogItem
+) -> WorkLog:
+    work_log = (
+        session.query(WorkLog)
+        .filter(
+            WorkLog.daily_record_id == daily_record.id,
+            WorkLog.work_assignment_id == work_assignment.id,
+        )
+        .first()
+    )
+    if work_log is None:
+        work_log = WorkLog(daily_record_id=daily_record.id, work_assignment_id=work_assignment.id)
+        session.add(work_log)
+    work_log.body = item.body
+    session.flush()
+    return work_log
+
+
+def _apply_work_logs(session: Session, daily_record: DailyRecord, items: list[WorkLogItem]) -> None:
+    work_assignments = _load_work_assignments(
+        session, {item.work_assignment_id for item in items}
+    )
+    for item in items:
+        _upsert_work_log(session, daily_record, work_assignments[item.work_assignment_id], item)
+
+
+@dataclass(frozen=True)
 class DiaryEntryItem:
     """日記（目標別）の登録入力（API層のスキーマから変換して渡す）。"""
 
@@ -290,17 +343,20 @@ def register_progress(
     items: list[StudyLogItem],
     today: dt.date,
     reading_items: list[ReadingLogItem] | None = None,
+    work_items: list[WorkLogItem] | None = None,
 ) -> DailyRecord:
     """進捗のみ登録する（未入力→進捗のみ登録済、または既存の進捗のみ登録済の更新）。
 
     入力可能期間は「対象日が当日または前日以前」（仕様書7.2）であり、未来日は拒否する。
-    study_logs・reading_logsの少なくとも一方に1件以上の入力を要求する（両者とも空の登録は
-    無意味なため。片方のみ必須にできないのは、資格試験・読書の両目標が同時進行しうるため）。
+    study_logs・reading_logs・work_logsの少なくとも1つに1件以上の入力を要求する
+    （いずれも空の登録は無意味なため。特定の1つのみ必須にできないのは、資格試験・読書・
+    仕事の目標が同時進行しうるため）。
     """
     reading_items = reading_items or []
+    work_items = work_items or []
     if target_date > today:
         raise ValidationError("未来日への実績登録はできません")
-    if not items and not reading_items:
+    if not items and not reading_items and not work_items:
         raise ValidationError("実績を1件以上入力してください")
 
     record = get_daily_record(session, target_date)
@@ -309,6 +365,7 @@ def register_progress(
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
     _apply_reading_logs(session, record, reading_items)
+    _apply_work_logs(session, record, work_items)
     return record
 
 
@@ -319,6 +376,7 @@ def finalize_record(
     diary_entries: list[DiaryEntryItem],
     today: dt.date,
     reading_items: list[ReadingLogItem] | None = None,
+    work_items: list[WorkLogItem] | None = None,
 ) -> DailyRecord:
     """報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
@@ -326,6 +384,7 @@ def finalize_record(
     today（呼び出し側が1日の境界時刻を考慮して算出した論理的な本日）を基準とする。
     """
     reading_items = reading_items or []
+    work_items = work_items or []
     if target_date > today:
         raise ValidationError("未来日の報告確定はできません")
 
@@ -337,6 +396,7 @@ def finalize_record(
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
     _apply_reading_logs(session, record, reading_items)
+    _apply_work_logs(session, record, work_items)
     _apply_diary_entries(session, record, diary_entries)
     record.record_state = RecordState.REPORTED
     record.reported_at = utcnow()
