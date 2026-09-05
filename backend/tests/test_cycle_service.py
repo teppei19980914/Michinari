@@ -38,7 +38,7 @@ def _make_material(db_session, goal_id: int, total_amount: float, planned_cycles
 def _add_study_log(
     db_session, material_id: int, record_date: dt.date, amount: float, cycle: int
 ) -> None:
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
     db_session.add(record)
     db_session.flush()
     db_session.add(

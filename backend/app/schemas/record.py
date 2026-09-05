@@ -113,10 +113,20 @@ class ChatMessageRead(BaseModel):
 
 
 class DailyRecordRead(BaseModel):
+    """確定状態（*_record_state/*_reported_at）はカテゴリ（EXAM/READING/WORK）ごとに
+    独立して持つ（仕様変更2026-09-05: 資格勉強を確定しても読書・仕事は引き続き入力・
+    確定できるようにするため）。値がNoneのカテゴリは、その日一度もそのカテゴリを
+    操作していないことを表す。
+    """
+
     record_date: dt.date
-    record_state: RecordState | None
+    exam_record_state: RecordState | None
+    exam_reported_at: dt.datetime | None
+    reading_record_state: RecordState | None
+    reading_reported_at: dt.datetime | None
+    work_record_state: RecordState | None
+    work_reported_at: dt.datetime | None
     diary_entries: list[DiaryEntryRead]
-    reported_at: dt.datetime | None
     study_logs: list[StudyLogRead]
     reading_logs: list[ReadingLogRead]
     work_logs: list[WorkLogRead]
@@ -135,10 +145,29 @@ class ProgressRegisterRequest(BaseModel):
 
 
 class FinalizeRequest(BaseModel):
+    """資格勉強（EXAM）の報告確定リクエスト（データ構造編6.2 POST /records/{date}/finalize）。
+    読書・仕事は別エンドポイント（ReadingFinalizeRequest/WorkFinalizeRequest）に分離した
+    （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
+    """
+
     study_logs: list[StudyLogInput] = Field(default_factory=list)
-    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
-    work_logs: list[WorkLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
+
+
+class ReadingFinalizeRequest(BaseModel):
+    """読書の報告確定リクエスト（データ構造編6.2 POST /records/{date}/reading-finalize）。
+    ChatRequest/ReadingChatRequestと同じ設計方針でカテゴリ別に分離する。
+    """
+
+    reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+
+
+class WorkFinalizeRequest(BaseModel):
+    """仕事の報告確定リクエスト（データ構造編6.2 POST /records/{date}/work-finalize）。
+    ChatRequest/WorkChatRequestと同じ設計方針でカテゴリ別に分離する。
+    """
+
+    work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
 class TodayRead(BaseModel):

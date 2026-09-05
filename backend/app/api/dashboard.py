@@ -239,7 +239,15 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
 
     return DashboardRead(
         logical_date=today,
-        record_state=today_record.record_state if today_record else None,
+        record_state=(
+            record_service.aggregate_record_state(
+                today_record.exam_record_state,
+                today_record.reading_record_state,
+                today_record.work_record_state,
+            )
+            if today_record
+            else None
+        ),
         today_day_type=today_day_type,
         report_rate_window_days=report_rate_window_days,
         goal_cards=goal_cards,

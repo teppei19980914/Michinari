@@ -275,7 +275,7 @@ def _build_diaries(session: Session, goal: Goal) -> list[dict]:
         .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
         .filter(
             DailyGoalDiary.goal_id == goal.id,
-            DailyRecord.record_state == RecordState.REPORTED,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
         )
         .order_by(DailyRecord.record_date)
         .all()

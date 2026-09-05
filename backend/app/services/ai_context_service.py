@@ -366,7 +366,9 @@ def build_recent_activity_text(
         return "（対象教材はありません）"
     period_start = today - dt.timedelta(days=lookback_days - 1)
     rows = (
-        session.query(DailyRecord.record_date, DailyRecord.record_state, StudyLog.amount_completed)
+        session.query(
+            DailyRecord.record_date, DailyRecord.exam_record_state, StudyLog.amount_completed
+        )
         .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
         .filter(
             StudyLog.material_id.in_(material_ids),
@@ -377,7 +379,7 @@ def build_recent_activity_text(
     )
     if not rows:
         return "（直近の実績はありません）"
-    totals: dict[tuple[dt.date, RecordState], float] = defaultdict(float)
+    totals: dict[tuple[dt.date, RecordState | None], float] = defaultdict(float)
     for record_date, record_state, amount in rows:
         totals[(record_date, record_state)] += amount
     lines = [
@@ -464,7 +466,7 @@ def build_week_diaries_text(
             DailyGoalDiary.goal_id == goal.id,
             DailyRecord.record_date >= week_start,
             DailyRecord.record_date <= week_end,
-            DailyRecord.record_state == RecordState.REPORTED,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
         )
         .order_by(DailyRecord.record_date)
         .all()
@@ -512,7 +514,7 @@ def build_week_metrics_text(
         .filter(
             DailyRecord.record_date >= week_start,
             DailyRecord.record_date <= week_end,
-            DailyRecord.record_state == RecordState.REPORTED,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
         )
         .count()
     )
@@ -939,7 +941,7 @@ def build_work_recent_activity_text(
     work_assignment_ids = [wa.id for wa in work_assignments]
     period_start = today - dt.timedelta(days=lookback_days - 1)
     rows = (
-        session.query(DailyRecord.record_date, DailyRecord.record_state)
+        session.query(DailyRecord.record_date, DailyRecord.work_record_state)
         .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
         .filter(
             WorkLog.work_assignment_id.in_(work_assignment_ids),

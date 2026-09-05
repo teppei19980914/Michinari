@@ -133,11 +133,15 @@ class WorkAssignmentAlreadyExistsError(DomainError):
 
 
 class ImmutableRecordError(DomainError):
-    """確定済み(REPORTED)の日次記録を更新しようとした場合（データ構造編6.3 IMMUTABLE_RECORD）。"""
+    """確定済み(REPORTED)の日次記録カテゴリを更新しようとした場合（データ構造編6.3
+    IMMUTABLE_RECORD）。確定状態はカテゴリ（EXAM/READING/WORK）ごとに独立しているため、
+    どのカテゴリで発生したかをメッセージに含める（仕様変更2026-09-05）。
+    """
 
-    def __init__(self, record_date: object) -> None:
+    def __init__(self, record_date: object, category: object) -> None:
         self.record_date = record_date
-        super().__init__(f"日付({record_date})の記録は確定済みのため更新できません")
+        self.category = category
+        super().__init__(f"日付({record_date})の{category}の記録は確定済みのため更新できません")
 
 
 class BackdateLimitExceededError(DomainError):

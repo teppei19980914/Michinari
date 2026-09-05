@@ -707,7 +707,7 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
 ):
     goal = _close_goal(client)
     material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -728,7 +728,7 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
 def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):
     goal = _close_goal(client)
     material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(

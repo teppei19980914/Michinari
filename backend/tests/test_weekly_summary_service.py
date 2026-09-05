@@ -46,7 +46,7 @@ def _make_material(session, goal, **overrides):
 
 
 def _make_daily_record_with_log(session, material, record_date, **overrides):
-    record = DailyRecord(record_date=record_date, record_state="REPORTED")
+    record = DailyRecord(record_date=record_date, exam_record_state="REPORTED")
     session.add(record)
     session.flush()
     defaults = dict(
@@ -162,7 +162,9 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
     )
     seeded_session.add(book)
     seeded_session.flush()
-    record = DailyRecord(record_date=dt.date(2026, 8, 18), record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(
+        record_date=dt.date(2026, 8, 18), reading_record_state=RecordState.PROGRESS_ONLY
+    )
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -200,7 +202,9 @@ def test_list_pending_weeks_excludes_work_goals(seeded_session):
     )
     seeded_session.add(work_assignment)
     seeded_session.flush()
-    record = DailyRecord(record_date=dt.date(2026, 8, 18), record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(
+        record_date=dt.date(2026, 8, 18), work_record_state=RecordState.PROGRESS_ONLY
+    )
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(

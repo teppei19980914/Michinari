@@ -612,7 +612,8 @@
         "3": "3: 普通",
         "4": "4: 良い",
         "5": "5: とても良い"
-      }
+      },
+      "finalizeButton": "資格勉強の報告を確定する"
     },
     "diary": {
       "bodyLabel": "本日の行動・所感",
@@ -633,7 +634,8 @@
       "recallLabel": "今日読んだ内容の想起",
       "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
       "pagesReadLabel": "読んだページ数",
-      "currentPageLabel": "現在ページ（全{{total}}ページ）"
+      "currentPageLabel": "現在ページ（全{{total}}ページ）",
+      "finalizeButton": "読書の報告を確定する"
     },
     "readingChat": {
       "title": "AI対話（読書）",
@@ -643,13 +645,14 @@
       "title": "業務内容の記録",
       "noClientName": "取引先未登録",
       "bodyLabel": "今日の業務内容",
-      "bodyPlaceholder": "例: 今日はどのような業務に取り組みましたか"
+      "bodyPlaceholder": "例: 今日はどのような業務に取り組みましたか",
+      "finalizeButton": "仕事の報告を確定する"
     },
     "workChat": {
       "title": "AI対話（仕事）",
       "startButton": "業務内容を送信してAIフィードバックを受け取る"
     },
-    "finalizeButton": "報告を確定する",
+    "confirmedBadge": "確定済み",
     "leaveConfirm": {
       "title": "この画面から移動しますか？",
       "body": "報告を確定する前にこの画面を離れると、入力した実績・日記・対話の内容は保存されません。",

@@ -73,7 +73,7 @@ def _make_active_goal_with_material(
 def _add_study_log(session, record_date: dt.date, material_id: int, cycle_number: int = 1) -> None:
     record = session.query(DailyRecord).filter(DailyRecord.record_date == record_date).first()
     if record is None:
-        record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+        record = DailyRecord(record_date=record_date, exam_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     session.add(

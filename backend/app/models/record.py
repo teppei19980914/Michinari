@@ -1,7 +1,9 @@
 """記録系モデル（設計書 データ構造編 5.4）。
 
-daily_record は日付単位で一意（目標単位ではない）。不変性（確定後の更新拒否）は
-サービス層のガードとして実装し、ここではデータ構造のみを定義する。
+daily_record は日付単位で一意（目標単位ではない）。確定状態はカテゴリ（EXAM/READING/WORK）
+ごとに独立して持つ（資格勉強を確定しても読書・仕事は引き続き入力・確定できる、仕様変更
+2026-09-05）。不変性（確定後の更新拒否）はサービス層のガードとして実装し、ここでは
+データ構造のみを定義する。
 """
 
 from datetime import date, datetime
@@ -32,16 +34,30 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
 
 
 class DailyRecord(CreatedAtMixin, Base):
-    """日次記録。1日1レコード（複数目標が同時進行しても分割しない）。"""
+    """日次記録。1日1レコード（複数目標が同時進行しても分割しない）。
+
+    確定状態（*_record_state/*_reported_at）はカテゴリ別に3組持つ。NULLはそのカテゴリを
+    その日一度も操作していないことを表す（登録・確定のいずれの対象にもなっていない）。
+    3カテゴリ横断の単一状態が必要な箇所（カレンダー・ダッシュボード等）は
+    record_service.aggregate_record_state で都度算出し、列としては保持しない。
+    """
 
     __tablename__ = "daily_record"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     record_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
-    record_state: Mapped[RecordState] = mapped_column(
-        Enum(RecordState, native_enum=False, validate_strings=True), nullable=False
+    exam_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
     )
-    reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    exam_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reading_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
+    )
+    reading_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    work_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
+    )
+    work_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     study_logs: Mapped[list["StudyLog"]] = relationship(
         back_populates="daily_record", cascade="all, delete-orphan"

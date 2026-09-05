@@ -95,7 +95,7 @@ def _make_slot(session, start_time, end_time, weekdays, environment=Environment.
 
 
 def _make_daily_record(session, record_date, state=RecordState.REPORTED, **overrides):
-    defaults = dict(record_date=record_date, record_state=state)
+    defaults = dict(record_date=record_date, exam_record_state=state)
     defaults.update(overrides)
     record = DailyRecord(**defaults)
     session.add(record)
@@ -889,7 +889,7 @@ def _make_book(session, goal, **overrides):
 
 
 def _add_reading_log(session, book_id, record_date, **overrides):
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     defaults = dict(daily_record_id=record.id, book_id=book_id, recall_body="想起本文")
@@ -1049,7 +1049,7 @@ def _make_work_assignment(session, goal, **overrides):
 
 
 def _add_work_log(session, work_assignment_id, record_date, **overrides):
-    record = DailyRecord(record_date=record_date, record_state=RecordState.PROGRESS_ONLY)
+    record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
     defaults = dict(
@@ -1227,7 +1227,7 @@ def test_build_work_progress_summary_handles_no_assignments(seeded_session):
 def test_build_work_recent_activity_text_counts_reported_days(seeded_session):
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
-    record = DailyRecord(record_date=dt.date(2026, 1, 9), record_state=RecordState.REPORTED)
+    record = DailyRecord(record_date=dt.date(2026, 1, 9), work_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(

@@ -11,9 +11,9 @@ import datetime as dt
 from dataclasses import dataclass
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 
-from app.constants.enums import DayType, GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import DayType, GoalCategory, GoalStatus, QualityMetricType, RecordState
 from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
@@ -330,17 +330,86 @@ def get_diary_entries(session: Session, daily_record: DailyRecord) -> list[Diary
 
 
 def _create_record(session: Session, target_date: dt.date) -> DailyRecord:
-    """新規の日次記録を作成する。呼び出し側は事前に get_daily_record で不在を確認済み。"""
-    record = DailyRecord(record_date=target_date, record_state=RecordState.PROGRESS_ONLY)
+    """新規の日次記録を作成する。呼び出し側は事前に get_daily_record で不在を確認済み。
+
+    確定状態はカテゴリごとに独立しており、どのカテゴリもまだ操作していないため
+    3カテゴリともNULL（未着手）のまま作成する。
+    """
+    record = DailyRecord(record_date=target_date)
     session.add(record)
     session.flush()
     return record
 
 
-def _ensure_not_reported(record: DailyRecord | None, target_date: dt.date) -> None:
-    """確定済み(REPORTED)記録への更新を拒否する（register_progress/finalize_record共通、仕様書7.2）。"""
-    if record is not None and record.record_state == RecordState.REPORTED:
-        raise ImmutableRecordError(target_date)
+#: カテゴリ別の確定状態列（*_record_state）へのマッピング（DRYの原則、CLAUDE.md）。
+#: SQLフィルタ（metrics_service等）と属性の読み書き（本モジュール）の両方で使う。
+_CATEGORY_STATE_ATTR: dict[GoalCategory, InstrumentedAttribute] = {
+    GoalCategory.EXAM: DailyRecord.exam_record_state,
+    GoalCategory.READING: DailyRecord.reading_record_state,
+    GoalCategory.WORK: DailyRecord.work_record_state,
+}
+_CATEGORY_REPORTED_AT_ATTR: dict[GoalCategory, str] = {
+    GoalCategory.EXAM: "exam_reported_at",
+    GoalCategory.READING: "reading_reported_at",
+    GoalCategory.WORK: "work_reported_at",
+}
+
+
+def category_state_column(category: GoalCategory) -> InstrumentedAttribute:
+    """目標カテゴリに対応する確定状態列を返す（SQLフィルタで使用、metrics_service等）。"""
+    return _CATEGORY_STATE_ATTR[category]
+
+
+def _get_category_state(record: DailyRecord, category: GoalCategory) -> RecordState | None:
+    return getattr(record, _CATEGORY_STATE_ATTR[category].key)
+
+
+def _set_category_state(record: DailyRecord, category: GoalCategory, state: RecordState) -> None:
+    setattr(record, _CATEGORY_STATE_ATTR[category].key, state)
+    if state == RecordState.REPORTED:
+        setattr(record, _CATEGORY_REPORTED_AT_ATTR[category], utcnow())
+
+
+def aggregate_record_state(
+    exam_state: RecordState | None,
+    reading_state: RecordState | None,
+    work_state: RecordState | None,
+) -> RecordState | None:
+    """3カテゴリの確定状態から、カレンダー・ダッシュボード表示用の単一状態を算出する。
+
+    その日一度も操作していないカテゴリ（NULL）は判定から除外する（触れていないカテゴリが
+    確定のブロッカーにならないようにするため。仕様変更2026-09-05）。触れたカテゴリが
+    1つも無ければNULL（未入力）、1つでもPROGRESS_ONLYがあればPROGRESS_ONLY、触れた
+    カテゴリが全てREPORTEDならREPORTED。
+    """
+    touched = [state for state in (exam_state, reading_state, work_state) if state is not None]
+    if not touched:
+        return None
+    if all(state == RecordState.REPORTED for state in touched):
+        return RecordState.REPORTED
+    return RecordState.PROGRESS_ONLY
+
+
+def _ensure_category_not_reported(
+    record: DailyRecord | None, target_date: dt.date, category: GoalCategory
+) -> None:
+    """確定済み(REPORTED)カテゴリへの更新を拒否する（register_progress/finalize_*共通、
+    仕様書7.2）。他カテゴリが確定済みでも、対象カテゴリが未確定なら更新できる
+    （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにする）。
+    """
+    if record is not None and _get_category_state(record, category) == RecordState.REPORTED:
+        raise ImmutableRecordError(target_date, category)
+
+
+def _ensure_finalizable_date(target_date: dt.date, today: dt.date) -> None:
+    """報告確定の対象日が入力可能期間内（当日または前日）であることを確認する（仕様書7.2）。
+    「前日」の判定はtoday（呼び出し側が1日の境界時刻を考慮して算出した論理的な本日）を
+    基準とする。finalize_record/finalize_reading_record/finalize_work_record共通。
+    """
+    if target_date > today:
+        raise ValidationError("未来日の報告確定はできません")
+    if target_date < today - dt.timedelta(days=1):
+        raise BackdateLimitExceededError(target_date, today)
 
 
 def register_progress(
@@ -356,7 +425,8 @@ def register_progress(
     入力可能期間は「対象日が当日または前日以前」（仕様書7.2）であり、未来日は拒否する。
     study_logs・reading_logs・work_logsの少なくとも1つに1件以上の入力を要求する
     （いずれも空の登録は無意味なため。特定の1つのみ必須にできないのは、資格試験・読書・
-    仕事の目標が同時進行しうるため）。
+    仕事の目標が同時進行しうるため）。ガード・状態更新は入力があったカテゴリのみに適用する
+    （他カテゴリが確定済みでも、そのカテゴリに入力が無ければ影響しない。仕様変更2026-09-05）。
     """
     reading_items = reading_items or []
     work_items = work_items or []
@@ -366,12 +436,27 @@ def register_progress(
         raise ValidationError("実績を1件以上入力してください")
 
     record = get_daily_record(session, target_date)
-    _ensure_not_reported(record, target_date)
+    if items:
+        _ensure_category_not_reported(record, target_date, GoalCategory.EXAM)
+    if reading_items:
+        _ensure_category_not_reported(record, target_date, GoalCategory.READING)
+    if work_items:
+        _ensure_category_not_reported(record, target_date, GoalCategory.WORK)
 
     record = record or _create_record(session, target_date)
-    _apply_study_logs(session, record, items)
-    _apply_reading_logs(session, record, reading_items)
-    _apply_work_logs(session, record, work_items)
+    if items:
+        _apply_study_logs(session, record, items)
+        if _get_category_state(record, GoalCategory.EXAM) is None:
+            _set_category_state(record, GoalCategory.EXAM, RecordState.PROGRESS_ONLY)
+    if reading_items:
+        _apply_reading_logs(session, record, reading_items)
+        if _get_category_state(record, GoalCategory.READING) is None:
+            _set_category_state(record, GoalCategory.READING, RecordState.PROGRESS_ONLY)
+    if work_items:
+        _apply_work_logs(session, record, work_items)
+        if _get_category_state(record, GoalCategory.WORK) is None:
+            _set_category_state(record, GoalCategory.WORK, RecordState.PROGRESS_ONLY)
+    session.flush()
     return record
 
 
@@ -381,31 +466,62 @@ def finalize_record(
     items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
     today: dt.date,
-    reading_items: list[ReadingLogItem] | None = None,
-    work_items: list[WorkLogItem] | None = None,
 ) -> DailyRecord:
-    """報告を確定する（未入力/進捗のみ登録済 → 報告済）。
+    """資格勉強（EXAM）の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
-    入力可能期間は「対象日が当日または前日」（仕様書7.2）に限られる。「前日」の判定は
-    today（呼び出し側が1日の境界時刻を考慮して算出した論理的な本日）を基準とする。
+    読書・仕事の確定状態には影響しない（仕様変更2026-09-05: カテゴリごとに独立して
+    確定できるようにする）。
     """
-    reading_items = reading_items or []
-    work_items = work_items or []
-    if target_date > today:
-        raise ValidationError("未来日の報告確定はできません")
-
     record = get_daily_record(session, target_date)
-    _ensure_not_reported(record, target_date)
-    if target_date < today - dt.timedelta(days=1):
-        raise BackdateLimitExceededError(target_date, today)
+    _ensure_category_not_reported(record, target_date, GoalCategory.EXAM)
+    _ensure_finalizable_date(target_date, today)
 
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
-    _apply_reading_logs(session, record, reading_items)
-    _apply_work_logs(session, record, work_items)
     _apply_diary_entries(session, record, diary_entries)
-    record.record_state = RecordState.REPORTED
-    record.reported_at = utcnow()
+    _set_category_state(record, GoalCategory.EXAM, RecordState.REPORTED)
+    session.flush()
+    return record
+
+
+def finalize_reading_record(
+    session: Session,
+    target_date: dt.date,
+    items: list[ReadingLogItem],
+    today: dt.date,
+) -> DailyRecord:
+    """読書の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
+
+    資格勉強・仕事の確定状態には影響しない（仕様変更2026-09-05）。
+    """
+    record = get_daily_record(session, target_date)
+    _ensure_category_not_reported(record, target_date, GoalCategory.READING)
+    _ensure_finalizable_date(target_date, today)
+
+    record = record or _create_record(session, target_date)
+    _apply_reading_logs(session, record, items)
+    _set_category_state(record, GoalCategory.READING, RecordState.REPORTED)
+    session.flush()
+    return record
+
+
+def finalize_work_record(
+    session: Session,
+    target_date: dt.date,
+    items: list[WorkLogItem],
+    today: dt.date,
+) -> DailyRecord:
+    """仕事の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
+
+    資格勉強・読書の確定状態には影響しない（仕様変更2026-09-05）。
+    """
+    record = get_daily_record(session, target_date)
+    _ensure_category_not_reported(record, target_date, GoalCategory.WORK)
+    _ensure_finalizable_date(target_date, today)
+
+    record = record or _create_record(session, target_date)
+    _apply_work_logs(session, record, items)
+    _set_category_state(record, GoalCategory.WORK, RecordState.REPORTED)
     session.flush()
     return record
 
@@ -519,16 +635,20 @@ def get_calendar_days(
     day_types = calendar_service.resolve_day_types(
         session, date_from, date_to, treat_holiday_as_buffer
     )
-    record_states = dict(
-        session.query(DailyRecord.record_date, DailyRecord.record_state)
-        .filter(DailyRecord.record_date >= date_from, DailyRecord.record_date <= date_to)
-        .all()
-    )
+    category_states = {
+        record_date: aggregate_record_state(exam_state, reading_state, work_state)
+        for record_date, exam_state, reading_state, work_state in session.query(
+            DailyRecord.record_date,
+            DailyRecord.exam_record_state,
+            DailyRecord.reading_record_state,
+            DailyRecord.work_record_state,
+        ).filter(DailyRecord.record_date >= date_from, DailyRecord.record_date <= date_to)
+    }
     return [
         CalendarDayView(
             target_date=target_date,
             day_type=day_types[target_date],
-            record_state=record_states.get(target_date),
+            record_state=category_states.get(target_date),
         )
         for target_date in sorted(day_types)
     ]

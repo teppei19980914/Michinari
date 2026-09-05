@@ -75,7 +75,9 @@ def test_get_record_for_unentered_date_returns_empty_structure(client):
     response = client.get(f"/api/v1/records/{target}")
     assert response.status_code == 200
     body = response.json()
-    assert body["record_state"] is None
+    assert body["exam_record_state"] is None
+    assert body["reading_record_state"] is None
+    assert body["work_record_state"] is None
     assert body["study_logs"] == []
     assert body["comments"] == []
     assert body["diary_entries"] == []
@@ -99,7 +101,7 @@ def test_register_progress_endpoint_creates_progress_only_record(client):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["record_state"] == "PROGRESS_ONLY"
+    assert body["exam_record_state"] == "PROGRESS_ONLY"
     assert len(body["study_logs"]) == 1
     assert body["study_logs"][0]["cycle_number"] == 1
 
@@ -158,7 +160,7 @@ def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["record_state"] == "REPORTED"
+    assert body["exam_record_state"] == "REPORTED"
     assert len(body["diary_entries"]) == 1
     assert body["diary_entries"][0]["goal_id"] == goal["id"]
     assert body["diary_entries"][0]["diary_body"] == "今日はよく頑張った"
@@ -249,7 +251,8 @@ def test_register_progress_endpoint_accepts_reading_only(client):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["record_state"] == "PROGRESS_ONLY"
+    assert body["reading_record_state"] == "PROGRESS_ONLY"
+    assert body["exam_record_state"] is None
     assert body["study_logs"] == []
     assert len(body["reading_logs"]) == 1
     assert body["reading_logs"][0]["recall_body"] == "今日読んだ内容の想起"
@@ -264,26 +267,55 @@ def test_register_progress_endpoint_rejects_both_lists_empty(client):
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_finalize_endpoint_persists_reading_log(client):
+def test_finalize_reading_endpoint_persists_reading_log(client):
+    """読書の確定は/reading-finalize（EXAMの/finalizeとは独立、仕様変更2026-09-05）。"""
     _goal, book = _make_active_reading_goal_with_book(client)
     target = dt.date.today().isoformat()
 
     response = client.post(
-        f"/api/v1/records/{target}/finalize",
-        json={
-            "reading_logs": [{"book_id": book["id"], "recall_body": "読了に向けた想起"}],
-            "diary_body": "所感",
-            "diary_learned": "学び",
-        },
+        f"/api/v1/records/{target}/reading-finalize",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "読了に向けた想起"}]},
     )
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["record_state"] == "REPORTED"
+    assert body["reading_record_state"] == "REPORTED"
+    assert body["exam_record_state"] is None
     assert len(body["reading_logs"]) == 1
 
     fetched = client.get(f"/api/v1/records/{target}").json()
     assert fetched["reading_logs"][0]["recall_body"] == "読了に向けた想起"
+
+
+def test_finalize_reading_endpoint_does_not_block_exam_finalize(client):
+    """読書を確定した後でも、資格勉強の/finalizeは引き続き成功する
+    （仕様変更2026-09-05のコア要件）。"""
+    goal, material = _make_active_goal_with_material(client)
+    _, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    reading_response = client.post(
+        f"/api/v1/records/{target}/reading-finalize",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "読了に向けた想起"}]},
+    )
+    assert reading_response.status_code == 200, reading_response.text
+
+    exam_response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [
+                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+            ],
+            "diary_entries": [
+                {"goal_id": goal["id"], "diary_body": "所感", "diary_learned": "学び"}
+            ],
+        },
+    )
+
+    assert exam_response.status_code == 200, exam_response.text
+    body = exam_response.json()
+    assert body["exam_record_state"] == "REPORTED"
+    assert body["reading_record_state"] == "REPORTED"
 
 
 def test_register_progress_endpoint_rejects_unknown_book(client):

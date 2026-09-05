@@ -126,7 +126,7 @@ def test_plan_line_empty_when_no_baselines(db_session):
 
 
 def _make_record(db_session, record_date: dt.date, state: RecordState = RecordState.REPORTED):
-    record = DailyRecord(record_date=record_date, record_state=state)
+    record = DailyRecord(record_date=record_date, exam_record_state=state)
     db_session.add(record)
     db_session.flush()
     return record

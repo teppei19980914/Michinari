@@ -35,7 +35,13 @@ def set_day_type(
     return CalendarDayRead(
         target_date=target_date,
         day_type=payload.day_type,
-        record_state=record.record_state if record else None,
+        record_state=(
+            record_service.aggregate_record_state(
+                record.exam_record_state, record.reading_record_state, record.work_record_state
+            )
+            if record
+            else None
+        ),
     )
 
 

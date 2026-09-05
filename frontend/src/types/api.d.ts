@@ -554,6 +554,9 @@ export interface paths {
         /**
          * Get Today
          * @description 論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。
+         *
+         *     record_state はカテゴリ横断の集約値（record_service.aggregate_record_state）であり、
+         *     カレンダー・ダッシュボードの単一状態表示にのみ使う（仕様変更2026-09-05）。
          */
         get: operations["get_today_api_v1_records_today_get"];
         put?: never;
@@ -607,8 +610,53 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Finalize Record */
+        /**
+         * Finalize Record
+         * @description 資格勉強（EXAM）の報告を確定する。読書・仕事の確定状態には影響しない
+         *     （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
+         */
         post: operations["finalize_record_api_v1_records__target_date__finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/reading-finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Reading Record
+         * @description 読書の報告を確定する。資格勉強・仕事の確定状態には影響しない
+         *     （既存の `/chat`, `/reading-chat`, `/work-chat` と同じカテゴリ別命名規則）。
+         */
+        post: operations["finalize_reading_record_api_v1_records__target_date__reading_finalize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/work-finalize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finalize Work Record
+         * @description 仕事の報告を確定する。資格勉強・読書の確定状態には影響しない。
+         */
+        post: operations["finalize_work_record_api_v1_records__target_date__work_finalize_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1671,18 +1719,30 @@ export interface components {
              */
             generated_at: string;
         };
-        /** DailyRecordRead */
+        /**
+         * DailyRecordRead
+         * @description 確定状態（*_record_state/*_reported_at）はカテゴリ（EXAM/READING/WORK）ごとに
+         *     独立して持つ（仕様変更2026-09-05: 資格勉強を確定しても読書・仕事は引き続き入力・
+         *     確定できるようにするため）。値がNoneのカテゴリは、その日一度もそのカテゴリを
+         *     操作していないことを表す。
+         */
         DailyRecordRead: {
             /**
              * Record Date
              * Format: date
              */
             record_date: string;
-            record_state: components["schemas"]["RecordState"] | null;
+            exam_record_state: components["schemas"]["RecordState"] | null;
+            /** Exam Reported At */
+            exam_reported_at: string | null;
+            reading_record_state: components["schemas"]["RecordState"] | null;
+            /** Reading Reported At */
+            reading_reported_at: string | null;
+            work_record_state: components["schemas"]["RecordState"] | null;
+            /** Work Reported At */
+            work_reported_at: string | null;
             /** Diary Entries */
             diary_entries: components["schemas"]["DiaryEntryRead"][];
-            /** Reported At */
-            reported_at: string | null;
             /** Study Logs */
             study_logs: components["schemas"]["StudyLogRead"][];
             /** Reading Logs */
@@ -1853,14 +1913,15 @@ export interface components {
             /** Note */
             note?: string | null;
         };
-        /** FinalizeRequest */
+        /**
+         * FinalizeRequest
+         * @description 資格勉強（EXAM）の報告確定リクエスト（データ構造編6.2 POST /records/{date}/finalize）。
+         *     読書・仕事は別エンドポイント（ReadingFinalizeRequest/WorkFinalizeRequest）に分離した
+         *     （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
+         */
         FinalizeRequest: {
             /** Study Logs */
             study_logs?: components["schemas"]["StudyLogInput"][];
-            /** Reading Logs */
-            reading_logs?: components["schemas"]["ReadingLogInput"][];
-            /** Work Logs */
-            work_logs?: components["schemas"]["WorkLogInput"][];
             /** Diary Entries */
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
         };
@@ -2693,6 +2754,15 @@ export interface components {
             reading_logs?: components["schemas"]["ReadingLogInput"][];
         };
         /**
+         * ReadingFinalizeRequest
+         * @description 読書の報告確定リクエスト（データ構造編6.2 POST /records/{date}/reading-finalize）。
+         *     ChatRequest/ReadingChatRequestと同じ設計方針でカテゴリ別に分離する。
+         */
+        ReadingFinalizeRequest: {
+            /** Reading Logs */
+            reading_logs?: components["schemas"]["ReadingLogInput"][];
+        };
+        /**
          * ReadingLogInput
          * @description 読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。
          */
@@ -3079,6 +3149,15 @@ export interface components {
         WorkChatRequest: {
             /** Message */
             message?: string | null;
+            /** Work Logs */
+            work_logs?: components["schemas"]["WorkLogInput"][];
+        };
+        /**
+         * WorkFinalizeRequest
+         * @description 仕事の報告確定リクエスト（データ構造編6.2 POST /records/{date}/work-finalize）。
+         *     ChatRequest/WorkChatRequestと同じ設計方針でカテゴリ別に分離する。
+         */
+        WorkFinalizeRequest: {
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
         };
@@ -4605,6 +4684,76 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["FinalizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyRecordRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_reading_record_api_v1_records__target_date__reading_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadingFinalizeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyRecordRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    finalize_work_record_api_v1_records__target_date__work_finalize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkFinalizeRequest"];
             };
         };
         responses: {
