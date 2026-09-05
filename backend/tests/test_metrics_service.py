@@ -52,7 +52,7 @@ def _override(db_session, date_from: dt.date, date_to: dt.date, day_type: DayTyp
 
 
 def _make_record(db_session, record_date: dt.date, state: RecordState) -> DailyRecord:
-    record = DailyRecord(record_date=record_date, record_state=state)
+    record = DailyRecord(record_date=record_date, exam_record_state=state)
     db_session.add(record)
     db_session.flush()
     return record

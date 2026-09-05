@@ -26,6 +26,8 @@ from app.services.exceptions import (
     ResourceRatioExceededError,
     ResourceRatioRequiredError,
     ValidationError,
+    WorkAssignmentAlreadyExistsError,
+    WorkAssignmentHasWorkLogsError,
 )
 
 #: ドメイン例外の型 → (HTTPステータス, エラーコード)（データ構造編6.3）。
@@ -40,6 +42,11 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     MaterialHasStudyLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BookHasReadingLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BookAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, "BOOK_ALREADY_EXISTS"),
+    WorkAssignmentHasWorkLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
+    WorkAssignmentAlreadyExistsError: (
+        status.HTTP_400_BAD_REQUEST,
+        "WORK_ASSIGNMENT_ALREADY_EXISTS",
+    ),
     BackdateLimitExceededError: (status.HTTP_400_BAD_REQUEST, "BACKDATE_LIMIT_EXCEEDED"),
     InvalidStateTransitionError: (status.HTTP_409_CONFLICT, "INVALID_STATE_TRANSITION"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),

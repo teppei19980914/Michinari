@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.books import serialize_book
 from app.api.materials import serialize_material
+from app.api.work import serialize_work_assignment
 from app.database import get_db
 from app.models.goal import ExamSubject, Goal
 from app.schemas.book import BookCreate, BookRead
@@ -30,7 +31,9 @@ from app.schemas.subject import (
     SubjectRead,
     SubjectUpdate,
 )
-from app.services import book_service, goal_service, material_service, subject_service
+from app.schemas.work import WorkAssignmentCreate, WorkAssignmentRead, WorkAssignmentUpdate
+from app.services import book_service, goal_service, material_service, subject_service, work_service
+from app.services.exceptions import NotFoundError
 
 router = APIRouter(tags=["goals"])
 
@@ -63,6 +66,9 @@ def _serialize_goal_detail(session: Session, goal: Goal) -> GoalDetailRead:
         materials=[serialize_material(session, m) for m in goal.materials],
         load_profiles=[LoadProfileRead.model_validate(p) for p in goal.load_profiles],
         book=serialize_book(session, goal.book) if goal.book is not None else None,
+        work_assignment=serialize_work_assignment(session, goal.work_assignment)
+        if goal.work_assignment is not None
+        else None,
     )
 
 
@@ -120,9 +126,7 @@ def delete_archived_goal(
     goal_id: int, payload: GoalDeleteArchivedRequest, session: Session = Depends(get_db)
 ) -> None:
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.delete_archived_goal(
-        session, goal, cascade_study_logs=payload.cascade_study_logs
-    )
+    goal_service.delete_archived_goal(session, goal, cascade_study_logs=payload.cascade_study_logs)
     session.commit()
 
 
@@ -155,7 +159,12 @@ def close_goal(
     goal_id: int, payload: GoalCloseRequest, session: Session = Depends(get_db)
 ) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.close_goal(session, goal, confirm_without_result=payload.confirm_without_result)
+    goal_service.close_goal(
+        session,
+        goal,
+        confirm_without_result=payload.confirm_without_result,
+        with_result=payload.with_result,
+    )
     session.commit()
     return GoalRead.model_validate(goal)
 
@@ -227,14 +236,44 @@ def create_material(
 # --- 書籍（新規作成のみ。個別操作は books.py） ---
 
 
-@router.post(
-    "/goals/{goal_id}/book", response_model=BookRead, status_code=status.HTTP_201_CREATED
-)
+@router.post("/goals/{goal_id}/book", response_model=BookRead, status_code=status.HTTP_201_CREATED)
 def create_book(goal_id: int, payload: BookCreate, session: Session = Depends(get_db)) -> BookRead:
     goal = goal_service.get_goal(session, goal_id)
     book = book_service.create_book(session, goal, **payload.model_dump())
     session.commit()
     return serialize_book(session, book)
+
+
+# --- 案件情報（作成・更新とも目標配下のネストパスに統一。bookと異なり
+# --- 独立した /work-assignments/{id} は設けない。データ構造編6.2） ---
+
+
+@router.post(
+    "/goals/{goal_id}/work-assignment",
+    response_model=WorkAssignmentRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_work_assignment(
+    goal_id: int, payload: WorkAssignmentCreate, session: Session = Depends(get_db)
+) -> WorkAssignmentRead:
+    goal = goal_service.get_goal(session, goal_id)
+    work_assignment = work_service.create_work_assignment(session, goal, **payload.model_dump())
+    session.commit()
+    return serialize_work_assignment(session, work_assignment)
+
+
+@router.patch("/goals/{goal_id}/work-assignment", response_model=WorkAssignmentRead)
+def update_work_assignment(
+    goal_id: int, payload: WorkAssignmentUpdate, session: Session = Depends(get_db)
+) -> WorkAssignmentRead:
+    goal = goal_service.get_goal(session, goal_id)
+    if goal.work_assignment is None:
+        raise NotFoundError("案件情報", goal_id)
+    work_assignment = work_service.update_work_assignment(
+        session, goal.work_assignment, **payload.model_dump(exclude_unset=True)
+    )
+    session.commit()
+    return serialize_work_assignment(session, work_assignment)
 
 
 # --- 負荷プロファイル ---

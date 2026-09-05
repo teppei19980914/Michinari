@@ -16,7 +16,14 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.config import EXPORT_DIR
-from app.constants.enums import ChatRole, GoalCategory, Granularity, PassingScoreType, RecordState
+from app.constants.enums import (
+    ChatRole,
+    GoalCategory,
+    Granularity,
+    PassingScoreType,
+    RecordState,
+    RetrospectivePeriodType,
+)
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
@@ -27,7 +34,10 @@ from app.models.record import (
     ReadingLog,
     StudyLog,
     WeeklySummary,
+    WorkLog,
 )
+from app.models.retrospective import GoalRetrospective
+from app.models.work import WorkAssignment
 from app.services import (
     baseline_service,
     cycle_service,
@@ -37,6 +47,7 @@ from app.services import (
     metrics_service,
     retrospective_service,
     weekly_summary_service,
+    work_report_service,
 )
 
 #: エクスポートファイル名に使えない文字を除去するための正規表現（目標名に含まれうる
@@ -264,7 +275,7 @@ def _build_diaries(session: Session, goal: Goal) -> list[dict]:
         .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
         .filter(
             DailyGoalDiary.goal_id == goal.id,
-            DailyRecord.record_state == RecordState.REPORTED,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
         )
         .order_by(DailyRecord.record_date)
         .all()
@@ -402,6 +413,94 @@ def _build_reading_export_data(
     return data
 
 
+def _build_work_assignment(goal: Goal, work_assignment: WorkAssignment) -> dict:
+    """案件名（goal.name）は必須のため常に含める。client_nameは「取引先・案件の呼称」用の
+    任意項目であり、案件名の代わりにはならない（frontend/src/locales/ja.json
+    goals.workAssignment.clientNameLabel参照）。"""
+    return {
+        "name": goal.name,
+        "client_name": work_assignment.client_name,
+        "expected_content": work_assignment.expected_content,
+        "start_date": work_assignment.start_date.isoformat(),
+    }
+
+
+def _work_log_dates(session: Session, work_assignment: WorkAssignment) -> set[dt.date]:
+    return {
+        row[0]
+        for row in session.query(DailyRecord.record_date)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(WorkLog.work_assignment_id == work_assignment.id)
+        .distinct()
+    }
+
+
+def _build_work_summary(session: Session, work_assignment: WorkAssignment) -> dict:
+    """仕事サマリ（設計書データ構造編7.1「仕事目標の場合」）：記録日数・最長連続記録日数。
+    読書と同じ定義のため_compute_max_streak_daysを流用する（CLAUDE.md DRYの原則）。"""
+    record_dates = _work_log_dates(session, work_assignment)
+    return {
+        "record_days": len(record_dates),
+        "max_streak_days": _compute_max_streak_days(record_dates),
+    }
+
+
+def _build_work_daily_records(session: Session, work_assignment: WorkAssignment) -> list[dict]:
+    """日別の業務記録一覧（仕様書6.10「実績推移」は日別の業務記録一覧と読み替え）。"""
+    rows = (
+        session.query(DailyRecord.record_date, WorkLog.body)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(WorkLog.work_assignment_id == work_assignment.id)
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    return [{"date": record_date.isoformat(), "body": body} for record_date, body in rows]
+
+
+def _build_work_retrospectives(session: Session, goal: Goal, *, anonymized: bool) -> list[dict]:
+    """対象goalに紐づく全goal_retrospective（period_type問わず）を期間の新しい順に列挙する
+    （設計書データ構造編7.1「仕事目標の場合」。読書と異なり単一文字列ではなく配列を用いる。
+    要件定義書R-80「案件単位で生成」・R-81「ナレッジエクスポート対象」）。
+    """
+    rows = (
+        session.query(GoalRetrospective)
+        .filter(GoalRetrospective.goal_id == goal.id, GoalRetrospective.is_anonymized == anonymized)
+        .order_by(GoalRetrospective.period_key.desc())
+        .all()
+    )
+    return [
+        {
+            "period_type": row.period_type.value if row.period_type is not None else None,
+            "period_key": row.period_key,
+            "body": row.body,
+            "generated_at": row.generated_at.isoformat(),
+        }
+        for row in rows
+    ]
+
+
+def _build_work_export_data(
+    session: Session, goal: Goal, selection: ExportSelection, *, anonymized: bool, data: dict
+) -> dict:
+    """仕事目標（category=WORK）向けのエクスポートデータ組み立て（仕様書6.10、
+    設計書データ構造編7.1「仕事目標の場合」）。
+
+    教材構成・品質指標推移・受験結果・週次要約・リプラン履歴は該当データを持たないため
+    出力しない。日記本文・AI対話履歴も、業務記録（daily_records）がその代替であるため
+    出力しない（読書と同じ理由、データ構造編7.3）。
+    """
+    work_assignment = goal.work_assignment
+    if selection.goal_overview and work_assignment is not None:
+        data["work_assignment"] = _build_work_assignment(goal, work_assignment)
+    if selection.summary and work_assignment is not None:
+        data["summary"] = _build_work_summary(session, work_assignment)
+    if selection.daily_records and not anonymized and work_assignment is not None:
+        data["daily_records"] = _build_work_daily_records(session, work_assignment)
+    if selection.retrospective:
+        data["retrospectives"] = _build_work_retrospectives(session, goal, anonymized=anonymized)
+    return data
+
+
 def build_export_data(
     session: Session,
     goal: Goal,
@@ -427,6 +526,8 @@ def build_export_data(
         return _build_reading_export_data(
             session, goal, selection, anonymized=anonymized, data=data
         )
+    if goal.category == GoalCategory.WORK:
+        return _build_work_export_data(session, goal, selection, anonymized=anonymized, data=data)
 
     materials = [material for material in goal.materials if material.is_active]
 
@@ -507,21 +608,67 @@ def _render_reading_markdown(data: dict) -> str:
     return f"# {title}\n\n" + "\n\n".join(sections)
 
 
+def _render_work_markdown(data: dict) -> str:
+    """仕事目標のMarkdown構成（設計書データ構造編7.2「仕事目標の場合」）。"""
+    sections: list[str] = []
+
+    if "work_assignment" in data:
+        wa = data["work_assignment"]
+        sections.append(
+            "## 1. 概要\n\n"
+            f"- 案件名: {wa['name']}\n"
+            f"- 取引先・案件の呼称: {wa['client_name'] or '（未登録）'}\n"
+            f"- 想定業務内容: {wa['expected_content']}\n"
+            f"- 着手日: {wa['start_date']}"
+        )
+
+    if "retrospectives" in data:
+        retrospectives = data["retrospectives"]
+        if retrospectives:
+            lines = "\n\n".join(
+                f"### {r['period_key']}（{r['period_type']}）\n\n{r['body']}"
+                for r in retrospectives
+            )
+        else:
+            lines = "（月次報告・半期評価は未生成です）"
+        sections.append(f"## 2. 月次報告・半期評価\n\n{lines}")
+
+    if "summary" in data:
+        s = data["summary"]
+        sections.append(
+            "## 3. 記録量\n\n"
+            f"- 記録日数: {s['record_days']}日\n"
+            f"- 最長連続記録日数: {s['max_streak_days']}日"
+        )
+
+    if "daily_records" in data:
+        rows = "\n".join(f"| {r['date']} | {r['body']} |" for r in data["daily_records"])
+        sections.append(f"## 4. 付録：日別の業務記録\n\n| 日付 | 業務内容 |\n| --- | --- |\n{rows}")
+
+    title = data.get("work_assignment", {}).get("name") or "ナレッジエクスポート"
+    return f"# {title}\n\n" + "\n\n".join(sections)
+
+
 def render_markdown(
     data: dict, selection: ExportSelection, category: GoalCategory = GoalCategory.EXAM
 ) -> str:
     """データ構造編7.2のMarkdown構成に沿って本文を生成する。"""
     if category == GoalCategory.READING:
         return _render_reading_markdown(data)
+    if category == GoalCategory.WORK:
+        return _render_work_markdown(data)
 
     sections: list[str] = []
 
     if "goal" in data:
         goal_data = data["goal"]
-        subjects_text = "\n".join(
-            f"- {s['name']}（受験日: {s['exam_date']}、合格基準: {_format_passing_score(s)}）"
-            for s in data.get("subjects", [])
-        ) or "（試験科目未登録）"
+        subjects_text = (
+            "\n".join(
+                f"- {s['name']}（受験日: {s['exam_date']}、合格基準: {_format_passing_score(s)}）"
+                for s in data.get("subjects", [])
+            )
+            or "（試験科目未登録）"
+        )
         closed_at_text = goal_data["closed_at"] or "（未クローズ）"
         sections.append(
             "## 1. 概要\n\n"
@@ -600,14 +747,11 @@ def render_markdown(
             f"{r['score'] if r['score'] is not None else '-'} |"
             for r in data["results"]
         )
-        sections.append(
-            "## 9. 受験結果\n\n| 科目 | 合否 | 得点 |\n| --- | --- | --- |\n" + rows
-        )
+        sections.append("## 9. 受験結果\n\n| 科目 | 合否 | 得点 |\n| --- | --- | --- |\n" + rows)
 
     if "diaries" in data:
         lines = "\n\n".join(
-            f"### {d['date']}\n\n{d['body']}\n\n学んだこと: {d['learned']}"
-            for d in data["diaries"]
+            f"### {d['date']}\n\n{d['body']}\n\n学んだこと: {d['learned']}" for d in data["diaries"]
         )
         sections.append("## 10. 日記\n\n" + (lines or "（記録なし）"))
 
@@ -663,18 +807,38 @@ def execute_export(
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
 
     if anonymize:
-        total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + 1
-        export_progress.start(goal.id, total=total)
-        try:
-            weekly_summary_service.regenerate_all_weekly_summaries_anonymized(
-                session, goal, on_progress=lambda: export_progress.advance(goal.id)
-            )
-            retrospective_service.generate_retrospective(
-                session, goal, today=today, anonymize=True
-            )
-            export_progress.advance(goal.id)
-        finally:
-            export_progress.finish(goal.id)
+        if goal.category == GoalCategory.WORK:
+            # 仕事目標は総括レポート（EXAM/READING専用）を持たないため、既存の
+            # goal_retrospective（period_type問わず、非匿名化版）それぞれについて
+            # 匿名化版を再生成する（データ構造編7.1「仕事目標の場合」、要件定義書R-81）。
+            existing = _build_work_retrospectives(session, goal, anonymized=False)
+            export_progress.start(goal.id, total=len(existing) or 1)
+            try:
+                for row in existing:
+                    if row["period_type"] == RetrospectivePeriodType.MONTHLY.value:
+                        work_report_service.generate_monthly_report(
+                            session, goal, period_key=row["period_key"], today=today, anonymize=True
+                        )
+                    else:
+                        work_report_service.generate_semiannual_review(
+                            session, goal, period_key=row["period_key"], today=today, anonymize=True
+                        )
+                    export_progress.advance(goal.id)
+            finally:
+                export_progress.finish(goal.id)
+        else:
+            total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + 1
+            export_progress.start(goal.id, total=total)
+            try:
+                weekly_summary_service.regenerate_all_weekly_summaries_anonymized(
+                    session, goal, on_progress=lambda: export_progress.advance(goal.id)
+                )
+                retrospective_service.generate_retrospective(
+                    session, goal, today=today, anonymize=True
+                )
+                export_progress.advance(goal.id)
+            finally:
+                export_progress.finish(goal.id)
 
     data = build_export_data(
         session,

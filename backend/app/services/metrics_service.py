@@ -18,7 +18,7 @@ from app.constants.enums import (
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
 from app.models.record import DailyRecord, StudyLog
-from app.services import calendar_service
+from app.services import calendar_service, record_service
 from app.services.cycle_service import MaterialProgress
 
 #: SUBJECTIVE（主観的手応え5段階）の正規化テーブル（14.1）。
@@ -57,7 +57,9 @@ def compute_progress_rate(progress: MaterialProgress) -> float:
 
 
 def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
-    """報告率（KPI）を算出する（13.3）。"""
+    """報告率（KPI）を算出する（13.3）。goalのカテゴリに対応する確定状態列のみを見る
+    （他カテゴリの確定状況が混入しないようにするため、仕様変更2026-09-05）。
+    """
     total_days = (today - goal.start_date).days + 1
     if total_days <= 0:
         return 0.0
@@ -67,7 +69,7 @@ def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
         .filter(
             DailyRecord.record_date >= goal.start_date,
             DailyRecord.record_date <= today,
-            DailyRecord.record_state == RecordState.REPORTED,
+            record_service.category_state_column(goal.category) == RecordState.REPORTED,
         )
         .scalar()
         or 0
@@ -95,7 +97,7 @@ def compute_recent_report_rate(
         .filter(
             DailyRecord.record_date >= window_start,
             DailyRecord.record_date <= today,
-            DailyRecord.record_state == RecordState.REPORTED,
+            record_service.category_state_column(goal.category) == RecordState.REPORTED,
         )
         .scalar()
         or 0
@@ -118,7 +120,7 @@ def compute_consecutive_report_days(
         for row in session.query(DailyRecord.record_date).filter(
             DailyRecord.record_date >= goal.start_date,
             DailyRecord.record_date <= today,
-            DailyRecord.record_state == RecordState.REPORTED,
+            record_service.category_state_column(goal.category) == RecordState.REPORTED,
         )
     }
 

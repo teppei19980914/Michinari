@@ -99,7 +99,7 @@ def test_update_material_planned_cycles_below_completed_is_rejected(client, seed
         client, goal["id"], [subject_id], total_amount=100, planned_cycles=3
     )
 
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state=RecordState.REPORTED)
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -143,7 +143,7 @@ def test_delete_material_with_study_logs_is_rejected(client, seeded_session):
     goal, subject_id = _create_goal_with_subject(client)
     material = _create_material(client, goal["id"], [subject_id])
 
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state=RecordState.REPORTED)
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -186,7 +186,7 @@ def test_cycle_progress_endpoint(client, seeded_session):
         client, goal["id"], [subject_id], total_amount=100, planned_cycles=2
     )
 
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state=RecordState.REPORTED)
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -203,7 +203,7 @@ def test_cycle_progress_endpoint(client, seeded_session):
 
     # 2周目の実績も追加し、複数周回のspeedが一括取得（compute_cycle_speeds）でも
     # 混同されず正しく分離されることをAPI経由で確認する。
-    record2 = DailyRecord(record_date=dt.date(2026, 1, 6), record_state=RecordState.REPORTED)
+    record2 = DailyRecord(record_date=dt.date(2026, 1, 6), exam_record_state=RecordState.REPORTED)
     seeded_session.add(record2)
     seeded_session.flush()
     seeded_session.add(

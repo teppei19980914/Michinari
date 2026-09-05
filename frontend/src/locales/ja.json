@@ -69,7 +69,13 @@
       "lastReadingDate": "直近記録日: {{date}}",
       "lastReadingDateUnavailable": "直近記録日: 記録なし",
       "currentStreak": "連続記録日数: {{days}}日",
-      "pageProgress": "ページ進捗"
+      "pageProgress": "ページ進捗",
+      "elapsedDays": "経過日数: {{days}}日",
+      "lastWorkDate": "直近記録日: {{date}}",
+      "lastWorkDateUnavailable": "直近記録日: 記録なし",
+      "currentStreakWork": "連続記録日数: {{days}}日",
+      "hasRecentMonthlyReport": "直近の月次報告: 生成済み",
+      "hasRecentMonthlyReportNone": "直近の月次報告: 未生成"
     },
     "stats": {
       "title": "統計サマリ",
@@ -116,10 +122,12 @@
       "categoryLabel": "目標種別",
       "category": {
         "EXAM": "資格試験",
-        "READING": "読書"
+        "READING": "読書",
+        "WORK": "仕事"
       },
       "nameLabel": "試験名",
       "nameLabelReading": "書名",
+      "nameLabelWork": "案件名",
       "startDateLabel": "開始日"
     },
     "detail": {
@@ -130,18 +138,26 @@
         "materials": "教材",
         "resourceAllocation": "リソース配分",
         "loadProfile": "負荷プロファイル",
-        "book": "書籍"
+        "book": "書籍",
+        "workAssignment": "案件情報",
+        "monthlyReport": "月次報告",
+        "semiannualReview": "半期評価"
       },
       "tabTooltips": {
         "basicInfo": "試験名・開始日・状態・備考など、この目標自体の基本情報を確認・編集するタブです。目標の名称を変えたい、開始日を修正したいときに使用します。",
         "basicInfoReading": "書名・開始日・状態・備考など、この読書目標自体の基本情報を確認・編集するタブです。",
+        "basicInfoWork": "案件名・開始日・状態・備考など、この仕事目標自体の基本情報を確認・編集するタブです。",
         "subjects": "1つの試験の中で科目が複数に分かれる場合（科目ごとに受験日や合格点が異なる資格など）に、科目ごとの受験日・合格点を設定するタブです。科目を追加・編集し、それぞれの合格基準を管理したいときに使用します。",
         "materials": "学習に使う教材（テキスト・問題集など）を登録し、対策する科目との紐付けや周回数・分量を管理するタブです。新しい教材を追加したい、日々のノルマ計算のもとになる情報を設定したいときに使用します。",
         "resourceAllocation": "複数の目標を同時に進めている場合に、この目標へどれくらいの学習時間を配分するか（比率）を設定するタブです。並行して複数の資格を目指しており、目標間で学習時間の配分を調整したいときに使用します。",
         "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。",
-        "book": "書名・著者・総ページ数・読了目標日を登録し、読書の進捗（残日数・直近記録日・連続記録日数）を確認するタブです。読了したときは「読了として記録する」操作もここから行います。"
+        "book": "書名・著者・総ページ数・読了目標日を登録し、読書の進捗（残日数・直近記録日・連続記録日数）を確認するタブです。読了したときは「読了として記録する」操作もここから行います。",
+        "workAssignment": "取引先・想定業務内容・着手日を登録し、仕事の進捗（経過日数・直近記録日・連続記録日数）を確認するタブです。",
+        "monthlyReport": "月次報告のドラフトを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
+        "semiannualReview": "半期評価レポートを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。"
       },
       "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
+      "archivedNotice": "この目標はアーカイブ済みです。状態を変更する操作を行うには、先に目標一覧から復元してください",
       "action": {
         "activate": "開始する",
         "pause": "一時停止する",
@@ -151,15 +167,55 @@
       "closeConfirm": {
         "title": "目標のクローズ",
         "body": "クローズすると読み取り専用になります。よろしいですか？",
-        "withoutResultBody": "受験結果が未登録の科目があります。結果なしでクローズしますか？"
+        "withoutResultBody": "受験結果が未登録の科目があります。結果なしでクローズしますか？",
+        "workBody": "案件の終了理由を選択してください。クローズすると読み取り専用になります。",
+        "workWithResult": "結果あり（納品等）",
+        "workWithoutResult": "結果なし（中止・打ち切り）"
       },
       "resumeError": "リソースの空きが不足しているため再開できません"
     },
     "basicInfo": {
       "nameLabel": "試験名",
       "nameLabelReading": "目標名",
+      "nameLabelWork": "案件名",
       "startDateLabel": "開始日",
       "memoLabel": "備考"
+    },
+    "workAssignment": {
+      "empty": "案件情報が未登録です",
+      "clientNameLabel": "取引先・案件の呼称（任意）",
+      "expectedContentLabel": "想定業務内容",
+      "startDateLabel": "着手日",
+      "elapsedDaysLabel": "経過日数",
+      "elapsedDaysValue": "{{days}}日",
+      "lastWorkDateLabel": "直近記録日",
+      "lastWorkDateUnavailable": "記録なし",
+      "currentStreakLabel": "連続記録日数",
+      "currentStreakValue": "{{days}}日",
+      "hasRecentMonthlyReportLabel": "直近の月次報告",
+      "hasRecentMonthlyReportNone": "未生成"
+    },
+    "workReport": {
+      "periodLabelMonthly": "対象月（YYYY-MM、空欄で前月）",
+      "periodLabelSemiannual": "対象半期（YYYY-H1／YYYY-H2、空欄で当該半期）",
+      "generateButton": "ドラフトを生成",
+      "regenerateButton": "再生成",
+      "empty": "まだ生成されていません",
+      "targetGoalTextLabel": "この期間の目標",
+      "businessSummaryLabel": "業務内容（案件内容）",
+      "achievementScoreLabel": "目標がどの程度達成されたか",
+      "achievementScore": {
+        "1": "1（達成度121%以上）",
+        "2": "2（達成度101〜120%）",
+        "3": "3（達成度85〜100%）",
+        "4": "4（達成度60〜84%）",
+        "5": "5（達成度0〜59%）"
+      },
+      "achievementReflectionLabel": "目標の達成状況と進捗に関する振り返り",
+      "nextGoalTextLabelMonthly": "来月の目標",
+      "nextGoalTextLabelSemiannual": "次半期の目標",
+      "reportNotesLabel": "報告・連絡事項",
+      "downloadButton": "Markdownをダウンロード"
     },
     "subjects": {
       "empty": "登録済みの試験科目はありません",
@@ -438,6 +494,8 @@
     "retrospective": {
       "title": "総括レポート",
       "readingTitle": "読了レポート",
+      "workTitle": "月次報告・半期評価",
+      "workNotice": "月次報告・半期評価の生成・確認・修正は、目標詳細画面の「月次報告」「半期評価」タブから行ってください。この画面ではプレビュー・エクスポートの内容に含まれます。",
       "empty": "総括レポートは未生成です",
       "readingEmpty": "読了レポートは未生成です",
       "generateButton": "生成する",
@@ -453,6 +511,7 @@
       "latestQuality": "最終到達品質",
       "unavailable": "算出不可",
       "readingTitle": "読書サマリ",
+      "workTitle": "業務記録サマリ",
       "recordDays": "記録日数",
       "maxStreakDays": "最長連続記録日数"
     },
@@ -462,8 +521,10 @@
       "materials": "教材構成",
       "summary": "学習量サマリ",
       "readingSummary": "読書サマリ",
+      "workSummary": "業務記録サマリ",
       "dailyRecords": "実績推移",
       "readingDailyRecords": "日別の想起記録",
+      "workDailyRecords": "日別の業務記録",
       "qualityTrend": "品質指標推移",
       "replanHistory": "リプラン履歴",
       "weeklySummaries": "週次要約",
@@ -471,12 +532,14 @@
       "aiDialogue": "AI対話履歴",
       "examResults": "受験結果",
       "retrospective": "総括レポート",
-      "readingRetrospective": "読了レポート"
+      "readingRetrospective": "読了レポート",
+      "workRetrospective": "月次報告・半期評価"
     },
     "anonymize": {
       "label": "匿名化する",
       "description": "有効にすると日記本文を除外し、週次要約・総括レポートを匿名化版として再生成します",
-      "readingDescription": "有効にすると想起記録を除外し、読了レポートを匿名化版として再生成します"
+      "readingDescription": "有効にすると想起記録を除外し、読了レポートを匿名化版として再生成します",
+      "workDescription": "有効にすると業務記録を除外し、月次報告・半期評価を匿名化版として再生成します"
     },
     "previewButton": "プレビュー",
     "previewTitle": "プレビュー",
@@ -549,7 +612,8 @@
         "3": "3: 普通",
         "4": "4: 良い",
         "5": "5: とても良い"
-      }
+      },
+      "finalizeButton": "資格勉強の報告を確定する"
     },
     "diary": {
       "bodyLabel": "本日の行動・所感",
@@ -570,13 +634,25 @@
       "recallLabel": "今日読んだ内容の想起",
       "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
       "pagesReadLabel": "読んだページ数",
-      "currentPageLabel": "現在ページ（全{{total}}ページ）"
+      "currentPageLabel": "現在ページ（全{{total}}ページ）",
+      "finalizeButton": "読書の報告を確定する"
     },
     "readingChat": {
       "title": "AI対話（読書）",
       "startButton": "想起を送信してAIフィードバックを受け取る"
     },
-    "finalizeButton": "報告を確定する",
+    "workLog": {
+      "title": "業務内容の記録",
+      "noClientName": "取引先未登録",
+      "bodyLabel": "今日の業務内容",
+      "bodyPlaceholder": "例: 今日はどのような業務に取り組みましたか",
+      "finalizeButton": "仕事の報告を確定する"
+    },
+    "workChat": {
+      "title": "AI対話（仕事）",
+      "startButton": "業務内容を送信してAIフィードバックを受け取る"
+    },
+    "confirmedBadge": "確定済み",
     "leaveConfirm": {
       "title": "この画面から移動しますか？",
       "body": "報告を確定する前にこの画面を離れると、入力した実績・日記・対話の内容は保存されません。",
@@ -615,6 +691,13 @@
     },
     "readingChatHistory": {
       "title": "AI対話履歴（読書）"
+    },
+    "workLog": {
+      "title": "業務内容の記録",
+      "unknownAssignment": "案件ID: {{id}}"
+    },
+    "workChatHistory": {
+      "title": "AI対話履歴（仕事）"
     },
     "comments": {
       "title": "コメント",
@@ -843,6 +926,7 @@
     "RESOURCE_EXCEEDED": "リソース配分の合計が100%を超えています",
     "CYCLE_CONFLICT": "周回数の設定に矛盾があります",
     "BOOK_ALREADY_EXISTS": "この目標には既に書籍が登録されています",
+    "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標には既に案件情報が登録されています",
     "BACKDATE_LIMIT_EXCEEDED": "遡って入力できる期間を超えています",
     "INVALID_STATE_TRANSITION": "現在の状態では実行できません",
     "IMMUTABLE_RECORD": "確定済みの記録は変更できません",

@@ -613,8 +613,9 @@ def _close_goal(client, resource_ratio=0.3):
     return goal
 
 
-def test_archive_requires_closed_status(client):
-    goal = _create_goal(client)
+def test_archive_rejects_active_status(client):
+    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
     response = client.patch(f"/api/v1/goals/{goal['id']}/archive")
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
@@ -633,6 +634,65 @@ def test_archive_and_unarchive_goal(client):
     assert unarchived.json()["status"] == "CLOSED_WITHOUT_RESULT"
 
 
+def test_archive_and_unarchive_draft_goal(client):
+    """一時保存（下書き）中の目標もアーカイブ・復元できる（進行中でなければ対象）。"""
+    goal = _create_goal(client)
+    assert goal["status"] == "DRAFT"
+
+    archived = client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["archived_at"] is not None
+    assert archived.json()["status"] == "DRAFT"
+
+    unarchived = client.patch(f"/api/v1/goals/{goal['id']}/unarchive")
+    assert unarchived.status_code == 200
+    assert unarchived.json()["archived_at"] is None
+    assert unarchived.json()["status"] == "DRAFT"
+
+
+def test_archive_and_unarchive_paused_goal(client):
+    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/pause")
+
+    archived = client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    assert archived.status_code == 200, archived.text
+    assert archived.json()["status"] == "PAUSED"
+
+    unarchived = client.patch(f"/api/v1/goals/{goal['id']}/unarchive")
+    assert unarchived.status_code == 200
+    assert unarchived.json()["status"] == "PAUSED"
+
+
+def test_activate_archived_draft_goal_is_rejected(client):
+    """アーカイブ中は復元してから開始する必要がある（新規に発生する遷移の穴の防止）。"""
+    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_resume_archived_paused_goal_is_rejected(client):
+    """アーカイブ中は復元してから再開する必要がある（新規に発生する遷移の穴の防止）。"""
+    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/pause")
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.post(f"/api/v1/goals/{goal['id']}/resume")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_delete_archived_draft_goal_is_rejected(client):
+    """アーカイブ中の下書きは即時削除ではなく復元または完全削除の経路に統一する。"""
+    goal = _create_goal(client)
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.delete(f"/api/v1/goals/{goal['id']}")
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
 def test_delete_archived_requires_archived_goal(client):
     goal = _close_goal(client)
     response = client.request(
@@ -647,7 +707,7 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
 ):
     goal = _close_goal(client)
     material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
@@ -668,7 +728,7 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
 def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):
     goal = _close_goal(client)
     material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), record_state="PROGRESS_ONLY")
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(

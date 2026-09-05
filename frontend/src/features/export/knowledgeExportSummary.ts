@@ -16,6 +16,9 @@ export type ReadingExportSummary = {
   record_days: number
   max_streak_days: number
 }
+/** 仕事目標の記録サマリ（設計書データ構造編7.1「仕事目標の場合」）。読書と同じ形
+ * （記録日数・最長連続記録日数）のため型を共用する（CLAUDE.md DRYの原則）。 */
+export type WorkExportSummary = ReadingExportSummary
 
 /**
  * 学習サマリの「最終到達品質」（仕様書6.10）を算出する。

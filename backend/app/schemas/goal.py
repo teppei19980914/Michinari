@@ -11,6 +11,7 @@ from app.schemas.book import BookRead
 from app.schemas.load_profile import LoadProfileRead
 from app.schemas.material import MaterialRead
 from app.schemas.subject import SubjectRead
+from app.schemas.work import WorkAssignmentRead
 
 
 class GoalCreate(BaseModel):
@@ -29,6 +30,9 @@ class GoalUpdate(BaseModel):
 
 class GoalCloseRequest(BaseModel):
     confirm_without_result: bool = False
+    #: 仕事目標専用（要件定義書R-72）。True=結果あり（CLOSED_WITH_RESULT）、
+    #: False（既定）=結果なし（CLOSED_WITHOUT_RESULT）。EXAM/READINGでTrue指定は拒否される。
+    with_result: bool = False
 
 
 class GoalDeleteArchivedRequest(BaseModel):
@@ -60,6 +64,7 @@ class GoalDetailRead(GoalRead):
     materials: list[MaterialRead]
     load_profiles: list[LoadProfileRead]
     book: BookRead | None = None
+    work_assignment: WorkAssignmentRead | None = None
 
 
 class PlanBaselineRead(BaseModel):

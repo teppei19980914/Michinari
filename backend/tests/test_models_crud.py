@@ -144,7 +144,7 @@ def test_material_delete_restricted_when_study_log_exists(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 2, 2), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 2, 2), exam_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -171,7 +171,7 @@ def test_material_delete_restricted_when_study_log_exists(db_session):
 
 def test_daily_record_and_related_records_crud(db_session):
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 3, 10), record_state=RecordState.PROGRESS_ONLY
+        record_date=dt.date(2026, 3, 10), exam_record_state=RecordState.PROGRESS_ONLY
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -186,7 +186,10 @@ def test_daily_record_and_related_records_crud(db_session):
     db_session.add_all([chat, comment])
     db_session.commit()
 
-    assert db_session.get(DailyRecord, daily_record.id).record_state == RecordState.PROGRESS_ONLY
+    assert (
+        db_session.get(DailyRecord, daily_record.id).exam_record_state
+        == RecordState.PROGRESS_ONLY
+    )
     assert len(db_session.get(DailyRecord, daily_record.id).chat_messages) == 1
     assert len(db_session.get(DailyRecord, daily_record.id).comments) == 1
 
@@ -198,10 +201,14 @@ def test_daily_record_and_related_records_crud(db_session):
 
 
 def test_daily_record_unique_record_date(db_session):
-    db_session.add(DailyRecord(record_date=dt.date(2026, 4, 1), record_state=RecordState.REPORTED))
+    db_session.add(
+        DailyRecord(record_date=dt.date(2026, 4, 1), exam_record_state=RecordState.REPORTED)
+    )
     db_session.commit()
 
-    db_session.add(DailyRecord(record_date=dt.date(2026, 4, 1), record_state=RecordState.REPORTED))
+    db_session.add(
+        DailyRecord(record_date=dt.date(2026, 4, 1), exam_record_state=RecordState.REPORTED)
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
@@ -327,7 +334,7 @@ def test_book_and_reading_log_crud(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 7, 2), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 7, 2), reading_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -416,7 +423,7 @@ def test_book_delete_restricted_when_reading_log_exists(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 8, 2), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 8, 2), reading_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
@@ -450,7 +457,7 @@ def test_reading_log_unique_book_and_daily_record(db_session):
     db_session.flush()
 
     daily_record = DailyRecord(
-        record_date=dt.date(2026, 8, 3), record_state=RecordState.REPORTED
+        record_date=dt.date(2026, 8, 3), reading_record_state=RecordState.REPORTED
     )
     db_session.add(daily_record)
     db_session.flush()
