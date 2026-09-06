@@ -777,7 +777,8 @@
     "readingLog": {
       "empty": "想起記録はまだありません",
       "pagesReadLabel": "読んだページ数: {{pages}}",
-      "currentPageLabel": "現在ページ: {{page}}"
+      "currentPageLabel": "現在ページ: {{page}}",
+      "pagesAndCurrentLabel": "読んだページ数: {{pages}}　現在ページ: {{page}}"
     },
     "workLog": {
       "empty": "業務記録はまだありません"
