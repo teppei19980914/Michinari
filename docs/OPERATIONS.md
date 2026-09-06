@@ -442,7 +442,11 @@ uv run python scripts/build_package.py
 5. フロントエンドを `npm run build` でビルド（`frontend/dist`）
 6. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
    `alembic/`・`build_info.json` を同梱、`backend/dist/Michinari/` に出力）
-7. 起動用 `Michinari.bat` を配置
+7. 起動用 `Michinari.bat` と ユーザ手順書 `ユーザ手順書.pdf`（`docs/ユーザ手順書.pdf`
+   の複製）を `backend/dist/Michinari/` 直下へ配置する（`copy_user_manual`。利用者が
+   エクスプローラから直接開けるよう、PyInstallerの `--add-data` によるexe内埋め込みでは
+   なくファイルコピーで同梱する。手順書が見つからない場合は警告を表示して同梱のみを
+   飛ばし、ビルドは継続する）
 8. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
    `backend/dist/Michinari-v{version}.zip`（例: `Michinari-v0.2.0.zip`）を生成する
    （`create_distribution_zip`）
