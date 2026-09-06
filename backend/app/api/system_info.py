@@ -15,9 +15,7 @@ def _serialize(build_info: system_info_service.BuildInfo) -> SystemInfoRead:
         python_version=build_info.python_version,
         built_at=build_info.built_at,
         backend_libraries=[LibraryInfoRead(**vars(lib)) for lib in build_info.backend_libraries],
-        frontend_libraries=[
-            LibraryInfoRead(**vars(lib)) for lib in build_info.frontend_libraries
-        ],
+        frontend_libraries=[LibraryInfoRead(**vars(lib)) for lib in build_info.frontend_libraries],
     )
 
 

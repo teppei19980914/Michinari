@@ -116,9 +116,7 @@ def test_day_type_defaults_inserts_missing_weekday_row(client, seeded_session):
 def test_allocation_reflects_active_goal_ratio(client):
     _create_slot(client, weekdays=[0, 1, 2, 3, 4, 5, 6])
 
-    goal = client.post(
-        "/api/v1/goals", json={"name": "目標A", "start_date": "2026-01-01"}
-    ).json()
+    goal = client.post("/api/v1/goals", json={"name": "目標A", "start_date": "2026-01-01"}).json()
     client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.4})
     client.post(
         f"/api/v1/goals/{goal['id']}/subjects",

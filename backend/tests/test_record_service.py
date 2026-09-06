@@ -903,9 +903,7 @@ def test_aggregate_record_state_reported_when_all_touched_categories_reported():
 
 def test_aggregate_record_state_progress_only_when_any_touched_category_is_progress_only():
     assert (
-        record_service.aggregate_record_state(
-            RecordState.REPORTED, RecordState.PROGRESS_ONLY, None
-        )
+        record_service.aggregate_record_state(RecordState.REPORTED, RecordState.PROGRESS_ONLY, None)
         == RecordState.PROGRESS_ONLY
     )
 

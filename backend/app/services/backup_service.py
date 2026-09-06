@@ -69,9 +69,7 @@ def list_backups() -> list[BackupInfo]:
         match = _BACKUP_NAME_PATTERN.fullmatch(path.name)
         if match is None:
             continue
-        created_at = dt.datetime.strptime(match.group(1), "%Y%m%d_%H%M%S").replace(
-            tzinfo=dt.UTC
-        )
+        created_at = dt.datetime.strptime(match.group(1), "%Y%m%d_%H%M%S").replace(tzinfo=dt.UTC)
         infos.append(
             BackupInfo(id=path.stem, created_at=created_at, size_bytes=path.stat().st_size)
         )

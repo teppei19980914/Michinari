@@ -153,9 +153,7 @@ def test_daily_message_has_nullable_goal_id_and_composite_unique():
     assert "goal_id" in columns
     assert columns["goal_id"]["nullable"] is True
     unique_constraints = inspector.get_unique_constraints("daily_message")
-    assert any(
-        set(uc["column_names"]) == {"target_date", "goal_id"} for uc in unique_constraints
-    )
+    assert any(set(uc["column_names"]) == {"target_date", "goal_id"} for uc in unique_constraints)
 
 
 def test_daily_goal_diary_migration_attributes_shared_diary_by_goal(tmp_path, monkeypatch):
@@ -381,9 +379,7 @@ def test_work_goal_category_migration_creates_work_tables_and_retrospective_colu
     )
 
 
-def test_goal_retrospective_migration_preserves_existing_exam_rows_with_data(
-    tmp_path, monkeypatch
-):
+def test_goal_retrospective_migration_preserves_existing_exam_rows_with_data(tmp_path, monkeypatch):
     """goal_retrospectiveへの9列追加マイグレーション（e1f4a9c3b6d8）を、既存データ
     （EXAM総括レポート想定の行、period_type等の概念が無かった旧スキーマ行）がある状態への
     適用として検証する（CODING_RULES.md「DBマイグレーションのテスト」）。列追加後も

@@ -156,9 +156,9 @@ def upgrade_database_schema() -> None:
 
     with engine.connect() as connection:
         current_revision = MigrationContext.configure(connection).get_current_revision()
-        is_legacy_unversioned_database = current_revision is None and inspect(
-            connection
-        ).has_table("goal")
+        is_legacy_unversioned_database = current_revision is None and inspect(connection).has_table(
+            "goal"
+        )
 
     if current_revision == head_revision:
         _schema_confirmed_current = True

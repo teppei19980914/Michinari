@@ -5,6 +5,7 @@ Revises: a3f9c1d7e2b4
 Create Date: 2026-08-29 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '2b8b04b91e47'
-down_revision: Union[str, Sequence[str], None] = 'a3f9c1d7e2b4'
+revision: str = "2b8b04b91e47"
+down_revision: Union[str, Sequence[str], None] = "a3f9c1d7e2b4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -29,20 +30,20 @@ def upgrade() -> None:
     ORM層はPassingScoreType.PERCENTAGEというPython側defaultを別途持つため、
     server_defaultを残しても実害はない。
     """
-    with op.batch_alter_table('exam_subject', schema=None) as batch_op:
+    with op.batch_alter_table("exam_subject", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
-                'passing_score_type',
+                "passing_score_type",
                 sa.String(),
                 nullable=False,
-                server_default='PERCENTAGE',
+                server_default="PERCENTAGE",
             )
         )
-        batch_op.add_column(sa.Column('passing_score_max', sa.Float(), nullable=True))
+        batch_op.add_column(sa.Column("passing_score_max", sa.Float(), nullable=True))
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table('exam_subject', schema=None) as batch_op:
-        batch_op.drop_column('passing_score_max')
-        batch_op.drop_column('passing_score_type')
+    with op.batch_alter_table("exam_subject", schema=None) as batch_op:
+        batch_op.drop_column("passing_score_max")
+        batch_op.drop_column("passing_score_type")
