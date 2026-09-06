@@ -57,7 +57,9 @@ def create_slot(
 ) -> ResourceSlot:
     _validate_slot_fields(start_time, end_time, environment, weekdays)
     next_order = (
-        session.query(ResourceSlot.display_order).order_by(ResourceSlot.display_order.desc()).first()
+        session.query(ResourceSlot.display_order)
+        .order_by(ResourceSlot.display_order.desc())
+        .first()
     )
     display_order = (next_order[0] if next_order else 0) + 1
     slot = ResourceSlot(
@@ -202,9 +204,7 @@ def get_allocation_status(session: Session) -> AllocationStatus:
     for slot in slots:
         weekly_hours = slot_service.slot_duration_hours(slot) * len(slot.weekdays)
         key = slot.environment.value
-        total_hours_by_environment[key] = (
-            total_hours_by_environment.get(key, 0.0) + weekly_hours
-        )
+        total_hours_by_environment[key] = total_hours_by_environment.get(key, 0.0) + weekly_hours
 
     active_goals = (
         session.query(Goal).filter(Goal.status == GoalStatus.ACTIVE).order_by(Goal.id).all()

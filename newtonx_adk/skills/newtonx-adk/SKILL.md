@@ -22,13 +22,10 @@ if not client.authenticate():
 
 # アシスタント取得
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
 
 # チャット作成
-chat_uid = client.create_chat(
-    assistant_uid=assistant_uid,
-    title="テストチャット"
-)
+chat_uid = client.create_chat(assistant_uid=assistant_uid, title="テストチャット")
 
 # メッセージ送信
 response = client.send_message(chat_uid, "こんにちは！")
@@ -153,17 +150,17 @@ Cursorがコードを生成する際は、以下のパターンに従う:
 ```python
 # フォルダ取得または作成
 folders = client.get_folders()
-target_folder = next((f for f in folders if f['name'] == "フォルダ名"), None)
+target_folder = next((f for f in folders if f["name"] == "フォルダ名"), None)
 if not target_folder:
     folder_id = client.create_folder("フォルダ名")
 else:
-    folder_id = target_folder['id']  # ← 'id' を使用
+    folder_id = target_folder["id"]  # ← 'id' を使用
 
 # チャット作成
 chat_uid = client.create_chat(
     assistant_uid=assistant_uid,
     title="チャットタイトル",
-    folder_uid=folder_id  # ← folder_uid パラメータに渡す
+    folder_uid=folder_id,  # ← folder_uid パラメータに渡す
 )
 ```
 
@@ -177,17 +174,17 @@ if not chat_detail:
 
 # 最後のアシスタント応答を取得
 last_assistant_msg = None
-for msg in reversed(chat_detail.get('messages', [])):
-    if msg['role'] == 'assistant':
+for msg in reversed(chat_detail.get("messages", [])):
+    if msg["role"] == "assistant":
         last_assistant_msg = msg
         break
 
 if last_assistant_msg:
-    parent_order = last_assistant_msg['chat_order']  # ← 'chat_order' を使用
+    parent_order = last_assistant_msg["chat_order"]  # ← 'chat_order' を使用
     response = client.send_message(
         chat_uid=chat_uid,
         message="続きを教えて",
-        parent_order=parent_order  # ← parent_order パラメータに渡す
+        parent_order=parent_order,  # ← parent_order パラメータに渡す
     )
 ```
 
@@ -203,7 +200,7 @@ if not image_id:
 response = client.send_message(
     chat_uid=chat_uid,
     message="この画像を分析してください",
-    image_ids=[image_id]  # ← List[str] 形式
+    image_ids=[image_id],  # ← List[str] 形式
 )
 ```
 
@@ -214,7 +211,7 @@ response = client.send_message(
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/audio.wav"  # ← image_ids と同時指定不可
+    audio_file_path="/path/to/audio.wav",  # ← image_ids と同時指定不可
 )
 ```
 
@@ -224,7 +221,7 @@ response = client.send_message(
 # 最初の指示（終端マーカーを含めるよう指示）
 response = client.send_message(
     chat_uid=chat_uid,
-    message="長文のレポートを作成してください。最後に __END_OF_RESPONSE__ を付けてください。"
+    message="長文のレポートを作成してください。最後に __END_OF_RESPONSE__ を付けてください。",
 )
 
 full_response = response or ""
@@ -236,16 +233,16 @@ max_iterations = 10  # 無限ループ防止
 for i in range(max_iterations):
     if END_MARKER in full_response:
         break
-    
+
     # 最後のメッセージのchat_orderを取得
     chat_detail = client.get_chat(chat_uid)
-    last_msg = chat_detail.get('messages', [])[-1] if chat_detail else None
-    if last_msg and last_msg['role'] == 'assistant':
-        parent_order = last_msg['chat_order']
+    last_msg = chat_detail.get("messages", [])[-1] if chat_detail else None
+    if last_msg and last_msg["role"] == "assistant":
+        parent_order = last_msg["chat_order"]
         continuation = client.send_message(
             chat_uid=chat_uid,
             message=f"続きを出力してください。最後に {END_MARKER} を付けてください。",
-            parent_order=parent_order
+            parent_order=parent_order,
         )
         if continuation:
             full_response += continuation
@@ -262,27 +259,27 @@ full_response = full_response.replace(END_MARKER, "").strip()
 import time
 from newtonx_adk import APIError, ChatError
 
+
 def send_with_recovery(client, assistant_uid, message, max_retries=2, timeout=30):
     """無応答時に新規チャットでやり直す"""
     chat_uid = None
-    
+
     for attempt in range(max_retries):
         try:
             # 新規チャット作成（または再利用）
             if not chat_uid:
                 chat_uid = client.create_chat(
-                    assistant_uid=assistant_uid,
-                    title=f"リカバリチャット {attempt + 1}"
+                    assistant_uid=assistant_uid, title=f"リカバリチャット {attempt + 1}"
                 )
-            
+
             # メッセージ送信（タイムアウト設定）
             response = client.send_message(chat_uid, message)
             if response:
                 return response, chat_uid
-            
+
             # 応答がNoneの場合は新規チャットで再試行
             chat_uid = None
-            
+
         except (APIError, ChatError, Exception) as e:
             print(f"エラー発生（試行 {attempt + 1}/{max_retries}）: {e}")
             chat_uid = None  # 次の試行で新規作成
@@ -290,8 +287,9 @@ def send_with_recovery(client, assistant_uid, message, max_retries=2, timeout=30
                 time.sleep(1)
             else:
                 raise
-    
+
     raise Exception("最大リトライ回数に達しました")
+
 
 # 使用例
 try:

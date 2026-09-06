@@ -152,8 +152,7 @@ def test_read_current_version_reads_pyproject_project_version(tmp_path: Path) ->
 def test_write_version_replaces_only_the_version_line(tmp_path: Path) -> None:
     pyproject_path = tmp_path / "pyproject.toml"
     pyproject_path.write_text(
-        '[project]\nname = "michinari-backend"\nversion = "0.1.0"\n'
-        'description = "バックエンド"\n',
+        '[project]\nname = "michinari-backend"\nversion = "0.1.0"\ndescription = "バックエンド"\n',
         encoding="utf-8",
     )
 

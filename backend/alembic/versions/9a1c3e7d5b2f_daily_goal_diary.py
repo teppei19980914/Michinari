@@ -5,6 +5,7 @@ Revises: f3a1b8c6d9e2
 Create Date: 2026-08-30 00:00:00.000000
 
 """
+
 from datetime import UTC, datetime
 from typing import Sequence, Union
 
@@ -13,8 +14,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9a1c3e7d5b2f'
-down_revision: Union[str, Sequence[str], None] = 'f3a1b8c6d9e2'
+revision: str = "9a1c3e7d5b2f"
+down_revision: Union[str, Sequence[str], None] = "f3a1b8c6d9e2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -22,35 +23,35 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
-        'daily_goal_diary',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('daily_record_id', sa.Integer(), nullable=False),
-        sa.Column('goal_id', sa.Integer(), nullable=True),
-        sa.Column('diary_body', sa.Text(), nullable=True),
-        sa.Column('diary_learned', sa.Text(), nullable=True),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['daily_record_id'], ['daily_record.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['goal_id'], ['goal.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('daily_record_id', 'goal_id', name='uq_daily_goal_diary_record_goal'),
+        "daily_goal_diary",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("daily_record_id", sa.Integer(), nullable=False),
+        sa.Column("goal_id", sa.Integer(), nullable=True),
+        sa.Column("diary_body", sa.Text(), nullable=True),
+        sa.Column("diary_learned", sa.Text(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["daily_record_id"], ["daily_record.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["goal_id"], ["goal.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("daily_record_id", "goal_id", name="uq_daily_goal_diary_record_goal"),
     )
 
     _backfill_diary_entries()
 
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.drop_column('diary_body')
-        batch_op.drop_column('diary_learned')
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.drop_column("diary_body")
+        batch_op.drop_column("diary_learned")
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('diary_learned', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('diary_body', sa.Text(), nullable=True))
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("diary_learned", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("diary_body", sa.Text(), nullable=True))
 
     _restore_diary_columns()
 
-    op.drop_table('daily_goal_diary')
+    op.drop_table("daily_goal_diary")
 
 
 def _backfill_diary_entries() -> None:
@@ -67,35 +68,35 @@ def _backfill_diary_entries() -> None:
     now = datetime.now(UTC)
 
     daily_record = sa.table(
-        'daily_record',
-        sa.column('id', sa.Integer),
-        sa.column('record_date', sa.Date),
-        sa.column('diary_body', sa.Text),
-        sa.column('diary_learned', sa.Text),
+        "daily_record",
+        sa.column("id", sa.Integer),
+        sa.column("record_date", sa.Date),
+        sa.column("diary_body", sa.Text),
+        sa.column("diary_learned", sa.Text),
     )
     study_log = sa.table(
-        'study_log',
-        sa.column('daily_record_id', sa.Integer),
-        sa.column('material_id', sa.Integer),
+        "study_log",
+        sa.column("daily_record_id", sa.Integer),
+        sa.column("material_id", sa.Integer),
     )
     material = sa.table(
-        'material',
-        sa.column('id', sa.Integer),
-        sa.column('goal_id', sa.Integer),
+        "material",
+        sa.column("id", sa.Integer),
+        sa.column("goal_id", sa.Integer),
     )
     goal = sa.table(
-        'goal',
-        sa.column('id', sa.Integer),
-        sa.column('start_date', sa.Date),
-        sa.column('closed_at', sa.DateTime),
+        "goal",
+        sa.column("id", sa.Integer),
+        sa.column("start_date", sa.Date),
+        sa.column("closed_at", sa.DateTime),
     )
     daily_goal_diary = sa.table(
-        'daily_goal_diary',
-        sa.column('daily_record_id', sa.Integer),
-        sa.column('goal_id', sa.Integer),
-        sa.column('diary_body', sa.Text),
-        sa.column('diary_learned', sa.Text),
-        sa.column('created_at', sa.DateTime),
+        "daily_goal_diary",
+        sa.column("daily_record_id", sa.Integer),
+        sa.column("goal_id", sa.Integer),
+        sa.column("diary_body", sa.Text),
+        sa.column("diary_learned", sa.Text),
+        sa.column("created_at", sa.DateTime),
     )
 
     records = bind.execute(
@@ -105,9 +106,7 @@ def _backfill_diary_entries() -> None:
             daily_record.c.diary_body,
             daily_record.c.diary_learned,
         ).where(
-            sa.or_(
-                daily_record.c.diary_body.isnot(None), daily_record.c.diary_learned.isnot(None)
-            )
+            sa.or_(daily_record.c.diary_body.isnot(None), daily_record.c.diary_learned.isnot(None))
         )
     ).fetchall()
 
@@ -128,9 +127,7 @@ def _backfill_diary_entries() -> None:
                 bind.execute(
                     sa.select(goal.c.id).where(
                         goal.c.start_date <= record.record_date,
-                        sa.or_(
-                            goal.c.closed_at.is_(None), goal.c.closed_at > record.record_date
-                        ),
+                        sa.or_(goal.c.closed_at.is_(None), goal.c.closed_at > record.record_date),
                     )
                 )
                 .scalars()
@@ -160,17 +157,17 @@ def _restore_diary_columns() -> None:
     bind = op.get_bind()
 
     daily_record = sa.table(
-        'daily_record',
-        sa.column('id', sa.Integer),
-        sa.column('diary_body', sa.Text),
-        sa.column('diary_learned', sa.Text),
+        "daily_record",
+        sa.column("id", sa.Integer),
+        sa.column("diary_body", sa.Text),
+        sa.column("diary_learned", sa.Text),
     )
     daily_goal_diary = sa.table(
-        'daily_goal_diary',
-        sa.column('id', sa.Integer),
-        sa.column('daily_record_id', sa.Integer),
-        sa.column('diary_body', sa.Text),
-        sa.column('diary_learned', sa.Text),
+        "daily_goal_diary",
+        sa.column("id", sa.Integer),
+        sa.column("daily_record_id", sa.Integer),
+        sa.column("diary_body", sa.Text),
+        sa.column("diary_learned", sa.Text),
     )
 
     rows = bind.execute(

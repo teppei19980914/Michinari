@@ -4,10 +4,11 @@ import glob
 from pathlib import Path
 import sys
 
+
 def create_distribution_package():
     """
     配布用パッケージ(zip)を作成するスクリプト
-    
+
     構成:
     newtonx_adk/
       ├── newtonx_adk-*.whl
@@ -24,7 +25,7 @@ def create_distribution_package():
     current_dir = Path(__file__).resolve().parent
     project_root = current_dir.parent
     dist_dir = project_root / "dist"
-    
+
     print(f"Project root: {project_root}")
     print(f"Dist dir: {dist_dir}")
 
@@ -36,11 +37,11 @@ def create_distribution_package():
     output_zip_base = "newtonx_adk"
     temp_dir = dist_dir / "newtonx_adk_tmp"
     package_root = temp_dir / "newtonx_adk"
-    
+
     # クリーンアップ（既存の一時フォルダがあれば削除）
     if temp_dir.exists():
         shutil.rmtree(temp_dir)
-    
+
     try:
         package_root.mkdir(parents=True)
         print(f"Created temp directory: {package_root}")
@@ -51,7 +52,7 @@ def create_distribution_package():
         if not whl_files:
             print("Error: .whl file not found in dist directory.")
             sys.exit(1)
-        
+
         # 最新のものを選択（更新日時順）
         latest_whl = max(whl_files, key=os.path.getmtime)
         print(f"Copying whl: {latest_whl.name}")
@@ -61,12 +62,12 @@ def create_distribution_package():
         print("Copying docs...")
         docs_dest = package_root / "docs"
         docs_dest.mkdir()
-        
+
         # docs/adk
         adk_docs_src = project_root / "docs" / "adk"
         if adk_docs_src.exists():
             shutil.copytree(adk_docs_src, docs_dest / "adk")
-        
+
         # docs/*.md
         for filename in ["newtonx_adk_knowledge.md", "auth_setup_guide.md"]:
             src_file = project_root / "docs" / filename
@@ -88,7 +89,7 @@ def create_distribution_package():
         print("Copying skills...")
         skills_src = project_root / ".cursor" / "skills" / "newtonx-adk"
         skills_dest = package_root / "skills" / "newtonx-adk"
-        
+
         if skills_src.exists():
             skills_dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(skills_src, skills_dest)
@@ -98,17 +99,19 @@ def create_distribution_package():
         # 5. adk_examplesのコピー
         print("Copying adk_examples...")
         examples_src = project_root / "adk_examples"
-        
+
         if examples_src.exists():
-            shutil.copytree(examples_src, package_root / "adk_examples", ignore=ignore_patterns)
+            shutil.copytree(
+                examples_src, package_root / "adk_examples", ignore=ignore_patterns
+            )
         else:
             print("Warning: adk_examples directory not found.")
 
         # 6. Zip化
         output_zip_path = dist_dir / output_zip_base
         print(f"Creating zip archive: {output_zip_path}.zip")
-        shutil.make_archive(str(output_zip_path), 'zip', root_dir=temp_dir)
-        
+        shutil.make_archive(str(output_zip_path), "zip", root_dir=temp_dir)
+
         print("Done.")
 
     except Exception as e:
@@ -119,6 +122,7 @@ def create_distribution_package():
         if temp_dir.exists():
             print("Cleaning up temp directory...")
             shutil.rmtree(temp_dir)
+
 
 if __name__ == "__main__":
     create_distribution_package()

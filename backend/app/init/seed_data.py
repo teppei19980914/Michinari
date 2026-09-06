@@ -181,9 +181,7 @@ def _backfill_assistant_defaults(session: Session, keys: tuple[str, ...]) -> Non
     for key in keys:
         default_value, _ = INITIAL_APP_SETTINGS[key]
         row = (
-            session.query(AppSetting)
-            .filter(AppSetting.key == key, AppSetting.value == "")
-            .first()
+            session.query(AppSetting).filter(AppSetting.key == key, AppSetting.value == "").first()
         )
         if row is not None:
             row.value = default_value
