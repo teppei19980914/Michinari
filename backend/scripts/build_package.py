@@ -5,7 +5,7 @@
 既存パッケージのアーカイブ退避 → ビルド情報（バージョン・使用ライブラリ）の生成 →
 フロントエンドの静的ビルド（`npm run build`）→ PyInstallerによるバックエンドの
 パッケージ化（フロントエンドの静的ファイル・alembicマイグレーション・ビルド情報を
-同梱）→ 起動用batファイルの配置 → 配布用zipの作成。
+同梱）→ 起動用batファイル・ユーザ手順書PDFの配置 → 配布用zipの作成。
 
 テストを最初に実行するのは、配布後に発覚した不具合（2026-08-29、exam_subject.
 passing_score_type列追加マイグレーションが既存データで失敗する不具合）が、テスト
@@ -17,7 +17,7 @@ passing_score_type列追加マイグレーションが既存データで失敗�
 実行例（backendディレクトリから）: `uv run python scripts/build_package.py`
 （`backend/build.bat` をダブルクリックしても同じ処理を実行できる）。
 
-出力先: `backend/dist/Michinari/`（`Michinari.exe` と `Michinari.bat` を含む。この
+出力先: `backend/dist/Michinari/`（`Michinari.exe`・`Michinari.bat`・ユーザ手順書PDFを含む。この
 フォルダごと他端末へコピーし、`Michinari.bat` をダブルクリックすれば起動できる）に加え、
 同フォルダをzip化した `backend/dist/Michinari-v{version}.zip` も生成する（配布時はzipを
 渡すだけでよい）。zipファイル名には確定した配布バージョンが入るため、バージョンが異なれば
@@ -48,6 +48,9 @@ OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
 PYPROJECT_PATH = BACKEND_DIR / "pyproject.toml"
 BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
+#: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
+#: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
+USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
 #: pyproject.tomlのTOML文字列・zipファイル名へ埋め込むため、`"`によるTOML破損や
@@ -178,11 +181,36 @@ def build_backend() -> None:
     subprocess.run(args, cwd=BACKEND_DIR, check=True)
 
 
+def copy_user_manual(manual_path: Path, output_dir: Path) -> Path | None:
+    """ユーザ手順書PDFを配布パッケージのフォルダ直下へ複製する。
+
+    配布先ではリポジトリを参照できないため、zipを展開しただけで手順書を開けるよう
+    パッケージへ同梱する。PyInstallerの`--add-data`（`build_backend`）ではなく単純な
+    ファイルコピーにしているのは、`--add-data`で同梱したファイルはexe内へ埋め込まれ、
+    利用者がエクスプローラから直接開けなくなるため（手順書は利用者がダブルクリックして
+    読む用途であり、アプリ実行時に読み込むリソースではない）。
+
+    手順書が見つからない場合は警告を表示して同梱のみを飛ばす（アプリの動作自体には
+    影響しないため、ここでビルドを中止はしない）。
+
+    戻り値: 複製先のパス。手順書が存在しなければ`None`。
+    """
+    if not manual_path.exists():
+        print(f"  → 警告: ユーザ手順書が見つからないため同梱をスキップします: {manual_path}")
+        return None
+    destination = output_dir / manual_path.name
+    shutil.copy(manual_path, destination)
+    return destination
+
+
 def assemble_launcher() -> None:
-    print("[7/8] 起動用batファイルを配置しています…")
+    print("[7/8] 起動用batファイル・ユーザ手順書を配置しています…")
     launcher_src = BACKEND_DIR / "scripts" / "launcher_template.bat"
     launcher_dst = OUTPUT_DIR / f"{APP_NAME}.bat"
     shutil.copy(launcher_src, launcher_dst)
+    copied_manual = copy_user_manual(USER_MANUAL_PATH, OUTPUT_DIR)
+    if copied_manual is not None:
+        print(f"  → ユーザ手順書を同梱しました: {copied_manual.name}")
     print(f"完了: {OUTPUT_DIR}")
 
 
