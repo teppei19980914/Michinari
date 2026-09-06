@@ -372,7 +372,10 @@ def test_generate_for_week_anonymized_creates_separate_record(seeded_session, mo
     _stub_send_message(monkeypatch, response="匿名化版の本文")
 
     summary = weekly_summary_service.generate_for_week(
-        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        seeded_session,
+        goal,
+        week_start=dt.date(2026, 8, 17),
+        week_end=dt.date(2026, 8, 23),
         anonymize=True,
     )
 
@@ -388,13 +391,19 @@ def test_generate_for_week_anonymized_twice_updates_existing_record(seeded_sessi
     _stub_send_message(monkeypatch, response="1回目の匿名化")
 
     first = weekly_summary_service.generate_for_week(
-        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        seeded_session,
+        goal,
+        week_start=dt.date(2026, 8, 17),
+        week_end=dt.date(2026, 8, 23),
         anonymize=True,
     )
 
     _stub_send_message(monkeypatch, response="2回目の匿名化")
     second = weekly_summary_service.generate_for_week(
-        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23),
+        seeded_session,
+        goal,
+        week_start=dt.date(2026, 8, 17),
+        week_end=dt.date(2026, 8, 23),
         anonymize=True,
     )
 

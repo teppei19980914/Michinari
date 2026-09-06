@@ -22,6 +22,7 @@ Revises: 9723ab049ecd
 Create Date: 2026-09-04 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -29,8 +30,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'e1f4a9c3b6d8'
-down_revision: Union[str, Sequence[str], None] = '9723ab049ecd'
+revision: str = "e1f4a9c3b6d8"
+down_revision: Union[str, Sequence[str], None] = "9723ab049ecd"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -38,70 +39,71 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
-        'work_assignment',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('goal_id', sa.Integer(), nullable=False),
-        sa.Column('client_name', sa.String(), nullable=True),
-        sa.Column('expected_content', sa.Text(), nullable=False),
-        sa.Column('start_date', sa.Date(), nullable=False),
-        sa.Column('updated_at', sa.DateTime(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['goal_id'], ['goal.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('goal_id'),
+        "work_assignment",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("goal_id", sa.Integer(), nullable=False),
+        sa.Column("client_name", sa.String(), nullable=True),
+        sa.Column("expected_content", sa.Text(), nullable=False),
+        sa.Column("start_date", sa.Date(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["goal_id"], ["goal.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("goal_id"),
     )
 
     op.create_table(
-        'work_log',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('daily_record_id', sa.Integer(), nullable=False),
-        sa.Column('work_assignment_id', sa.Integer(), nullable=False),
-        sa.Column('body', sa.Text(), nullable=False),
-        sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['daily_record_id'], ['daily_record.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['work_assignment_id'], ['work_assignment.id'], ),
-        sa.PrimaryKeyConstraint('id'),
+        "work_log",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("daily_record_id", sa.Integer(), nullable=False),
+        sa.Column("work_assignment_id", sa.Integer(), nullable=False),
+        sa.Column("body", sa.Text(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["daily_record_id"], ["daily_record.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["work_assignment_id"],
+            ["work_assignment.id"],
+        ),
+        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
-            'work_assignment_id', 'daily_record_id', name='uq_work_log_assignment_record'
+            "work_assignment_id", "daily_record_id", name="uq_work_log_assignment_record"
         ),
     )
-    with op.batch_alter_table('work_log', schema=None) as batch_op:
-        batch_op.create_index('ix_work_log_daily_record_id', ['daily_record_id'], unique=False)
+    with op.batch_alter_table("work_log", schema=None) as batch_op:
+        batch_op.create_index("ix_work_log_daily_record_id", ["daily_record_id"], unique=False)
 
-    with op.batch_alter_table('goal_retrospective', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('period_type', sa.String(), nullable=True))
-        batch_op.add_column(sa.Column('period_key', sa.String(), nullable=True))
-        batch_op.add_column(sa.Column('target_goal_text', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('business_summary', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('achievement_score', sa.Integer(), nullable=True))
-        batch_op.add_column(sa.Column('achievement_reflection', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('next_goal_text', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('report_notes', sa.Text(), nullable=True))
-        batch_op.add_column(sa.Column('edited_at', sa.DateTime(), nullable=True))
+    with op.batch_alter_table("goal_retrospective", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("period_type", sa.String(), nullable=True))
+        batch_op.add_column(sa.Column("period_key", sa.String(), nullable=True))
+        batch_op.add_column(sa.Column("target_goal_text", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("business_summary", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("achievement_score", sa.Integer(), nullable=True))
+        batch_op.add_column(sa.Column("achievement_reflection", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("next_goal_text", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("report_notes", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("edited_at", sa.DateTime(), nullable=True))
         batch_op.create_unique_constraint(
-            'uq_goal_retrospective_goal_period_anonymized',
-            ['goal_id', 'period_type', 'period_key', 'is_anonymized'],
+            "uq_goal_retrospective_goal_period_anonymized",
+            ["goal_id", "period_type", "period_key", "is_anonymized"],
         )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table('goal_retrospective', schema=None) as batch_op:
-        batch_op.drop_constraint(
-            'uq_goal_retrospective_goal_period_anonymized', type_='unique'
-        )
-        batch_op.drop_column('edited_at')
-        batch_op.drop_column('report_notes')
-        batch_op.drop_column('next_goal_text')
-        batch_op.drop_column('achievement_reflection')
-        batch_op.drop_column('achievement_score')
-        batch_op.drop_column('business_summary')
-        batch_op.drop_column('target_goal_text')
-        batch_op.drop_column('period_key')
-        batch_op.drop_column('period_type')
+    with op.batch_alter_table("goal_retrospective", schema=None) as batch_op:
+        batch_op.drop_constraint("uq_goal_retrospective_goal_period_anonymized", type_="unique")
+        batch_op.drop_column("edited_at")
+        batch_op.drop_column("report_notes")
+        batch_op.drop_column("next_goal_text")
+        batch_op.drop_column("achievement_reflection")
+        batch_op.drop_column("achievement_score")
+        batch_op.drop_column("business_summary")
+        batch_op.drop_column("target_goal_text")
+        batch_op.drop_column("period_key")
+        batch_op.drop_column("period_type")
 
-    with op.batch_alter_table('work_log', schema=None) as batch_op:
-        batch_op.drop_index('ix_work_log_daily_record_id')
-    op.drop_table('work_log')
+    with op.batch_alter_table("work_log", schema=None) as batch_op:
+        batch_op.drop_index("ix_work_log_daily_record_id")
+    op.drop_table("work_log")
 
-    op.drop_table('work_assignment')
+    op.drop_table("work_assignment")

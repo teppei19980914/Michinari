@@ -70,27 +70,21 @@ def send_reading_feedback(
         .order_by(ChatMessage.sequence)
         .all()
     )
-    history = [
-        prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages
-    ]
+    history = [prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages]
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
     variables = {
         "today": target_date.isoformat(),
         "book_summary": ai_context_service.build_daily_book_summary_text(active_books, today),
-        "today_recall": ai_context_service.build_today_recall_text(
-            reading_log_items, books_by_id
-        ),
+        "today_recall": ai_context_service.build_today_recall_text(reading_log_items, books_by_id),
         "recent_recalls": ai_context_service.build_recent_recalls_text(
             session, active_books, target_date, recent_days
         ),
         "conversation_history": prompt_builder.format_conversation_history(history),
     }
 
-    template_body = ai_orchestration.load_template_body(
-        session, AiPurpose.DAILY_FEEDBACK_READING
-    )
+    template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_READING)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     build_result = prompt_builder.build_simple(template_body, variables, max_chars)
 

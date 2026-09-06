@@ -11,8 +11,10 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.constants.enums import ChatRole, DayType
+from app.models.book import Book
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord
+from app.models.record import ChatMessage, DailyRecord, ReadingLog, WorkLog
+from app.models.work import WorkAssignment
 from app.services import calendar_service
 from app.services.cycle_service import ProgressPoint
 
@@ -86,3 +88,62 @@ def list_growth_descriptions(session: Session) -> list[GrowthDescriptionEntry]:
         .all()
     )
     return [GrowthDescriptionEntry(record_date=row[0], content=row[1]) for row in rows]
+
+
+@dataclass(frozen=True)
+class ReadingLogEntry:
+    """分析画面「読書記録」タブの1件（読書目標category=READING向け、6.8補足）。
+
+    資格試験の品質推移・進捗等5タブはMaterial（教材）に依存するため読書目標には
+    適用できない。代わりに日々の想起記録（recall_body）を新しい順に列挙する
+    （仕様書6.10「実績推移」の読書向け読み替え＝日別の想起記録一覧、と同じ発想）。
+    """
+
+    record_date: dt.date
+    recall_body: str
+    pages_read: int | None
+    current_page: int | None
+
+
+def list_reading_log_entries(session: Session, book: Book) -> list[ReadingLogEntry]:
+    rows = (
+        session.query(
+            DailyRecord.record_date,
+            ReadingLog.recall_body,
+            ReadingLog.pages_read,
+            ReadingLog.current_page,
+        )
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(ReadingLog.book_id == book.id)
+        .order_by(DailyRecord.record_date.desc())
+        .all()
+    )
+    return [
+        ReadingLogEntry(
+            record_date=row[0], recall_body=row[1], pages_read=row[2], current_page=row[3]
+        )
+        for row in rows
+    ]
+
+
+@dataclass(frozen=True)
+class WorkLogEntry:
+    """分析画面「業務記録」タブの1件（仕事目標category=WORK向け、6.8補足）。
+
+    読書と同じ理由でMaterial非依存の一覧表示とする。日々の業務記録（body）を
+    新しい順に列挙する（仕様書6.10「実績推移」の仕事向け読み替え＝日別の業務記録一覧）。
+    """
+
+    record_date: dt.date
+    body: str
+
+
+def list_work_log_entries(session: Session, work_assignment: WorkAssignment) -> list[WorkLogEntry]:
+    rows = (
+        session.query(DailyRecord.record_date, WorkLog.body)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(WorkLog.work_assignment_id == work_assignment.id)
+        .order_by(DailyRecord.record_date.desc())
+        .all()
+    )
+    return [WorkLogEntry(record_date=row[0], body=row[1]) for row in rows]

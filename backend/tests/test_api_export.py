@@ -74,9 +74,7 @@ def test_execute_export_with_anonymize_calls_ai(client, monkeypatch):
         lambda session, *, assistant_uid, folder_name, title: "chat-1",
     )
 
-    response = client.post(
-        f"/api/v1/goals/{goal['id']}/knowledge-export", json={"anonymize": True}
-    )
+    response = client.post(f"/api/v1/goals/{goal['id']}/knowledge-export", json={"anonymize": True})
 
     assert response.status_code == 200
     assert response.json()["data"]["retrospective"] == "匿名化レポート"

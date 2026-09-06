@@ -92,9 +92,7 @@ def test_send_daily_feedback_raises_when_prompt_template_missing(seeded_session)
     from app.constants.enums import AiPurpose
     from app.models.setting import PromptTemplate
 
-    seeded_session.query(PromptTemplate).filter_by(
-        purpose=AiPurpose.DAILY_FEEDBACK.value
-    ).delete()
+    seeded_session.query(PromptTemplate).filter_by(purpose=AiPurpose.DAILY_FEEDBACK.value).delete()
     seeded_session.flush()
 
     with pytest.raises(ValidationError):

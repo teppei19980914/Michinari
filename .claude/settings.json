@@ -41,7 +41,10 @@
       "Bash(python -m pytest -q)",
       "Bash(python -c \"import sys; print\\(sys.executable\\)\")",
       "Bash(uv --version)",
-      "Bash(.venv/Scripts/python -m pytest -q)"
+      "Bash(.venv/Scripts/python -m pytest -q)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_api_analytics.py -q)",
+      "Bash(./.venv/Scripts/python.exe -m ruff check app/services/analytics_service.py app/api/analytics.py app/schemas/analytics.py tests/test_api_analytics.py)",
+      "Bash(echo \"EXIT:$?\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\teppe\\AppData\\Local\\Temp\\claude\\c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari\\de041801-f76b-4e1e-8ad4-0528604378b9\\scratchpad\\smoke_db",

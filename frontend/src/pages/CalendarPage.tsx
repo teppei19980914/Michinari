@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths } from 'date-fns'
@@ -6,7 +6,7 @@ import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { getCalendar } from '../api/calendar'
 import { getToday } from '../api/records'
-import { listGoals, getGoal, type GoalDetailRead } from '../api/goals'
+import { listGoals, getGoal } from '../api/goals'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
@@ -14,16 +14,18 @@ import { CalendarGrid } from '../features/calendar/CalendarGrid'
 import { DayTypeEditModal } from '../features/calendar/DayTypeEditModal'
 import { resolveCalendarDateAction } from '../features/calendar/resolveCalendarDateAction'
 import { resolveAuxiliaryMarkers } from '../features/calendar/resolveAuxiliaryMarkers'
-
-async function listActiveGoalDetails(): Promise<GoalDetailRead[]> {
-  const goals = await listGoals()
-  const activeGoals = goals.filter((goal) => goal.status === 'ACTIVE')
-  return Promise.all(activeGoals.map((goal) => getGoal(goal.id)))
-}
+import { GoalTabBar } from '../features/record/GoalTabBar'
+import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
+import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
 
 /** SC-05 カレンダー（仕様書6.4）。日付選択時の遷移先判定は
  * features/calendar/resolveCalendarDateAction.ts に切り出している（技術選定書4.5
- * 「日付状態による遷移先の判定」）。 */
+ * 「日付状態による遷移先の判定」）。
+ *
+ * 補助表示（受験日・読書締切等）は、日次報告（DailyReportPage）と同じGoalTabBarで
+ * 選択した1目標分のみを表示する方式に統一した（Phase25、進行中の全目標を1画面に
+ * 集約表示していた旧仕様6.4を改訂）。日種別・記録状態（背景色・マーカー）は
+ * 目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */
 export function CalendarPage() {
   const navigate = useNavigate()
   const [month, setMonth] = useState(() => startOfMonth(new Date()))
@@ -40,29 +42,47 @@ export function CalendarPage() {
     queryKey: ['calendar', dateFrom, dateTo],
     queryFn: () => getCalendar(dateFrom, dateTo),
   })
-  const activeGoalsQuery = useQuery({
-    queryKey: ['active-goal-details'],
-    queryFn: listActiveGoalDetails,
+  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: () => listGoals() })
+  const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
+  const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId } = goalTabs
+
+  useEffect(() => {
+    if (selectedGoalId === null && reportableGoals.length > 0) {
+      setSelectedGoalId(reportableGoals[0].id)
+    }
+  }, [reportableGoals, selectedGoalId, setSelectedGoalId])
+
+  const targetGoalId = resolveTargetGoalId(goalTabs)
+  const selectedGoalDetailQuery = useQuery({
+    queryKey: ['goal', targetGoalId],
+    queryFn: () => getGoal(targetGoalId as number),
+    enabled: targetGoalId !== null,
   })
 
-  if (todayQuery.isLoading || calendarQuery.isLoading) {
+  if (todayQuery.isLoading || calendarQuery.isLoading || goalsQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (todayQuery.isError || !todayQuery.data || calendarQuery.isError || !calendarQuery.data) {
+  if (
+    todayQuery.isError ||
+    !todayQuery.data ||
+    calendarQuery.isError ||
+    !calendarQuery.data ||
+    goalsQuery.isError
+  ) {
+    // goalsQueryが失敗すると対象目標を解決できず補助表示が常に空になってしまうため、
+    // 他の必須クエリと同様にエラー画面を表示する。
     return (
       <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(todayQuery.error ?? calendarQuery.error)}
+        {apiErrorMessage(todayQuery.error ?? calendarQuery.error ?? goalsQuery.error)}
       </p>
     )
   }
 
   const today = todayQuery.data.logical_date
   const daysByDate = new Map(calendarQuery.data.map((day) => [day.target_date, day]))
+  const activeGoalDetails = selectedGoalDetailQuery.data ? [selectedGoalDetailQuery.data] : []
   const auxiliaryMarkersByDate = new Map(
-    [...daysByDate.keys()].map((date) => [
-      date,
-      resolveAuxiliaryMarkers(date, activeGoalsQuery.data ?? []),
-    ]),
+    [...daysByDate.keys()].map((date) => [date, resolveAuxiliaryMarkers(date, activeGoalDetails)]),
   )
 
   const handleSelectDate = (date: string) => {
@@ -103,6 +123,14 @@ export function CalendarPage() {
           </Button>
         </div>
       </div>
+
+      {showGoalSelector && (
+        <GoalTabBar
+          goals={reportableGoals}
+          selectedGoalId={selectedGoalId}
+          onSelect={setSelectedGoalId}
+        />
+      )}
 
       <CalendarGrid
         month={month}

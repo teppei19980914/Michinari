@@ -10,6 +10,11 @@ gantt の5件のみが明記されているが、仕様書6.8の成長記述タ�
 （Phase9実装判断、根拠はanalytics_service.list_growth_descriptionsのdocstring参照）。
 リプラン履歴タブは既存の GET /goals/{goal_id}/baselines をそのまま利用する
 （Phase3で実装済み、新規エンドポイントを追加しない）。
+
+上記5件はいずれもMaterial（教材）に依存するため資格試験（category=EXAM）専用であり、
+読書（READING）・仕事（WORK）目標を選択した場合は常に空の一覧になっていた（分析画面の
+目標タブ化、Phase25判断）。読書・仕事向けには /analytics/reading-logs・/analytics/work-logs
+を新設し、Material非依存の日次記録一覧（想起記録・業務記録）を返す。
 """
 
 from fastapi import APIRouter, Depends
@@ -35,9 +40,11 @@ from app.schemas.analytics import (
     QualityAnalyticsRead,
     QualityTrendPointRead,
     QualityTrendSeriesRead,
+    ReadingLogEntryRead,
     SpeedAnalyticsRead,
     SpeedTrendPointRead,
     SpeedTrendSeriesRead,
+    WorkLogEntryRead,
 )
 from app.services import (
     analytics_service,
@@ -222,3 +229,44 @@ def get_growth_descriptions(
     return [
         GrowthDescriptionEntryRead(record_date=e.record_date, content=e.content) for e in entries
     ]
+
+
+@router.get("/analytics/reading-logs", response_model=list[ReadingLogEntryRead])
+def get_reading_log_analytics(
+    goal_id: int, session: Session = Depends(get_db)
+) -> list[ReadingLogEntryRead]:
+    """読書目標（category=READING）向けの分析タブ「読書記録」（仕様書6.8補足）。
+
+    資格試験の品質推移等5タブはMaterial（教材）に依存するため読書目標には適用できず、
+    代わりに日々の想起記録を新しい順に列挙する（analytics_service.list_reading_log_entries
+    のdocstring参照）。書籍未登録の場合は空配列を返す（エラーとしない）。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    if goal.book is None:
+        return []
+    entries = analytics_service.list_reading_log_entries(session, goal.book)
+    return [
+        ReadingLogEntryRead(
+            record_date=e.record_date,
+            recall_body=e.recall_body,
+            pages_read=e.pages_read,
+            current_page=e.current_page,
+        )
+        for e in entries
+    ]
+
+
+@router.get("/analytics/work-logs", response_model=list[WorkLogEntryRead])
+def get_work_log_analytics(
+    goal_id: int, session: Session = Depends(get_db)
+) -> list[WorkLogEntryRead]:
+    """仕事目標（category=WORK）向けの分析タブ「業務記録」（仕様書6.8補足）。
+
+    読書と同じ理由でMaterial非依存の一覧表示とする（analytics_service.list_work_log_entries
+    のdocstring参照）。案件情報未登録の場合は空配列を返す（エラーとしない）。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    if goal.work_assignment is None:
+        return []
+    entries = analytics_service.list_work_log_entries(session, goal.work_assignment)
+    return [WorkLogEntryRead(record_date=e.record_date, body=e.body) for e in entries]

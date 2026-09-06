@@ -5,6 +5,7 @@ Revises: b4c8e2f19a3d
 Create Date: 2026-08-30 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c7d391a6f0e5'
-down_revision: Union[str, Sequence[str], None] = 'b4c8e2f19a3d'
+revision: str = "c7d391a6f0e5"
+down_revision: Union[str, Sequence[str], None] = "b4c8e2f19a3d"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -28,35 +29,35 @@ def upgrade() -> None:
     （テーブル名変更 → 新スキーマで作成 → データ移送 → 旧テーブル削除）。
     daily_messageを参照する他テーブルは無いため、この方式でFK破損は起きない。
     """
-    op.rename_table('daily_message', 'daily_message_old')
+    op.rename_table("daily_message", "daily_message_old")
 
     op.create_table(
-        'daily_message',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('target_date', sa.Date(), nullable=False),
-        sa.Column('goal_id', sa.Integer(), nullable=True),
-        sa.Column('body', sa.Text(), nullable=False),
-        sa.Column('generated_at', sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(['goal_id'], ['goal.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('target_date', 'goal_id', name='uq_daily_message_date_goal'),
+        "daily_message",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("target_date", sa.Date(), nullable=False),
+        sa.Column("goal_id", sa.Integer(), nullable=True),
+        sa.Column("body", sa.Text(), nullable=False),
+        sa.Column("generated_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["goal_id"], ["goal.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("target_date", "goal_id", name="uq_daily_message_date_goal"),
     )
 
     bind = op.get_bind()
     old_table = sa.table(
-        'daily_message_old',
-        sa.column('id', sa.Integer),
-        sa.column('target_date', sa.Date),
-        sa.column('body', sa.Text),
-        sa.column('generated_at', sa.DateTime),
+        "daily_message_old",
+        sa.column("id", sa.Integer),
+        sa.column("target_date", sa.Date),
+        sa.column("body", sa.Text),
+        sa.column("generated_at", sa.DateTime),
     )
     new_table = sa.table(
-        'daily_message',
-        sa.column('id', sa.Integer),
-        sa.column('target_date', sa.Date),
-        sa.column('goal_id', sa.Integer),
-        sa.column('body', sa.Text),
-        sa.column('generated_at', sa.DateTime),
+        "daily_message",
+        sa.column("id", sa.Integer),
+        sa.column("target_date", sa.Date),
+        sa.column("goal_id", sa.Integer),
+        sa.column("body", sa.Text),
+        sa.column("generated_at", sa.DateTime),
     )
     # 既存行は目標ごとの生成に切り替える前の「目標横断メッセージ」であり、特定の目標が
     # 書いたと偽ることになるため複製しない。goal_id=NULLのまま引き継ぐ（安全弁、L-04）。
@@ -76,7 +77,7 @@ def upgrade() -> None:
             )
         )
 
-    op.drop_table('daily_message_old')
+    op.drop_table("daily_message_old")
 
 
 def downgrade() -> None:
@@ -86,33 +87,33 @@ def downgrade() -> None:
     残し、単一目標横断メッセージだったスキーマへ戻す（開発時のロールバック限定、他の
     データ移行と同様に非可逆）。
     """
-    op.rename_table('daily_message', 'daily_message_new')
+    op.rename_table("daily_message", "daily_message_new")
 
     op.create_table(
-        'daily_message',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('target_date', sa.Date(), nullable=False),
-        sa.Column('body', sa.Text(), nullable=False),
-        sa.Column('generated_at', sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('target_date'),
+        "daily_message",
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("target_date", sa.Date(), nullable=False),
+        sa.Column("body", sa.Text(), nullable=False),
+        sa.Column("generated_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("target_date"),
     )
 
     bind = op.get_bind()
     new_table = sa.table(
-        'daily_message_new',
-        sa.column('id', sa.Integer),
-        sa.column('target_date', sa.Date),
-        sa.column('goal_id', sa.Integer),
-        sa.column('body', sa.Text),
-        sa.column('generated_at', sa.DateTime),
+        "daily_message_new",
+        sa.column("id", sa.Integer),
+        sa.column("target_date", sa.Date),
+        sa.column("goal_id", sa.Integer),
+        sa.column("body", sa.Text),
+        sa.column("generated_at", sa.DateTime),
     )
     old_table = sa.table(
-        'daily_message',
-        sa.column('id', sa.Integer),
-        sa.column('target_date', sa.Date),
-        sa.column('body', sa.Text),
-        sa.column('generated_at', sa.DateTime),
+        "daily_message",
+        sa.column("id", sa.Integer),
+        sa.column("target_date", sa.Date),
+        sa.column("body", sa.Text),
+        sa.column("generated_at", sa.DateTime),
     )
 
     rows = bind.execute(
@@ -136,4 +137,4 @@ def downgrade() -> None:
             )
         )
 
-    op.drop_table('daily_message_new')
+    op.drop_table("daily_message_new")
