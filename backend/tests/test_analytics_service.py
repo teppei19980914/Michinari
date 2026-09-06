@@ -268,6 +268,45 @@ def test_assign_growth_description_goal_rejects_category_mismatch(db_session):
     assert message.goal_id is None
 
 
+def test_assign_growth_description_goal_rejects_already_assigned_message(db_session):
+    """既に目標が割り当て済みのメッセージは、誤操作による付け替え防止のため対象外とする
+    （Phase26レビューで発見。docstringの「未割り当てのみ対象」という意図と実装が
+    乖離していた）。"""
+    goal_a = _make_goal(db_session, name="目標A")
+    goal_b = _make_goal(db_session, name="目標B")
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session, record.id, ChatRole.ASSISTANT, 1, "目標A宛て", goal_id=goal_a.id
+    )
+
+    with pytest.raises(ValidationError):
+        analytics_service.assign_growth_description_goal(db_session, message, goal_b)
+
+    assert message.goal_id == goal_a.id
+
+
+def test_assign_growth_description_goal_rejects_unrelated_purpose(db_session):
+    """成長記述（日次フィードバック）と無関係なpurpose（週次要約等）のメッセージを
+    渡された場合、未処理例外(StopIteration)ではなくValidationErrorを送出すること
+    （Phase26レビューで発見）。"""
+    goal = _make_goal(db_session)
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session,
+        record.id,
+        ChatRole.ASSISTANT,
+        1,
+        "無関係な応答",
+        goal_id=None,
+        purpose=AiPurpose.WEEKLY_SUMMARY,
+    )
+
+    with pytest.raises(ValidationError):
+        analytics_service.assign_growth_description_goal(db_session, message, goal)
+
+    assert message.goal_id is None
+
+
 def test_get_chat_message_raises_not_found_for_unknown_id(db_session):
     with pytest.raises(NotFoundError):
         analytics_service.get_chat_message(db_session, 999999)

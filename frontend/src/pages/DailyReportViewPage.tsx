@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { Card } from '../components/Card'
-import { getQuota, getRecord } from '../api/records'
+import { getQuota, getRecord, type ChatMessageRead } from '../api/records'
 import { listActiveReadingBooks, listActiveWorkAssignments, listGoals } from '../api/goals'
 import { StudyLogSummaryList, type MaterialLabel } from '../features/record/StudyLogSummaryList'
 import { ReadingLogSummaryList, type BookLabel } from '../features/record/ReadingLogSummaryList'
@@ -109,20 +109,16 @@ export function DailyReportViewPage() {
   // 宛て（＋goal_id=nullの移行前レガシー）のみに絞り込む。タブが無い場合は従来どおり
   // カテゴリ（purpose）のみでの絞り込みとする（1目標のみ、または閲覧時点で全目標が
   // クローズ済みでも、その日の記録を漏れなく表示するため）。
+  const matchesSelectedGoal = (m: ChatMessageRead) =>
+    !showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null
   const examMessages = record.chat_messages.filter(
-    (m) =>
-      m.purpose === 'DAILY_FEEDBACK' &&
-      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
+    (m) => m.purpose === 'DAILY_FEEDBACK' && matchesSelectedGoal(m),
   )
   const readingMessages = record.chat_messages.filter(
-    (m) =>
-      m.purpose === 'DAILY_FEEDBACK_READING' &&
-      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
+    (m) => m.purpose === 'DAILY_FEEDBACK_READING' && matchesSelectedGoal(m),
   )
   const workMessages = record.chat_messages.filter(
-    (m) =>
-      m.purpose === 'DAILY_FEEDBACK_WORK' &&
-      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
+    (m) => m.purpose === 'DAILY_FEEDBACK_WORK' && matchesSelectedGoal(m),
   )
 
   // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、選択タブに関わらず従来通り

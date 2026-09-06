@@ -16,7 +16,7 @@ from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_FEEDBACK, SUMMARY_INJECT_WEEKS
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
 from app.services import (
@@ -26,17 +26,16 @@ from app.services import (
     record_service,
     setting_reader,
 )
-from app.services.exceptions import InvalidStateTransitionError, ValidationError
+from app.services.exceptions import ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
+
+_ACTION_LABEL = "日次報告フィードバック"
 
 
 def _ensure_active_exam_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.EXAM:
-        raise ValidationError(
-            "資格試験目標（category=EXAM）にのみ日次報告フィードバックを実行できます"
-        )
-    if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の目標のみ日次報告フィードバックを実行できます")
+        raise ValidationError(f"資格試験目標（category=EXAM）にのみ{_ACTION_LABEL}を実行できます")
+    goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
 @dataclass(frozen=True)

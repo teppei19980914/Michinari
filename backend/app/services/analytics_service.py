@@ -27,6 +27,12 @@ _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY = {
     GoalCategory.READING: AiPurpose.DAILY_FEEDBACK_READING,
     GoalCategory.WORK: AiPurpose.DAILY_FEEDBACK_WORK,
 }
+#: 上記の逆引き（purpose→category）。assign_growth_description_goalが、成長記述と無関係な
+#: purpose（週次要約・総括レポート等）のメッセージを渡された場合に安全にNoneを返せるよう
+#: dict.get()で参照できる形にする（Phase26レビューで発見、next()のStopIteration回避）。
+_GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY_REVERSE = {
+    purpose: category for category, purpose in _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY.items()
+}
 
 
 def compute_plan_line(
@@ -129,13 +135,14 @@ def assign_growth_description_goal(session: Session, message: ChatMessage, goal:
     移行前のレガシーメッセージはどの目標宛てか技術的に判別不能なため、利用者が分析タブ上の
     プルダウンから記憶を頼りに割り当てる（データの再生成は行わず、goal_id列の更新のみ）。
     メッセージのpurpose（DAILY_FEEDBACK等）に対応するカテゴリと異なる目標は割り当てられない
-    （例: 読書の想起記録の対話を資格試験目標に割り当てることはできない）。
+    （例: 読書の想起記録の対話を資格試験目標に割り当てることはできない）。既に割り当て済み
+    （goal_id が非NULL）のメッセージは対象外とする（誤操作による付け替え防止）。
     """
-    expected_category = next(
-        category
-        for category, purpose in _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY.items()
-        if purpose == message.purpose
-    )
+    if message.goal_id is not None:
+        raise ValidationError("既に目標が割り当て済みの成長記述です")
+    expected_category = _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY_REVERSE.get(message.purpose)
+    if expected_category is None:
+        raise ValidationError("成長記述として目標を割り当てられないメッセージです")
     if goal.category != expected_category:
         raise ValidationError(
             f"このメッセージは{expected_category.value}カテゴリの目標にのみ割り当てられます"
