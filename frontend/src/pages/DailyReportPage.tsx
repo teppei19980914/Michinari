@@ -35,6 +35,7 @@ import { ChatPanel } from '../features/record/ChatPanel'
 import { isAllCategoriesReported } from '../features/record/categoryCompletion'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
+import { resolveCategoryGoalId } from '../features/record/resolveCategoryGoalId'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
 import {
   buildStudyLogPayload,
@@ -131,23 +132,20 @@ export function DailyReportPage() {
 
   // AI対話（送信・履歴フィルタ）の対象goal_id。日次フィードバックを目標単位の会話へ分離した
   // ため（Phase26、未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を
-  // 指しているかをvisibleQuotaItems等と同じ分岐で解決する。useMutationのmutationFnから
-  // 参照するため、フックより前（早期returnより前）で計算する。
-  const examGoalId = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'EXAM'
-      ? selectedGoal.id
-      : null
-    : (activeGoals[0]?.id ?? null)
-  const readingGoalId = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'READING'
-      ? selectedGoal.id
-      : null
-    : (readingBooksQuery.data?.[0]?.goal.id ?? null)
-  const workGoalId = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'WORK'
-      ? selectedGoal.id
-      : null
-    : (workAssignmentsQuery.data?.[0]?.goal.id ?? null)
+  // 指しているかをresolveCategoryGoalIdで解決する。useMutationのmutationFnから参照するため、
+  // フックより前（早期returnより前）で計算する。
+  const goalTabs = { showGoalSelector, selectedGoal }
+  const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeGoals[0]?.id ?? null)
+  const readingGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'READING',
+    readingBooksQuery.data?.[0]?.goal.id ?? null,
+  )
+  const workGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'WORK',
+    workAssignmentsQuery.data?.[0]?.goal.id ?? null,
+  )
 
   useEffect(() => {
     if (

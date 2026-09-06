@@ -113,6 +113,17 @@ def ensure_goal_editable(goal: Goal) -> None:
         raise InvalidStateTransitionError(f"クローズ済みの目標(id={goal.id})は更新できません")
 
 
+def ensure_goal_active(goal: Goal, *, action_label: str) -> None:
+    """進行中（ACTIVE）以外の目標に対する操作を拒否する共通ガード（Phase26）。
+
+    daily_feedback_service／reading_feedback_service／work_feedback_serviceの3ファイルで
+    同一のACTIVEチェックが逐語重複していたため、ここへ集約した（CLAUDE.md DRYの原則）。
+    action_labelはエラーメッセージに埋め込む操作名（例:「日次報告フィードバック」）。
+    """
+    if goal.status != GoalStatus.ACTIVE:
+        raise InvalidStateTransitionError(f"進行中の目標のみ{action_label}を実行できます")
+
+
 def _validate_resource_ratio(
     session: Session, candidate_ratio: float, exclude_goal_id: int
 ) -> None:

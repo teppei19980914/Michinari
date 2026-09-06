@@ -24,21 +24,20 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_READING_RECALL_RECENT_DAYS,
 )
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
 from app.services import ai_context_service, goal_service, record_service, setting_reader
-from app.services.exceptions import InvalidStateTransitionError, ValidationError
+from app.services.exceptions import ValidationError
 from app.services.record_service import ReadingLogItem
+
+_ACTION_LABEL = "日次報告フィードバック"
 
 
 def _ensure_active_reading_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.READING:
-        raise ValidationError(
-            "読書目標（category=READING）にのみ日次報告フィードバックを実行できます"
-        )
-    if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の目標のみ日次報告フィードバックを実行できます")
+        raise ValidationError(f"読書目標（category=READING）にのみ{_ACTION_LABEL}を実行できます")
+    goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
 @dataclass(frozen=True)

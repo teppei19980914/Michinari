@@ -67,7 +67,10 @@
       "Bash(./.venv/Scripts/python.exe -m pytest tests/test_export_service.py tests/test_api_export.py -q --no-cov)",
       "Bash(./.venv/Scripts/python.exe -m pytest tests/test_export_service.py -q --no-cov)",
       "Bash(./.venv/Scripts/python.exe -m pytest tests/test_api_export.py -q --no-cov)",
-      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/ja.json','utf8'\\)\\); console.log\\('valid json'\\)\")"
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('src/locales/ja.json','utf8'\\)\\); console.log\\('valid json'\\)\")",
+      "Bash(./.venv/Scripts/python.exe -m ruff check app/services/analytics_service.py)",
+      "Bash(./.venv/Scripts/python.exe -m ruff check app/services/goal_service.py app/services/daily_feedback_service.py app/services/reading_feedback_service.py app/services/work_feedback_service.py)",
+      "Bash(./.venv/Scripts/python.exe -m pytest tests/test_daily_feedback_service.py tests/test_reading_feedback_service.py tests/test_work_feedback_service.py tests/test_goal_service.py -q --no-cov)"
     ],
     "additionalDirectories": [
       "C:\\Users\\teppe\\AppData\\Local\\Temp\\claude\\c--Users-teppe-OneDrive-PersonalFolder-GitHubRepository-teppei19980914-Michinari\\de041801-f76b-4e1e-8ad4-0528604378b9\\scratchpad\\smoke_db",
