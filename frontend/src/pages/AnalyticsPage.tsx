@@ -14,7 +14,10 @@ import { ReplanHistoryTab } from '../features/analytics/ReplanHistoryTab'
 import { GrowthDescriptionTab } from '../features/analytics/GrowthDescriptionTab'
 import { ReadingLogHistoryTab } from '../features/analytics/ReadingLogHistoryTab'
 import { WorkLogHistoryTab } from '../features/analytics/WorkLogHistoryTab'
-import { selectableAnalyticsGoals } from '../features/analytics/selectableAnalyticsGoals'
+import {
+  hasArchivedAnalyticsGoals,
+  selectableAnalyticsGoals,
+} from '../features/analytics/selectableAnalyticsGoals'
 
 const EXAM_TABS = [
   { key: 'quality', labelKey: 'analytics.tabs.quality' },
@@ -48,12 +51,14 @@ type TabKey =
  * タブ構成でデータを表示する。日次報告（DailyReportPage）と同じGoalTabBarで対象目標を
  * 切り替える方式に統一した（Phase25、分析タブの目標ごと表示の是正）。ダッシュボードの
  * 統計カードからは対象目標を指定した状態（?goal=<id>）で遷移してくる。目標タブに並べる
- * 対象（アーカイブ済み・下書きを除く）はselectableAnalyticsGoals.tsで判定する。
+ * 対象（下書きを除く。アーカイブ済みは既定で非表示とし、目標一覧（SC-02）と同じトグルで
+ * 表示を切り替える）はselectableAnalyticsGoals.tsで判定する。
  * （features/dashboard/StatsSummary.tsx参照）。「成長記述」タブも選択中の目標宛てに
  * 絞り込む（Phase26で目標単位に分離、features/analytics/GrowthDescriptionTab.tsx参照）。 */
 export function AnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab] = useState<TabKey>('quality')
+  const [showArchived, setShowArchived] = useState(false)
 
   const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: listGoals })
 
@@ -64,7 +69,8 @@ export function AnalyticsPage() {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalsQuery.error)}</p>
   }
 
-  const goals = selectableAnalyticsGoals(goalsQuery.data)
+  const goals = selectableAnalyticsGoals(goalsQuery.data, { includeArchived: showArchived })
+  const showArchivedToggle = hasArchivedAnalyticsGoals(goalsQuery.data)
   const requestedGoalId = Number(searchParams.get('goal'))
   const selectedGoalId = goals.find((g) => g.id === requestedGoalId)?.id ?? goals[0]?.id
   const selectedGoal = goals.find((g) => g.id === selectedGoalId)
@@ -79,6 +85,17 @@ export function AnalyticsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">{t('analytics.title')}</h1>
+
+      {showArchivedToggle && (
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          {t('analytics.showArchivedToggle')}
+        </label>
+      )}
 
       {goals.length === 0 ? (
         <p className="text-sm text-gray-500">{t('analytics.goalSelector.empty')}</p>
