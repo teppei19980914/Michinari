@@ -59,3 +59,9 @@ packages = ["app"]
 
 [tool.uv.sources]
 newtonx-adk = { path = "../newtonx_adk/newtonx_adk-0.10.5-py3-none-any.whl" }
+
+[tool.uv]
+# OneDriveの同期フォルダ内では既定のhardlinkがクラウド操作と非互換
+# (os error 396) を起こすため、copyに変更する。
+# 参照: https://docs.astral.sh/uv/reference/settings/#link-mode
+link-mode = "copy"
