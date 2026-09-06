@@ -14,6 +14,7 @@ import { ReplanHistoryTab } from '../features/analytics/ReplanHistoryTab'
 import { GrowthDescriptionTab } from '../features/analytics/GrowthDescriptionTab'
 import { ReadingLogHistoryTab } from '../features/analytics/ReadingLogHistoryTab'
 import { WorkLogHistoryTab } from '../features/analytics/WorkLogHistoryTab'
+import { selectableAnalyticsGoals } from '../features/analytics/selectableAnalyticsGoals'
 
 const EXAM_TABS = [
   { key: 'quality', labelKey: 'analytics.tabs.quality' },
@@ -46,7 +47,8 @@ type TabKey =
 /** SC-09 分析（仕様書6.8）。目標を選択し、目標のカテゴリ（資格試験／読書／仕事）に応じた
  * タブ構成でデータを表示する。日次報告（DailyReportPage）と同じGoalTabBarで対象目標を
  * 切り替える方式に統一した（Phase25、分析タブの目標ごと表示の是正）。ダッシュボードの
- * 統計カードからは対象目標を指定した状態（?goal=<id>）で遷移してくる
+ * 統計カードからは対象目標を指定した状態（?goal=<id>）で遷移してくる。目標タブに並べる
+ * 対象（アーカイブ済み・下書きを除く）はselectableAnalyticsGoals.tsで判定する。
  * （features/dashboard/StatsSummary.tsx参照）。「成長記述」タブも選択中の目標宛てに
  * 絞り込む（Phase26で目標単位に分離、features/analytics/GrowthDescriptionTab.tsx参照）。 */
 export function AnalyticsPage() {
@@ -62,7 +64,7 @@ export function AnalyticsPage() {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalsQuery.error)}</p>
   }
 
-  const goals = goalsQuery.data
+  const goals = selectableAnalyticsGoals(goalsQuery.data)
   const requestedGoalId = Number(searchParams.get('goal'))
   const selectedGoalId = goals.find((g) => g.id === requestedGoalId)?.id ?? goals[0]?.id
   const selectedGoal = goals.find((g) => g.id === selectedGoalId)

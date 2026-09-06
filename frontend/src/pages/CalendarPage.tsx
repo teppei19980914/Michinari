@@ -22,7 +22,8 @@ import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
  * features/calendar/resolveCalendarDateAction.ts に切り出している（技術選定書4.5
  * 「日付状態による遷移先の判定」）。
  *
- * 補助表示（受験日・読書締切等）は、日次報告（DailyReportPage）と同じGoalTabBarで
+ * 補助表示（受験日・受験期間・負荷係数が1.0以外の期間。仕様書6.4の3種のみで、読書の
+ * 読了目標日・仕事の案件はカレンダーの補助表示の対象外）は、日次報告（DailyReportPage）と同じGoalTabBarで
  * 選択した1目標分のみを表示する方式に統一した（Phase25、進行中の全目標を1画面に
  * 集約表示していた旧仕様6.4を改訂）。日種別・記録状態（背景色・マーカー）は
  * 目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */

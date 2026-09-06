@@ -4,20 +4,26 @@ import { Card } from '../../components/Card'
 import { formatPercent } from '../../utils/format'
 import { ROUTES } from '../../constants/routes'
 import type { DashboardRead } from '../../api/dashboard'
+import { buildCategoryByGoalId, showsBufferUsageRate } from './statsVisibility'
 
 type StatsSummaryProps = {
   goalStats: DashboardRead['goal_stats']
+  /** カテゴリ判定のために同じ目標の目標カードを受け取る（statsVisibility.ts参照）。 */
+  goalCards: DashboardRead['goal_cards']
   reportRateWindowDays: number
 }
 
 /** 統計サマリ（仕様書6.1「連続報告日数、直近30日の報告率、バッファ消費率、実効速度」）。
- * 連続報告日数・報告率・バッファ消費率は目標開始日を起点に算出するため、目標ごとに表示する。
+ * 連続報告日数・報告率・予備日消費率は目標開始日を起点に算出するため、目標ごとに表示する。
+ * 予備日消費率は資格試験目標にのみ表示する（読書・仕事目標は日種別による計画運用の対象外の
+ * ため。statsVisibility.ts参照）。
  * 「直近N日」のNは app_setting（dashboard.report_rate_window_days）から取得した値を表示し、
  * ソースコードへ数値を直接書かない（CLAUDE.md ゼロハードコーディング）。 */
-export function StatsSummary({ goalStats, reportRateWindowDays }: StatsSummaryProps) {
+export function StatsSummary({ goalStats, goalCards, reportRateWindowDays }: StatsSummaryProps) {
   if (goalStats.length === 0) {
     return null
   }
+  const categoryByGoalId = buildCategoryByGoalId(goalCards)
 
   return (
     <Card>
@@ -43,14 +49,16 @@ export function StatsSummary({ goalStats, reportRateWindowDays }: StatsSummaryPr
                 <dt>{t('dashboard.stats.recentReportRate', { windowDays: reportRateWindowDays })}</dt>
                 <dd>{formatPercent(stats.recent_report_rate)}</dd>
               </div>
-              <div className="flex justify-between">
-                <dt>{t('dashboard.stats.bufferUsageRate')}</dt>
-                <dd>
-                  {stats.buffer_usage_rate === null
-                    ? t('dashboard.stats.bufferUsageRateUnavailable')
-                    : formatPercent(stats.buffer_usage_rate)}
-                </dd>
-              </div>
+              {showsBufferUsageRate(categoryByGoalId[stats.goal_id]) && (
+                <div className="flex justify-between">
+                  <dt>{t('dashboard.stats.bufferUsageRate')}</dt>
+                  <dd>
+                    {stats.buffer_usage_rate === null
+                      ? t('dashboard.stats.bufferUsageRateUnavailable')
+                      : formatPercent(stats.buffer_usage_rate)}
+                  </dd>
+                </div>
+              )}
             </dl>
             {stats.material_speeds.length > 0 && (
               <ul className="mt-1 text-xs text-gray-500">

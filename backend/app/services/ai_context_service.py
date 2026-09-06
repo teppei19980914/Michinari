@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.ai.prompt_builder import MaterialStatusEntry
 from app.constants.enums import (
     BaselineReason,
-    DayType,
     ExamResultType,
     GoalCategory,
     GoalStatus,
@@ -37,7 +36,6 @@ from app.models.record import (
 from app.models.work import WorkAssignment
 from app.services import (
     baseline_service,
-    calendar_service,
     cycle_service,
     goal_service,
     material_service,
