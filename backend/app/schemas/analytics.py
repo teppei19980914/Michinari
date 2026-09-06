@@ -132,10 +132,23 @@ class GrowthDescriptionEntryRead(BaseModel):
 
     データ構造編8章のエンドポイント一覧に明記のないPhase9実装判断による追加。
     根拠はanalytics_service.list_growth_descriptionsのdocstringを参照。
+
+    message_id・goal_id はPhase26で追加。goal_id が null のエントリは目標単位分離より
+    前のレガシーメッセージ（未割り当て）であり、PATCH /analytics/growth-descriptions/{id}
+    で利用者が目標を割り当てられる。
     """
 
+    message_id: int
     record_date: dt.date
     content: str
+    goal_id: int | None
+
+
+class GrowthDescriptionAssignRequest(BaseModel):
+    """PATCH /analytics/growth-descriptions/{message_id}（成長記述への目標の手動割り当て、
+    Phase26）。"""
+
+    goal_id: int
 
 
 class ReadingLogEntryRead(BaseModel):

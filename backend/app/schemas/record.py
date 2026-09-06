@@ -105,6 +105,7 @@ class ChatMessageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    goal_id: int | None
     purpose: AiPurpose
     role: ChatRole
     content: str
@@ -200,8 +201,11 @@ class ChatRequest(BaseModel):
     study_logs・diary_entries はこの時点でDBへ確定させない下書き値であり、
     プロンプト組み立てにのみ使用する（AI呼び出し失敗時も入力を失わないため、16.7）。
     message は2往復目以降の自由入力。1往復目（本日最初の呼び出し）は省略できる。
+    goal_id は対象目標（GoalTabBarで選択中の1件）。Phase26で日次フィードバックを
+    目標単位の会話へ分離したことに伴い必須化した。
     """
 
+    goal_id: int
     message: str | None = Field(default=None, min_length=1)
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
@@ -216,9 +220,11 @@ class ChatResponse(BaseModel):
 class ReadingChatRequest(BaseModel):
     """読書目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
     POST /records/{date}/reading-chat）。ChatRequestと同じ設計：reading_logsはこの時点で
-    DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+    DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。goal_idはChatRequestと
+    同じ理由でPhase26にて必須化した。
     """
 
+    goal_id: int
     message: str | None = Field(default=None, min_length=1)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
 
@@ -227,8 +233,10 @@ class WorkChatRequest(BaseModel):
     """仕事目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
     POST /records/{date}/work-chat）。ChatRequest・ReadingChatRequestと同じ設計：
     work_logsはこの時点でDBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+    goal_idはChatRequestと同じ理由でPhase26にて必須化した。
     """
 
+    goal_id: int
     message: str | None = Field(default=None, min_length=1)
     work_logs: list[WorkLogInput] = Field(default_factory=list)
 

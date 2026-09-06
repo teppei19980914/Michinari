@@ -24,11 +24,21 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_READING_RECALL_RECENT_DAYS,
 )
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory, GoalStatus
+from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
-from app.services import ai_context_service, record_service, setting_reader
-from app.services.exceptions import ValidationError
+from app.services import ai_context_service, goal_service, record_service, setting_reader
+from app.services.exceptions import InvalidStateTransitionError, ValidationError
 from app.services.record_service import ReadingLogItem
+
+
+def _ensure_active_reading_goal(goal: Goal) -> None:
+    if goal.category != GoalCategory.READING:
+        raise ValidationError(
+            "読書目標（category=READING）にのみ日次報告フィードバックを実行できます"
+        )
+    if goal.status != GoalStatus.ACTIVE:
+        raise InvalidStateTransitionError("進行中の目標のみ日次報告フィードバックを実行できます")
 
 
 @dataclass(frozen=True)
@@ -41,31 +51,45 @@ class ReadingChatOutcome:
 def send_reading_feedback(
     session: Session,
     *,
+    goal_id: int,
     target_date: dt.date,
     today: dt.date,
     message: str | None,
     reading_log_items: list[ReadingLogItem],
 ) -> ReadingChatOutcome:
-    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/reading-chat）。"""
+    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/reading-chat）。
+
+    Phase26で日次フィードバックを目標単位の会話へ分離した。goal_idで指定された1目標
+    （＝1冊）のみを対象とする（未決事項L-07の解消方針転換）。
+    """
     if target_date > today:
         raise ValidationError("未来日のAI対話はできません")
+
+    goal = goal_service.get_goal(session, goal_id)
+    _ensure_active_reading_goal(goal)
 
     record = record_service.ensure_daily_record(session, target_date)
     books_by_id = record_service.load_books_by_id(
         session, {item.book_id for item in reading_log_items}
     )
+    # 選択中の目標（書籍）宛ての想起記録のみを対象とする（他の読書目標の下書きが
+    # プロンプトへ混入しないようにする、Phase26）。
+    reading_log_items = [
+        item for item in reading_log_items if books_by_id[item.book_id].goal_id == goal.id
+    ]
 
-    active_reading_goals = ai_context_service.list_active_reading_goals(session)
-    active_books = ai_context_service.list_active_books(active_reading_goals)
+    active_books = ai_context_service.list_active_books([goal])
     recent_days = setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS)
 
-    # 対話履歴への注入はpurposeで絞り込む（daily_feedback_serviceと同じ理由。ChatMessage
-    # モデルのdocstring参照）。
+    # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_serviceと同じ理由。
+    # ChatMessageモデルのdocstring参照）。goal_id=NULLの行は移行前のレガシーメッセージ
+    # のため対話履歴には含めない（Phase26）。
     existing_messages = (
         session.query(ChatMessage)
         .filter(
             ChatMessage.daily_record_id == record.id,
             ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK_READING,
+            ChatMessage.goal_id == goal.id,
         )
         .order_by(ChatMessage.sequence)
         .all()
@@ -91,11 +115,11 @@ def send_reading_feedback(
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING)
     conversation = ai_conversation.ensure_conversation(
         session,
-        goal=None,
+        goal=goal,
         scope=ConversationScope.DAILY_FEEDBACK_READING,
         scope_key=target_date.isoformat(),
         assistant_uid=assistant_uid,
-        title=f"{target_date.isoformat()} 読書日次報告",
+        title=f"{target_date.isoformat()} 読書日次報告（{goal.name}）",
     )
 
     send_result = ai_orchestration.send_and_log(
@@ -112,6 +136,7 @@ def send_reading_feedback(
         session.add(
             ChatMessage(
                 daily_record_id=record.id,
+                goal_id=goal.id,
                 purpose=AiPurpose.DAILY_FEEDBACK_READING,
                 role=ChatRole.USER,
                 content=message,
@@ -122,6 +147,7 @@ def send_reading_feedback(
 
     assistant_message = ChatMessage(
         daily_record_id=record.id,
+        goal_id=goal.id,
         purpose=AiPurpose.DAILY_FEEDBACK_READING,
         role=ChatRole.ASSISTANT,
         content=send_result.response_text,

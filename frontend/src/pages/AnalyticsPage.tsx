@@ -47,8 +47,8 @@ type TabKey =
  * タブ構成でデータを表示する。日次報告（DailyReportPage）と同じGoalTabBarで対象目標を
  * 切り替える方式に統一した（Phase25、分析タブの目標ごと表示の是正）。ダッシュボードの
  * 統計カードからは対象目標を指定した状態（?goal=<id>）で遷移してくる
- * （features/dashboard/StatsSummary.tsx参照）。「成長記述」タブのみ目標を横断した
- * データのためカテゴリに関わらず常に選択可能（features/analytics/GrowthDescriptionTab.tsx参照）。 */
+ * （features/dashboard/StatsSummary.tsx参照）。「成長記述」タブも選択中の目標宛てに
+ * 絞り込む（Phase26で目標単位に分離、features/analytics/GrowthDescriptionTab.tsx参照）。 */
 export function AnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [tab, setTab] = useState<TabKey>('quality')
@@ -124,7 +124,9 @@ export function AnalyticsPage() {
         </>
       )}
 
-      {activeTab === 'growthDescription' && <GrowthDescriptionTab />}
+      {activeTab === 'growthDescription' && selectedGoalId !== undefined && (
+        <GrowthDescriptionTab goalId={selectedGoalId} goals={goals} />
+      )}
     </div>
   )
 }
