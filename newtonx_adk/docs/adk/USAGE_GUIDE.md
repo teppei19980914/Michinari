@@ -61,8 +61,7 @@ assistants = client.get_assistants()
 
 # チャットを作成
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="テストチャット"
+    assistant_uid=assistants[0]["uid"], title="テストチャット"
 )
 
 # メッセージを送信
@@ -133,8 +132,7 @@ selected_assistant = assistants[0]  # 最初のアシスタント
 ```python
 # チャットを作成
 chat_uid = client.create_chat(
-    assistant_uid=selected_assistant['uid'],
-    title="新しいチャット"
+    assistant_uid=selected_assistant["uid"], title="新しいチャット"
 )
 
 # チャット詳細を取得
@@ -175,25 +173,20 @@ for chat in chats:
 
 ```python
 # 基本的なメッセージ送信
-response = client.send_message(
-    chat_uid=chat_uid,
-    message="こんにちは！"
-)
+response = client.send_message(chat_uid=chat_uid, message="こんにちは！")
 
 # 検索設定を指定
 response = client.send_message(
     chat_uid=chat_uid,
     message="最新のAI技術について教えてください",
-    web_search=True,      # ウェブ検索を有効
-    knowledge_search=False # ナレッジ検索を無効
+    web_search=True,  # ウェブ検索を有効
+    knowledge_search=False,  # ナレッジ検索を無効
 )
 
 # 画像付きメッセージ
 image_id = client.upload_image(chat_uid, "image.jpg")
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="この画像を分析してください",
-    image_ids=[image_id]
+    chat_uid=chat_uid, message="この画像を分析してください", image_ids=[image_id]
 )
 ```
 
@@ -201,7 +194,9 @@ response = client.send_message(
 
 ```python
 # 画像をまとめてアップロードしてからメッセージ送信する場合
-image_ids = client.upload_images(chat_uid, ["/path/to/a.png", "/path/to/b.jpg"])  # ["uidA", "uidB"]
+image_ids = client.upload_images(
+    chat_uid, ["/path/to/a.png", "/path/to/b.jpg"]
+)  # ["uidA", "uidB"]
 response = client.send_message(
     chat_uid=chat_uid,
     message="これらの画像を比較して要点を抽出してください",
@@ -225,7 +220,7 @@ response = client.send_message_with_images(
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/sample.wav"
+    audio_file_path="/path/to/sample.wav",
 )
 
 if response:
@@ -252,7 +247,7 @@ try:
     response = client.send_message(
         chat_uid=chat_uid,
         message="この音声を文字起こししてください",
-        audio_file_path="/path/to/audio.mp3"
+        audio_file_path="/path/to/audio.mp3",
     )
 except FileUploadError as e:
     print(f"ファイルアップロードエラー: {e}")
@@ -285,17 +280,15 @@ else:
 image_id = client.upload_image(
     chat_uid=chat_uid,
     file_path="path/to/image.jpg",
-    file_name="custom_name.jpg"  # オプション
+    file_name="custom_name.jpg",  # オプション
 )
 
 if image_id:
     print(f"画像がアップロードされました: {image_id}")
-    
+
     # 画像付きメッセージを送信
     response = client.send_message(
-        chat_uid=chat_uid,
-        message="この画像を分析してください",
-        image_ids=[image_id]
+        chat_uid=chat_uid, message="この画像を分析してください", image_ids=[image_id]
     )
 else:
     print("画像のアップロードに失敗しました")
@@ -308,16 +301,15 @@ else:
 success = client.upload_document(
     chat_uid=chat_uid,
     file_path="path/to/document.pdf",
-    file_name="custom_name.pdf"  # オプション
+    file_name="custom_name.pdf",  # オプション
 )
 
 if success:
     print("ドキュメントがアップロードされました")
-    
+
     # ドキュメントについて質問
     response = client.send_message(
-        chat_uid=chat_uid,
-        message="このドキュメントの内容を要約してください"
+        chat_uid=chat_uid, message="このドキュメントの内容を要約してください"
     )
 else:
     print("ドキュメントのアップロードに失敗しました")
@@ -373,7 +365,7 @@ else:
 ```python
 # アシスタントを取得
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
 
 # ナレッジを登録
 file_uid = client.add_assistant_knowledge(
@@ -441,6 +433,7 @@ except Exception as e:
 import time
 from newtonx_adk import APIError
 
+
 def send_message_with_retry(client, chat_uid, message, max_retries=3):
     """リトライ機能付きメッセージ送信"""
     for attempt in range(max_retries):
@@ -449,9 +442,10 @@ def send_message_with_retry(client, chat_uid, message, max_retries=3):
         except APIError as e:
             if attempt < max_retries - 1:
                 print(f"APIエラー、{attempt + 1}回目のリトライ: {e}")
-                time.sleep(2 ** attempt)  # 指数バックオフ
+                time.sleep(2**attempt)  # 指数バックオフ
             else:
                 raise e
+
 
 # 使用例
 try:
@@ -471,14 +465,10 @@ config_manager = ConfigManager("my_config.json")
 
 # 環境に応じて設定を変更
 if os.getenv("ENVIRONMENT") == "production":
-    config_manager.update_config(
-        api_base_url="https://api.newtonx.com",
-        timeout=60
-    )
+    config_manager.update_config(api_base_url="https://api.newtonx.com", timeout=60)
 else:
     config_manager.update_config(
-        api_base_url="https://staging-api.newtonx.com",
-        timeout=30
+        api_base_url="https://staging-api.newtonx.com", timeout=30
     )
 ```
 
@@ -493,6 +483,7 @@ def ensure_authenticated(client):
         if not client.authenticate():
             raise Exception("認証に失敗しました")
     return True
+
 
 # 使用例
 ensure_authenticated(client)
@@ -517,6 +508,7 @@ def safe_api_call(func, *args, **kwargs):
         print(f"予期しないエラー: {e}")
         return None
 
+
 # 使用例
 response = safe_api_call(client.send_message, chat_uid, "メッセージ")
 ```
@@ -526,20 +518,20 @@ response = safe_api_call(client.send_message, chat_uid, "メッセージ")
 ```python
 class NewtonXManager:
     """NewtonXリソース管理クラス"""
-    
+
     def __init__(self):
         self.config_manager = ConfigManager()
         self.client = NewtonXClient(self.config_manager)
         self.chats = []
         self.folders = []
-    
+
     def create_chat(self, assistant_uid, title):
         """チャットを作成して管理"""
         chat_uid = self.client.create_chat(assistant_uid, title)
         if chat_uid:
             self.chats.append(chat_uid)
         return chat_uid
-    
+
     def cleanup(self):
         """リソースのクリーンアップ"""
         for chat_uid in self.chats:
@@ -547,6 +539,7 @@ class NewtonXManager:
                 self.client.delete_chat(chat_uid)
             except Exception as e:
                 print(f"チャット削除エラー {chat_uid}: {e}")
+
 
 # 使用例
 manager = NewtonXManager()
@@ -605,6 +598,7 @@ python tools/check_config.py
 ```python
 # ネットワーク接続を確認
 import requests
+
 try:
     response = requests.get("https://api.newtonx.com", timeout=5)
     print("ネットワーク接続: OK")
@@ -641,27 +635,27 @@ else:
 **解決方法**:
 ```python
 # ファイルを分割してアップロード
-def upload_large_file(client, chat_uid, file_path, chunk_size=1024*1024):
+def upload_large_file(client, chat_uid, file_path, chunk_size=1024 * 1024):
     """大きなファイルを分割アップロード"""
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         chunk_num = 0
         while True:
             chunk = f.read(chunk_size)
             if not chunk:
                 break
-            
+
             # チャンクを一時ファイルに保存
             temp_file = f"temp_chunk_{chunk_num}.tmp"
-            with open(temp_file, 'wb') as temp:
+            with open(temp_file, "wb") as temp:
                 temp.write(chunk)
-            
+
             # チャンクをアップロード
             try:
                 client.upload_document(chat_uid, temp_file)
                 print(f"チャンク {chunk_num} をアップロードしました")
             finally:
                 os.remove(temp_file)
-            
+
             chunk_num += 1
 ```
 
@@ -685,9 +679,11 @@ print(f"Authenticated: {client.auth_manager.is_authenticated()}")
 # 並列処理で複数のチャットを処理
 import concurrent.futures
 
+
 def process_chat(chat_uid, message):
     """チャットを処理"""
     return client.send_message(chat_uid, message)
+
 
 # 並列実行
 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -695,7 +691,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
     for chat_uid in chat_uids:
         future = executor.submit(process_chat, chat_uid, "メッセージ")
         futures.append(future)
-    
+
     # 結果を収集
     for future in concurrent.futures.as_completed(futures):
         try:

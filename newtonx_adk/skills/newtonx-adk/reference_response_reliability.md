@@ -29,7 +29,7 @@ END_MARKER = "__END_OF_RESPONSE__"
 # 長文出力が必要な指示では、必ず終端マーカーを含めるよう指示
 response = client.send_message(
     chat_uid=chat_uid,
-    message=f"長文のレポートを作成してください。最後に {END_MARKER} を付けてください。"
+    message=f"長文のレポートを作成してください。最後に {END_MARKER} を付けてください。",
 )
 ```
 
@@ -43,30 +43,30 @@ for i in range(max_iterations):
     # 終端マーカーが含まれているか確認
     if END_MARKER in full_response:
         break
-    
+
     # チャット詳細を取得して最後のメッセージのchat_orderを取得
     chat_detail = client.get_chat(chat_uid)
     if not chat_detail:
         break
-    
-    messages = chat_detail.get('messages', [])
+
+    messages = chat_detail.get("messages", [])
     if not messages:
         break
-    
+
     # 最後のアシスタントメッセージを取得
     last_msg = messages[-1]
-    if last_msg['role'] != 'assistant':
+    if last_msg["role"] != "assistant":
         break
-    
-    parent_order = last_msg['chat_order']
-    
+
+    parent_order = last_msg["chat_order"]
+
     # 続きを要求
     continuation = client.send_message(
         chat_uid=chat_uid,
         message=f"続きを出力してください。最後に {END_MARKER} を付けてください。",
-        parent_order=parent_order
+        parent_order=parent_order,
     )
-    
+
     if continuation:
         full_response += continuation
     else:
@@ -83,55 +83,54 @@ print(full_response)
 def get_complete_response(client, chat_uid, initial_message, max_iterations=10):
     """終端マーカー方式で完全な回答を取得"""
     END_MARKER = "__END_OF_RESPONSE__"
-    
+
     # 最初のメッセージ送信
     response = client.send_message(
         chat_uid=chat_uid,
-        message=f"{initial_message}\n\n最後に {END_MARKER} を付けてください。"
+        message=f"{initial_message}\n\n最後に {END_MARKER} を付けてください。",
     )
-    
+
     full_response = response or ""
-    
+
     # 終端マーカーが出るまで継続取得
     for i in range(max_iterations):
         if END_MARKER in full_response:
             break
-        
+
         # チャット詳細を取得
         chat_detail = client.get_chat(chat_uid)
         if not chat_detail:
             break
-        
-        messages = chat_detail.get('messages', [])
+
+        messages = chat_detail.get("messages", [])
         if not messages:
             break
-        
+
         last_msg = messages[-1]
-        if last_msg['role'] != 'assistant':
+        if last_msg["role"] != "assistant":
             break
-        
-        parent_order = last_msg['chat_order']
-        
+
+        parent_order = last_msg["chat_order"]
+
         # 続きを要求
         continuation = client.send_message(
             chat_uid=chat_uid,
             message=f"続きを出力してください。最後に {END_MARKER} を付けてください。",
-            parent_order=parent_order
+            parent_order=parent_order,
         )
-        
+
         if continuation:
             full_response += continuation
         else:
             break
-    
+
     # 終端マーカーを除去
     return full_response.replace(END_MARKER, "").strip()
 
+
 # 使用例
 response = get_complete_response(
-    client,
-    chat_uid,
-    "Pythonのリスト内包表記について詳しく説明してください。"
+    client, chat_uid, "Pythonのリスト内包表記について詳しく説明してください。"
 )
 print(response)
 ```
@@ -170,25 +169,24 @@ except (APIError, ChatError, Exception) as e:
 def send_with_recovery(client, assistant_uid, message, max_retries=2):
     """無応答時に新規チャットでやり直す"""
     chat_uid = None
-    
+
     for attempt in range(max_retries):
         try:
             # 新規チャット作成（または再利用）
             if not chat_uid:
                 chat_uid = client.create_chat(
-                    assistant_uid=assistant_uid,
-                    title=f"リカバリチャット {attempt + 1}"
+                    assistant_uid=assistant_uid, title=f"リカバリチャット {attempt + 1}"
                 )
-            
+
             # メッセージ送信
             response = client.send_message(chat_uid, message)
-            
+
             if response:
                 return response, chat_uid
-            
+
             # 応答がNoneの場合は新規チャットで再試行
             chat_uid = None
-            
+
         except (APIError, ChatError, Exception) as e:
             print(f"エラー発生（試行 {attempt + 1}/{max_retries}）: {e}")
             chat_uid = None  # 次の試行で新規作成
@@ -196,16 +194,13 @@ def send_with_recovery(client, assistant_uid, message, max_retries=2):
                 time.sleep(1)  # 少し待ってから再試行
             else:
                 raise
-    
+
     raise Exception("最大リトライ回数に達しました")
+
 
 # 使用例
 try:
-    response, chat_uid = send_with_recovery(
-        client,
-        assistant_uid,
-        "質問内容"
-    )
+    response, chat_uid = send_with_recovery(client, assistant_uid, "質問内容")
     print(response)
 except Exception as e:
     print(f"最終的に失敗: {e}")
@@ -221,40 +216,39 @@ def send_with_recovery_and_attachments(
     image_ids=None,
     document_ids=None,
     audio_file_path=None,
-    max_retries=2
+    max_retries=2,
 ):
     """無応答時に新規チャットでやり直す（添付ファイル対応）"""
     chat_uid = None
-    
+
     for attempt in range(max_retries):
         try:
             # 注意: audio_file_path を使う場合は「Gemini」アシスタント（音声対応）を選ぶこと
             # 新規チャット作成
             if not chat_uid:
                 chat_uid = client.create_chat(
-                    assistant_uid=assistant_uid,
-                    title=f"リカバリチャット {attempt + 1}"
+                    assistant_uid=assistant_uid, title=f"リカバリチャット {attempt + 1}"
                 )
-            
+
             # 添付ファイルを再アップロード（必要に応じて）
             retry_image_ids = image_ids
             retry_document_ids = document_ids
-            
+
             # メッセージ送信
             response = client.send_message(
                 chat_uid=chat_uid,
                 message=message,
                 image_ids=retry_image_ids,
                 document_ids=retry_document_ids,
-                audio_file_path=audio_file_path
+                audio_file_path=audio_file_path,
             )
-            
+
             if response:
                 return response, chat_uid
-            
+
             # 応答がNoneの場合は新規チャットで再試行
             chat_uid = None
-            
+
         except (APIError, ChatError, Exception) as e:
             print(f"エラー発生（試行 {attempt + 1}/{max_retries}）: {e}")
             chat_uid = None
@@ -262,20 +256,18 @@ def send_with_recovery_and_attachments(
                 time.sleep(1)
             else:
                 raise
-    
+
     raise Exception("最大リトライ回数に達しました")
+
 
 # 使用例
 try:
     # 画像をアップロード
     image_id = client.upload_image(chat_uid, "/path/to/image.jpg")
-    
+
     # リカバリ付きで送信
     response, new_chat_uid = send_with_recovery_and_attachments(
-        client,
-        assistant_uid,
-        "この画像を分析してください",
-        image_ids=[image_id]
+        client, assistant_uid, "この画像を分析してください", image_ids=[image_id]
     )
     print(response)
 except Exception as e:
@@ -288,7 +280,9 @@ except Exception as e:
 
 ```python
 # ✅ 良い例
-message = "長文のレポートを作成してください。最後に __END_OF_RESPONSE__ を付けてください。"
+message = (
+    "長文のレポートを作成してください。最後に __END_OF_RESPONSE__ を付けてください。"
+)
 
 # ❌ 悪い例
 message = "長文のレポートを作成してください。"  # 終端マーカーがない

@@ -136,3 +136,19 @@ class GrowthDescriptionEntryRead(BaseModel):
 
     record_date: dt.date
     content: str
+
+
+class ReadingLogEntryRead(BaseModel):
+    """GET /analytics/reading-logs（仕様書6.8「読書記録」タブ、読書目標category=READING向け）。"""
+
+    record_date: dt.date
+    recall_body: str
+    pages_read: int | None
+    current_page: int | None
+
+
+class WorkLogEntryRead(BaseModel):
+    """GET /analytics/work-logs（仕様書6.8「業務記録」タブ、仕事目標category=WORK向け）。"""
+
+    record_date: dt.date
+    body: str

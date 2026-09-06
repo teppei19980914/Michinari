@@ -151,9 +151,7 @@ def get_book_progress(session: Session, book: Book, today: dt.date) -> BookProgr
         day -= dt.timedelta(days=1)
 
     progress_rate = (
-        current_page / book.total_pages
-        if current_page is not None and book.total_pages
-        else None
+        current_page / book.total_pages if current_page is not None and book.total_pages else None
     )
 
     return BookProgress(

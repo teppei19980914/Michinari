@@ -22,6 +22,7 @@ def create_db_engine(database_url: str | None = None) -> Engine:
     # 技術選定書のSQLite以外の分岐は将来のPostgreSQL移行に備えた保険であり、
     # 現行運用（SQLite固定）ではテスト対象から除外する。
     if url.startswith("sqlite"):  # pragma: no branch
+
         @event.listens_for(engine, "connect")
         def _enable_foreign_keys(dbapi_connection, _connection_record) -> None:
             cursor = dbapi_connection.cursor()

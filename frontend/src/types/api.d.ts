@@ -1114,6 +1114,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/reading-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reading Log Analytics
+         * @description 読書目標（category=READING）向けの分析タブ「読書記録」（仕様書6.8補足）。
+         *
+         *     資格試験の品質推移等5タブはMaterial（教材）に依存するため読書目標には適用できず、
+         *     代わりに日々の想起記録を新しい順に列挙する（analytics_service.list_reading_log_entries
+         *     のdocstring参照）。書籍未登録の場合は空配列を返す（エラーとしない）。
+         */
+        get: operations["get_reading_log_analytics_api_v1_analytics_reading_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/work-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Work Log Analytics
+         * @description 仕事目標（category=WORK）向けの分析タブ「業務記録」（仕様書6.8補足）。
+         *
+         *     読書と同じ理由でMaterial非依存の一覧表示とする（analytics_service.list_work_log_entries
+         *     のdocstring参照）。案件情報未登録の場合は空配列を返す（エラーとしない）。
+         */
+        get: operations["get_work_log_analytics_api_v1_analytics_work_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subjects/{subject_id}/result": {
         parameters: {
             query?: never;
@@ -2763,6 +2810,23 @@ export interface components {
             reading_logs?: components["schemas"]["ReadingLogInput"][];
         };
         /**
+         * ReadingLogEntryRead
+         * @description GET /analytics/reading-logs（仕様書6.8「読書記録」タブ、読書目標category=READING向け）。
+         */
+        ReadingLogEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Recall Body */
+            recall_body: string;
+            /** Pages Read */
+            pages_read: number | null;
+            /** Current Page */
+            current_page: number | null;
+        };
+        /**
          * ReadingLogInput
          * @description 読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。
          */
@@ -3160,6 +3224,19 @@ export interface components {
         WorkFinalizeRequest: {
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
+        };
+        /**
+         * WorkLogEntryRead
+         * @description GET /analytics/work-logs（仕様書6.8「業務記録」タブ、仕事目標category=WORK向け）。
+         */
+        WorkLogEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Body */
+            body: string;
         };
         /**
          * WorkLogInput
@@ -5583,6 +5660,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrowthDescriptionEntryRead"][];
+                };
+            };
+        };
+    };
+    get_reading_log_analytics_api_v1_analytics_reading_logs_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingLogEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_work_log_analytics_api_v1_analytics_work_logs_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkLogEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

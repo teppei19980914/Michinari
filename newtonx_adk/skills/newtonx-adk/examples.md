@@ -36,24 +36,24 @@ client.authenticate()
 
 # アシスタント取得
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
+
 
 # フォルダ取得または作成
 def get_or_create_folder(client, folder_name):
     folders = client.get_folders()
-    folder = next((f for f in folders if f['name'] == folder_name), None)
+    folder = next((f for f in folders if f["name"] == folder_name), None)
     if folder:
-        return folder['id']
+        return folder["id"]
     else:
         return client.create_folder(folder_name)
+
 
 folder_id = get_or_create_folder(client, "画像解析プロジェクト")
 
 # フォルダ内にチャット作成
 chat_uid = client.create_chat(
-    assistant_uid=assistant_uid,
-    title="画像解析チャット",
-    folder_uid=folder_id
+    assistant_uid=assistant_uid, title="画像解析チャット", folder_uid=folder_id
 )
 
 # 画像アップロード
@@ -61,31 +61,29 @@ image_id = client.upload_image(chat_uid, "/path/to/image.jpg")
 
 # 画像解析を依頼
 response1 = client.send_message(
-    chat_uid=chat_uid,
-    message="この画像を分析してください",
-    image_ids=[image_id]
+    chat_uid=chat_uid, message="この画像を分析してください", image_ids=[image_id]
 )
 print(f"応答1: {response1}")
 
 # チャット詳細を取得して parent_order を特定
 chat_detail = client.get_chat(chat_uid)
-messages = chat_detail.get('messages', [])
+messages = chat_detail.get("messages", [])
 
 # 最後のアシスタント応答の chat_order を取得
 last_assistant = None
 for msg in reversed(messages):
-    if msg['role'] == 'assistant':
+    if msg["role"] == "assistant":
         last_assistant = msg
         break
 
 if last_assistant:
-    parent_order = last_assistant['chat_order']
-    
+    parent_order = last_assistant["chat_order"]
+
     # parent_order を指定して続きを聞く
     response2 = client.send_message(
         chat_uid=chat_uid,
         message="この画像から読み取れる数値データを表形式でまとめてください",
-        parent_order=parent_order
+        parent_order=parent_order,
     )
     print(f"応答2: {response2}")
 ```
@@ -96,49 +94,50 @@ if last_assistant:
 def get_complete_response(client, chat_uid, initial_message, max_iterations=10):
     """終端マーカー方式で完全な回答を取得"""
     END_MARKER = "__END_OF_RESPONSE__"
-    
+
     # 最初のメッセージ送信
     response = client.send_message(
         chat_uid=chat_uid,
-        message=f"{initial_message}\n\n最後に {END_MARKER} を付けてください。"
+        message=f"{initial_message}\n\n最後に {END_MARKER} を付けてください。",
     )
-    
+
     full_response = response or ""
-    
+
     # 終端マーカーが出るまで継続取得
     for i in range(max_iterations):
         if END_MARKER in full_response:
             break
-        
+
         # チャット詳細を取得
         chat_detail = client.get_chat(chat_uid)
         if not chat_detail:
             break
-        
-        messages = chat_detail.get('messages', [])
+
+        messages = chat_detail.get("messages", [])
         if not messages:
             break
-        
+
         last_msg = messages[-1]
-        if last_msg['role'] != 'assistant':
+        if last_msg["role"] != "assistant":
             break
-        
-        parent_order = last_msg['chat_order']
-        
+
+        parent_order = last_msg["chat_order"]
+
         # 続きを要求
         continuation = client.send_message(
             chat_uid=chat_uid,
             message=f"続きを出力してください。最後に {END_MARKER} を付けてください。",
-            parent_order=parent_order
+            parent_order=parent_order,
         )
-        
+
         if continuation:
             full_response += continuation
         else:
             break
-    
+
     # 終端マーカーを除去
     return full_response.replace(END_MARKER, "").strip()
+
 
 # 使用例
 config = ConfigManager()
@@ -147,14 +146,13 @@ client.authenticate()
 
 assistants = client.get_assistants()
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="長文出力テスト"
+    assistant_uid=assistants[0]["uid"], title="長文出力テスト"
 )
 
 response = get_complete_response(
     client,
     chat_uid,
-    "Pythonのリスト内包表記について、構文、使用例、パフォーマンス、ベストプラクティスを含めて詳しく説明してください。"
+    "Pythonのリスト内包表記について、構文、使用例、パフォーマンス、ベストプラクティスを含めて詳しく説明してください。",
 )
 print(response)
 ```
@@ -165,28 +163,28 @@ print(response)
 import time
 from newtonx_adk import NewtonXClient, ConfigManager, APIError, ChatError
 
+
 def send_with_recovery(client, assistant_uid, message, max_retries=2):
     """無応答時に新規チャットでやり直す"""
     chat_uid = None
-    
+
     for attempt in range(max_retries):
         try:
             # 新規チャット作成（または再利用）
             if not chat_uid:
                 chat_uid = client.create_chat(
-                    assistant_uid=assistant_uid,
-                    title=f"リカバリチャット {attempt + 1}"
+                    assistant_uid=assistant_uid, title=f"リカバリチャット {attempt + 1}"
                 )
-            
+
             # メッセージ送信
             response = client.send_message(chat_uid, message)
-            
+
             if response:
                 return response, chat_uid
-            
+
             # 応答がNoneの場合は新規チャットで再試行
             chat_uid = None
-            
+
         except (APIError, ChatError, Exception) as e:
             print(f"エラー発生（試行 {attempt + 1}/{max_retries}）: {e}")
             chat_uid = None  # 次の試行で新規作成
@@ -194,8 +192,9 @@ def send_with_recovery(client, assistant_uid, message, max_retries=2):
                 time.sleep(1)
             else:
                 raise
-    
+
     raise Exception("最大リトライ回数に達しました")
+
 
 # 使用例
 config = ConfigManager()
@@ -203,14 +202,10 @@ client = NewtonXClient(config)
 client.authenticate()
 
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
 
 try:
-    response, chat_uid = send_with_recovery(
-        client,
-        assistant_uid,
-        "質問内容"
-    )
+    response, chat_uid = send_with_recovery(client, assistant_uid, "質問内容")
     print(f"応答: {response}")
     print(f"チャットUID: {chat_uid}")
 except Exception as e:
@@ -228,8 +223,7 @@ client.authenticate()
 
 assistants = client.get_assistants()
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="複数ファイル解析"
+    assistant_uid=assistants[0]["uid"], title="複数ファイル解析"
 )
 
 # 画像とドキュメントをアップロード
@@ -241,7 +235,7 @@ response = client.send_message(
     chat_uid=chat_uid,
     message="画像とドキュメントを参照して、関連性を分析してください",
     image_ids=[image_id],
-    document_ids=[document_id]  # ← 同時指定OK
+    document_ids=[document_id],  # ← 同時指定OK
 )
 
 print(response)
@@ -262,24 +256,21 @@ gemini = next((a for a in assistants if "Gemini" in a.get("name", "")), None)
 if not gemini:
     raise Exception("音声対応の Gemini アシスタントが見つかりません")
 
-chat_uid = client.create_chat(
-    assistant_uid=gemini['uid'],
-    title="音声要約"
-)
+chat_uid = client.create_chat(assistant_uid=gemini["uid"], title="音声要約")
 
 # 音声ファイルを直接指定（upload不要）
 try:
     response = client.send_message(
         chat_uid=chat_uid,
         message="この音声を要約してください",
-        audio_file_path="/path/to/audio.wav"  # ← 直接指定
+        audio_file_path="/path/to/audio.wav",  # ← 直接指定
     )
-    
+
     if response:
         print(f"要約: {response}")
     else:
         print("応答が返ってきませんでした")
-        
+
 except FileUploadError as e:
     print(f"ファイルアップロードエラー: {e}")
 except APIError as e:
@@ -295,8 +286,9 @@ from newtonx_adk import (
     AuthenticationError,
     APIError,
     FileUploadError,
-    ChatError
+    ChatError,
 )
+
 
 def safe_send_message(client, chat_uid, message, **kwargs):
     """エラーハンドリング付きメッセージ送信"""
@@ -321,6 +313,7 @@ def safe_send_message(client, chat_uid, message, **kwargs):
         print(f"予期しないエラー: {e}")
         return None, "unknown_error"
 
+
 # 使用例
 config = ConfigManager()
 client = NewtonXClient(config)
@@ -331,15 +324,10 @@ if not client.authenticate():
 
 assistants = client.get_assistants()
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="エラーハンドリングテスト"
+    assistant_uid=assistants[0]["uid"], title="エラーハンドリングテスト"
 )
 
-response, error_type = safe_send_message(
-    client,
-    chat_uid,
-    "こんにちは！"
-)
+response, error_type = safe_send_message(client, chat_uid, "こんにちは！")
 
 if response:
     print(f"応答: {response}")
@@ -357,22 +345,20 @@ client = NewtonXClient(config)
 client.authenticate()
 
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
 
 # 複数のチャットを作成
 chat_uids = []
 for i in range(3):
     chat_uid = client.create_chat(
-        assistant_uid=assistant_uid,
-        title=f"チャット {i+1}"
+        assistant_uid=assistant_uid, title=f"チャット {i + 1}"
     )
     chat_uids.append(chat_uid)
 
 # 各チャットにメッセージを送信
 for chat_uid in chat_uids:
     response = client.send_message(
-        chat_uid,
-        f"チャット {chat_uids.index(chat_uid) + 1} からのメッセージ"
+        chat_uid, f"チャット {chat_uids.index(chat_uid) + 1} からのメッセージ"
     )
     print(f"チャット {chat_uids.index(chat_uid) + 1}: {response}")
 
@@ -396,7 +382,7 @@ client = NewtonXClient(config)
 client.authenticate()
 
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
 
 # フォルダ一覧を取得
 folders = client.get_folders()
@@ -412,7 +398,7 @@ print(f"フォルダ作成: {new_folder_id}")
 chat_uid = client.create_chat(
     assistant_uid=assistant_uid,
     title="プロジェクトチャット",
-    folder_uid=new_folder_id  # ← folder['id'] を使用
+    folder_uid=new_folder_id,  # ← folder['id'] を使用
 )
 print(f"チャット作成: {chat_uid}")
 
@@ -422,8 +408,7 @@ print(f"フォルダ内のチャット数: {len(folder_chats)}")
 
 # 既存のチャットをフォルダに移動
 existing_chat_uid = client.create_chat(
-    assistant_uid=assistant_uid,
-    title="移動前のチャット"
+    assistant_uid=assistant_uid, title="移動前のチャット"
 )
 client.move_chat_to_folder(existing_chat_uid, new_folder_id)
 print(f"チャット {existing_chat_uid} をフォルダに移動しました")

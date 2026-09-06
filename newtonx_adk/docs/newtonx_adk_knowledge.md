@@ -59,15 +59,16 @@ def authenticate(self) -> bool:
 def get_user_info(self) -> Optional[Dict]:
     """
     ユーザー情報を取得
-    
+
     Returns:
         Dict: ユーザー情報の辞書、失敗時None
     """
 
+
 def get_assistants(self) -> List[Dict]:
     """
     アシスタント一覧を取得
-    
+
     Returns:
         List[Dict]: アシスタント情報のリスト
     """
@@ -75,26 +76,38 @@ def get_assistants(self) -> List[Dict]:
 
 #### チャット関連メソッド
 ```python
-def create_chat(self, assistant_uid: str, title: Optional[str] = None, 
-                folder_uid: Optional[str] = None) -> Optional[str]:
+def create_chat(
+    self,
+    assistant_uid: str,
+    title: Optional[str] = None,
+    folder_uid: Optional[str] = None,
+) -> Optional[str]:
     """
     チャットを作成
-    
+
     Args:
         assistant_uid: アシスタントのUID
         title: チャットタイトル（オプション）
         folder_uid: フォルダUID（オプション）
-    
+
     Returns:
         str: 作成されたチャットのUID、失敗時None
     """
 
-def send_message(self, chat_uid: str, message: str, knowledge_search: bool = False, 
-                web_search: bool = True, image_ids: Optional[List[str]] = None, 
-                document_ids: Optional[List[str]] = None, parent_order: int = 0) -> Optional[str]:
+
+def send_message(
+    self,
+    chat_uid: str,
+    message: str,
+    knowledge_search: bool = False,
+    web_search: bool = True,
+    image_ids: Optional[List[str]] = None,
+    document_ids: Optional[List[str]] = None,
+    parent_order: int = 0,
+) -> Optional[str]:
     """
     メッセージを送信
-    
+
     Args:
         chat_uid: チャットのUID
         message: 送信メッセージ
@@ -103,41 +116,44 @@ def send_message(self, chat_uid: str, message: str, knowledge_search: bool = Fal
         image_ids: 画像IDリスト（オプション）
         document_ids: ドキュメントIDリスト（オプション）
         parent_order: 親メッセージの順序（デフォルト: 0）
-    
+
     Returns:
         str: アシスタントの応答、失敗時None
     """
 
+
 def get_chat(self, chat_uid: str) -> Optional[Dict]:
     """
     チャット情報を取得
-    
+
     Args:
         chat_uid: チャットのUID
-    
+
     Returns:
         Dict: チャット情報の辞書、失敗時None
     """
 
+
 def delete_chat(self, chat_uid: str) -> bool:
     """
     チャットを削除
-    
+
     Args:
         chat_uid: チャットのUID
-    
+
     Returns:
         bool: 削除成功時True、失敗時False
     """
 
+
 def update_chat_title(self, chat_uid: str, title: str) -> bool:
     """
     チャットタイトルを更新
-    
+
     Args:
         chat_uid: チャットのUID
         title: 新しいタイトル
-    
+
     Returns:
         bool: 更新成功時True、失敗時False
     """
@@ -145,36 +161,39 @@ def update_chat_title(self, chat_uid: str, title: str) -> bool:
 
 #### ファイルアップロード関連メソッド
 ```python
-def upload_image(self, chat_uid: str, file_path: str, 
-                file_name: Optional[str] = None) -> Optional[str]:
+def upload_image(
+    self, chat_uid: str, file_path: str, file_name: Optional[str] = None
+) -> Optional[str]:
     """
     画像をアップロード
-    
+
     Args:
         chat_uid: チャットのUID
         file_path: 画像ファイルのパス
         file_name: ファイル名（オプション）
-    
+
     Returns:
         str: 画像ID、失敗時None
-        
+
     Raises:
         FileUploadError: アップロード失敗時
     """
 
-def upload_document(self, chat_uid: str, file_path: str, 
-                   file_name: Optional[str] = None) -> Optional[str]:
+
+def upload_document(
+    self, chat_uid: str, file_path: str, file_name: Optional[str] = None
+) -> Optional[str]:
     """
     ドキュメントをアップロード
-    
+
     Args:
         chat_uid: チャットのUID
         file_path: ドキュメントファイルのパス
         file_name: ファイル名（オプション）
-    
+
     Returns:
         str: ドキュメントID、失敗時None
-        
+
     Raises:
         FileUploadError: アップロード失敗時
     """
@@ -185,41 +204,44 @@ def upload_document(self, chat_uid: str, file_path: str,
 def create_folder(self, name: str) -> Optional[str]:
     """
     フォルダを作成
-    
+
     Args:
         name: フォルダ名
-    
+
     Returns:
         str: 作成されたフォルダのUID、失敗時None
     """
 
+
 def get_folders(self) -> List[Dict]:
     """
     フォルダ一覧を取得
-    
+
     Returns:
         List[Dict]: フォルダ情報のリスト
     """
 
+
 def move_chat_to_folder(self, chat_uid: str, folder_uid: str) -> bool:
     """
     チャットをフォルダに移動
-    
+
     Args:
         chat_uid: チャットのUID
         folder_uid: フォルダのUID
-    
+
     Returns:
         bool: 移動成功時True、失敗時False
     """
 
+
 def get_folder_chats(self, folder_uid: str) -> List[Dict]:
     """
     フォルダ内のチャット一覧を取得
-    
+
     Args:
         folder_uid: フォルダのUID
-    
+
     Returns:
         List[Dict]: チャット情報のリスト
     """
@@ -230,15 +252,16 @@ def get_folder_chats(self, folder_uid: str) -> List[Dict]:
 def get_model_status(self) -> Dict[str, bool]:
     """
     モデルステータスを取得
-    
+
     Returns:
         Dict[str, bool]: モデルステータスの辞書
     """
 
+
 def get_company_info(self) -> Optional[Dict]:
     """
     会社情報を取得
-    
+
     Returns:
         Dict: 会社情報の辞書、失敗時None
     """
@@ -263,24 +286,27 @@ class ConfigManager:
 def get_config(self) -> ADKConfig:
     """
     設定を取得
-    
+
     Returns:
         ADKConfig: 設定オブジェクト
     """
 
+
 def set_credentials(self, client_id: str, client_secret: str) -> None:
     """
     認証情報を設定
-    
+
     Args:
         client_id: クライアントID
         client_secret: クライアントシークレット
     """
 
+
 def save_config(self) -> None:
     """
     設定を保存
     """
+
 
 def load_config(self) -> None:
     """
@@ -307,39 +333,43 @@ class AuthManager:
 def authenticate(self) -> bool:
     """
     手動認証を実行
-    
+
     Returns:
         bool: 認証成功時True、失敗時False
     """
+
 
 def authenticate_auto(self) -> bool:
     """
     自動認証を実行（保存されたトークンを使用）
-    
+
     Returns:
         bool: 認証成功時True、失敗時False
     """
 
+
 def is_authenticated(self) -> bool:
     """
     認証状態を確認
-    
+
     Returns:
         bool: 認証済みの場合True
     """
 
+
 def refresh_token(self) -> bool:
     """
     トークンを更新
-    
+
     Returns:
         bool: 更新成功時True、失敗時False
     """
 
+
 def _get_headers(self) -> Dict[str, str]:
     """
     認証ヘッダーを取得
-    
+
     Returns:
         Dict[str, str]: 認証ヘッダーの辞書
     """
@@ -682,16 +712,17 @@ def interactive_chat(self):
 
 ##### メッセージ送信メソッド
 ```python
-def send_message(self, message: str, web_search: bool = True, 
-                knowledge_search: bool = False) -> Optional[str]:
+def send_message(
+    self, message: str, web_search: bool = True, knowledge_search: bool = False
+) -> Optional[str]:
     """
     メッセージを送信
-    
+
     Args:
         message: 送信メッセージ
         web_search: ウェブ検索の有効化
         knowledge_search: ナレッジ検索の有効化
-    
+
     Returns:
         str: アシスタントの応答、失敗時None
     """
@@ -790,11 +821,12 @@ def extract_expense_data(self, receipt_path: str) -> Dict[str, Any]:
 
 ##### 結果保存メソッド
 ```python
-def save_results(self, results: List[Dict[str, Any]], 
-                output_file: str = "expense_results.json"):
+def save_results(
+    self, results: List[Dict[str, Any]], output_file: str = "expense_results.json"
+):
     """
     結果を保存
-    
+
     Args:
         results: 処理結果のリスト
         output_file: 出力ファイル名
@@ -825,8 +857,8 @@ config_manager = ConfigManager()
 
 # 認証情報を設定
 config_manager.set_credentials(
-    client_id="your_client_id",      # 管理画面で取得したクライアントID
-    tenant_id="your_tenant_id"       # 管理画面で取得したテナントID
+    client_id="your_client_id",  # 管理画面で取得したクライアントID
+    tenant_id="your_tenant_id",  # 管理画面で取得したテナントID
 )
 
 # 設定を保存（次回以降の自動認証用）
@@ -864,10 +896,7 @@ else:
         "client_id": "your_client_id",
         # client_secret は不要
     },
-    "api": {
-        "base_url": "https://api.newtonx.com",
-        "timeout": 30
-    }
+    "api": {"base_url": "https://api.newtonx.com", "timeout": 30},
 }
 ```
 
@@ -881,10 +910,7 @@ from newtonx_adk import NewtonXClient, ConfigManager
 config_manager = ConfigManager()
 
 # 認証情報を設定
-config_manager.set_credentials(
-    client_id="your_client_id",
-    tenant_id="your_tenant_id"
-)
+config_manager.set_credentials(client_id="your_client_id", tenant_id="your_tenant_id")
 
 # クライアントを初期化
 client = NewtonXClient(config_manager)
@@ -936,8 +962,7 @@ else:
 ```python
 # 認証情報を再設定
 config_manager.set_credentials(
-    client_id="正しいクライアントID",
-    tenant_id="正しいテナントID"
+    client_id="正しいクライアントID", tenant_id="正しいテナントID"
 )
 
 # 設定を保存
@@ -1000,7 +1025,7 @@ config_manager = ConfigManager()
 auth_manager = AuthManager(config_manager)
 
 # 現在のトークンを確認
-current_token = auth_manager._get_headers().get('Authorization')
+current_token = auth_manager._get_headers().get("Authorization")
 print(f"現在のトークン: {current_token}")
 
 # トークンを手動で更新
@@ -1016,6 +1041,7 @@ else:
 ```python
 # 推奨: 環境変数を使用
 import os
+
 client_id = os.getenv("NEWTONX_CLIENT_ID")
 client_secret = os.getenv("NEWTONX_CLIENT_SECRET")
 
@@ -1045,10 +1071,12 @@ except APIError as e:
 import time
 from threading import Timer
 
+
 def check_auth_status():
     if not auth_manager.is_authenticated():
         print("認証が切れています。再認証を実行します。")
         client.authenticate()
+
 
 # 30分ごとに認証状態を確認
 Timer(1800, check_auth_status).start()
@@ -1064,7 +1092,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # ADKのログを有効化
-logger = logging.getLogger('newtonx_adk')
+logger = logging.getLogger("newtonx_adk")
 logger.setLevel(logging.DEBUG)
 ```
 

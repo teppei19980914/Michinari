@@ -84,9 +84,7 @@ def send_daily_feedback(
         .order_by(ChatMessage.sequence)
         .all()
     )
-    history = [
-        prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages
-    ]
+    history = [prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages]
     # 本日最初のAI呼び出し（自由入力メッセージがまだ無い状態）は本日の記録内容自体への
     # フィードバック依頼として扱う（17.2の変数群で状況は伝わるため、対話履歴には積まない）。
     if message:
@@ -102,9 +100,7 @@ def send_daily_feedback(
         material_entries=ai_context_service.build_material_status_entries(
             session, active_materials, target_date, treat_holiday_as_buffer
         ),
-        slot_summary=ai_context_service.build_slot_summary(
-            session, active_materials, target_date
-        ),
+        slot_summary=ai_context_service.build_slot_summary(session, active_materials, target_date),
         buffer_usage_rate=ai_context_service.build_buffer_usage_rate_text(
             session, active_goals, target_date, treat_holiday_as_buffer
         ),

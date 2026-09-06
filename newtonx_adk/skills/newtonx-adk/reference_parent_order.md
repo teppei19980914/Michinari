@@ -45,17 +45,17 @@ chat_detail = client.get_chat(chat_uid)
 ```python
 # 最後のアシスタント応答に返信する場合
 chat_detail = client.get_chat(chat_uid)
-messages = chat_detail.get('messages', [])
+messages = chat_detail.get("messages", [])
 
 # 最後のアシスタントメッセージを取得
 last_assistant_msg = None
 for msg in reversed(messages):
-    if msg['role'] == 'assistant':
+    if msg["role"] == "assistant":
         last_assistant_msg = msg
         break
 
 if last_assistant_msg:
-    parent_order = last_assistant_msg['chat_order']  # ← 'chat_order' を使用
+    parent_order = last_assistant_msg["chat_order"]  # ← 'chat_order' を使用
 ```
 
 ### 3. parent_order を指定してメッセージ送信
@@ -64,7 +64,7 @@ if last_assistant_msg:
 response = client.send_message(
     chat_uid=chat_uid,
     message="続きを教えて",
-    parent_order=parent_order  # ← chat_order の値を渡す
+    parent_order=parent_order,  # ← chat_order の値を渡す
 )
 ```
 
@@ -74,14 +74,14 @@ response = client.send_message(
 
 ```python
 # 間違い
-parent_order = message['id']  # ← このフィールドは存在しない、または文字列
+parent_order = message["id"]  # ← このフィールドは存在しない、または文字列
 response = client.send_message(..., parent_order=parent_order)
 ```
 
 **正しい方法**:
 ```python
 # 正しい
-parent_order = message['chat_order']  # ← 'chat_order'（整数）を使用
+parent_order = message["chat_order"]  # ← 'chat_order'（整数）を使用
 response = client.send_message(..., parent_order=parent_order)
 ```
 
@@ -91,7 +91,7 @@ response = client.send_message(..., parent_order=parent_order)
 # 間違い: 前のメッセージへの返信なのに parent_order を指定しない
 response = client.send_message(
     chat_uid=chat_uid,
-    message="続きを教えて"  # ← parent_order が指定されていない
+    message="続きを教えて",  # ← parent_order が指定されていない
 )
 # これだと新しいスレッドとして扱われ、文脈が失われる
 ```
@@ -100,13 +100,13 @@ response = client.send_message(
 ```python
 # 正しい: parent_order を指定して文脈を維持
 chat_detail = client.get_chat(chat_uid)
-last_msg = chat_detail['messages'][-1]
-parent_order = last_msg['chat_order']
+last_msg = chat_detail["messages"][-1]
+parent_order = last_msg["chat_order"]
 
 response = client.send_message(
     chat_uid=chat_uid,
     message="続きを教えて",
-    parent_order=parent_order  # ← 文脈を維持
+    parent_order=parent_order,  # ← 文脈を維持
 )
 ```
 
@@ -117,7 +117,7 @@ response = client.send_message(
 response = client.send_message(
     chat_uid=chat_uid,
     message="続きを教えて",
-    parent_order=999  # ← 存在しない chat_order
+    parent_order=999,  # ← 存在しない chat_order
 )
 ```
 
@@ -125,16 +125,14 @@ response = client.send_message(
 ```python
 # 正しい: 実際に存在する chat_order を取得して使用
 chat_detail = client.get_chat(chat_uid)
-messages = chat_detail.get('messages', [])
+messages = chat_detail.get("messages", [])
 
 # 返信したいメッセージを特定
 target_msg = messages[-1]  # 例: 最後のメッセージ
-parent_order = target_msg['chat_order']  # ← 実際に存在する値
+parent_order = target_msg["chat_order"]  # ← 実際に存在する値
 
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="続きを教えて",
-    parent_order=parent_order
+    chat_uid=chat_uid, message="続きを教えて", parent_order=parent_order
 )
 ```
 
@@ -152,8 +150,7 @@ client.authenticate()
 # チャット作成
 assistants = client.get_assistants()
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="parent_orderテスト"
+    assistant_uid=assistants[0]["uid"], title="parent_orderテスト"
 )
 
 # 最初のメッセージ
@@ -162,23 +159,23 @@ print(f"応答1: {response1}")
 
 # チャット詳細を取得して parent_order を特定
 chat_detail = client.get_chat(chat_uid)
-messages = chat_detail.get('messages', [])
+messages = chat_detail.get("messages", [])
 
 # 最後のアシスタント応答の chat_order を取得
 last_assistant = None
 for msg in reversed(messages):
-    if msg['role'] == 'assistant':
+    if msg["role"] == "assistant":
         last_assistant = msg
         break
 
 if last_assistant:
-    parent_order = last_assistant['chat_order']
-    
+    parent_order = last_assistant["chat_order"]
+
     # parent_order を指定して続きを聞く
     response2 = client.send_message(
         chat_uid=chat_uid,
         message="具体例も教えてください",
-        parent_order=parent_order  # ← 前の応答への返信として扱われる
+        parent_order=parent_order,  # ← 前の応答への返信として扱われる
     )
     print(f"応答2: {response2}")
 ```
@@ -191,26 +188,25 @@ def send_followup(client, chat_uid, message):
     chat_detail = client.get_chat(chat_uid)
     if not chat_detail:
         raise Exception("チャットが見つかりません")
-    
-    messages = chat_detail.get('messages', [])
-    
+
+    messages = chat_detail.get("messages", [])
+
     # 最後のアシスタントメッセージを取得
     last_assistant = None
     for msg in reversed(messages):
-        if msg['role'] == 'assistant':
+        if msg["role"] == "assistant":
             last_assistant = msg
             break
-    
+
     if not last_assistant:
         # アシスタント応答がない場合は通常送信
         return client.send_message(chat_uid, message)
-    
-    parent_order = last_assistant['chat_order']
+
+    parent_order = last_assistant["chat_order"]
     return client.send_message(
-        chat_uid=chat_uid,
-        message=message,
-        parent_order=parent_order
+        chat_uid=chat_uid, message=message, parent_order=parent_order
     )
+
 
 # 使用例
 response = send_followup(client, chat_uid, "続きを教えて")

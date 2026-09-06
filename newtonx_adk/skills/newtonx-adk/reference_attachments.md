@@ -24,7 +24,7 @@ NewtonX ADKでは、画像、ドキュメント、音声の3種類のファイ�
 image_id = client.upload_image(
     chat_uid=chat_uid,
     file_path="/path/to/image.jpg",
-    file_name="image.jpg"  # オプション
+    file_name="image.jpg",  # オプション
 )
 
 if not image_id:
@@ -34,7 +34,7 @@ if not image_id:
 response = client.send_message(
     chat_uid=chat_uid,
     message="この画像を分析してください",
-    image_ids=[image_id]  # ← List[str] 形式
+    image_ids=[image_id],  # ← List[str] 形式
 )
 ```
 
@@ -54,7 +54,7 @@ for path in image_paths:
 response = client.send_message(
     chat_uid=chat_uid,
     message="これらの画像を比較してください",
-    image_ids=image_ids  # ← 複数のIDを指定
+    image_ids=image_ids,  # ← 複数のIDを指定
 )
 ```
 
@@ -62,16 +62,13 @@ response = client.send_message(
 
 ```python
 # upload_images() が存在する場合
-image_ids = client.upload_images(
-    chat_uid,
-    ["/path/to/a.png", "/path/to/b.jpg"]
-)
+image_ids = client.upload_images(chat_uid, ["/path/to/a.png", "/path/to/b.jpg"])
 
 # send_message_with_images() が存在する場合
 response = client.send_message_with_images(
     chat_uid=chat_uid,
     message="これらの画像から読み取れる内容を教えて",
-    image_file_paths=["/path/to/a.png", "/path/to/b.jpg"]
+    image_file_paths=["/path/to/a.png", "/path/to/b.jpg"],
 )
 ```
 
@@ -87,7 +84,7 @@ response = client.send_message_with_images(
 document_id = client.upload_document(
     chat_uid=chat_uid,
     file_path="/path/to/document.pdf",
-    file_name="document.pdf"  # オプション
+    file_name="document.pdf",  # オプション
 )
 
 if not document_id:
@@ -97,7 +94,7 @@ if not document_id:
 response = client.send_message(
     chat_uid=chat_uid,
     message="このドキュメントの要点をまとめてください",
-    document_ids=[document_id]  # ← List[str] 形式
+    document_ids=[document_id],  # ← List[str] 形式
 )
 ```
 
@@ -117,7 +114,7 @@ for path in document_paths:
 response = client.send_message(
     chat_uid=chat_uid,
     message="これらのドキュメントを比較してください",
-    document_ids=document_ids
+    document_ids=document_ids,
 )
 ```
 
@@ -134,7 +131,7 @@ response = client.send_message(
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/audio.wav"  # ← 直接ファイルパスを指定
+    audio_file_path="/path/to/audio.wav",  # ← 直接ファイルパスを指定
 )
 ```
 
@@ -153,7 +150,7 @@ try:
     response = client.send_message(
         chat_uid=chat_uid,
         message="この音声を文字起こししてください",
-        audio_file_path="/path/to/audio.mp3"
+        audio_file_path="/path/to/audio.mp3",
     )
     if response:
         print(f"応答: {response}")
@@ -173,7 +170,7 @@ response = client.send_message(
     chat_uid=chat_uid,
     message="画像と音声を分析してください",
     image_ids=[image_id],
-    audio_file_path="/path/to/audio.wav"  # ← エラーになる
+    audio_file_path="/path/to/audio.wav",  # ← エラーになる
 )
 ```
 
@@ -182,16 +179,14 @@ response = client.send_message(
 ```python
 # 正しい: 画像のみ
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="この画像を分析してください",
-    image_ids=[image_id]
+    chat_uid=chat_uid, message="この画像を分析してください", image_ids=[image_id]
 )
 
 # または音声のみ
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/audio.wav"
+    audio_file_path="/path/to/audio.wav",
 )
 ```
 
@@ -210,7 +205,7 @@ response = client.send_message(..., image_ids=[audio_id])
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/audio.wav"  # ← 直接指定
+    audio_file_path="/path/to/audio.wav",  # ← 直接指定
 )
 ```
 
@@ -221,7 +216,7 @@ response = client.send_message(
 response = client.send_message(
     chat_uid=chat_uid,
     message="ドキュメントを分析してください",
-    document_ids=["/path/to/document.pdf"]  # ← 間違い（IDが必要）
+    document_ids=["/path/to/document.pdf"],  # ← 間違い（IDが必要）
 )
 ```
 
@@ -233,7 +228,7 @@ document_id = client.upload_document(chat_uid, "/path/to/document.pdf")
 response = client.send_message(
     chat_uid=chat_uid,
     message="ドキュメントを分析してください",
-    document_ids=[document_id]  # ← IDを渡す
+    document_ids=[document_id],  # ← IDを渡す
 )
 ```
 
@@ -250,7 +245,7 @@ response = client.send_message(
     chat_uid=chat_uid,
     message="画像とドキュメントを参照して分析してください",
     image_ids=[image_id],
-    document_ids=[document_id]  # ← 同時指定OK
+    document_ids=[document_id],  # ← 同時指定OK
 )
 ```
 
@@ -265,8 +260,7 @@ client.authenticate()
 
 assistants = client.get_assistants()
 chat_uid = client.create_chat(
-    assistant_uid=assistants[0]['uid'],
-    title="添付ファイルテスト"
+    assistant_uid=assistants[0]["uid"], title="添付ファイルテスト"
 )
 
 # 画像添付
@@ -276,7 +270,7 @@ try:
         response = client.send_message(
             chat_uid=chat_uid,
             message="この画像を分析してください",
-            image_ids=[image_id]
+            image_ids=[image_id],
         )
         print(f"応答: {response}")
 except FileUploadError as e:
@@ -289,7 +283,7 @@ try:
     response = client.send_message(
         chat_uid=chat_uid,
         message="この音声を要約してください",
-        audio_file_path="/path/to/audio.wav"
+        audio_file_path="/path/to/audio.wav",
     )
     if response:
         print(f"応答: {response}")

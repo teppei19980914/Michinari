@@ -25,7 +25,9 @@ def main() -> int:
 
     # サブドメイン入力（ドメインは newton-x.net 固定）
     while True:
-        default_sub = current.company_subdomain or (current.host.split('.')[0] if getattr(current, 'host', '') else '')
+        default_sub = current.company_subdomain or (
+            current.host.split(".")[0] if getattr(current, "host", "") else ""
+        )
         sub_in = input(f"Company Subdomain（例: seraku）[{default_sub}]: ").strip()
         subdomain = sub_in or default_sub
         if subdomain:
@@ -41,11 +43,13 @@ def main() -> int:
         if pat_in:
             pat = pat_in
             break
-        print("Personal Access Token は必須です。NewtonXのWEBアプリから発行してください。")
+        print(
+            "Personal Access Token は必須です。NewtonXのWEBアプリから発行してください。"
+        )
 
     # 設定反映（host-firstで api_base_url/company_subdomain が自動派生）
     print("\n設定を保存しています...")
-    cfgm.update_config(host=host, personal_access_token=pat, auth_mode='none')
+    cfgm.update_config(host=host, personal_access_token=pat, auth_mode="none")
 
     updated = cfgm.get_config()
     print("\n更新された設定:")
@@ -58,11 +62,13 @@ def main() -> int:
     try:
         am = AuthManager(cfgm)
         headers = am.get_headers()
-        auth_disp = (headers.get('Authorization') or '')
+        auth_disp = headers.get("Authorization") or ""
         if auth_disp:
             print("\nAuthorization ヘッダーを確認しました。設定は完了です。")
         else:
-            print("\nAuthorization ヘッダーが生成されませんでした。PATを再確認してください。")
+            print(
+                "\nAuthorization ヘッダーが生成されませんでした。PATを再確認してください。"
+            )
     except Exception as e:
         print(f"ヘッダー確認時のエラー: {e}")
 

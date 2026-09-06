@@ -23,7 +23,11 @@ def main() -> int:
     cfgm = ConfigManager()
     am = AuthManager(cfgm)
 
-    confirm = input("設定とトークンをすべて削除します。よろしいですか？ (y/N): ").strip().lower()
+    confirm = (
+        input("設定とトークンをすべて削除します。よろしいですか？ (y/N): ")
+        .strip()
+        .lower()
+    )
     if confirm not in ("y", "yes"):
         print("キャンセルしました。")
         return 0

@@ -55,7 +55,7 @@ if not headers.get("Authorization", "").startswith("Bearer "):
 # ❌ 間違い
 config_manager.update_config(
     host="seraku.newton-x.net",
-    personal_access_token="your_token_here"  # ← 絶対にしない
+    personal_access_token="your_token_here",  # ← 絶対にしない
 )
 
 # ✅ 正しい
@@ -87,11 +87,13 @@ if not os.path.exists(file_path):
     raise Exception(f"ファイルが存在しません: {file_path}")
 
 # ファイルサイズ確認（音声の場合）
-if file_path.endswith(('.wav', '.mp3', '.aiff', '.aac', '.ogg', '.flac')):
+if file_path.endswith((".wav", ".mp3", ".aiff", ".aac", ".ogg", ".flac")):
     file_size = os.path.getsize(file_path)
     max_size = 15 * 1024 * 1024  # 15MB
     if file_size > max_size:
-        raise Exception(f"ファイルサイズが15MBを超えています: {file_size / 1024 / 1024:.2f}MB")
+        raise Exception(
+            f"ファイルサイズが15MBを超えています: {file_size / 1024 / 1024:.2f}MB"
+        )
 
 try:
     image_id = client.upload_image(chat_uid, file_path)
@@ -127,22 +129,20 @@ response = client.send_message(
     chat_uid=chat_uid,
     message="画像と音声を分析してください",
     image_ids=[image_id],
-    audio_file_path="/path/to/audio.wav"  # ← 同時指定不可
+    audio_file_path="/path/to/audio.wav",  # ← 同時指定不可
 )
 
 # ✅ 正しい: どちらか一方のみ
 # 画像のみ
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="この画像を分析してください",
-    image_ids=[image_id]
+    chat_uid=chat_uid, message="この画像を分析してください", image_ids=[image_id]
 )
 
 # または音声のみ
 response = client.send_message(
     chat_uid=chat_uid,
     message="この音声を要約してください",
-    audio_file_path="/path/to/audio.wav"
+    audio_file_path="/path/to/audio.wav",
 )
 ```
 
@@ -160,17 +160,17 @@ response = client.send_message(
 # ❌ 間違い
 folders = client.get_folders()
 folder = folders[0]
-folder_uid = folder['uid']  # ← このフィールドは存在しない
+folder_uid = folder["uid"]  # ← このフィールドは存在しない
 
 # ✅ 正しい
 folders = client.get_folders()
 folder = folders[0]
-folder_id = folder['id']  # ← 'id' を使用
+folder_id = folder["id"]  # ← 'id' を使用
 
 chat_uid = client.create_chat(
     assistant_uid=assistant_uid,
     title="チャット",
-    folder_uid=folder_id  # ← folder_uid パラメータ名だが、値は folder['id']
+    folder_uid=folder_id,  # ← folder_uid パラメータ名だが、値は folder['id']
 )
 ```
 
@@ -185,18 +185,16 @@ chat_uid = client.create_chat(
 ```python
 # ❌ 間違い
 chat_detail = client.get_chat(chat_uid)
-message = chat_detail['messages'][0]
-parent_order = message['id']  # ← 間違い
+message = chat_detail["messages"][0]
+parent_order = message["id"]  # ← 間違い
 
 # ✅ 正しい
 chat_detail = client.get_chat(chat_uid)
-message = chat_detail['messages'][0]
-parent_order = message['chat_order']  # ← 'chat_order' を使用
+message = chat_detail["messages"][0]
+parent_order = message["chat_order"]  # ← 'chat_order' を使用
 
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="続きを教えて",
-    parent_order=parent_order
+    chat_uid=chat_uid, message="続きを教えて", parent_order=parent_order
 )
 ```
 
@@ -258,7 +256,7 @@ END_MARKER = "__END_OF_RESPONSE__"
 # 最初の指示で終端マーカーを含めるよう指示
 response = client.send_message(
     chat_uid=chat_uid,
-    message=f"長文のレポートを作成してください。最後に {END_MARKER} を付けてください。"
+    message=f"長文のレポートを作成してください。最後に {END_MARKER} を付けてください。",
 )
 
 full_response = response or ""
@@ -267,17 +265,17 @@ full_response = response or ""
 for i in range(10):  # 最大10回
     if END_MARKER in full_response:
         break
-    
+
     chat_detail = client.get_chat(chat_uid)
-    messages = chat_detail.get('messages', [])
+    messages = chat_detail.get("messages", [])
     if messages:
         last_msg = messages[-1]
-        if last_msg['role'] == 'assistant':
-            parent_order = last_msg['chat_order']
+        if last_msg["role"] == "assistant":
+            parent_order = last_msg["chat_order"]
             continuation = client.send_message(
                 chat_uid=chat_uid,
                 message=f"続きを出力してください。最後に {END_MARKER} を付けてください。",
-                parent_order=parent_order
+                parent_order=parent_order,
             )
             if continuation:
                 full_response += continuation
@@ -300,28 +298,28 @@ full_response = full_response.replace(END_MARKER, "").strip()
 import time
 from newtonx_adk import APIError, ChatError
 
+
 def send_with_recovery(client, assistant_uid, message, max_retries=2):
     """無応答時に新規チャットでやり直す"""
     chat_uid = None
-    
+
     for attempt in range(max_retries):
         try:
             # 新規チャット作成
             if not chat_uid:
                 chat_uid = client.create_chat(
-                    assistant_uid=assistant_uid,
-                    title=f"リカバリチャット {attempt + 1}"
+                    assistant_uid=assistant_uid, title=f"リカバリチャット {attempt + 1}"
                 )
-            
+
             # メッセージ送信
             response = client.send_message(chat_uid, message)
-            
+
             if response:
                 return response, chat_uid
-            
+
             # 応答がNoneの場合は新規チャットで再試行
             chat_uid = None
-            
+
         except (APIError, ChatError, Exception) as e:
             print(f"エラー発生（試行 {attempt + 1}/{max_retries}）: {e}")
             chat_uid = None
@@ -329,8 +327,9 @@ def send_with_recovery(client, assistant_uid, message, max_retries=2):
                 time.sleep(1)
             else:
                 raise
-    
+
     raise Exception("最大リトライ回数に達しました")
+
 
 # 使用例
 try:
@@ -391,13 +390,14 @@ PYTHONPATH=./src python tools/setup_config.py
 import time
 from newtonx_adk import APIError
 
+
 def send_with_retry(client, chat_uid, message, max_retries=3):
     for attempt in range(max_retries):
         try:
             return client.send_message(chat_uid, message)
         except APIError as e:
             if e.status_code == 500 and attempt < max_retries - 1:
-                wait_time = 2 ** attempt  # 指数バックオフ
+                wait_time = 2**attempt  # 指数バックオフ
                 print(f"サーバーエラー、{wait_time}秒後にリトライ...")
                 time.sleep(wait_time)
             else:

@@ -8,6 +8,8 @@ export type ForecastAnalyticsRead = components['schemas']['ForecastAnalyticsRead
 export type SpeedAnalyticsRead = components['schemas']['SpeedAnalyticsRead']
 export type GanttAnalyticsRead = components['schemas']['GanttAnalyticsRead']
 export type GrowthDescriptionEntryRead = components['schemas']['GrowthDescriptionEntryRead']
+export type ReadingLogEntryRead = components['schemas']['ReadingLogEntryRead']
+export type WorkLogEntryRead = components['schemas']['WorkLogEntryRead']
 
 export function getQualityAnalytics(
   goalId: number,
@@ -37,4 +39,12 @@ export function getGanttAnalytics(goalId: number): Promise<GanttAnalyticsRead> {
 
 export function getGrowthDescriptions(): Promise<GrowthDescriptionEntryRead[]> {
   return apiClient.get<GrowthDescriptionEntryRead[]>('/analytics/growth-descriptions')
+}
+
+export function getReadingLogAnalytics(goalId: number): Promise<ReadingLogEntryRead[]> {
+  return apiClient.get<ReadingLogEntryRead[]>(`/analytics/reading-logs?goal_id=${goalId}`)
+}
+
+export function getWorkLogAnalytics(goalId: number): Promise<WorkLogEntryRead[]> {
+  return apiClient.get<WorkLogEntryRead[]>(`/analytics/work-logs?goal_id=${goalId}`)
 }
