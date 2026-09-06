@@ -97,9 +97,7 @@ def test_login_without_host_does_not_touch_settings(client, monkeypatch):
     )
     before = client.get("/api/v1/settings").json()["ai_connection"]["host"]
 
-    response = client.post(
-        "/api/v1/ai/login", json={"personal_access_token": "1|abcdef"}
-    )
+    response = client.post("/api/v1/ai/login", json={"personal_access_token": "1|abcdef"})
 
     assert response.status_code == 200
     after = client.get("/api/v1/settings").json()["ai_connection"]["host"]

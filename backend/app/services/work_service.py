@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.constants.enums import GoalCategory, RetrospectivePeriodType
+from app.constants.sentinels import UNSET
 from app.models.goal import Goal
 from app.models.record import DailyRecord, WorkLog
 from app.models.retrospective import GoalRetrospective
@@ -55,13 +56,16 @@ def update_work_assignment(
     session: Session,
     work_assignment: WorkAssignment,
     *,
-    client_name: str | None = None,
+    client_name: str | None = UNSET,
     expected_content: str | None = None,
     start_date: dt.date | None = None,
 ) -> WorkAssignment:
     goal_service.ensure_goal_editable(work_assignment.goal)
 
-    if client_name is not None:
+    # expected_content・start_dateはNOT NULL列のためNone＝未指定で曖昧さがない。
+    # client_nameはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
+    # （constants/sentinels.py）。
+    if client_name is not UNSET:
         work_assignment.client_name = client_name
     if expected_content is not None:
         work_assignment.expected_content = expected_content
@@ -108,11 +112,21 @@ def get_work_assignment_progress(
         streak += 1
         day -= dt.timedelta(days=1)
 
+    # 「直近の月次報告有無」は直近の月（前月または当月）を対象期間とする行の有無で判定する
+    # （22.2）。期間を問わない存在判定にすると、過去に1度でも月次報告を生成した案件は
+    # 以後永久に「報告済み」と表示され、次の月次報告の催促が働かなくなる。
+    from app.services import work_report_service  # 循環importを避けるため関数内でimportする
+
+    recent_period_keys = (
+        work_report_service.default_monthly_period_key(today),  # 前月
+        work_report_service.current_monthly_period_key(today),  # 当月
+    )
     has_recent_monthly_report = (
         session.query(GoalRetrospective.id)
         .filter(
             GoalRetrospective.goal_id == work_assignment.goal_id,
             GoalRetrospective.period_type == RetrospectivePeriodType.MONTHLY,
+            GoalRetrospective.period_key.in_(recent_period_keys),
             GoalRetrospective.is_anonymized.is_(False),
         )
         .first()

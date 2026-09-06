@@ -14,6 +14,7 @@ Revises: e1f4a9c3b6d8
 Create Date: 2026-09-05 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -21,12 +22,12 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7c2e5a1d9f4b'
-down_revision: Union[str, Sequence[str], None] = 'e1f4a9c3b6d8'
+revision: str = "7c2e5a1d9f4b"
+down_revision: Union[str, Sequence[str], None] = "e1f4a9c3b6d8"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-_RECORD_STATE_ENUM = sa.Enum('PROGRESS_ONLY', 'REPORTED', name='recordstate', native_enum=False)
+_RECORD_STATE_ENUM = sa.Enum("PROGRESS_ONLY", "REPORTED", name="recordstate", native_enum=False)
 
 _BACKFILL_SQL = """
     UPDATE daily_record
@@ -122,34 +123,34 @@ _DOWNGRADE_BACKFILL_SQL = """
 
 def upgrade() -> None:
     """Upgrade schema."""
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('exam_record_state', _RECORD_STATE_ENUM, nullable=True))
-        batch_op.add_column(sa.Column('exam_reported_at', sa.DateTime(), nullable=True))
-        batch_op.add_column(sa.Column('reading_record_state', _RECORD_STATE_ENUM, nullable=True))
-        batch_op.add_column(sa.Column('reading_reported_at', sa.DateTime(), nullable=True))
-        batch_op.add_column(sa.Column('work_record_state', _RECORD_STATE_ENUM, nullable=True))
-        batch_op.add_column(sa.Column('work_reported_at', sa.DateTime(), nullable=True))
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("exam_record_state", _RECORD_STATE_ENUM, nullable=True))
+        batch_op.add_column(sa.Column("exam_reported_at", sa.DateTime(), nullable=True))
+        batch_op.add_column(sa.Column("reading_record_state", _RECORD_STATE_ENUM, nullable=True))
+        batch_op.add_column(sa.Column("reading_reported_at", sa.DateTime(), nullable=True))
+        batch_op.add_column(sa.Column("work_record_state", _RECORD_STATE_ENUM, nullable=True))
+        batch_op.add_column(sa.Column("work_reported_at", sa.DateTime(), nullable=True))
 
     op.get_bind().execute(sa.text(_BACKFILL_SQL))
 
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.drop_column('record_state')
-        batch_op.drop_column('reported_at')
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.drop_column("record_state")
+        batch_op.drop_column("reported_at")
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('record_state', _RECORD_STATE_ENUM, nullable=True))
-        batch_op.add_column(sa.Column('reported_at', sa.DateTime(), nullable=True))
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.add_column(sa.Column("record_state", _RECORD_STATE_ENUM, nullable=True))
+        batch_op.add_column(sa.Column("reported_at", sa.DateTime(), nullable=True))
 
     op.get_bind().execute(sa.text(_DOWNGRADE_BACKFILL_SQL))
 
-    with op.batch_alter_table('daily_record', schema=None) as batch_op:
-        batch_op.alter_column('record_state', nullable=False)
-        batch_op.drop_column('exam_record_state')
-        batch_op.drop_column('exam_reported_at')
-        batch_op.drop_column('reading_record_state')
-        batch_op.drop_column('reading_reported_at')
-        batch_op.drop_column('work_record_state')
-        batch_op.drop_column('work_reported_at')
+    with op.batch_alter_table("daily_record", schema=None) as batch_op:
+        batch_op.alter_column("record_state", nullable=False)
+        batch_op.drop_column("exam_record_state")
+        batch_op.drop_column("exam_reported_at")
+        batch_op.drop_column("reading_record_state")
+        batch_op.drop_column("reading_reported_at")
+        batch_op.drop_column("work_record_state")
+        batch_op.drop_column("work_reported_at")

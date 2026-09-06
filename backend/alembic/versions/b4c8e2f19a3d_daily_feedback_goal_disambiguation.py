@@ -5,6 +5,7 @@ Revises: 9a1c3e7d5b2f
 Create Date: 2026-08-30 00:00:00.000000
 
 """
+
 from datetime import UTC, datetime
 from typing import Sequence, Union
 
@@ -13,8 +14,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'b4c8e2f19a3d'
-down_revision: Union[str, Sequence[str], None] = '9a1c3e7d5b2f'
+revision: str = "b4c8e2f19a3d"
+down_revision: Union[str, Sequence[str], None] = "9a1c3e7d5b2f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -154,16 +155,16 @@ def upgrade() -> None:
     """Upgrade schema."""
     bind = op.get_bind()
     prompt_template = sa.table(
-        'prompt_template',
-        sa.column('purpose', sa.String),
-        sa.column('body', sa.Text),
-        sa.column('is_customized', sa.Boolean),
-        sa.column('updated_at', sa.DateTime),
+        "prompt_template",
+        sa.column("purpose", sa.String),
+        sa.column("body", sa.Text),
+        sa.column("is_customized", sa.Boolean),
+        sa.column("updated_at", sa.DateTime),
     )
     bind.execute(
         prompt_template.update()
         .where(
-            prompt_template.c.purpose == 'DAILY_FEEDBACK',
+            prompt_template.c.purpose == "DAILY_FEEDBACK",
             prompt_template.c.is_customized.is_(False),
         )
         .values(body=_NEW_DAILY_FEEDBACK_BODY, updated_at=datetime.now(UTC))
@@ -291,16 +292,16 @@ def downgrade() -> None:
     """
     bind = op.get_bind()
     prompt_template = sa.table(
-        'prompt_template',
-        sa.column('purpose', sa.String),
-        sa.column('body', sa.Text),
-        sa.column('is_customized', sa.Boolean),
-        sa.column('updated_at', sa.DateTime),
+        "prompt_template",
+        sa.column("purpose", sa.String),
+        sa.column("body", sa.Text),
+        sa.column("is_customized", sa.Boolean),
+        sa.column("updated_at", sa.DateTime),
     )
     bind.execute(
         prompt_template.update()
         .where(
-            prompt_template.c.purpose == 'DAILY_FEEDBACK',
+            prompt_template.c.purpose == "DAILY_FEEDBACK",
             prompt_template.c.is_customized.is_(False),
         )
         .values(body=_OLD_DAILY_FEEDBACK_BODY, updated_at=datetime.now(UTC))

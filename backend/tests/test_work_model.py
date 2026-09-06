@@ -66,9 +66,7 @@ def test_work_assignment_and_work_log_crud(db_session):
     db_session.add(work_log)
     db_session.commit()
 
-    assert db_session.get(WorkAssignment, assignment.id).expected_content.startswith(
-        "Webサイト"
-    )
+    assert db_session.get(WorkAssignment, assignment.id).expected_content.startswith("Webサイト")
     assert db_session.get(WorkLog, work_log.id).body.startswith("要件定義")
     assert len(db_session.get(WorkAssignment, assignment.id).work_logs) == 1
 
@@ -188,7 +186,8 @@ def test_daily_record_cascade_deletes_work_logs(db_session):
     db_session.flush()
 
     assignment = WorkAssignment(
-        goal_id=goal.id, expected_content="daily_record起点カスケード検証案件",
+        goal_id=goal.id,
+        expected_content="daily_record起点カスケード検証案件",
         start_date=dt.date(2026, 9, 1),
     )
     db_session.add(assignment)
@@ -299,9 +298,7 @@ def test_goal_retrospective_multiple_period_keys_for_same_goal(db_session):
     )
     db_session.commit()
 
-    assert (
-        db_session.query(GoalRetrospective).filter_by(goal_id=goal.id).count() == 3
-    )
+    assert db_session.query(GoalRetrospective).filter_by(goal_id=goal.id).count() == 3
 
 
 def test_goal_retrospective_work_period_unique_constraint(db_session):

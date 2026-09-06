@@ -149,6 +149,24 @@ def test_update_book_author_start_date_and_due_date(client):
     assert body["due_date"] == "2026-07-31"
 
 
+def test_update_book_clears_author_and_total_pages_with_explicit_null(client):
+    """NULL許容列は明示的なnullで空へ戻せる（未指定との区別、constants/sentinels.py）。
+    総ページ数のクリアは進捗率・現在ページ入力欄の非表示を意味する有効な操作。"""
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"])
+    client.patch(f"/api/v1/books/{book['id']}", json={"author": "夏目漱石", "total_pages": 300})
+
+    response = client.patch(
+        f"/api/v1/books/{book['id']}", json={"author": None, "total_pages": None}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["author"] is None
+    assert body["total_pages"] is None
+    assert body["progress_rate"] is None
+
+
 def test_update_book_rejects_start_date_after_due_date(client):
     goal = _create_reading_goal(client)
     book = _add_book(client, goal["id"], start_date="2026-01-01", due_date="2026-06-30")

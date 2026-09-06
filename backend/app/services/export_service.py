@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import EXPORT_DIR
 from app.constants.enums import (
+    AiPurpose,
     ChatRole,
     GoalCategory,
     Granularity,
@@ -291,22 +292,23 @@ def _build_diaries(session: Session, goal: Goal) -> list[dict]:
 
 
 def _build_ai_dialogue(session: Session, goal: Goal) -> list[dict]:
-    material_ids = [material.id for material in goal.materials]
-    if not material_ids:
-        return []
-    record_ids = {
-        row[0]
-        for row in session.query(DailyRecord.id)
-        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
-        .filter(StudyLog.material_id.in_(material_ids))
-        .distinct()
-    }
-    if not record_ids:
+    """資格試験目標のAI対話履歴を抽出する（読書・仕事目標はmaterialsを持たないため対象外）。
+
+    Phase26でchat_message.goal_idを追加し目標単位の会話へ分離したことに伴い、直接
+    goal_idで絞り込む方式へ変更した。従来はその目標のstudy_logがある日付に絞り込んだ上で
+    その日のchat_messageを無条件に取得していたため、同日に他の目標（他カテゴリを含む）の
+    日次フィードバック対話があると誤って混入する不具合があった（この目標を選んで出力した
+    エクスポートに、他の目標宛ての対話内容が含まれてしまう）。goal_id・purposeの両方で
+    絞り込むことで解消する。目標単位分離より前のレガシーメッセージ（goal_id=NULL）は、
+    どの目標宛てか技術的に判別不能なため対象外とする（分析タブ「成長記述」で目標を
+    手動で割り当てれば、以降のエクスポートで対象に含まれる）。
+    """
+    if not goal.materials:
         return []
     rows = (
         session.query(DailyRecord.record_date, ChatMessage.role, ChatMessage.content)
         .join(ChatMessage, ChatMessage.daily_record_id == DailyRecord.id)
-        .filter(DailyRecord.id.in_(record_ids))
+        .filter(ChatMessage.goal_id == goal.id, ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK)
         .order_by(DailyRecord.record_date, ChatMessage.sequence)
         .all()
     )

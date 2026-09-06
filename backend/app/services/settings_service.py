@@ -135,9 +135,7 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_weekly_summary=setting_reader.get_str(
             session, AI_ASSISTANT_UID_WEEKLY_SUMMARY
         ),
-        assistant_uid_daily_message=setting_reader.get_str(
-            session, AI_ASSISTANT_UID_DAILY_MESSAGE
-        ),
+        assistant_uid_daily_message=setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_MESSAGE),
         assistant_uid_goal_retrospective=setting_reader.get_str(
             session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE
         ),
@@ -218,9 +216,7 @@ def _update_prompt_degradation(session: Session, **fields: object) -> None:
     if fields.get("summary_inject_weeks") is not None:
         _set_number(session, SUMMARY_INJECT_WEEKS, fields["summary_inject_weeks"])
     if fields.get("reading_recall_recent_days") is not None:
-        _set_number(
-            session, AI_READING_RECALL_RECENT_DAYS, fields["reading_recall_recent_days"]
-        )
+        _set_number(session, AI_READING_RECALL_RECENT_DAYS, fields["reading_recall_recent_days"])
 
 
 def _update_display(session: Session, **fields: object) -> None:
@@ -281,9 +277,7 @@ def list_prompt_templates(session: Session) -> list[PromptTemplate]:
 
 
 def get_prompt_template(session: Session, purpose: AiPurpose) -> PromptTemplate:
-    template = (
-        session.query(PromptTemplate).filter(PromptTemplate.purpose == purpose.value).first()
-    )
+    template = session.query(PromptTemplate).filter(PromptTemplate.purpose == purpose.value).first()
     if template is None:
         raise NotFoundError("プロンプトテンプレート", purpose.value)
     return template

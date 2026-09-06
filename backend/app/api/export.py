@@ -47,9 +47,7 @@ def _selection_from_query(
     )
 
 
-@router.get(
-    "/goals/{goal_id}/knowledge-export/preview", response_model=KnowledgeExportContentRead
-)
+@router.get("/goals/{goal_id}/knowledge-export/preview", response_model=KnowledgeExportContentRead)
 def preview_knowledge_export(
     goal_id: int,
     anonymized: bool = False,

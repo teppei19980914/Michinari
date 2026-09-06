@@ -87,9 +87,7 @@ def test_list_prompt_templates_returns_all_purposes(client):
 
 
 def test_update_and_reset_prompt_template(client):
-    updated = client.patch(
-        "/api/v1/prompt-templates/DAILY_FEEDBACK", json={"body": "カスタム文面"}
-    )
+    updated = client.patch("/api/v1/prompt-templates/DAILY_FEEDBACK", json={"body": "カスタム文面"})
     assert updated.status_code == 200, updated.text
     assert updated.json()["body"] == "カスタム文面"
     assert updated.json()["is_customized"] is True

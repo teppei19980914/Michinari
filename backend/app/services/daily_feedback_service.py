@@ -16,7 +16,8 @@ from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_FEEDBACK, SUMMARY_INJECT_WEEKS
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
+from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
 from app.services import (
     ai_context_service,
@@ -27,6 +28,14 @@ from app.services import (
 )
 from app.services.exceptions import ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
+
+_ACTION_LABEL = "日次報告フィードバック"
+
+
+def _ensure_active_exam_goal(goal: Goal) -> None:
+    if goal.category != GoalCategory.EXAM:
+        raise ValidationError(f"資格試験目標（category=EXAM）にのみ{_ACTION_LABEL}を実行できます")
+    goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
 @dataclass(frozen=True)
@@ -39,54 +48,59 @@ class ChatOutcome:
 def send_daily_feedback(
     session: Session,
     *,
+    goal_id: int,
     target_date: dt.date,
     today: dt.date,
     message: str | None,
     study_log_items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
 ) -> ChatOutcome:
-    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/chat）。"""
+    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/chat）。
+
+    Phase26で日次フィードバックを目標単位の会話へ分離した。goal_idで指定された1目標のみを
+    対象とし、他目標の下書き入力・状況はプロンプトに混入させない（未決事項L-07の解消方針転換）。
+    """
     if target_date > today:
         raise ValidationError("未来日のAI対話はできません")
+
+    goal = goal_service.get_goal(session, goal_id)
+    _ensure_active_exam_goal(goal)
 
     record = record_service.ensure_daily_record(session, target_date)
     materials_by_id = record_service.load_materials_by_id(
         session, {item.material_id for item in study_log_items}
     )
+    # 選択中の目標配下の教材に属する実績のみを対象とする（他目標の下書き入力が
+    # プロンプトへ混入しないようにする、Phase26で発見・修正した既存の別件バグ）。
+    study_log_items = [
+        item for item in study_log_items if materials_by_id[item.material_id].goal_id == goal.id
+    ]
+    diary_entries = [entry for entry in diary_entries if entry.goal_id == goal.id]
 
-    # 読書目標（category=READING）はexam_subject/materialを持たず、この日次報告フィードバック
-    # は資格試験専用のプロンプト（AiPurpose.DAILY_FEEDBACK）であるため、EXAM目標のみに限定する
-    # （読書用フィードバックはAiPurpose.DAILY_FEEDBACK_READINGとしてPhase16で別途実装する）。
-    active_goals = ai_context_service.list_active_exam_goals(session)
+    active_goals = [goal]
     active_materials = ai_context_service.list_active_materials(active_goals)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, target_date, treat_holiday_as_buffer)
 
-    # 複数目標が同時にACTIVEな場合の代表選定は設計書に明記がないため、
-    # 目標ごとの内訳を列挙する（goal_summaryと同様の整理、Phase5実装判断）。
-    if active_goals:
-        load_coefficient_text = ", ".join(
-            f"{goal.name}: "
-            f"{calendar_service.resolve_load_coefficient(session, goal.id, target_date):.2f}"
-            for goal in active_goals
-        )
-    else:
-        load_coefficient_text = "算出不可（進行中の目標なし）"
+    load_coefficient_text = (
+        f"{calendar_service.resolve_load_coefficient(session, goal.id, target_date):.2f}"
+    )
 
-    # 対話履歴への注入はpurposeで絞り込む。読書のDAILY_FEEDBACK_READING（Phase16）が
+    # 対話履歴への注入はpurpose・goal_idで絞り込む。読書のDAILY_FEEDBACK_READING（Phase16）が
     # 同一daily_recordにchat_messageを持ちうるため、他用途の対話を文脈に混入させない。
+    # goal_id=NULLの行は移行前のレガシーメッセージ（Phase26）のため対話履歴には含めない
+    # （どの目標宛てか技術的に判別不能で、他目標の内容を含みうるため）。
     existing_messages = (
         session.query(ChatMessage)
         .filter(
             ChatMessage.daily_record_id == record.id,
             ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK,
+            ChatMessage.goal_id == goal.id,
         )
         .order_by(ChatMessage.sequence)
         .all()
     )
-    history = [
-        prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages
-    ]
+    history = [prompt_builder.ChatTurn(role=m.role, content=m.content) for m in existing_messages]
     # 本日最初のAI呼び出し（自由入力メッセージがまだ無い状態）は本日の記録内容自体への
     # フィードバック依頼として扱う（17.2の変数群で状況は伝わるため、対話履歴には積まない）。
     if message:
@@ -102,9 +116,7 @@ def send_daily_feedback(
         material_entries=ai_context_service.build_material_status_entries(
             session, active_materials, target_date, treat_holiday_as_buffer
         ),
-        slot_summary=ai_context_service.build_slot_summary(
-            session, active_materials, target_date
-        ),
+        slot_summary=ai_context_service.build_slot_summary(session, active_materials, target_date),
         buffer_usage_rate=ai_context_service.build_buffer_usage_rate_text(
             session, active_goals, target_date, treat_holiday_as_buffer
         ),
@@ -124,11 +136,11 @@ def send_daily_feedback(
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK)
     conversation = ai_conversation.ensure_conversation(
         session,
-        goal=None,
+        goal=goal,
         scope=ConversationScope.DAILY_FEEDBACK,
         scope_key=target_date.isoformat(),
         assistant_uid=assistant_uid,
-        title=f"{target_date.isoformat()} 日次報告",
+        title=f"{target_date.isoformat()} 日次報告（{goal.name}）",
     )
 
     send_result = ai_orchestration.send_and_log(
@@ -145,6 +157,7 @@ def send_daily_feedback(
         session.add(
             ChatMessage(
                 daily_record_id=record.id,
+                goal_id=goal.id,
                 purpose=AiPurpose.DAILY_FEEDBACK,
                 role=ChatRole.USER,
                 content=message,
@@ -155,6 +168,7 @@ def send_daily_feedback(
 
     assistant_message = ChatMessage(
         daily_record_id=record.id,
+        goal_id=goal.id,
         purpose=AiPurpose.DAILY_FEEDBACK,
         role=ChatRole.ASSISTANT,
         content=send_result.response_text,

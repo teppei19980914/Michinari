@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.constants.enums import (
     BaselineReason,
     DayType,
+    GoalCategory,
     Granularity,
     PassingScoreType,
     QualityMetricType,
@@ -25,28 +26,61 @@ from app.services.cycle_service import MaterialProgress
 _SUBJECTIVE_NORMALIZATION_TABLE = {1: 20.0, 2: 40.0, 3: 60.0, 4: 80.0, 5: 100.0}
 
 
-def compute_buffer_usage_rate(
-    session: Session, goal: Goal, today: dt.date, treat_holiday_as_buffer: bool
-) -> float | None:
-    """バッファ消費率を算出する（13.1）。経過バッファ日が0件の場合は算出不能（None）。"""
-    if today <= goal.start_date:
-        return None
+def compute_buffer_consumption(
+    session: Session,
+    goal: Goal,
+    date_from: dt.date,
+    date_to: dt.date,
+    treat_holiday_as_buffer: bool,
+) -> tuple[int, int]:
+    """期間内の (実績あり日数, 経過バッファ日数) を返す（13.1の分子・分母）。
 
+    実績あり日は「対象目標配下の教材のstudy_logが1件以上存在するバッファ日」とする。
+    目標で絞り込まないと、他目標（同時進行中の別の資格試験）の実績によってバッファ日が
+    消費済みと判定され、目標ごとの余裕度を表さない値になる。
+
+    バッファ消費率（compute_buffer_usage_rate、目標開始日〜前日）と週次要約の
+    {{week_metrics}}（週内、ai_context_service.build_week_metrics_text）は集計窓が
+    異なるだけの同一処理のため、ここへ共通化する（CLAUDE.md DRYの原則）。
+    """
     day_types = calendar_service.resolve_day_types(
-        session, goal.start_date, today - dt.timedelta(days=1), treat_holiday_as_buffer
+        session, date_from, date_to, treat_holiday_as_buffer
     )
     buffer_days = [d for d, day_type in day_types.items() if day_type == DayType.BUFFER]
     if not buffer_days:
-        return None
+        return 0, 0
 
     dates_with_study_log = {
         row[0]
         for row in session.query(DailyRecord.record_date)
         .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
-        .filter(DailyRecord.record_date.in_(buffer_days))
+        .join(Material, StudyLog.material_id == Material.id)
+        .filter(Material.goal_id == goal.id, DailyRecord.record_date.in_(buffer_days))
         .distinct()
     }
-    return len(dates_with_study_log) / len(buffer_days)
+    return len(dates_with_study_log), len(buffer_days)
+
+
+def compute_buffer_usage_rate(
+    session: Session, goal: Goal, today: dt.date, treat_holiday_as_buffer: bool
+) -> float | None:
+    """バッファ消費率を算出する（13.1）。経過バッファ日が0件の場合は算出不能（None）。
+
+    読書・仕事目標（READING/WORK）は日種別による計画運用の対象外であり
+    （要件定義書R-71・R-74、ロジック・プロンプト編21.1・22.1）、バッファという概念自体を
+    持たないため算出しない（None）。
+    """
+    if goal.category != GoalCategory.EXAM:
+        return None
+    if today <= goal.start_date:
+        return None
+
+    consumed_days, buffer_days = compute_buffer_consumption(
+        session, goal, goal.start_date, today - dt.timedelta(days=1), treat_holiday_as_buffer
+    )
+    if buffer_days == 0:
+        return None
+    return consumed_days / buffer_days
 
 
 def compute_progress_rate(progress: MaterialProgress) -> float:

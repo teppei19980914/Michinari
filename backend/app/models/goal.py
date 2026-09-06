@@ -114,9 +114,7 @@ class LoadProfile(CreatedAtMixin, Base):
     """負荷プロファイル。未設定期間の係数は1.0（サービス層で解決）。"""
 
     __tablename__ = "load_profile"
-    __table_args__ = (
-        Index("ix_load_profile_goal_period", "goal_id", "date_from", "date_to"),
-    )
+    __table_args__ = (Index("ix_load_profile_goal_period", "goal_id", "date_from", "date_to"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
