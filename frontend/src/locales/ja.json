@@ -708,6 +708,7 @@
   },
   "analytics": {
     "title": "分析",
+    "showArchivedToggle": "アーカイブ済みを表示",
     "goalSelector": {
       "empty": "登録済みの目標がありません"
     },
