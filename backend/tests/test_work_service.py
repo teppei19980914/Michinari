@@ -148,6 +148,52 @@ def test_has_recent_monthly_report_true_when_monthly_retrospective_exists(db_ses
     assert progress.has_recent_monthly_report is True
 
 
+def test_has_recent_monthly_report_false_when_only_old_month_exists(db_session):
+    """22.2「直近の月（前月または当月）」より古い月次報告のみでは False。
+
+    期間を問わない存在判定にすると、過去に1度でも月次報告を生成した案件は以後永久に
+    「報告済み」と表示され、次の月次報告の催促が働かなくなる（1.1（改13）で是正）。
+    """
+    goal = _make_work_goal(db_session)
+    work_assignment = _make_work_assignment(db_session, goal)
+    db_session.add(
+        GoalRetrospective(
+            goal_id=goal.id,
+            body="ずっと前の月次報告",
+            period_type=RetrospectivePeriodType.MONTHLY,
+            period_key="2026-01",
+        )
+    )
+    db_session.flush()
+
+    progress = work_service.get_work_assignment_progress(
+        db_session, work_assignment, dt.date(2026, 9, 6)
+    )
+
+    assert progress.has_recent_monthly_report is False
+
+
+def test_has_recent_monthly_report_true_for_current_month(db_session):
+    """当月分が生成済みの場合も True（22.2「前月または当月」）。"""
+    goal = _make_work_goal(db_session)
+    work_assignment = _make_work_assignment(db_session, goal)
+    db_session.add(
+        GoalRetrospective(
+            goal_id=goal.id,
+            body="当月の月次報告",
+            period_type=RetrospectivePeriodType.MONTHLY,
+            period_key="2026-09",
+        )
+    )
+    db_session.flush()
+
+    progress = work_service.get_work_assignment_progress(
+        db_session, work_assignment, dt.date(2026, 9, 6)
+    )
+
+    assert progress.has_recent_monthly_report is True
+
+
 def test_has_recent_monthly_report_false_for_semiannual_only(db_session):
     """半期評価のみでは「直近の月次報告有無」はFalseのまま（period_type=MONTHLYのみ対象）。"""
     goal = _make_work_goal(db_session)

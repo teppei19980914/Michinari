@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
 from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus
+from app.constants.sentinels import UNSET
 from app.models.base import utcnow
 from app.models.goal import Goal, LoadProfile
 from app.models.material import Material, PlanBaseline
@@ -177,16 +178,18 @@ def update_goal(
     *,
     name: str | None = None,
     start_date: dt.date | None = None,
-    memo: str | None = None,
+    memo: str | None = UNSET,
     resource_ratio: float | None = None,
 ) -> Goal:
     ensure_goal_editable(goal)
 
+    # name・start_dateはNOT NULL列のためNone＝未指定で曖昧さがない。memoはNULL許容のため
+    # 「未指定」と「明示的なクリア」を番兵で区別する（constants/sentinels.py）。
     if name is not None:
         goal.name = name
     if start_date is not None:
         goal.start_date = start_date
-    if memo is not None:
+    if memo is not UNSET:
         goal.memo = memo
     if resource_ratio is not None:
         # 読書・仕事目標はリソース配分プールの対象外（要件定義書R-64・R-74）。
