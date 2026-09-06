@@ -153,9 +153,7 @@ def test_daily_message_has_nullable_goal_id_and_composite_unique():
     assert "goal_id" in columns
     assert columns["goal_id"]["nullable"] is True
     unique_constraints = inspector.get_unique_constraints("daily_message")
-    assert any(
-        set(uc["column_names"]) == {"target_date", "goal_id"} for uc in unique_constraints
-    )
+    assert any(set(uc["column_names"]) == {"target_date", "goal_id"} for uc in unique_constraints)
 
 
 def test_daily_goal_diary_migration_attributes_shared_diary_by_goal(tmp_path, monkeypatch):
@@ -317,7 +315,9 @@ def test_daily_feedback_prompt_migration_updates_non_customized_template(tmp_pat
     finally:
         connection.close()
 
-    migration_helpers.upgrade_to("head")
+    # b4c8e2f19a3d自体の効果を検証する（head全体ではない）。後続のc1a5f9e3d7b2
+    # （Phase26、目標単位分離に伴い本セクションを削除）で再び上書きされるため。
+    migration_helpers.upgrade_to("b4c8e2f19a3d")
 
     connection = sqlite3.connect(db_path)
     try:
@@ -381,9 +381,7 @@ def test_work_goal_category_migration_creates_work_tables_and_retrospective_colu
     )
 
 
-def test_goal_retrospective_migration_preserves_existing_exam_rows_with_data(
-    tmp_path, monkeypatch
-):
+def test_goal_retrospective_migration_preserves_existing_exam_rows_with_data(tmp_path, monkeypatch):
     """goal_retrospectiveへの9列追加マイグレーション（e1f4a9c3b6d8）を、既存データ
     （EXAM総括レポート想定の行、period_type等の概念が無かった旧スキーマ行）がある状態への
     適用として検証する（CODING_RULES.md「DBマイグレーションのテスト」）。列追加後も
@@ -650,3 +648,100 @@ def test_daily_record_category_state_migration_backfills_by_category_presence(
     assert exam_state == "PROGRESS_ONLY"  # chat_messageのみでもEXAMに触れたとみなす
     assert reading_state is None
     assert work_state is None
+
+
+def test_chat_message_has_nullable_goal_id_column(db_session):
+    """完了条件: chat_message.goal_idが存在し、NULL許容であること
+    （Phase26、d8f21a6c4b3e、未決事項L-07の解消方針転換）。"""
+    import datetime as dt
+
+    from app.constants.enums import ChatRole, RecordState
+    from app.models.record import ChatMessage, DailyRecord
+
+    inspector = inspect(engine)
+    columns = {col["name"]: col for col in inspector.get_columns("chat_message")}
+    assert "goal_id" in columns
+    assert columns["goal_id"]["nullable"] is True
+
+    record = DailyRecord(
+        record_date=dt.date(2026, 1, 1), exam_record_state=RecordState.PROGRESS_ONLY
+    )
+    db_session.add(record)
+    db_session.flush()
+    message = ChatMessage(
+        daily_record_id=record.id, role=ChatRole.ASSISTANT, content="応答", sequence=1
+    )
+    db_session.add(message)
+    db_session.commit()
+    assert message.goal_id is None
+
+
+def test_daily_feedback_prompt_removal_migration_updates_non_customized_template(
+    tmp_path, monkeypatch
+):
+    """目標単位分離（c1a5f9e3d7b2、Phase26）に伴う「複数目標がある場合の注意」削除を、
+    既存データがある状態への適用として検証する。is_customized=False（利用者が未編集）の
+    テンプレートは、当該セクションを含まない新文面へ更新されること。
+    """
+    db_path = tmp_path / "prompt_removal_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("d8f21a6c4b3e")  # 削除マイグレーション（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', '旧文面（複数目標がある場合の注意を含む）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert "複数目標がある場合の注意" not in row[0]
+
+
+def test_daily_feedback_prompt_removal_migration_preserves_customized_template(
+    tmp_path, monkeypatch
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、削除マイグレーション
+    （c1a5f9e3d7b2）でも上書きしないこと。"""
+    db_path = tmp_path / "prompt_removal_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("d8f21a6c4b3e")  # 削除マイグレーション（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', "
+            "'ユーザーがカスタマイズした文面（複数目標がある場合の注意を含む）', 1, "
+            "'2026-01-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert row[0] == "ユーザーがカスタマイズした文面（複数目標がある場合の注意を含む）"

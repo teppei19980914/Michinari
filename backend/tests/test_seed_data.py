@@ -80,9 +80,7 @@ def test_work_prompt_templates_and_settings_are_seeded(db_session):
         AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     }
     for purpose in work_purposes:
-        template = (
-            db_session.query(PromptTemplate).filter_by(purpose=purpose.value).one()
-        )
+        template = db_session.query(PromptTemplate).filter_by(purpose=purpose.value).one()
         assert template.body == INITIAL_PROMPT_TEMPLATES[purpose]
         assert template.is_customized is False
 

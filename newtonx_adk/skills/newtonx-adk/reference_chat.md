@@ -20,15 +20,11 @@ folders = client.get_folders()
 ```python
 [
     {
-        'type': 'folder',
-        'id': 5656,           # ← これを使用（整数）
-        'name': '領収書読み取り'
+        "type": "folder",
+        "id": 5656,  # ← これを使用（整数）
+        "name": "領収書読み取り",
     },
-    {
-        'type': 'folder',
-        'id': 6316,
-        'name': 'AI最新技術'
-    }
+    {"type": "folder", "id": 6316, "name": "AI最新技術"},
 ]
 ```
 
@@ -38,15 +34,12 @@ folders = client.get_folders()
 def get_or_create_folder(client, folder_name):
     """フォルダを取得、存在しなければ作成"""
     folders = client.get_folders()
-    
+
     # 名前で検索
-    target_folder = next(
-        (f for f in folders if f['name'] == folder_name),
-        None
-    )
-    
+    target_folder = next((f for f in folders if f["name"] == folder_name), None)
+
     if target_folder:
-        return target_folder['id']  # ← 'id' を使用
+        return target_folder["id"]  # ← 'id' を使用
     else:
         # 存在しない場合は作成
         folder_id = client.create_folder(folder_name)
@@ -63,7 +56,7 @@ folder_id = get_or_create_folder(client, "プロジェクトA")
 chat_uid = client.create_chat(
     assistant_uid=assistant_uid,
     title="新しいチャット",
-    folder_uid=folder_id  # ← folder_uid パラメータ名だが、値は folder['id']
+    folder_uid=folder_id,  # ← folder_uid パラメータ名だが、値は folder['id']
 )
 ```
 
@@ -73,14 +66,14 @@ chat_uid = client.create_chat(
 
 ```python
 # 間違い
-folder_uid = folder['uid']  # ← このフィールドは存在しない
+folder_uid = folder["uid"]  # ← このフィールドは存在しない
 chat_uid = client.create_chat(..., folder_uid=folder_uid)
 ```
 
 **正しい方法**:
 ```python
 # 正しい
-folder_id = folder['id']  # ← 'id' を使用
+folder_id = folder["id"]  # ← 'id' を使用
 chat_uid = client.create_chat(..., folder_uid=folder_id)
 ```
 
@@ -91,7 +84,7 @@ chat_uid = client.create_chat(..., folder_uid=folder_id)
 chat_uid = client.create_chat(
     assistant_uid=assistant_uid,
     title="チャット",
-    folder_uid="プロジェクトA"  # ← 文字列ではなく、ID（整数）が必要
+    folder_uid="プロジェクトA",  # ← 文字列ではなく、ID（整数）が必要
 )
 ```
 
@@ -99,12 +92,12 @@ chat_uid = client.create_chat(
 ```python
 # 正しい
 folders = client.get_folders()
-folder = next((f for f in folders if f['name'] == "プロジェクトA"), None)
+folder = next((f for f in folders if f["name"] == "プロジェクトA"), None)
 if folder:
     chat_uid = client.create_chat(
         assistant_uid=assistant_uid,
         title="チャット",
-        folder_uid=folder['id']  # ← ID（整数）を渡す
+        folder_uid=folder["id"],  # ← ID（整数）を渡す
     )
 ```
 
@@ -121,23 +114,23 @@ client.authenticate()
 
 # アシスタント取得
 assistants = client.get_assistants()
-assistant_uid = assistants[0]['uid']
+assistant_uid = assistants[0]["uid"]
+
 
 # フォルダ取得または作成
 def ensure_folder(client, folder_name):
     folders = client.get_folders()
-    folder = next((f for f in folders if f['name'] == folder_name), None)
+    folder = next((f for f in folders if f["name"] == folder_name), None)
     if folder:
-        return folder['id']
+        return folder["id"]
     else:
         return client.create_folder(folder_name)
+
 
 # フォルダ内にチャット作成
 folder_id = ensure_folder(client, "開発用チャット")
 chat_uid = client.create_chat(
-    assistant_uid=assistant_uid,
-    title="テストチャット",
-    folder_uid=folder_id
+    assistant_uid=assistant_uid, title="テストチャット", folder_uid=folder_id
 )
 
 print(f"チャット作成完了: {chat_uid}")

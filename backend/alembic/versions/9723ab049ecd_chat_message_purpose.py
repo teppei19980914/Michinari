@@ -5,6 +5,7 @@ Revises: b7a1021fff73
 Create Date: 2026-08-31 00:00:00.000001
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '9723ab049ecd'
-down_revision: Union[str, Sequence[str], None] = 'b7a1021fff73'
+revision: str = "9723ab049ecd"
+down_revision: Union[str, Sequence[str], None] = "b7a1021fff73"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -27,15 +28,13 @@ def upgrade() -> None:
     全てDAILY_FEEDBACK（資格試験用、読書機能導入前は他の用途が無かったため）として
     遡及設定する。ORM層はChatMessage生成時に必ずpurposeを明示するため実害はない。
     """
-    with op.batch_alter_table('chat_message', schema=None) as batch_op:
+    with op.batch_alter_table("chat_message", schema=None) as batch_op:
         batch_op.add_column(
-            sa.Column(
-                'purpose', sa.String(), nullable=False, server_default='DAILY_FEEDBACK'
-            )
+            sa.Column("purpose", sa.String(), nullable=False, server_default="DAILY_FEEDBACK")
         )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    with op.batch_alter_table('chat_message', schema=None) as batch_op:
-        batch_op.drop_column('purpose')
+    with op.batch_alter_table("chat_message", schema=None) as batch_op:
+        batch_op.drop_column("purpose")

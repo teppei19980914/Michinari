@@ -20,7 +20,11 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'dashboard',
     titleKey: 'help.sections.dashboard.title',
-    bodyKeys: ['help.sections.dashboard.p1', 'help.sections.dashboard.p2'],
+    bodyKeys: [
+      'help.sections.dashboard.p1',
+      'help.sections.dashboard.p2',
+      'help.sections.dashboard.p3',
+    ],
   },
   {
     id: 'goals',
@@ -41,7 +45,11 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'calendar',
     titleKey: 'help.sections.calendar.title',
-    bodyKeys: ['help.sections.calendar.p1', 'help.sections.calendar.p2'],
+    bodyKeys: [
+      'help.sections.calendar.p1',
+      'help.sections.calendar.p2',
+      'help.sections.calendar.p3',
+    ],
   },
   {
     id: 'dailyReport',
@@ -56,7 +64,11 @@ export const HELP_SECTIONS: HelpSection[] = [
   {
     id: 'analytics',
     titleKey: 'help.sections.analytics.title',
-    bodyKeys: ['help.sections.analytics.p1'],
+    bodyKeys: [
+      'help.sections.analytics.p1',
+      'help.sections.analytics.p2',
+      'help.sections.analytics.p3',
+    ],
   },
   {
     id: 'examAndExport',

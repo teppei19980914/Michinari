@@ -194,7 +194,7 @@ page2_chats = client.get_chats(page=2, page_size=10)
 chat_uid = client.create_chat(
     assistant_uid="assistant_uid_here",
     title="新しいチャット",
-    folder_uid="folder_uid_here"  # オプション
+    folder_uid="folder_uid_here",  # オプション
 )
 ```
 **戻り値**:
@@ -288,16 +288,11 @@ if chat_detail:
 
 ```python
 # 基本的なメッセージ送信
-response = client.send_message(
-    chat_uid="chat_uid_here",
-    message="こんにちは！"
-)
+response = client.send_message(chat_uid="chat_uid_here", message="こんにちは！")
 
 # 文脈を指定してメッセージ送信（前のメッセージの続きとして送信）
 response = client.send_message(
-    chat_uid="chat_uid_here",
-    message="続きを教えて",
-    parent_order=5
+    chat_uid="chat_uid_here", message="続きを教えて", parent_order=5
 )
 
 # 検索設定を指定
@@ -305,21 +300,21 @@ response = client.send_message(
     chat_uid="chat_uid_here",
     message="最新のAI技術について教えてください",
     web_search=True,
-    knowledge_search=False
+    knowledge_search=False,
 )
 
 # 画像付きメッセージ
 response = client.send_message(
     chat_uid="chat_uid_here",
     message="この画像を分析してください",
-    image_ids=["image_id_1", "image_id_2"]
+    image_ids=["image_id_1", "image_id_2"],
 )
 
 # 音声付きメッセージ
 response = client.send_message(
     chat_uid="chat_uid_here",
     message="この音声を要約してください",
-    audio_file_path="/path/to/sample.wav"
+    audio_file_path="/path/to/sample.wav",
 )
 ```
 **パラメータ**:
@@ -432,7 +427,7 @@ if success:
 chat_uid = client.create_chat_in_folder(
     assistant_uid="assistant_uid_here",
     folder_uid="folder_uid_here",
-    title="フォルダ内チャット"
+    title="フォルダ内チャット",
 )
 if chat_uid:
     print(f"フォルダ内にチャットを作成しました: {chat_uid}")
@@ -446,7 +441,7 @@ if chat_uid:
 chat_uid = client.create_chat_in_folder_by_name(
     assistant_uid="assistant_uid_here",
     folder_name="分析レポート",
-    title="2025-09-実験記録"
+    title="2025-09-実験記録",
 )
 if chat_uid:
     print(f"フォルダ名指定でチャットを作成しました: {chat_uid}")
@@ -505,7 +500,7 @@ for chat in folder_chats:
 image_id = client.upload_image(
     chat_uid="chat_uid_here",
     file_path="path/to/image.jpg",
-    file_name="custom_name.jpg"  # オプション
+    file_name="custom_name.jpg",  # オプション
 )
 if image_id:
     print(f"画像がアップロードされました: {image_id}")
@@ -519,7 +514,7 @@ if image_id:
 success = client.upload_document(
     chat_uid="chat_uid_here",
     file_path="path/to/document.pdf",
-    file_name="custom_name.pdf"  # オプション
+    file_name="custom_name.pdf",  # オプション
 )
 if success:
     print("ドキュメントがアップロードされました")
@@ -607,7 +602,9 @@ if company_info:
 複数の画像を結合して1枚のコラージュ画像を生成し、単一画像としてアップロードします。戻り値は生成画像に対応する1つのUIDを要素に持つ配列になります。
 
 ```python
-image_ids = client.upload_images(chat_uid, ["/path/to/a.png", "/path/to/b.jpg"])  # ["uid_collage"]
+image_ids = client.upload_images(
+    chat_uid, ["/path/to/a.png", "/path/to/b.jpg"]
+)  # ["uid_collage"]
 ```
 
 注意: 現時点のLLM処理が単一画像を前提としているための仕様です。将来的にマルチ画像入力が有効化されたら、ADK側の挙動を変更する可能性があります。
@@ -660,9 +657,7 @@ print(f"Timeout: {config.timeout}")
 
 ```python
 config_manager.update_config(
-    api_base_url="https://api.newtonx.com",
-    timeout=30,
-    max_retries=3
+    api_base_url="https://api.newtonx.com", timeout=30, max_retries=3
 )
 ```
 
@@ -671,10 +666,7 @@ config_manager.update_config(
 認証情報を設定します（PKCE利用時はクライアントシークレット不要）。
 
 ```python
-config_manager.set_credentials(
-    client_id="your_client_id",
-    tenant_id="your_tenant_id"
-)
+config_manager.set_credentials(client_id="your_client_id", tenant_id="your_tenant_id")
 ```
 
 ### AuthManager
@@ -809,17 +801,17 @@ client = NewtonXClient(config_manager)
 if client.authenticate():
     # アシスタント一覧を取得
     assistants = client.get_assistants()
-    
+
     # フォルダを作成
     folder_uid = client.create_folder("テストフォルダ")
-    
+
     # フォルダ内にチャットを作成
     chat_uid = client.create_chat_in_folder(
-        assistant_uid=assistants[0]['uid'],
+        assistant_uid=assistants[0]["uid"],
         folder_uid=folder_uid,
-        title="テストチャット"
+        title="テストチャット",
     )
-    
+
     # メッセージを送信
     response = client.send_message(chat_uid, "こんにちは！")
     print(f"応答: {response}")
@@ -833,9 +825,7 @@ image_id = client.upload_image(chat_uid, "receipt.jpg")
 
 # 画像付きメッセージを送信
 response = client.send_message(
-    chat_uid=chat_uid,
-    message="この領収書を分析してください",
-    image_ids=[image_id]
+    chat_uid=chat_uid, message="この領収書を分析してください", image_ids=[image_id]
 )
 ```
 

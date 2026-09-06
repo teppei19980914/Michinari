@@ -1,7 +1,9 @@
 """daily_feedback_service のテスト（データ構造編6.2 POST /records/{date}/chat、
-ロジック・プロンプト編16.3.1・16.7、実装フェーズ分割計画書Phase5完了条件）。
+ロジック・プロンプト編16.3.1・16.7、実装フェーズ分割計画書Phase5・Phase26完了条件）。
 
 実際のAI基盤へは接続せず、app.ai.client.send_message をモックして検証する。
+Phase26で日次フィードバックを目標単位の会話へ分離したため、goal_idが必須になった
+（未決事項L-07の解消方針転換）。
 """
 
 import datetime as dt
@@ -11,13 +13,13 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
-from app.constants.enums import ChatRole, GoalStatus, QualityMetricType
+from app.constants.enums import ChatRole, GoalCategory, GoalStatus, QualityMetricType
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage
 from app.services import daily_feedback_service, record_service
-from app.services.exceptions import ValidationError
+from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
 
 
@@ -44,8 +46,8 @@ def _cleanup_committed_rows(seeded_session):
     seeded_session.commit()
 
 
-def _make_goal(session, name="目標A"):
-    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE)
+def _make_goal(session, name="目標A", category=GoalCategory.EXAM, status=GoalStatus.ACTIVE):
+    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=status, category=category)
     session.add(goal)
     session.flush()
     return goal
@@ -92,14 +94,14 @@ def test_send_daily_feedback_raises_when_prompt_template_missing(seeded_session)
     from app.constants.enums import AiPurpose
     from app.models.setting import PromptTemplate
 
-    seeded_session.query(PromptTemplate).filter_by(
-        purpose=AiPurpose.DAILY_FEEDBACK.value
-    ).delete()
+    goal = _make_goal(seeded_session)
+    seeded_session.query(PromptTemplate).filter_by(purpose=AiPurpose.DAILY_FEEDBACK.value).delete()
     seeded_session.flush()
 
     with pytest.raises(ValidationError):
         daily_feedback_service.send_daily_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
@@ -108,28 +110,57 @@ def test_send_daily_feedback_raises_when_prompt_template_missing(seeded_session)
         )
 
 
-def test_send_daily_feedback_reports_no_active_goals_in_load_coefficient(
-    seeded_session, monkeypatch
-):
-    calls = _stub_send_message(monkeypatch)
-
-    daily_feedback_service.send_daily_feedback(
-        seeded_session,
-        target_date=dt.date(2026, 8, 24),
-        today=dt.date(2026, 8, 24),
-        message=None,
-        study_log_items=[],
-        diary_entries=[],
-    )
-
-    assert "算出不可" in calls[0]["message"]
-
-
 def test_send_daily_feedback_rejects_future_date(seeded_session):
+    goal = _make_goal(seeded_session)
+
     with pytest.raises(ValidationError):
         daily_feedback_service.send_daily_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 25),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            study_log_items=[],
+            diary_entries=[],
+        )
+
+
+def test_send_daily_feedback_rejects_unknown_goal(seeded_session):
+    with pytest.raises(NotFoundError):
+        daily_feedback_service.send_daily_feedback(
+            seeded_session,
+            goal_id=999999,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            study_log_items=[],
+            diary_entries=[],
+        )
+
+
+def test_send_daily_feedback_rejects_non_exam_goal(seeded_session):
+    goal = _make_goal(seeded_session, category=GoalCategory.READING)
+
+    with pytest.raises(ValidationError):
+        daily_feedback_service.send_daily_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            study_log_items=[],
+            diary_entries=[],
+        )
+
+
+def test_send_daily_feedback_rejects_inactive_goal(seeded_session):
+    goal = _make_goal(seeded_session, status=GoalStatus.DRAFT)
+
+    with pytest.raises(InvalidStateTransitionError):
+        daily_feedback_service.send_daily_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
             study_log_items=[],
@@ -144,6 +175,7 @@ def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, 
 
     outcome = daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -172,6 +204,7 @@ def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, 
     assert len(messages) == 1
     assert messages[0].role == ChatRole.ASSISTANT
     assert messages[0].content == "AIからの応答"
+    assert messages[0].goal_id == goal.id
     assert outcome.was_truncated is False
 
 
@@ -184,6 +217,7 @@ def test_send_daily_feedback_followup_turn_adds_user_and_assistant_messages(
 
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -194,6 +228,7 @@ def test_send_daily_feedback_followup_turn_adds_user_and_assistant_messages(
     calls = _stub_send_message(monkeypatch, response="2回目の応答")
     outcome = daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message="もう少し詳しく教えて",
@@ -226,6 +261,7 @@ def test_send_daily_feedback_reuses_conversation_across_turns(seeded_session, mo
 
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -234,6 +270,7 @@ def test_send_daily_feedback_reuses_conversation_across_turns(seeded_session, mo
     )
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message="続きです",
@@ -242,9 +279,72 @@ def test_send_daily_feedback_reuses_conversation_across_turns(seeded_session, mo
     )
 
     conversation = seeded_session.query(AiConversation).one()
+    assert conversation.goal_id == goal.id
     # last_parent_orderはv0.10.5では文脈維持に使用できないが、将来の開発キット改修に備えた
     # 記録として往復ごとに更新される（16.3.1）。
     assert conversation.last_parent_order == 2
+
+
+def test_send_daily_feedback_separates_conversation_and_history_per_goal(
+    seeded_session, monkeypatch
+):
+    """2件のEXAM目標が同時ACTIVEでも、会話・対話履歴・プロンプトが目標ごとに分離される
+    （Phase26、未決事項L-07の解消方針転換）。
+    """
+    goal_a = _make_goal(seeded_session, name="目標A")
+    material_a = _make_material(seeded_session, goal_a)
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_b = _make_material(seeded_session, goal_b, name="教材B")
+
+    _stub_send_message(monkeypatch, response="目標A向け応答")
+    daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal_a.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[
+            StudyLogItem(
+                material_id=material_a.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=None,
+            )
+        ],
+        diary_entries=[],
+    )
+
+    calls_b = _stub_send_message(monkeypatch, response="目標B向け応答")
+    daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal_b.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[
+            StudyLogItem(
+                material_id=material_b.id,
+                minutes_spent=45,
+                amount_completed=5.0,
+                cycle_number=1,
+                quality_value=None,
+            )
+        ],
+        diary_entries=[],
+    )
+
+    # 目標Bへの送信プロンプトに目標Aの教材名・実績が混入していない
+    # （Phase26で発見・修正した既存の別件バグ）。
+    assert "教材A" not in calls_b[0]["message"]
+    assert "教材B" in calls_b[0]["message"]
+
+    conversations = seeded_session.query(AiConversation).order_by(AiConversation.goal_id).all()
+    assert [c.goal_id for c in conversations] == [goal_a.id, goal_b.id]
+
+    messages = seeded_session.query(ChatMessage).order_by(ChatMessage.goal_id).all()
+    assert [m.goal_id for m in messages] == [goal_a.id, goal_b.id]
+    assert [m.content for m in messages] == ["目標A向け応答", "目標B向け応答"]
 
 
 def test_send_daily_feedback_disables_web_search_via_ai_client(seeded_session, monkeypatch):
@@ -258,6 +358,7 @@ def test_send_daily_feedback_disables_web_search_via_ai_client(seeded_session, m
 
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -280,6 +381,7 @@ def test_send_daily_feedback_does_not_persist_study_logs_or_diary(seeded_session
     with pytest.raises(AiError):
         daily_feedback_service.send_daily_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
@@ -315,6 +417,7 @@ def test_send_daily_feedback_records_failure_to_ai_log(seeded_session, monkeypat
     with pytest.raises(AiError):
         daily_feedback_service.send_daily_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,

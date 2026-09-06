@@ -113,7 +113,14 @@ def _add_study_log(session, material, record_date, **overrides):
     defaults.update(overrides)
     session.add(StudyLog(**defaults))
     session.add(
-        ChatMessage(daily_record_id=record.id, role="USER", content="今日は順調です", sequence=1)
+        ChatMessage(
+            daily_record_id=record.id,
+            goal_id=material.goal_id,
+            purpose="DAILY_FEEDBACK",
+            role="USER",
+            content="今日は順調です",
+            sequence=1,
+        )
     )
     session.flush()
     return record
@@ -335,6 +342,112 @@ def test_build_export_data_includes_diary_and_dialogue_when_selected(seeded_sess
 
     assert data["diaries"][0]["body"] == "今日の所感"
     assert data["ai_dialogue"][0]["content"] == "今日は順調です"
+
+
+def test_build_ai_dialogue_excludes_other_goals_messages_on_same_date(seeded_session):
+    """複数目標が同時進行していた日に、他目標(他カテゴリを含む)のAI対話が混入しないこと。
+
+    Phase26でchat_message.goal_idを追加する前は、対象goalのstudy_logがある日付に
+    絞り込んだ上でその日のchat_messageを無条件に取得していたため、同日に他の目標の
+    日次フィードバック対話があると誤って混入していた（横展開チェックで発見した既存バグ）。
+    """
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    material_a = _make_material(seeded_session, goal_a)
+    material_b = _make_material(seeded_session, goal_b, name="教材B")
+    record = DailyRecord(record_date=dt.date(2026, 2, 1), exam_record_state="REPORTED")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add_all(
+        [
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_a.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material_b.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+            ChatMessage(
+                daily_record_id=record.id,
+                goal_id=goal_a.id,
+                purpose="DAILY_FEEDBACK",
+                role="ASSISTANT",
+                content="Aへの応答",
+                sequence=1,
+            ),
+            ChatMessage(
+                daily_record_id=record.id,
+                goal_id=goal_b.id,
+                purpose="DAILY_FEEDBACK",
+                role="ASSISTANT",
+                content="Bへの応答",
+                sequence=2,
+            ),
+        ]
+    )
+    seeded_session.flush()
+
+    data = export_service.build_export_data(
+        seeded_session,
+        goal_a,
+        export_service.ExportSelection(ai_dialogue=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    contents = [entry["content"] for entry in data["ai_dialogue"]]
+    assert contents == ["Aへの応答"]
+
+
+def test_build_ai_dialogue_excludes_unassigned_legacy_messages(seeded_session):
+    """目標単位分離より前のレガシーメッセージ(goal_id=NULL)は、どの目標宛てか判別
+    不能なため対象に含めないこと(分析タブで手動割り当てすれば対象に含まれる)。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    record = DailyRecord(record_date=dt.date(2026, 2, 1), exam_record_state="REPORTED")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add_all(
+        [
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material.id,
+                minutes_spent=30,
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=80.0,
+            ),
+            ChatMessage(
+                daily_record_id=record.id,
+                purpose="DAILY_FEEDBACK",
+                role="ASSISTANT",
+                content="移行前の応答",
+                sequence=1,
+            ),
+        ]
+    )
+    seeded_session.flush()
+
+    data = export_service.build_export_data(
+        seeded_session,
+        goal,
+        export_service.ExportSelection(ai_dialogue=True),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    assert data["ai_dialogue"] == []
 
 
 def test_build_diaries_excludes_other_goals_diary_on_same_date(seeded_session):

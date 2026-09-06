@@ -229,11 +229,7 @@ def test_import_holidays_rejects_empty_bytes(db_session):
 
 def test_import_holidays_skips_blank_lines_between_rows(db_session):
     """内閣府CSVは末尾に空行を含むことがあるため、空行は無視して取り込む。"""
-    content = (
-        "国民の祝日・休日月日,国民の祝日・休日名称\r\n"
-        "\r\n"
-        "2026/1/1,元日\r\n"
-    ).encode("cp932")
+    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n\r\n2026/1/1,元日\r\n").encode("cp932")
 
     result = calendar_service.import_holidays(db_session, content)
 
@@ -241,17 +237,14 @@ def test_import_holidays_skips_blank_lines_between_rows(db_session):
 
 
 def test_import_holidays_rejects_row_missing_name_column(db_session):
-    content = (
-        "国民の祝日・休日月日,国民の祝日・休日名称\r\n"
-        "2026/1/1\r\n"
-    ).encode("cp932")
+    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n2026/1/1\r\n").encode("cp932")
 
     with pytest.raises(ValidationError):
         calendar_service.import_holidays(db_session, content)
 
 
 def test_import_holidays_rejects_when_only_blank_rows_present(db_session):
-    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n" "\r\n").encode("cp932")
+    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n\r\n").encode("cp932")
 
     with pytest.raises(ValidationError):
         calendar_service.import_holidays(db_session, content)

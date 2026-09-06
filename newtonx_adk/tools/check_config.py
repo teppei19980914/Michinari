@@ -25,12 +25,14 @@ def main() -> int:
     print(f"  Host            : {cfg.host or '(未設定)'}")
     print(f"  API Base URL    : {cfg.api_base_url}")
     print(f"  CompanySubdomain: {cfg.company_subdomain or '(未設定)'}")
-    print(f"  PAT             : {'(設定済み)' if (getattr(cfg, 'personal_access_token', '') or '').strip() else '(未設定)'}")
+    print(
+        f"  PAT             : {'(設定済み)' if (getattr(cfg, 'personal_access_token', '') or '').strip() else '(未設定)'}"
+    )
 
     am = AuthManager(cfgm)
     headers = am.get_headers()
     print("\nヘッダー確認:")
-    auth = headers.get('Authorization', '')
+    auth = headers.get("Authorization", "")
     if auth:
         print("  Authorization: 設定あり")
         print("  ✓ PATに基づくヘッダー生成を確認しました")
@@ -38,7 +40,9 @@ def main() -> int:
         return 0
     else:
         print("  Authorization: 設定なし")
-        print("  ✗ PATが設定されていないか不正です。setup_config.py を再実行してください")
+        print(
+            "  ✗ PATが設定されていないか不正です。setup_config.py を再実行してください"
+        )
         return 1
 
 

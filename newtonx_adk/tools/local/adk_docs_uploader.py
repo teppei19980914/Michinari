@@ -72,11 +72,17 @@ def _run_pandoc(in_path: str, out_path: str) -> Tuple[bool, Optional[str]]:
         return False, "pandoc が見つかりません"
     try:
         # まずはデフォルトエンジン（LaTeX）で試す。失敗時はweasyprintへフォールバック。
-        result = subprocess.run([pandoc, in_path, "-o", out_path], capture_output=True, text=True)
+        result = subprocess.run(
+            [pandoc, in_path, "-o", out_path], capture_output=True, text=True
+        )
         if result.returncode == 0 and os.path.exists(out_path):
             return True, None
         # weasyprintエンジンで再試行
-        result2 = subprocess.run([pandoc, in_path, "-o", out_path, "--pdf-engine=weasyprint"], capture_output=True, text=True)
+        result2 = subprocess.run(
+            [pandoc, in_path, "-o", out_path, "--pdf-engine=weasyprint"],
+            capture_output=True,
+            text=True,
+        )
         if result2.returncode == 0 and os.path.exists(out_path):
             return True, None
         return False, (result.stderr or result2.stderr or "pandoc 変換に失敗")
@@ -89,18 +95,24 @@ def _convert_with_python(in_path: str, out_path: str) -> Tuple[bool, Optional[st
         import markdown  # type: ignore
         from weasyprint import HTML  # type: ignore
     except Exception as e:
-        return False, f"Python変換に必要な依存がありません: {e}. pip install markdown weasyprint を試してください。"
+        return (
+            False,
+            f"Python変換に必要な依存がありません: {e}. pip install markdown weasyprint を試してください。",
+        )
 
     try:
         with open(in_path, "r", encoding="utf-8") as f:
             md_text = f.read()
-        html = markdown.markdown(md_text, extensions=[
-            "extra",
-            "toc",
-            "sane_lists",
-            "tables",
-            "fenced_code",
-        ])
+        html = markdown.markdown(
+            md_text,
+            extensions=[
+                "extra",
+                "toc",
+                "sane_lists",
+                "tables",
+                "fenced_code",
+            ],
+        )
         html_doc = f"""
 <!doctype html>
 <html lang=\"ja\">
@@ -144,7 +156,9 @@ def convert_md_to_pdf(md_path: str, out_dir: str, adk_version: str) -> Optional[
         if not os.path.exists(out_path):
             try:
                 with open(out_path, "wb") as f:
-                    f.write(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF\n")
+                    f.write(
+                        b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj<<>>endobj\ntrailer<<>>\nstartxref\n0\n%%EOF\n"
+                    )
             except Exception:
                 return None
         return out_path
@@ -166,7 +180,9 @@ def _find_assistant_uid(client: NewtonXClient, assistant_name: str) -> Optional[
     return None
 
 
-def upload_pdfs(client: NewtonXClient, assistant_name: str, pdf_paths: List[str]) -> None:
+def upload_pdfs(
+    client: NewtonXClient, assistant_name: str, pdf_paths: List[str]
+) -> None:
     assistant_uid = _find_assistant_uid(client, assistant_name)
     if not assistant_uid:
         raise RuntimeError(f"指定アシスタントが見つかりません: {assistant_name}")
@@ -179,7 +195,13 @@ def upload_pdfs(client: NewtonXClient, assistant_name: str, pdf_paths: List[str]
             print(f"[登録失敗] {os.path.basename(p)}: {e}")
 
 
-def process_and_upload(source_dirs: Union[str, List[str]], out_dir: str, assistant_name: str, dry_run: bool = False, injected_client: Optional[NewtonXClient] = None) -> int:
+def process_and_upload(
+    source_dirs: Union[str, List[str]],
+    out_dir: str,
+    assistant_name: str,
+    dry_run: bool = False,
+    injected_client: Optional[NewtonXClient] = None,
+) -> int:
     print(f"ADKバージョン: {ADK_VERSION}")
     if isinstance(source_dirs, str):
         sources = [source_dirs]
@@ -226,12 +248,28 @@ def process_and_upload(source_dirs: Union[str, List[str]], out_dir: str, assista
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="ADKドキュメントPDF化+アシスタント登録")
-    parser.add_argument("--assistant", default="NewtonX ADK", help="アシスタント名（既定: NewtonX ADK）")
-    parser.add_argument("--source-dir", help="Markdown探索ルート（単一。後方互換オプション）")
-    parser.add_argument("--sources", nargs="+", help="Markdown探索ルート（複数指定可: 例 ./docs ./docs/adk）")
-    parser.add_argument("--out-dir", default=os.path.join(BASE_DIR, "local_outputs", "adk_docs_pdf"), help="PDF出力ルート（既定: ./local_outputs/adk_docs_pdf）")
-    parser.add_argument("--dry-run", action="store_true", help="PDF生成のみ。アップロードしない")
+    parser = argparse.ArgumentParser(
+        description="ADKドキュメントPDF化+アシスタント登録"
+    )
+    parser.add_argument(
+        "--assistant", default="NewtonX ADK", help="アシスタント名（既定: NewtonX ADK）"
+    )
+    parser.add_argument(
+        "--source-dir", help="Markdown探索ルート（単一。後方互換オプション）"
+    )
+    parser.add_argument(
+        "--sources",
+        nargs="+",
+        help="Markdown探索ルート（複数指定可: 例 ./docs ./docs/adk）",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=os.path.join(BASE_DIR, "local_outputs", "adk_docs_pdf"),
+        help="PDF出力ルート（既定: ./local_outputs/adk_docs_pdf）",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="PDF生成のみ。アップロードしない"
+    )
     args = parser.parse_args()
 
     default_sources = [
@@ -245,11 +283,11 @@ def main() -> None:
     else:
         sources = default_sources
 
-    code = process_and_upload(sources, args.out_dir, args.assistant, dry_run=args.dry_run)
+    code = process_and_upload(
+        sources, args.out_dir, args.assistant, dry_run=args.dry_run
+    )
     sys.exit(code)
 
 
 if __name__ == "__main__":
     main()
-
-

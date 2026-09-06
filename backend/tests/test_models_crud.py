@@ -187,8 +187,7 @@ def test_daily_record_and_related_records_crud(db_session):
     db_session.commit()
 
     assert (
-        db_session.get(DailyRecord, daily_record.id).exam_record_state
-        == RecordState.PROGRESS_ONLY
+        db_session.get(DailyRecord, daily_record.id).exam_record_state == RecordState.PROGRESS_ONLY
     )
     assert len(db_session.get(DailyRecord, daily_record.id).chat_messages) == 1
     assert len(db_session.get(DailyRecord, daily_record.id).comments) == 1

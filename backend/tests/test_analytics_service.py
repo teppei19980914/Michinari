@@ -7,10 +7,14 @@ list_growth_descriptionsのdocstringを参照。
 
 import datetime as dt
 
+import pytest
+
 from app.constants.enums import (
+    AiPurpose,
     BaselineReason,
     ChatRole,
     DayType,
+    GoalCategory,
     GoalStatus,
     RecordState,
 )
@@ -19,10 +23,13 @@ from app.models.material import Material, PlanBaseline
 from app.models.record import ChatMessage, DailyRecord
 from app.models.setting import CalendarDayOverride
 from app.services import analytics_service
+from app.services.exceptions import NotFoundError, ValidationError
 
 
-def _make_goal(db_session) -> Goal:
-    goal = Goal(name="分析検証", start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE)
+def _make_goal(db_session, category=GoalCategory.EXAM, name="分析検証") -> Goal:
+    goal = Goal(
+        name=name, category=category, start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE
+    )
     db_session.add(goal)
     db_session.flush()
     return goal
@@ -133,37 +140,173 @@ def _make_record(db_session, record_date: dt.date, state: RecordState = RecordSt
 
 
 def _add_chat_message(
-    db_session, record_id: int, role: ChatRole, sequence: int, content: str
-) -> None:
-    db_session.add(
-        ChatMessage(daily_record_id=record_id, role=role, content=content, sequence=sequence)
+    db_session,
+    record_id: int,
+    role: ChatRole,
+    sequence: int,
+    content: str,
+    goal_id: int | None = None,
+    purpose: AiPurpose = AiPurpose.DAILY_FEEDBACK,
+) -> ChatMessage:
+    message = ChatMessage(
+        daily_record_id=record_id,
+        goal_id=goal_id,
+        purpose=purpose,
+        role=role,
+        content=content,
+        sequence=sequence,
     )
+    db_session.add(message)
     db_session.flush()
+    return message
 
 
 def test_growth_descriptions_returns_assistant_messages_ordered_by_date_desc(db_session):
-    """成長記述タブ（ANL-07）: AI応答が新しい日付順に列挙されること。"""
+    """成長記述タブ（ANL-07）: 対象目標宛てのAI応答が新しい日付順に列挙されること
+    （Phase26で目標単位に分離）。"""
+    goal = _make_goal(db_session)
     record1 = _make_record(db_session, dt.date(2026, 1, 5))
-    _add_chat_message(db_session, record1.id, ChatRole.USER, 1, "今日は疲れました")
-    _add_chat_message(db_session, record1.id, ChatRole.ASSISTANT, 2, "1/5の応答")
+    _add_chat_message(db_session, record1.id, ChatRole.USER, 1, "今日は疲れました", goal_id=goal.id)
+    _add_chat_message(db_session, record1.id, ChatRole.ASSISTANT, 2, "1/5の応答", goal_id=goal.id)
     record2 = _make_record(db_session, dt.date(2026, 1, 10))
-    _add_chat_message(db_session, record2.id, ChatRole.ASSISTANT, 1, "1/10の応答")
+    _add_chat_message(db_session, record2.id, ChatRole.ASSISTANT, 1, "1/10の応答", goal_id=goal.id)
 
-    entries = analytics_service.list_growth_descriptions(db_session)
+    entries = analytics_service.list_growth_descriptions(db_session, goal)
 
     assert [e.record_date for e in entries] == [dt.date(2026, 1, 10), dt.date(2026, 1, 5)]
     assert entries[0].content == "1/10の応答"
+    assert entries[0].goal_id == goal.id
     assert entries[1].content == "1/5の応答"
 
 
 def test_growth_descriptions_excludes_user_role_messages(db_session):
     """USER発言（自由入力メッセージ）は成長記述の対象に含めないこと。"""
+    goal = _make_goal(db_session)
     record = _make_record(db_session, dt.date(2026, 1, 5))
-    _add_chat_message(db_session, record.id, ChatRole.USER, 1, "質問です")
+    _add_chat_message(db_session, record.id, ChatRole.USER, 1, "質問です", goal_id=goal.id)
 
-    assert analytics_service.list_growth_descriptions(db_session) == []
+    assert analytics_service.list_growth_descriptions(db_session, goal) == []
 
 
 def test_growth_descriptions_empty_when_no_chat_messages(db_session):
     """境界値: AI対話が1件も記録されていない場合に例外が発生しないこと。"""
-    assert analytics_service.list_growth_descriptions(db_session) == []
+    goal = _make_goal(db_session)
+    assert analytics_service.list_growth_descriptions(db_session, goal) == []
+
+
+def test_growth_descriptions_excludes_messages_assigned_to_other_goal(db_session):
+    """同カテゴリの別目標に割り当て済みのメッセージは対象に含めないこと（Phase26）。"""
+    goal_a = _make_goal(db_session, name="目標A")
+    goal_b = _make_goal(db_session, name="目標B")
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    _add_chat_message(db_session, record.id, ChatRole.ASSISTANT, 1, "目標A宛て", goal_id=goal_a.id)
+
+    assert analytics_service.list_growth_descriptions(db_session, goal_b) == []
+
+
+def test_growth_descriptions_includes_unassigned_legacy_messages_of_same_category(db_session):
+    """移行前のレガシーメッセージ（goal_id=NULL）は、purposeが一致するカテゴリの目標に
+    対しては「未割り当て」として表示対象に含めること（Phase26、未決事項L-07）。"""
+    goal = _make_goal(db_session)
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    _add_chat_message(db_session, record.id, ChatRole.ASSISTANT, 1, "移行前の応答", goal_id=None)
+
+    entries = analytics_service.list_growth_descriptions(db_session, goal)
+
+    assert len(entries) == 1
+    assert entries[0].goal_id is None
+    assert entries[0].content == "移行前の応答"
+
+
+def test_growth_descriptions_excludes_unassigned_messages_of_other_category(db_session):
+    """未割り当てメッセージでも、purposeのカテゴリが異なれば対象に含めないこと（Phase26）。"""
+    exam_goal = _make_goal(db_session)
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    _add_chat_message(
+        db_session,
+        record.id,
+        ChatRole.ASSISTANT,
+        1,
+        "読書の応答",
+        goal_id=None,
+        purpose=AiPurpose.DAILY_FEEDBACK_READING,
+    )
+
+    assert analytics_service.list_growth_descriptions(db_session, exam_goal) == []
+
+
+def test_assign_growth_description_goal_updates_goal_id(db_session):
+    """未割り当ての成長記述に目標を手動で割り当てられること（Phase26）。"""
+    goal = _make_goal(db_session)
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session, record.id, ChatRole.ASSISTANT, 1, "移行前の応答", goal_id=None
+    )
+
+    analytics_service.assign_growth_description_goal(db_session, message, goal)
+
+    assert message.goal_id == goal.id
+
+
+def test_assign_growth_description_goal_rejects_category_mismatch(db_session):
+    """メッセージのpurposeに対応しないカテゴリの目標は割り当てられないこと（Phase26）。"""
+    reading_goal = _make_goal(db_session, category=GoalCategory.READING, name="読書目標")
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session,
+        record.id,
+        ChatRole.ASSISTANT,
+        1,
+        "資格試験の応答",
+        goal_id=None,
+        purpose=AiPurpose.DAILY_FEEDBACK,
+    )
+
+    with pytest.raises(ValidationError):
+        analytics_service.assign_growth_description_goal(db_session, message, reading_goal)
+
+    assert message.goal_id is None
+
+
+def test_assign_growth_description_goal_rejects_already_assigned_message(db_session):
+    """既に目標が割り当て済みのメッセージは、誤操作による付け替え防止のため対象外とする
+    （Phase26レビューで発見。docstringの「未割り当てのみ対象」という意図と実装が
+    乖離していた）。"""
+    goal_a = _make_goal(db_session, name="目標A")
+    goal_b = _make_goal(db_session, name="目標B")
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session, record.id, ChatRole.ASSISTANT, 1, "目標A宛て", goal_id=goal_a.id
+    )
+
+    with pytest.raises(ValidationError):
+        analytics_service.assign_growth_description_goal(db_session, message, goal_b)
+
+    assert message.goal_id == goal_a.id
+
+
+def test_assign_growth_description_goal_rejects_unrelated_purpose(db_session):
+    """成長記述（日次フィードバック）と無関係なpurpose（週次要約等）のメッセージを
+    渡された場合、未処理例外(StopIteration)ではなくValidationErrorを送出すること
+    （Phase26レビューで発見）。"""
+    goal = _make_goal(db_session)
+    record = _make_record(db_session, dt.date(2026, 1, 5))
+    message = _add_chat_message(
+        db_session,
+        record.id,
+        ChatRole.ASSISTANT,
+        1,
+        "無関係な応答",
+        goal_id=None,
+        purpose=AiPurpose.WEEKLY_SUMMARY,
+    )
+
+    with pytest.raises(ValidationError):
+        analytics_service.assign_growth_description_goal(db_session, message, goal)
+
+    assert message.goal_id is None
+
+
+def test_get_chat_message_raises_not_found_for_unknown_id(db_session):
+    with pytest.raises(NotFoundError):
+        analytics_service.get_chat_message(db_session, 999999)

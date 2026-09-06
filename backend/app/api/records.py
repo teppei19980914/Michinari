@@ -226,6 +226,7 @@ def chat(
     today = goal_service.resolve_today(session)
     outcome = daily_feedback_service.send_daily_feedback(
         session,
+        goal_id=payload.goal_id,
         target_date=target_date,
         today=today,
         message=payload.message,
@@ -251,6 +252,7 @@ def reading_chat(
     today = goal_service.resolve_today(session)
     outcome = reading_feedback_service.send_reading_feedback(
         session,
+        goal_id=payload.goal_id,
         target_date=target_date,
         today=today,
         message=payload.message,
@@ -275,6 +277,7 @@ def work_chat(
     today = goal_service.resolve_today(session)
     outcome = work_feedback_service.send_work_feedback(
         session,
+        goal_id=payload.goal_id,
         target_date=target_date,
         today=today,
         message=payload.message,

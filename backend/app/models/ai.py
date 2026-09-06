@@ -3,7 +3,6 @@
 認証情報（PAT等）は本テーブル群に保存しない。開発キットの仕組みに委ねる（5.8）。
 """
 
-
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Enum, ForeignKey, Index, Integer, Text, UniqueConstraint
@@ -21,9 +20,7 @@ class AiConversation(CreatedAtMixin, Base):
 
     __tablename__ = "ai_conversation"
     __table_args__ = (
-        UniqueConstraint(
-            "goal_id", "scope", "scope_key", name="uq_ai_conversation_goal_scope_key"
-        ),
+        UniqueConstraint("goal_id", "scope", "scope_key", name="uq_ai_conversation_goal_scope_key"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
