@@ -79,7 +79,11 @@ export function DashboardPage() {
         isBufferDay={dashboard.today_day_type === 'BUFFER'}
       />
       <GoalCardList goalCards={goalCards} />
-      <StatsSummary goalStats={goalStats} reportRateWindowDays={dashboard.report_rate_window_days} />
+      <StatsSummary
+        goalStats={goalStats}
+        goalCards={goalCards}
+        reportRateWindowDays={dashboard.report_rate_window_days}
+      />
     </div>
   )
 }
