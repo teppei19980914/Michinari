@@ -108,11 +108,21 @@ def get_work_assignment_progress(
         streak += 1
         day -= dt.timedelta(days=1)
 
+    # 「直近の月次報告有無」は直近の月（前月または当月）を対象期間とする行の有無で判定する
+    # （22.2）。期間を問わない存在判定にすると、過去に1度でも月次報告を生成した案件は
+    # 以後永久に「報告済み」と表示され、次の月次報告の催促が働かなくなる。
+    from app.services import work_report_service  # 循環importを避けるため関数内でimportする
+
+    recent_period_keys = (
+        work_report_service.default_monthly_period_key(today),  # 前月
+        work_report_service.current_monthly_period_key(today),  # 当月
+    )
     has_recent_monthly_report = (
         session.query(GoalRetrospective.id)
         .filter(
             GoalRetrospective.goal_id == work_assignment.goal_id,
             GoalRetrospective.period_type == RetrospectivePeriodType.MONTHLY,
+            GoalRetrospective.period_key.in_(recent_period_keys),
             GoalRetrospective.is_anonymized.is_(False),
         )
         .first()
