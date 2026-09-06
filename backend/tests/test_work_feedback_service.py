@@ -1,8 +1,10 @@
 """work_feedback_service のテスト（データ構造編6.2 POST /records/{date}/work-chat、
-ロジック・プロンプト編17.8、実装フェーズ分割計画書Phase22完了条件）。
+ロジック・プロンプト編17.8、実装フェーズ分割計画書Phase22・Phase26完了条件）。
 
 daily_feedback_service（資格試験用）・reading_feedback_service（読書用）のテストと
 対になる仕事版。実際のAI基盤へは接続せず、app.ai.client.send_message をモックして検証する。
+Phase26で日次フィードバックを目標単位の会話へ分離したため、goal_idが必須になった
+（未決事項L-07の解消方針転換）。
 """
 
 import datetime as dt
@@ -19,7 +21,7 @@ from app.models.material import Material
 from app.models.record import ChatMessage
 from app.models.work import WorkAssignment
 from app.services import daily_feedback_service, record_service, work_feedback_service
-from app.services.exceptions import ValidationError
+from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
 from app.services.record_service import StudyLogItem, WorkLogItem
 
 
@@ -41,12 +43,12 @@ def _cleanup_committed_rows(seeded_session):
     seeded_session.commit()
 
 
-def _make_work_goal(session, name="仕事目標A"):
+def _make_work_goal(session, name="仕事目標A", status=GoalStatus.ACTIVE):
     goal = Goal(
         category=GoalCategory.WORK,
         name=name,
         start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
+        status=status,
         resource_ratio=0,
     )
     session.add(goal)
@@ -113,6 +115,7 @@ def _stub_send_message(monkeypatch, *, response="AIからの応答", raise_exc=N
 def test_send_work_feedback_raises_when_prompt_template_missing(seeded_session):
     from app.models.setting import PromptTemplate
 
+    goal = _make_work_goal(seeded_session)
     seeded_session.query(PromptTemplate).filter_by(
         purpose=AiPurpose.DAILY_FEEDBACK_WORK.value
     ).delete()
@@ -121,6 +124,7 @@ def test_send_work_feedback_raises_when_prompt_template_missing(seeded_session):
     with pytest.raises(ValidationError):
         work_feedback_service.send_work_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
@@ -129,10 +133,53 @@ def test_send_work_feedback_raises_when_prompt_template_missing(seeded_session):
 
 
 def test_send_work_feedback_rejects_future_date(seeded_session):
+    goal = _make_work_goal(seeded_session)
+
     with pytest.raises(ValidationError):
         work_feedback_service.send_work_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 25),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            work_log_items=[],
+        )
+
+
+def test_send_work_feedback_rejects_unknown_goal(seeded_session):
+    with pytest.raises(NotFoundError):
+        work_feedback_service.send_work_feedback(
+            seeded_session,
+            goal_id=999999,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            work_log_items=[],
+        )
+
+
+def test_send_work_feedback_rejects_non_work_goal(seeded_session):
+    exam_goal, _material = _make_exam_goal_with_material(seeded_session)
+
+    with pytest.raises(ValidationError):
+        work_feedback_service.send_work_feedback(
+            seeded_session,
+            goal_id=exam_goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            work_log_items=[],
+        )
+
+
+def test_send_work_feedback_rejects_inactive_goal(seeded_session):
+    goal = _make_work_goal(seeded_session, status=GoalStatus.DRAFT)
+
+    with pytest.raises(InvalidStateTransitionError):
+        work_feedback_service.send_work_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
             work_log_items=[],
@@ -146,6 +193,7 @@ def test_send_work_feedback_first_turn_has_no_user_message_row(seeded_session, m
 
     outcome = work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -161,6 +209,7 @@ def test_send_work_feedback_first_turn_has_no_user_message_row(seeded_session, m
     assert len(messages) == 1
     assert messages[0].role == ChatRole.ASSISTANT
     assert messages[0].purpose == AiPurpose.DAILY_FEEDBACK_WORK
+    assert messages[0].goal_id == goal.id
     assert messages[0].content == "AIからの応答"
     assert outcome.was_truncated is False
 
@@ -174,6 +223,7 @@ def test_send_work_feedback_followup_turn_adds_user_and_assistant_messages(
 
     work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -183,6 +233,7 @@ def test_send_work_feedback_followup_turn_adds_user_and_assistant_messages(
     calls = _stub_send_message(monkeypatch, response="2回目の応答")
     outcome = work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message="もう少し詳しく教えて",
@@ -209,6 +260,7 @@ def test_send_work_feedback_does_not_persist_work_logs(seeded_session, monkeypat
     with pytest.raises(AiError):
         work_feedback_service.send_work_feedback(
             seeded_session,
+            goal_id=goal.id,
             target_date=dt.date(2026, 8, 24),
             today=dt.date(2026, 8, 24),
             message=None,
@@ -234,6 +286,7 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
     _stub_send_message(monkeypatch, response="資格試験フィードバック1回目")
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=exam_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -252,6 +305,7 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
     _stub_send_message(monkeypatch, response="仕事フィードバック1回目")
     work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=work_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -261,6 +315,7 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
     exam_calls = _stub_send_message(monkeypatch, response="資格試験フィードバック2回目")
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=exam_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message="続きです（資格試験）",
@@ -273,6 +328,7 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
     work_calls = _stub_send_message(monkeypatch, response="仕事フィードバック2回目")
     work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=work_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message="続きです（仕事）",
@@ -283,8 +339,9 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
 
 
 def test_work_feedback_uses_separate_ai_conversation_from_exam(seeded_session, monkeypatch):
-    """DAILY_FEEDBACKとDAILY_FEEDBACK_WORKは別scopeのため、goal_id=NULL同士でも
-    ai_conversationの一意制約(goal_id, scope, scope_key)により別会話として保存されること。
+    """DAILY_FEEDBACKとDAILY_FEEDBACK_WORKは別scope・別goal_idのため、
+    ai_conversationの一意制約(goal_id, scope, scope_key)により別会話として保存されること
+    （Phase26で目標単位化した後も、カテゴリをまたいだ会話分離は従来通り機能する）。
     """
     exam_goal, material = _make_exam_goal_with_material(seeded_session)
     work_goal = _make_work_goal(seeded_session, name="仕事目標B")
@@ -293,6 +350,7 @@ def test_work_feedback_uses_separate_ai_conversation_from_exam(seeded_session, m
     _stub_send_message(monkeypatch)
     daily_feedback_service.send_daily_feedback(
         seeded_session,
+        goal_id=exam_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -301,6 +359,7 @@ def test_work_feedback_uses_separate_ai_conversation_from_exam(seeded_session, m
     )
     work_feedback_service.send_work_feedback(
         seeded_session,
+        goal_id=work_goal.id,
         target_date=dt.date(2026, 8, 24),
         today=dt.date(2026, 8, 24),
         message=None,
@@ -311,3 +370,5 @@ def test_work_feedback_uses_separate_ai_conversation_from_exam(seeded_session, m
     assert len(conversations) == 2
     scopes = {c.scope for c in conversations}
     assert scopes == {ConversationScope.DAILY_FEEDBACK, ConversationScope.DAILY_FEEDBACK_WORK}
+    goal_ids = {c.goal_id for c in conversations}
+    assert goal_ids == {exam_goal.id, work_goal.id}

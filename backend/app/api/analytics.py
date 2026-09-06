@@ -31,6 +31,7 @@ from app.schemas.analytics import (
     ForecastEntryRead,
     GanttAnalyticsRead,
     GanttEntryRead,
+    GrowthDescriptionAssignRequest,
     GrowthDescriptionEntryRead,
     MaterialProgressTrendRead,
     MaterialQualityTrendRead,
@@ -223,12 +224,43 @@ def get_gantt_analytics(goal_id: int, session: Session = Depends(get_db)) -> Gan
 
 @router.get("/analytics/growth-descriptions", response_model=list[GrowthDescriptionEntryRead])
 def get_growth_descriptions(
-    session: Session = Depends(get_db),
+    goal_id: int, session: Session = Depends(get_db)
 ) -> list[GrowthDescriptionEntryRead]:
-    entries = analytics_service.list_growth_descriptions(session)
+    """成長記述タブ（仕様書6.8、ANL-07）。Phase26で目標単位に分離した。goal_idで指定した
+    目標宛てのメッセージに加え、同カテゴリの未割り当て（移行前のレガシー、goal_id=NULL）の
+    メッセージも合わせて返す（analytics_service.list_growth_descriptionsのdocstring参照）。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    entries = analytics_service.list_growth_descriptions(session, goal)
     return [
-        GrowthDescriptionEntryRead(record_date=e.record_date, content=e.content) for e in entries
+        GrowthDescriptionEntryRead(
+            message_id=e.message_id, record_date=e.record_date, content=e.content, goal_id=e.goal_id
+        )
+        for e in entries
     ]
+
+
+@router.patch(
+    "/analytics/growth-descriptions/{message_id}", response_model=GrowthDescriptionEntryRead
+)
+def assign_growth_description_goal(
+    message_id: int,
+    payload: GrowthDescriptionAssignRequest,
+    session: Session = Depends(get_db),
+) -> GrowthDescriptionEntryRead:
+    """未割り当ての成長記述（goal_id=NULL）に目標を手動で割り当てる（Phase26補足）。
+    analytics_service.assign_growth_description_goalのdocstring参照。
+    """
+    message = analytics_service.get_chat_message(session, message_id)
+    goal = goal_service.get_goal(session, payload.goal_id)
+    analytics_service.assign_growth_description_goal(session, message, goal)
+    session.commit()
+    return GrowthDescriptionEntryRead(
+        message_id=message.id,
+        record_date=message.daily_record.record_date,
+        content=message.content,
+        goal_id=message.goal_id,
+    )
 
 
 @router.get("/analytics/reading-logs", response_model=list[ReadingLogEntryRead])

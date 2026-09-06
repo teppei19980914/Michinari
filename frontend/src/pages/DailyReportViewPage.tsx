@@ -104,11 +104,26 @@ export function DailyReportViewPage() {
       { clientName: entry.workAssignment.client_name },
     ]),
   )
-  const examMessages = record.chat_messages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
-  const readingMessages = record.chat_messages.filter(
-    (m) => m.purpose === 'DAILY_FEEDBACK_READING',
+  // 日次フィードバックを目標単位の会話へ分離したため（Phase26、未決事項L-07の解消方針
+  // 転換）、目標タブ表示中（showGoalSelector=true、着手中の目標が2件以上）は選択中の目標
+  // 宛て（＋goal_id=nullの移行前レガシー）のみに絞り込む。タブが無い場合は従来どおり
+  // カテゴリ（purpose）のみでの絞り込みとする（1目標のみ、または閲覧時点で全目標が
+  // クローズ済みでも、その日の記録を漏れなく表示するため）。
+  const examMessages = record.chat_messages.filter(
+    (m) =>
+      m.purpose === 'DAILY_FEEDBACK' &&
+      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
   )
-  const workMessages = record.chat_messages.filter((m) => m.purpose === 'DAILY_FEEDBACK_WORK')
+  const readingMessages = record.chat_messages.filter(
+    (m) =>
+      m.purpose === 'DAILY_FEEDBACK_READING' &&
+      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
+  )
+  const workMessages = record.chat_messages.filter(
+    (m) =>
+      m.purpose === 'DAILY_FEEDBACK_WORK' &&
+      (!showGoalSelector || m.goal_id === selectedGoal?.id || m.goal_id === null),
+  )
 
   // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、選択タブに関わらず従来通り
   // データの有無のみで各セクションの表示を判定する（DailyReportPageのshow*Sectionと

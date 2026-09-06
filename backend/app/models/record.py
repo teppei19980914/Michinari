@@ -158,14 +158,25 @@ class ChatMessage(CreatedAtMixin, Base):
     READING）が混在しうるようになったため追加した（Phase16）。対話履歴（{{conversation_
     history}}）への注入時はpurposeで絞り込み、用途間の文脈混入を防ぐ。sequenceは日次記録
     全体で共有する採番とし、表示上の時系列順序は用途を問わず一貫させる。
+
+    goal_id は日次フィードバックを目標単位の会話へ分離するために追加した（Phase26、
+    未決事項L-07の解消方針転換）。移行前の行はどの目標宛てか判別不能なためNULLのまま
+    残る（daily_message.goal_idと同じ安全弁）。NULLは分析タブ「成長記述」で「未割り当て」
+    として扱い、利用者が手動で目標を割り当てられる。
     """
 
     __tablename__ = "chat_message"
-    __table_args__ = (Index("ix_chat_message_record_sequence", "daily_record_id", "sequence"),)
+    __table_args__ = (
+        Index("ix_chat_message_record_sequence", "daily_record_id", "sequence"),
+        Index("ix_chat_message_goal_id", "goal_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     daily_record_id: Mapped[int] = mapped_column(
         ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
     )
     purpose: Mapped[AiPurpose] = mapped_column(
         Enum(AiPurpose, native_enum=False, validate_strings=True),

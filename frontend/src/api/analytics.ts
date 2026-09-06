@@ -8,6 +8,7 @@ export type ForecastAnalyticsRead = components['schemas']['ForecastAnalyticsRead
 export type SpeedAnalyticsRead = components['schemas']['SpeedAnalyticsRead']
 export type GanttAnalyticsRead = components['schemas']['GanttAnalyticsRead']
 export type GrowthDescriptionEntryRead = components['schemas']['GrowthDescriptionEntryRead']
+export type GrowthDescriptionAssignRequest = components['schemas']['GrowthDescriptionAssignRequest']
 export type ReadingLogEntryRead = components['schemas']['ReadingLogEntryRead']
 export type WorkLogEntryRead = components['schemas']['WorkLogEntryRead']
 
@@ -37,8 +38,22 @@ export function getGanttAnalytics(goalId: number): Promise<GanttAnalyticsRead> {
   return apiClient.get<GanttAnalyticsRead>(`/analytics/gantt?goal_id=${goalId}`)
 }
 
-export function getGrowthDescriptions(): Promise<GrowthDescriptionEntryRead[]> {
-  return apiClient.get<GrowthDescriptionEntryRead[]>('/analytics/growth-descriptions')
+/** 成長記述タブ（仕様書6.8、ANL-07）。Phase26で目標単位に分離した。goal_idで指定した
+ * 目標宛てのメッセージに加え、同カテゴリの未割り当て（goal_id=NULLの移行前レガシー）も
+ * 併せて返す（analytics_service.list_growth_descriptionsのdocstring参照）。 */
+export function getGrowthDescriptions(goalId: number): Promise<GrowthDescriptionEntryRead[]> {
+  return apiClient.get<GrowthDescriptionEntryRead[]>(`/analytics/growth-descriptions?goal_id=${goalId}`)
+}
+
+/** 未割り当ての成長記述（goal_id=NULL）に目標を手動で割り当てる（Phase26）。 */
+export function assignGrowthDescriptionGoal(
+  messageId: number,
+  payload: GrowthDescriptionAssignRequest,
+): Promise<GrowthDescriptionEntryRead> {
+  return apiClient.patch<GrowthDescriptionEntryRead>(
+    `/analytics/growth-descriptions/${messageId}`,
+    payload,
+  )
 }
 
 export function getReadingLogAnalytics(goalId: number): Promise<ReadingLogEntryRead[]> {

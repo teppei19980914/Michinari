@@ -190,30 +190,135 @@ def test_gantt_analytics_includes_today_and_material_span(client):
     assert entry["current_cycle"] == 1
 
 
-def test_growth_descriptions_returns_assistant_messages_across_goals(client, seeded_session):
+def test_growth_descriptions_returns_assistant_messages_for_goal(client, seeded_session):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": TODAY.isoformat()},
+    ).json()
     record = DailyRecord(record_date=TODAY, exam_record_state=RecordState.REPORTED)
     seeded_session.add(record)
     seeded_session.flush()
     seeded_session.add(
         ChatMessage(
-            daily_record_id=record.id, role=ChatRole.ASSISTANT, content="成長しています", sequence=1
+            daily_record_id=record.id,
+            goal_id=goal["id"],
+            role=ChatRole.ASSISTANT,
+            content="成長しています",
+            sequence=1,
         )
     )
     seeded_session.commit()
 
-    response = client.get("/api/v1/analytics/growth-descriptions")
+    response = client.get(f"/api/v1/analytics/growth-descriptions?goal_id={goal['id']}")
 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body[0]["record_date"] == TODAY.isoformat()
     assert body[0]["content"] == "成長しています"
+    assert body[0]["goal_id"] == goal["id"]
+
+
+def test_growth_descriptions_includes_unassigned_legacy_messages(client, seeded_session):
+    """移行前のレガシーメッセージ（goal_id=NULL）はpurposeが一致するカテゴリの目標に対して
+    「未割り当て」として表示されること（Phase26、未決事項L-07）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": TODAY.isoformat()},
+    ).json()
+    record = DailyRecord(record_date=TODAY, exam_record_state=RecordState.REPORTED)
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        ChatMessage(
+            daily_record_id=record.id, role=ChatRole.ASSISTANT, content="移行前の応答", sequence=1
+        )
+    )
+    seeded_session.commit()
+
+    response = client.get(f"/api/v1/analytics/growth-descriptions?goal_id={goal['id']}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body[0]["content"] == "移行前の応答"
+    assert body[0]["goal_id"] is None
 
 
 def test_growth_descriptions_empty_when_no_chat_messages(client):
-    response = client.get("/api/v1/analytics/growth-descriptions")
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": TODAY.isoformat()},
+    ).json()
+
+    response = client.get(f"/api/v1/analytics/growth-descriptions?goal_id={goal['id']}")
 
     assert response.status_code == 200, response.text
     assert response.json() == []
+
+
+def test_growth_descriptions_404_when_goal_not_found(client):
+    response = client.get("/api/v1/analytics/growth-descriptions?goal_id=999999")
+
+    assert response.status_code == 404
+
+
+def test_assign_growth_description_goal_succeeds(client, seeded_session):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": TODAY.isoformat()},
+    ).json()
+    record = DailyRecord(record_date=TODAY, exam_record_state=RecordState.REPORTED)
+    seeded_session.add(record)
+    seeded_session.flush()
+    message = ChatMessage(
+        daily_record_id=record.id, role=ChatRole.ASSISTANT, content="移行前の応答", sequence=1
+    )
+    seeded_session.add(message)
+    seeded_session.commit()
+
+    response = client.patch(
+        f"/api/v1/analytics/growth-descriptions/{message.id}", json={"goal_id": goal["id"]}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["goal_id"] == goal["id"]
+
+    follow_up = client.get(f"/api/v1/analytics/growth-descriptions?goal_id={goal['id']}").json()
+    assert follow_up[0]["goal_id"] == goal["id"]
+
+
+def test_assign_growth_description_goal_rejects_category_mismatch(client, seeded_session):
+    reading_goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": TODAY.isoformat()},
+    ).json()
+    record = DailyRecord(record_date=TODAY, exam_record_state=RecordState.REPORTED)
+    seeded_session.add(record)
+    seeded_session.flush()
+    message = ChatMessage(
+        daily_record_id=record.id, role=ChatRole.ASSISTANT, content="資格試験の応答", sequence=1
+    )
+    seeded_session.add(message)
+    seeded_session.commit()
+
+    response = client.patch(
+        f"/api/v1/analytics/growth-descriptions/{message.id}",
+        json={"goal_id": reading_goal["id"]},
+    )
+
+    assert response.status_code == 400
+
+
+def test_assign_growth_description_goal_404_when_message_not_found(client, seeded_session):
+    goal = client.post(
+        "/api/v1/goals",
+        json={"name": "目標A", "start_date": TODAY.isoformat()},
+    ).json()
+
+    response = client.patch(
+        "/api/v1/analytics/growth-descriptions/999999", json={"goal_id": goal["id"]}
+    )
+
+    assert response.status_code == 404
 
 
 # --- 読書記録タブ（読書目標category=READING向け、Material非依存） ---
