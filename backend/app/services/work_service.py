@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.constants.enums import GoalCategory, RetrospectivePeriodType
+from app.constants.sentinels import UNSET
 from app.models.goal import Goal
 from app.models.record import DailyRecord, WorkLog
 from app.models.retrospective import GoalRetrospective
@@ -55,13 +56,16 @@ def update_work_assignment(
     session: Session,
     work_assignment: WorkAssignment,
     *,
-    client_name: str | None = None,
+    client_name: str | None = UNSET,
     expected_content: str | None = None,
     start_date: dt.date | None = None,
 ) -> WorkAssignment:
     goal_service.ensure_goal_editable(work_assignment.goal)
 
-    if client_name is not None:
+    # expected_content・start_dateはNOT NULL列のためNone＝未指定で曖昧さがない。
+    # client_nameはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
+    # （constants/sentinels.py）。
+    if client_name is not UNSET:
         work_assignment.client_name = client_name
     if expected_content is not None:
         work_assignment.expected_content = expected_content

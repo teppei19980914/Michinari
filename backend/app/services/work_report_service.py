@@ -12,7 +12,6 @@ next_goal_textをそのまま複製する（17.9「AIの役割を絞り込む設
 
 import calendar as calendar_module
 import datetime as dt
-from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -24,18 +23,12 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
 )
 from app.constants.enums import AiPurpose, ConversationScope, RetrospectivePeriodType
+from app.constants.sentinels import UNSET
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
 from app.services import ai_context_service, retrospective_service, setting_reader
 from app.services.exceptions import ValidationError
-
-#: PATCH（update_monthly_report／update_semiannual_review）で「未指定」と「明示的なNULL
-#: クリア」を区別するための番兵。API層が model_dump(exclude_unset=True) を展開して渡すため、
-#: 引数が届かない＝未指定、Noneが届く＝利用者が値を消した、という区別が必要になる
-#: （既定値をNoneにすると達成度・振り返り文をNULLへ戻せない。要件定義書R-82の
-#: 「人が確認・修正できること」に含まれる）。
-_UNSET: Any = object()
 
 #: 月次報告のAI応答を分割する見出し文字列（17.9、この順序・この文字列を厳守）。
 _MONTHLY_HEADINGS = (
@@ -443,12 +436,12 @@ def update_monthly_report(
     goal: Goal,
     *,
     period_key: str,
-    target_goal_text: str | None = _UNSET,
-    business_summary: str | None = _UNSET,
-    achievement_score: int | None = _UNSET,
-    achievement_reflection: str | None = _UNSET,
-    next_goal_text: str | None = _UNSET,
-    report_notes: str | None = _UNSET,
+    target_goal_text: str | None = UNSET,
+    business_summary: str | None = UNSET,
+    achievement_score: int | None = UNSET,
+    achievement_reflection: str | None = UNSET,
+    next_goal_text: str | None = UNSET,
+    report_notes: str | None = UNSET,
 ) -> GoalRetrospective:
     retrospective = get_work_report(
         session, goal, period_type=RetrospectivePeriodType.MONTHLY, period_key=period_key
@@ -463,17 +456,17 @@ def update_monthly_report(
         )
         session.add(retrospective)
 
-    if target_goal_text is not _UNSET:
+    if target_goal_text is not UNSET:
         retrospective.target_goal_text = target_goal_text
-    if business_summary is not _UNSET:
+    if business_summary is not UNSET:
         retrospective.business_summary = business_summary
-    if achievement_score is not _UNSET:
+    if achievement_score is not UNSET:
         retrospective.achievement_score = achievement_score
-    if achievement_reflection is not _UNSET:
+    if achievement_reflection is not UNSET:
         retrospective.achievement_reflection = achievement_reflection
-    if next_goal_text is not _UNSET:
+    if next_goal_text is not UNSET:
         retrospective.next_goal_text = next_goal_text
-    if report_notes is not _UNSET:
+    if report_notes is not UNSET:
         retrospective.report_notes = report_notes
 
     retrospective.body = _render_monthly_body(
@@ -495,11 +488,11 @@ def update_semiannual_review(
     goal: Goal,
     *,
     period_key: str,
-    target_goal_text: str | None = _UNSET,
-    business_summary: str | None = _UNSET,
-    achievement_score: int | None = _UNSET,
-    achievement_reflection: str | None = _UNSET,
-    next_goal_text: str | None = _UNSET,
+    target_goal_text: str | None = UNSET,
+    business_summary: str | None = UNSET,
+    achievement_score: int | None = UNSET,
+    achievement_reflection: str | None = UNSET,
+    next_goal_text: str | None = UNSET,
 ) -> GoalRetrospective:
     retrospective = get_work_report(
         session, goal, period_type=RetrospectivePeriodType.SEMI_ANNUAL, period_key=period_key
@@ -514,15 +507,15 @@ def update_semiannual_review(
         )
         session.add(retrospective)
 
-    if target_goal_text is not _UNSET:
+    if target_goal_text is not UNSET:
         retrospective.target_goal_text = target_goal_text
-    if business_summary is not _UNSET:
+    if business_summary is not UNSET:
         retrospective.business_summary = business_summary
-    if achievement_score is not _UNSET:
+    if achievement_score is not UNSET:
         retrospective.achievement_score = achievement_score
-    if achievement_reflection is not _UNSET:
+    if achievement_reflection is not UNSET:
         retrospective.achievement_reflection = achievement_reflection
-    if next_goal_text is not _UNSET:
+    if next_goal_text is not UNSET:
         retrospective.next_goal_text = next_goal_text
 
     retrospective.body = _render_semiannual_body(

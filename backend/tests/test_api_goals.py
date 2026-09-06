@@ -345,6 +345,17 @@ def test_update_goal_name_start_date_and_memo(client):
     assert body["memo"] == "メモ"
 
 
+def test_update_goal_clears_memo_with_explicit_null(client):
+    """NULL許容列は明示的なnullで空へ戻せる（未指定との区別、constants/sentinels.py）。"""
+    goal = _create_goal(client)
+    client.patch(f"/api/v1/goals/{goal['id']}", json={"memo": "メモ"})
+
+    response = client.patch(f"/api/v1/goals/{goal['id']}", json={"memo": None})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["memo"] is None
+
+
 def test_activate_requires_material_even_with_subject(client):
     goal = _create_goal(client, resource_ratio=0.3)
     _add_subject(client, goal["id"])
