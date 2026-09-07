@@ -187,6 +187,42 @@ def test_patch_monthly_report_updates_fields_and_rebuilds_body(client, monkeypat
     assert "修正後の来月の目標" in body["body"]
 
 
+def test_patch_monthly_report_clears_achievement_score_with_explicit_null(client, monkeypatch):
+    """明示的なnullは「値を消す」として扱う（未指定との区別、要件定義書R-82）。
+
+    既定値をNoneにしていた頃は、達成度を空へ戻す操作が無視され、AIが誤判定した値を
+    人が取り消せなかった。
+    """
+    goal = _create_work_goal_with_assignment(client)
+    _stub_send_message(monkeypatch, response=_MONTHLY_RESPONSE)
+    client.post(f"/api/v1/goals/{goal['id']}/monthly-report", json={"period": "2026-08"})
+
+    response = client.patch(
+        f"/api/v1/goals/{goal['id']}/monthly-report",
+        params={"period": "2026-08"},
+        json={"achievement_score": None},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["achievement_score"] is None
+
+
+def test_patch_semiannual_review_clears_achievement_score_with_explicit_null(client, monkeypatch):
+    """半期評価も月次報告と同じクリア規則とする。"""
+    goal = _create_work_goal_with_assignment(client)
+    _stub_send_message(monkeypatch, response=_SEMIANNUAL_RESPONSE)
+    client.post(f"/api/v1/goals/{goal['id']}/semiannual-review", json={"period": "2026-H1"})
+
+    response = client.patch(
+        f"/api/v1/goals/{goal['id']}/semiannual-review",
+        params={"period": "2026-H1"},
+        json={"achievement_score": None},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["achievement_score"] is None
+
+
 def test_patch_monthly_report_creates_row_when_missing(client):
     """前期の記録が無い初回利用者向けの手動シード（要件定義書R-83）。"""
     goal = _create_work_goal_with_assignment(client)

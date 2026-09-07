@@ -465,13 +465,14 @@ def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
     response = client.post(
         f"/api/v1/records/{target}/chat",
         json={
+            "goal_id": goal["id"],
             "diary_entries": [
                 {
                     "goal_id": goal["id"],
                     "diary_body": "今日は頑張った",
                     "diary_learned": "過去問を解いた",
                 }
-            ]
+            ],
         },
     )
 
@@ -486,15 +487,16 @@ def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
 
 
 def test_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
-    _make_active_goal_with_material(client)
+    goal, _material = _make_active_goal_with_material(client)
     _stub_ai_client(monkeypatch, response="1回目の応答")
     target = dt.date.today().isoformat()
 
-    client.post(f"/api/v1/records/{target}/chat", json={})
+    client.post(f"/api/v1/records/{target}/chat", json={"goal_id": goal["id"]})
 
     _stub_ai_client(monkeypatch, response="2回目の応答")
     response = client.post(
-        f"/api/v1/records/{target}/chat", json={"message": "続きを教えてください"}
+        f"/api/v1/records/{target}/chat",
+        json={"goal_id": goal["id"], "message": "続きを教えてください"},
     )
 
     assert response.status_code == 200, response.text
@@ -504,11 +506,11 @@ def test_chat_endpoint_persists_conversation_history_across_turns(client, monkey
 
 
 def test_chat_endpoint_rejects_future_date(client, monkeypatch):
-    _make_active_goal_with_material(client)
+    goal, _material = _make_active_goal_with_material(client)
     _stub_ai_client(monkeypatch)
     future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
 
-    response = client.post(f"/api/v1/records/{future}/chat", json={})
+    response = client.post(f"/api/v1/records/{future}/chat", json={"goal_id": goal["id"]})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -527,13 +529,14 @@ def test_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeyp
     response = client.post(
         f"/api/v1/records/{target}/chat",
         json={
+            "goal_id": goal["id"],
             "diary_entries": [
                 {
                     "goal_id": goal["id"],
                     "diary_body": "失われてはいけない",
                     "diary_learned": "失われてはいけない",
                 }
-            ]
+            ],
         },
     )
 
@@ -548,11 +551,11 @@ def test_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeyp
 def test_chat_endpoint_maps_ai_auth_required_error(client, monkeypatch):
     from app.ai.exceptions import AiAuthRequiredError
 
-    _make_active_goal_with_material(client)
+    goal, _material = _make_active_goal_with_material(client)
     _stub_ai_client(monkeypatch, raise_exc=AiAuthRequiredError("認証が必要です"))
     target = dt.date.today().isoformat()
 
-    response = client.post(f"/api/v1/records/{target}/chat", json={})
+    response = client.post(f"/api/v1/records/{target}/chat", json={"goal_id": goal["id"]})
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "AI_AUTH_REQUIRED"
@@ -562,13 +565,16 @@ def test_chat_endpoint_maps_ai_auth_required_error(client, monkeypatch):
 
 
 def test_reading_chat_endpoint_returns_assistant_message(client, monkeypatch):
-    _goal, book = _make_active_reading_goal_with_book(client)
+    goal, book = _make_active_reading_goal_with_book(client)
     _stub_ai_client(monkeypatch, response="想起を深める応答")
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/reading-chat",
-        json={"reading_logs": [{"book_id": book["id"], "recall_body": "今日の想起"}]},
+        json={
+            "goal_id": goal["id"],
+            "reading_logs": [{"book_id": book["id"], "recall_body": "今日の想起"}],
+        },
     )
 
     assert response.status_code == 200, response.text
@@ -580,15 +586,16 @@ def test_reading_chat_endpoint_returns_assistant_message(client, monkeypatch):
 
 
 def test_reading_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
-    _goal, book = _make_active_reading_goal_with_book(client)
+    goal, _book = _make_active_reading_goal_with_book(client)
     _stub_ai_client(monkeypatch, response="1回目の応答")
     target = dt.date.today().isoformat()
 
-    client.post(f"/api/v1/records/{target}/reading-chat", json={})
+    client.post(f"/api/v1/records/{target}/reading-chat", json={"goal_id": goal["id"]})
 
     _stub_ai_client(monkeypatch, response="2回目の応答")
     response = client.post(
-        f"/api/v1/records/{target}/reading-chat", json={"message": "続きを教えてください"}
+        f"/api/v1/records/{target}/reading-chat",
+        json={"goal_id": goal["id"], "message": "続きを教えてください"},
     )
 
     assert response.status_code == 200, response.text
@@ -600,11 +607,11 @@ def test_reading_chat_endpoint_persists_conversation_history_across_turns(client
 
 
 def test_reading_chat_endpoint_rejects_future_date(client, monkeypatch):
-    _make_active_reading_goal_with_book(client)
+    goal, _book = _make_active_reading_goal_with_book(client)
     _stub_ai_client(monkeypatch)
     future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
 
-    response = client.post(f"/api/v1/records/{future}/reading-chat", json={})
+    response = client.post(f"/api/v1/records/{future}/reading-chat", json={"goal_id": goal["id"]})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -613,13 +620,16 @@ def test_reading_chat_endpoint_rejects_future_date(client, monkeypatch):
 def test_reading_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeypatch):
     from app.ai.exceptions import AiError
 
-    _goal, book = _make_active_reading_goal_with_book(client)
+    goal, book = _make_active_reading_goal_with_book(client)
     _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/reading-chat",
-        json={"reading_logs": [{"book_id": book["id"], "recall_body": "失われてはいけない想起"}]},
+        json={
+            "goal_id": goal["id"],
+            "reading_logs": [{"book_id": book["id"], "recall_body": "失われてはいけない想起"}],
+        },
     )
 
     assert response.status_code == 502
@@ -650,14 +660,15 @@ def _make_active_work_goal_with_assignment(client):
 
 
 def test_work_chat_endpoint_returns_assistant_message(client, monkeypatch):
-    _goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    goal, work_assignment = _make_active_work_goal_with_assignment(client)
     _stub_ai_client(monkeypatch, response="今日の業務、お疲れさまでした")
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/work-chat",
         json={
-            "work_logs": [{"work_assignment_id": work_assignment["id"], "body": "今日の業務内容"}]
+            "goal_id": goal["id"],
+            "work_logs": [{"work_assignment_id": work_assignment["id"], "body": "今日の業務内容"}],
         },
     )
 
@@ -670,15 +681,16 @@ def test_work_chat_endpoint_returns_assistant_message(client, monkeypatch):
 
 
 def test_work_chat_endpoint_persists_conversation_history_across_turns(client, monkeypatch):
-    _make_active_work_goal_with_assignment(client)
+    goal, _work_assignment = _make_active_work_goal_with_assignment(client)
     _stub_ai_client(monkeypatch, response="1回目の応答")
     target = dt.date.today().isoformat()
 
-    client.post(f"/api/v1/records/{target}/work-chat", json={})
+    client.post(f"/api/v1/records/{target}/work-chat", json={"goal_id": goal["id"]})
 
     _stub_ai_client(monkeypatch, response="2回目の応答")
     response = client.post(
-        f"/api/v1/records/{target}/work-chat", json={"message": "続きを教えてください"}
+        f"/api/v1/records/{target}/work-chat",
+        json={"goal_id": goal["id"], "message": "続きを教えてください"},
     )
 
     assert response.status_code == 200, response.text
@@ -688,11 +700,11 @@ def test_work_chat_endpoint_persists_conversation_history_across_turns(client, m
 
 
 def test_work_chat_endpoint_rejects_future_date(client, monkeypatch):
-    _make_active_work_goal_with_assignment(client)
+    goal, _work_assignment = _make_active_work_goal_with_assignment(client)
     _stub_ai_client(monkeypatch)
     future = (dt.date.today() + dt.timedelta(days=1)).isoformat()
 
-    response = client.post(f"/api/v1/records/{future}/work-chat", json={})
+    response = client.post(f"/api/v1/records/{future}/work-chat", json={"goal_id": goal["id"]})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -701,16 +713,17 @@ def test_work_chat_endpoint_rejects_future_date(client, monkeypatch):
 def test_work_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, monkeypatch):
     from app.ai.exceptions import AiError
 
-    _goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    goal, work_assignment = _make_active_work_goal_with_assignment(client)
     _stub_ai_client(monkeypatch, raise_exc=AiError("通信に失敗しました"))
     target = dt.date.today().isoformat()
 
     response = client.post(
         f"/api/v1/records/{target}/work-chat",
         json={
+            "goal_id": goal["id"],
             "work_logs": [
                 {"work_assignment_id": work_assignment["id"], "body": "失われてはいけない業務内容"}
-            ]
+            ],
         },
     )
 

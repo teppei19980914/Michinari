@@ -61,6 +61,14 @@ class ChatRole(enum.StrEnum):
 
 
 class BaselineReason(enum.StrEnum):
+    """計画基準値の再設定契機（ロジック・プロンプト編12.1）。
+
+    REPLANは予約値であり、現時点でこの値が記録される経路は存在しない。仕様書は
+    「リプラン」を独立した操作として定義しておらず（警告バナー・MD-01からは目標編集画面へ
+    誘導する）、実際の再設定はMATERIAL_CHANGED・CYCLE_CHANGED・EXAM_DATE_FIXEDの
+    いずれかとして記録されるため（12.1「REPLANが予約値である理由」）。
+    """
+
     INITIAL = "INITIAL"
     REPLAN = "REPLAN"
     EXAM_DATE_FIXED = "EXAM_DATE_FIXED"

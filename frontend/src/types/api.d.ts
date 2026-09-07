@@ -1104,8 +1104,81 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Growth Descriptions */
+        /**
+         * Get Growth Descriptions
+         * @description 成長記述タブ（仕様書6.8、ANL-07）。Phase26で目標単位に分離した。goal_idで指定した
+         *     目標宛てのメッセージに加え、同カテゴリの未割り当て（移行前のレガシー、goal_id=NULL）の
+         *     メッセージも合わせて返す（analytics_service.list_growth_descriptionsのdocstring参照）。
+         */
         get: operations["get_growth_descriptions_api_v1_analytics_growth_descriptions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/growth-descriptions/{message_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Assign Growth Description Goal
+         * @description 未割り当ての成長記述（goal_id=NULL）に目標を手動で割り当てる（Phase26補足）。
+         *     analytics_service.assign_growth_description_goalのdocstring参照。
+         */
+        patch: operations["assign_growth_description_goal_api_v1_analytics_growth_descriptions__message_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/analytics/reading-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reading Log Analytics
+         * @description 読書目標（category=READING）向けの分析タブ「読書記録」（仕様書6.8補足）。
+         *
+         *     資格試験の品質推移等5タブはMaterial（教材）に依存するため読書目標には適用できず、
+         *     代わりに日々の想起記録を新しい順に列挙する（analytics_service.list_reading_log_entries
+         *     のdocstring参照）。書籍未登録の場合は空配列を返す（エラーとしない）。
+         */
+        get: operations["get_reading_log_analytics_api_v1_analytics_reading_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics/work-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Work Log Analytics
+         * @description 仕事目標（category=WORK）向けの分析タブ「業務記録」（仕様書6.8補足）。
+         *
+         *     読書と同じ理由でMaterial非依存の一覧表示とする（analytics_service.list_work_log_entries
+         *     のdocstring参照）。案件情報未登録の場合は空配列を返す（エラーとしない）。
+         */
+        get: operations["get_work_log_analytics_api_v1_analytics_work_logs_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1623,6 +1696,8 @@ export interface components {
         ChatMessageRead: {
             /** Id */
             id: number;
+            /** Goal Id */
+            goal_id: number | null;
             purpose: components["schemas"]["AiPurpose"];
             role: components["schemas"]["ChatRole"];
             /** Content */
@@ -1642,8 +1717,12 @@ export interface components {
          *     study_logs・diary_entries はこの時点でDBへ確定させない下書き値であり、
          *     プロンプト組み立てにのみ使用する（AI呼び出し失敗時も入力を失わないため、16.7）。
          *     message は2往復目以降の自由入力。1往復目（本日最初の呼び出し）は省略できる。
+         *     goal_id は対象目標（GoalTabBarで選択中の1件）。Phase26で日次フィードバックを
+         *     目標単位の会話へ分離したことに伴い必須化した。
          */
         ChatRequest: {
+            /** Goal Id */
+            goal_id: number;
             /** Message */
             message?: string | null;
             /** Study Logs */
@@ -2182,13 +2261,28 @@ export interface components {
          */
         Granularity: "DAY" | "WEEK" | "MONTH";
         /**
+         * GrowthDescriptionAssignRequest
+         * @description PATCH /analytics/growth-descriptions/{message_id}（成長記述への目標の手動割り当て、
+         *     Phase26）。
+         */
+        GrowthDescriptionAssignRequest: {
+            /** Goal Id */
+            goal_id: number;
+        };
+        /**
          * GrowthDescriptionEntryRead
          * @description GET /analytics/growth-descriptions（仕様書6.8「成長記述」タブ、ANL-07）。
          *
          *     データ構造編8章のエンドポイント一覧に明記のないPhase9実装判断による追加。
          *     根拠はanalytics_service.list_growth_descriptionsのdocstringを参照。
+         *
+         *     message_id・goal_id はPhase26で追加。goal_id が null のエントリは目標単位分離より
+         *     前のレガシーメッセージ（未割り当て）であり、PATCH /analytics/growth-descriptions/{id}
+         *     で利用者が目標を割り当てられる。
          */
         GrowthDescriptionEntryRead: {
+            /** Message Id */
+            message_id: number;
             /**
              * Record Date
              * Format: date
@@ -2196,6 +2290,8 @@ export interface components {
             record_date: string;
             /** Content */
             content: string;
+            /** Goal Id */
+            goal_id: number | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2745,9 +2841,12 @@ export interface components {
          * ReadingChatRequest
          * @description 読書目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
          *     POST /records/{date}/reading-chat）。ChatRequestと同じ設計：reading_logsはこの時点で
-         *     DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+         *     DBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。goal_idはChatRequestと
+         *     同じ理由でPhase26にて必須化した。
          */
         ReadingChatRequest: {
+            /** Goal Id */
+            goal_id: number;
             /** Message */
             message?: string | null;
             /** Reading Logs */
@@ -2761,6 +2860,23 @@ export interface components {
         ReadingFinalizeRequest: {
             /** Reading Logs */
             reading_logs?: components["schemas"]["ReadingLogInput"][];
+        };
+        /**
+         * ReadingLogEntryRead
+         * @description GET /analytics/reading-logs（仕様書6.8「読書記録」タブ、読書目標category=READING向け）。
+         */
+        ReadingLogEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Recall Body */
+            recall_body: string;
+            /** Pages Read */
+            pages_read: number | null;
+            /** Current Page */
+            current_page: number | null;
         };
         /**
          * ReadingLogInput
@@ -3145,8 +3261,11 @@ export interface components {
          * @description 仕事目標のAI対話の実行（1往復）リクエスト（データ構造編6.2
          *     POST /records/{date}/work-chat）。ChatRequest・ReadingChatRequestと同じ設計：
          *     work_logsはこの時点でDBへ確定させない下書き値であり、プロンプト組み立てにのみ使用する。
+         *     goal_idはChatRequestと同じ理由でPhase26にて必須化した。
          */
         WorkChatRequest: {
+            /** Goal Id */
+            goal_id: number;
             /** Message */
             message?: string | null;
             /** Work Logs */
@@ -3160,6 +3279,19 @@ export interface components {
         WorkFinalizeRequest: {
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
+        };
+        /**
+         * WorkLogEntryRead
+         * @description GET /analytics/work-logs（仕様書6.8「業務記録」タブ、仕事目標category=WORK向け）。
+         */
+        WorkLogEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Body */
+            body: string;
         };
         /**
          * WorkLogInput
@@ -5569,7 +5701,9 @@ export interface operations {
     };
     get_growth_descriptions_api_v1_analytics_growth_descriptions_get: {
         parameters: {
-            query?: never;
+            query: {
+                goal_id: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5583,6 +5717,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GrowthDescriptionEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_growth_description_goal_api_v1_analytics_growth_descriptions__message_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrowthDescriptionAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GrowthDescriptionEntryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reading_log_analytics_api_v1_analytics_reading_logs_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadingLogEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_work_log_analytics_api_v1_analytics_work_logs_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkLogEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

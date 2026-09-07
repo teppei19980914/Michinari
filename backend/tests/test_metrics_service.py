@@ -8,6 +8,7 @@ from app.constants.enums import (
     BaselineReason,
     DayType,
     ExamDateType,
+    GoalCategory,
     GoalStatus,
     Granularity,
     PassingScoreType,
@@ -79,6 +80,61 @@ def test_buffer_usage_rate_counts_days_with_study_log(db_session):
     )
 
     assert rate == pytest.approx(0.5)  # 経過バッファ日2日のうち実績あり1日
+
+
+def test_buffer_usage_rate_excludes_other_goals_study_log(db_session):
+    """13.1「実績あり日」は対象目標配下の教材のstudy_logのみを数える。
+
+    目標で絞り込まないと、同時進行している別目標の実績でバッファ日が消費済みと判定され、
+    目標ごとの余裕度を表さない値になる（1.1（改13）で是正）。
+    """
+    goal = _make_goal(db_session)
+    other_goal = _make_goal(db_session)
+    other_material = _make_material(db_session, other_goal.id)
+    _override(db_session, dt.date(2026, 1, 2), dt.date(2026, 1, 3), DayType.BUFFER)
+    record = _make_record(db_session, dt.date(2026, 1, 2), RecordState.PROGRESS_ONLY)
+    db_session.add(
+        StudyLog(
+            daily_record_id=record.id,
+            material_id=other_material.id,
+            minutes_spent=30,
+            amount_completed=5,
+            cycle_number=1,
+        )
+    )
+    db_session.flush()
+
+    rate = metrics_service.compute_buffer_usage_rate(
+        db_session, goal, dt.date(2026, 1, 4), treat_holiday_as_buffer=True
+    )
+
+    assert rate == pytest.approx(0.0)
+
+
+@pytest.mark.parametrize("category", [GoalCategory.READING, GoalCategory.WORK])
+def test_buffer_usage_rate_none_for_non_exam_goal(db_session, category):
+    """読書・仕事目標は日種別による計画運用の対象外のため算出しない（13.1、R-71・R-74）。"""
+    goal = _make_goal(db_session)
+    goal.category = category
+    material = _make_material(db_session, goal.id)
+    _override(db_session, dt.date(2026, 1, 2), dt.date(2026, 1, 3), DayType.BUFFER)
+    record = _make_record(db_session, dt.date(2026, 1, 2), RecordState.PROGRESS_ONLY)
+    db_session.add(
+        StudyLog(
+            daily_record_id=record.id,
+            material_id=material.id,
+            minutes_spent=30,
+            amount_completed=5,
+            cycle_number=1,
+        )
+    )
+    db_session.flush()
+
+    rate = metrics_service.compute_buffer_usage_rate(
+        db_session, goal, dt.date(2026, 1, 4), treat_holiday_as_buffer=True
+    )
+
+    assert rate is None
 
 
 def test_buffer_usage_rate_none_when_no_elapsed_buffer_days(db_session):

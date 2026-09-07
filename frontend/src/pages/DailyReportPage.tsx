@@ -35,6 +35,7 @@ import { ChatPanel } from '../features/record/ChatPanel'
 import { isAllCategoriesReported } from '../features/record/categoryCompletion'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
+import { resolveCategoryGoalId } from '../features/record/resolveCategoryGoalId'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
 import {
   buildStudyLogPayload,
@@ -129,6 +130,23 @@ export function DailyReportPage() {
     (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
   )
 
+  // AI対話（送信・履歴フィルタ）の対象goal_id。日次フィードバックを目標単位の会話へ分離した
+  // ため（Phase26、未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を
+  // 指しているかをresolveCategoryGoalIdで解決する。useMutationのmutationFnから参照するため、
+  // フックより前（早期returnより前）で計算する。
+  const goalTabs = { showGoalSelector, selectedGoal }
+  const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeGoals[0]?.id ?? null)
+  const readingGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'READING',
+    readingBooksQuery.data?.[0]?.goal.id ?? null,
+  )
+  const workGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'WORK',
+    workAssignmentsQuery.data?.[0]?.goal.id ?? null,
+  )
+
   useEffect(() => {
     if (
       hydratedRef.current ||
@@ -174,9 +192,6 @@ export function DailyReportPage() {
     setSelectedGoalId,
   ])
 
-  const examMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK')
-  const readingMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_READING')
-  const workMessages = chatMessages.filter((m) => m.purpose === 'DAILY_FEEDBACK_WORK')
   const activeBooks = readingBooksQuery.data?.map((entry) => entry.book) ?? []
   const activeWorkAssignments = workAssignmentsQuery.data?.map((entry) => entry.workAssignment) ?? []
   // 「その日そのカテゴリに確定すべき目標があるか」は選択中タブに関係なく判定する必要がある
@@ -214,6 +229,7 @@ export function DailyReportPage() {
   const chatMutation = useMutation({
     mutationFn: (message: string | null) =>
       sendChat(targetDate, {
+        goal_id: examGoalId as number,
         message,
         study_logs: buildStudyLogPayload(studyLogValues),
         diary_entries: buildDiaryEntriesPayload(diaryValues),
@@ -228,6 +244,7 @@ export function DailyReportPage() {
           ? [
               {
                 id: -Date.now(),
+                goal_id: examGoalId,
                 purpose: 'DAILY_FEEDBACK' as const,
                 role: 'USER' as const,
                 content: message,
@@ -246,6 +263,7 @@ export function DailyReportPage() {
   const readingChatMutation = useMutation({
     mutationFn: (message: string | null) =>
       sendReadingChat(targetDate, {
+        goal_id: readingGoalId as number,
         message,
         reading_logs: buildReadingLogPayload(readingLogValues),
       }),
@@ -256,6 +274,7 @@ export function DailyReportPage() {
           ? [
               {
                 id: -Date.now(),
+                goal_id: readingGoalId,
                 purpose: 'DAILY_FEEDBACK_READING' as const,
                 role: 'USER' as const,
                 content: message,
@@ -274,6 +293,7 @@ export function DailyReportPage() {
   const workChatMutation = useMutation({
     mutationFn: (message: string | null) =>
       sendWorkChat(targetDate, {
+        goal_id: workGoalId as number,
         message,
         work_logs: buildWorkLogPayload(workLogValues),
       }),
@@ -284,6 +304,7 @@ export function DailyReportPage() {
           ? [
               {
                 id: -Date.now(),
+                goal_id: workGoalId,
                 purpose: 'DAILY_FEEDBACK_WORK' as const,
                 role: 'USER' as const,
                 content: message,
@@ -421,6 +442,17 @@ export function DailyReportPage() {
           .map((entry) => entry.workAssignment)
       : []
     : activeWorkAssignments
+
+  const examMessages = chatMessages.filter(
+    (m) => m.purpose === 'DAILY_FEEDBACK' && (m.goal_id === examGoalId || m.goal_id === null),
+  )
+  const readingMessages = chatMessages.filter(
+    (m) =>
+      m.purpose === 'DAILY_FEEDBACK_READING' && (m.goal_id === readingGoalId || m.goal_id === null),
+  )
+  const workMessages = chatMessages.filter(
+    (m) => m.purpose === 'DAILY_FEEDBACK_WORK' && (m.goal_id === workGoalId || m.goal_id === null),
+  )
 
   // カテゴリごとに独立して確定する仕様変更（2026-09-05）に伴い、対象カテゴリの目標が
   // 存在しない場合はそのセクション自体を表示しない（showReading/showWorkSectionと同じ
