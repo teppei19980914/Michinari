@@ -23,11 +23,20 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
     AI_WORK_RECENT_LOG_DAYS,
 )
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
+from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
-from app.services import ai_context_service, record_service, setting_reader
+from app.services import ai_context_service, goal_service, record_service, setting_reader
 from app.services.exceptions import ValidationError
 from app.services.record_service import WorkLogItem
+
+_ACTION_LABEL = "日次報告フィードバック"
+
+
+def _ensure_active_work_goal(goal: Goal) -> None:
+    if goal.category != GoalCategory.WORK:
+        raise ValidationError(f"仕事目標（category=WORK）にのみ{_ACTION_LABEL}を実行できます")
+    goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
 @dataclass(frozen=True)
@@ -40,31 +49,47 @@ class WorkChatOutcome:
 def send_work_feedback(
     session: Session,
     *,
+    goal_id: int,
     target_date: dt.date,
     today: dt.date,
     message: str | None,
     work_log_items: list[WorkLogItem],
 ) -> WorkChatOutcome:
-    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/work-chat）。"""
+    """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/work-chat）。
+
+    Phase26で日次フィードバックを目標単位の会話へ分離した。goal_idで指定された1目標
+    （＝1案件）のみを対象とする（未決事項L-07の解消方針転換）。
+    """
     if target_date > today:
         raise ValidationError("未来日のAI対話はできません")
+
+    goal = goal_service.get_goal(session, goal_id)
+    _ensure_active_work_goal(goal)
 
     record = record_service.ensure_daily_record(session, target_date)
     work_assignments_by_id = record_service.load_work_assignments_by_id(
         session, {item.work_assignment_id for item in work_log_items}
     )
+    # 選択中の目標（案件）宛ての業務記録のみを対象とする（他の仕事目標の下書きが
+    # プロンプトへ混入しないようにする、Phase26）。
+    work_log_items = [
+        item
+        for item in work_log_items
+        if work_assignments_by_id[item.work_assignment_id].goal_id == goal.id
+    ]
 
-    active_work_goals = ai_context_service.list_active_work_goals(session)
-    active_work_assignments = ai_context_service.list_active_work_assignments(active_work_goals)
+    active_work_assignments = ai_context_service.list_active_work_assignments([goal])
     recent_days = setting_reader.get_int(session, AI_WORK_RECENT_LOG_DAYS)
 
-    # 対話履歴への注入はpurposeで絞り込む（daily_feedback_service・reading_feedback_service
-    # と同じ理由。ChatMessageモデルのdocstring参照）。
+    # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_service・reading_feedback_service
+    # と同じ理由。ChatMessageモデルのdocstring参照）。goal_id=NULLの行は移行前のレガシー
+    # メッセージのため対話履歴には含めない（Phase26）。
     existing_messages = (
         session.query(ChatMessage)
         .filter(
             ChatMessage.daily_record_id == record.id,
             ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK_WORK,
+            ChatMessage.goal_id == goal.id,
         )
         .order_by(ChatMessage.sequence)
         .all()
@@ -94,11 +119,11 @@ def send_work_feedback(
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK)
     conversation = ai_conversation.ensure_conversation(
         session,
-        goal=None,
+        goal=goal,
         scope=ConversationScope.DAILY_FEEDBACK_WORK,
         scope_key=target_date.isoformat(),
         assistant_uid=assistant_uid,
-        title=f"{target_date.isoformat()} 仕事日次報告",
+        title=f"{target_date.isoformat()} 仕事日次報告（{goal.name}）",
     )
 
     send_result = ai_orchestration.send_and_log(
@@ -115,6 +140,7 @@ def send_work_feedback(
         session.add(
             ChatMessage(
                 daily_record_id=record.id,
+                goal_id=goal.id,
                 purpose=AiPurpose.DAILY_FEEDBACK_WORK,
                 role=ChatRole.USER,
                 content=message,
@@ -125,6 +151,7 @@ def send_work_feedback(
 
     assistant_message = ChatMessage(
         daily_record_id=record.id,
+        goal_id=goal.id,
         purpose=AiPurpose.DAILY_FEEDBACK_WORK,
         role=ChatRole.ASSISTANT,
         content=send_result.response_text,

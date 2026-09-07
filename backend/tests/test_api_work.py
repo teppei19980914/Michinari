@@ -151,6 +151,20 @@ def test_update_work_assignment_start_date_only(client):
     assert response.json()["start_date"] == "2026-02-01"
 
 
+def test_update_work_assignment_clears_client_name_with_explicit_null(client):
+    """NULL許容列は明示的なnullで空へ戻せる（未指定との区別、constants/sentinels.py）。"""
+    goal = _create_work_goal(client)
+    _add_work_assignment(client, goal["id"])
+    client.patch(f"/api/v1/goals/{goal['id']}/work-assignment", json={"client_name": "B社"})
+
+    response = client.patch(
+        f"/api/v1/goals/{goal['id']}/work-assignment", json={"client_name": None}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["client_name"] is None
+
+
 def test_update_missing_work_assignment_returns_404(client):
     goal = _create_work_goal(client)
 

@@ -16,6 +16,7 @@ from app.constants.enums import (
     GoalStatus,
     QualityMetricType,
     RecordState,
+    RetrospectivePeriodType,
 )
 from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
@@ -30,6 +31,7 @@ from app.models.record import (
     WorkLog,
 )
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
+from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
@@ -1217,6 +1219,29 @@ def test_build_work_progress_summary_includes_elapsed_days_and_streak(seeded_ses
     assert "経過9日" in text
     assert "連続記録1日" in text
     assert "直近記録日 2026-01-10" in text
+    assert "直近の月次報告なし" in text
+
+
+def test_build_work_progress_summary_includes_recent_monthly_report(seeded_session):
+    """22.1: WORK用の{{progress_summary}}は直近の月次報告有無を含める
+    （未生成の期に「今日の一言」から月次報告の作成を促せるようにするため）。"""
+    goal = _make_work_goal(seeded_session, name="仕事目標Y")
+    work_assignment = _make_work_assignment(seeded_session, goal, start_date=dt.date(2026, 1, 1))
+    seeded_session.add(
+        GoalRetrospective(
+            goal_id=goal.id,
+            body="前月の月次報告",
+            period_type=RetrospectivePeriodType.MONTHLY,
+            period_key="2026-01",
+        )
+    )
+    seeded_session.flush()
+
+    text = ai_context_service.build_work_progress_summary(
+        seeded_session, [work_assignment], dt.date(2026, 2, 10)
+    )
+
+    assert "直近の月次報告あり" in text
 
 
 def test_build_work_progress_summary_handles_no_assignments(seeded_session):

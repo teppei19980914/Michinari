@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.ai.prompt_builder import MaterialStatusEntry
 from app.constants.enums import (
     BaselineReason,
-    DayType,
     ExamResultType,
     GoalCategory,
     GoalStatus,
@@ -37,7 +36,6 @@ from app.models.record import (
 from app.models.work import WorkAssignment
 from app.services import (
     baseline_service,
-    calendar_service,
     cycle_service,
     goal_service,
     material_service,
@@ -519,24 +517,12 @@ def build_week_metrics_text(
         .count()
     )
 
-    day_types = calendar_service.resolve_day_types(
-        session, week_start, week_end, treat_holiday_as_buffer
+    # バッファ日の消費状況は metrics_service へ共通化した13.1の算出処理を使う
+    # （集計窓が週内である点だけがバッファ消費率と異なる、CLAUDE.md DRYの原則）。
+    consumed_days, buffer_days = metrics_service.compute_buffer_consumption(
+        session, goal, week_start, week_end, treat_holiday_as_buffer
     )
-    buffer_days = [d for d, day_type in day_types.items() if day_type == DayType.BUFFER]
-    dates_with_log = (
-        {
-            row[0]
-            for row in session.query(DailyRecord.record_date)
-            .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
-            .filter(DailyRecord.record_date.in_(buffer_days))
-            .distinct()
-        }
-        if buffer_days
-        else set()
-    )
-    buffer_rate_text = (
-        f"{len(dates_with_log) / len(buffer_days):.0%}" if buffer_days else "算出不可"
-    )
+    buffer_rate_text = f"{consumed_days / buffer_days:.0%}" if buffer_days else "算出不可"
 
     return (
         f"総投下時間: {total_minutes / 60:.1f}時間\n"
@@ -911,8 +897,12 @@ def build_work_logs_text_for_period(
 def build_work_progress_summary(
     session: Session, work_assignments: list[WorkAssignment], today: dt.date
 ) -> str:
-    """{{progress_summary}}のWORK版: 案件ごとの経過日数・直近記録日・連続記録日数
-    （22.2）。build_progress_summary（EXAM用）と同じ役割。"""
+    """{{progress_summary}}のWORK版: 案件ごとの経過日数・直近記録日・連続記録日数・
+    直近の月次報告有無（22.1・22.2）。build_progress_summary（EXAM用）と同じ役割。
+
+    直近の月次報告有無を含めるのは、未生成の期に「今日の一言」から月次報告の作成を
+    促せるようにするため（22.1「WORK用の変数は…直近の月次報告有無を用いて組み立てる」）。
+    """
     from app.services import work_service  # 循環importを避けるため関数内でimportする
 
     if not work_assignments:
@@ -923,9 +913,13 @@ def build_work_progress_summary(
         last_work_text = (
             progress.last_work_date.isoformat() if progress.last_work_date is not None else "なし"
         )
+        monthly_report_text = (
+            "直近の月次報告あり" if progress.has_recent_monthly_report else "直近の月次報告なし"
+        )
         lines.append(
             f"・{work_assignment.goal.name}: 経過{progress.elapsed_days}日"
-            f"（連続記録{progress.current_streak}日、直近記録日 {last_work_text}）"
+            f"（連続記録{progress.current_streak}日、直近記録日 {last_work_text}、"
+            f"{monthly_report_text}）"
         )
     return "\n".join(lines)
 

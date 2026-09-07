@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.constants.enums import GoalCategory, GoalStatus
+from app.constants.sentinels import UNSET
 from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
@@ -74,18 +75,22 @@ def update_book(
     book: Book,
     *,
     title: str | None = None,
-    author: str | None = None,
-    total_pages: int | None = None,
+    author: str | None = UNSET,
+    total_pages: int | None = UNSET,
     start_date: dt.date | None = None,
     due_date: dt.date | None = None,
 ) -> Book:
     goal_service.ensure_goal_editable(book.goal)
 
+    # title・start_date・due_dateはNOT NULL列のためNone＝未指定で曖昧さがない。
+    # author・total_pagesはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
+    # （総ページ数のクリアは、進捗率・現在ページ入力欄の非表示を意味する有効な操作。
+    # constants/sentinels.py）。
     if title is not None:
         book.title = title
-    if author is not None:
+    if author is not UNSET:
         book.author = author
-    if total_pages is not None:
+    if total_pages is not UNSET:
         book.total_pages = total_pages
     if start_date is not None:
         book.start_date = start_date
