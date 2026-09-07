@@ -421,6 +421,16 @@ uv run python scripts/build_package.py
 自動的に再試行する。コマンドラインから直接`uv run python scripts/build_package.py`を
 実行して同じ事象に遭遇した場合は、`uv sync`を単独で再実行してから改めて実行する。
 
+なお、`uv sync`にはこれとは別に**再試行では解消しない**失敗がある。uvはグローバル
+キャッシュ（`%LOCALAPPDATA%\uv\cache`）から`.venv`・ビルド環境へ既定でハードリンクを
+張るが、キャッシュ配下のファイルがOneDriveのクラウドファイル（リパースポイント）に
+なっていると、ハードリンクが`os error 396`（`クラウド操作は、互換性のないハードリンクの
+ファイルでは実行できません`）で失敗し、ビルド依存（`hatchling`→`pluggy`）の導入が
+できずに`Failed to build michinari-backend`となる。これを避けるため、
+`backend/pyproject.toml`の`[tool.uv]`で`link-mode = "copy"`（ハードリンクではなく
+コピー）を指定している。それでも`os error 396`が出る場合は`uv cache clean`で
+キャッシュを作り直してから再実行する。
+
 **処理内容**
 
 1. テストスイート（`pytest`）を実行する。**1件でも失敗すればここでビルドを中止する**

@@ -10,11 +10,14 @@ PyInstaller本体の実行はCI環境依存が大きいため対象外とし、�
 
 import datetime as dt
 import json
+import tomllib
 import zipfile
 from pathlib import Path
 
 import pytest
 from build_package import (
+    PYPROJECT_PATH,
+    USER_MANUAL_PATH,
     archive_previous_package,
     copy_user_manual,
     create_distribution_zip,
@@ -302,3 +305,26 @@ def test_create_distribution_zip_includes_the_bundled_user_manual(tmp_path: Path
     with zipfile.ZipFile(result) as zf:
         names = set(zf.namelist())
     assert "Michinari/ユーザ手順書.pdf" in names
+
+
+def test_user_manual_exists_at_the_path_the_build_bundles_from() -> None:
+    """リポジトリ内の手順書原本が`USER_MANUAL_PATH`に実在すること。
+
+    `copy_user_manual`は手順書が見つからない場合に警告のみでビルドを続行するため、
+    原本の改名・移動が起きても配布パッケージから手順書が黙って欠落するだけで
+    ビルドは成功してしまう。ここで実パスを検証し、その欠落をテストで検出する。
+    """
+    assert USER_MANUAL_PATH.is_file(), f"手順書の原本が見つかりません: {USER_MANUAL_PATH}"
+
+
+def test_uv_link_mode_is_copy_so_sync_does_not_hardlink_cloud_files() -> None:
+    """uvのリンク方式がコピーであること（OneDrive配下でのビルド失敗を防ぐ）。
+
+    既定のハードリンクではキャッシュ配下がOneDriveのクラウドファイルの場合に
+    `os error 396`で`uv sync`がビルド依存の導入に失敗し、ビルド自体が始まらない
+    （OPERATIONS.md 7.4参照）。設定の消失を検出するため固定する。
+    """
+    with PYPROJECT_PATH.open("rb") as f:
+        data = tomllib.load(f)
+
+    assert data["tool"]["uv"]["link-mode"] == "copy"
