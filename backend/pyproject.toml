@@ -57,5 +57,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
 
+[tool.uv]
+# uvは既定でグローバルキャッシュから.venv・ビルド環境へハードリンクを張るが、本リポジトリの
+# 環境ではキャッシュ配下のファイルがOneDriveのクラウドファイル（リパースポイント）化しており、
+# ハードリンクが `os error 396`（クラウド操作は、互換性のないハードリンクのファイルでは
+# 実行できません）で失敗して `uv sync` がビルド依存（hatchling→pluggy）の導入に失敗する。
+# コピーへ切り替えることでこの失敗を回避する（uv公式のエラーメッセージが案内する対処
+# `--link-mode=copy` / `UV_LINK_MODE=copy` と同じ設定。OPERATIONS.md 7.4参照）。
+link-mode = "copy"
+
 [tool.uv.sources]
 newtonx-adk = { path = "../newtonx_adk/newtonx_adk-0.10.5-py3-none-any.whl" }

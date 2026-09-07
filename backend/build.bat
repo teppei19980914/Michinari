@@ -9,6 +9,9 @@ rem under .venv with an access-denied error while this repo lives inside a
 rem OneDrive-synced folder (OneDrive briefly locks files during background
 rem sync). Retry just the sync step a few times before giving up; the actual
 rem test/build below only runs once the environment is confirmed in sync.
+rem NOTE: a different OneDrive-related failure ("os error 396", hardlinking a
+rem cloud file) is NOT fixed by retrying; it is avoided up front by
+rem link-mode = "copy" in pyproject.toml ([tool.uv]). See OPERATIONS.md 7.4.
 rem NOTE: every check below uses the single-line "if COND goto label" form.
 rem "goto" inside a parenthesized if-block can corrupt cmd.exe's parser and
 rem make the whole script abort silently, so no goto ever appears inside ( ).
@@ -30,6 +33,8 @@ goto sync_retry
 :sync_failed
 echo.
 echo uv sync failed %SYNC_ATTEMPTS% times in a row. Aborting.
+echo If the log above shows "os error 396" (hardlink to a cloud file),
+echo run "uv cache clean" once and try again. See OPERATIONS.md 7.4.
 echo.
 pause
 exit /b 1
