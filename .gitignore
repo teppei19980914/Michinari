@@ -51,3 +51,7 @@ backend/Michinari.spec
 # built_atがビルドの都度変わるため、frontend/src/types/api.d.ts（APIスキーマ変更時のみ
 # 変わる決定論的な生成物でありコミット対象）とは異なりコミットしない
 backend/build_info.json
+
+# Office（PowerPoint/Word/Excel）がファイルを開いている間だけ生成するロックファイル。
+# 編集者の環境依存の一時ファイルであり、コミット対象ではない
+~$*
