@@ -25,8 +25,9 @@ if not errorlevel 1 goto sync_done
 if %SYNC_ATTEMPTS% GEQ 5 goto sync_failed
 
 echo.
-echo uv sync failed (attempt %SYNC_ATTEMPTS%/5). This can happen when
-echo OneDrive briefly locks files under .venv. Retrying in 3 seconds...
+echo uv sync failed (attempt %SYNC_ATTEMPTS%/5). Usual causes: OneDrive
+echo briefly locking files under .venv, or a temporary network/DNS failure
+echo reaching pypi.org. Retrying in 3 seconds...
 timeout /t 3 /nobreak >nul
 goto sync_retry
 
@@ -35,6 +36,8 @@ echo.
 echo uv sync failed %SYNC_ATTEMPTS% times in a row. Aborting.
 echo If the log above shows "os error 396" (hardlink to a cloud file),
 echo run "uv cache clean" once and try again. See OPERATIONS.md 7.4.
+echo If it shows "dns error" / "os error 11001", pypi.org could not be
+echo reached: check the network connection and run build.bat again.
 echo.
 pause
 exit /b 1
