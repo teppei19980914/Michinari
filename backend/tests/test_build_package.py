@@ -5,7 +5,8 @@ PyInstaller本体の実行はCI環境依存が大きいため対象外とし、�
 （`archive_previous_package`）・配布用zip化ロジック（`create_distribution_zip`）・
 配布バージョンの読み書き/確定ロジック（`read_current_version`/`write_version`/
 `resolve_version`）・ビルド情報生成ロジック（`generate_build_info`）・ユーザ手順書の
-同梱ロジック（`copy_user_manual`）のみを検証する。
+同梱ロジック（`copy_user_manual`）に加え、配布パッケージへ同梱する起動用batの
+テンプレート内容（`LAUNCHER_TEMPLATE_PATH`）を検証する。
 """
 
 import datetime as dt
@@ -16,6 +17,7 @@ from pathlib import Path
 
 import pytest
 from build_package import (
+    LAUNCHER_TEMPLATE_PATH,
     PYPROJECT_PATH,
     USER_MANUAL_PATH,
     archive_previous_package,
@@ -328,3 +330,68 @@ def test_uv_link_mode_is_copy_so_sync_does_not_hardlink_cloud_files() -> None:
         data = tomllib.load(f)
 
     assert data["tool"]["uv"]["link-mode"] == "copy"
+
+
+def _launcher_template_text() -> str:
+    return LAUNCHER_TEMPLATE_PATH.read_text(encoding="utf-8")
+
+
+def test_launcher_template_starts_the_exe_from_its_own_folder() -> None:
+    """ランチャがbat自身の場所へ移動し、exeをフルパスで起動すること。
+
+    利用者はzipを展開した任意の場所からダブルクリックで起動するため、カレント
+    ディレクトリはbatの場所と一致しない。`cd /d "%~dp0"`が失われるとアプリの
+    作業ディレクトリがずれる。
+
+    起動をファイル名だけ（`Michinari.exe`）にしないのは、環境変数
+    `NoDefaultCurrentDirectoryInExePath`が設定された端末ではcmd.exeがカレント
+    ディレクトリを探索せず、「is not recognized」で起動できないため。
+    """
+    text = _launcher_template_text()
+
+    assert 'cd /d "%~dp0"' in text
+    assert '"%~dp0Michinari.exe"' in text
+
+
+def test_launcher_template_keeps_the_window_open_when_startup_fails() -> None:
+    """exeが異常終了したとき、ランチャが入力待ちで止まりエラーを読めること。
+
+    Michinari.exeは起動失敗（例: DBマイグレーションの解決失敗）をコンソールへ
+    出力して終了コード1で終わる。この停止処理が無いとウィンドウが一瞬で閉じ、
+    利用者にはエラー内容が一切残らない（2026-09-08に発生した事象）。
+    """
+    text = _launcher_template_text()
+
+    assert "if errorlevel 1 (" in text
+    assert "pause" in text
+
+
+def test_launcher_template_does_not_pause_after_a_normal_shutdown() -> None:
+    """正常終了時は入力待ちで止めないこと（`pause`が失敗時ブロック内のみにあること）。
+
+    通常の終了までキー入力を求めると毎回の利用の妨げになるため、`pause`は
+    `if errorlevel 1`のブロック内だけに置く。
+    """
+    lines = [line.strip() for line in _launcher_template_text().splitlines()]
+    failure_block = lines[lines.index("if errorlevel 1 (") :]
+
+    assert [line for line in lines if line == "pause"] == [
+        line for line in failure_block if line == "pause"
+    ]
+
+
+def test_launcher_template_is_ascii_only_for_the_console_code_page() -> None:
+    """ランチャがASCIIのみで構成されること。
+
+    batはコンソールのOEMコードページ（日本語Windowsでは932）で解釈されるため、
+    UTF-8で書いた日本語メッセージは文字化けする。表示文言・コメントとも
+    ASCIIに固定する。
+    """
+    LAUNCHER_TEMPLATE_PATH.read_bytes().decode("ascii")
+
+
+def test_launcher_template_uses_crlf_line_endings() -> None:
+    """ランチャの改行がCRLFであること（cmd.exeが確実に解釈できる形に固定する）。"""
+    data = LAUNCHER_TEMPLATE_PATH.read_bytes()
+
+    assert data.count(b"\n") == data.count(b"\r\n")
