@@ -421,6 +421,15 @@ uv run python scripts/build_package.py
 自動的に再試行する。コマンドラインから直接`uv run python scripts/build_package.py`を
 実行して同じ事象に遭遇した場合は、`uv sync`を単独で再実行してから改めて実行する。
 
+同じ再試行は一時的なネットワーク断にも効く。`uv sync`はビルド依存（`hatchling`）の
+解決のためPyPIへ問い合わせるため、名前解決に失敗すると
+`Failed to fetch: https://pypi.org/simple/hatchling/` / `dns error` /
+`そのようなホストは不明です。(os error 11001)` を伴う
+`Failed to build michinari-backend` で止まる。**これは`.venv`のロックでもキャッシュの
+問題でもなく、単にPyPIへ到達できていない**ため、ネットワーク接続（VPN・プロキシ・
+DNS）を確認して再実行する。再試行中に接続が回復すれば`build.bat`はそのまま
+ビルドを継続する。
+
 なお、`uv sync`にはこれとは別に**再試行では解消しない**失敗がある。uvはグローバル
 キャッシュ（`%LOCALAPPDATA%\uv\cache`）から`.venv`・ビルド環境へ既定でハードリンクを
 張るが、キャッシュ配下のファイルがOneDriveのクラウドファイル（リパースポイント）に
@@ -452,7 +461,8 @@ uv run python scripts/build_package.py
 5. フロントエンドを `npm run build` でビルド（`frontend/dist`）
 6. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
    `alembic/`・`build_info.json` を同梱、`backend/dist/Michinari/` に出力）
-7. 起動用 `Michinari.bat` と ユーザ手順書 `ユーザ手順書.pdf`（`docs/ユーザ手順書.pdf`
+7. 起動用 `Michinari.bat`（`backend/scripts/launcher_template.bat` の複製）と
+   ユーザ手順書 `ユーザ手順書.pdf`（`docs/ユーザ手順書.pdf`
    の複製）を `backend/dist/Michinari/` 直下へ配置する（`copy_user_manual`。利用者が
    エクスプローラから直接開けるよう、PyInstallerの `--add-data` によるexe内埋め込みでは
    なくファイルコピーで同梱する。手順書が見つからない場合は警告を表示して同梱のみを
@@ -670,6 +680,14 @@ npm run test    # Vitest（技術選定書4.5「フロントエンドのテス�
 | `block-dangerous-edit.sh` で誤検知 | パターンを `.claude/hooks/block-dangerous-edit.sh` で調整 |
 | `secret-scan.sh` で誤検知 | パターンの除外条件を追加、または `.env.example` にリネーム |
 | Agent が適切な指摘をしない | プロンプト（`.claude/agents/*.md`）を更新 |
+
+### 8.5 配布パッケージ・アプリ起動 関連
+
+| 症状 | 原因 | 対処 |
+|---|---|---|
+| `Michinari.bat` 実行後、一瞬だけウィンドウが出て閉じる | 起動時エラーで異常終了している | `Michinari.bat` は異常終了時のみ `pause` で停止しエラーを表示する（`backend/scripts/launcher_template.bat`）。表示されない場合は配布物が古いため再ビルドして差し替える |
+| 起動時に `Can't locate revision identified by '<リビジョンID>'` | DBに記録されたリビジョンが、exeへ同梱されたマイグレーションより新しい（＝**配布物が古い**） | 最新のソースで再ビルドして配布物を差し替える。開発端末では `git pull` / マージ漏れがないか確認したうえで `backend/build.bat` を再実行する |
+| `is not recognized as an internal or external command` でexeが起動しない | 環境変数 `NoDefaultCurrentDirectoryInExePath` が設定された端末では、cmd.exe がカレントディレクトリを探索しない | `Michinari.bat` はexeをフルパス（`"%~dp0Michinari.exe"`）で起動する。旧版のbatを使っている場合は再ビルドして差し替える |
 
 ---
 

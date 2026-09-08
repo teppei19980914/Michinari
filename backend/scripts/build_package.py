@@ -51,6 +51,10 @@ BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
 #: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
 USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
+#: 配布パッケージの起動用batの元になるテンプレート（`assemble_launcher`が
+#: `Michinari.bat`として複製する）。テストからも同じ実体を参照できるよう定数化する
+#: （CLAUDE.md DRYの原則）。
+LAUNCHER_TEMPLATE_PATH = BACKEND_DIR / "scripts" / "launcher_template.bat"
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
 #: pyproject.tomlのTOML文字列・zipファイル名へ埋め込むため、`"`によるTOML破損や
@@ -205,9 +209,8 @@ def copy_user_manual(manual_path: Path, output_dir: Path) -> Path | None:
 
 def assemble_launcher() -> None:
     print("[7/8] 起動用batファイル・ユーザ手順書を配置しています…")
-    launcher_src = BACKEND_DIR / "scripts" / "launcher_template.bat"
     launcher_dst = OUTPUT_DIR / f"{APP_NAME}.bat"
-    shutil.copy(launcher_src, launcher_dst)
+    shutil.copy(LAUNCHER_TEMPLATE_PATH, launcher_dst)
     copied_manual = copy_user_manual(USER_MANUAL_PATH, OUTPUT_DIR)
     if copied_manual is not None:
         print(f"  → ユーザ手順書を同梱しました: {copied_manual.name}")
