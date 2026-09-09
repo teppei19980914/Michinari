@@ -80,7 +80,15 @@ class DailyRecord(CreatedAtMixin, Base):
 
 
 class StudyLog(CreatedAtMixin, Base):
-    """学習実績。minutes_spent が NULL/0 の行は実効速度算出から除外する（サービス層）。"""
+    """学習実績。minutes_spent が NULL/0 の行は実効速度算出から除外する（サービス層）。
+
+    minutes_spent は利用者が直接入力する値ではなく、時間スロット別の入力
+    （study_log_slot_time）の合計としてサービス層が設定する（データ構造編5.4、仕様書6.5）。
+    合計を列として持つのは、実効速度（ロジック・プロンプト編8.1）・週次集計・
+    ナレッジエクスポートがいずれも教材単位の合計しか必要とせず、内訳を都度結合すると
+    同一の集約が多数の照会箇所へ分散するため。更新経路は record_service の実績登録処理
+    1箇所に限定し、内訳との不整合を防ぐ。
+    """
 
     __tablename__ = "study_log"
     __table_args__ = (
@@ -101,6 +109,37 @@ class StudyLog(CreatedAtMixin, Base):
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="study_logs")
     material: Mapped["Material"] = relationship(back_populates="study_logs")
+    slot_times: Mapped[list["StudyLogSlotTime"]] = relationship(
+        back_populates="study_log", cascade="all, delete-orphan"
+    )
+
+
+class StudyLogSlotTime(Base):
+    """学習実績の時間枠別内訳（データ構造編5.4）。
+
+    slot_id を NULL 許容・ON DELETE SET NULL とするのは、スロットの削除を許容しつつ
+    実績を失わないため（要件定義書R-87、仕様書NT-09）。RESTRICT にすると過去に一度でも
+    使ったスロットを削除できなくなり「生活の変化を先に登録できる」という要件と矛盾する。
+    帰属先は失われるが、実効速度が用いる StudyLog.minutes_spent（合計）は影響を受けない。
+    NULL を「帰属不明」として残す扱いは chat_message.goal_id と同じ安全弁の考え方。
+    """
+
+    __tablename__ = "study_log_slot_time"
+    __table_args__ = (
+        UniqueConstraint("study_log_id", "slot_id", name="uq_study_log_slot_time"),
+        Index("ix_study_log_slot_time_study_log_id", "study_log_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    study_log_id: Mapped[int] = mapped_column(
+        ForeignKey("study_log.id", ondelete="CASCADE"), nullable=False
+    )
+    slot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("resource_slot.id", ondelete="SET NULL"), nullable=True
+    )
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    study_log: Mapped["StudyLog"] = relationship(back_populates="slot_times")
 
 
 class ReadingLog(CreatedAtMixin, Base):
@@ -118,11 +157,38 @@ class ReadingLog(CreatedAtMixin, Base):
     )
     book_id: Mapped[int] = mapped_column(ForeignKey("book.id"), nullable=False)
     recall_body: Mapped[str] = mapped_column(Text, nullable=False)
+    #: 読書時間（分）。reading_log_slot_time の合計。読書はリソース配分の対象だが
+    #: 実効速度・完了予測を持たないため、集計・表示・AI文脈にのみ用いる（R-64・R-71）。
+    minutes_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pages_read: Mapped[int | None] = mapped_column(Integer, nullable=True)
     current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="reading_logs")
     book: Mapped["Book"] = relationship(back_populates="reading_logs")
+    slot_times: Mapped[list["ReadingLogSlotTime"]] = relationship(
+        back_populates="reading_log", cascade="all, delete-orphan"
+    )
+
+
+class ReadingLogSlotTime(Base):
+    """読書記録の時間枠別内訳（データ構造編5.4）。StudyLogSlotTimeと同型・同方針。"""
+
+    __tablename__ = "reading_log_slot_time"
+    __table_args__ = (
+        UniqueConstraint("reading_log_id", "slot_id", name="uq_reading_log_slot_time"),
+        Index("ix_reading_log_slot_time_reading_log_id", "reading_log_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    reading_log_id: Mapped[int] = mapped_column(
+        ForeignKey("reading_log.id", ondelete="CASCADE"), nullable=False
+    )
+    slot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("resource_slot.id", ondelete="SET NULL"), nullable=True
+    )
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    reading_log: Mapped["ReadingLog"] = relationship(back_populates="slot_times")
 
 
 class WorkLog(CreatedAtMixin, Base):

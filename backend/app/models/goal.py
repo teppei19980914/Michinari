@@ -14,6 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.book import Book
     from app.models.material import Material, MaterialSubject
     from app.models.record import DailyGoalDiary, DailyMessage, ExamResult, WeeklySummary
+    from app.models.resource import GoalSlotAllocation
     from app.models.retrospective import GoalRetrospective
     from app.models.work import WorkAssignment
 
@@ -22,8 +23,9 @@ class Goal(TimestampMixin, Base):
     """目標（試験合格・読書の完遂・仕事の案件遂行に向けた単位）。
 
     category（EXAM/READING/WORK）は作成後の変更を許容しない（サービス層で検証）。
-    READING/WORKの場合、exam_subject/material/load_profile/weekly_summaryは作成せず、
-    resource_ratioは常に0のまま（配分プールの対象外。要件定義書R-64・R-74）とする。
+    READING/WORKの場合、exam_subject/material/load_profile/weekly_summaryは作成しない。
+    リソース配分（slot_allocations）はEXAM・READINGが対象で、WORKのみ対象外とする
+    （要件定義書R-64・R-74。配分の要否は「自由な時間に行う活動か否か」で決まる）。
     """
 
     __tablename__ = "goal"
@@ -39,7 +41,6 @@ class Goal(TimestampMixin, Base):
     status: Mapped[GoalStatus] = mapped_column(
         Enum(GoalStatus, native_enum=False, validate_strings=True), nullable=False
     )
-    resource_ratio: Mapped[float] = mapped_column(Float, nullable=False, default=0)
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -73,6 +74,9 @@ class Goal(TimestampMixin, Base):
         back_populates="goal", cascade="all, delete-orphan"
     )
     daily_messages: Mapped[list["DailyMessage"]] = relationship(
+        back_populates="goal", cascade="all, delete-orphan"
+    )
+    slot_allocations: Mapped[list["GoalSlotAllocation"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
     )
 
