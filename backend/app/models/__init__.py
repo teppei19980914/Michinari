@@ -12,12 +12,14 @@ from app.models.record import (
     DailyRecord,
     ExamResult,
     ReadingLog,
+    ReadingLogSlotTime,
     RecordComment,
     StudyLog,
+    StudyLogSlotTime,
     WeeklySummary,
     WorkLog,
 )
-from app.models.resource import ResourceSlot, ResourceSlotWeekday
+from app.models.resource import GoalSlotAllocation, ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
 from app.models.setting import (
     AppSetting,
@@ -37,6 +39,7 @@ __all__ = [
     "CalendarDayOverride",
     "ResourceSlot",
     "ResourceSlotWeekday",
+    "GoalSlotAllocation",
     "Goal",
     "ExamSubject",
     "LoadProfile",
@@ -45,8 +48,10 @@ __all__ = [
     "PlanBaseline",
     "DailyRecord",
     "StudyLog",
+    "StudyLogSlotTime",
     "Book",
     "ReadingLog",
+    "ReadingLogSlotTime",
     "WorkAssignment",
     "WorkLog",
     "ChatMessage",
