@@ -30,6 +30,10 @@ depends_on: Union[str, Sequence[str], None] = None
 #: 1分あたりの秒数（連続時間を分へ換算する際の除数）。
 _SECONDS_PER_MINUTE = 60
 
+#: SQLAlchemyのDateTime型がSQLiteへ書き込むのと同じ表記。生SQLで挿入する行を
+#: ORM経由の行と同じ形式に揃える（Python 3.12で非推奨のdatetimeアダプタも回避できる）。
+_DATETIME_STORAGE_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+
 
 def _parse_time(raw: object) -> dt.time:
     """SQLiteのTIME列（文字列で格納される）を time へ変換する。
@@ -81,7 +85,7 @@ def _migrate_ratios_to_allocations(connection: sa.Connection) -> None:
         )
         return
 
-    now = dt.datetime.now(dt.UTC)
+    now = dt.datetime.now(dt.UTC).strftime(_DATETIME_STORAGE_FORMAT)
     rows = []
     for slot in slots:
         duration = _duration_minutes(slot.start_time, slot.end_time)
