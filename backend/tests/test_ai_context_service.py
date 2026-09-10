@@ -281,7 +281,8 @@ def test_build_material_status_entries_includes_forecast_when_computable(seeded_
         record = _make_daily_record(seeded_session, dt.date(2026, 8, day))
         _make_study_log(seeded_session, record, material, amount_completed=10.0, minutes_spent=60)
     monday = dt.date(2026, 8, 24)
-    _make_slot(seeded_session, dt.time(19, 0), dt.time(21, 0), weekdays=list(range(7)))
+    slot = _make_slot(seeded_session, dt.time(19, 0), dt.time(21, 0), weekdays=list(range(7)))
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     entries = ai_context_service.build_material_status_entries(
         seeded_session, [material], today=monday, treat_holiday_as_buffer=True
