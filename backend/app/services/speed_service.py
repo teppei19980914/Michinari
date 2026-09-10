@@ -13,7 +13,13 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog
 from app.models.setting import CalendarDayOverride
-from app.services import calendar_service, cycle_service, slot_service
+from app.services import (
+    allocation_service,
+    calendar_service,
+    cycle_service,
+    duration,
+    slot_service,
+)
 from app.services.slot_service import MaterialWeight
 
 
@@ -219,22 +225,26 @@ def compute_weights(session: Session, materials: list[Material]) -> dict[int, Ma
 
 
 def _daily_allocated_hours(
-    session: Session,
-    goal: Goal,
     target_material: Material,
     weights: dict[int, MaterialWeight],
     slots_by_weekday: dict[int, list],
+    allocated_minutes_by_slot: dict[int, int],
     day_types: dict[dt.date, DayType],
     coefficients: dict[dt.date, float],
     target_date: dt.date,
 ) -> float:
-    """日 d における対象教材への割当時間（負荷係数適用後）を算出する（9.3、10.1で共用）。"""
+    """日 d における対象教材への割当時間（負荷係数適用後）を算出する（9.3、10.1で共用）。
+
+    割当の算出は分で行い（9.1）、必要速度・完了予測が「分量／時間」を単位とするため
+    最後に時間へ換算する。表示用の切り捨ては行わない（duration.to_exact_hours）。
+    """
     if day_types.get(target_date) != DayType.PLAN:
         return 0.0
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, target_date, goal.resource_ratio
+        weights, slots_by_weekday, target_date, allocated_minutes_by_slot
     )
-    return allocation.get(target_material.id, 0.0) * coefficients[target_date]
+    minutes = slot_service.sum_minutes_by_material(allocation).get(target_material.id, 0.0)
+    return duration.to_exact_hours(minutes) * coefficients[target_date]
 
 
 def compute_required_speed(
@@ -260,10 +270,17 @@ def compute_required_speed(
     )
     weights = compute_weights(session, materials_in_contention)
     slots_by_weekday = slot_service.group_slots_by_weekday(slot_service.get_active_slots(session))
+    allocated_minutes_by_slot = allocation_service.get_allocation_minutes(session, goal.id)
 
     available_hours = sum(
         _daily_allocated_hours(
-            session, goal, material, weights, slots_by_weekday, day_types, coefficients, d
+            material,
+            weights,
+            slots_by_weekday,
+            allocated_minutes_by_slot,
+            day_types,
+            coefficients,
+            d,
         )
         for d in day_types
     )
@@ -304,6 +321,7 @@ def compute_forecast_date(
     coefficients = calendar_service.resolve_load_coefficients(session, goal.id, today, limit_date)
     weights = compute_weights(session, materials_in_contention)
     slots_by_weekday = slot_service.group_slots_by_weekday(slot_service.get_active_slots(session))
+    allocated_minutes_by_slot = allocation_service.get_allocation_minutes(session, goal.id)
 
     accumulated = 0.0
     current_date = today
@@ -315,11 +333,10 @@ def compute_forecast_date(
                 unavailable_reason=ForecastUnavailableReason.ITERATION_LIMIT_EXCEEDED,
             )
         accumulated += _daily_allocated_hours(
-            session,
-            goal,
             material,
             weights,
             slots_by_weekday,
+            allocated_minutes_by_slot,
             day_types,
             coefficients,
             current_date,

@@ -127,6 +127,8 @@ def test_upgrade_database_schema_migrates_legacy_unversioned_database_without_da
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
+            # a3f9c1d7e2b4時点のスキーマはresource_ratio（NOT NULL）を持つため指定が必要。
+            # 本列はf2b7c4a91d3e（スロット単位化）で削除される。
             "INSERT INTO goal (id, name, start_date, status, resource_ratio, "
             "created_at, updated_at) VALUES (1, '目標A', '2026-01-01', 'DRAFT', 0.0, "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
@@ -208,6 +210,8 @@ def test_upgrade_database_schema_upgrades_normally_tracked_database_without_stam
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
+            # a3f9c1d7e2b4時点のスキーマはresource_ratio（NOT NULL）を持つため指定が必要。
+            # 本列はf2b7c4a91d3e（スロット単位化）で削除される。
             "INSERT INTO goal (id, name, start_date, status, resource_ratio, "
             "created_at, updated_at) VALUES (1, '目標A', '2026-01-01', 'DRAFT', 0.0, "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"

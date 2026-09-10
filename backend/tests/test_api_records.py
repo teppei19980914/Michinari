@@ -14,6 +14,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
+from tests import api_allocation_helpers
 
 
 def _create_goal_with_subject(
@@ -53,7 +54,7 @@ def _create_material(client, goal_id, subject_ids, **overrides):
 def _make_active_goal_with_material(client, goal_name="目標A", **material_overrides):
     goal, subject_id = _create_goal_with_subject(client, name=goal_name)
     material = _create_material(client, goal["id"], [subject_id], **material_overrides)
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.1})
+    api_allocation_helpers.allocate(client, goal["id"])
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
     return goal, material
@@ -94,7 +95,11 @@ def test_register_progress_endpoint_creates_progress_only_record(client):
         f"/api/v1/records/{target}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -114,7 +119,11 @@ def test_register_progress_endpoint_rejects_future_date(client):
         f"/api/v1/records/{future}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -128,7 +137,7 @@ def test_register_progress_endpoint_rejects_unknown_material(client):
 
     response = client.post(
         f"/api/v1/records/{target}/progress",
-        json={"study_logs": [{"material_id": 9999, "minutes_spent": 30, "amount_completed": 10}]},
+        json={"study_logs": [{"material_id": 9999, "amount_completed": 10}]},
     )
 
     assert response.status_code == 404
@@ -146,7 +155,11 @@ def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
         f"/api/v1/records/{target}/finalize",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ],
             "diary_entries": [
                 {
@@ -209,7 +222,11 @@ def test_progress_endpoint_rejects_update_after_reported(client):
         f"/api/v1/records/{target}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -304,7 +321,11 @@ def test_finalize_reading_endpoint_does_not_block_exam_finalize(client):
         f"/api/v1/records/{target}/finalize",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ],
             "diary_entries": [
                 {"goal_id": goal["id"], "diary_body": "所感", "diary_learned": "学び"}

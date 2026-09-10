@@ -5,6 +5,8 @@
 CRUD・状態遷移・バリデーションのテスト。
 """
 
+from tests import api_allocation_helpers
+
 
 def _create_reading_goal(client, name="読書目標A", start_date="2026-01-01"):
     response = client.post(
@@ -52,7 +54,6 @@ def test_create_goal_defaults_to_exam_category(client):
 def test_create_reading_goal(client):
     goal = _create_reading_goal(client)
     assert goal["category"] == "READING"
-    assert goal["resource_ratio"] == 0.0
 
     detail = client.get(f"/api/v1/goals/{goal['id']}").json()
     assert detail["exam_subjects"] == []
@@ -256,25 +257,44 @@ def test_update_book_on_closed_goal_is_rejected(client):
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
-# --- リソース配分の対象外（要件定義書R-64） ---
+# --- リソース配分の対象（要件定義書R-64、2026-09-09の仕様変更で対象外から対象へ反転） ---
 
 
-def test_reading_goal_cannot_set_resource_ratio(client):
+def test_reading_goal_can_set_slot_allocation(client):
+    """読書も自由な時間に行う活動であるためリソース配分の対象に含める（R-64）。"""
     goal = _create_reading_goal(client)
+    slot = api_allocation_helpers.ensure_slot(client)
 
-    response = client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.5})
+    response = client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 30}]},
+    )
 
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 200, response.text
+    assert [row["minutes"] for row in response.json() if row["slot_id"] == slot["id"]] == [30]
 
 
-def test_reading_goal_does_not_count_toward_exam_resource_ratio(client):
-    """読書目標はresource_ratioの合計計算に算入されない（要件定義書R-64）。
-    資格試験目標がリソース配分100%を使い切っていても、読書目標のactivateはリソース超過に
-    ならない（読書はそもそもリソース配分を要求しないため）。
+def test_reading_goal_activates_without_allocation(client):
+    """読書目標のリソース配分は任意。未設定でも進行中へ遷移できる（R-64）。"""
+    goal = _make_activatable_reading_goal(client)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ACTIVE"
+
+
+def test_reading_goal_competes_with_exam_for_slot_capacity(client):
+    """読書目標の配分も資格試験目標と同じスロット容量を奪い合う（R-64）。
+
+    仕事目標（R-74）とは扱いが異なり、合計計算に算入される。
     """
+    slot = api_allocation_helpers.ensure_slot(client)  # 120分
     exam_goal = _create_exam_goal(client)
-    client.patch(f"/api/v1/goals/{exam_goal['id']}", json={"resource_ratio": 1.0})
+    client.put(
+        f"/api/v1/goals/{exam_goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 90}]},
+    )
     subject = client.post(
         f"/api/v1/goals/{exam_goal['id']}/subjects",
         json={
@@ -299,17 +319,19 @@ def test_reading_goal_does_not_count_toward_exam_resource_ratio(client):
     assert client.post(f"/api/v1/goals/{exam_goal['id']}/activate").status_code == 200
 
     reading_goal = _make_activatable_reading_goal(client)
+    client.put(
+        f"/api/v1/goals/{reading_goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 60}]},
+    )
+
     response = client.post(f"/api/v1/goals/{reading_goal['id']}/activate")
 
-    assert response.status_code == 200, response.text
-    assert response.json()["status"] == "ACTIVE"
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
-def test_reading_goal_pause_then_resume_skips_resource_ratio_validation(client):
-    """読書目標は元よりresource_ratio=0のため、一時停止→進行中の復帰時にactivate_goalと
-    同じくリソース配分検証を適用しない（mainのアーカイブ機能とのマージで発覚したresume_goal
-    の回帰防止。EXAM目標であればresource_ratio<=0はRESOURCE_RATIO_REQUIREDで拒否される）。
-    """
+def test_reading_goal_pause_then_resume_without_allocation(client):
+    """配分が未設定の読書目標は、復帰時にも配分の要求・空き検証を受けない（R-64）。"""
     goal = _make_activatable_reading_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")

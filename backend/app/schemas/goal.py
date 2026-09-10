@@ -25,7 +25,6 @@ class GoalUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     start_date: dt.date | None = None
     memo: str | None = None
-    resource_ratio: float | None = Field(default=None, ge=0, le=1)
 
 
 class GoalCloseRequest(BaseModel):
@@ -52,7 +51,6 @@ class GoalRead(BaseModel):
     name: str
     start_date: dt.date
     status: GoalStatus
-    resource_ratio: float
     memo: str | None
     activated_at: dt.datetime | None
     closed_at: dt.datetime | None

@@ -49,7 +49,6 @@ def _make_work_goal(session, name="仕事目標A", status=GoalStatus.ACTIVE):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=status,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
@@ -293,7 +292,7 @@ def test_work_feedback_conversation_history_does_not_leak_exam_messages(
         study_log_items=[
             StudyLogItem(
                 material_id=material.id,
-                minutes_spent=30,
+                slot_minutes={1: 30},
                 amount_completed=10.0,
                 cycle_number=1,
                 quality_value=None,

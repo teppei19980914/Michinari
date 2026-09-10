@@ -27,6 +27,8 @@ from app.schemas.record import (
     ReadingFinalizeRequest,
     ReadingLogInput,
     ReadingLogRead,
+    SlotMinutesInput,
+    SlotMinutesRead,
     StudyLogInput,
     StudyLogRead,
     TodayRead,
@@ -47,11 +49,19 @@ from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLog
 router = APIRouter(tags=["records"])
 
 
+def _to_slot_minutes(entries: list[SlotMinutesInput]) -> dict[int, int]:
+    """時間枠別入力を slot_id → 分 の辞書へ畳み込む（同一slot_idの重複指定は加算する）。"""
+    slot_minutes: dict[int, int] = {}
+    for entry in entries:
+        slot_minutes[entry.slot_id] = slot_minutes.get(entry.slot_id, 0) + entry.minutes
+    return slot_minutes
+
+
 def _to_study_log_items(inputs: list[StudyLogInput]) -> list[StudyLogItem]:
     return [
         StudyLogItem(
             material_id=item.material_id,
-            minutes_spent=item.minutes_spent,
+            slot_minutes=_to_slot_minutes(item.slot_minutes),
             amount_completed=item.amount_completed,
             cycle_number=item.cycle_number,
             quality_value=item.quality_value,
@@ -60,11 +70,49 @@ def _to_study_log_items(inputs: list[StudyLogInput]) -> list[StudyLogItem]:
     ]
 
 
+def _serialize_slot_minutes(slot_times) -> list[SlotMinutesRead]:
+    """時間枠別内訳を表示用に変換する。時間枠が削除済みの行は slot_name を None とする
+    （データ構造編5.4、slot_id は ON DELETE SET NULL）。"""
+    return [
+        SlotMinutesRead(
+            slot_id=row.slot_id,
+            slot_name=row.slot.name if row.slot_id is not None and row.slot else None,
+            minutes=row.minutes,
+        )
+        for row in sorted(slot_times, key=lambda row: (row.slot_id is None, row.slot_id or 0))
+    ]
+
+
+def _serialize_study_log(log) -> StudyLogRead:
+    return StudyLogRead(
+        id=log.id,
+        material_id=log.material_id,
+        minutes_spent=log.minutes_spent,
+        slot_minutes=_serialize_slot_minutes(log.slot_times),
+        amount_completed=log.amount_completed,
+        cycle_number=log.cycle_number,
+        quality_value=log.quality_value,
+    )
+
+
+def _serialize_reading_log(log) -> ReadingLogRead:
+    return ReadingLogRead(
+        id=log.id,
+        book_id=log.book_id,
+        recall_body=log.recall_body,
+        minutes_spent=log.minutes_spent,
+        slot_minutes=_serialize_slot_minutes(log.slot_times),
+        pages_read=log.pages_read,
+        current_page=log.current_page,
+    )
+
+
 def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]:
     return [
         ReadingLogItem(
             book_id=item.book_id,
             recall_body=item.recall_body,
+            slot_minutes=_to_slot_minutes(item.slot_minutes),
             pages_read=item.pages_read,
             current_page=item.current_page,
         )
@@ -109,11 +157,9 @@ def _serialize_record(
             )
             for entry in diary_entries
         ],
-        study_logs=[
-            StudyLogRead.model_validate(log) for log in (record.study_logs if record else [])
-        ],
+        study_logs=[_serialize_study_log(log) for log in (record.study_logs if record else [])],
         reading_logs=[
-            ReadingLogRead.model_validate(log) for log in (record.reading_logs if record else [])
+            _serialize_reading_log(log) for log in (record.reading_logs if record else [])
         ],
         work_logs=[WorkLogRead.model_validate(log) for log in (record.work_logs if record else [])],
         comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
