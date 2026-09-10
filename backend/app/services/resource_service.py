@@ -285,4 +285,3 @@ def get_allocation_status(session: Session) -> AllocationStatus:
         total_hours_by_environment=total_hours_by_environment,
         slots=_build_slot_allocation_statuses(session, slots),
     )
-

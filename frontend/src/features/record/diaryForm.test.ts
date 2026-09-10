@@ -15,7 +15,6 @@ function makeGoal(id: number, name: string): GoalRead {
     name,
     start_date: '2026-01-01',
     status: 'ACTIVE',
-    resource_ratio: 1,
     memo: null,
     activated_at: null,
     closed_at: null,

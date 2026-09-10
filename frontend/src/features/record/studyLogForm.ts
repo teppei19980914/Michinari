@@ -1,19 +1,27 @@
 import { subjectiveScaleFromNormalized } from './qualityInput'
+import {
+  buildSlotMinutesPayload,
+  initSlotMinutes,
+  type SlotMinutesFormValue,
+} from './slotMinutesForm'
 import type { QuotaItemRead, StudyLogInput } from '../../api/records'
 import type { components } from '../../types/api.d.ts'
 
 type StudyLogRead = components['schemas']['StudyLogRead']
 
-/** 実績入力欄の1教材分の入力状態（文字列で保持し、送信直前に数値へ変換する）。 */
+/** 実績入力欄の1教材分の入力状態（文字列で保持し、送信直前に数値へ変換する）。
+ *
+ * 投下時間は単一の欄ではなく時間枠ごとの入力（slotMinutes）として保持し、教材の投下時間は
+ * その合計とする（仕様書6.5、要件定義書R-14）。 */
 export type StudyLogFormValue = {
-  minutesSpent: string
+  slotMinutes: SlotMinutesFormValue
   amountCompleted: string
   cycleNumber: string
   qualityValue: string
 }
 
 const EMPTY_VALUE: StudyLogFormValue = {
-  minutesSpent: '',
+  slotMinutes: {},
   amountCompleted: '',
   cycleNumber: '',
   qualityValue: '',
@@ -35,7 +43,11 @@ export function initStudyLogFormValues(
   for (const item of quotaItems) {
     const existing = existingByMaterial.get(item.material_id)
     if (!existing) {
-      result[item.material_id] = { ...EMPTY_VALUE, cycleNumber: String(item.current_cycle) }
+      result[item.material_id] = {
+        ...EMPTY_VALUE,
+        slotMinutes: initSlotMinutes(item.slot_defaults, undefined),
+        cycleNumber: String(item.current_cycle),
+      }
       continue
     }
     const quality =
@@ -45,7 +57,7 @@ export function initStudyLogFormValues(
           ? String(subjectiveScaleFromNormalized(existing.quality_value) ?? '')
           : String(existing.quality_value)
     result[item.material_id] = {
-      minutesSpent: existing.minutes_spent === null ? '' : String(existing.minutes_spent),
+      slotMinutes: initSlotMinutes(item.slot_defaults, existing.slot_minutes),
       amountCompleted: String(existing.amount_completed),
       cycleNumber: String(existing.cycle_number),
       qualityValue: quality,
@@ -70,7 +82,7 @@ export function buildStudyLogPayload(
     .filter(([, value]) => value.amountCompleted.trim() !== '')
     .map(([materialId, value]) => ({
       material_id: Number(materialId),
-      minutes_spent: value.minutesSpent.trim() === '' ? null : Number(value.minutesSpent),
+      slot_minutes: buildSlotMinutesPayload(value.slotMinutes),
       amount_completed: Number(value.amountCompleted),
       cycle_number: value.cycleNumber.trim() === '' ? null : Number(value.cycleNumber),
       quality_value: value.qualityValue.trim() === '' ? null : Number(value.qualityValue),

@@ -183,7 +183,9 @@ export function SlotList() {
               <p className="text-xs text-gray-500">
                 {t(`goals.materials.environment.${slot.environment}`)} ·{' '}
                 {slot.weekdays.map((w) => t(`resources.weekdays.${w}`)).join('')} ·{' '}
-                {t('resources.slots.durationHours', {
+                {t('resources.slots.duration', {
+                  minutes: slot.duration_minutes,
+                  minutesUnit: t('common.unit.minutes'),
                   hours: slot.duration_hours,
                   hoursUnit: t('common.unit.hours'),
                 })}

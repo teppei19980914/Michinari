@@ -24,6 +24,14 @@ class SlotMinutesInput(BaseModel):
     minutes: int = Field(ge=0)
 
 
+class SlotDefaultMinutesRead(BaseModel):
+    """日次報告の時間枠別入力欄の既定値（9.2の按分結果）。"""
+
+    slot_id: int
+    slot_name: str
+    minutes: int
+
+
 class SlotMinutesRead(BaseModel):
     """投下時間の時間枠別内訳。`slot_id` が NULL の行は、記録後に時間枠が削除されたもの。"""
 
@@ -216,6 +224,8 @@ class QuotaItemRead(BaseModel):
     quality_metric_type: QualityMetricType
     goal_id: int
     goal_name: str
+    #: 時間枠ごとの投下時間入力欄の既定値（配分済みの枠のみ。仕様書6.5「初期値」）。
+    slot_defaults: list[SlotDefaultMinutesRead]
 
 
 class ChatRequest(BaseModel):

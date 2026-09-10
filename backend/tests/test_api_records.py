@@ -753,3 +753,35 @@ def test_work_chat_endpoint_maps_ai_error_and_keeps_input_recoverable(client, mo
 
     record = client.get(f"/api/v1/records/{target}").json()
     assert record["work_logs"] == []
+
+
+def test_quota_returns_slot_defaults_from_allocation(client):
+    """日次報告の時間枠別入力欄の既定値が、9.2の按分結果として返ること（仕様書6.5「初期値」）。"""
+    goal, material = _make_active_goal_with_material(client)
+    slot = api_allocation_helpers.ensure_slot(client)
+    target = dt.date.today().isoformat()
+
+    items = client.get(f"/api/v1/records/{target}/quota").json()
+
+    item = next(row for row in items if row["material_id"] == material["id"])
+    assert item["slot_defaults"] == [
+        {
+            "slot_id": slot["id"],
+            "slot_name": slot["name"],
+            "minutes": api_allocation_helpers.DEFAULT_ALLOCATION_MINUTES,
+        }
+    ]
+
+
+def test_quota_returns_no_slot_defaults_without_allocation(client):
+    """配分していない時間枠は既定値に現れないこと（9.2 手順0）。"""
+    goal, material = _make_active_goal_with_material(client)
+    api_allocation_helpers.create_slot(
+        client, name="未配分の枠", start_time="06:00:00", end_time="07:00:00"
+    )
+    target = dt.date.today().isoformat()
+
+    items = client.get(f"/api/v1/records/{target}/quota").json()
+
+    item = next(row for row in items if row["material_id"] == material["id"])
+    assert [default["slot_name"] for default in item["slot_defaults"]] == ["テスト用時間枠"]
