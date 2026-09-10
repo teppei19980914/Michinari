@@ -5,6 +5,7 @@ import datetime as dt
 from app.constants.enums import ChatRole, DayType, RecordState
 from app.models.record import ChatMessage, DailyRecord, StudyLog
 from app.models.setting import CalendarDayOverride
+from tests import api_allocation_helpers
 
 TODAY = dt.date.today()
 
@@ -56,7 +57,7 @@ def _make_active_goal_with_material(client, passing_score=None, **material_overr
     exam_date = TODAY + dt.timedelta(days=180)
     goal, subject_id = _create_goal_with_subject(client, exam_date, exam_date, passing_score)
     material = _create_material(client, goal["id"], [subject_id], **material_overrides)
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.1})
+    api_allocation_helpers.allocate(client, goal["id"])
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
     return goal, material

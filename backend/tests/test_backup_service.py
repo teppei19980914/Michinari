@@ -191,8 +191,8 @@ def _insert_minimal_goal(db_path, *, id_=1, name="マーカー"):
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
-            "INSERT INTO goal (id, name, start_date, status, resource_ratio, category, "
-            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 0.0, 'EXAM', "
+            "INSERT INTO goal (id, name, start_date, status, category, "
+            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 'EXAM', "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')",
             (id_, name),
         )
@@ -215,7 +215,6 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
             "name": "マーカー",
             "start_date": "2026-01-01",
             "status": "DRAFT",
-            "resource_ratio": 0.0,
             "memo": None,
             "activated_at": None,
             "closed_at": None,
@@ -251,7 +250,6 @@ def test_import_all_data_replaces_existing_rows_rather_than_appending(full_schem
             "name": "新データ",
             "start_date": "2026-02-01",
             "status": "DRAFT",
-            "resource_ratio": 0.0,
             "memo": None,
             "activated_at": None,
             "closed_at": None,
@@ -279,7 +277,7 @@ def test_import_all_data_creates_safety_backup(full_schema_db):
 
 def test_import_all_data_rejects_missing_tables_key(full_schema_db):
     with pytest.raises(ValidationError):
-        backup_service.import_all_data({"schema_version": "1.0"})
+        backup_service.import_all_data({"schema_version": "0.0"})
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

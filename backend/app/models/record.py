@@ -30,6 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.book import Book
     from app.models.goal import ExamSubject, Goal
     from app.models.material import Material
+    from app.models.resource import ResourceSlot
     from app.models.work import WorkAssignment
 
 
@@ -140,6 +141,8 @@ class StudyLogSlotTime(Base):
     minutes: Mapped[int] = mapped_column(Integer, nullable=False)
 
     study_log: Mapped["StudyLog"] = relationship(back_populates="slot_times")
+    #: 時間枠名の表示に使う。削除済みの枠（slot_id=NULL）ではNoneとなる。
+    slot: Mapped["ResourceSlot | None"] = relationship()
 
 
 class ReadingLog(CreatedAtMixin, Base):
@@ -189,6 +192,8 @@ class ReadingLogSlotTime(Base):
     minutes: Mapped[int] = mapped_column(Integer, nullable=False)
 
     reading_log: Mapped["ReadingLog"] = relationship(back_populates="slot_times")
+    #: 時間枠名の表示に使う。削除済みの枠（slot_id=NULL）ではNoneとなる。
+    slot: Mapped["ResourceSlot | None"] = relationship()
 
 
 class WorkLog(CreatedAtMixin, Base):

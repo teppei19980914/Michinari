@@ -65,7 +65,33 @@ def _make_slot(
     return slot
 
 
-def test_slot_duration_hours_computed_from_start_and_end():
+def _full_allocation(slots_by_weekday: dict) -> dict[int, int]:
+    """全スロットの連続時間を丸ごと配分した状態（比率方式の resource_ratio=1.0 相当）。"""
+    return {
+        slot.id: slot_service.slot_duration_minutes(slot)
+        for slots in slots_by_weekday.values()
+        for slot in slots
+    }
+
+
+def _half_allocation(slots_by_weekday: dict) -> dict[int, int]:
+    """全スロットの連続時間の半分を配分した状態（resource_ratio=0.5 相当）。"""
+    return {
+        slot.id: slot_service.slot_duration_minutes(slot) // 2
+        for slots in slots_by_weekday.values()
+        for slot in slots
+    }
+
+
+def _allocation_for_all_slots(db_session) -> dict[int, int]:
+    """DB上の全スロットを丸ごと配分した状態（充足検証は配分済みスロットのみを見るため）。"""
+    return {
+        slot.id: slot_service.slot_duration_minutes(slot)
+        for slot in db_session.query(ResourceSlot).all()
+    }
+
+
+def test_slot_duration_minutes_computed_from_start_and_end():
     slot = ResourceSlot(
         name="s",
         start_time=dt.time(6, 0),
@@ -73,7 +99,7 @@ def test_slot_duration_hours_computed_from_start_and_end():
         environment=Environment.ANY,
         display_order=1,
     )
-    assert slot_service.slot_duration_hours(slot) == pytest.approx(1.5)
+    assert slot_service.slot_duration_minutes(slot) == 90
 
 
 def test_environment_matching_respects_any_and_specific(db_session):
@@ -90,11 +116,14 @@ def test_environment_matching_respects_any_and_specific(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([mobile_slot, pc_slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=1.0
+        weights,
+        slots_by_weekday,
+        dt.date(2026, 1, 5),
+        _full_allocation(slots_by_weekday),
     )  # 2026-01-05は月曜(weekday=0)
 
-    # PC限定教材はmobileスロットに割り当てられず、pcスロット分(1時間)のみ割り当てられる
-    assert allocation[pc_material.id] == pytest.approx(1.0)
+    # PC限定教材はmobileスロットに割り当てられず、pcスロット分(60分)のみ割り当てられる
+    assert slot_service.sum_minutes_by_material(allocation)[pc_material.id] == 60
 
 
 def test_block_minutes_matching_excludes_short_slots(db_session):
@@ -112,10 +141,14 @@ def test_block_minutes_matching_excludes_short_slots(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([short_slot, long_slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=1.0
+        weights,
+        slots_by_weekday,
+        dt.date(2026, 1, 5),
+        _full_allocation(slots_by_weekday),
     )
 
-    assert allocation[material.id] == pytest.approx(1.5)  # long_slotのみ（90分ちょうど適合）
+    # long_slotのみ（90分ちょうど適合）
+    assert slot_service.sum_minutes_by_material(allocation)[material.id] == 90
 
 
 def test_allocate_day_splits_by_required_time_ratio(db_session):
@@ -134,14 +167,18 @@ def test_allocate_day_splits_by_required_time_ratio(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=1.0
+        weights,
+        slots_by_weekday,
+        dt.date(2026, 1, 5),
+        _full_allocation(slots_by_weekday),
     )
 
-    assert allocation[material_a.id] == pytest.approx(1.0)
-    assert allocation[material_b.id] == pytest.approx(2.0)
+    totals = slot_service.sum_minutes_by_material(allocation)
+    assert totals[material_a.id] == pytest.approx(60.0)
+    assert totals[material_b.id] == pytest.approx(120.0)
 
 
-def test_allocate_day_applies_goal_resource_ratio(db_session):
+def test_allocate_day_applies_per_slot_allocation(db_session):
     goal = _make_goal(db_session)
     material = _make_material(db_session, goal.id)
     slot = _make_slot(db_session, dt.time(19, 0), dt.time(21, 0), Environment.ANY, weekdays=[0])
@@ -151,10 +188,11 @@ def test_allocate_day_applies_goal_resource_ratio(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=0.5
+        weights, slots_by_weekday, dt.date(2026, 1, 5), _half_allocation(slots_by_weekday)
     )
 
-    assert allocation[material.id] == pytest.approx(1.0)  # 2時間 × 0.5
+    # 120分の半分（60分）が配分されている
+    assert slot_service.sum_minutes_by_material(allocation)[material.id] == 60
 
 
 def test_allocate_day_skips_materials_outside_date_range(db_session):
@@ -168,7 +206,10 @@ def test_allocate_day_skips_materials_outside_date_range(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=1.0
+        weights,
+        slots_by_weekday,
+        dt.date(2026, 1, 5),
+        _full_allocation(slots_by_weekday),
     )
 
     assert allocation == {}
@@ -179,11 +220,10 @@ def test_allocate_day_no_candidates_returns_empty_allocation_without_error(db_se
     slot = _make_slot(db_session, dt.time(19, 0), dt.time(20, 0), Environment.ANY, weekdays=[0])
     db_session.flush()
 
+    slots_by_weekday = slot_service.group_slots_by_weekday([slot])
+
     allocation = slot_service.allocate_day(
-        {},
-        slot_service.group_slots_by_weekday([slot]),
-        dt.date(2026, 1, 5),
-        goal_resource_ratio=1.0,
+        {}, slots_by_weekday, dt.date(2026, 1, 5), _full_allocation(slots_by_weekday)
     )
 
     assert allocation == {}
@@ -201,22 +241,27 @@ def test_allocate_day_skips_when_total_weight_not_positive(db_session):
     slots_by_weekday = slot_service.group_slots_by_weekday([slot])
 
     allocation = slot_service.allocate_day(
-        weights, slots_by_weekday, dt.date(2026, 1, 5), goal_resource_ratio=1.0
+        weights,
+        slots_by_weekday,
+        dt.date(2026, 1, 5),
+        _full_allocation(slots_by_weekday),
     )
 
     assert allocation == {}
 
 
-def test_compute_total_hours_for_date_sums_matching_slots(db_session):
-    """日dに確保できる時間の総量 total_hours(d)（9.1）。"""
+def test_compute_total_minutes_for_date_sums_matching_slots(db_session):
+    """日dに確保できる時間の総量 total_minutes(d)（9.1）。"""
     slot_a = _make_slot(db_session, dt.time(6, 0), dt.time(7, 0), Environment.ANY, weekdays=[0])
     slot_b = _make_slot(db_session, dt.time(20, 0), dt.time(22, 0), Environment.ANY, weekdays=[0])
     db_session.flush()
 
     slots_by_weekday = slot_service.group_slots_by_weekday([slot_a, slot_b])
-    total_hours = slot_service.compute_total_hours_for_date(slots_by_weekday, dt.date(2026, 1, 5))
+    total_minutes = slot_service.compute_total_minutes_for_date(
+        slots_by_weekday, dt.date(2026, 1, 5)
+    )
 
-    assert total_hours == pytest.approx(3.0)  # 1時間 + 2時間
+    assert total_minutes == 180  # 60分 + 120分
 
 
 def test_validate_slot_sufficiency_false_when_no_plan_days_in_period(db_session):
@@ -235,7 +280,7 @@ def test_validate_slot_sufficiency_false_when_no_plan_days_in_period(db_session)
     db_session.flush()
 
     assert not slot_service.validate_slot_sufficiency(
-        db_session, material, treat_holiday_as_buffer=True
+        db_session, material, True, _allocation_for_all_slots(db_session)
     )
 
 
@@ -250,7 +295,7 @@ def test_validate_slot_sufficiency_true_when_matching_slot_exists(db_session):
     db_session.flush()
 
     assert slot_service.validate_slot_sufficiency(
-        db_session, material, treat_holiday_as_buffer=True
+        db_session, material, True, _allocation_for_all_slots(db_session)
     )
 
 
@@ -274,7 +319,7 @@ def test_validate_slot_sufficiency_skips_non_matching_slots_before_finding_match
     db_session.flush()
 
     assert slot_service.validate_slot_sufficiency(
-        db_session, material, treat_holiday_as_buffer=True
+        db_session, material, True, _allocation_for_all_slots(db_session)
     )
 
 
@@ -292,5 +337,81 @@ def test_validate_slot_sufficiency_false_when_no_matching_slot(db_session):
     db_session.flush()
 
     assert not slot_service.validate_slot_sufficiency(
-        db_session, material, treat_holiday_as_buffer=True
+        db_session, material, True, _allocation_for_all_slots(db_session)
     )
+
+
+def test_allocate_day_skips_slots_without_allocation(db_session):
+    """配分を持たないスロットは割当対象から外れること（9.2 手順0）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    allocated = _make_slot(db_session, dt.time(6, 0), dt.time(7, 0), Environment.ANY, weekdays=[0])
+    unallocated = _make_slot(
+        db_session, dt.time(20, 0), dt.time(22, 0), Environment.ANY, weekdays=[0]
+    )
+    db_session.flush()
+
+    weights = {material.id: MaterialWeight(material=material, remaining=100, weight=100)}
+    slots_by_weekday = slot_service.group_slots_by_weekday([allocated, unallocated])
+
+    allocation = slot_service.allocate_day(
+        weights, slots_by_weekday, dt.date(2026, 1, 5), {allocated.id: 60}
+    )
+
+    assert set(allocation) == {allocated.id}
+    assert slot_service.sum_minutes_by_material(allocation)[material.id] == 60
+
+
+def test_allocate_day_caps_allocation_at_slot_duration(db_session):
+    """配分がスロットの連続時間を超える場合（スロット短縮後）は連続時間で頭打ちになること
+    （9.1 min(alloc, duration)、仕様書NT-09）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id)
+    slot = _make_slot(db_session, dt.time(6, 0), dt.time(6, 30), Environment.ANY, weekdays=[0])
+    db_session.flush()
+
+    weights = {material.id: MaterialWeight(material=material, remaining=100, weight=100)}
+    slots_by_weekday = slot_service.group_slots_by_weekday([slot])
+
+    allocation = slot_service.allocate_day(
+        weights, slots_by_weekday, dt.date(2026, 1, 5), {slot.id: 120}
+    )
+
+    assert slot_service.sum_minutes_by_material(allocation)[material.id] == 30
+
+
+def test_block_minutes_compared_against_allocation_not_slot_duration(db_session):
+    """必要連続時間はスロットの連続時間ではなく配分時間と比較すること（9.2 手順1）。
+
+    120分のスロットでも30分しか配分していなければ、90分連続を要する教材は割り当たらない。
+    """
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, required_block_minutes=90)
+    slot = _make_slot(db_session, dt.time(20, 0), dt.time(22, 0), Environment.ANY, weekdays=[0])
+    db_session.flush()
+
+    weights = {material.id: MaterialWeight(material=material, remaining=100, weight=100)}
+    slots_by_weekday = slot_service.group_slots_by_weekday([slot])
+
+    assert (
+        slot_service.allocate_day(weights, slots_by_weekday, dt.date(2026, 1, 5), {slot.id: 30})
+        == {}
+    )
+    assert (
+        slot_service.allocate_day(weights, slots_by_weekday, dt.date(2026, 1, 5), {slot.id: 90})
+        != {}
+    )
+
+
+def test_validate_slot_sufficiency_false_when_slot_is_not_allocated(db_session):
+    """条件を満たすスロットでも、その目標が配分を持たなければ充足しないこと（9.4）。"""
+    goal = _make_goal(db_session)
+    material = _make_material(db_session, goal.id, required_environment=Environment.PC)
+    material.start_date = dt.date(2026, 3, 1)
+    material.due_date = dt.date(2026, 3, 7)
+    _make_slot(db_session, dt.time(20, 0), dt.time(21, 0), Environment.PC, weekdays=[0, 1, 2, 3, 4])
+    for d in range(1, 8):
+        db_session.add(CalendarDayOverride(target_date=dt.date(2026, 3, d), day_type=DayType.PLAN))
+    db_session.flush()
+
+    assert not slot_service.validate_slot_sufficiency(db_session, material, True, {})
