@@ -24,6 +24,7 @@ from app.schemas.goal import (
 )
 from app.schemas.load_profile import LoadProfileCreate, LoadProfileRead, LoadProfileUpdate
 from app.schemas.material import MaterialCreate, MaterialRead
+from app.schemas.resource import SlotAllocationRead, SlotAllocationUpdate
 from app.schemas.subject import (
     ExamResultRead,
     SubjectCreate,
@@ -32,7 +33,14 @@ from app.schemas.subject import (
     SubjectUpdate,
 )
 from app.schemas.work import WorkAssignmentCreate, WorkAssignmentRead, WorkAssignmentUpdate
-from app.services import book_service, goal_service, material_service, subject_service, work_service
+from app.services import (
+    allocation_service,
+    book_service,
+    goal_service,
+    material_service,
+    subject_service,
+    work_service,
+)
 from app.services.exceptions import NotFoundError
 
 router = APIRouter(tags=["goals"])
@@ -96,6 +104,50 @@ def update_goal(goal_id: int, payload: GoalUpdate, session: Session = Depends(ge
     goal_service.update_goal(session, goal, **payload.model_dump(exclude_unset=True))
     session.commit()
     return GoalRead.model_validate(goal)
+
+
+def _serialize_allocations(
+    views: list[allocation_service.SlotAllocationView],
+) -> list[SlotAllocationRead]:
+    return [
+        SlotAllocationRead(
+            slot_id=view.slot_id,
+            slot_name=view.slot_name,
+            environment=view.environment,
+            weekdays=view.weekdays,
+            duration_minutes=view.duration_minutes,
+            minutes=view.minutes,
+            others_minutes=view.others_minutes,
+        )
+        for view in views
+    ]
+
+
+@router.get("/goals/{goal_id}/slot-allocations", response_model=list[SlotAllocationRead])
+def list_slot_allocations(
+    goal_id: int, session: Session = Depends(get_db)
+) -> list[SlotAllocationRead]:
+    """本目標のスロット別配分（仕様書6.2「リソース配分タブ」）。
+
+    全ての時間枠を行として返す。未配分の枠は minutes=0 とし、空き時間の算出根拠として
+    連続時間と他目標の配分合計を併せて返す。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    return _serialize_allocations(allocation_service.list_allocations(session, goal))
+
+
+@router.put("/goals/{goal_id}/slot-allocations", response_model=list[SlotAllocationRead])
+def update_slot_allocations(
+    goal_id: int, payload: SlotAllocationUpdate, session: Session = Depends(get_db)
+) -> list[SlotAllocationRead]:
+    """スロット別配分の一括更新。送信されなかった時間枠は0分として扱う。"""
+    goal = goal_service.get_goal(session, goal_id)
+    goal_service.ensure_goal_editable(goal)
+    views = allocation_service.replace_allocations(
+        session, goal, {entry.slot_id: entry.minutes for entry in payload.allocations}
+    )
+    session.commit()
+    return _serialize_allocations(views)
 
 
 @router.delete("/goals/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)

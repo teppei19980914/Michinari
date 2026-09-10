@@ -13,20 +13,40 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.constants.enums import AiPurpose, ChatRole, QualityMetricType, RecordState
 
 
+class SlotMinutesInput(BaseModel):
+    """時間枠1件分の投下時間（仕様書6.5「時間枠ごとの投下時間の入力」）。
+
+    配分していない時間枠も指定できる（予定外の空き時間に学習した分を記録できないと、
+    投下時間が実態より小さく計上され実効速度が過大に算出されるため）。
+    """
+
+    slot_id: int
+    minutes: int = Field(ge=0)
+
+
+class SlotMinutesRead(BaseModel):
+    """投下時間の時間枠別内訳。`slot_id` が NULL の行は、記録後に時間枠が削除されたもの。"""
+
+    slot_id: int | None
+    slot_name: str | None
+    minutes: int
+
+
 class StudyLogInput(BaseModel):
     material_id: int
-    minutes_spent: int | None = Field(default=None, ge=0)
+    #: 時間枠ごとの投下時間。教材の投下時間はこの合計とする（R-14）。
+    slot_minutes: list[SlotMinutesInput] = Field(default_factory=list)
     amount_completed: float = Field(ge=0)
     cycle_number: int | None = Field(default=None, ge=1)
     quality_value: float | None = None
 
 
 class StudyLogRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     material_id: int
+    #: 時間枠別入力の合計。1件も入力が無い場合はNone（0ではない、8.4）。
     minutes_spent: int | None
+    slot_minutes: list[SlotMinutesRead]
     amount_completed: float
     cycle_number: int
     quality_value: float | None
@@ -37,16 +57,19 @@ class ReadingLogInput(BaseModel):
 
     book_id: int
     recall_body: str = Field(min_length=1)
+    #: 時間枠ごとの読書時間（任意）。読書もリソース配分の対象（R-64）だが、
+    #: 記録した時間は速度算出には用いない（R-71）。
+    slot_minutes: list[SlotMinutesInput] = Field(default_factory=list)
     pages_read: int | None = Field(default=None, ge=0)
     current_page: int | None = Field(default=None, ge=0)
 
 
 class ReadingLogRead(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: int
     book_id: int
     recall_body: str
+    minutes_spent: int | None
+    slot_minutes: list[SlotMinutesRead]
     pages_read: int | None
     current_page: int | None
 
