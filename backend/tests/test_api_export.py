@@ -32,7 +32,7 @@ def test_preview_returns_data_and_markdown(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["data"]["schema_version"] == "1.0"
+    assert body["data"]["schema_version"] == export_service.SCHEMA_VERSION
     assert "# 目標A" in body["markdown"]
 
 

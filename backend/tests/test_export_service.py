@@ -9,6 +9,7 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.constants.enums import (
+    Environment,
     ExamResultType,
     GoalCategory,
     GoalStatus,
@@ -25,9 +26,11 @@ from app.models.record import (
     ExamResult,
     ReadingLog,
     StudyLog,
+    StudyLogSlotTime,
     WeeklySummary,
     WorkLog,
 )
+from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
 from app.services import export_progress, export_service
 
@@ -248,7 +251,7 @@ def test_build_export_data_includes_all_selected_sections_by_default(seeded_sess
         anonymized=False,
     )
 
-    assert data["schema_version"] == "1.0"
+    assert data["schema_version"] == export_service.SCHEMA_VERSION
     assert data["anonymized"] is False
     assert data["goal"]["name"] == "目標A"
     assert data["subjects"][0]["name"] == "科目A"
@@ -1218,3 +1221,43 @@ def test_execute_export_anonymized_regenerates_all_work_retrospectives(
         anonymized=False,
     )
     assert all("通常版" in r["body"] for r in original["retrospectives"])
+
+
+def test_build_export_data_includes_slot_minutes_breakdown(seeded_session):
+    """実績推移に投下時間の時間枠別内訳が含まれること（データ構造編7.1、schema_version 1.1）。
+
+    時間枠が記録後に削除された内訳は名称を持たないため slot=None として出力される
+    （study_log_slot_time.slot_id は ON DELETE SET NULL）。
+    """
+    goal = _make_goal(seeded_session)
+    _make_subject(seeded_session, goal)
+    material = _make_material(seeded_session, goal)
+    _add_study_log(seeded_session, material, dt.date(2026, 1, 5))
+    study_log = seeded_session.query(StudyLog).filter_by(material_id=material.id).one()
+    slot = ResourceSlot(
+        name="夜",
+        start_time=dt.time(20, 0),
+        end_time=dt.time(22, 0),
+        environment=Environment.PC,
+        display_order=1,
+    )
+    seeded_session.add(slot)
+    seeded_session.flush()
+    seeded_session.add(StudyLogSlotTime(study_log_id=study_log.id, slot_id=slot.id, minutes=20))
+    seeded_session.add(StudyLogSlotTime(study_log_id=study_log.id, slot_id=None, minutes=10))
+    seeded_session.flush()
+
+    data = export_service.build_export_data(
+        seeded_session,
+        goal,
+        export_service.ExportSelection(),
+        today=dt.date(2026, 2, 2),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
+    )
+
+    record = next(r for r in data["daily_records"] if r["date"] == "2026-01-05")
+    assert record["slot_minutes"] == [
+        {"slot": "夜", "minutes": 20},
+        {"slot": None, "minutes": 10},
+    ]

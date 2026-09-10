@@ -277,7 +277,7 @@ def test_import_all_data_creates_safety_backup(full_schema_db):
 
 def test_import_all_data_rejects_missing_tables_key(full_schema_db):
     with pytest.raises(ValidationError):
-        backup_service.import_all_data({"schema_version": "1.0"})
+        backup_service.import_all_data({"schema_version": "0.0"})
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

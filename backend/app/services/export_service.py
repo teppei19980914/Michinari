@@ -34,9 +34,11 @@ from app.models.record import (
     DailyRecord,
     ReadingLog,
     StudyLog,
+    StudyLogSlotTime,
     WeeklySummary,
     WorkLog,
 )
+from app.models.resource import ResourceSlot
 from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import (
@@ -58,7 +60,8 @@ _UNSAFE_FILENAME_CHARS = re.compile(r'[\\/:*?"<>|]')
 #: schema_versionは固定文字列とする（設計書データ構造編9章 未決事項D-04、2026-08-25解消）。
 #: 単一利用者・ローカル運用のv1では複数版の共存・自動移行を扱わない。スキーマ変更時に
 #: この値を上げ、その時点でインポート側の移行方針を再検討する。
-SCHEMA_VERSION = "1.0"
+#: 1.1: リソース配分のスロット単位化に伴い、実績推移へ時間枠別内訳（slot_minutes）を追加。
+SCHEMA_VERSION = "1.1"
 
 _RESULT_LABELS = {"PASS": "合格", "FAIL": "不合格", "PENDING": "未判定"}
 _REASON_LABELS = {
@@ -171,6 +174,11 @@ def _build_summary(
 
 
 def _build_daily_records(session: Session, goal: Goal) -> list[dict]:
+    """実績推移（データ構造編7.1 daily_records）。
+
+    投下時間は教材ごとの合計（minutes）に加え、時間枠別の内訳（slot_minutes）も出力する
+    （schema_version 1.1）。時間枠が削除済みの内訳は名称を持たないため slot を null とする。
+    """
     material_ids = [material.id for material in goal.materials]
     if not material_ids:
         return []
@@ -178,6 +186,7 @@ def _build_daily_records(session: Session, goal: Goal) -> list[dict]:
     rows = (
         session.query(
             DailyRecord.record_date,
+            StudyLog.id,
             StudyLog.material_id,
             StudyLog.minutes_spent,
             StudyLog.amount_completed,
@@ -189,17 +198,42 @@ def _build_daily_records(session: Session, goal: Goal) -> list[dict]:
         .order_by(DailyRecord.record_date)
         .all()
     )
+    breakdown = _build_slot_minutes_by_study_log(session, [row[1] for row in rows])
     return [
         {
             "date": record_date.isoformat(),
             "material": material_names[material_id],
             "minutes": minutes,
+            "slot_minutes": breakdown.get(study_log_id, []),
             "amount": amount,
             "cycle": cycle,
             "quality": quality,
         }
-        for record_date, material_id, minutes, amount, cycle, quality in rows
+        for record_date, study_log_id, material_id, minutes, amount, cycle, quality in rows
     ]
+
+
+def _build_slot_minutes_by_study_log(
+    session: Session, study_log_ids: list[int]
+) -> dict[int, list[dict]]:
+    """study_log_id → 時間枠別内訳。1回のクエリでまとめて引く（N+1禁止）。"""
+    if not study_log_ids:
+        return {}
+    rows = (
+        session.query(
+            StudyLogSlotTime.study_log_id,
+            StudyLogSlotTime.minutes,
+            ResourceSlot.name,
+        )
+        .outerjoin(ResourceSlot, ResourceSlot.id == StudyLogSlotTime.slot_id)
+        .filter(StudyLogSlotTime.study_log_id.in_(study_log_ids))
+        .order_by(StudyLogSlotTime.study_log_id, StudyLogSlotTime.id)
+        .all()
+    )
+    result: dict[int, list[dict]] = {}
+    for study_log_id, minutes, slot_name in rows:
+        result.setdefault(study_log_id, []).append({"slot": slot_name, "minutes": minutes})
+    return result
 
 
 def _build_quality_trend(session: Session, materials: list[Material]) -> list[dict]:

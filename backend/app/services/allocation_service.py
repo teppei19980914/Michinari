@@ -37,6 +37,15 @@ class SlotAllocationView:
     #: 他目標（ACTIVE）の配分分数の合計。空き時間 = duration_minutes - others_minutes。
     others_minutes: int
 
+    @property
+    def is_over_capacity(self) -> bool:
+        """このスロットの配分合計が連続時間を超えているか（仕様書NT-09）。
+
+        スロットの短縮・削除は拒否せず許容するため（要件定義書R-87）、超過は事後に
+        警告として提示する。
+        """
+        return self.minutes + self.others_minutes > self.duration_minutes
+
 
 def ensure_allocatable(goal: Goal) -> None:
     """リソース配分を設定できる目標かを検証する（WORKのみ不可）。"""

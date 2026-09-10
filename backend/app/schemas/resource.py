@@ -81,6 +81,8 @@ class SlotAllocationRead(BaseModel):
     minutes: int
     #: 他のACTIVEな目標の配分合計。空き時間 = duration_minutes - others_minutes。
     others_minutes: int
+    #: このスロットの配分合計が連続時間を超えているか（スロット短縮・削除後に発生。NT-09）。
+    is_over_capacity: bool
 
 
 class SlotAllocationInput(BaseModel):

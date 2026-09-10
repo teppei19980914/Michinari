@@ -118,6 +118,7 @@ def _serialize_allocations(
             duration_minutes=view.duration_minutes,
             minutes=view.minutes,
             others_minutes=view.others_minutes,
+            is_over_capacity=view.is_over_capacity,
         )
         for view in views
     ]

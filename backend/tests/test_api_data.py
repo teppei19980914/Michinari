@@ -95,7 +95,9 @@ def test_import_rejects_non_json_file(client):
 
 
 def test_import_rejects_unrelated_json(client):
-    payload = json.dumps({"schema_version": "1.0", "tables": {"unrelated": []}}).encode("utf-8")
+    payload = json.dumps(
+        {"schema_version": backup_service.DATA_SCHEMA_VERSION, "tables": {"unrelated": []}}
+    ).encode("utf-8")
 
     response = client.post(
         "/api/v1/data/import",
