@@ -6,6 +6,8 @@ import {
   resolveQualityLabelKey,
   SUBJECTIVE_SCALE_OPTIONS,
 } from './qualityInput'
+import { SlotMinutesFields } from './SlotMinutesFields'
+import type { SlotMinutesFormValue } from './slotMinutesForm'
 import type { StudyLogFormValue } from './studyLogForm'
 import type { QuotaItemRead } from '../../api/records'
 import { groupByGoal } from '../../utils/groupByGoal'
@@ -14,6 +16,10 @@ type StudyLogFieldsProps = {
   quotaItems: QuotaItemRead[]
   values: Record<number, StudyLogFormValue>
   onChangeField: (materialId: number, field: keyof StudyLogFormValue, value: string) => void
+  /** 時間枠ごとの投下時間の変更（仕様書6.5）。 */
+  onChangeSlotMinutes: (materialId: number, slotMinutes: SlotMinutesFormValue) => void
+  /** 追加候補の全時間枠（slot_id → 名称）。「他の時間枠を追加」で使う。 */
+  slotNames: Map<number, string>
   /** SC-07専用: 投下時間が任意入力である旨を明示する（仕様書6.6）。 */
   showMinutesOptionalNotice?: boolean
 }
@@ -24,6 +30,8 @@ export function StudyLogFields({
   quotaItems,
   values,
   onChangeField,
+  onChangeSlotMinutes,
+  slotNames,
   showMinutesOptionalNotice = false,
 }: StudyLogFieldsProps) {
   if (quotaItems.length === 0) {
@@ -53,16 +61,19 @@ export function StudyLogFields({
             unit: item.unit_label,
           })}
         </p>
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
-            {t('dailyReport.studyLog.minutesLabel')}
-            <Input
-              type="number"
-              min={0}
-              value={value.minutesSpent}
-              onChange={(e) => onChangeField(item.material_id, 'minutesSpent', e.target.value)}
-            />
-          </label>
+        <SlotMinutesFields
+          defaults={item.slot_defaults}
+          values={value.slotMinutes}
+          addedSlotIds={Object.keys(value.slotMinutes).map(Number)}
+          slotNames={slotNames}
+          onChange={(slotId, minutes) =>
+            onChangeSlotMinutes(item.material_id, { ...value.slotMinutes, [slotId]: minutes })
+          }
+          onAddSlot={(slotId) =>
+            onChangeSlotMinutes(item.material_id, { ...value.slotMinutes, [slotId]: '' })
+          }
+        />
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-xs text-gray-600">
             {t('dailyReport.studyLog.amountLabel', { unit: item.unit_label })}
             <Input

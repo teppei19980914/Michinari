@@ -27,6 +27,7 @@ from app.schemas.record import (
     ReadingFinalizeRequest,
     ReadingLogInput,
     ReadingLogRead,
+    SlotDefaultMinutesRead,
     SlotMinutesInput,
     SlotMinutesRead,
     StudyLogInput,
@@ -351,6 +352,14 @@ def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[
             quality_metric_type=item.quality_metric_type,
             goal_id=item.goal_id,
             goal_name=item.goal_name,
+            slot_defaults=[
+                SlotDefaultMinutesRead(
+                    slot_id=default.slot_id,
+                    slot_name=default.slot_name,
+                    minutes=default.minutes,
+                )
+                for default in item.slot_defaults
+            ],
         )
         for item in items
     ]

@@ -31,7 +31,15 @@ from app.models.record import (
 )
 from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
-from app.services import calendar_service, cycle_service, goal_service, quota_service
+from app.services import (
+    allocation_service,
+    calendar_service,
+    cycle_service,
+    goal_service,
+    quota_service,
+    slot_service,
+    speed_service,
+)
 from app.services.exceptions import (
     BackdateLimitExceededError,
     ImmutableRecordError,
@@ -637,6 +645,19 @@ def delete_comment(session: Session, comment: RecordComment) -> None:
 
 
 @dataclass(frozen=True)
+class SlotDefaultMinutes:
+    """日次報告の時間枠別入力欄1つ分の既定値（仕様書6.5「初期値」）。
+
+    9.2の按分結果（計画上その時間枠でその教材に割り当たる分数）をそのまま初期値として
+    提示し、実績が異なる場合のみ利用者が上書きする。
+    """
+
+    slot_id: int
+    slot_name: str
+    minutes: int
+
+
+@dataclass(frozen=True)
 class QuotaItem:
     """指定日の教材別日次ノルマ（データ構造編6.2 GET /records/{date}/quota）。
 
@@ -653,6 +674,8 @@ class QuotaItem:
     quality_metric_type: QualityMetricType
     goal_id: int
     goal_name: str
+    #: 時間枠ごとの投下時間入力欄の既定値（配分済みの枠のみ。仕様書6.5）。
+    slot_defaults: list[SlotDefaultMinutes] = field(default_factory=list)
 
 
 def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaItem]:
@@ -674,6 +697,7 @@ def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaIte
         )
         .all()
     )
+    slot_defaults = _compute_slot_defaults(session, materials, target_date)
     results = []
     for material in materials:
         progress = cycle_service.get_material_progress(session, material)
@@ -691,9 +715,48 @@ def compute_daily_quota(session: Session, target_date: dt.date) -> list[QuotaIte
                 quality_metric_type=material.quality_metric_type,
                 goal_id=material.goal_id,
                 goal_name=material.goal.name,
+                slot_defaults=slot_defaults.get(material.id, []),
             )
         )
     return results
+
+
+def _compute_slot_defaults(
+    session: Session, materials: list[Material], target_date: dt.date
+) -> dict[int, list[SlotDefaultMinutes]]:
+    """material_id → 時間枠別入力欄の既定値（ロジック・プロンプト編9.2の按分結果）。
+
+    目標ごとに1回だけ按分を算出する（教材ごとに呼ぶとN+1になる。CLAUDE.md
+    パフォーマンスチェック）。
+    """
+    slots = slot_service.get_active_slots(session)
+    slot_names = {slot.id: slot.name for slot in slots}
+    slots_by_weekday = slot_service.group_slots_by_weekday(slots)
+
+    by_goal: dict[int, list[Material]] = {}
+    for material in materials:
+        by_goal.setdefault(material.goal_id, []).append(material)
+
+    defaults: dict[int, list[SlotDefaultMinutes]] = {}
+    for goal_id, goal_materials in by_goal.items():
+        weights = speed_service.compute_weights(session, goal_materials)
+        allocation = slot_service.allocate_day(
+            weights,
+            slots_by_weekday,
+            target_date,
+            allocation_service.get_allocation_minutes(session, goal_id),
+        )
+        for slot_id in sorted(allocation):
+            for material_id, minutes in allocation[slot_id].items():
+                rounded = int(minutes)
+                if rounded <= 0:
+                    continue
+                defaults.setdefault(material_id, []).append(
+                    SlotDefaultMinutes(
+                        slot_id=slot_id, slot_name=slot_names[slot_id], minutes=rounded
+                    )
+                )
+    return defaults
 
 
 @dataclass(frozen=True)

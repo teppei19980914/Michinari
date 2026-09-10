@@ -10,7 +10,6 @@ function makeGoal(overrides: Partial<GoalDetailRead>): GoalDetailRead {
     name: '目標A',
     start_date: '2026-01-01',
     status: 'ACTIVE',
-    resource_ratio: 1,
     memo: null,
     activated_at: null,
     closed_at: null,

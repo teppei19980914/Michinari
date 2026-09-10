@@ -28,20 +28,23 @@ const BOOK: BookRead = {
 describe('initReadingLogFormValues', () => {
   it('defaults to empty values when no existing log', () => {
     const values = initReadingLogFormValues([BOOK], [])
-    expect(values[1]).toEqual({ recallBody: '', pagesRead: '', currentPage: '' })
+    expect(values[1]).toEqual({ slotMinutes: {}, recallBody: '', pagesRead: '', currentPage: '' })
   })
 
-  it('prefills from an existing reading log', () => {
+  it('prefills from an existing reading log, including the per-slot reading minutes', () => {
     const existing: ReadingLogRead = {
       id: 100,
       book_id: 1,
       recall_body: '第1章を読んだ',
+      minutes_spent: 25,
+      slot_minutes: [{ slot_id: 10, slot_name: '夜', minutes: 25 }],
       pages_read: 20,
       current_page: 20,
     }
     const values = initReadingLogFormValues([BOOK], [existing])
     expect(values[1]).toEqual({
       recallBody: '第1章を読んだ',
+      slotMinutes: { 10: '25' },
       pagesRead: '20',
       currentPage: '20',
     })
@@ -51,14 +54,14 @@ describe('initReadingLogFormValues', () => {
 describe('hasAnyReadingLogInput', () => {
   it('is false when every row is untouched', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { recallBody: '', pagesRead: '', currentPage: '' },
+      1: { slotMinutes: {}, recallBody: '', pagesRead: '', currentPage: '' },
     }
     expect(hasAnyReadingLogInput(values)).toBe(false)
   })
 
   it('is true once a row has a recall body', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { recallBody: '今日読んだ', pagesRead: '', currentPage: '' },
+      1: { slotMinutes: {}, recallBody: '今日読んだ', pagesRead: '', currentPage: '' },
     }
     expect(hasAnyReadingLogInput(values)).toBe(true)
   })
@@ -67,20 +70,20 @@ describe('hasAnyReadingLogInput', () => {
 describe('buildReadingLogPayload', () => {
   it('excludes rows with no recall_body entered', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { recallBody: '', pagesRead: '10', currentPage: '10' },
-      2: { recallBody: '想起本文', pagesRead: '5', currentPage: '25' },
+      1: { slotMinutes: {}, recallBody: '', pagesRead: '10', currentPage: '10' },
+      2: { slotMinutes: {}, recallBody: '想起本文', pagesRead: '5', currentPage: '25' },
     }
     expect(buildReadingLogPayload(values)).toEqual([
-      { book_id: 2, recall_body: '想起本文', pages_read: 5, current_page: 25 },
+      { book_id: 2, recall_body: '想起本文', slot_minutes: [], pages_read: 5, current_page: 25 },
     ])
   })
 
   it('converts blank optional fields to null', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { recallBody: '想起本文', pagesRead: '', currentPage: '' },
+      1: { slotMinutes: {}, recallBody: '想起本文', pagesRead: '', currentPage: '' },
     }
     expect(buildReadingLogPayload(values)).toEqual([
-      { book_id: 1, recall_body: '想起本文', pages_read: null, current_page: null },
+      { book_id: 1, recall_body: '想起本文', slot_minutes: [], pages_read: null, current_page: null },
     ])
   })
 })
