@@ -785,3 +785,24 @@ def test_quota_returns_no_slot_defaults_without_allocation(client):
 
     item = next(row for row in items if row["material_id"] == material["id"])
     assert [default["slot_name"] for default in item["slot_defaults"]] == ["テスト用時間枠"]
+
+
+def test_quota_omits_slot_default_rounded_down_to_zero(client):
+    """按分結果が1分未満になる教材は既定値に現れないこと（0分の欄を並べない）。
+
+    1分の配分を2教材で分け合うと各0.5分となり、切り捨てで0分になる。
+    """
+    goal, first = _make_active_goal_with_material(client)
+    subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
+    _create_material(client, goal["id"], [subject_id], name="教材B")
+    slot = api_allocation_helpers.ensure_slot(client)
+    client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 1}]},
+    )
+    target = dt.date.today().isoformat()
+
+    items = client.get(f"/api/v1/records/{target}/quota").json()
+
+    assert all(item["slot_defaults"] == [] for item in items)
+    assert {item["material_id"] for item in items} >= {first["id"]}
