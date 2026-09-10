@@ -39,7 +39,10 @@ def _no_rate_limit_sleep(monkeypatch):
 
 def _make_goal(session, name="目標A"):
     goal = Goal(
-        name=name, start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE, )
+        name=name,
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+    )
     session.add(goal)
     session.flush()
     return goal

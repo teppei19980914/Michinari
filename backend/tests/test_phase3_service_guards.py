@@ -37,7 +37,10 @@ def _seed_goal(session, resource_ratio: float = 0.5) -> Goal:
 def test_update_goal_rejects_resource_ratio_out_of_range(seeded_session):
     goal = _seed_goal(seeded_session)
     with pytest.raises(ValidationError):
-        goal_service.update_goal(seeded_session, goal, )
+        goal_service.update_goal(
+            seeded_session,
+            goal,
+        )
 
 
 def test_create_load_profile_rejects_non_positive_coefficient(seeded_session):
