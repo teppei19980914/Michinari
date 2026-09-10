@@ -63,23 +63,30 @@ class MaterialRequiredError(DomainError):
         super().__init__("教材を1件以上登録してください")
 
 
-class ResourceRatioRequiredError(DomainError):
-    """目標の開始・再開時にリソース配分が未設定（0のまま）の場合（仕様書7.1）。
+class ResourceAllocationRequiredError(DomainError):
+    """資格試験目標の開始・再開時にリソース配分が未設定（どのスロットにも1分以上の配分が
+    無い）の場合（仕様書7.1）。
 
     試験科目未登録・教材未登録と画面上で判別できるよう、VALIDATION_ERRORとは
-    別のエラーコードを持つ専用例外とする。
+    別のエラーコードを持つ専用例外とする。読書目標は配分が任意のため対象外（R-64）。
     """
 
     def __init__(self) -> None:
         super().__init__("リソース配分を設定してください")
 
 
-class ResourceRatioExceededError(DomainError):
-    """ACTIVEな目標のresource_ratio合計が1.0を超える場合（データ構造編5.3、仕様書7.1）。"""
+class ResourceAllocationExceededError(DomainError):
+    """あるスロットへの配分時間の合計が、そのスロットの連続時間を超える場合
+    （データ構造編5.2、仕様書NT-04）。"""
 
-    def __init__(self, total_ratio: float) -> None:
-        self.total_ratio = total_ratio
-        super().__init__(f"リソース配分の合計が100%を超えます（{total_ratio:.2%}）")
+    def __init__(self, slot_name: str, total_minutes: int, capacity_minutes: int) -> None:
+        self.slot_name = slot_name
+        self.total_minutes = total_minutes
+        self.capacity_minutes = capacity_minutes
+        super().__init__(
+            f"時間枠「{slot_name}」の配分合計が確保時間を超えます"
+            f"（{total_minutes}分 / {capacity_minutes}分）"
+        )
 
 
 class InvalidStateTransitionError(DomainError):
