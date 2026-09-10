@@ -19,8 +19,8 @@ def _insert_minimal_goal(db_path, *, id_=1, name="マーカー"):
     connection = sqlite3.connect(db_path)
     try:
         connection.execute(
-            "INSERT INTO goal (id, name, start_date, status, resource_ratio, category, "
-            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 0.0, 'EXAM', "
+            "INSERT INTO goal (id, name, start_date, status, category, "
+            "created_at, updated_at) VALUES (?, ?, '2026-01-01', 'DRAFT', 'EXAM', "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')",
             (id_, name),
         )
@@ -95,7 +95,9 @@ def test_import_rejects_non_json_file(client):
 
 
 def test_import_rejects_unrelated_json(client):
-    payload = json.dumps({"schema_version": "1.0", "tables": {"unrelated": []}}).encode("utf-8")
+    payload = json.dumps(
+        {"schema_version": backup_service.DATA_SCHEMA_VERSION, "tables": {"unrelated": []}}
+    ).encode("utf-8")
 
     response = client.post(
         "/api/v1/data/import",

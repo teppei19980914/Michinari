@@ -16,7 +16,14 @@ from app.constants.enums import BaselineReason, Environment, ExamDateType, Quali
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, MaterialSubject
 from app.models.record import StudyLog
-from app.services import cycle_service, goal_service, metrics_service, slot_service, speed_service
+from app.services import (
+    allocation_service,
+    cycle_service,
+    goal_service,
+    metrics_service,
+    slot_service,
+    speed_service,
+)
 from app.services.exceptions import MaterialHasStudyLogsError, NotFoundError, ValidationError
 
 #: 作成・更新の両方で使う検証メッセージ（CLAUDE.md DRYの原則: 値の重複を避ける）。
@@ -304,9 +311,18 @@ def deactivate_material(session: Session, material: Material) -> Material:
 
 
 def get_slot_sufficiency(session: Session, material: Material) -> bool:
-    """教材の必要条件を満たすスロットが存在するかを検証する（仕様書6.2、ロジック・プロンプト編9.4）。"""
+    """教材の必要条件を満たすスロットが存在するかを検証する（仕様書6.2、ロジック・プロンプト編9.4）。
+
+    検証対象は目標が配分を持つスロットに限る（配分していない枠が条件を満たしていても、
+    9.2の割当はそのスロットへ行われないため）。
+    """
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
-    return slot_service.validate_slot_sufficiency(session, material, treat_holiday_as_buffer)
+    return slot_service.validate_slot_sufficiency(
+        session,
+        material,
+        treat_holiday_as_buffer,
+        allocation_service.get_allocation_minutes(session, material.goal_id),
+    )
 
 
 @dataclass(frozen=True)

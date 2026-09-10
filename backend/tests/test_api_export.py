@@ -5,6 +5,7 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.services import export_progress, export_service
+from tests import api_allocation_helpers
 
 
 @pytest.fixture(autouse=True)
@@ -18,9 +19,9 @@ def _export_dir(monkeypatch, tmp_path):
     return tmp_path
 
 
-def _create_goal(client, name="目標A", resource_ratio=0.3):
+def _create_goal(client, name="目標A"):
     goal = client.post("/api/v1/goals", json={"name": name, "start_date": "2026-01-01"}).json()
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": resource_ratio})
+    api_allocation_helpers.allocate(client, goal["id"])
     return goal
 
 
@@ -31,7 +32,7 @@ def test_preview_returns_data_and_markdown(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["data"]["schema_version"] == "1.0"
+    assert body["data"]["schema_version"] == export_service.SCHEMA_VERSION
     assert "# 目標A" in body["markdown"]
 
 

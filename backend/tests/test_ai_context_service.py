@@ -35,12 +35,11 @@ from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
+from tests import allocation_helpers
 
 
-def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE, resource_ratio=1.0):
-    goal = Goal(
-        name=name, start_date=dt.date(2026, 1, 1), status=status, resource_ratio=resource_ratio
-    )
+def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):
+    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=status)
     session.add(goal)
     session.flush()
     return goal
@@ -282,7 +281,8 @@ def test_build_material_status_entries_includes_forecast_when_computable(seeded_
         record = _make_daily_record(seeded_session, dt.date(2026, 8, day))
         _make_study_log(seeded_session, record, material, amount_completed=10.0, minutes_spent=60)
     monday = dt.date(2026, 8, 24)
-    _make_slot(seeded_session, dt.time(19, 0), dt.time(21, 0), weekdays=list(range(7)))
+    slot = _make_slot(seeded_session, dt.time(19, 0), dt.time(21, 0), weekdays=list(range(7)))
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     entries = ai_context_service.build_material_status_entries(
         seeded_session, [material], today=monday, treat_holiday_as_buffer=True
@@ -309,7 +309,8 @@ def test_build_slot_summary_allocates_hours_to_material(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
     monday = dt.date(2026, 8, 24)  # 2026-08-24は月曜日
-    _make_slot(seeded_session, dt.time(20, 0), dt.time(22, 0), weekdays=[monday.weekday()])
+    slot = _make_slot(seeded_session, dt.time(20, 0), dt.time(22, 0), weekdays=[monday.weekday()])
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     text = ai_context_service.build_slot_summary(seeded_session, [material], today=monday)
 
@@ -330,13 +331,14 @@ def test_build_slot_summary_omits_material_with_no_allocated_hours(seeded_sessio
         display_order=2,
     )
     monday = dt.date(2026, 8, 24)
-    _make_slot(
+    slot = _make_slot(
         seeded_session,
         dt.time(20, 0),
         dt.time(22, 0),
         weekdays=[monday.weekday()],
         environment=Environment.PC,
     )
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     text = ai_context_service.build_slot_summary(seeded_session, [matched, unmatched], today=monday)
 
@@ -373,7 +375,7 @@ def test_build_today_logs_text_formats_each_entry(seeded_session):
     items = [
         StudyLogItem(
             material_id=material.id,
-            minutes_spent=45,
+            slot_minutes={1: 45},
             amount_completed=12.5,
             cycle_number=2,
             quality_value=80.0,
@@ -809,7 +811,6 @@ def test_list_active_exam_goals_excludes_reading_goals(seeded_session):
         name="読書目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(reading_goal)
     seeded_session.commit()
@@ -830,7 +831,6 @@ def test_list_active_exam_goals_excludes_work_goals(seeded_session):
         name="仕事目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(work_goal)
     seeded_session.commit()
@@ -849,7 +849,6 @@ def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
         name="読書目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(reading_goal)
     seeded_session.commit()
@@ -869,7 +868,6 @@ def _make_reading_goal(session, name="読書目標A"):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
@@ -1030,7 +1028,6 @@ def _make_work_goal(session, name="仕事目標A"):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
