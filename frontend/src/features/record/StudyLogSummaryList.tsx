@@ -39,6 +39,16 @@ export function StudyLogSummaryList({
                     ? t('dailyReportView.studyLog.minutesUnavailable')
                     : `${log.minutes_spent}${t('common.unit.minutes')}`}
                 </dd>
+                {log.slot_minutes.length > 0 && (
+                  <dd className="text-xs text-gray-400">
+                    {log.slot_minutes
+                      .map(
+                        (row) =>
+                          `${row.slot_name ?? t('dailyReportView.studyLog.slotUnknown')} ${row.minutes}${t('common.unit.minutes')}`,
+                      )
+                      .join(' / ')}
+                  </dd>
+                )}
               </div>
               <div>
                 <dt className="text-gray-400">{t('dailyReportView.studyLog.amount')}</dt>

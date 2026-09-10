@@ -1,3 +1,8 @@
+import {
+  buildSlotMinutesPayload,
+  initSlotMinutes,
+  type SlotMinutesFormValue,
+} from './slotMinutesForm'
 import type { BookRead } from '../../api/goals'
 import type { ReadingLogInput } from '../../api/records'
 import type { components } from '../../types/api.d.ts'
@@ -8,12 +13,15 @@ type ReadingLogRead = components['schemas']['ReadingLogRead']
  * studyLogForm.tsのStudyLogFormValueと同じ方針）。 */
 export type ReadingLogFormValue = {
   recallBody: string
+  /** 時間枠ごとの読書時間。読書もリソース配分の対象（要件定義書R-64）。 */
+  slotMinutes: SlotMinutesFormValue
   pagesRead: string
   currentPage: string
 }
 
 const EMPTY_VALUE: ReadingLogFormValue = {
   recallBody: '',
+  slotMinutes: {},
   pagesRead: '',
   currentPage: '',
 }
@@ -35,6 +43,7 @@ export function initReadingLogFormValues(
     }
     result[book.id] = {
       recallBody: existing.recall_body,
+      slotMinutes: initSlotMinutes([], existing.slot_minutes),
       pagesRead: existing.pages_read === null ? '' : String(existing.pages_read),
       currentPage: existing.current_page === null ? '' : String(existing.current_page),
     }
@@ -57,6 +66,7 @@ export function buildReadingLogPayload(
     .map(([bookId, value]) => ({
       book_id: Number(bookId),
       recall_body: value.recallBody,
+      slot_minutes: buildSlotMinutesPayload(value.slotMinutes),
       pages_read: value.pagesRead.trim() === '' ? null : Number(value.pagesRead),
       current_page: value.currentPage.trim() === '' ? null : Number(value.currentPage),
     }))

@@ -58,6 +58,33 @@ export interface paths {
         patch: operations["update_goal_api_v1_goals__goal_id__patch"];
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/slot-allocations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Slot Allocations
+         * @description 本目標のスロット別配分（仕様書6.2「リソース配分タブ」）。
+         *
+         *     全ての時間枠を行として返す。未配分の枠は minutes=0 とし、空き時間の算出根拠として
+         *     連続時間と他目標の配分合計を併せて返す。
+         */
+        get: operations["list_slot_allocations_api_v1_goals__goal_id__slot_allocations_get"];
+        /**
+         * Update Slot Allocations
+         * @description スロット別配分の一括更新。送信されなかった時間枠は0分として扱う。
+         */
+        put: operations["update_slot_allocations_api_v1_goals__goal_id__slot_allocations_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/archive": {
         parameters: {
             query?: never;
@@ -1569,10 +1596,8 @@ export interface components {
             total_hours_by_environment: {
                 [key: string]: number;
             };
-            /** Goal Allocations */
-            goal_allocations: components["schemas"]["GoalAllocationRead"][];
-            /** Unallocated Ratio */
-            unallocated_ratio: number;
+            /** Slots */
+            slots: components["schemas"]["SlotAllocationStatusRead"][];
         };
         /** AppSettingsRead */
         AppSettingsRead: {
@@ -1604,6 +1629,12 @@ export interface components {
         };
         /**
          * BaselineReason
+         * @description 計画基準値の再設定契機（ロジック・プロンプト編12.1）。
+         *
+         *     REPLANは予約値であり、現時点でこの値が記録される経路は存在しない。仕様書は
+         *     「リプラン」を独立した操作として定義しておらず（警告バナー・MD-01からは目標編集画面へ
+         *     誘導する）、実際の再設定はMATERIAL_CHANGED・CYCLE_CHANGED・EXAM_DATE_FIXEDの
+         *     いずれかとして記録されるため（12.1「REPLANが予約値である理由」）。
          * @enum {string}
          */
         BaselineReason: "INITIAL" | "REPLAN" | "EXAM_DATE_FIXED" | "MATERIAL_CHANGED" | "CYCLE_CHANGED";
@@ -2068,14 +2099,17 @@ export interface components {
             /** Planned Cycles */
             planned_cycles: number;
         };
-        /** GoalAllocationRead */
+        /**
+         * GoalAllocationRead
+         * @description スロット1件に対する、目標ごとの配分時間（仕様書6.3「各目標への配分状況」）。
+         */
         GoalAllocationRead: {
             /** Goal Id */
             goal_id: number;
             /** Goal Name */
             goal_name: string;
-            /** Resource Ratio */
-            resource_ratio: number;
+            /** Minutes */
+            minutes: number;
         };
         /**
          * GoalCardRead
@@ -2171,8 +2205,6 @@ export interface components {
              */
             start_date: string;
             status: components["schemas"]["GoalStatus"];
-            /** Resource Ratio */
-            resource_ratio: number;
             /** Memo */
             memo: string | null;
             /** Activated At */
@@ -2203,8 +2235,6 @@ export interface components {
              */
             start_date: string;
             status: components["schemas"]["GoalStatus"];
-            /** Resource Ratio */
-            resource_ratio: number;
             /** Memo */
             memo: string | null;
             /** Activated At */
@@ -2248,8 +2278,6 @@ export interface components {
             start_date?: string | null;
             /** Memo */
             memo?: string | null;
-            /** Resource Ratio */
-            resource_ratio?: number | null;
         };
         /**
          * Granularity
@@ -2836,6 +2864,8 @@ export interface components {
             goal_id: number;
             /** Goal Name */
             goal_name: string;
+            /** Slot Defaults */
+            slot_defaults: components["schemas"]["SlotDefaultMinutesRead"][];
         };
         /**
          * ReadingChatRequest
@@ -2887,6 +2917,8 @@ export interface components {
             book_id: number;
             /** Recall Body */
             recall_body: string;
+            /** Slot Minutes */
+            slot_minutes?: components["schemas"]["SlotMinutesInput"][];
             /** Pages Read */
             pages_read?: number | null;
             /** Current Page */
@@ -2900,6 +2932,10 @@ export interface components {
             book_id: number;
             /** Recall Body */
             recall_body: string;
+            /** Minutes Spent */
+            minutes_spent: number | null;
+            /** Slot Minutes */
+            slot_minutes: components["schemas"]["SlotMinutesRead"][];
             /** Pages Read */
             pages_read: number | null;
             /** Current Page */
@@ -2951,6 +2987,8 @@ export interface components {
             display_order: number;
             /** Weekdays */
             weekdays: number[];
+            /** Duration Minutes */
+            duration_minutes: number;
             /** Duration Hours */
             duration_hours: number;
         };
@@ -3012,10 +3050,105 @@ export interface components {
             /** Next Goal Text */
             next_goal_text?: string | null;
         };
+        /** SlotAllocationInput */
+        SlotAllocationInput: {
+            /** Slot Id */
+            slot_id: number;
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * SlotAllocationRead
+         * @description リソース配分タブ1行分（データ構造編6.2 GET /goals/{id}/slot-allocations）。
+         */
+        SlotAllocationRead: {
+            /** Slot Id */
+            slot_id: number;
+            /** Slot Name */
+            slot_name: string;
+            environment: components["schemas"]["Environment"];
+            /** Weekdays */
+            weekdays: number[];
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Minutes */
+            minutes: number;
+            /** Others Minutes */
+            others_minutes: number;
+            /** Is Over Capacity */
+            is_over_capacity: boolean;
+        };
+        /**
+         * SlotAllocationStatusRead
+         * @description スロット1件の配分状況。`unallocated_minutes` は超過時に負値となる（NT-09）。
+         */
+        SlotAllocationStatusRead: {
+            /** Slot Id */
+            slot_id: number;
+            /** Slot Name */
+            slot_name: string;
+            /** Duration Minutes */
+            duration_minutes: number;
+            /** Allocated Minutes */
+            allocated_minutes: number;
+            /** Unallocated Minutes */
+            unallocated_minutes: number;
+            /** Is Over Capacity */
+            is_over_capacity: boolean;
+            /** Goal Allocations */
+            goal_allocations: components["schemas"]["GoalAllocationRead"][];
+        };
+        /**
+         * SlotAllocationUpdate
+         * @description スロット別配分の一括更新（PUT /goals/{id}/slot-allocations）。
+         *
+         *     送信されなかったスロットは0分（配分なし）として扱う。
+         */
+        SlotAllocationUpdate: {
+            /** Allocations */
+            allocations?: components["schemas"]["SlotAllocationInput"][];
+        };
         /** SlotCheckRead */
         SlotCheckRead: {
             /** Sufficient */
             sufficient: boolean;
+        };
+        /**
+         * SlotDefaultMinutesRead
+         * @description 日次報告の時間枠別入力欄の既定値（9.2の按分結果）。
+         */
+        SlotDefaultMinutesRead: {
+            /** Slot Id */
+            slot_id: number;
+            /** Slot Name */
+            slot_name: string;
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * SlotMinutesInput
+         * @description 時間枠1件分の投下時間（仕様書6.5「時間枠ごとの投下時間の入力」）。
+         *
+         *     配分していない時間枠も指定できる（予定外の空き時間に学習した分を記録できないと、
+         *     投下時間が実態より小さく計上され実効速度が過大に算出されるため）。
+         */
+        SlotMinutesInput: {
+            /** Slot Id */
+            slot_id: number;
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * SlotMinutesRead
+         * @description 投下時間の時間枠別内訳。`slot_id` が NULL の行は、記録後に時間枠が削除されたもの。
+         */
+        SlotMinutesRead: {
+            /** Slot Id */
+            slot_id: number | null;
+            /** Slot Name */
+            slot_name: string | null;
+            /** Minutes */
+            minutes: number;
         };
         /**
          * SpeedAnalyticsRead
@@ -3046,8 +3179,8 @@ export interface components {
         StudyLogInput: {
             /** Material Id */
             material_id: number;
-            /** Minutes Spent */
-            minutes_spent?: number | null;
+            /** Slot Minutes */
+            slot_minutes?: components["schemas"]["SlotMinutesInput"][];
             /** Amount Completed */
             amount_completed: number;
             /** Cycle Number */
@@ -3063,6 +3196,8 @@ export interface components {
             material_id: number;
             /** Minutes Spent */
             minutes_spent: number | null;
+            /** Slot Minutes */
+            slot_minutes: components["schemas"]["SlotMinutesRead"][];
             /** Amount Completed */
             amount_completed: number;
             /** Cycle Number */
@@ -3522,6 +3657,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_slot_allocations_api_v1_goals__goal_id__slot_allocations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotAllocationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_slot_allocations_api_v1_goals__goal_id__slot_allocations_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlotAllocationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotAllocationRead"][];
                 };
             };
             /** @description Validation Error */

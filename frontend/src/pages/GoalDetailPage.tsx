@@ -48,9 +48,10 @@ const EXAM_TABS = [
   },
 ] as const
 
-/** 読書目標（category=READING）は基本情報＋書籍のみの簡略構成とする
- * （仕様書6.2「読書目標（category=READINGの場合）」、試験科目・教材・リソース配分・
- * 負荷プロファイルは表示しない）。 */
+/** 読書目標（category=READING）は基本情報＋書籍＋リソース配分の構成とする
+ * （仕様書6.2「読書目標（category=READINGの場合）」。試験科目・教材・負荷プロファイルは
+ * 表示しない。リソース配分は、読書も自由な時間に行う活動でありスロットを奪い合うため
+ * 表示する（要件定義書R-64）。ただし設定は任意で、未設定でも開始できる）。 */
 const READING_TABS = [
   {
     key: 'basicInfo',
@@ -61,6 +62,11 @@ const READING_TABS = [
     key: 'book',
     labelKey: 'goals.detail.tabs.book',
     tooltipKey: 'goals.detail.tabTooltips.book',
+  },
+  {
+    key: 'resourceAllocation',
+    labelKey: 'goals.detail.tabs.resourceAllocation',
+    tooltipKey: 'goals.detail.tabTooltips.resourceAllocation',
   },
 ] as const
 
