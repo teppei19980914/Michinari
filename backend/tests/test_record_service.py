@@ -9,11 +9,18 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import GoalCategory, GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import (
+    Environment,
+    GoalCategory,
+    GoalStatus,
+    QualityMetricType,
+    RecordState,
+)
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, RecordComment
+from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
 from app.services import cycle_service, record_service
 from app.services.exceptions import (
@@ -50,6 +57,24 @@ def _make_material(session, goal, **overrides):
     session.add(material)
     session.flush()
     return material
+
+
+def _make_slot(session) -> ResourceSlot:
+    """時間枠を1件用意する。
+
+    投下時間は時間枠ごとに入力する仕様（仕様書6.5）になったため、実績の登録には登録済みの
+    時間枠が必要になる。
+    """
+    slot = ResourceSlot(
+        name="夜",
+        start_time=dt.time(20, 0),
+        end_time=dt.time(22, 0),
+        environment=Environment.PC,
+        display_order=1,
+    )
+    session.add(slot)
+    session.flush()
+    return slot
 
 
 def _log(material_id, **overrides):
@@ -124,14 +149,21 @@ def test_register_progress_updates_existing_study_log_for_same_material(seeded_s
     material = _make_material(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
+    slot = _make_slot(seeded_session)
+
     record_service.register_progress(seeded_session, today, [_log(material.id)], today)
     record = record_service.register_progress(
-        seeded_session, today, [_log(material.id, minutes_spent=45, amount_completed=15)], today
+        seeded_session,
+        today,
+        [_log(material.id, slot_minutes={slot.id: 45}, amount_completed=15)],
+        today,
     )
 
     assert len(record.study_logs) == 1
     assert record.study_logs[0].amount_completed == 15
     assert record.study_logs[0].minutes_spent == 45
+    slot_times = record.study_logs[0].slot_times
+    assert [(row.slot_id, row.minutes) for row in slot_times] == [(slot.id, 45)]
 
 
 def test_register_progress_reading_items_succeed_when_only_exam_is_reported(seeded_session):
@@ -184,15 +216,17 @@ def test_finalize_record_duplicate_goal_in_diary_entries_last_one_wins(seeded_se
 
 
 def test_register_progress_time_not_entered_is_excluded_from_speed_by_design(seeded_session):
-    """時間未入力（minutes_spent=None）でも登録自体は成立する（実効速度算出からの除外はspeed_service側の責務）。"""
+    """時間枠の入力が1件も無くても登録自体は成立し、投下時間はNULL（0ではない）となる
+    （実効速度算出からの除外はspeed_service側の責務、ロジック・プロンプト編8.4）。"""
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
     today = dt.date(2026, 3, 10)
 
     record = record_service.register_progress(
-        seeded_session, today, [_log(material.id, minutes_spent=None)], today
+        seeded_session, today, [_log(material.id, slot_minutes={})], today
     )
     assert record.study_logs[0].minutes_spent is None
+    assert record.study_logs[0].slot_times == []
 
 
 def test_register_progress_cycle_number_override_is_respected(seeded_session):
