@@ -34,8 +34,8 @@ from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
-from tests import allocation_helpers
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
+from tests import allocation_helpers
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):

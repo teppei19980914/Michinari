@@ -7,10 +7,9 @@ work_logsを伴う日次記録テストは、test_api_records.pyと同じ方針�
 基準に相対日付を用いる（logical_dateは常にシステム日付と一致するため）。
 """
 
-from tests import api_allocation_helpers
-
-
 import datetime as dt
+
+from tests import api_allocation_helpers
 
 
 def _create_work_goal(client, name="仕事目標A", start_date="2026-01-01"):
