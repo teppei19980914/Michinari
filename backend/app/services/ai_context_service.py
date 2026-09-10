@@ -35,8 +35,10 @@ from app.models.record import (
 )
 from app.models.work import WorkAssignment
 from app.services import (
+    allocation_service,
     baseline_service,
     cycle_service,
+    duration,
     goal_service,
     material_service,
     metrics_service,
@@ -274,27 +276,37 @@ def build_material_status_entries(
 
 
 def build_slot_summary(session: Session, materials: list[Material], today: dt.date) -> str:
-    """{{slot_summary}}: 本日利用可能なスロットと教材への割当（17.2）。"""
-    slots_by_weekday = slot_service_module.group_slots_by_weekday(
-        slot_service_module.get_active_slots(session)
-    )
-    total_hours = slot_service_module.compute_total_hours_for_date(slots_by_weekday, today)
-    if total_hours <= 0:
+    """{{slot_summary}}: 本日利用可能なスロットと教材への割当（17.2）。
+
+    スロットごとの配分分数と、その内訳としての教材別割当を出力する。時間表示は
+    仕様書6.3の切り捨て規則に従う（duration.to_display_hours）。
+    """
+    slots = slot_service_module.get_active_slots(session)
+    slots_by_weekday = slot_service_module.group_slots_by_weekday(slots)
+    total_minutes = slot_service_module.compute_total_minutes_for_date(slots_by_weekday, today)
+    if total_minutes <= 0:
         return "（本日利用可能なスロットはありません）"
 
-    lines = [f"本日の総利用可能時間: {total_hours:.1f}時間"]
+    slot_names = {slot.id: slot.name for slot in slots}
+    lines = [f"本日の総利用可能時間: {duration.to_display_hours(total_minutes)}時間"]
     by_goal = _group_materials_by_goal(materials)
 
     for goal_materials in by_goal.values():
         goal = goal_materials[0].goal
         weights = speed_service.compute_weights(session, goal_materials)
         allocation = slot_service_module.allocate_day(
-            weights, slots_by_weekday, today, goal.resource_ratio
+            weights,
+            slots_by_weekday,
+            today,
+            allocation_service.get_allocation_minutes(session, goal.id),
         )
-        for material in goal_materials:
-            hours = allocation.get(material.id, 0.0)
-            if hours > 0:
-                lines.append(f"  ・{material.name}: {hours:.2f}時間")
+        for slot_id in sorted(allocation):
+            for material in goal_materials:
+                minutes = allocation[slot_id].get(material.id, 0.0)
+                if minutes > 0:
+                    lines.append(
+                        f"  ・{slot_names.get(slot_id, '時間枠')}／{material.name}: {minutes:.0f}分"
+                    )
     return "\n".join(lines)
 
 
@@ -321,7 +333,8 @@ def build_today_logs_text(items: list[StudyLogItem], materials_by_id: dict[int, 
     lines = []
     for item in items:
         material = materials_by_id[item.material_id]
-        minutes_text = f"{item.minutes_spent}分" if item.minutes_spent else "時間未入力"
+        total_minutes = sum(item.slot_minutes.values())
+        minutes_text = f"{total_minutes}分" if total_minutes else "時間未入力"
         cycle_text = f"{item.cycle_number}周目" if item.cycle_number is not None else "周回未指定"
         quality_text = f"、品質指標 {item.quality_value}" if item.quality_value is not None else ""
         lines.append(

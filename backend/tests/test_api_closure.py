@@ -6,6 +6,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
+from tests import api_allocation_helpers
 
 
 @pytest.fixture(autouse=True)
@@ -13,9 +14,9 @@ def _no_rate_limit_sleep(monkeypatch):
     monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
 
 
-def _create_goal(client, name="目標A", start_date="2026-01-01", resource_ratio=0.3):
+def _create_goal(client, name="目標A", start_date="2026-01-01"):
     goal = client.post("/api/v1/goals", json={"name": name, "start_date": start_date}).json()
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": resource_ratio})
+    api_allocation_helpers.allocate(client, goal["id"])
     return goal
 
 

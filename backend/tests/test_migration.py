@@ -745,3 +745,177 @@ def test_daily_feedback_prompt_removal_migration_preserves_customized_template(
         connection.close()
 
     assert row[0] == "ユーザーがカスタマイズした文面（複数目標がある場合の注意を含む）"
+
+
+def test_slot_allocation_migration_creates_tables_and_drops_resource_ratio():
+    """リソース配分のスロット単位化（f2b7c4a91d3e）で、配分・時間枠別内訳の3テーブルが
+    構築され、goal.resource_ratio が削除されていること（実装フェーズ分割計画書Phase28）。"""
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+
+    assert {"goal_slot_allocation", "study_log_slot_time", "reading_log_slot_time"} <= tables
+
+    goal_columns = {c["name"] for c in inspector.get_columns("goal")}
+    assert "resource_ratio" not in goal_columns
+
+    reading_log_columns = {c["name"] for c in inspector.get_columns("reading_log")}
+    assert "minutes_spent" in reading_log_columns
+
+
+def test_slot_allocation_migration_slot_time_slot_id_is_nullable():
+    """時間枠別内訳の slot_id は NULL 許容であること（スロット削除時に ON DELETE SET NULL
+    で実績を残すため。データ構造編5.4、仕様書NT-09）。"""
+    inspector = inspect(engine)
+
+    for table, log_column in (
+        ("study_log_slot_time", "study_log_id"),
+        ("reading_log_slot_time", "reading_log_id"),
+    ):
+        columns = {c["name"]: c for c in inspector.get_columns(table)}
+        assert columns["slot_id"]["nullable"] is True
+        assert columns[log_column]["nullable"] is False
+        assert columns["minutes"]["nullable"] is False
+
+
+def test_slot_allocation_migration_converts_ratio_into_per_slot_minutes(tmp_path, monkeypatch):
+    """既存の resource_ratio が「比率 × 各スロットの連続時間（分）」として各スロットへ
+    転記され、切り捨てによりスロット容量を超えないこと（Phase28完了条件）。"""
+    db_path = tmp_path / "slot_allocation_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c1a5f9e3d7b2")  # スロット単位化（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO resource_slot "
+            "(id, name, start_time, end_time, environment, is_active, display_order, "
+            "updated_at, created_at) "
+            "VALUES (1, '通勤', '07:00:00.000000', '08:00:00.000000', 'MOBILE', 1, 1, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO resource_slot "
+            "(id, name, start_time, end_time, environment, is_active, display_order, "
+            "updated_at, created_at) "
+            "VALUES (2, '夜', '20:00:00.000000', '21:30:00.000000', 'PC', 1, 2, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        # 比率の合計は1.0（旧仕様の上限ちょうど）。
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, resource_ratio, "
+            "updated_at, created_at) "
+            "VALUES (1, 'EXAM', '簿記2級', '2026-01-01', 'ACTIVE', 0.75, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, resource_ratio, "
+            "updated_at, created_at) "
+            "VALUES (2, 'EXAM', '応用情報', '2026-01-01', 'ACTIVE', 0.25, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT goal_id, slot_id, minutes FROM goal_slot_allocation ORDER BY slot_id, goal_id"
+        ).fetchall()
+    finally:
+        connection.close()
+
+    # 通勤=60分 → 45分/15分、夜=90分 → 67分（0.75×90=67.5の切り捨て）/22分（22.5の切り捨て）。
+    assert rows == [(1, 1, 45), (2, 1, 15), (1, 2, 67), (2, 2, 22)]
+    assert 45 + 15 <= 60
+    assert 67 + 22 <= 90
+
+
+def test_slot_allocation_migration_without_slots_keeps_allocation_empty(tmp_path, monkeypatch):
+    """スロットが1件も無い状態で移行した場合、転記先が無いため配分は空のまま引き継がれる
+    こと（エラーにはしない。実装フェーズ分割計画書Phase28）。"""
+    db_path = tmp_path / "slot_allocation_migration_no_slots.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c1a5f9e3d7b2")  # スロット単位化（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, resource_ratio, "
+            "updated_at, created_at) "
+            "VALUES (1, 'EXAM', 'スロット未設定の目標', '2026-01-01', 'ACTIVE', 0.5, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        count = connection.execute("SELECT COUNT(*) FROM goal_slot_allocation").fetchone()[0]
+        name = connection.execute("SELECT name FROM goal WHERE id = 1").fetchone()[0]
+    finally:
+        connection.close()
+
+    assert count == 0
+    assert name == "スロット未設定の目標"
+
+
+def test_slot_allocation_migration_preserves_existing_study_log_minutes(tmp_path, monkeypatch):
+    """既存の study_log.minutes_spent は「スロット別入力の合計」へ意味が変わるだけで、
+    値も内訳の欠如も安全に引き継がれること（実効速度8.1が無改修で動作する前提）。"""
+    db_path = tmp_path / "slot_allocation_migration_study_log.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c1a5f9e3d7b2")  # スロット単位化（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, resource_ratio, "
+            "updated_at, created_at) "
+            "VALUES (1, 'EXAM', '簿記2級', '2026-01-01', 'ACTIVE', 0.5, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO material (id, goal_id, name, unit_label, total_amount, "
+            "planned_cycles, start_date, due_date, due_date_is_manual, "
+            "required_environment, quality_metric_type, is_active, display_order, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '過去問集', '問', 100, 1, '2026-01-01', '2026-03-01', 0, 'ANY', "
+            "'NONE', 1, 1, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO daily_record (id, record_date, created_at) "
+            "VALUES (1, '2026-02-01', '2026-02-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO study_log (id, daily_record_id, material_id, minutes_spent, "
+            "amount_completed, cycle_number, created_at) "
+            "VALUES (1, 1, 1, 90, 30, 1, '2026-02-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        minutes = connection.execute("SELECT minutes_spent FROM study_log WHERE id = 1").fetchone()[
+            0
+        ]
+        breakdown = connection.execute(
+            "SELECT COUNT(*) FROM study_log_slot_time WHERE study_log_id = 1"
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert minutes == 90
+    assert breakdown == 0

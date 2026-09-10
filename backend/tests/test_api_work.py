@@ -9,6 +9,8 @@ work_logsを伴う日次記録テストは、test_api_records.pyと同じ方針�
 
 import datetime as dt
 
+from tests import api_allocation_helpers
+
 
 def _create_work_goal(client, name="仕事目標A", start_date="2026-01-01"):
     response = client.post(
@@ -54,7 +56,6 @@ def _make_activatable_work_goal(client):
 def test_create_work_goal(client):
     goal = _create_work_goal(client)
     assert goal["category"] == "WORK"
-    assert goal["resource_ratio"] == 0.0
 
     detail = client.get(f"/api/v1/goals/{goal['id']}").json()
     assert detail["exam_subjects"] == []
@@ -244,7 +245,7 @@ def test_close_exam_goal_with_result_true_is_rejected(client):
             "due_date_is_manual": False,
         },
     )
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 1.0})
+    api_allocation_helpers.allocate(client, goal["id"])
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
@@ -269,19 +270,32 @@ def test_update_work_assignment_on_closed_goal_is_rejected(client):
 # --- リソース配分の対象外（要件定義書R-74） ---
 
 
-def test_work_goal_cannot_set_resource_ratio(client):
+def test_work_goal_cannot_set_slot_allocation(client):
+    """仕事は自由な時間に行う活動ではないため配分の対象外（R-74。読書R-64とは扱いが異なる）。"""
     goal = _create_work_goal(client)
+    slot = api_allocation_helpers.ensure_slot(client)
 
-    response = client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.5})
+    response = client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 30}]},
+    )
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
-def test_work_goal_does_not_count_toward_exam_resource_ratio(client):
-    """仕事目標はresource_ratioの合計計算に算入されない（要件定義書R-74）。"""
+def test_work_goal_does_not_count_toward_slot_capacity(client):
+    """仕事目標はスロット容量の合計計算に算入されない（要件定義書R-74）。
+
+    資格試験目標が枠を使い切っていても、仕事目標のactivateは配分超過にならない
+    （仕事はそもそも配分を持たないため）。
+    """
+    slot = api_allocation_helpers.ensure_slot(client)  # 120分
     exam_goal = _create_exam_goal(client)
-    client.patch(f"/api/v1/goals/{exam_goal['id']}", json={"resource_ratio": 1.0})
+    client.put(
+        f"/api/v1/goals/{exam_goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 120}]},
+    )
     subject = client.post(
         f"/api/v1/goals/{exam_goal['id']}/subjects",
         json={
@@ -312,7 +326,8 @@ def test_work_goal_does_not_count_toward_exam_resource_ratio(client):
     assert response.json()["status"] == "ACTIVE"
 
 
-def test_work_goal_pause_then_resume_skips_resource_ratio_validation(client):
+def test_work_goal_pause_then_resume_skips_allocation_validation(client):
+    """仕事目標は配分を持たないため、復帰時にも配分の要求・空き検証を受けない（R-74）。"""
     goal = _make_activatable_work_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")

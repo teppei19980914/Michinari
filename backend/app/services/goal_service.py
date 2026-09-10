@@ -27,6 +27,7 @@ from app.models.record import (
     WorkLog,
 )
 from app.services import (
+    allocation_service,
     baseline_service,
     calendar_service,
     cycle_service,
@@ -40,14 +41,10 @@ from app.services.exceptions import (
     MaterialHasStudyLogsError,
     MaterialRequiredError,
     NotFoundError,
-    ResourceRatioExceededError,
-    ResourceRatioRequiredError,
+    ResourceAllocationRequiredError,
     ValidationError,
     WorkAssignmentHasWorkLogsError,
 )
-
-#: resource_ratio合計の浮動小数点誤差許容値（100.0%ちょうどの保存を誤って拒否しないため）。
-_RATIO_TOLERANCE = 1e-9
 
 #: クローズ済みとみなす目標状態（仕様書6.2「クローズの場合、全項目を読み取り専用とする」）。
 _CLOSED_STATUSES = (GoalStatus.CLOSED_WITH_RESULT, GoalStatus.CLOSED_WITHOUT_RESULT)
@@ -125,19 +122,18 @@ def ensure_goal_active(goal: Goal, *, action_label: str) -> None:
         raise InvalidStateTransitionError(f"進行中の目標のみ{action_label}を実行できます")
 
 
-def _validate_resource_ratio(
-    session: Session, candidate_ratio: float, exclude_goal_id: int
-) -> None:
-    """ACTIVEな目標のresource_ratio合計が1.0を超えないか検証する（データ構造編5.3）。"""
-    other_total = (
-        session.query(func.sum(Goal.resource_ratio))
-        .filter(Goal.status == GoalStatus.ACTIVE, Goal.id != exclude_goal_id)
-        .scalar()
-        or 0.0
+def _validate_allocation_capacity(session: Session, goal: Goal) -> None:
+    """目標の現在の配分が、各スロットの容量に収まることを検証する（データ構造編5.2）。
+
+    開始・復帰の時点で、他のACTIVEな目標の配分と合わせて超過しないかを見る。設定時点では
+    ACTIVEでなかった目標（DRAFT・PAUSED）が合計計算に算入されていないため、状態遷移の
+    たびに検証し直す必要がある（仕様書7.1）。
+    """
+    allocation_service.validate_capacity(
+        session,
+        allocation_service.get_allocation_minutes(session, goal.id),
+        exclude_goal_id=goal.id,
     )
-    total = other_total + candidate_ratio
-    if total > 1.0 + _RATIO_TOLERANCE:
-        raise ResourceRatioExceededError(total)
 
 
 def get_goal(session: Session, goal_id: int) -> Goal:
@@ -164,7 +160,6 @@ def create_goal(
         name=name,
         start_date=start_date,
         status=GoalStatus.DRAFT,
-        resource_ratio=0.0,
         memo=memo,
     )
     session.add(goal)
@@ -179,8 +174,13 @@ def update_goal(
     name: str | None = None,
     start_date: dt.date | None = None,
     memo: str | None = UNSET,
-    resource_ratio: float | None = None,
 ) -> Goal:
+    """目標の基本情報を更新する。
+
+    リソース配分は本関数では扱わない（スロット単位の一括更新である
+    `PUT /goals/{id}/slot-allocations` → allocation_service.replace_allocations が担う。
+    データ構造編6.2）。
+    """
     ensure_goal_editable(goal)
 
     # name・start_dateはNOT NULL列のためNone＝未指定で曖昧さがない。memoはNULL許容のため
@@ -191,16 +191,6 @@ def update_goal(
         goal.start_date = start_date
     if memo is not UNSET:
         goal.memo = memo
-    if resource_ratio is not None:
-        # 読書・仕事目標はリソース配分プールの対象外（要件定義書R-64・R-74）。
-        # resource_ratioは常に0のまま。
-        if goal.category in (GoalCategory.READING, GoalCategory.WORK):
-            raise ValidationError("読書・仕事目標にはリソース配分を設定できません")
-        if not (0.0 <= resource_ratio <= 1.0):
-            raise ValidationError("リソース配分比率は0.0〜1.0で入力してください")
-        if goal.status == GoalStatus.ACTIVE:
-            _validate_resource_ratio(session, resource_ratio, exclude_goal_id=goal.id)
-        goal.resource_ratio = resource_ratio
 
     session.flush()
     return goal
@@ -393,9 +383,13 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
             raise ExamSubjectRequiredError
         if not goal.materials:
             raise MaterialRequiredError
-        if goal.resource_ratio <= 0:
-            raise ResourceRatioRequiredError
-        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+        if allocation_service.sum_allocated_minutes(session, goal.id) <= 0:
+            raise ResourceAllocationRequiredError
+
+    # 読書目標は配分が任意（R-64）のため配分の有無は問わないが、配分を持つ場合は
+    # 資格試験と同様にスロットの空きを検証する。仕事目標は配分の対象外（R-74）。
+    if goal.category != GoalCategory.WORK:
+        _validate_allocation_capacity(session, goal)
 
     goal.status = GoalStatus.ACTIVE
     goal.activated_at = utcnow()
@@ -424,17 +418,19 @@ def pause_goal(session: Session, goal: Goal) -> Goal:
 def resume_goal(session: Session, goal: Goal) -> Goal:
     """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。
 
-    読書目標（category=READING）はリソース配分プールの対象外（要件定義書R-64）で
-    resource_ratioが常に0のため、この検証を適用しない（activate_goalと同じ扱い）。
+    資格試験目標のみ「配分が1分以上あること」を要求する。読書目標は配分が任意のため
+    （要件定義書R-64）、未設定でも復帰できる。ただし配分を持つ場合は、資格試験と同様に
+    スロットの空きが足りるかを検証する（仕様書7.1）。仕事目標は配分の対象外（R-74）。
     """
     if goal.status != GoalStatus.PAUSED:
         raise InvalidStateTransitionError("一時停止中の目標のみ復帰できます")
     if goal.archived_at is not None:
         raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから再開してください")
     if goal.category == GoalCategory.EXAM:
-        if goal.resource_ratio <= 0:
-            raise ResourceRatioRequiredError
-        _validate_resource_ratio(session, goal.resource_ratio, exclude_goal_id=goal.id)
+        if allocation_service.sum_allocated_minutes(session, goal.id) <= 0:
+            raise ResourceAllocationRequiredError
+    if goal.category != GoalCategory.WORK:
+        _validate_allocation_capacity(session, goal)
     goal.status = GoalStatus.ACTIVE
     session.flush()
     return goal

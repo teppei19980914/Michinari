@@ -23,7 +23,6 @@ def _make_reading_goal(session, *, name="読書目標") -> Goal:
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
