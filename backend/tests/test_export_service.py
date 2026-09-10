@@ -39,8 +39,7 @@ def _no_rate_limit_sleep(monkeypatch):
 
 def _make_goal(session, name="目標A"):
     goal = Goal(
-        name=name, start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE, resource_ratio=1.0
-    )
+        name=name, start_date=dt.date(2026, 1, 1), status=GoalStatus.ACTIVE, )
     session.add(goal)
     session.flush()
     return goal
@@ -132,7 +131,6 @@ def _make_reading_goal(session, name="読書目標A"):
         category=GoalCategory.READING,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
@@ -180,7 +178,6 @@ def _make_work_goal(session, name="仕事目標A"):
         category=GoalCategory.WORK,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()

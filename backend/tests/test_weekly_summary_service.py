@@ -150,7 +150,6 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
         name="読書目標A",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(reading_goal)
     seeded_session.flush()
@@ -193,7 +192,6 @@ def test_list_pending_weeks_excludes_work_goals(seeded_session):
         name="仕事目標A",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(work_goal)
     seeded_session.flush()

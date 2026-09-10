@@ -82,7 +82,7 @@ def test_delete_draft_goal_succeeds(client):
 
 
 def test_delete_non_draft_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.delete(f"/api/v1/goals/{goal['id']}")
@@ -94,14 +94,14 @@ def test_delete_non_draft_goal_is_rejected(client):
 
 
 def test_activate_requires_subject_and_material(client):
-    goal = _create_goal(client, resource_ratio=0.3)
+    goal = _create_goal(client, )
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "EXAM_SUBJECT_REQUIRED"
 
 
 def test_activate_records_initial_baseline(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "ACTIVE"
@@ -112,7 +112,7 @@ def test_activate_records_initial_baseline(client):
 
 
 def test_activate_twice_is_rejected(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
@@ -121,19 +121,19 @@ def test_activate_twice_is_rejected(client):
 
 
 def test_activate_rejects_resource_ratio_over_100_percent(client):
-    goal_a = _make_activatable_goal(client, resource_ratio=0.7)
+    goal_a = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
 
-    goal_b = _make_activatable_goal(client, resource_ratio=0.4)
+    goal_b = _make_activatable_goal(client, )
     response = client.post(f"/api/v1/goals/{goal_b['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
 def test_patch_active_goal_rejects_resource_ratio_over_100_percent(client):
-    goal_a = _make_activatable_goal(client, resource_ratio=0.6)
+    goal_a = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
-    goal_b = _make_activatable_goal(client, resource_ratio=0.2)
+    goal_b = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal_b['id']}/activate")
 
     response = client.patch(f"/api/v1/goals/{goal_b['id']}", json={"resource_ratio": 0.5})
@@ -142,7 +142,7 @@ def test_patch_active_goal_rejects_resource_ratio_over_100_percent(client):
 
 
 def test_pause_then_resume(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     paused = client.post(f"/api/v1/goals/{goal['id']}/pause")
@@ -155,11 +155,11 @@ def test_pause_then_resume(client):
 
 
 def test_resume_rejects_when_resource_capacity_insufficient(client):
-    goal_a = _make_activatable_goal(client, resource_ratio=0.5)
+    goal_a = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
     client.post(f"/api/v1/goals/{goal_a['id']}/pause")
 
-    goal_b = _make_activatable_goal(client, resource_ratio=0.8)
+    goal_b = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal_b['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal_a['id']}/resume")
@@ -171,7 +171,7 @@ def test_resume_requires_resource_ratio_to_be_set(client):
     """一時停止中にリソース配分を0へ変更した場合、復帰時に再検出して拒否する(activate_goalと同じ
     横展開先。一時停止中はACTIVEでないため、update_goalの合計超過チェックをすり抜けて0へ変更でき
     てしまうため、resume_goal側でも起点未設定を検証する)。"""
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
     client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0})
@@ -182,7 +182,7 @@ def test_resume_requires_resource_ratio_to_be_set(client):
 
 
 def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     rejected = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
@@ -195,7 +195,7 @@ def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(
 
 
 def test_update_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
 
@@ -205,7 +205,7 @@ def test_update_closed_goal_is_rejected(client):
 
 
 def test_add_subject_to_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
 
@@ -280,7 +280,7 @@ def test_fix_exam_date_recalculates_due_date_and_records_baseline(client):
 
 
 def test_fix_exam_date_on_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
@@ -357,7 +357,7 @@ def test_update_goal_clears_memo_with_explicit_null(client):
 
 
 def test_activate_requires_material_even_with_subject(client):
-    goal = _create_goal(client, resource_ratio=0.3)
+    goal = _create_goal(client, )
     _add_subject(client, goal["id"])
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
@@ -370,14 +370,14 @@ def test_activate_requires_resource_ratio_to_be_set(client):
     resource_ratio未設定(既定値0)のまま開始すると、slot_service.allocate_dayが常に0時間を
     配分し続け、完了予測・強制リプラン判定(NT-02)が恒久的に機能しなくなるため、開始前に検出する。
     """
-    goal = _make_activatable_goal(client, resource_ratio=0)
+    goal = _make_activatable_goal(client, )
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "RESOURCE_RATIO_REQUIRED"
 
 
 def test_activate_skips_baseline_for_inactive_material(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     material = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]
     client.post(f"/api/v1/materials/{material['id']}/deactivate")
 
@@ -617,7 +617,7 @@ def test_update_and_delete_load_profile(client):
 # --- アーカイブ・完全削除（要件定義書R-61〜R-63、仕様書7.1.1、データ構造編4.2） ---
 
 
-def _close_goal(client, resource_ratio=0.3):
+def _close_goal(client, ):
     goal = _make_activatable_goal(client, resource_ratio=resource_ratio)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
@@ -625,7 +625,7 @@ def _close_goal(client, resource_ratio=0.3):
 
 
 def test_archive_rejects_active_status(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     response = client.patch(f"/api/v1/goals/{goal['id']}/archive")
     assert response.status_code == 409
@@ -662,7 +662,7 @@ def test_archive_and_unarchive_draft_goal(client):
 
 
 def test_archive_and_unarchive_paused_goal(client):
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
 
@@ -677,7 +677,7 @@ def test_archive_and_unarchive_paused_goal(client):
 
 def test_activate_archived_draft_goal_is_rejected(client):
     """アーカイブ中は復元してから開始する必要がある（新規に発生する遷移の穴の防止）。"""
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.patch(f"/api/v1/goals/{goal['id']}/archive")
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 409
@@ -686,7 +686,7 @@ def test_activate_archived_draft_goal_is_rejected(client):
 
 def test_resume_archived_paused_goal_is_rejected(client):
     """アーカイブ中は復元してから再開する必要がある（新規に発生する遷移の穴の防止）。"""
-    goal = _make_activatable_goal(client, resource_ratio=0.3)
+    goal = _make_activatable_goal(client, )
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
     client.patch(f"/api/v1/goals/{goal['id']}/archive")

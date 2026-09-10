@@ -158,7 +158,6 @@ def _make_reading_goal(db_session, status=GoalStatus.ACTIVE, name="読書目標A
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=status,
-        resource_ratio=0,
     )
     db_session.add(goal)
     db_session.flush()
@@ -194,7 +193,6 @@ def _make_work_goal(db_session, status=GoalStatus.ACTIVE, name="仕事目標A") 
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=status,
-        resource_ratio=0,
     )
     db_session.add(goal)
     db_session.flush()
