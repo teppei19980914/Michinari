@@ -182,7 +182,7 @@ def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, 
         study_log_items=[
             StudyLogItem(
                 material_id=material.id,
-                minutes_spent=30,
+                slot_minutes={1: 30},
                 amount_completed=10.0,
                 cycle_number=1,
                 quality_value=None,
@@ -306,7 +306,7 @@ def test_send_daily_feedback_separates_conversation_and_history_per_goal(
         study_log_items=[
             StudyLogItem(
                 material_id=material_a.id,
-                minutes_spent=30,
+                slot_minutes={1: 30},
                 amount_completed=10.0,
                 cycle_number=1,
                 quality_value=None,
@@ -325,7 +325,7 @@ def test_send_daily_feedback_separates_conversation_and_history_per_goal(
         study_log_items=[
             StudyLogItem(
                 material_id=material_b.id,
-                minutes_spent=45,
+                slot_minutes={1: 45},
                 amount_completed=5.0,
                 cycle_number=1,
                 quality_value=None,
@@ -388,7 +388,7 @@ def test_send_daily_feedback_does_not_persist_study_logs_or_diary(seeded_session
             study_log_items=[
                 StudyLogItem(
                     material_id=material.id,
-                    minutes_spent=30,
+                    slot_minutes={1: 30},
                     amount_completed=10.0,
                     cycle_number=1,
                     quality_value=None,

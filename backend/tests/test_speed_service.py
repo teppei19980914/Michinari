@@ -13,12 +13,11 @@ from app.models.setting import CalendarDayOverride
 from app.services import speed_service
 
 
-def _make_goal(db_session, resource_ratio: float = 1.0) -> Goal:
+def _make_goal(db_session) -> Goal:
     goal = Goal(
         name="速度検証",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=resource_ratio,
     )
     db_session.add(goal)
     db_session.flush()

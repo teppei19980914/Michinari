@@ -37,10 +37,8 @@ from app.services import ai_context_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 
-def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE, resource_ratio=1.0):
-    goal = Goal(
-        name=name, start_date=dt.date(2026, 1, 1), status=status, resource_ratio=resource_ratio
-    )
+def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):
+    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=status)
     session.add(goal)
     session.flush()
     return goal
@@ -373,7 +371,7 @@ def test_build_today_logs_text_formats_each_entry(seeded_session):
     items = [
         StudyLogItem(
             material_id=material.id,
-            minutes_spent=45,
+            slot_minutes={1: 45},
             amount_completed=12.5,
             cycle_number=2,
             quality_value=80.0,
@@ -809,7 +807,6 @@ def test_list_active_exam_goals_excludes_reading_goals(seeded_session):
         name="読書目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(reading_goal)
     seeded_session.commit()
@@ -830,7 +827,6 @@ def test_list_active_exam_goals_excludes_work_goals(seeded_session):
         name="仕事目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(work_goal)
     seeded_session.commit()
@@ -849,7 +845,6 @@ def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
         name="読書目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     seeded_session.add(reading_goal)
     seeded_session.commit()
@@ -869,7 +864,6 @@ def _make_reading_goal(session, name="読書目標A"):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
@@ -1030,7 +1024,6 @@ def _make_work_goal(session, name="仕事目標A"):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()

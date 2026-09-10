@@ -14,6 +14,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
+from tests import api_allocation_helpers
 
 
 def _create_goal_with_subject(
@@ -53,7 +54,7 @@ def _create_material(client, goal_id, subject_ids, **overrides):
 def _make_active_goal_with_material(client, goal_name="目標A", **material_overrides):
     goal, subject_id = _create_goal_with_subject(client, name=goal_name)
     material = _create_material(client, goal["id"], [subject_id], **material_overrides)
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0.1})
+    api_allocation_helpers.allocate(client, goal["id"])
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
     return goal, material

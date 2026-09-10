@@ -55,7 +55,7 @@ def _make_material(session, goal, **overrides):
 def _log(material_id, **overrides):
     defaults = dict(
         material_id=material_id,
-        minutes_spent=30,
+        slot_minutes={},
         amount_completed=10,
         cycle_number=1,
         quality_value=None,
@@ -316,7 +316,6 @@ def _make_reading_goal(session):
         name="読書目標",
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
@@ -493,7 +492,6 @@ def _make_work_goal(session, status=GoalStatus.ACTIVE, name="仕事目標A"):
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=status,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()

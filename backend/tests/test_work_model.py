@@ -24,7 +24,6 @@ def _make_work_goal(name: str, start_date: dt.date) -> Goal:
         name=name,
         start_date=start_date,
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
         category=GoalCategory.WORK,
     )
 

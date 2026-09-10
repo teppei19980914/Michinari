@@ -22,7 +22,6 @@ def _make_work_goal(session, *, name="仕事目標") -> Goal:
         name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
-        resource_ratio=0,
     )
     session.add(goal)
     session.flush()
