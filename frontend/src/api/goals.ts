@@ -8,6 +8,8 @@ export type GoalUpdate = components['schemas']['GoalUpdate']
 export type GoalCloseRequest = components['schemas']['GoalCloseRequest']
 export type GoalDeleteArchivedRequest = components['schemas']['GoalDeleteArchivedRequest']
 export type PlanBaselineRead = components['schemas']['PlanBaselineRead']
+export type SlotAllocationRead = components['schemas']['SlotAllocationRead']
+export type SlotAllocationUpdate = components['schemas']['SlotAllocationUpdate']
 export type SubjectRead = components['schemas']['SubjectRead']
 export type SubjectCreate = components['schemas']['SubjectCreate']
 export type SubjectUpdate = components['schemas']['SubjectUpdate']
@@ -206,4 +208,17 @@ export async function listActiveWorkAssignments(): Promise<
         detail.work_assignment !== null,
     )
     .map((detail) => ({ goal: detail, workAssignment: detail.work_assignment }))
+}
+
+/** スロット別のリソース配分を取得する（仕様書6.2「リソース配分タブ」）。 */
+export function listSlotAllocations(goalId: number): Promise<SlotAllocationRead[]> {
+  return apiClient.get<SlotAllocationRead[]>(`/goals/${goalId}/slot-allocations`)
+}
+
+/** スロット別のリソース配分を一括更新する（送信しない枠は0分として扱われる）。 */
+export function updateSlotAllocations(
+  goalId: number,
+  payload: SlotAllocationUpdate,
+): Promise<SlotAllocationRead[]> {
+  return apiClient.put<SlotAllocationRead[]>(`/goals/${goalId}/slot-allocations`, payload)
 }
