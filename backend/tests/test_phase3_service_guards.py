@@ -21,26 +21,44 @@ from app.constants.enums import (
 from app.models.goal import Goal
 from app.models.record import ExamResult
 from app.models.setting import AppSetting
-from app.services import goal_service, material_service, resource_service, subject_service
+from app.services import (
+    allocation_service,
+    goal_service,
+    material_service,
+    resource_service,
+    subject_service,
+)
 from app.services.exceptions import AppSettingNotFoundError, ValidationError
 
 
-def _seed_goal(session, resource_ratio: float = 0.5) -> Goal:
+def _seed_goal(session) -> Goal:
     goal = goal_service.create_goal(
         session, name="目標A", start_date=dt.date(2026, 1, 1), memo=None
     )
-    goal.resource_ratio = resource_ratio
     session.flush()
     return goal
 
 
-def test_update_goal_rejects_resource_ratio_out_of_range(seeded_session):
+def test_replace_allocations_rejects_negative_minutes(seeded_session):
+    """配分時間は0以上（仕様書10章「リソース」）。負値は保存を拒否する。"""
+    goal = _seed_goal(seeded_session)
+    slot = resource_service.create_slot(
+        seeded_session,
+        name="夜",
+        start_time=dt.time(20, 0),
+        end_time=dt.time(22, 0),
+        environment=Environment.PC,
+        weekdays=[0],
+    )
+    with pytest.raises(ValidationError):
+        allocation_service.replace_allocations(seeded_session, goal, {slot.id: -1})
+
+
+def test_replace_allocations_rejects_unknown_slot(seeded_session):
+    """存在しない時間枠への配分は拒否する。"""
     goal = _seed_goal(seeded_session)
     with pytest.raises(ValidationError):
-        goal_service.update_goal(
-            seeded_session,
-            goal,
-        )
+        allocation_service.replace_allocations(seeded_session, goal, {9999: 30})
 
 
 def test_create_load_profile_rejects_non_positive_coefficient(seeded_session):
@@ -83,6 +101,16 @@ def test_close_goal_with_all_results_registered_closes_with_result(seeded_sessio
         required_environment=Environment.ANY,
         quality_metric_type=QualityMetricType.NONE,
     )
+    # 資格試験目標の開始にはリソース配分が必要（仕様書7.1、要件定義書R-07）。
+    slot = resource_service.create_slot(
+        seeded_session,
+        name="夜",
+        start_time=dt.time(20, 0),
+        end_time=dt.time(22, 0),
+        environment=Environment.PC,
+        weekdays=[0, 1, 2, 3, 4, 5, 6],
+    )
+    allocation_service.replace_allocations(seeded_session, goal, {slot.id: 60})
     goal_service.activate_goal(seeded_session, goal)
     seeded_session.add(
         ExamResult(
