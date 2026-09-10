@@ -39,20 +39,62 @@ class ResourceSlotRead(BaseModel):
     is_active: bool
     display_order: int
     weekdays: list[int]
+    #: 連続時間。分（整数）が正準の単位で、時間は切り捨て済みの表示用の値（仕様書6.3）。
+    duration_minutes: int
     duration_hours: float
 
 
 class GoalAllocationRead(BaseModel):
+    """スロット1件に対する、目標ごとの配分時間（仕様書6.3「各目標への配分状況」）。"""
+
     goal_id: int
     goal_name: str
-    resource_ratio: float
+    minutes: int
+
+
+class SlotAllocationStatusRead(BaseModel):
+    """スロット1件の配分状況。`unallocated_minutes` は超過時に負値となる（NT-09）。"""
+
+    slot_id: int
+    slot_name: str
+    duration_minutes: int
+    allocated_minutes: int
+    unallocated_minutes: int
+    is_over_capacity: bool
+    goal_allocations: list[GoalAllocationRead]
 
 
 class AllocationStatusRead(BaseModel):
     total_hours_by_weekday: dict[int, float]
     total_hours_by_environment: dict[str, float]
-    goal_allocations: list[GoalAllocationRead]
-    unallocated_ratio: float
+    slots: list[SlotAllocationStatusRead]
+
+
+class SlotAllocationRead(BaseModel):
+    """リソース配分タブ1行分（データ構造編6.2 GET /goals/{id}/slot-allocations）。"""
+
+    slot_id: int
+    slot_name: str
+    environment: Environment
+    weekdays: list[int]
+    duration_minutes: int
+    minutes: int
+    #: 他のACTIVEな目標の配分合計。空き時間 = duration_minutes - others_minutes。
+    others_minutes: int
+
+
+class SlotAllocationInput(BaseModel):
+    slot_id: int
+    minutes: int = Field(ge=0)
+
+
+class SlotAllocationUpdate(BaseModel):
+    """スロット別配分の一括更新（PUT /goals/{id}/slot-allocations）。
+
+    送信されなかったスロットは0分（配分なし）として扱う。
+    """
+
+    allocations: list[SlotAllocationInput] = Field(default_factory=list)
 
 
 class DayBoundaryHourRead(BaseModel):

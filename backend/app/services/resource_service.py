@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
 from app.constants.enums import DayType, Environment, GoalStatus
 from app.models.goal import Goal
-from app.models.resource import ResourceSlot, ResourceSlotWeekday
+from app.models.resource import GoalSlotAllocation, ResourceSlot, ResourceSlotWeekday
 from app.models.setting import AppSetting, DayTypeDefault
-from app.services import setting_reader, slot_service
+from app.services import duration, setting_reader, slot_service
 from app.services.exceptions import AppSettingNotFoundError, NotFoundError, ValidationError
 
 _VALID_WEEKDAYS = frozenset(range(7))
@@ -174,11 +174,32 @@ def update_holiday_treat_as_buffer(session: Session, treat_as_buffer: bool) -> b
 
 @dataclass(frozen=True)
 class GoalAllocation:
-    """目標ごとの配分状況（仕様書6.3「各目標への配分状況と未配分の残量」）。"""
+    """スロット1件に対する、目標ごとの配分（仕様書6.3「各目標への配分状況」）。"""
 
     goal_id: int
     goal_name: str
-    resource_ratio: float
+    minutes: int
+
+
+@dataclass(frozen=True)
+class SlotAllocationStatus:
+    """スロット1件の配分状況（データ構造編6.2 GET /resources/allocation）。"""
+
+    slot_id: int
+    slot_name: str
+    duration_minutes: int
+    allocated_minutes: int
+    goal_allocations: list[GoalAllocation]
+
+    @property
+    def unallocated_minutes(self) -> int:
+        """未配分の残り時間。超過している場合は負値を返す（仕様書NT-09の警告表示に使う）。"""
+        return self.duration_minutes - self.allocated_minutes
+
+    @property
+    def is_over_capacity(self) -> bool:
+        """配分の合計が連続時間を超えているか（スロットの短縮・削除後に発生しうる）。"""
+        return self.allocated_minutes > self.duration_minutes
 
 
 @dataclass(frozen=True)
@@ -187,37 +208,95 @@ class AllocationStatus:
 
     total_hours_by_weekday: dict[int, float]
     total_hours_by_environment: dict[str, float]
-    goal_allocations: list[GoalAllocation] = field(default_factory=list)
-    unallocated_ratio: float = 1.0
+    slots: list[SlotAllocationStatus] = field(default_factory=list)
+
+
+def get_all_slots(session: Session) -> list[ResourceSlot]:
+    """有効・無効を問わない全スロット（配分は無効なスロットにも保持されうる）。"""
+    return session.query(ResourceSlot).order_by(ResourceSlot.display_order).all()
+
+
+def _build_slot_allocation_statuses(
+    session: Session, slots: list[ResourceSlot]
+) -> list[SlotAllocationStatus]:
+    """スロットごとの配分内訳を組み立てる（ACTIVEな目標のみを算入。仕様書7.1）。
+
+    目標名の解決とスロット別の集計を一括のクエリで行う（CLAUDE.md パフォーマンスチェック:
+    ループ内DB問い合わせの禁止）。
+    """
+    rows = (
+        session.query(
+            GoalSlotAllocation.slot_id,
+            GoalSlotAllocation.minutes,
+            Goal.id,
+            Goal.name,
+        )
+        .join(Goal, Goal.id == GoalSlotAllocation.goal_id)
+        .filter(Goal.status == GoalStatus.ACTIVE)
+        .order_by(GoalSlotAllocation.slot_id, Goal.id)
+        .all()
+    )
+    by_slot: dict[int, list[GoalAllocation]] = {}
+    for slot_id, minutes, goal_id, goal_name in rows:
+        by_slot.setdefault(slot_id, []).append(
+            GoalAllocation(goal_id=goal_id, goal_name=goal_name, minutes=minutes)
+        )
+
+    statuses = []
+    for slot in sorted(slots, key=lambda s: s.display_order):
+        goal_allocations = by_slot.get(slot.id, [])
+        statuses.append(
+            SlotAllocationStatus(
+                slot_id=slot.id,
+                slot_name=slot.name,
+                duration_minutes=slot_service.slot_duration_minutes(slot),
+                allocated_minutes=sum(g.minutes for g in goal_allocations),
+                goal_allocations=goal_allocations,
+            )
+        )
+    return statuses
 
 
 def get_allocation_status(session: Session) -> AllocationStatus:
+    """曜日別・環境別の総確保時間と、スロットごとの配分状況を返す（仕様書6.3）。
+
+    時間（hour）での表示値は切り捨て済みの値を返し、フロントエンドでは再換算しない
+    （duration.to_display_hours、CLAUDE.md DRYの原則）。
+    """
     slots = slot_service.get_active_slots(session)
     slots_by_weekday = slot_service.group_slots_by_weekday(slots)
 
     total_hours_by_weekday = {
-        weekday: sum(slot_service.slot_duration_hours(s) for s in slots_by_weekday.get(weekday, []))
+        weekday: duration.to_display_hours(
+            sum(slot_service.slot_duration_minutes(s) for s in slots_by_weekday.get(weekday, []))
+        )
         for weekday in range(7)
     }
 
-    total_hours_by_environment: dict[str, float] = {}
+    total_minutes_by_environment: dict[str, int] = {}
     for slot in slots:
-        weekly_hours = slot_service.slot_duration_hours(slot) * len(slot.weekdays)
+        weekly_minutes = slot_service.slot_duration_minutes(slot) * len(slot.weekdays)
         key = slot.environment.value
-        total_hours_by_environment[key] = total_hours_by_environment.get(key, 0.0) + weekly_hours
-
-    active_goals = (
-        session.query(Goal).filter(Goal.status == GoalStatus.ACTIVE).order_by(Goal.id).all()
-    )
-    goal_allocations = [
-        GoalAllocation(goal_id=g.id, goal_name=g.name, resource_ratio=g.resource_ratio)
-        for g in active_goals
-    ]
-    unallocated_ratio = max(0.0, 1.0 - sum(g.resource_ratio for g in active_goals))
+        total_minutes_by_environment[key] = (
+            total_minutes_by_environment.get(key, 0) + weekly_minutes
+        )
+    total_hours_by_environment = {
+        key: duration.to_display_hours(minutes)
+        for key, minutes in total_minutes_by_environment.items()
+    }
 
     return AllocationStatus(
         total_hours_by_weekday=total_hours_by_weekday,
         total_hours_by_environment=total_hours_by_environment,
-        goal_allocations=goal_allocations,
-        unallocated_ratio=unallocated_ratio,
+        slots=_build_slot_allocation_statuses(session, slots),
     )
+
+
+def list_over_capacity_slots(session: Session) -> list[SlotAllocationStatus]:
+    """配分の合計が連続時間を超えているスロットを返す（仕様書NT-09）。
+
+    スロットの短縮・削除は拒否せず許容するため（要件定義書R-87）、超過状態は事後に
+    警告として提示する。
+    """
+    statuses = _build_slot_allocation_statuses(session, get_all_slots(session))
+    return [status for status in statuses if status.is_over_capacity]

@@ -16,8 +16,9 @@ from app.schemas.resource import (
     ResourceSlotCreate,
     ResourceSlotRead,
     ResourceSlotUpdate,
+    SlotAllocationStatusRead,
 )
-from app.services import resource_service, slot_service
+from app.services import duration, resource_service, slot_service
 
 router = APIRouter(tags=["resources"])
 
@@ -32,7 +33,8 @@ def _serialize_slot(slot: ResourceSlot) -> ResourceSlotRead:
         is_active=slot.is_active,
         display_order=slot.display_order,
         weekdays=sorted(w.weekday for w in slot.weekdays),
-        duration_hours=slot_service.slot_duration_hours(slot),
+        duration_minutes=slot_service.slot_duration_minutes(slot),
+        duration_hours=duration.to_display_hours(slot_service.slot_duration_minutes(slot)),
     )
 
 
@@ -75,13 +77,21 @@ def get_allocation(session: Session = Depends(get_db)) -> AllocationStatusRead:
     return AllocationStatusRead(
         total_hours_by_weekday=allocation.total_hours_by_weekday,
         total_hours_by_environment=allocation.total_hours_by_environment,
-        goal_allocations=[
-            GoalAllocationRead(
-                goal_id=g.goal_id, goal_name=g.goal_name, resource_ratio=g.resource_ratio
+        slots=[
+            SlotAllocationStatusRead(
+                slot_id=slot.slot_id,
+                slot_name=slot.slot_name,
+                duration_minutes=slot.duration_minutes,
+                allocated_minutes=slot.allocated_minutes,
+                unallocated_minutes=slot.unallocated_minutes,
+                is_over_capacity=slot.is_over_capacity,
+                goal_allocations=[
+                    GoalAllocationRead(goal_id=g.goal_id, goal_name=g.goal_name, minutes=g.minutes)
+                    for g in slot.goal_allocations
+                ],
             )
-            for g in allocation.goal_allocations
+            for slot in allocation.slots
         ],
-        unallocated_ratio=allocation.unallocated_ratio,
     )
 
 

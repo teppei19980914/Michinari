@@ -8,7 +8,7 @@ Phase4時点ではAI連携（chat_message の生成）は対象外としてい�
 """
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import func
 from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
@@ -23,10 +23,13 @@ from app.models.record import (
     DailyGoalDiary,
     DailyRecord,
     ReadingLog,
+    ReadingLogSlotTime,
     RecordComment,
     StudyLog,
+    StudyLogSlotTime,
     WorkLog,
 )
+from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
 from app.services import calendar_service, cycle_service, goal_service, quota_service
 from app.services.exceptions import (
@@ -123,15 +126,73 @@ def _load_goals(session: Session, goal_ids: set[int]) -> dict[int, Goal]:
     return found
 
 
+#: 時間枠別の投下時間（slot_id → 分）。仕様書6.5「時間枠ごとの投下時間の入力」。
+SlotMinutes = dict[int, int]
+
+
 @dataclass(frozen=True)
 class StudyLogItem:
-    """学習実績の登録入力（API層のスキーマから変換して渡す）。"""
+    """学習実績の登録入力（API層のスキーマから変換して渡す）。
+
+    投下時間は時間枠ごとに入力され（slot_minutes）、教材の minutes_spent はその合計として
+    サービス層が設定する（データ構造編5.4、仕様書6.5）。
+    """
 
     material_id: int
-    minutes_spent: int | None
     amount_completed: float
     cycle_number: int | None
     quality_value: float | None
+    #: 時間枠が未入力の実績も成立する（投下時間は任意。ロジック・プロンプト編8.4）。
+    slot_minutes: SlotMinutes = field(default_factory=dict)
+
+
+def _validate_slot_minutes(session: Session, slot_minutes: SlotMinutes) -> SlotMinutes:
+    """時間枠別入力を検証し、0分の行を除いた辞書を返す（データ構造編5.4「0分の入力は
+    行を作らない」）。配分していないスロットの指定も許容する（仕様書6.5）。"""
+    positive: SlotMinutes = {}
+    for slot_id, minutes in slot_minutes.items():
+        if minutes < 0:
+            raise ValidationError("投下時間は0以上で入力してください")
+        if minutes == 0:
+            continue
+        if session.get(ResourceSlot, slot_id) is None:
+            raise ValidationError("存在しない時間枠が指定されています")
+        positive[slot_id] = minutes
+    return positive
+
+
+def _total_minutes(slot_minutes: SlotMinutes) -> int | None:
+    """時間枠別入力の合計。1件も入力が無い場合は「未入力」を表すNoneとする。
+
+    0ではなくNoneとするのは、投下時間が未入力の実績を実効速度の算出から除外するため
+    （ロジック・プロンプト編8.4、仕様書6.6）。
+    """
+    return sum(slot_minutes.values()) or None
+
+
+def _replace_slot_times(
+    session: Session,
+    model: type[StudyLogSlotTime] | type[ReadingLogSlotTime],
+    owner_column: InstrumentedAttribute,
+    owner_id: int,
+    slot_minutes: SlotMinutes,
+) -> None:
+    """時間枠別の内訳を入れ替える（学習実績・読書記録で共通、CLAUDE.md DRYの原則）。
+
+    合計（minutes_spent）の更新経路を呼び出し元のupsert1箇所に限定することで、内訳との
+    不整合を防ぐ（データ構造編5.4）。
+    """
+    session.query(model).filter(owner_column == owner_id).delete()
+    session.flush()
+    for slot_id in sorted(slot_minutes):
+        session.add(
+            model(
+                **{owner_column.key: owner_id},
+                slot_id=slot_id,
+                minutes=slot_minutes[slot_id],
+            )
+        )
+    session.flush()
 
 
 def _upsert_study_log(
@@ -151,11 +212,15 @@ def _upsert_study_log(
     if study_log is None:
         study_log = StudyLog(daily_record_id=daily_record.id, material_id=material.id)
         session.add(study_log)
-    study_log.minutes_spent = item.minutes_spent
+    slot_minutes = _validate_slot_minutes(session, item.slot_minutes)
+    study_log.minutes_spent = _total_minutes(slot_minutes)
     study_log.amount_completed = item.amount_completed
     study_log.cycle_number = cycle_number
     study_log.quality_value = quality
     session.flush()
+    _replace_slot_times(
+        session, StudyLogSlotTime, StudyLogSlotTime.study_log_id, study_log.id, slot_minutes
+    )
     return study_log
 
 
@@ -169,12 +234,19 @@ def _apply_study_logs(
 
 @dataclass(frozen=True)
 class ReadingLogItem:
-    """読書記録の登録入力（API層のスキーマから変換して渡す。study_logの読書版）。"""
+    """読書記録の登録入力（API層のスキーマから変換して渡す。study_logの読書版）。
+
+    読書もリソース配分の対象となったため（要件定義書R-64）、投下時間を時間枠ごとに
+    記録する。ただし読書は実効速度・完了予測を持たないため、記録した時間は集計・表示・
+    AIへの文脈提供にのみ用いる（R-71）。
+    """
 
     book_id: int
     recall_body: str
     pages_read: int | None
     current_page: int | None
+    #: 読書時間は任意入力（要件定義書R-65）。
+    slot_minutes: SlotMinutes = field(default_factory=dict)
 
 
 def _load_books(session: Session, book_ids: set[int]) -> dict[int, Book]:
@@ -199,10 +271,19 @@ def _upsert_reading_log(
     if reading_log is None:
         reading_log = ReadingLog(daily_record_id=daily_record.id, book_id=book.id)
         session.add(reading_log)
+    slot_minutes = _validate_slot_minutes(session, item.slot_minutes)
     reading_log.recall_body = item.recall_body
+    reading_log.minutes_spent = _total_minutes(slot_minutes)
     reading_log.pages_read = item.pages_read
     reading_log.current_page = item.current_page
     session.flush()
+    _replace_slot_times(
+        session,
+        ReadingLogSlotTime,
+        ReadingLogSlotTime.reading_log_id,
+        reading_log.id,
+        slot_minutes,
+    )
     return reading_log
 
 
