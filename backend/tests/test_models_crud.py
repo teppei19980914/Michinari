@@ -43,7 +43,11 @@ from app.models.setting import CalendarDayOverride, Holiday
 
 
 def _make_goal(name: str, start_date: dt.date) -> Goal:
-    return Goal(name=name, start_date=start_date, status=GoalStatus.ACTIVE, )
+    return Goal(
+        name=name,
+        start_date=start_date,
+        status=GoalStatus.ACTIVE,
+    )
 
 
 def _make_reading_goal(name: str, start_date: dt.date) -> Goal:

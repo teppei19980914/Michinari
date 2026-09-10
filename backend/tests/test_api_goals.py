@@ -3,12 +3,13 @@
 import datetime as dt
 
 from app.models.record import DailyRecord, StudyLog
+from tests import api_allocation_helpers
 
 
-def _create_goal(client, name="目標A", start_date="2026-01-01", resource_ratio=None):
+def _create_goal(client, name="目標A", start_date="2026-01-01", allocation_minutes=None):
     goal = client.post("/api/v1/goals", json={"name": name, "start_date": start_date}).json()
-    if resource_ratio is not None:
-        client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": resource_ratio})
+    if allocation_minutes is not None:
+        api_allocation_helpers.allocate(client, goal["id"], allocation_minutes)
     return goal
 
 
@@ -45,8 +46,10 @@ def _add_material(client, goal_id, subject_ids, name="教材A"):
     return response.json()
 
 
-def _make_activatable_goal(client, resource_ratio):
-    goal = _create_goal(client, resource_ratio=resource_ratio)
+def _make_activatable_goal(
+    client, allocation_minutes=api_allocation_helpers.DEFAULT_ALLOCATION_MINUTES
+):
+    goal = _create_goal(client, allocation_minutes=allocation_minutes)
     subject = _add_subject(client, goal["id"])
     _add_material(client, goal["id"], [subject["id"]])
     return goal
@@ -58,7 +61,6 @@ def _make_activatable_goal(client, resource_ratio):
 def test_create_list_get_goal(client):
     goal = _create_goal(client)
     assert goal["status"] == "DRAFT"
-    assert goal["resource_ratio"] == 0.0
 
     listed = client.get("/api/v1/goals").json()
     assert len(listed) == 1
@@ -82,7 +84,7 @@ def test_delete_draft_goal_succeeds(client):
 
 
 def test_delete_non_draft_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.delete(f"/api/v1/goals/{goal['id']}")
@@ -94,14 +96,16 @@ def test_delete_non_draft_goal_is_rejected(client):
 
 
 def test_activate_requires_subject_and_material(client):
-    goal = _create_goal(client, )
+    goal = _create_goal(
+        client,
+    )
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "EXAM_SUBJECT_REQUIRED"
 
 
 def test_activate_records_initial_baseline(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "ACTIVE"
@@ -112,7 +116,7 @@ def test_activate_records_initial_baseline(client):
 
 
 def test_activate_twice_is_rejected(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
@@ -120,29 +124,42 @@ def test_activate_twice_is_rejected(client):
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
-def test_activate_rejects_resource_ratio_over_100_percent(client):
-    goal_a = _make_activatable_goal(client, )
+def test_activate_rejects_allocation_exceeding_slot_capacity(client):
+    """スロットの連続時間を超える配分を持つ目標は開始できない（仕様書NT-04）。"""
+    slot = api_allocation_helpers.ensure_slot(client)  # 120分
+    goal_a = _make_activatable_goal(client, allocation_minutes=90)
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
 
-    goal_b = _make_activatable_goal(client, )
+    goal_b = _make_activatable_goal(client, allocation_minutes=None)
+    allocated = client.put(
+        f"/api/v1/goals/{goal_b['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 60}]},
+    )
+    assert allocated.status_code == 200, allocated.text
+
     response = client.post(f"/api/v1/goals/{goal_b['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
-def test_patch_active_goal_rejects_resource_ratio_over_100_percent(client):
-    goal_a = _make_activatable_goal(client, )
+def test_update_allocation_of_active_goal_rejects_exceeding_slot_capacity(client):
+    """進行中の目標の配分更新でも、スロット単位の上限を超える保存は拒否する（NT-04）。"""
+    slot = api_allocation_helpers.ensure_slot(client)  # 120分
+    goal_a = _make_activatable_goal(client, allocation_minutes=90)
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
-    goal_b = _make_activatable_goal(client, )
+    goal_b = _make_activatable_goal(client, allocation_minutes=30)
     client.post(f"/api/v1/goals/{goal_b['id']}/activate")
 
-    response = client.patch(f"/api/v1/goals/{goal_b['id']}", json={"resource_ratio": 0.5})
+    response = client.put(
+        f"/api/v1/goals/{goal_b['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 60}]},
+    )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
 def test_pause_then_resume(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     paused = client.post(f"/api/v1/goals/{goal['id']}/pause")
@@ -155,11 +172,13 @@ def test_pause_then_resume(client):
 
 
 def test_resume_rejects_when_resource_capacity_insufficient(client):
-    goal_a = _make_activatable_goal(client, )
+    """一時停止中に他の目標が空きを埋めた場合、復帰を拒否する（仕様書7.1・NT-05）。"""
+    api_allocation_helpers.ensure_slot(client)  # 120分
+    goal_a = _make_activatable_goal(client, allocation_minutes=90)
     client.post(f"/api/v1/goals/{goal_a['id']}/activate")
     client.post(f"/api/v1/goals/{goal_a['id']}/pause")
 
-    goal_b = _make_activatable_goal(client, )
+    goal_b = _make_activatable_goal(client, allocation_minutes=90)
     client.post(f"/api/v1/goals/{goal_b['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal_a['id']}/resume")
@@ -167,22 +186,22 @@ def test_resume_rejects_when_resource_capacity_insufficient(client):
     assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
 
 
-def test_resume_requires_resource_ratio_to_be_set(client):
+def test_resume_requires_allocation_to_be_set(client):
     """一時停止中にリソース配分を0へ変更した場合、復帰時に再検出して拒否する(activate_goalと同じ
-    横展開先。一時停止中はACTIVEでないため、update_goalの合計超過チェックをすり抜けて0へ変更でき
-    てしまうため、resume_goal側でも起点未設定を検証する)。"""
-    goal = _make_activatable_goal(client, )
+    横展開先。一時停止中はACTIVEでないため配分の上限検証をすり抜けて0へ変更できてしまうため、
+    resume_goal側でも未設定を検証する)。"""
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
-    client.patch(f"/api/v1/goals/{goal['id']}", json={"resource_ratio": 0})
+    client.put(f"/api/v1/goals/{goal['id']}/slot-allocations", json={"allocations": []})
 
     response = client.post(f"/api/v1/goals/{goal['id']}/resume")
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "RESOURCE_RATIO_REQUIRED"
+    assert response.json()["error"]["code"] == "RESOURCE_ALLOCATION_REQUIRED"
 
 
 def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     rejected = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
@@ -195,7 +214,7 @@ def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(
 
 
 def test_update_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
 
@@ -205,7 +224,7 @@ def test_update_closed_goal_is_rejected(client):
 
 
 def test_add_subject_to_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
 
@@ -280,7 +299,7 @@ def test_fix_exam_date_recalculates_due_date_and_records_baseline(client):
 
 
 def test_fix_exam_date_on_closed_goal_is_rejected(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
@@ -357,27 +376,30 @@ def test_update_goal_clears_memo_with_explicit_null(client):
 
 
 def test_activate_requires_material_even_with_subject(client):
-    goal = _create_goal(client, )
+    goal = _create_goal(
+        client,
+    )
     _add_subject(client, goal["id"])
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "MATERIAL_REQUIRED"
 
 
-def test_activate_requires_resource_ratio_to_be_set(client):
+def test_activate_requires_allocation_to_be_set(client):
     """仕様書7.1「下書き→進行中」の遷移条件「リソース配分が設定済み」を満たさない場合は拒否する。
 
-    resource_ratio未設定(既定値0)のまま開始すると、slot_service.allocate_dayが常に0時間を
-    配分し続け、完了予測・強制リプラン判定(NT-02)が恒久的に機能しなくなるため、開始前に検出する。
+    配分が未設定（どのスロットにも0分）のまま開始すると、slot_service.allocate_dayが常に
+    0分を配分し続け、完了予測・強制リプラン判定(NT-02)が恒久的に機能しなくなるため、
+    開始前に検出する。
     """
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client, allocation_minutes=None)
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "RESOURCE_RATIO_REQUIRED"
+    assert response.json()["error"]["code"] == "RESOURCE_ALLOCATION_REQUIRED"
 
 
 def test_activate_skips_baseline_for_inactive_material(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     material = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]
     client.post(f"/api/v1/materials/{material['id']}/deactivate")
 
@@ -617,15 +639,17 @@ def test_update_and_delete_load_profile(client):
 # --- アーカイブ・完全削除（要件定義書R-61〜R-63、仕様書7.1.1、データ構造編4.2） ---
 
 
-def _close_goal(client, ):
-    goal = _make_activatable_goal(client, resource_ratio=resource_ratio)
+def _close_goal(
+    client,
+):
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
     return goal
 
 
 def test_archive_rejects_active_status(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     response = client.patch(f"/api/v1/goals/{goal['id']}/archive")
     assert response.status_code == 409
@@ -662,7 +686,7 @@ def test_archive_and_unarchive_draft_goal(client):
 
 
 def test_archive_and_unarchive_paused_goal(client):
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
 
@@ -677,7 +701,7 @@ def test_archive_and_unarchive_paused_goal(client):
 
 def test_activate_archived_draft_goal_is_rejected(client):
     """アーカイブ中は復元してから開始する必要がある（新規に発生する遷移の穴の防止）。"""
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.patch(f"/api/v1/goals/{goal['id']}/archive")
     response = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert response.status_code == 409
@@ -686,7 +710,7 @@ def test_activate_archived_draft_goal_is_rejected(client):
 
 def test_resume_archived_paused_goal_is_rejected(client):
     """アーカイブ中は復元してから再開する必要がある（新規に発生する遷移の穴の防止）。"""
-    goal = _make_activatable_goal(client, )
+    goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     client.post(f"/api/v1/goals/{goal['id']}/pause")
     client.patch(f"/api/v1/goals/{goal['id']}/archive")

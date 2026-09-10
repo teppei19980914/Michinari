@@ -34,6 +34,7 @@ from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
+from tests import allocation_helpers
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 
 
@@ -307,7 +308,8 @@ def test_build_slot_summary_allocates_hours_to_material(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)
     monday = dt.date(2026, 8, 24)  # 2026-08-24は月曜日
-    _make_slot(seeded_session, dt.time(20, 0), dt.time(22, 0), weekdays=[monday.weekday()])
+    slot = _make_slot(seeded_session, dt.time(20, 0), dt.time(22, 0), weekdays=[monday.weekday()])
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     text = ai_context_service.build_slot_summary(seeded_session, [material], today=monday)
 
@@ -328,13 +330,14 @@ def test_build_slot_summary_omits_material_with_no_allocated_hours(seeded_sessio
         display_order=2,
     )
     monday = dt.date(2026, 8, 24)
-    _make_slot(
+    slot = _make_slot(
         seeded_session,
         dt.time(20, 0),
         dt.time(22, 0),
         weekdays=[monday.weekday()],
         environment=Environment.PC,
     )
+    allocation_helpers.allocate_full(seeded_session, goal.id, slot)
 
     text = ai_context_service.build_slot_summary(seeded_session, [matched, unmatched], today=monday)
 

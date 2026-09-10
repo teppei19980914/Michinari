@@ -11,6 +11,7 @@ from app.models.record import DailyRecord, StudyLog
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.setting import CalendarDayOverride
 from app.services import speed_service
+from tests import allocation_helpers
 
 
 def _make_goal(db_session) -> Goal:
@@ -235,7 +236,12 @@ def test_forecast_unavailable_when_no_speed_data(db_session):
     assert result.unavailable_reason == speed_service.ForecastUnavailableReason.NO_SPEED_DATA
 
 
-def _make_daily_slot(db_session) -> None:
+def _make_daily_slot(db_session, goal_id: int) -> None:
+    """毎日2時間の時間枠を作り、その全量を対象目標へ配分する。
+
+    リソース配分がスロット単位の分数になったため（Phase29）、枠を作るだけでは割当が0に
+    なる。比率方式の resource_ratio=1.0 に相当する状態をここで作る。
+    """
     slot = ResourceSlot(
         name="夜スロット",
         start_time=dt.time(20, 0),
@@ -248,6 +254,7 @@ def _make_daily_slot(db_session) -> None:
     for weekday in range(7):
         db_session.add(ResourceSlotWeekday(slot_id=slot.id, weekday=weekday))
     db_session.flush()
+    allocation_helpers.allocate_full(db_session, goal_id, slot)
 
 
 def test_forecast_excludes_buffer_days_from_accumulation(db_session):
@@ -257,7 +264,7 @@ def test_forecast_excludes_buffer_days_from_accumulation(db_session):
     material = _make_material(
         db_session, goal.id, total_amount=100, planned_cycles=1, due_date=due_date
     )
-    _make_daily_slot(db_session)
+    _make_daily_slot(db_session, goal.id)
     for day, amount in [(1, 10), (2, 10), (3, 10)]:
         _add_study_log(
             db_session, material.id, dt.date(2026, 1, day), amount=amount, cycle=1, minutes=60
@@ -402,7 +409,7 @@ def test_required_speed_computed_from_remaining_and_available_hours(db_session):
     material = _make_material(
         db_session, goal.id, total_amount=100, planned_cycles=1, due_date=due_date
     )
-    _make_daily_slot(db_session)  # 2時間/日 x 5日 = 10時間
+    _make_daily_slot(db_session, goal.id)  # 2時間/日 x 5日 = 10時間
     for d in range(1, 6):
         db_session.add(CalendarDayOverride(target_date=dt.date(2026, 1, d), day_type=DayType.PLAN))
     db_session.flush()
