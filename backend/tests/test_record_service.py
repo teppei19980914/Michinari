@@ -945,3 +945,72 @@ def test_aggregate_record_state_progress_only_when_single_category_in_progress()
         record_service.aggregate_record_state(None, None, RecordState.PROGRESS_ONLY)
         == RecordState.PROGRESS_ONLY
     )
+
+
+def test_register_progress_rejects_negative_slot_minutes(seeded_session):
+    """時間枠ごとの投下時間は0以上（仕様書10章「数値範囲」）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    slot = _make_slot(seeded_session)
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service.register_progress(
+            seeded_session, today, [_log(material.id, slot_minutes={slot.id: -1})], today
+        )
+
+
+def test_register_progress_skips_zero_slot_minutes(seeded_session):
+    """0分の入力は内訳の行を作らない（データ構造編5.4）。合計も未入力（None）となる。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    slot = _make_slot(seeded_session)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [_log(material.id, slot_minutes={slot.id: 0})], today
+    )
+
+    assert record.study_logs[0].slot_times == []
+    assert record.study_logs[0].minutes_spent is None
+
+
+def test_register_progress_rejects_unknown_slot(seeded_session):
+    """存在しない時間枠への投下時間は拒否する。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service.register_progress(
+            seeded_session, today, [_log(material.id, slot_minutes={9999: 30})], today
+        )
+
+
+def test_register_progress_records_reading_slot_minutes(seeded_session):
+    """読書記録も時間枠ごとに時間を持ち、合計が minutes_spent になること（R-64・R-71）。"""
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    slot = _make_slot(seeded_session)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session,
+        today,
+        [],
+        today,
+        reading_items=[
+            ReadingLogItem(
+                book_id=book.id,
+                recall_body="想起",
+                pages_read=None,
+                current_page=None,
+                slot_minutes={slot.id: 25},
+            )
+        ],
+    )
+
+    assert record.reading_logs[0].minutes_spent == 25
+    assert [(row.slot_id, row.minutes) for row in record.reading_logs[0].slot_times] == [
+        (slot.id, 25)
+    ]

@@ -211,11 +211,6 @@ class AllocationStatus:
     slots: list[SlotAllocationStatus] = field(default_factory=list)
 
 
-def get_all_slots(session: Session) -> list[ResourceSlot]:
-    """有効・無効を問わない全スロット（配分は無効なスロットにも保持されうる）。"""
-    return session.query(ResourceSlot).order_by(ResourceSlot.display_order).all()
-
-
 def _build_slot_allocation_statuses(
     session: Session, slots: list[ResourceSlot]
 ) -> list[SlotAllocationStatus]:
@@ -291,12 +286,3 @@ def get_allocation_status(session: Session) -> AllocationStatus:
         slots=_build_slot_allocation_statuses(session, slots),
     )
 
-
-def list_over_capacity_slots(session: Session) -> list[SlotAllocationStatus]:
-    """配分の合計が連続時間を超えているスロットを返す（仕様書NT-09）。
-
-    スロットの短縮・削除は拒否せず許容するため（要件定義書R-87）、超過状態は事後に
-    警告として提示する。
-    """
-    statuses = _build_slot_allocation_statuses(session, get_all_slots(session))
-    return [status for status in statuses if status.is_over_capacity]

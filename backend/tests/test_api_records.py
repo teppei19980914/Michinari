@@ -95,7 +95,11 @@ def test_register_progress_endpoint_creates_progress_only_record(client):
         f"/api/v1/records/{target}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -115,7 +119,11 @@ def test_register_progress_endpoint_rejects_future_date(client):
         f"/api/v1/records/{future}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -129,7 +137,7 @@ def test_register_progress_endpoint_rejects_unknown_material(client):
 
     response = client.post(
         f"/api/v1/records/{target}/progress",
-        json={"study_logs": [{"material_id": 9999, "minutes_spent": 30, "amount_completed": 10}]},
+        json={"study_logs": [{"material_id": 9999, "amount_completed": 10}]},
     )
 
     assert response.status_code == 404
@@ -147,7 +155,11 @@ def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
         f"/api/v1/records/{target}/finalize",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ],
             "diary_entries": [
                 {
@@ -210,7 +222,11 @@ def test_progress_endpoint_rejects_update_after_reported(client):
         f"/api/v1/records/{target}/progress",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ]
         },
     )
@@ -305,7 +321,11 @@ def test_finalize_reading_endpoint_does_not_block_exam_finalize(client):
         f"/api/v1/records/{target}/finalize",
         json={
             "study_logs": [
-                {"material_id": material["id"], "minutes_spent": 30, "amount_completed": 10}
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
             ],
             "diary_entries": [
                 {"goal_id": goal["id"], "diary_body": "所感", "diary_learned": "学び"}

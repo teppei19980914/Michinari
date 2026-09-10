@@ -197,3 +197,67 @@ def test_holiday_treat_as_buffer_get_and_put(client):
 
     confirmed = client.get("/api/v1/resources/holiday-treat-as-buffer")
     assert confirmed.json() == {"treat_as_buffer": False}
+
+
+def test_shortening_slot_is_allowed_and_reported_as_over_capacity(client):
+    """配分済みのスロットを短縮しても保存は許容し、超過として報告すること（仕様書NT-09）。
+
+    生活の変化（通勤時間の短縮等）を先に登録できないと本末転倒になるため、拒否ではなく
+    警告とする（要件定義書R-87）。
+    """
+    slot = _create_slot(client, weekdays=[0, 1, 2, 3, 4, 5, 6]).json()  # 07:00-08:00 = 60分
+    goal = client.post("/api/v1/goals", json={"name": "目標A", "start_date": "2026-01-01"}).json()
+    client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 60}]},
+    )
+    client.post(
+        f"/api/v1/goals/{goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "RANGE",
+            "exam_date_from": "2026-06-01",
+            "exam_date_to": "2026-06-10",
+        },
+    )
+    subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
+    client.post(
+        f"/api/v1/goals/{goal['id']}/materials",
+        json={
+            "name": "教材A",
+            "unit_label": "ページ",
+            "total_amount": 100,
+            "planned_cycles": 1,
+            "subject_ids": [subject_id],
+            "start_date": "2026-01-01",
+            "due_date_is_manual": False,
+        },
+    )
+    assert client.post(f"/api/v1/goals/{goal['id']}/activate").status_code == 200
+
+    shortened = client.patch(f"/api/v1/resources/slots/{slot['id']}", json={"end_time": "07:30:00"})
+    assert shortened.status_code == 200, shortened.text
+
+    status = client.get("/api/v1/resources/allocation").json()["slots"][0]
+    assert status["duration_minutes"] == 30
+    assert status["allocated_minutes"] == 60
+    assert status["unallocated_minutes"] == -30
+    assert status["is_over_capacity"] is True
+
+    rows = client.get(f"/api/v1/goals/{goal['id']}/slot-allocations").json()
+    assert [row["is_over_capacity"] for row in rows] == [True]
+
+
+def test_deleting_allocated_slot_removes_allocation_without_error(client):
+    """配分済みのスロットを削除できること（配分はCASCADEで消える。要件定義書R-87）。"""
+    slot = _create_slot(client, weekdays=[0]).json()
+    goal = client.post("/api/v1/goals", json={"name": "目標A", "start_date": "2026-01-01"}).json()
+    client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 30}]},
+    )
+
+    deleted = client.delete(f"/api/v1/resources/slots/{slot['id']}")
+
+    assert deleted.status_code == 204
+    assert client.get(f"/api/v1/goals/{goal['id']}/slot-allocations").json() == []

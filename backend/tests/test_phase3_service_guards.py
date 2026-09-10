@@ -418,3 +418,15 @@ def test_update_holiday_treat_as_buffer_missing_setting_raises_app_setting_not_f
     seeded_session.flush()
     with pytest.raises(AppSettingNotFoundError):
         resource_service.update_holiday_treat_as_buffer(seeded_session, False)
+
+
+def test_update_goal_updates_only_specified_fields(seeded_session):
+    """未指定の項目は変更しないこと（name・start_dateはNone＝未指定、memoは番兵で区別）。"""
+    goal = _seed_goal(seeded_session)
+    original_start = goal.start_date
+
+    goal_service.update_goal(seeded_session, goal, name="改名後")
+
+    assert goal.name == "改名後"
+    assert goal.start_date == original_start
+    assert goal.memo is None

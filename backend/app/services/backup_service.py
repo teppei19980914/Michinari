@@ -34,7 +34,8 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 #: 全データエクスポートJSONのスキーマ版数（データ構造編9章D-04と同じ方針：固定文字列とし、
 #: インポート時に不一致なら拒否する。ナレッジエクスポート（export_service.SCHEMA_VERSION）
 #: とは別用途のため別定数とする）。
-DATA_SCHEMA_VERSION = "1.0"
+#: 1.1: goal.resource_ratio廃止・goal_slot_allocation等の新設に伴うテーブル構成の変更。
+DATA_SCHEMA_VERSION = "1.1"
 
 
 def database_path() -> Path:
