@@ -280,6 +280,25 @@ def test_register_progress_endpoint_accepts_reading_only(client):
     assert body["reading_logs"][0]["recall_body"] == "今日読んだ内容の想起"
 
 
+def test_register_progress_endpoint_rejects_current_page_over_total_pages(client):
+    """現在ページが総ページ数を超える場合、画面で理由が分かる専用エラーコードを返す
+    （日次報告の送信はボタンのクリックであり、入力欄のmax属性では止まらないため）。"""
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "reading_logs": [
+                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "current_page": 301}
+            ]
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES"
+
+
 def test_register_progress_endpoint_rejects_both_lists_empty(client):
     target = dt.date.today().isoformat()
 

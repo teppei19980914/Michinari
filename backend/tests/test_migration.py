@@ -934,8 +934,7 @@ def test_reading_page_fields_migration_backfills_total_pages_and_drops_pages_rea
 
     migration_helpers.upgrade_to("f2b7c4a91d3e")  # ページ項目の見直し（head）の1つ前
 
-    connection = sqlite3.connect(db_path)
-    try:
+    with migration_helpers.sqlite_connection(db_path) as connection:
         for goal_id, name in ((1, "読書目標A"), (2, "読書目標B")):
             connection.execute(
                 "INSERT INTO goal (id, category, name, start_date, status, "
@@ -965,14 +964,10 @@ def test_reading_page_fields_migration_backfills_total_pages_and_drops_pages_rea
             "pages_read, current_page, created_at) "
             "VALUES (1, 1, 1, '想起本文', 20, 120, '2026-02-01T00:00:00')"
         )
-        connection.commit()
-    finally:
-        connection.close()
 
     migration_helpers.upgrade_to("head")
 
-    connection = sqlite3.connect(db_path)
-    try:
+    with migration_helpers.sqlite_connection(db_path) as connection:
         total_pages = dict(connection.execute("SELECT id, total_pages FROM book").fetchall())
         reading_log_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(reading_log)").fetchall()
@@ -980,8 +975,6 @@ def test_reading_page_fields_migration_backfills_total_pages_and_drops_pages_rea
         recall_body, current_page = connection.execute(
             "SELECT recall_body, current_page FROM reading_log WHERE id = 1"
         ).fetchone()
-    finally:
-        connection.close()
 
     assert total_pages == {1: 120, 2: 400}
     assert "pages_read" not in reading_log_columns
@@ -996,8 +989,7 @@ def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_pa
 
     migration_helpers.upgrade_to("f2b7c4a91d3e")  # ページ項目の見直し（head）の1つ前
 
-    connection = sqlite3.connect(db_path)
-    try:
+    with migration_helpers.sqlite_connection(db_path) as connection:
         connection.execute(
             "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
             "VALUES (1, 'READING', '読書目標A', '2026-01-01', 'ACTIVE', "
@@ -1009,16 +1001,10 @@ def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_pa
             "VALUES (1, 1, '記録の無い本', NULL, '2026-01-01', '2026-06-30', "
             "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
         )
-        connection.commit()
-    finally:
-        connection.close()
 
     migration_helpers.upgrade_to("head")
 
-    connection = sqlite3.connect(db_path)
-    try:
+    with migration_helpers.sqlite_connection(db_path) as connection:
         total_pages = connection.execute("SELECT total_pages FROM book WHERE id = 1").fetchone()[0]
-    finally:
-        connection.close()
 
     assert total_pages == 1

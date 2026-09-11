@@ -56,6 +56,7 @@ export function ReadingLogFields({
               />
             </label>
             <SlotMinutesFields
+              label={t('dailyReport.readingLog.slotMinutesLabel')}
               defaults={[]}
               values={value.slotMinutes}
               addedSlotIds={Object.keys(value.slotMinutes).map(Number)}

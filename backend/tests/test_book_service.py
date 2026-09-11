@@ -10,36 +10,20 @@ CLAUDE.md DRYの原則）。today はrecord_service等と同様に呼び出し�
 
 import datetime as dt
 
-from app.constants.enums import GoalCategory, GoalStatus, RecordState
+from app.constants.enums import RecordState
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.record import DailyRecord, ReadingLog
 from app.services import book_service
+from tests import reading_helpers
 
 
 def _make_reading_goal(session, *, name="読書目標") -> Goal:
-    goal = Goal(
-        category=GoalCategory.READING,
-        name=name,
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name=name)
 
 
-def _make_book(session, goal, *, total_pages=300, due_date=dt.date(2026, 3, 1)) -> Book:
-    book = Book(
-        goal_id=goal.id,
-        title="書籍A",
-        total_pages=total_pages,
-        start_date=dt.date(2026, 1, 1),
-        due_date=due_date,
-    )
-    session.add(book)
-    session.flush()
-    return book
+def _make_book(session, goal, **overrides) -> Book:
+    return reading_helpers.make_book(session, goal.id, **overrides)
 
 
 def _add_reading_log(session, book_id: int, record_date: dt.date, **overrides) -> None:

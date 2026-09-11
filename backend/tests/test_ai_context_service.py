@@ -18,7 +18,6 @@ from app.constants.enums import (
     RecordState,
     RetrospectivePeriodType,
 )
-from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
 from app.models.record import (
@@ -35,7 +34,7 @@ from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
-from tests import allocation_helpers
+from tests import allocation_helpers, reading_helpers
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):
@@ -863,30 +862,11 @@ def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
 
 
 def _make_reading_goal(session, name="読書目標A"):
-    goal = Goal(
-        category=GoalCategory.READING,
-        name=name,
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name=name)
 
 
 def _make_book(session, goal, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        title="書籍A",
-        total_pages=300,
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    defaults.update(overrides)
-    book = Book(**defaults)
-    session.add(book)
-    session.flush()
-    return book
+    return reading_helpers.make_book(session, goal.id, **overrides)
 
 
 def _add_reading_log(session, book_id, record_date, **overrides):

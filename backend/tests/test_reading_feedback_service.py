@@ -13,15 +13,15 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalStatus
 from app.models.ai import AiConversation
-from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage
 from app.services import daily_feedback_service, reading_feedback_service, record_service
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem
+from app.services.record_service import DiaryEntryItem, StudyLogItem
+from tests import reading_helpers
 
 
 @pytest.fixture(autouse=True)
@@ -43,30 +43,11 @@ def _cleanup_committed_rows(seeded_session):
 
 
 def _make_reading_goal(session, name="読書目標A", status=GoalStatus.ACTIVE):
-    goal = Goal(
-        category=GoalCategory.READING,
-        name=name,
-        start_date=dt.date(2026, 1, 1),
-        status=status,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name=name, status=status)
 
 
 def _make_book(session, goal, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        title="書籍A",
-        total_pages=300,
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    defaults.update(overrides)
-    book = Book(**defaults)
-    session.add(book)
-    session.flush()
-    return book
+    return reading_helpers.make_book(session, goal.id, **overrides)
 
 
 def _make_exam_goal_with_material(session, name="資格目標A"):
@@ -89,9 +70,7 @@ def _make_exam_goal_with_material(session, name="資格目標A"):
 
 
 def _reading_log(book_id, **overrides):
-    defaults = dict(book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10)
-    defaults.update(overrides)
-    return ReadingLogItem(**defaults)
+    return reading_helpers.reading_log_item(book_id, **overrides)
 
 
 def _stub_send_message(monkeypatch, *, response="AIからの応答", raise_exc=None):

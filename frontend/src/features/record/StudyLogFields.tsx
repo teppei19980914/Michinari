@@ -62,6 +62,7 @@ export function StudyLogFields({
           })}
         </p>
         <SlotMinutesFields
+          label={t('dailyReport.studyLog.slotMinutesLabel')}
           defaults={item.slot_defaults}
           values={value.slotMinutes}
           addedSlotIds={Object.keys(value.slotMinutes).map(Number)}

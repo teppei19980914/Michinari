@@ -16,7 +16,6 @@ from app.constants.enums import (
     QualityMetricType,
     RecordState,
 )
-from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, RecordComment
@@ -25,11 +24,13 @@ from app.models.work import WorkAssignment
 from app.services import cycle_service, record_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
+    CurrentPageExceedsTotalPagesError,
     ImmutableRecordError,
     NotFoundError,
     ValidationError,
 )
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
+from tests import reading_helpers
 
 
 def _make_goal(session, status=GoalStatus.ACTIVE, name="目標A"):
@@ -345,36 +346,15 @@ def test_finalize_record_promotes_progress_only_record(seeded_session):
 
 
 def _make_reading_goal(session):
-    goal = Goal(
-        category=GoalCategory.READING,
-        name="読書目標",
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name="読書目標")
 
 
 def _make_book(session, goal, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        title="書籍A",
-        total_pages=300,
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    defaults.update(overrides)
-    book = Book(**defaults)
-    session.add(book)
-    session.flush()
-    return book
+    return reading_helpers.make_book(session, goal.id, **overrides)
 
 
 def _reading_log(book_id, **overrides):
-    defaults = dict(book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10)
-    defaults.update(overrides)
-    return ReadingLogItem(**defaults)
+    return reading_helpers.reading_log_item(book_id, **overrides)
 
 
 def test_register_progress_creates_reading_log(seeded_session):
@@ -392,12 +372,13 @@ def test_register_progress_creates_reading_log(seeded_session):
 
 def test_register_progress_rejects_current_page_over_total_pages(seeded_session):
     """現在ページが総ページ数を超える入力は拒否する（進捗率が100%を超えないようにする、
-    仕様変更2026-09-11）。"""
+    仕様変更2026-09-11）。汎用のVALIDATION_ERRORではなく専用の例外とし、画面に「総ページ数
+    以下で入力してください」と表示できるようにする。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, total_pages=300)
     today = dt.date(2026, 3, 10)
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(CurrentPageExceedsTotalPagesError):
         record_service.register_progress(
             seeded_session, today, [], today, [_reading_log(book.id, current_page=301)]
         )

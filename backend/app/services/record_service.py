@@ -42,6 +42,7 @@ from app.services import (
 )
 from app.services.exceptions import (
     BackdateLimitExceededError,
+    CurrentPageExceedsTotalPagesError,
     ImmutableRecordError,
     NotFoundError,
     ValidationError,
@@ -277,7 +278,7 @@ def _ensure_current_page_within_total_pages(book: Book, current_page: int | None
     場合に限り既存データが上限を超えうる。その扱いはbook_serviceの進捗率算出に集約する。
     """
     if current_page is not None and current_page > book.total_pages:
-        raise ValidationError(f"現在ページは総ページ数（{book.total_pages}）以下で入力してください")
+        raise CurrentPageExceedsTotalPagesError(book.id, book.total_pages)
 
 
 def _upsert_reading_log(

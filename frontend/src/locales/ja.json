@@ -960,6 +960,7 @@
     "RESOURCE_EXCEEDED": "リソース配分の合計が100%を超えています",
     "CYCLE_CONFLICT": "周回数の設定に矛盾があります",
     "BOOK_ALREADY_EXISTS": "この目標には既に書籍が登録されています",
+    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "現在ページは書籍の総ページ数以下で入力してください",
     "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標には既に案件情報が登録されています",
     "BACKDATE_LIMIT_EXCEEDED": "遡って入力できる期間を超えています",
     "INVALID_STATE_TRANSITION": "現在の状態では実行できません",

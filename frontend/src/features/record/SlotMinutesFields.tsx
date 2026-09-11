@@ -18,6 +18,8 @@ type SlotMinutesFieldsProps = {
   slotNames: Map<number, string>
   onChange: (slotId: number, value: string) => void
   onAddSlot: (slotId: number) => void
+  /** 見出しの文言。資格試験は「投下時間」、読書は「読書時間」と呼び分ける。 */
+  label: string
 }
 
 /**
@@ -32,6 +34,7 @@ export function SlotMinutesFields({
   slotNames,
   onChange,
   onAddSlot,
+  label,
 }: SlotMinutesFieldsProps) {
   const rows = buildSlotRows(defaults, existing, addedSlotIds, slotNames)
   const shownSlotIds = new Set(rows.map((row) => row.slotId))
@@ -39,7 +42,7 @@ export function SlotMinutesFields({
 
   return (
     <div className="mt-2 flex flex-col gap-1">
-      <p className="text-xs text-gray-600">{t('dailyReport.studyLog.slotMinutesLabel')}</p>
+      <p className="text-xs text-gray-600">{label}</p>
       {rows.length === 0 ? (
         <p className="text-xs text-gray-500">{t('dailyReport.studyLog.noAllocatedSlots')}</p>
       ) : (

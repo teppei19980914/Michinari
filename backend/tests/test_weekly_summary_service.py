@@ -17,6 +17,7 @@ from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog, WeeklySummary
 from app.services import weekly_summary_service
 from app.services.weekly_summary_service import _last_completed_sunday
+from tests import reading_helpers
 
 
 def _make_goal(session, name="目標A"):
@@ -142,7 +143,6 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
     実装フェーズ分割計画書Phase16完了条件）。
     """
     from app.constants.enums import GoalCategory, RecordState
-    from app.models.book import Book
     from app.models.record import ReadingLog
 
     reading_goal = Goal(
@@ -153,15 +153,7 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
     )
     seeded_session.add(reading_goal)
     seeded_session.flush()
-    book = Book(
-        goal_id=reading_goal.id,
-        title="書籍A",
-        total_pages=300,
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    seeded_session.add(book)
-    seeded_session.flush()
+    book = reading_helpers.make_book(seeded_session, reading_goal.id)
     record = DailyRecord(
         record_date=dt.date(2026, 8, 18), reading_record_state=RecordState.PROGRESS_ONLY
     )
