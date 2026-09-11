@@ -274,12 +274,10 @@ def _ensure_current_page_within_total_pages(book: Book, current_page: int | None
 
     進捗率が100%を超えることは許されないため、入力の時点で上限を超える値を拒否する。
     総ページ数を後から引き下げる訂正（book_service.update_book）は許容しており、その
-    場合に限り既存データが上限を超えうるが、表示側は_PROGRESS_RATE_MAXでクランプする。
+    場合に限り既存データが上限を超えうる。その扱いはbook_serviceの進捗率算出に集約する。
     """
     if current_page is not None and current_page > book.total_pages:
-        raise ValidationError(
-            f"現在ページは総ページ数（{book.total_pages}）以下で入力してください"
-        )
+        raise ValidationError(f"現在ページは総ページ数（{book.total_pages}）以下で入力してください")
 
 
 def _upsert_reading_log(

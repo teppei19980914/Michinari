@@ -21,7 +21,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
 class Book(TimestampMixin, Base):
     """書籍。due_dateはexam_subjectと異なり自動導出せず、常に利用者が直接入力する。
 
-    total_pages は必須（NOT NULL）。読書進捗（21.2）の進捗率を常に算出できるようにする
+    total_pages は必須（NOT NULL）。読書進捗（ロジック・プロンプト編21.2）の進捗率を常に算出できる
     ためであり、「総ページ数が未入力の書籍ではページ進捗を表示しない」という旧仕様
     （要件定義書R-70 改訂前）を廃止した結果である（仕様変更2026-09-11）。
     """

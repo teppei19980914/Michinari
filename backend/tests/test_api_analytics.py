@@ -356,9 +356,7 @@ def test_reading_log_analytics_returns_entries_newest_first(client):
     client.post(
         f"/api/v1/records/{newer}/progress",
         json={
-            "reading_logs": [
-                {"book_id": book_id, "recall_body": "2日目の想起", "current_page": 10}
-            ]
+            "reading_logs": [{"book_id": book_id, "recall_body": "2日目の想起", "current_page": 10}]
         },
     )
 

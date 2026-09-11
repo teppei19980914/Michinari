@@ -191,8 +191,7 @@ def list_reading_log_entries(session: Session, book: Book) -> list[ReadingLogEnt
         .all()
     )
     return [
-        ReadingLogEntry(record_date=row[0], recall_body=row[1], current_page=row[2])
-        for row in rows
+        ReadingLogEntry(record_date=row[0], recall_body=row[1], current_page=row[2]) for row in rows
     ]
 
 

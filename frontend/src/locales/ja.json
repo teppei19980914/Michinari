@@ -321,6 +321,7 @@
       "currentStreakLabel": "連続記録日数",
       "currentStreakValue": "{{days}}日",
       "progressLabel": "ページ進捗",
+      "progressValue": "{{current}} / {{total}}（{{rate}}）",
       "completeButton": "読了として記録する",
       "completeConfirm": {
         "title": "読了の記録",

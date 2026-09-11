@@ -30,6 +30,8 @@ _MSG_START_DATE_AFTER_DUE_DATE = "読書開始日は読了目標日より前の�
 #: 進捗率の上限（100%）。総ページ数を後から現在ページより小さい値へ引き下げる訂正を
 #: 許容する（仕様変更2026-09-11）ため、current_page > total_pages が一時的に成立しうる。
 #: 進捗率が100%を超えて表示されることは許されないため、算出側でクランプする。
+#: クランプは読書進捗に限定した仕様であり、教材・目標の進捗率（metrics_service.
+#: compute_progress_rate）は予定量を超えて進めることが正当なため非クランプのままとする。
 _PROGRESS_RATE_MAX = 1.0
 
 
@@ -91,13 +93,13 @@ def update_book(
     # ない。authorのみNULL許容であり「未指定」と「明示的なクリア」を番兵で区別する
     # （constants/sentinels.py）。総ページ数は必須化（2026-09-11）によりクリアという操作
     # 自体が無くなったため、番兵の対象から外した。
-    # 総ページ数を現在ページより小さい値へ引き下げる訂正は許容する（誤記の訂正手段を
-    # 残すため。確定済みの日次報告は変更できず、現在ページを先に直せないケースがある）。
-    # 進捗率は_PROGRESS_RATE_MAXでクランプされるため100%を超えて表示されることはない。
     if title is not None:
         book.title = title
     if author is not UNSET:
         book.author = author
+    # 現在ページより小さい値への引き下げも許容する。誤記の訂正手段を残すためであり
+    # （確定済みの日次報告は変更できず、現在ページを先に直せないケースがある）、その結果
+    # 上限を超える既存データは get_book_progress のクランプで吸収する。
     if total_pages is not None:
         book.total_pages = total_pages
     if start_date is not None:

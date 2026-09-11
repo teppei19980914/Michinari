@@ -994,7 +994,7 @@ def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_pa
     db_path = tmp_path / "reading_page_fields_migration_no_log.db"
     monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
 
-    migration_helpers.upgrade_to("f2b7c4a91d3e")
+    migration_helpers.upgrade_to("f2b7c4a91d3e")  # ページ項目の見直し（head）の1つ前
 
     connection = sqlite3.connect(db_path)
     try:

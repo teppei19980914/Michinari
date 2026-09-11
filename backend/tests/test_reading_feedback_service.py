@@ -89,9 +89,7 @@ def _make_exam_goal_with_material(session, name="資格目標A"):
 
 
 def _reading_log(book_id, **overrides):
-    defaults = dict(
-        book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10
-    )
+    defaults = dict(book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10)
     defaults.update(overrides)
     return ReadingLogItem(**defaults)
 

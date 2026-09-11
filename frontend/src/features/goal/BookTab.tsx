@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { formatPercent } from '../../utils/format'
 import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
 import { Card } from '../../components/Card'
@@ -33,15 +34,14 @@ function BookForm({
   const { showApiError } = useToast()
   const [title, setTitle] = useState(resolveInitialBookTitle(book?.title, goalName))
   const [author, setAuthor] = useState(book?.author ?? '')
-  const [totalPages, setTotalPages] = useState(
-    book?.total_pages === undefined ? '' : String(book.total_pages),
-  )
+  const [totalPages, setTotalPages] = useState(String(book?.total_pages ?? ''))
   const [startDate, setStartDate] = useState(book?.start_date ?? '')
   const [dueDate, setDueDate] = useState(book?.due_date ?? '')
 
   const payload = {
     title,
     author: author === '' ? null : author,
+    // 総ページ数は必須（要件定義書R-70）。未入力での送信は入力欄のrequiredで防ぐ。
     total_pages: Number(totalPages),
     start_date: startDate,
     due_date: dueDate,
@@ -161,11 +161,15 @@ function BookProgress({ book }: { book: BookRead }) {
       <dd>{book.last_reading_date ?? t('goals.book.lastReadingDateUnavailable')}</dd>
       <dt className="text-gray-400">{t('goals.book.currentStreakLabel')}</dt>
       <dd>{t('goals.book.currentStreakValue', { days: book.current_streak })}</dd>
-      {book.progress_rate !== null && (
+      {book.current_page !== null && book.progress_rate !== null && (
         <>
           <dt className="text-gray-400">{t('goals.book.progressLabel')}</dt>
           <dd>
-            {book.current_page} / {book.total_pages}（{Math.round(book.progress_rate * 100)}%）
+            {t('goals.book.progressValue', {
+              current: book.current_page,
+              total: book.total_pages,
+              rate: formatPercent(book.progress_rate),
+            })}
           </dd>
         </>
       )}
