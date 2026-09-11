@@ -1648,14 +1648,18 @@ export interface components {
             /** File */
             file: string;
         };
-        /** BookCreate */
+        /**
+         * BookCreate
+         * @description 総ページ数は必須（要件定義書R-70、仕様変更2026-09-11）。進捗率（21.2）を常に
+         *     算出できるようにするためであり、未入力を許した旧仕様は廃止した。
+         */
         BookCreate: {
             /** Title */
             title: string;
             /** Author */
             author?: string | null;
             /** Total Pages */
-            total_pages?: number | null;
+            total_pages: number;
             /**
              * Start Date
              * Format: date
@@ -1678,7 +1682,7 @@ export interface components {
             /** Author */
             author: string | null;
             /** Total Pages */
-            total_pages: number | null;
+            total_pages: number;
             /**
              * Start Date
              * Format: date
@@ -1700,7 +1704,12 @@ export interface components {
             /** Progress Rate */
             progress_rate: number | null;
         };
-        /** BookUpdate */
+        /**
+         * BookUpdate
+         * @description total_pages は author と異なり「明示的なクリア」を持たない（必須化により未設定と
+         *     いう状態が存在しなくなったため）。よって None ＝未指定であり、番兵は author のみに使う
+         *     （book_service.update_book のコメント参照）。
+         */
         BookUpdate: {
             /** Title */
             title?: string | null;
@@ -2903,14 +2912,17 @@ export interface components {
             record_date: string;
             /** Recall Body */
             recall_body: string;
-            /** Pages Read */
-            pages_read: number | null;
             /** Current Page */
             current_page: number | null;
         };
         /**
          * ReadingLogInput
-         * @description 読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。
+         * @description 読書記録の入力（study_logの読書版。想起本文は必須、現在ページは任意。要件定義書R-65）。
+         *
+         *     ページの入力欄は現在ページ1つだけとする（仕様変更2026-09-11）。「読んだページ数」は
+         *     利用者が毎日覚えていられない値であるうえ、読書は定量的な進捗管理を行わない目標
+         *     （R-71）であり保持する意味を持たないため廃止した。現在ページの上限は書籍の総ページ数
+         *     であり、その検証は書籍を参照できるサービス層（record_service）で行う。
          */
         ReadingLogInput: {
             /** Book Id */
@@ -2919,8 +2931,6 @@ export interface components {
             recall_body: string;
             /** Slot Minutes */
             slot_minutes?: components["schemas"]["SlotMinutesInput"][];
-            /** Pages Read */
-            pages_read?: number | null;
             /** Current Page */
             current_page?: number | null;
         };
@@ -2936,8 +2946,6 @@ export interface components {
             minutes_spent: number | null;
             /** Slot Minutes */
             slot_minutes: components["schemas"]["SlotMinutesRead"][];
-            /** Pages Read */
-            pages_read: number | null;
             /** Current Page */
             current_page: number | null;
         };
