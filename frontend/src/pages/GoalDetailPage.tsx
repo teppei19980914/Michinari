@@ -19,6 +19,7 @@ import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { ERROR_CODES } from '../constants/errorCodes'
+import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
 const EXAM_TABS = [
@@ -101,6 +102,9 @@ type TabKey =
   | (typeof EXAM_TABS)[number]['key']
   | (typeof READING_TABS)[number]['key']
   | (typeof WORK_TABS)[number]['key']
+
+/** 種別ごとのタブ構成。要素の形が種別で異なるため union で受ける（as constはTabKeyの導出に必要）。 */
+type GoalDetailTabs = typeof EXAM_TABS | typeof READING_TABS | typeof WORK_TABS
 
 function GoalStatusActions({
   goalId,
@@ -216,8 +220,13 @@ export function GoalDetailPage() {
   const goal = goalQuery.data
   const isArchived = goal.archived_at !== null
   const isReadOnly = isClosedGoalStatus(goal.status)
-  const tabs =
-    goal.category === 'READING' ? READING_TABS : goal.category === 'WORK' ? WORK_TABS : EXAM_TABS
+  // 対応表から引くことで、種別を追加したときの記述漏れをtscに検知させる
+  // （入れ子三項だと既定分岐で静かに資格試験のタブ構成へ落ちる）。
+  const tabs = resolveByGoalCategory<GoalDetailTabs>(goal.category, {
+    EXAM: EXAM_TABS,
+    READING: READING_TABS,
+    WORK: WORK_TABS,
+  })
   // 別の目標（category違い）から遷移してきた場合、直前のタブ選択が現在のタブ構成に
   // 存在しないことがあるため、その場合のみ基本情報タブへ読み替える（stateは据え置き、
   // 同一目標内でのタブ切替の挙動には影響させない）。

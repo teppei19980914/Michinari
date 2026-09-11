@@ -14,14 +14,25 @@ export default defineConfig({
     },
   },
   test: {
+    // コンポーネントの描画テスト（@testing-library/react）にDOMが要るため jsdom を使う。
+    // 純粋関数のテストも同じ環境で問題なく動くため、ファイルごとの切り替えはしない。
+    environment: 'jsdom',
+    globals: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],
-      // 計測対象は判定ロジックを置く .ts のみとする。.tsx（コンポーネント）は jsdom /
-      // @testing-library を導入していないため描画テストを書けず、計測しても 0% が並んで
-      // 実際の穴が埋もれる。分岐は .ts の純粋関数へ切り出す方針（CODING_RULES.md
-      // テストカバレッジ、features/goal/closeGoalConfirm.ts が典型）。
-      include: ['src/**/*.ts'],
+      // 計測対象は判定ロジックを置く .ts と、描画テストを書いた .tsx とする。
+      // 分岐は .ts の純粋関数へ切り出すのが基本方針（CODING_RULES.md テストカバレッジ、
+      // features/goal/closeGoalConfirm.ts が典型）だが、確認モーダルのように「押した結果
+      // 何が送信されるか」まで含めて守りたいものは .tsx 側もテストして対象へ加える。
+      // 未計測の .tsx を一括で対象にすると 0% が大量に並んで実際の穴が埋もれるため、
+      // テストを書いたものから個別に追加していく。
+      include: [
+        'src/**/*.ts',
+        'src/features/goal/CloseGoalModal.tsx',
+        'src/features/goal/DeleteArchivedGoalModal.tsx',
+        'src/components/Toast.tsx',
+      ],
       exclude: [
         'src/**/*.test.ts',
         // 自動生成（openapi-typescript）。手で直さないため対象外。
@@ -31,8 +42,8 @@ export default defineConfig({
         'src/locales/**',
         // API 呼び出しの薄いラッパ（分岐を持たず、実通信なしでは意味のある検証にならない）。
         'src/api/**',
-        // Reactフック。描画基盤（jsdom / @testing-library）が無いと呼び出せないため対象外
-        // （CODING_RULES.md「除外可」。導入時は .tsx とあわせて対象へ戻す）。
+        // Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を直接
+        // 検証しても実際の使われ方を再現できないため対象外（CODING_RULES.md「除外可」）。
         'src/**/use*.ts',
         // ブラウザAPI（document / URL.createObjectURL）に直接依存し、同じ理由で対象外。
         'src/utils/downloadBlob.ts',

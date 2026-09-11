@@ -720,13 +720,16 @@ npm run test            # Vitest + カバレッジ計測（閾値100%。下回�
 npm run test:no-coverage # 計測なしで素早く回したいとき
 ```
 
-**フロントエンドのカバレッジ**
+**フロントエンドのテストとカバレッジ**
 
-計測対象は `src/**/*.ts`（判定ロジック）のみで、閾値は行・分岐・関数・文すべて100%（`vite.config.ts` の `test.coverage`）。以下は対象外とし、理由を設定ファイルに明記している。
+テストは Vitest（環境は `jsdom`）で実行する。純粋関数の単体テストに加え、`@testing-library/react` によるコンポーネントの描画テストも書ける。
+
+閾値は行・分岐・関数・文すべて100%（`vite.config.ts` の `test.coverage`）。計測対象は `src/**/*.ts`（判定ロジック）と、描画テストを書いた `.tsx` を個別に追加する方式とする。未計測の `.tsx` を一括で対象にすると 0% が大量に並んで実際の穴が埋もれるため、テストを書いたものから加えていく。
 
 | 除外 | 理由 |
 | --- | --- |
-| `src/**/*.tsx`、`src/**/use*.ts` | 描画基盤（jsdom / @testing-library）を導入していないため呼び出せない。分岐は `.ts` の純粋関数へ切り出す方針（`features/goal/closeGoalConfirm.ts` が典型） |
+| テスト未整備の `src/**/*.tsx` | 一括で対象にすると実際の穴が埋もれる。テストを書いたものから `include` に追加する |
+| `src/**/use*.ts` | Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を検証しても実際の使われ方を再現できない |
 | `src/types/**` | `openapi-typescript` による自動生成 |
 | `src/constants/**`、`src/locales/**` | 定数・文言のみで分岐を持たない |
 | `src/api/**` | API呼び出しの薄いラッパ。実通信なしでは意味のある検証にならない |
@@ -738,7 +741,7 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 
 `openapi-typescript@7.13.0`（最新）の peer 要求が `typescript@^5.x` のままで、本プロジェクトの `typescript@~6.0.2` と衝突する。`frontend/.npmrc` で `legacy-peer-deps=true` を設定していないと、依存を追加していない状態でも `npm install` が ERESOLVE で失敗する。`openapi-typescript` が typescript 6 に対応したら（peerDependencies の更新を確認のうえ）`.npmrc` ごと削除する。
 
-なお `openapi-typescript` は API 型生成専用の開発依存で、実行時の依存ではない。その依存（`@redocly/openapi-core` → `js-yaml@4`）に high 相当の既知脆弱性（GHSA-2883-xcg3-v3hh、YAML解析時のCPU枯渇）があるが、上流が `js-yaml@^4` に固定しているため `npm audit fix` では解消できない。解析対象は自プロジェクトが生成した OpenAPI 文書のみで外部入力を扱わず、本番バンドルにも含まれないため、上流の対応を待つ。
+`openapi-typescript` は API 型生成専用の開発依存であり、実行時の依存ではない。依存パッケージに既知脆弱性が出た場合は `npm audit fix` で解消できるか確認する（過去に `@redocly/openapi-core` → `js-yaml@4.3.1` の GHSA-2883-xcg3-v3hh を、`js-yaml@4.3.2` への更新で解消した実績がある）。解消できない場合のみ、本番バンドルに含まれるか・外部入力を扱うかを評価したうえで扱いを判断する。
 
 フロントエンド起動には `backend` を先に起動しておくこと（`uv run python -m app.main`、既定ポート8100）。
 

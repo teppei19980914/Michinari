@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
 import { t } from '../../locales/t'
@@ -99,6 +100,25 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
   )
 }
 
+/** 目標種別に対応するカード部品を選ぶ。
+ *
+ * 返り値を ReactElement に固定した網羅的なswitchにしてあるため、種別を追加して分岐を
+ * 書き忘れると「返り値がundefinedになり得る」としてtscが検知する。入れ子三項だと既定分岐で
+ * 静かに資格試験のカードへ落ちるため、この形にしている。
+ * （コンポーネントを変数へ代入して描画する書き方は、oxlintのreact(static-components)に
+ * 抵触するため採らない。）
+ */
+function GoalCardBody({ goal }: { goal: GoalCard }): ReactElement {
+  switch (goal.category) {
+    case 'READING':
+      return <ReadingGoalCard goal={goal} />
+    case 'WORK':
+      return <WorkGoalCard goal={goal} />
+    case 'EXAM':
+      return <ExamGoalCard goal={goal} />
+  }
+}
+
 function ExamGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
@@ -128,13 +148,7 @@ export function GoalCardList({ goalCards }: { goalCards: DashboardRead['goal_car
       {goalCards.map((goal) => (
         <Link key={goal.goal_id} to={ROUTES.goalDetail(goal.goal_id)}>
           <Card className="h-full hover:border-blue-300">
-            {goal.category === 'READING' ? (
-              <ReadingGoalCard goal={goal} />
-            ) : goal.category === 'WORK' ? (
-              <WorkGoalCard goal={goal} />
-            ) : (
-              <ExamGoalCard goal={goal} />
-            )}
+            <GoalCardBody goal={goal} />
           </Card>
         </Link>
       ))}
