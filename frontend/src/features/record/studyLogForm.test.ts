@@ -65,6 +65,48 @@ describe('initStudyLogFormValues', () => {
       qualityValue: '4',
     })
   })
+
+  it('keeps an objective quality value as-is', () => {
+    const existing: StudyLogRead = {
+      id: 101,
+      material_id: 1,
+      minutes_spent: 45,
+      slot_minutes: [{ slot_id: 10, slot_name: '夜', minutes: 45 }],
+      amount_completed: 8,
+      cycle_number: 2,
+      quality_value: 72,
+    }
+    // OBJECTIVE は正規化せずそのまま表示する（1〜5への逆変換は SUBJECTIVE のみ）。
+    expect(initStudyLogFormValues([QUOTA_PERCENT], [existing])[1].qualityValue).toBe('72')
+  })
+
+  it('leaves the quality field blank when the existing log has no quality value', () => {
+    const existing: StudyLogRead = {
+      id: 102,
+      material_id: 1,
+      minutes_spent: 45,
+      slot_minutes: [],
+      amount_completed: 8,
+      cycle_number: 2,
+      quality_value: null,
+    }
+    expect(initStudyLogFormValues([QUOTA_PERCENT], [existing])[1].qualityValue).toBe('')
+  })
+
+  it('blanks a subjective value that does not map back onto the 1-5 scale', () => {
+    // 主観スケールは 20/40/60/80/100 のみが 1〜5 に逆変換できる。それ以外の保存値
+    // （方式変更の前後などで混ざり得る）は選択欄に出せないため空欄にする。
+    const existing: StudyLogRead = {
+      id: 103,
+      material_id: 2,
+      minutes_spent: 30,
+      slot_minutes: [],
+      amount_completed: 5,
+      cycle_number: 1,
+      quality_value: 75,
+    }
+    expect(initStudyLogFormValues([QUOTA_SUBJECTIVE], [existing])[2].qualityValue).toBe('')
+  })
 })
 
 describe('hasAnyStudyLogInput', () => {

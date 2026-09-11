@@ -20,4 +20,9 @@ describe('computeAutoDueDate', () => {
     expect(computeAutoDueDate(subjects, [])).toBeNull()
     expect(computeAutoDueDate([{ id: 4, exam_date_type: 'RANGE', exam_date_from: null, exam_date_fixed: null }], [4])).toBeNull()
   })
+
+  it('keeps the earliest date when later subjects have later exam dates', () => {
+    // 最も早い受験日が配列の先頭に来る順序（reduce の「更新しない」側）の検証。
+    expect(computeAutoDueDate(subjects, [2, 3])).toBe('2026-08-26')
+  })
 })

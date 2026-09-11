@@ -7,6 +7,7 @@
  * 取り消せない操作の説明として必ず分岐させる。
  */
 import type { GoalCategory } from '../../api/goals'
+import { resolveByGoalCategory } from './goalCategoryVariant'
 
 /** 完全削除モーダルが使うロケールキーの組。 */
 export type DeleteGoalLabelKeys = {
@@ -49,5 +50,5 @@ const LABEL_KEYS: Record<GoalCategory, DeleteGoalLabelKeys> = {
  * // => 'goals.list.deleteModal.warningReading'
  */
 export function resolveDeleteGoalLabelKeys(category: GoalCategory): DeleteGoalLabelKeys {
-  return LABEL_KEYS[category]
+  return resolveByGoalCategory(category, LABEL_KEYS)
 }

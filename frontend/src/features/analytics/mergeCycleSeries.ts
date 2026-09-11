@@ -30,6 +30,11 @@ export function mergeCycleSeries(series: CycleSeriesInput[]): {
     const key = cycleSeriesKey(s.cycleNumber)
     for (const p of s.points) {
       const row = rowByX.get(p.x)
+      // rowByXは直前に全系列の全x値から構築しているため、ここでrowがundefinedになることは
+      // 無い。Map.getの戻り値型（T | undefined）を絞り込むためだけのガードであり、
+      // 公開APIからは到達できないためカバレッジの対象外とする
+      // （CODING_RULES.md「除外可: 意図的に発生させにくい異常系」）。
+      /* v8 ignore next 3 */
       if (row) {
         row[key] = p.value
       }

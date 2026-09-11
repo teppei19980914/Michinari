@@ -708,16 +708,37 @@ uv run ruff check .                                     # 静的解析
 
 ```bash
 cd frontend
-npm install                    # 依存関係のインストール
+npm install                    # 依存関係のインストール（frontend/.npmrc の legacy-peer-deps が必要。下記参照）
 npm run generate:api-types     # backend/app/main.py の OpenAPI スキーマから src/types/api.d.ts を生成
                                 # （バックエンドのスキーマ変更時は必ず再実行する。手書き禁止）
 npm run dev                    # 開発サーバ起動（vite.config.ts の proxy で /api を backend:8100 へ転送）
 ```
 
 ```bash
-npm run build   # 型チェック（tsc -b）+ 本番ビルド
-npm run test    # Vitest（技術選定書4.5「フロントエンドのテスト方針」に基づき最小限のロジックのみ対象）
+npm run build           # 型チェック（tsc -b）+ 本番ビルド
+npm run test            # Vitest + カバレッジ計測（閾値100%。下回ると失敗する）
+npm run test:no-coverage # 計測なしで素早く回したいとき
 ```
+
+**フロントエンドのカバレッジ**
+
+計測対象は `src/**/*.ts`（判定ロジック）のみで、閾値は行・分岐・関数・文すべて100%（`vite.config.ts` の `test.coverage`）。以下は対象外とし、理由を設定ファイルに明記している。
+
+| 除外 | 理由 |
+| --- | --- |
+| `src/**/*.tsx`、`src/**/use*.ts` | 描画基盤（jsdom / @testing-library）を導入していないため呼び出せない。分岐は `.ts` の純粋関数へ切り出す方針（`features/goal/closeGoalConfirm.ts` が典型） |
+| `src/types/**` | `openapi-typescript` による自動生成 |
+| `src/constants/**`、`src/locales/**` | 定数・文言のみで分岐を持たない |
+| `src/api/**` | API呼び出しの薄いラッパ。実通信なしでは意味のある検証にならない |
+| `src/utils/downloadBlob.ts` | ブラウザAPI（`document` / `URL.createObjectURL`）に直接依存 |
+
+到達不能な防御的分岐（型の絞り込みのためだけのガード等）は `/* v8 ignore next N */` と理由コメントで個別に除外する（CODING_RULES.md「除外可」）。
+
+**`.npmrc`（legacy-peer-deps）について**
+
+`openapi-typescript@7.13.0`（最新）の peer 要求が `typescript@^5.x` のままで、本プロジェクトの `typescript@~6.0.2` と衝突する。`frontend/.npmrc` で `legacy-peer-deps=true` を設定していないと、依存を追加していない状態でも `npm install` が ERESOLVE で失敗する。`openapi-typescript` が typescript 6 に対応したら（peerDependencies の更新を確認のうえ）`.npmrc` ごと削除する。
+
+なお `openapi-typescript` は API 型生成専用の開発依存で、実行時の依存ではない。その依存（`@redocly/openapi-core` → `js-yaml@4`）に high 相当の既知脆弱性（GHSA-2883-xcg3-v3hh、YAML解析時のCPU枯渇）があるが、上流が `js-yaml@^4` に固定しているため `npm audit fix` では解消できない。解析対象は自プロジェクトが生成した OpenAPI 文書のみで外部入力を扱わず、本番バンドルにも含まれないため、上流の対応を待つ。
 
 フロントエンド起動には `backend` を先に起動しておくこと（`uv run python -m app.main`、既定ポート8100）。
 

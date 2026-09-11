@@ -19,6 +19,7 @@ import {
 } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
 import { resolveDeleteGoalLabelKeys } from '../features/goal/deleteGoalLabels'
+import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { GOAL_CATEGORIES } from '../constants/goalCategories'
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -63,11 +64,13 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {category === 'READING'
-            ? t('goals.new.nameLabelReading')
-            : category === 'WORK'
-              ? t('goals.new.nameLabelWork')
-              : t('goals.new.nameLabel')}
+          {t(
+            resolveByGoalCategory(category, {
+              EXAM: 'goals.new.nameLabel',
+              READING: 'goals.new.nameLabelReading',
+              WORK: 'goals.new.nameLabelWork',
+            }),
+          )}
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">

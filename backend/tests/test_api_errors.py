@@ -6,6 +6,9 @@
 ここで値そのものを固定する。
 """
 
+import json
+from pathlib import Path
+
 from fastapi import status
 
 from app.api.errors import _STATUS_AND_CODE
@@ -49,3 +52,33 @@ def test_domain_error_subclasses_used_by_goal_close_are_registered():
     for exception_type in (CloseConfirmationRequiredError, InvalidStateTransitionError):
         assert issubclass(exception_type, DomainError)
         assert exception_type in _STATUS_AND_CODE
+
+
+#: フロントだけで発生し、バックエンドが返さないコード（通信失敗・未登録コードの既定文言）。
+_FRONTEND_ONLY_ERROR_KEYS = {"NETWORK_ERROR", "default"}
+
+
+def _load_frontend_error_messages() -> dict[str, str]:
+    locale_path = Path(__file__).resolve().parents[2] / "frontend" / "src" / "locales" / "ja.json"
+    return json.loads(locale_path.read_text(encoding="utf-8"))["errors"]
+
+
+def test_every_error_code_has_a_frontend_message():
+    """バックエンドが返す全コードに画面文言があること（横断チェック）。
+
+    文言が無いコードは ApiError.localizedMessage が既定文言（errors.default）へ黙って
+    落ちるため、利用者には「エラーが発生しました」としか出ず、実行時例外にも型エラーにも
+    ならない。実際に RESOURCE_ALLOCATION_REQUIRED が旧名 RESOURCE_RATIO_REQUIRED のまま
+    取り残され、既定文言に落ちていた（2026-09-11に修正）。
+    """
+    messages = _load_frontend_error_messages()
+    missing = sorted({code for _, code in _STATUS_AND_CODE.values()} - set(messages))
+    assert missing == [], f"ja.json の errors.* に文言が無いエラーコード: {missing}"
+
+
+def test_frontend_has_no_stale_error_message():
+    """使われないコードの文言が残っていないこと（旧名の取り残しを検知する）。"""
+    messages = _load_frontend_error_messages()
+    backend_codes = {code for _, code in _STATUS_AND_CODE.values()}
+    stale = sorted(set(messages) - backend_codes - _FRONTEND_ONLY_ERROR_KEYS)
+    assert stale == [], f"バックエンドが返さない文言が残っている: {stale}"
