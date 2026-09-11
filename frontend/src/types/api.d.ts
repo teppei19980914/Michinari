@@ -1650,8 +1650,9 @@ export interface components {
         };
         /**
          * BookCreate
-         * @description 総ページ数は必須（要件定義書R-70、仕様変更2026-09-11）。進捗率（21.2）を常に
-         *     算出できるようにするためであり、未入力を許した旧仕様は廃止した。
+         * @description 書籍の新規登録（仕様書6.2）。総ページ数は必須とする（要件定義書R-70、仕様変更
+         *     2026-09-11）。進捗率（ロジック・プロンプト編21.2）を常に算出できるようにするためで
+         *     あり、未入力を許した旧仕様は廃止した。
          */
         BookCreate: {
             /** Title */
@@ -1706,9 +1707,9 @@ export interface components {
         };
         /**
          * BookUpdate
-         * @description total_pages は author と異なり「明示的なクリア」を持たない（必須化により未設定と
-         *     いう状態が存在しなくなったため）。よって None ＝未指定であり、番兵は author のみに使う
-         *     （book_service.update_book のコメント参照）。
+         * @description 書籍の部分更新（仕様書6.2）。None＝未指定であり、「明示的なクリア」を持つのは
+         *     author のみとする（total_pages は必須化によりクリアという操作自体が無くなったため、
+         *     番兵の対象から外した。constants/sentinels.py）。
          */
         BookUpdate: {
             /** Title */
