@@ -125,4 +125,33 @@ describe('buildReplanHistoryRows', () => {
   it('returns an empty array when there are no baselines', () => {
     expect(buildReplanHistoryRows([], NAMES)).toEqual([])
   })
+
+  it('breaks ties by id when two baselines share the same effective_from', () => {
+    // 同日に複数のリプランが記録された場合、昇順（変更前ノルマの補完）・降順（表示順）とも
+    // idで安定させる。localeCompareが0を返す経路の検証。
+    const rows = buildReplanHistoryRows(
+      [
+        {
+          id: 20,
+          material_id: 1,
+          effective_from: '2026-02-01',
+          baseline_daily_quota: 30,
+          reason: 'REPLAN_B',
+        },
+        {
+          id: 10,
+          material_id: 1,
+          effective_from: '2026-02-01',
+          baseline_daily_quota: 20,
+          reason: 'REPLAN_A',
+        },
+      ],
+      NAMES,
+    )
+
+    // 表示は降順のため id=20 が先頭。quotaBefore は昇順で直前となる id=10 の値。
+    expect(rows.map((row) => row.id)).toEqual([20, 10])
+    expect(rows[0].quotaBefore).toBe(20)
+    expect(rows[1].quotaBefore).toBeNull()
+  })
 })

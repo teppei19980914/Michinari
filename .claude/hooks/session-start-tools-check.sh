@@ -24,7 +24,7 @@ fi
 if command -v osv-scanner >/dev/null 2>&1; then
   echo "[tools-check] osv-scanner: 導入済み"
 else
-  echo "[tools-check] osv-scanner: 未導入（vuln-scan.shはスキップ中、依存脆弱性スキャンが行われていません）— https://google.github.io/osv-scanner/installation/"
+  echo "[tools-check] osv-scanner: 未導入（vuln-scan.shはスキップ中、依存脆弱性スキャンが行われていません）— 導入手順: docs/OPERATIONS.md「任意ツールの導入」"
   MISSING=1
 fi
 

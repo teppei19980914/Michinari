@@ -4,6 +4,7 @@
 
 | バージョン | 公開日 | 概要 | リリースページ |
 | --- | --- | --- | --- |
+| [v1.2.1](v1.2.1.md) | 2026-09-12 | 読書・仕事の目標に資格試験向けの説明文が出る問題の修正 | [ver1.2.1](https://github.com/teppei19980914/Michinari/releases/tag/ver1.2.1) |
 | [v1.2.0](v1.2.0.md) | 2026-09-11 | 読書の記録を「現在ページ」のみに集約 | [ver1.2.0](https://github.com/teppei19980914/Michinari/releases/tag/ver1.2.0) |
 | [v1.1.0](v1.1.0.md) | 2026-09-11 | 読書・仕事の目標種別を追加、リソース配分をスロット単位化 | [ver1.1.0](https://github.com/teppei19980914/Michinari/releases/tag/ver1.1.0) |
 | [v1.0.0](v1.0.0.md) | 2026-08-30 | 初回リリース（資格試験の学習計画） | [ver1.0.0](https://github.com/teppei19980914/Michinari/releases/tag/ver1.0.0) |

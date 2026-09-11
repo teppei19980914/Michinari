@@ -47,6 +47,20 @@ describe('initReadingLogFormValues', () => {
       currentPage: '20',
     })
   })
+
+  it('leaves the page field blank when the existing log has no current page', () => {
+    // 現在ページは任意入力のため、未登録（null）を '0' ではなく空欄として復元する。
+    const existing: ReadingLogRead = {
+      id: 101,
+      book_id: 1,
+      recall_body: 'ページは記録していない',
+      minutes_spent: 15,
+      slot_minutes: [],
+      current_page: null,
+    }
+    const values = initReadingLogFormValues([BOOK], [existing])
+    expect(values[1].currentPage).toBe('')
+  })
 })
 
 describe('hasAnyReadingLogInput', () => {

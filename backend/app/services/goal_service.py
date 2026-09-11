@@ -36,6 +36,7 @@ from app.services import (
 )
 from app.services.exceptions import (
     BookHasReadingLogsError,
+    CloseConfirmationRequiredError,
     ExamSubjectRequiredError,
     InvalidStateTransitionError,
     MaterialHasStudyLogsError,
@@ -454,6 +455,9 @@ def close_goal(
     CLOSED_WITHOUT_RESULT（中断）へ遷移させる（仕様書7.1）。読了（CLOSED_WITH_RESULT）は
     本関数ではなく book_service.complete_book（POST /books/{id}/complete）を用いる。
 
+    確認待ちは CloseConfirmationRequiredError、本当の状態エラーは
+    InvalidStateTransitionError と、必ず別の例外にする（理由は前者のdocstringを参照）。
+
     仕事目標（category=WORK）は exam_subjects の概念自体を持たないため、上記の
     自動判定・confirm_without_resultによる分岐を適用せず、with_resultの指定のみで
     遷移先を決める（with_result=True→CLOSED_WITH_RESULT＝納品等の成果を伴う終了、
@@ -478,9 +482,7 @@ def close_goal(
             goal.status = GoalStatus.CLOSED_WITH_RESULT
         else:
             if not confirm_without_result:
-                raise InvalidStateTransitionError(
-                    "受験結果が未登録の科目があります。結果なしでクローズする場合は確認が必要です"
-                )
+                raise CloseConfirmationRequiredError
             goal.status = GoalStatus.CLOSED_WITHOUT_RESULT
 
     goal.closed_at = utcnow()

@@ -6,6 +6,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateGoal, type GoalDetailRead } from '../../api/goals'
+import { resolveByGoalCategory } from './goalCategoryVariant'
 
 /** 基本情報タブ（仕様書6.2「試験名、開始日、状態、備考」）。 */
 export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
@@ -24,12 +25,13 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
     onError: showApiError,
   })
 
-  const nameLabel =
-    goal.category === 'READING'
-      ? t('goals.basicInfo.nameLabelReading')
-      : goal.category === 'WORK'
-        ? t('goals.basicInfo.nameLabelWork')
-        : t('goals.basicInfo.nameLabel')
+  const nameLabel = t(
+    resolveByGoalCategory(goal.category, {
+      EXAM: 'goals.basicInfo.nameLabel',
+      READING: 'goals.basicInfo.nameLabelReading',
+      WORK: 'goals.basicInfo.nameLabelWork',
+    }),
+  )
 
   return (
     <Card className="flex flex-col gap-3">

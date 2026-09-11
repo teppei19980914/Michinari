@@ -18,7 +18,7 @@ set -u
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
 
 if ! command -v osv-scanner >/dev/null 2>&1; then
-  echo "[vuln-scan] osv-scanner 未インストールのためスキップ（推奨インストール: https://google.github.io/osv-scanner/installation/）"
+  echo "[vuln-scan] osv-scanner 未インストールのためスキップ（導入手順: docs/OPERATIONS.md「任意ツールの導入」。仮想環境 myvenv/Scripts/ へ配置する）"
   exit 0
 fi
 
