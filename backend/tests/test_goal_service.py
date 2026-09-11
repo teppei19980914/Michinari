@@ -26,6 +26,7 @@ from app.services.exceptions import (
     MaterialHasStudyLogsError,
     WorkAssignmentHasWorkLogsError,
 )
+from tests import reading_helpers
 
 
 def _make_goal(db_session, status=GoalStatus.ACTIVE, name="目標A") -> Goal:
@@ -153,29 +154,11 @@ def _make_diary_entry(
 
 
 def _make_reading_goal(db_session, status=GoalStatus.ACTIVE, name="読書目標A") -> Goal:
-    goal = Goal(
-        category=GoalCategory.READING,
-        name=name,
-        start_date=dt.date(2026, 1, 1),
-        status=status,
-    )
-    db_session.add(goal)
-    db_session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(db_session, name=name, status=status)
 
 
 def _make_book(db_session, goal_id: int, **overrides) -> Book:
-    defaults = dict(
-        goal_id=goal_id,
-        title="書籍A",
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    defaults.update(overrides)
-    book = Book(**defaults)
-    db_session.add(book)
-    db_session.flush()
-    return book
+    return reading_helpers.make_book(db_session, goal_id, **overrides)
 
 
 def _make_reading_log(db_session, daily_record_id: int, book_id: int, **overrides) -> ReadingLog:

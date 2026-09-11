@@ -15,6 +15,7 @@ from app.services.exceptions import (
     BackdateLimitExceededError,
     BookAlreadyExistsError,
     BookHasReadingLogsError,
+    CurrentPageExceedsTotalPagesError,
     DomainError,
     ExamSubjectRequiredError,
     ImmutableRecordError,
@@ -45,6 +46,10 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     MaterialHasStudyLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BookHasReadingLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BookAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, "BOOK_ALREADY_EXISTS"),
+    CurrentPageExceedsTotalPagesError: (
+        status.HTTP_400_BAD_REQUEST,
+        "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES",
+    ),
     WorkAssignmentHasWorkLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     WorkAssignmentAlreadyExistsError: (
         status.HTTP_400_BAD_REQUEST,

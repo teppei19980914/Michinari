@@ -18,7 +18,6 @@ from app.constants.enums import (
     RecordState,
     RetrospectivePeriodType,
 )
-from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
 from app.models.record import (
@@ -35,7 +34,7 @@ from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import ai_context_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
-from tests import allocation_helpers
+from tests import allocation_helpers, reading_helpers
 
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):
@@ -863,29 +862,11 @@ def test_build_goal_summary_does_not_leak_reading_goal_context(seeded_session):
 
 
 def _make_reading_goal(session, name="読書目標A"):
-    goal = Goal(
-        category=GoalCategory.READING,
-        name=name,
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name=name)
 
 
 def _make_book(session, goal, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        title="書籍A",
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 12, 31),
-    )
-    defaults.update(overrides)
-    book = Book(**defaults)
-    session.add(book)
-    session.flush()
-    return book
+    return reading_helpers.make_book(session, goal.id, **overrides)
 
 
 def _add_reading_log(session, book_id, record_date, **overrides):
@@ -934,17 +915,16 @@ def test_build_daily_book_summary_text_handles_no_books(seeded_session):
 
 
 def test_build_today_recall_text_includes_book_title_and_recall_body(seeded_session):
+    """ページに関する数値は注入しない（仕様変更2026-09-11）。読書の日次報告は評価の場では
+    ないため、プロンプト本文の「ページ数や読了ペースを評価しないでください」（ロジック・プロンプト編17.6）と
+    矛盾しないよう、現在ページは画面表示専用とし文脈からも外す。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="達人プログラマー")
-    item = ReadingLogItem(
-        book_id=book.id, recall_body="DRY原則の話が印象的だった", pages_read=20, current_page=20
-    )
+    item = ReadingLogItem(book_id=book.id, recall_body="DRY原則の話が印象的だった", current_page=20)
 
     text = ai_context_service.build_today_recall_text([item], {book.id: book})
 
-    assert "達人プログラマー" in text
-    assert "DRY原則の話が印象的だった" in text
-    assert "読んだページ数 20" in text
+    assert text == "■ 達人プログラマー\nDRY原則の話が印象的だった"
 
 
 def test_build_today_recall_text_handles_no_items():

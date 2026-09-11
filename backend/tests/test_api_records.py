@@ -245,7 +245,12 @@ def _make_active_reading_goal_with_book(client):
     ).json()
     book = client.post(
         f"/api/v1/goals/{goal['id']}/book",
-        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-12-31"},
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-12-31",
+        },
     ).json()
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
@@ -261,7 +266,7 @@ def test_register_progress_endpoint_accepts_reading_only(client):
         f"/api/v1/records/{target}/progress",
         json={
             "reading_logs": [
-                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "pages_read": 10}
+                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "current_page": 10}
             ]
         },
     )
@@ -273,6 +278,25 @@ def test_register_progress_endpoint_accepts_reading_only(client):
     assert body["study_logs"] == []
     assert len(body["reading_logs"]) == 1
     assert body["reading_logs"][0]["recall_body"] == "今日読んだ内容の想起"
+
+
+def test_register_progress_endpoint_rejects_current_page_over_total_pages(client):
+    """現在ページが総ページ数を超える場合、画面で理由が分かる専用エラーコードを返す
+    （日次報告の送信はボタンのクリックであり、入力欄のmax属性では止まらないため）。"""
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "reading_logs": [
+                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "current_page": 301}
+            ]
+        },
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES"
 
 
 def test_register_progress_endpoint_rejects_both_lists_empty(client):

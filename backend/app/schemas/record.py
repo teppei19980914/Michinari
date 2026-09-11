@@ -61,14 +61,19 @@ class StudyLogRead(BaseModel):
 
 
 class ReadingLogInput(BaseModel):
-    """読書記録の入力（study_logの読書版。想起本文は必須、ページ数は任意。要件定義書R-65）。"""
+    """読書記録の入力（study_logの読書版。想起本文は必須、現在ページは任意。要件定義書R-65）。
+
+    ページの入力欄は現在ページ1つだけとする（仕様変更2026-09-11）。「読んだページ数」は
+    利用者が毎日覚えていられない値であるうえ、読書は定量的な進捗管理を行わない目標
+    （R-71）であり保持する意味を持たないため廃止した。現在ページの上限は書籍の総ページ数
+    であり、その検証は書籍を参照できるサービス層（record_service）で行う。
+    """
 
     book_id: int
     recall_body: str = Field(min_length=1)
     #: 時間枠ごとの読書時間（任意）。読書もリソース配分の対象（R-64）だが、
     #: 記録した時間は速度算出には用いない（R-71）。
     slot_minutes: list[SlotMinutesInput] = Field(default_factory=list)
-    pages_read: int | None = Field(default=None, ge=0)
     current_page: int | None = Field(default=None, ge=0)
 
 
@@ -78,7 +83,6 @@ class ReadingLogRead(BaseModel):
     recall_body: str
     minutes_spent: int | None
     slot_minutes: list[SlotMinutesRead]
-    pages_read: int | None
     current_page: int | None
 
 

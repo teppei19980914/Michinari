@@ -119,6 +119,21 @@ class BookAlreadyExistsError(DomainError):
         super().__init__(f"目標(id={goal_id})には既に書籍が登録されています")
 
 
+class CurrentPageExceedsTotalPagesError(DomainError):
+    """現在ページが書籍の総ページ数を超える想起記録を登録しようとした場合
+    （データ構造編6.3 CURRENT_PAGE_EXCEEDS_TOTAL_PAGES、仕様変更2026-09-11）。
+
+    汎用のValidationErrorではなく専用コードとするのは、日次報告の送信がボタンのクリック
+    （ネイティブのフォーム検証を経由しない）であり、入力欄のmax属性では止められないため
+    である。利用者がどの値をどう直せばよいか画面上で分かるようにする必要がある。
+    """
+
+    def __init__(self, book_id: int, total_pages: int) -> None:
+        self.book_id = book_id
+        self.total_pages = total_pages
+        super().__init__(f"書籍(id={book_id})の総ページ数({total_pages})を超えています")
+
+
 class WorkAssignmentHasWorkLogsError(DomainError):
     """業務記録（work_log）が存在する案件情報を削除しようとした場合
     （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。"""

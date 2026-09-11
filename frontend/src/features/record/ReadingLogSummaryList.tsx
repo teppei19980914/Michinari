@@ -27,20 +27,10 @@ export function ReadingLogSummaryList({
               {label?.title ?? t('dailyReportView.readingLog.unknownBook', { id: log.book_id })}
             </p>
             <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{log.recall_body}</p>
-            {(log.pages_read !== null || log.current_page !== null) && (
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
-                {log.pages_read !== null && (
-                  <div>
-                    <dt className="text-gray-400">{t('dailyReportView.readingLog.pagesRead')}</dt>
-                    <dd>{log.pages_read}</dd>
-                  </div>
-                )}
-                {log.current_page !== null && (
-                  <div>
-                    <dt className="text-gray-400">{t('dailyReportView.readingLog.currentPage')}</dt>
-                    <dd>{log.current_page}</dd>
-                  </div>
-                )}
+            {log.current_page !== null && (
+              <dl className="mt-2 text-sm text-gray-600">
+                <dt className="text-gray-400">{t('dailyReportView.readingLog.currentPage')}</dt>
+                <dd>{log.current_page}</dd>
               </dl>
             )}
           </Card>

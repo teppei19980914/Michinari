@@ -10,6 +10,8 @@
 """
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 from alembic.config import Config
@@ -43,6 +45,24 @@ def drop_alembic_version_table(db_path: Path) -> None:
     connection = sqlite3.connect(db_path)
     try:
         connection.execute("DROP TABLE IF EXISTS alembic_version")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+@contextmanager
+def sqlite_connection(db_path: Path) -> Iterator[sqlite3.Connection]:
+    """テスト用DBへ直接つなぐ（適用前の行の投入と、適用後の検証で使う）。
+
+    接続のclose漏れを防ぐためのcontextmanager。正常終了時のみcommitする。
+    行のINSERT文自体は各テストへ残している。マイグレーションテストは「そのリビジョン
+    時点のスキーマ」へ書き込む必要があり、列構成は対象リビジョンごとに異なるためである
+    （共通のINSERTヘルパーに寄せると、後続のマイグレーションで列が増えたときに過去の
+    リビジョンを対象とするテストまで壊れてしまう）。
+    """
+    connection = sqlite3.connect(db_path)
+    try:
+        yield connection
         connection.commit()
     finally:
         connection.close()

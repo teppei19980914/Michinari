@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { formatPercent } from '../../utils/format'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
@@ -306,11 +307,11 @@ export function MaterialsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
                   </div>
                   <div>
                     <dt className="text-gray-400">{t('goals.materials.cycleProgress')}</dt>
-                    <dd>{Math.round(material.progress_rate_in_cycle * 100)}%</dd>
+                    <dd>{formatPercent(material.progress_rate_in_cycle)}</dd>
                   </div>
                   <div>
                     <dt className="text-gray-400">{t('goals.materials.overallProgress')}</dt>
-                    <dd>{Math.round(material.progress_rate * 100)}%</dd>
+                    <dd>{formatPercent(material.progress_rate)}</dd>
                   </div>
                 </dl>
                 <SlotCheckWarning materialId={material.id} />
