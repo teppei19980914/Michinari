@@ -919,3 +919,106 @@ def test_slot_allocation_migration_preserves_existing_study_log_minutes(tmp_path
 
     assert minutes == 90
     assert breakdown == 0
+
+
+def test_reading_page_fields_migration_backfills_total_pages_and_drops_pages_read(
+    tmp_path, monkeypatch
+):
+    """既存データがある状態で a9e3c5b71d64 を適用できること（CODING_RULES.md）。
+
+    総ページ数が未入力だった書籍は、記録済みの現在ページの最大値で補填され、NOT NULL化
+    しても行が失われないこと。総ページ数が入力済みの書籍はその値が保持されること。
+    """
+    db_path = tmp_path / "reading_page_fields_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("f2b7c4a91d3e")  # ページ項目の見直し（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        for goal_id, name in ((1, "読書目標A"), (2, "読書目標B")):
+            connection.execute(
+                "INSERT INTO goal (id, category, name, start_date, status, "
+                "updated_at, created_at) "
+                f"VALUES ({goal_id}, 'READING', '{name}', '2026-01-01', 'ACTIVE', "
+                "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+            )
+        # 総ページ数が未入力の書籍（補填の対象）と、入力済みの書籍（保持されること）。
+        connection.execute(
+            "INSERT INTO book (id, goal_id, title, total_pages, start_date, due_date, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '総ページ数未入力の本', NULL, '2026-01-01', '2026-06-30', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO book (id, goal_id, title, total_pages, start_date, due_date, "
+            "updated_at, created_at) "
+            "VALUES (2, 2, '総ページ数入力済みの本', 400, '2026-01-01', '2026-06-30', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO daily_record (id, record_date, created_at) "
+            "VALUES (1, '2026-02-01', '2026-02-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO reading_log (id, daily_record_id, book_id, recall_body, "
+            "pages_read, current_page, created_at) "
+            "VALUES (1, 1, 1, '想起本文', 20, 120, '2026-02-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        total_pages = dict(connection.execute("SELECT id, total_pages FROM book").fetchall())
+        reading_log_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(reading_log)").fetchall()
+        }
+        recall_body, current_page = connection.execute(
+            "SELECT recall_body, current_page FROM reading_log WHERE id = 1"
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert total_pages == {1: 120, 2: 400}
+    assert "pages_read" not in reading_log_columns
+    assert (recall_body, current_page) == ("想起本文", 120)
+
+
+def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_path, monkeypatch):
+    """現在ページの記録が1件も無い書籍は、補填の根拠が無いため既定値（1）を置くこと。
+    NOT NULL化で行が失われないことが目的であり、利用者が書籍編集で訂正する前提。"""
+    db_path = tmp_path / "reading_page_fields_migration_no_log.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("f2b7c4a91d3e")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'READING', '読書目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO book (id, goal_id, title, total_pages, start_date, due_date, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '記録の無い本', NULL, '2026-01-01', '2026-06-30', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        total_pages = connection.execute("SELECT total_pages FROM book WHERE id = 1").fetchone()[0]
+    finally:
+        connection.close()
+
+    assert total_pages == 1

@@ -156,6 +156,7 @@ def test_list_pending_weeks_excludes_reading_goals(seeded_session):
     book = Book(
         goal_id=reading_goal.id,
         title="書籍A",
+        total_pages=300,
         start_date=dt.date(2026, 1, 1),
         due_date=dt.date(2026, 12, 31),
     )

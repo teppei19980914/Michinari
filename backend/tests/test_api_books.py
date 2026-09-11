@@ -199,7 +199,10 @@ def test_create_book_without_total_pages_is_rejected(client):
         json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-06-30"},
     )
 
-    assert response.status_code == 422, response.text
+    assert response.status_code == 400, response.text
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert [d["loc"] for d in body["error"]["details"]] == [["body", "total_pages"]]
 
 
 def test_update_book_rejects_start_date_after_due_date(client):

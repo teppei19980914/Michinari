@@ -372,9 +372,7 @@ def _make_book(session, goal, **overrides):
 
 
 def _reading_log(book_id, **overrides):
-    defaults = dict(
-        book_id=book_id, recall_body="今日読んだ内容の想起", pages_read=10, current_page=10
-    )
+    defaults = dict(book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10)
     defaults.update(overrides)
     return ReadingLogItem(**defaults)
 
@@ -390,6 +388,45 @@ def test_register_progress_creates_reading_log(seeded_session):
 
     assert len(record.reading_logs) == 1
     assert record.reading_logs[0].recall_body == "今日読んだ内容の想起"
+
+
+def test_register_progress_rejects_current_page_over_total_pages(seeded_session):
+    """現在ページが総ページ数を超える入力は拒否する（進捗率が100%を超えないようにする、
+    仕様変更2026-09-11）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, total_pages=300)
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service.register_progress(
+            seeded_session, today, [], today, [_reading_log(book.id, current_page=301)]
+        )
+
+
+def test_register_progress_accepts_current_page_equal_to_total_pages(seeded_session):
+    """境界値。読了位置ちょうど（＝進捗率100%）は受け付けること。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, total_pages=300)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, [_reading_log(book.id, current_page=300)]
+    )
+
+    assert record.reading_logs[0].current_page == 300
+
+
+def test_register_progress_accepts_reading_log_without_current_page(seeded_session):
+    """現在ページは任意入力のまま（要件定義書R-65）。未入力でも登録できること。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session, today, [], today, [_reading_log(book.id, current_page=None)]
+    )
+
+    assert record.reading_logs[0].current_page is None
 
 
 def test_register_progress_rejects_when_both_lists_empty(seeded_session):
@@ -1004,7 +1041,6 @@ def test_register_progress_records_reading_slot_minutes(seeded_session):
             ReadingLogItem(
                 book_id=book.id,
                 recall_body="想起",
-                pages_read=None,
                 current_page=None,
                 slot_minutes={slot.id: 25},
             )

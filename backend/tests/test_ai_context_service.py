@@ -935,6 +935,9 @@ def test_build_daily_book_summary_text_handles_no_books(seeded_session):
 
 
 def test_build_today_recall_text_includes_book_title_and_recall_body(seeded_session):
+    """ページに関する数値は注入しない（仕様変更2026-09-11）。読書の日次報告は評価の場では
+    ないため、プロンプト本文の「ページ数や読了ペースを評価しないでください」（17.6）と
+    矛盾しないよう、現在ページは画面表示専用とし文脈からも外す。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="達人プログラマー")
     item = ReadingLogItem(
@@ -945,8 +948,8 @@ def test_build_today_recall_text_includes_book_title_and_recall_body(seeded_sess
 
     assert "達人プログラマー" in text
     assert "DRY原則の話が印象的だった" in text
-    assert "読んだページ数 20" in text
-
+    assert "ページ" not in text
+    assert "20" not in text
 
 def test_build_today_recall_text_handles_no_items():
     text = ai_context_service.build_today_recall_text([], {})

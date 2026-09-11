@@ -367,6 +367,7 @@ def test_book_cascade_deletes_with_goal(db_session):
     book = Book(
         goal_id=goal.id,
         title="実績なしの書籍",
+        total_pages=300,
         start_date=dt.date(2026, 7, 1),
         due_date=dt.date(2026, 8, 31),
     )
@@ -390,6 +391,7 @@ def test_book_goal_id_unique_constraint(db_session):
         Book(
             goal_id=goal.id,
             title="1冊目",
+            total_pages=300,
             start_date=dt.date(2026, 7, 1),
             due_date=dt.date(2026, 8, 1),
         )
@@ -400,6 +402,7 @@ def test_book_goal_id_unique_constraint(db_session):
         Book(
             goal_id=goal.id,
             title="2冊目",
+            total_pages=300,
             start_date=dt.date(2026, 7, 1),
             due_date=dt.date(2026, 8, 1),
         )
@@ -417,6 +420,7 @@ def test_book_delete_restricted_when_reading_log_exists(db_session):
     book = Book(
         goal_id=goal.id,
         title="実績ありの書籍",
+        total_pages=300,
         start_date=dt.date(2026, 8, 1),
         due_date=dt.date(2026, 9, 1),
     )
@@ -451,6 +455,7 @@ def test_reading_log_unique_book_and_daily_record(db_session):
     book = Book(
         goal_id=goal.id,
         title="重複検証用書籍",
+        total_pages=300,
         start_date=dt.date(2026, 8, 1),
         due_date=dt.date(2026, 9, 1),
     )
