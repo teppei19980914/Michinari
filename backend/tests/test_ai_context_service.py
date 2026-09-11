@@ -878,6 +878,7 @@ def _make_book(session, goal, **overrides):
     defaults = dict(
         goal_id=goal.id,
         title="書籍A",
+        total_pages=300,
         start_date=dt.date(2026, 1, 1),
         due_date=dt.date(2026, 12, 31),
     )
@@ -937,7 +938,7 @@ def test_build_today_recall_text_includes_book_title_and_recall_body(seeded_sess
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="達人プログラマー")
     item = ReadingLogItem(
-        book_id=book.id, recall_body="DRY原則の話が印象的だった", pages_read=20, current_page=20
+        book_id=book.id, recall_body="DRY原則の話が印象的だった", current_page=20
     )
 
     text = ai_context_service.build_today_recall_text([item], {book.id: book})

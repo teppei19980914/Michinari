@@ -24,7 +24,7 @@ def _create_exam_goal(client, name="資格目標A", start_date="2026-01-01"):
 
 
 def _add_book(
-    client, goal_id, title="書籍A", total_pages=None, start_date="2026-01-01", due_date="2026-06-30"
+    client, goal_id, title="書籍A", total_pages=300, start_date="2026-01-01", due_date="2026-06-30"
 ):
     payload = {
         "title": title,
@@ -86,7 +86,12 @@ def test_create_second_book_is_rejected(client):
 
     response = client.post(
         f"/api/v1/goals/{goal['id']}/book",
-        json={"title": "2冊目", "start_date": "2026-01-01", "due_date": "2026-06-30"},
+        json={
+            "title": "2冊目",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-06-30",
+        },
     )
 
     assert response.status_code == 400
@@ -98,7 +103,12 @@ def test_create_book_on_exam_goal_is_rejected(client):
 
     response = client.post(
         f"/api/v1/goals/{goal['id']}/book",
-        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-06-30"},
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-06-30",
+        },
     )
 
     assert response.status_code == 400
@@ -110,7 +120,12 @@ def test_create_book_rejects_start_date_after_due_date(client):
 
     response = client.post(
         f"/api/v1/goals/{goal['id']}/book",
-        json={"title": "書籍A", "start_date": "2026-06-30", "due_date": "2026-01-01"},
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-06-30",
+            "due_date": "2026-01-01",
+        },
     )
 
     assert response.status_code == 400
@@ -150,22 +165,41 @@ def test_update_book_author_start_date_and_due_date(client):
     assert body["due_date"] == "2026-07-31"
 
 
-def test_update_book_clears_author_and_total_pages_with_explicit_null(client):
+def test_update_book_clears_author_with_explicit_null(client):
     """NULL許容列は明示的なnullで空へ戻せる（未指定との区別、constants/sentinels.py）。
-    総ページ数のクリアは進捗率・現在ページ入力欄の非表示を意味する有効な操作。"""
+    総ページ数は必須化（2026-09-11）によりクリアできないため、番兵の対象はauthorのみ。"""
     goal = _create_reading_goal(client)
     book = _add_book(client, goal["id"])
-    client.patch(f"/api/v1/books/{book['id']}", json={"author": "夏目漱石", "total_pages": 300})
+    client.patch(f"/api/v1/books/{book['id']}", json={"author": "夏目漱石"})
 
-    response = client.patch(
-        f"/api/v1/books/{book['id']}", json={"author": None, "total_pages": None}
-    )
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"author": None})
 
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["author"] is None
-    assert body["total_pages"] is None
-    assert body["progress_rate"] is None
+
+
+def test_update_book_with_null_total_pages_keeps_current_value(client):
+    """総ページ数のnullは「未指定」であり、既存値を保持する（クリアという操作は無い）。"""
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"], total_pages=300)
+
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"total_pages": None})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["total_pages"] == 300
+
+
+def test_create_book_without_total_pages_is_rejected(client):
+    """総ページ数は必須（要件定義書R-70改訂、2026-09-11）。進捗率を常に算出するため。"""
+    goal = _create_reading_goal(client)
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-06-30"},
+    )
+
+    assert response.status_code == 422, response.text
 
 
 def test_update_book_rejects_start_date_after_due_date(client):

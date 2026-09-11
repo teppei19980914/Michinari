@@ -169,7 +169,6 @@ def _add_reading_log(session, book, record_date, **overrides):
         daily_record_id=record.id,
         book_id=book.id,
         recall_body="今日読んだ内容の想起",
-        pages_read=10,
         current_page=50,
     )
     defaults.update(overrides)

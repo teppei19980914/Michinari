@@ -245,7 +245,12 @@ def _make_active_reading_goal_with_book(client):
     ).json()
     book = client.post(
         f"/api/v1/goals/{goal['id']}/book",
-        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-12-31"},
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-12-31",
+        },
     ).json()
     activated = client.post(f"/api/v1/goals/{goal['id']}/activate")
     assert activated.status_code == 200, activated.text
@@ -261,7 +266,7 @@ def test_register_progress_endpoint_accepts_reading_only(client):
         f"/api/v1/records/{target}/progress",
         json={
             "reading_logs": [
-                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "pages_read": 10}
+                {"book_id": book["id"], "recall_body": "今日読んだ内容の想起", "current_page": 10}
             ]
         },
     )

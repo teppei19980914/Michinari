@@ -345,7 +345,6 @@ def test_book_and_reading_log_crud(db_session):
         daily_record_id=daily_record.id,
         book_id=book.id,
         recall_body="第1章を読んだ。DRY原則の話が印象的だった。",
-        pages_read=20,
         current_page=20,
     )
     db_session.add(reading_log)

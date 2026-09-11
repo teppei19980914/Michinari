@@ -29,7 +29,7 @@ def _make_reading_goal(session, *, name="読書目標") -> Goal:
     return goal
 
 
-def _make_book(session, goal, *, total_pages=None, due_date=dt.date(2026, 3, 1)) -> Book:
+def _make_book(session, goal, *, total_pages=300, due_date=dt.date(2026, 3, 1)) -> Book:
     book = Book(
         goal_id=goal.id,
         title="書籍A",
@@ -96,14 +96,42 @@ def test_current_page_falls_back_to_latest_non_null_value(db_session):
     assert progress.current_page == 10
 
 
-def test_progress_rate_is_none_when_total_pages_not_set(db_session):
+def test_progress_rate_is_none_when_current_page_never_entered(db_session):
+    """総ページ数は必須（R-70改訂）のため、進捗率がNoneになるのは現在ページが1度も
+    入力されていない場合だけである。"""
     goal = _make_reading_goal(db_session)
-    book = _make_book(db_session, goal, total_pages=None)
-    _add_reading_log(db_session, book.id, dt.date(2026, 1, 1), current_page=10)
+    book = _make_book(db_session, goal, total_pages=300)
+    _add_reading_log(db_session, book.id, dt.date(2026, 1, 1), current_page=None)
 
     progress = book_service.get_book_progress(db_session, book, dt.date(2026, 1, 5))
 
     assert progress.progress_rate is None
+
+
+def test_progress_rate_is_clamped_to_one_when_current_page_exceeds_total_pages(db_session):
+    """総ページ数を現在ページより小さい値へ引き下げる訂正を許容するため（仕様変更
+    2026-09-11）、current_page > total_pages が成立しうる。進捗率が100%を超えることは
+    許されないため、算出側でクランプされること。"""
+    goal = _make_reading_goal(db_session)
+    book = _make_book(db_session, goal, total_pages=300)
+    _add_reading_log(db_session, book.id, dt.date(2026, 1, 1), current_page=250)
+    book_service.update_book(db_session, book, total_pages=200)
+
+    progress = book_service.get_book_progress(db_session, book, dt.date(2026, 1, 5))
+
+    assert progress.current_page == 250
+    assert progress.progress_rate == 1.0
+
+
+def test_progress_rate_is_exactly_one_when_current_page_equals_total_pages(db_session):
+    """境界値。読了位置ちょうどは100%であり、クランプの対象にならないこと。"""
+    goal = _make_reading_goal(db_session)
+    book = _make_book(db_session, goal, total_pages=300)
+    _add_reading_log(db_session, book.id, dt.date(2026, 1, 1), current_page=300)
+
+    progress = book_service.get_book_progress(db_session, book, dt.date(2026, 1, 5))
+
+    assert progress.progress_rate == 1.0
 
 
 def test_no_reading_logs_returns_none_last_date_and_zero_streak(db_session):

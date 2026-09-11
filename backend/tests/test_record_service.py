@@ -360,6 +360,7 @@ def _make_book(session, goal, **overrides):
     defaults = dict(
         goal_id=goal.id,
         title="書籍A",
+        total_pages=300,
         start_date=dt.date(2026, 1, 1),
         due_date=dt.date(2026, 12, 31),
     )

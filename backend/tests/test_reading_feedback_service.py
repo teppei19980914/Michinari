@@ -58,6 +58,7 @@ def _make_book(session, goal, **overrides):
     defaults = dict(
         goal_id=goal.id,
         title="書籍A",
+        total_pages=300,
         start_date=dt.date(2026, 1, 1),
         due_date=dt.date(2026, 12, 31),
     )
@@ -89,7 +90,7 @@ def _make_exam_goal_with_material(session, name="資格目標A"):
 
 def _reading_log(book_id, **overrides):
     defaults = dict(
-        book_id=book_id, recall_body="今日読んだ内容の想起", pages_read=10, current_page=10
+        book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10
     )
     defaults.update(overrides)
     return ReadingLogItem(**defaults)
