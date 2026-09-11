@@ -356,7 +356,7 @@ def test_reading_log_analytics_returns_entries_newest_first(client):
     client.post(
         f"/api/v1/records/{newer}/progress",
         json={
-            "reading_logs": [{"book_id": book_id, "recall_body": "2日目の想起", "pages_read": 10}]
+            "reading_logs": [{"book_id": book_id, "recall_body": "2日目の想起", "current_page": 10}]
         },
     )
 
@@ -366,7 +366,7 @@ def test_reading_log_analytics_returns_entries_newest_first(client):
     body = response.json()
     assert [e["record_date"] for e in body] == [newer, older]
     assert body[0]["recall_body"] == "2日目の想起"
-    assert body[0]["pages_read"] == 10
+    assert body[0]["current_page"] == 10
 
 
 def test_reading_log_analytics_returns_empty_when_book_not_registered(client):

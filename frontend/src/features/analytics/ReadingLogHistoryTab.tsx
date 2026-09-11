@@ -31,20 +31,7 @@ export function ReadingLogHistoryTab({ goalId }: ReadingLogHistoryTabProps) {
         <Card key={`${entry.record_date}-${index}`}>
           <p className="mb-1 text-xs text-gray-400">{entry.record_date}</p>
           <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.recall_body}</p>
-          {entry.pages_read !== null && entry.current_page !== null && (
-            <p className="mt-2 text-xs text-gray-500">
-              {t('analytics.readingLog.pagesAndCurrentLabel', {
-                pages: entry.pages_read,
-                page: entry.current_page,
-              })}
-            </p>
-          )}
-          {entry.pages_read !== null && entry.current_page === null && (
-            <p className="mt-2 text-xs text-gray-500">
-              {t('analytics.readingLog.pagesReadLabel', { pages: entry.pages_read })}
-            </p>
-          )}
-          {entry.pages_read === null && entry.current_page !== null && (
+          {entry.current_page !== null && (
             <p className="mt-2 text-xs text-gray-500">
               {t('analytics.readingLog.currentPageLabel', { page: entry.current_page })}
             </p>

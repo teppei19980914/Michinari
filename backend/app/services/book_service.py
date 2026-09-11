@@ -27,6 +27,13 @@ from app.services.exceptions import (
 
 _MSG_START_DATE_AFTER_DUE_DATE = "読書開始日は読了目標日より前の日付にしてください"
 
+#: 進捗率の上限（100%）。総ページ数を後から現在ページより小さい値へ引き下げる訂正を
+#: 許容する（仕様変更2026-09-11）ため、current_page > total_pages が一時的に成立しうる。
+#: 進捗率が100%を超えて表示されることは許されないため、算出側でクランプする。
+#: クランプは読書進捗に限定した仕様であり、教材・目標の進捗率（metrics_service.
+#: compute_progress_rate）は予定量を超えて進めることが正当なため非クランプのままとする。
+_PROGRESS_RATE_MAX = 1.0
+
 
 def get_book(session: Session, book_id: int) -> Book:
     book = session.get(Book, book_id)
@@ -46,7 +53,7 @@ def create_book(
     *,
     title: str,
     author: str | None,
-    total_pages: int | None,
+    total_pages: int,
     start_date: dt.date,
     due_date: dt.date,
 ) -> Book:
@@ -76,21 +83,24 @@ def update_book(
     *,
     title: str | None = None,
     author: str | None = UNSET,
-    total_pages: int | None = UNSET,
+    total_pages: int | None = None,
     start_date: dt.date | None = None,
     due_date: dt.date | None = None,
 ) -> Book:
     goal_service.ensure_goal_editable(book.goal)
 
-    # title・start_date・due_dateはNOT NULL列のためNone＝未指定で曖昧さがない。
-    # author・total_pagesはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
-    # （総ページ数のクリアは、進捗率・現在ページ入力欄の非表示を意味する有効な操作。
-    # constants/sentinels.py）。
+    # title・total_pages・start_date・due_dateはNOT NULL列のためNone＝未指定で曖昧さが
+    # ない。authorのみNULL許容であり「未指定」と「明示的なクリア」を番兵で区別する
+    # （constants/sentinels.py）。総ページ数は必須化（2026-09-11）によりクリアという操作
+    # 自体が無くなったため、番兵の対象から外した。
     if title is not None:
         book.title = title
     if author is not UNSET:
         book.author = author
-    if total_pages is not UNSET:
+    # 現在ページより小さい値への引き下げも許容する。誤記の訂正手段を残すためであり
+    # （確定済みの日次報告は変更できず、現在ページを先に直せないケースがある）、その結果
+    # 上限を超える既存データは get_book_progress のクランプで吸収する。
+    if total_pages is not None:
         book.total_pages = total_pages
     if start_date is not None:
         book.start_date = start_date
@@ -155,8 +165,12 @@ def get_book_progress(session: Session, book: Book, today: dt.date) -> BookProgr
         streak += 1
         day -= dt.timedelta(days=1)
 
+    # 総ページ数は必須のため、現在ページが1度でも入力されていれば必ず算出できる
+    # （旧仕様の「総ページ数が未設定なら進捗率なし」という分岐は廃止、要件定義書R-70改訂）。
     progress_rate = (
-        current_page / book.total_pages if current_page is not None and book.total_pages else None
+        min(current_page / book.total_pages, _PROGRESS_RATE_MAX)
+        if current_page is not None
+        else None
     )
 
     return BookProgress(

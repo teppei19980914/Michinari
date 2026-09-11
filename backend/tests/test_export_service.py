@@ -16,7 +16,6 @@ from app.constants.enums import (
     PassingScoreType,
     QualityMetricType,
 )
-from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
 from app.models.record import (
@@ -33,6 +32,7 @@ from app.models.record import (
 from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
 from app.services import export_progress, export_service
+from tests import reading_helpers
 
 
 @pytest.fixture(autouse=True)
@@ -132,31 +132,14 @@ def _add_study_log(session, material, record_date, **overrides):
 
 
 def _make_reading_goal(session, name="読書目標A"):
-    goal = Goal(
-        name=name,
-        category=GoalCategory.READING,
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
+    return reading_helpers.make_reading_goal(session, name=name)
 
 
 def _make_book(session, goal, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        title="書籍A",
-        author="著者A",
-        total_pages=300,
-        start_date=dt.date(2026, 1, 1),
-        due_date=dt.date(2026, 3, 1),
-    )
+    """エクスポートの検証では著者名と読了目標日を固定したいため、既定値を上書きする。"""
+    defaults = dict(author="著者A", due_date=dt.date(2026, 3, 1))
     defaults.update(overrides)
-    book = Book(**defaults)
-    session.add(book)
-    session.flush()
-    return book
+    return reading_helpers.make_book(session, goal.id, **defaults)
 
 
 def _add_reading_log(session, book, record_date, **overrides):
@@ -169,7 +152,6 @@ def _add_reading_log(session, book, record_date, **overrides):
         daily_record_id=record.id,
         book_id=book.id,
         recall_body="今日読んだ内容の想起",
-        pages_read=10,
         current_page=50,
     )
     defaults.update(overrides)

@@ -156,7 +156,6 @@ class ReadingLogEntryRead(BaseModel):
 
     record_date: dt.date
     recall_body: str
-    pages_read: int | None
     current_page: int | None
 
 

@@ -15,14 +15,15 @@ export type ReadingLogFormValue = {
   recallBody: string
   /** 時間枠ごとの読書時間。読書もリソース配分の対象（要件定義書R-64）。 */
   slotMinutes: SlotMinutesFormValue
-  pagesRead: string
+  /** 現在ページ（任意）。ページの入力欄はこれ1つだけとし、「読んだページ数」は
+   * 持たない（仕様変更2026-09-11）。画面上の進捗率表示のためだけの値であり、
+   * AIフィードバックの評価対象にはしない（要件定義書R-66・R-71）。 */
   currentPage: string
 }
 
 const EMPTY_VALUE: ReadingLogFormValue = {
   recallBody: '',
   slotMinutes: {},
-  pagesRead: '',
   currentPage: '',
 }
 
@@ -44,7 +45,6 @@ export function initReadingLogFormValues(
     result[book.id] = {
       recallBody: existing.recall_body,
       slotMinutes: initSlotMinutes([], existing.slot_minutes),
-      pagesRead: existing.pages_read === null ? '' : String(existing.pages_read),
       currentPage: existing.current_page === null ? '' : String(existing.current_page),
     }
   }
@@ -67,7 +67,6 @@ export function buildReadingLogPayload(
       book_id: Number(bookId),
       recall_body: value.recallBody,
       slot_minutes: buildSlotMinutesPayload(value.slotMinutes),
-      pages_read: value.pagesRead.trim() === '' ? null : Number(value.pagesRead),
       current_page: value.currentPage.trim() === '' ? null : Number(value.currentPage),
     }))
 }

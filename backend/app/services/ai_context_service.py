@@ -694,19 +694,16 @@ def build_daily_book_summary_text(books: list[Book], today: dt.date) -> str:
 
 
 def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, Book]) -> str:
-    """{{today_recall}}（DAILY_FEEDBACK_READING、17.6）: 本日の想起本文、読んだページ数、
-    現在ページ（入力があれば）。"""
+    """{{today_recall}}（DAILY_FEEDBACK_READING、17.6）: 本日の想起本文。
+
+    ページに関する数値は一切注入しない（仕様変更2026-09-11）。読書の日次報告は評価の場
+    ではなく利用者の思いを引き出す場であり（要件定義書R-66）、プロンプト本文も「ページ数や
+    読了ペースを評価しないでください」と明示している（17.6）。評価に用いない数値を渡すのは
+    その指示と矛盾するため、現在ページは画面上の進捗表示（21.2）専用とし注入対象から外す。
+    """
     if not items:
         return "（本日の想起入力はまだありません）"
-    lines = []
-    for item in items:
-        book = books_by_id[item.book_id]
-        pages_text = f"、読んだページ数 {item.pages_read}" if item.pages_read is not None else ""
-        current_page_text = (
-            f"、現在ページ {item.current_page}" if item.current_page is not None else ""
-        )
-        lines.append(f"■ {book.title}{pages_text}{current_page_text}\n{item.recall_body}")
-    return "\n\n".join(lines)
+    return "\n\n".join(f"■ {books_by_id[item.book_id].title}\n{item.recall_body}" for item in items)
 
 
 def build_recent_recalls_text(

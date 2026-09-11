@@ -146,7 +146,15 @@ class StudyLogSlotTime(Base):
 
 
 class ReadingLog(CreatedAtMixin, Base):
-    """読書記録。study_logの読書版（定量実績ではなく想起した内容を自由記述で保持する）。"""
+    """読書記録。study_logの読書版（定量実績ではなく想起した内容を自由記述で保持する）。
+
+    ページの数値項目は current_page（現在ページ）のみを持つ。「読んだページ数」（旧
+    pages_read）は廃止した（仕様変更2026-09-11）。読書は記録・活用型の目標であり定量的な
+    進捗管理を行わない（要件定義書6.10・R-71）ため、投下量の指標である「その日に読んだ
+    ページ数」を保持する理由がなく、日次フィードバックのプロンプト（ロジック・プロンプト編
+    17.6）自体がページ数の評価を禁じているためである。current_page は画面上の進捗率表示
+    （ロジック・プロンプト編21.2）のためだけに持つ。
+    """
 
     __tablename__ = "reading_log"
     __table_args__ = (
@@ -163,7 +171,6 @@ class ReadingLog(CreatedAtMixin, Base):
     #: 読書時間（分）。reading_log_slot_time の合計。読書はリソース配分の対象だが
     #: 実効速度・完了予測を持たないため、集計・表示・AI文脈にのみ用いる（R-64・R-71）。
     minutes_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    pages_read: Mapped[int | None] = mapped_column(Integer, nullable=True)
     current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="reading_logs")
