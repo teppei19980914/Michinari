@@ -7,10 +7,26 @@
 import subprocess
 from pathlib import Path
 
-from publish_release import build_release_command, build_upload_command, publish
+from publish_release import (
+    build_release_command,
+    build_upload_command,
+    publish,
+    release_tag,
+    release_title,
+)
 
 
-def test_build_release_command_uses_v_prefixed_tag() -> None:
+def test_release_tag_matches_published_naming() -> None:
+    """公開済みリリース（`ver1.0.0`/`ver1.1.0`）と同じタグ命名であること。"""
+    assert release_tag("1.2.3") == "ver1.2.3"
+
+
+def test_release_title_matches_published_naming() -> None:
+    """公開済みリリース（`Michinari-v1.1.0`）と同じ表題であること。"""
+    assert release_title("1.2.3") == "Michinari-v1.2.3"
+
+
+def test_build_release_command_uses_published_tag_and_title() -> None:
     zip_path = Path("dist/Michinari.zip")
 
     result = build_release_command("1.2.3", zip_path)
@@ -19,10 +35,10 @@ def test_build_release_command_uses_v_prefixed_tag() -> None:
         "gh",
         "release",
         "create",
-        "v1.2.3",
+        "ver1.2.3",
         str(zip_path),
         "--title",
-        "v1.2.3",
+        "Michinari-v1.2.3",
         "--generate-notes",
     ]
 
@@ -32,7 +48,7 @@ def test_build_upload_command_clobbers_existing_asset() -> None:
 
     result = build_upload_command("1.2.3", zip_path)
 
-    assert result == ["gh", "release", "upload", "v1.2.3", str(zip_path), "--clobber"]
+    assert result == ["gh", "release", "upload", "ver1.2.3", str(zip_path), "--clobber"]
 
 
 def test_publish_exits_when_zip_missing(tmp_path: Path) -> None:

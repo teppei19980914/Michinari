@@ -21,21 +21,35 @@ REPO_ROOT = BACKEND_DIR.parent
 DIST_DIR = BACKEND_DIR / "dist"
 
 
+def release_tag(version: str) -> str:
+    """公開済みリリース（`ver1.0.0`/`ver1.1.0`）と同じタグ命名を返す。
+
+    タグ名は公開済みリリースのURLに含まれ、READMEや外部からの参照先になるため、
+    既存の命名へスクリプト側を合わせる（過去タグの付け替えは参照を壊すため行わない）。
+    """
+    return f"ver{version}"
+
+
+def release_title(version: str) -> str:
+    """公開済みリリース（`Michinari-v1.0.0`/`Michinari-v1.1.0`）と同じ表題を返す。"""
+    return f"{APP_NAME}-v{version}"
+
+
 def build_release_command(version: str, zip_path: Path) -> list[str]:
     return [
         "gh",
         "release",
         "create",
-        f"v{version}",
+        release_tag(version),
         str(zip_path),
         "--title",
-        f"v{version}",
+        release_title(version),
         "--generate-notes",
     ]
 
 
 def build_upload_command(version: str, zip_path: Path) -> list[str]:
-    return ["gh", "release", "upload", f"v{version}", str(zip_path), "--clobber"]
+    return ["gh", "release", "upload", release_tag(version), str(zip_path), "--clobber"]
 
 
 def publish(version: str, zip_path: Path) -> None:

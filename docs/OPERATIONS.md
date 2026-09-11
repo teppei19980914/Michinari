@@ -528,10 +528,13 @@ uv run python scripts/build_package.py
 uv run python scripts/publish_release.py
 ```
 
-`publish_release.py` はバージョンを`pyproject.toml`から自動取得し、`v{version}`タグで
-`gh release create ... --generate-notes` を実行する（アップロードするzipファイル名も
-`build_package.py`と同じ`Michinari-v{version}.zip`を使う。命名規則は
-`build_package.distribution_zip_filename`に集約し、二重管理しない）。同じバージョンで
+`publish_release.py` はバージョンを`pyproject.toml`から自動取得し、`ver{version}`タグ・
+`Michinari-v{version}`の表題で `gh release create ... --generate-notes` を実行する
+（アップロードするzipファイル名も`build_package.py`と同じ`Michinari-v{version}.zip`を使う。
+命名規則は`build_package.distribution_zip_filename`に集約し、二重管理しない）。タグ・表題は
+公開済みリリース（`ver1.0.0`/`ver1.1.0`、`Michinari-v1.0.0`/`Michinari-v1.1.0`）の命名へ
+スクリプト側を合わせたものである（タグ名はReleaseページの固定URLに含まれ、READMEや外部からの
+参照先になるため、過去タグの付け替えは行わない）。同じバージョンで
 再実行するなど既にタグ・Releaseが存在する場合は、自動的に `gh release upload ... --clobber`
 へフォールバックしてzipを差し替える。`build_package.py`からは一切自動呼び出しされない
 （GitHub上で他者から見える公開操作のため、公開したいタイミングで開発者が明示的に
