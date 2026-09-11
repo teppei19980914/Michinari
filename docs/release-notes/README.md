@@ -31,8 +31,11 @@ Releases 一覧ページは各リリースの本文を全文レンダリング�
    ```
 
 3. このファイルの表へ1行追加する
-4. `backend/scripts/publish_release.py` を実行する。要約ブロックを抽出し、ダウンロード
-   導線と詳細ノートへのリンクを付けた本文を `gh release create --notes-file` へ渡す
+4. 1〜3をコミットし、`main` へマージする（本文からのリンク先が `main` を指すため）
+5. クリーンな作業ツリーで `backend/scripts/build_package.py` を実行する
+6. `backend/scripts/publish_release.py` を実行する。要約ブロックを抽出し、ダウンロード
+   導線と詳細ノートへのリンクを付けた本文を `gh release create --notes-file` へ渡す。
+   タグはビルド元コミット（`--target`）へ付く
 
 要約に必ず残すもの: このバージョンで何ができるようになったかの1〜2文、主な変更の箇条書き
 3〜6項目、**破壊的変更と移行時の注意**。不具合修正の一覧・開発者向け補足は詳細側へ置く。
