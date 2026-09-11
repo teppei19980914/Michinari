@@ -703,11 +703,8 @@ def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, 
     """
     if not items:
         return "（本日の想起入力はまだありません）"
-    return "
-
-".join(
-        f"■ {books_by_id[item.book_id].title}
-{item.recall_body}" for item in items
+    return "\n\n".join(
+        f"■ {books_by_id[item.book_id].title}\n{item.recall_body}" for item in items
     )
 
 

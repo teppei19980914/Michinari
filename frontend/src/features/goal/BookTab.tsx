@@ -34,7 +34,7 @@ function BookForm({
   const [title, setTitle] = useState(resolveInitialBookTitle(book?.title, goalName))
   const [author, setAuthor] = useState(book?.author ?? '')
   const [totalPages, setTotalPages] = useState(
-    book?.total_pages === null || book?.total_pages === undefined ? '' : String(book.total_pages),
+    book?.total_pages === undefined ? '' : String(book.total_pages),
   )
   const [startDate, setStartDate] = useState(book?.start_date ?? '')
   const [dueDate, setDueDate] = useState(book?.due_date ?? '')
@@ -42,7 +42,7 @@ function BookForm({
   const payload = {
     title,
     author: author === '' ? null : author,
-    total_pages: totalPages.trim() === '' ? null : Number(totalPages),
+    total_pages: Number(totalPages),
     start_date: startDate,
     due_date: dueDate,
   }
@@ -80,6 +80,7 @@ function BookForm({
             min={1}
             value={totalPages}
             onChange={(e) => setTotalPages(e.target.value)}
+            required
           />
         </label>
         <div className="flex gap-2">

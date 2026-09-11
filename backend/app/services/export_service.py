@@ -405,7 +405,6 @@ def _build_reading_daily_records(session: Session, book: Book) -> list[dict]:
         session.query(
             DailyRecord.record_date,
             ReadingLog.recall_body,
-            ReadingLog.pages_read,
             ReadingLog.current_page,
         )
         .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
@@ -417,10 +416,9 @@ def _build_reading_daily_records(session: Session, book: Book) -> list[dict]:
         {
             "date": record_date.isoformat(),
             "recall": recall_body,
-            "pages_read": pages_read,
             "current_page": current_page,
         }
-        for record_date, recall_body, pages_read, current_page in rows
+        for record_date, recall_body, current_page in rows
     ]
 
 
@@ -629,14 +627,13 @@ def _render_reading_markdown(data: dict) -> str:
     if "daily_records" in data:
         rows = "\n".join(
             f"| {r['date']} | {r['recall']} | "
-            f"{r['pages_read'] if r['pages_read'] is not None else '-'} | "
             f"{r['current_page'] if r['current_page'] is not None else '-'} |"
             for r in data["daily_records"]
         )
         sections.append(
             "## 4. 付録：日別の想起記録\n\n"
-            "| 日付 | 想起内容 | 読んだページ数 | 現在ページ |\n"
-            "| --- | --- | --- | --- |\n"
+            "| 日付 | 想起内容 | 現在ページ |\n"
+            "| --- | --- | --- |\n"
             f"{rows}"
         )
 

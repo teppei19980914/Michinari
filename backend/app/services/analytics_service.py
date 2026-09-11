@@ -169,7 +169,6 @@ class ReadingLogEntry:
 
     record_date: dt.date
     recall_body: str
-    pages_read: int | None
     current_page: int | None
 
 
@@ -184,7 +183,6 @@ def list_reading_log_entries(session: Session, book: Book) -> list[ReadingLogEnt
         session.query(
             DailyRecord.record_date,
             ReadingLog.recall_body,
-            ReadingLog.pages_read,
             ReadingLog.current_page,
         )
         .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
@@ -193,9 +191,7 @@ def list_reading_log_entries(session: Session, book: Book) -> list[ReadingLogEnt
         .all()
     )
     return [
-        ReadingLogEntry(
-            record_date=row[0], recall_body=row[1], pages_read=row[2], current_page=row[3]
-        )
+        ReadingLogEntry(record_date=row[0], recall_body=row[1], current_page=row[2])
         for row in rows
     ]
 

@@ -311,7 +311,7 @@
       "empty": "書籍が未登録です",
       "titleLabel": "書名",
       "authorLabel": "著者",
-      "totalPagesLabel": "総ページ数（任意）",
+      "totalPagesLabel": "総ページ数",
       "startDateLabel": "読書開始日",
       "dueDateLabel": "読了目標日",
       "remainingDaysLabel": "残日数",
@@ -648,7 +648,6 @@
       "remainingDays": "読了目標まで残り{{days}}日",
       "recallLabel": "今日読んだ内容の想起",
       "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
-      "pagesReadLabel": "読んだページ数",
       "currentPageLabel": "現在ページ（全{{total}}ページ）",
       "finalizeButton": "読書の報告を確定する",
       "slotMinutesLabel": "時間枠ごとの読書時間"
@@ -705,7 +704,6 @@
     "readingLog": {
       "title": "想起の記録",
       "unknownBook": "書籍ID: {{id}}",
-      "pagesRead": "読んだページ数",
       "currentPage": "現在ページ"
     },
     "readingChatHistory": {
@@ -799,9 +797,7 @@
     },
     "readingLog": {
       "empty": "想起記録はまだありません",
-      "pagesReadLabel": "読んだページ数: {{pages}}",
-      "currentPageLabel": "現在ページ: {{page}}",
-      "pagesAndCurrentLabel": "読んだページ数: {{pages}}　現在ページ: {{page}}"
+      "currentPageLabel": "現在ページ: {{page}}"
     },
     "workLog": {
       "empty": "業務記録はまだありません"

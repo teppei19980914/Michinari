@@ -281,7 +281,6 @@ def get_reading_log_analytics(
         ReadingLogEntryRead(
             record_date=e.record_date,
             recall_body=e.recall_body,
-            pages_read=e.pages_read,
             current_page=e.current_page,
         )
         for e in entries

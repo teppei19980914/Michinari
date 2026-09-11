@@ -103,7 +103,6 @@ def _serialize_reading_log(log) -> ReadingLogRead:
         recall_body=log.recall_body,
         minutes_spent=log.minutes_spent,
         slot_minutes=_serialize_slot_minutes(log.slot_times),
-        pages_read=log.pages_read,
         current_page=log.current_page,
     )
 
@@ -114,7 +113,6 @@ def _to_reading_log_items(inputs: list[ReadingLogInput]) -> list[ReadingLogItem]
             book_id=item.book_id,
             recall_body=item.recall_body,
             slot_minutes=_to_slot_minutes(item.slot_minutes),
-            pages_read=item.pages_read,
             current_page=item.current_page,
         )
         for item in inputs

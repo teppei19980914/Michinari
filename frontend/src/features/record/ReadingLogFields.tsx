@@ -17,7 +17,7 @@ type ReadingLogFieldsProps = {
   slotNames: Map<number, string>
 }
 
-/** 想起入力欄（書籍別の想起本文・任意のページ数）。SC-06の読書用実績入力
+/** 想起入力欄（書籍別の想起本文・任意の現在ページ）。SC-06の読書用実績入力
  * （仕様書6.5「読書目標の実績入力」、要件定義書R-65）。StudyLogFieldsと対になる。
  * 資格試験と異なり日次ノルマは持たないため、書名・読了目標日までの残日数のみ表示する。 */
 export function ReadingLogFields({
@@ -67,29 +67,16 @@ export function ReadingLogFields({
                 onChangeSlotMinutes(book.id, { ...value.slotMinutes, [slotId]: '' })
               }
             />
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <label className="flex flex-col gap-1 text-xs text-gray-600">
-                {t('dailyReport.readingLog.pagesReadLabel')}
-                <Input
-                  type="number"
-                  min={0}
-                  value={value.pagesRead}
-                  onChange={(e) => onChangeField(book.id, 'pagesRead', e.target.value)}
-                />
-              </label>
-              {book.total_pages !== null && (
-                <label className="flex flex-col gap-1 text-xs text-gray-600">
-                  {t('dailyReport.readingLog.currentPageLabel', { total: book.total_pages })}
-                  <Input
-                    type="number"
-                    min={0}
-                    max={book.total_pages}
-                    value={value.currentPage}
-                    onChange={(e) => onChangeField(book.id, 'currentPage', e.target.value)}
-                  />
-                </label>
-              )}
-            </div>
+            <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+              {t('dailyReport.readingLog.currentPageLabel', { total: book.total_pages })}
+              <Input
+                type="number"
+                min={0}
+                max={book.total_pages}
+                value={value.currentPage}
+                onChange={(e) => onChangeField(book.id, 'currentPage', e.target.value)}
+              />
+            </label>
           </Card>
         )
       })}
