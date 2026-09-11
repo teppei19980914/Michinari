@@ -15,6 +15,7 @@ from app.services.exceptions import (
     BackdateLimitExceededError,
     BookAlreadyExistsError,
     BookHasReadingLogsError,
+    CloseConfirmationRequiredError,
     CurrentPageExceedsTotalPagesError,
     DomainError,
     ExamSubjectRequiredError,
@@ -57,6 +58,8 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ),
     BackdateLimitExceededError: (status.HTTP_400_BAD_REQUEST, "BACKDATE_LIMIT_EXCEEDED"),
     InvalidStateTransitionError: (status.HTTP_409_CONFLICT, "INVALID_STATE_TRANSITION"),
+    # 状態エラーではなく「確認待ち」（理由はexceptions.pyの同クラスのdocstring参照）。
+    CloseConfirmationRequiredError: (status.HTTP_409_CONFLICT, "CLOSE_CONFIRMATION_REQUIRED"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),

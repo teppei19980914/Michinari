@@ -174,6 +174,7 @@ export function ExamResultPage() {
 
       <CloseGoalModal
         goalId={goal.id}
+        category={goal.category}
         open={closeModalOpen}
         onClose={() => setCloseModalOpen(false)}
         onClosed={() => {

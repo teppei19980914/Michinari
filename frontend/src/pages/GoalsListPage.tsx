@@ -11,15 +11,15 @@ import { useToast } from '../components/Toast'
 import {
   archiveGoal,
   createGoal,
-  deleteArchivedGoal,
   listGoals,
   unarchiveGoal,
   type GoalCategory,
   type GoalRead,
 } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
-
-const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING', 'WORK']
+import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
+import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
+import { GOAL_CATEGORIES } from '../constants/goalCategories'
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -63,11 +63,13 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {category === 'READING'
-            ? t('goals.new.nameLabelReading')
-            : category === 'WORK'
-              ? t('goals.new.nameLabelWork')
-              : t('goals.new.nameLabel')}
+          {t(
+            resolveByGoalCategory(category, {
+              EXAM: 'goals.new.nameLabel',
+              READING: 'goals.new.nameLabelReading',
+              WORK: 'goals.new.nameLabelWork',
+            }),
+          )}
           <Input value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="flex flex-col gap-1 text-sm text-gray-700">
@@ -88,63 +90,6 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
           </Button>
         </div>
       </form>
-    </Modal>
-  )
-}
-
-/** MD-08 完全削除確認（仕様書5.3・6.15）。学習実績も含めるかのチェックボックスを持つ。 */
-function DeleteArchivedGoalModal({
-  goal,
-  onClose,
-}: {
-  goal: GoalRead | null
-  onClose: () => void
-}) {
-  const queryClient = useQueryClient()
-  const { showApiError } = useToast()
-  const [cascadeStudyLogs, setCascadeStudyLogs] = useState(true)
-
-  const mutation = useMutation({
-    mutationFn: (goalId: number) =>
-      deleteArchivedGoal(goalId, { cascade_study_logs: cascadeStudyLogs }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals'] })
-      onClose()
-    },
-    onError: showApiError,
-  })
-
-  return (
-    <Modal open={goal !== null} onClose={onClose} title={t('goals.list.deleteModal.title')}>
-      <div className="flex flex-col gap-3 text-sm text-gray-700">
-        <p>{t('goals.list.deleteModal.warning')}</p>
-        <label className="flex items-start gap-2">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={cascadeStudyLogs}
-            onChange={(e) => setCascadeStudyLogs(e.target.checked)}
-          />
-          <span>
-            {t('goals.list.deleteModal.cascadeCheckbox')}
-            <span className="mt-0.5 block text-xs text-gray-500">
-              {t('goals.list.deleteModal.cascadeHint')}
-            </span>
-          </span>
-        </label>
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.action.cancel')}
-          </Button>
-          <Button
-            type="button"
-            disabled={mutation.isPending}
-            onClick={() => goal && mutation.mutate(goal.id)}
-          >
-            {t('goals.list.deleteModal.confirmButton')}
-          </Button>
-        </div>
-      </div>
     </Modal>
   )
 }

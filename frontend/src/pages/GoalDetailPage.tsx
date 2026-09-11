@@ -8,7 +8,7 @@ import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
-import { activateGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
+import { activateGoal, getGoal, pauseGoal, resumeGoal, type GoalCategory } from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
@@ -18,6 +18,8 @@ import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
+import { ERROR_CODES } from '../constants/errorCodes'
+import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
 const EXAM_TABS = [
@@ -101,6 +103,9 @@ type TabKey =
   | (typeof READING_TABS)[number]['key']
   | (typeof WORK_TABS)[number]['key']
 
+/** 種別ごとのタブ構成。要素の形が種別で異なるため union で受ける（as constはTabKeyの導出に必要）。 */
+type GoalDetailTabs = typeof EXAM_TABS | typeof READING_TABS | typeof WORK_TABS
+
 function GoalStatusActions({
   goalId,
   status,
@@ -108,7 +113,7 @@ function GoalStatusActions({
 }: {
   goalId: number
   status: string
-  category: 'EXAM' | 'READING' | 'WORK'
+  category: GoalCategory
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
@@ -131,7 +136,7 @@ function GoalStatusActions({
     mutationFn: () => resumeGoal(goalId),
     onSuccess: invalidate,
     onError: (error) => {
-      if (error instanceof ApiError && error.code === 'RESOURCE_EXCEEDED') {
+      if (error instanceof ApiError && error.code === ERROR_CODES.RESOURCE_EXCEEDED) {
         setResumeErrorModalOpen(true)
         return
       }
@@ -215,8 +220,13 @@ export function GoalDetailPage() {
   const goal = goalQuery.data
   const isArchived = goal.archived_at !== null
   const isReadOnly = isClosedGoalStatus(goal.status)
-  const tabs =
-    goal.category === 'READING' ? READING_TABS : goal.category === 'WORK' ? WORK_TABS : EXAM_TABS
+  // 対応表から引くことで、種別を追加したときの記述漏れをtscに検知させる
+  // （入れ子三項だと既定分岐で静かに資格試験のタブ構成へ落ちる）。
+  const tabs = resolveByGoalCategory<GoalDetailTabs>(goal.category, {
+    EXAM: EXAM_TABS,
+    READING: READING_TABS,
+    WORK: WORK_TABS,
+  })
   // 別の目標（category違い）から遷移してきた場合、直前のタブ選択が現在のタブ構成に
   // 存在しないことがあるため、その場合のみ基本情報タブへ読み替える（stateは据え置き、
   // 同一目標内でのタブ切替の挙動には影響させない）。

@@ -5,6 +5,7 @@ import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { listGoals } from '../api/goals'
 import { GoalTabBar } from '../features/record/GoalTabBar'
+import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { QualityTrendTab } from '../features/analytics/QualityTrendTab'
 import { ProgressTab } from '../features/analytics/ProgressTab'
 import { ForecastTab } from '../features/analytics/ForecastTab'
@@ -47,6 +48,9 @@ type TabKey =
   | (typeof READING_TABS)[number]['key']
   | (typeof WORK_TABS)[number]['key']
 
+/** 種別ごとのタブ構成。要素の形が種別で異なるため union で受ける（as constはTabKeyの導出に必要）。 */
+type AnalyticsTabs = typeof EXAM_TABS | typeof READING_TABS | typeof WORK_TABS
+
 /** SC-09 分析（仕様書6.8）。目標を選択し、目標のカテゴリ（資格試験／読書／仕事）に応じた
  * タブ構成でデータを表示する。日次報告（DailyReportPage）と同じGoalTabBarで対象目標を
  * 切り替える方式に統一した（Phase25、分析タブの目標ごと表示の是正）。ダッシュボードの
@@ -74,12 +78,15 @@ export function AnalyticsPage() {
   const requestedGoalId = Number(searchParams.get('goal'))
   const selectedGoalId = goals.find((g) => g.id === requestedGoalId)?.id ?? goals[0]?.id
   const selectedGoal = goals.find((g) => g.id === selectedGoalId)
-  const tabs =
-    selectedGoal?.category === 'READING'
-      ? READING_TABS
-      : selectedGoal?.category === 'WORK'
-        ? WORK_TABS
-        : EXAM_TABS
+  // 目標が1件も無い場合のみ資格試験のタブ構成を仮置きする（画面が空でもタブ枠を描くため）。
+  // 種別が決まっている場合は必ず対応表から引き、種別追加時の記述漏れをtscに検知させる。
+  const tabs: AnalyticsTabs = selectedGoal
+    ? resolveByGoalCategory<AnalyticsTabs>(selectedGoal.category, {
+        EXAM: EXAM_TABS,
+        READING: READING_TABS,
+        WORK: WORK_TABS,
+      })
+    : EXAM_TABS
   const activeTab: TabKey = tabs.some((item) => item.key === tab) ? tab : tabs[0].key
 
   return (

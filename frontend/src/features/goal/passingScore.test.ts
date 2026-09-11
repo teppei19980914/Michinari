@@ -111,4 +111,16 @@ describe('formatPassingScoreDisplay', () => {
       }),
     ).toBe('700/1000点')
   })
+
+  it('sends nulls when the raw-score fields are left blank', () => {
+    // 未入力（空文字）を0ではなくnullとして送る経路の検証。
+    expect(
+      buildPassingScorePayload({
+        type: 'RAW_SCORE',
+        percentValue: '',
+        rawScoreValue: '',
+        rawMaxValue: '',
+      }),
+    ).toEqual({ passing_score: null, passing_score_type: 'RAW_SCORE', passing_score_max: null })
+  })
 })
