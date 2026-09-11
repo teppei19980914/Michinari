@@ -251,7 +251,8 @@ class ReadingLogItem:
 
     book_id: int
     recall_body: str
-    pages_read: int | None
+    #: 現在ページは任意入力（要件定義書R-65）。ページの数値項目はこれ1つだけとし、
+    #: 「読んだページ数」は保持しない（仕様変更2026-09-11、models/record.py参照）。
     current_page: int | None
     #: 読書時間は任意入力（要件定義書R-65）。
     slot_minutes: SlotMinutes = field(default_factory=dict)
@@ -268,9 +269,23 @@ def _load_books(session: Session, book_ids: set[int]) -> dict[int, Book]:
     return found
 
 
+def _ensure_current_page_within_total_pages(book: Book, current_page: int | None) -> None:
+    """現在ページが書籍の総ページ数を超えないことを確認する（仕様変更2026-09-11）。
+
+    進捗率が100%を超えることは許されないため、入力の時点で上限を超える値を拒否する。
+    総ページ数を後から引き下げる訂正（book_service.update_book）は許容しており、その
+    場合に限り既存データが上限を超えうるが、表示側は_PROGRESS_RATE_MAXでクランプする。
+    """
+    if current_page is not None and current_page > book.total_pages:
+        raise ValidationError(
+            f"現在ページは総ページ数（{book.total_pages}）以下で入力してください"
+        )
+
+
 def _upsert_reading_log(
     session: Session, daily_record: DailyRecord, book: Book, item: ReadingLogItem
 ) -> ReadingLog:
+    _ensure_current_page_within_total_pages(book, item.current_page)
     reading_log = (
         session.query(ReadingLog)
         .filter(ReadingLog.daily_record_id == daily_record.id, ReadingLog.book_id == book.id)
@@ -282,7 +297,6 @@ def _upsert_reading_log(
     slot_minutes = _validate_slot_minutes(session, item.slot_minutes)
     reading_log.recall_body = item.recall_body
     reading_log.minutes_spent = _total_minutes(slot_minutes)
-    reading_log.pages_read = item.pages_read
     reading_log.current_page = item.current_page
     session.flush()
     _replace_slot_times(
