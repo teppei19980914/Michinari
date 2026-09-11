@@ -20,6 +20,10 @@ secrets.yml
 id_rsa
 id_rsa.pub
 .claude/.git-automation-setup-done
+# サブエージェント用の一時worktree（リポジトリの複製）。.git/info/exclude にも記載があるが、
+# osv-scanner など .gitignore しか見ないツールが複製側まで走査して結果が重複するため、
+# .gitignore にも明記する。
+.claude/worktrees/
 
 # Python (backend)
 myvenv/

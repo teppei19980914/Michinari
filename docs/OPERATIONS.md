@@ -737,6 +737,36 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 
 到達不能な防御的分岐（型の絞り込みのためだけのガード等）は `/* v8 ignore next N */` と理由コメントで個別に除外する（CODING_RULES.md「除外可」）。
 
+## 任意ツールの導入
+
+開発ツール・CLIのインストールは**仮想環境（`myvenv`）配下に閉じる**（CLAUDE.md「ツール導入ルール」）。システム全体へのインストール（`winget` / `choco` / `scoop` 等）は行わない。環境を汚さず、不要になればディレクトリごと捨てられる状態を保つため。
+
+| 種類 | 手順 |
+| --- | --- |
+| Python パッケージ | `myvenv` を有効化して `pip install <package>` |
+| 単体バイナリ（Go製CLI等） | 公式配布物を取得 → **SHA256 を公式チェックサムと照合** → `myvenv/Scripts/` へ配置 |
+
+`myvenv/Scripts/` は `myvenv` 有効時に PATH に含まれるため、Hook の `command -v <tool>` で解決される。
+
+### osv-scanner（依存脆弱性スキャン）
+
+`vuln-scan.sh`（Stop Hook）が使う。未インストールならスキップされる opt-in 方式。
+
+```bash
+# 公式リリース: https://github.com/google/osv-scanner/releases （Google製 / Apache-2.0）
+curl -sL -o "$TEMP/osv-scanner.exe" https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_windows_amd64.exe
+curl -sL -o "$TEMP/SHA256SUMS"      https://github.com/google/osv-scanner/releases/download/v2.5.1/osv-scanner_SHA256SUMS
+sha256sum "$TEMP/osv-scanner.exe"          # 出力を SHA256SUMS の該当行と照合してから次へ進む
+cp "$TEMP/osv-scanner.exe" myvenv/Scripts/osv-scanner.exe
+osv-scanner --version                      # 導入確認
+```
+
+**スキャン結果の読み方**: 本リポジトリには付属開発キット `newtonx_adk/` のサンプル（`adk_examples/*/requirements.txt`、`tools/local/requirements.txt`）が含まれており、そこに古い `requests` / `click` / `pillow` が記載されているため常に検出される。これらはアプリ本体（`backend/app`）が参照しておらず、インストールもされない。**`backend/` と `frontend/` に検出が出た場合のみ対応を要する**。
+
+なお `.claude/worktrees/`（サブエージェント用の一時worktree）はリポジトリの複製であり、同じ検出が二重三重に出るため `.gitignore` に追加して走査対象から外している。
+
+---
+
 **`.npmrc`（legacy-peer-deps）について**
 
 `openapi-typescript@7.13.0`（最新）の peer 要求が `typescript@^5.x` のままで、本プロジェクトの `typescript@~6.0.2` と衝突する。`frontend/.npmrc` で `legacy-peer-deps=true` を設定していないと、依存を追加していない状態でも `npm install` が ERESOLVE で失敗する。`openapi-typescript` が typescript 6 に対応したら（peerDependencies の更新を確認のうえ）`.npmrc` ごと削除する。

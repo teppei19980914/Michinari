@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { ApiError } from '../../api/client'
+import type { GoalCategory } from '../../api/goals'
 import { ERROR_CODES } from '../../constants/errorCodes'
 import { ToastProvider } from '../../components/Toast'
 import { t } from '../../locales/t'
@@ -14,7 +15,7 @@ import { CloseGoalModal } from './CloseGoalModal'
 const closeGoal = vi.hoisted(() => vi.fn())
 vi.mock('../../api/goals', () => ({ closeGoal }))
 
-function renderModal(category: 'EXAM' | 'READING' | 'WORK', onClosed = vi.fn()) {
+function renderModal(category: GoalCategory, onClosed = vi.fn()) {
   // retry を切らないと失敗時に再試行が走り、エラー経路の検証が不安定になる。
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => (
