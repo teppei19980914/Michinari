@@ -4,13 +4,16 @@
 PyInstaller本体の実行はCI環境依存が大きいため対象外とし、既存パッケージの退避ロジック
 （`archive_previous_package`）・配布用zip化ロジック（`create_distribution_zip`）・
 配布バージョンの読み書き/確定ロジック（`read_current_version`/`write_version`/
-`resolve_version`）・ビルド情報生成ロジック（`generate_build_info`）・ユーザ手順書の
+`resolve_version`）・ビルド情報生成ロジック（`generate_build_info`）・ビルド元コミットの
+記録ロジック（`read_git_commit`/`has_uncommitted_changes`/`generate_build_commit`）・
+ユーザ手順書の
 同梱ロジック（`copy_user_manual`）に加え、配布パッケージへ同梱する起動用batの
 テンプレート内容（`LAUNCHER_TEMPLATE_PATH`）を検証する。
 """
 
 import datetime as dt
 import json
+import subprocess
 import tomllib
 import zipfile
 from pathlib import Path
@@ -21,10 +24,14 @@ from build_package import (
     PYPROJECT_PATH,
     USER_MANUAL_PATH,
     archive_previous_package,
+    build_commit_filename,
     copy_user_manual,
     create_distribution_zip,
+    generate_build_commit,
     generate_build_info,
+    has_uncommitted_changes,
     read_current_version,
+    read_git_commit,
     resolve_version,
     write_version,
 )
@@ -395,3 +402,81 @@ def test_launcher_template_uses_crlf_line_endings() -> None:
     data = LAUNCHER_TEMPLATE_PATH.read_bytes()
 
     assert data.count(b"\n") == data.count(b"\r\n")
+
+
+class _FakeCompletedProcess:
+    def __init__(self, returncode: int, stdout: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+
+
+def test_build_commit_filename_pairs_with_the_distribution_zip() -> None:
+    """記録ファイル名が配布zipと対になること（publish_release.pyが同じ名前で探す）。"""
+    assert build_commit_filename("Michinari", "1.2.3") == "Michinari-v1.2.3.commit.json"
+
+
+def test_read_git_commit_returns_head_sha(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, cwd=None, **kwargs: _FakeCompletedProcess(0, "abc1234\n"),
+    )
+
+    assert read_git_commit(tmp_path) == "abc1234"
+
+
+def test_read_git_commit_returns_none_outside_a_git_repository(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        subprocess, "run", lambda args, cwd=None, **kwargs: _FakeCompletedProcess(128)
+    )
+
+    assert read_git_commit(tmp_path) is None
+
+
+def test_has_uncommitted_changes_detects_a_dirty_tree(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda args, cwd=None, **kwargs: _FakeCompletedProcess(0, " M backend/pyproject.toml\n"),
+    )
+
+    assert has_uncommitted_changes(tmp_path) is True
+
+
+def test_has_uncommitted_changes_is_false_for_a_clean_tree(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        subprocess, "run", lambda args, cwd=None, **kwargs: _FakeCompletedProcess(0, "")
+    )
+
+    assert has_uncommitted_changes(tmp_path) is False
+
+
+def test_has_uncommitted_changes_returns_none_outside_a_git_repository(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        subprocess, "run", lambda args, cwd=None, **kwargs: _FakeCompletedProcess(128)
+    )
+
+    assert has_uncommitted_changes(tmp_path) is None
+
+
+def test_generate_build_commit_records_version_commit_and_dirty_flag(tmp_path: Path) -> None:
+    output_path = tmp_path / "Michinari-v1.2.3.commit.json"
+
+    generate_build_commit(output_path, "1.2.3", "abc1234", dirty=False)
+
+    assert json.loads(output_path.read_text(encoding="utf-8")) == {
+        "version": "1.2.3",
+        "commit": "abc1234",
+        "dirty": False,
+    }
+
+
+def test_generate_build_commit_keeps_dirty_builds_identifiable(tmp_path: Path) -> None:
+    """未コミットの木からのビルドを記録に残し、publish_release.pyが公開を止められること。"""
+    output_path = tmp_path / "Michinari-v1.2.3.commit.json"
+
+    generate_build_commit(output_path, "1.2.3", "abc1234", dirty=True)
+
+    assert json.loads(output_path.read_text(encoding="utf-8"))["dirty"] is True

@@ -13,12 +13,13 @@
 生成しておくこと）: `uv run python scripts/publish_release.py`
 """
 
+import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-from build_package import APP_NAME, distribution_zip_filename
+from build_package import APP_NAME, build_commit_filename, distribution_zip_filename
 
 from app.services.system_info_service import read_app_version
 
@@ -30,6 +31,10 @@ REPOSITORY_URL = "https://github.com/teppei19980914/Michinari"
 RELEASE_NOTES_DIR = "docs/release-notes"
 SUMMARY_START = "<!-- summary:start -->"
 SUMMARY_END = "<!-- summary:end -->"
+#: タグを付ける対象を検証する基準ブランチ。配布物のコミットがここへマージ済みで
+#: あることを公開の前提とする（未マージのまま公開すると、GitHubがタグを作れないか、
+#: 詳細リリースノートへのリンクが404になる）。
+BASE_BRANCH_REF = "origin/main"
 
 
 def release_tag(version: str) -> str:
@@ -96,7 +101,14 @@ def build_release_body(version: str, summary: str) -> str:
     )
 
 
-def build_release_command(version: str, zip_path: Path, body_path: Path) -> list[str]:
+def build_release_command(version: str, zip_path: Path, body_path: Path, commit: str) -> list[str]:
+    """`--target`でビルド元コミットを明示し、タグの位置を公開時刻に依存させない。
+
+    `--target`を省くとGitHubはタグを既定ブランチの**その時点の先端**へ作るため
+    （REST API "Create a release" の`target_commitish`の既定値）、ビルドと公開の間に
+    `main`が進むと配布物と異なるコミットへタグが付く。なお`--target`はタグが既に
+    存在する場合は無視されるため、再公開時のフォールバック経路では指定しない。
+    """
     return [
         "gh",
         "release",
@@ -105,6 +117,8 @@ def build_release_command(version: str, zip_path: Path, body_path: Path) -> list
         str(zip_path),
         "--title",
         release_title(version),
+        "--target",
+        commit,
         "--notes-file",
         str(body_path),
     ]
@@ -128,8 +142,65 @@ def build_upload_command(version: str, zip_path: Path) -> list[str]:
     return ["gh", "release", "upload", release_tag(version), str(zip_path), "--clobber"]
 
 
-def publish(version: str, zip_path: Path, notes_path: Path) -> None:
+def build_commit_path(dist_dir: Path, version: str) -> Path:
+    """`build_package.py`が書き出した、ビルド元コミットの記録ファイルのパス。"""
+    return dist_dir / build_commit_filename(APP_NAME, version)
+
+
+def read_build_commit(commit_path: Path, version: str) -> str:
+    """ビルド元コミットを読み、配布物と対応していることを検証して返す。
+
+    記録が無い・gitが使えなかった・未コミットの変更があった・バージョンが食い違う
+    場合は、タグを正しい位置へ付けられないため公開を中止する。
+    """
+    if not commit_path.is_file():
+        raise SystemExit(
+            f"エラー: {commit_path} が見つかりません。"
+            "ビルド元コミットが不明なため公開できません。build_package.py を実行してください。"
+        )
+    record = json.loads(commit_path.read_text(encoding="utf-8"))
+    if record.get("version") != version:
+        raise SystemExit(
+            f"エラー: ビルド元コミットの記録が別バージョン（{record.get('version')}）のものです。"
+            "対象バージョンで build_package.py を実行し直してください。"
+        )
+    if record.get("dirty"):
+        raise SystemExit(
+            "エラー: 未コミットの変更がある状態でビルドされています。"
+            "この配布物に対応するコミットが存在しないため公開できません。"
+            "変更をコミットして main へマージしてから再ビルドしてください。"
+        )
+    commit = record.get("commit")
+    if not commit:
+        raise SystemExit(
+            "エラー: ビルド元コミットが記録されていません"
+            "（ビルド時にgitを参照できなかった可能性があります）。"
+            "gitリポジトリ上で build_package.py を実行し直してください。"
+        )
+    return commit
+
+
+def is_merged_into_base(repo_root: Path, commit: str) -> bool:
+    """ビルド元コミットが`origin/main`へマージ済みかを判定する。
+
+    未マージのまま公開すると、GitHubがタグを作れないか、Release本文から詳細
+    リリースノート（`main`を指す）へのリンクが404になる（`release_notes_url`参照）。
+    ローカルの`origin/main`参照を見るため、事前に`git fetch`しておくこと。
+    """
+    result = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", commit, BASE_BRANCH_REF],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0
+
+
+def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -> None:
     """`ver{version}`タグでリリースを作成し、zipと要約版の本文を添付する。
+
+    タグはビルド元コミット（`--target`）へ付ける。公開の前提として、そのコミットが
+    `origin/main`へマージ済みであることを検証する。
 
     タグが既存の場合（`gh release create`が失敗する場合）は、本文の差し替え
     （`gh release edit`）とアセットの差し替え（`gh release upload --clobber`）へ
@@ -144,12 +215,22 @@ def publish(version: str, zip_path: Path, notes_path: Path) -> None:
         print(f"エラー: {notes_path} が見つかりません。詳細リリースノートを作成してください。")
         raise SystemExit(1)
 
+    commit = read_build_commit(commit_path, version)
+    if not is_merged_into_base(REPO_ROOT, commit):
+        raise SystemExit(
+            f"エラー: ビルド元コミット {commit[:8]} が {BASE_BRANCH_REF} へマージされていません。"
+            "マージしてから公開してください（未マージのまま公開すると、タグが配布物と"
+            "異なるコミットを指すか、詳細リリースノートへのリンクが404になります）。"
+        )
+
     body = build_release_body(version, extract_summary(notes_path.read_text(encoding="utf-8")))
     with tempfile.TemporaryDirectory() as work_dir:
         body_path = Path(work_dir) / "release_body.md"
         body_path.write_text(body, encoding="utf-8")
 
-        result = subprocess.run(build_release_command(version, zip_path, body_path), cwd=REPO_ROOT)
+        result = subprocess.run(
+            build_release_command(version, zip_path, body_path, commit), cwd=REPO_ROOT
+        )
         if result.returncode == 0:
             return
 
@@ -165,7 +246,12 @@ def publish(version: str, zip_path: Path, notes_path: Path) -> None:
 def main() -> None:
     version = read_app_version(REPO_ROOT)
     zip_path = DIST_DIR / distribution_zip_filename(APP_NAME, version)
-    publish(version, zip_path, release_notes_path(REPO_ROOT, version))
+    publish(
+        version,
+        zip_path,
+        release_notes_path(REPO_ROOT, version),
+        build_commit_path(DIST_DIR, version),
+    )
 
 
 if __name__ == "__main__":
