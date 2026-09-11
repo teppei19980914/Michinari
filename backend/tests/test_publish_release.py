@@ -18,10 +18,12 @@ from publish_release import (
     build_release_body,
     build_release_command,
     build_upload_command,
+    ensure_release_tag,
     extract_summary,
     is_merged_into_base,
     publish,
     read_build_commit,
+    read_remote_tag_commit,
     release_notes_path,
     release_notes_relative_path,
     release_notes_url,
@@ -115,12 +117,17 @@ def test_build_release_body_stays_compact() -> None:
     assert len([line for line in overhead if line.strip()]) <= 3
 
 
-def test_build_release_command_targets_the_built_commit(tmp_path: Path) -> None:
-    """タグが公開時点の既定ブランチ先端ではなく、配布物のコミットへ付くこと。"""
+def test_build_release_command_verifies_the_tag_instead_of_creating_it(tmp_path: Path) -> None:
+    """タグ作成をghに任せず、事前に作った正しいタグの存在確認だけを行うこと。
+
+    `--target`を渡す方式では、同名のローカルタグがあるとghがそれをpushして指定が
+    無視される（2026-09-12のv1.2.1で発生）。`--verify-tag`ならタグが無いときに中止
+    されるため、取り違えたまま公開されない。
+    """
     zip_path = tmp_path / "Michinari-v1.2.3.zip"
     body_path = tmp_path / "release_body.md"
 
-    result = build_release_command("1.2.3", zip_path, body_path, _COMMIT)
+    result = build_release_command("1.2.3", zip_path, body_path)
 
     assert result == [
         "gh",
@@ -130,11 +137,11 @@ def test_build_release_command_targets_the_built_commit(tmp_path: Path) -> None:
         str(zip_path),
         "--title",
         "Michinari-v1.2.3",
-        "--target",
-        _COMMIT,
+        "--verify-tag",
         "--notes-file",
         str(body_path),
     ]
+    assert "--target" not in result
 
 
 def test_build_edit_command_replaces_title_and_notes(tmp_path: Path) -> None:
@@ -184,8 +191,13 @@ def test_publish_exits_when_notes_missing(tmp_path: Path) -> None:
 
 
 class _FakeCompletedProcess:
-    def __init__(self, returncode: int) -> None:
+    """`git`呼び出しの戻り値も兼ねるため、`stdout`/`stderr`も持たせる
+    （publishはタグ確認で`git ls-remote`の出力を読む）。"""
+
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
         self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
 
 
 def _fake_runner(calls: list[list[str]], returncodes: dict[str, int]):
@@ -346,3 +358,93 @@ def test_publish_aborts_when_built_commit_is_not_merged(monkeypatch, tmp_path: P
         publish("1.2.3", zip_path, notes_path, commit_path)
 
     assert all(call[0] == "git" for call in calls), "未マージなら gh を一切呼ばないこと"
+
+
+# --- タグをビルド元コミットへ確定させる処理（2026-09-12のv1.2.1の不具合対応） ---
+
+#: `git ls-remote`の出力はSHAと参照名をタブ区切りで返す。
+_TAB = "\t"
+#: v1.2.1で実際にタグが誤って指していたコミット（旧mainの先端）。
+_STALE_COMMIT = "da9e566d4eca76d6ae139d59404b73039634db01"
+
+
+def _tag_runner(remote_lines: str, calls: list[list[str]], local_commit: str | None = None):
+    """`git ls-remote` / `git rev-list` / `git tag` / `git push` を差し替える。
+
+    実際にタグを作成・pushするとリモートが変わってしまうため、コマンド列だけを記録する。
+    """
+
+    def fake_run(args, cwd=None, **kwargs):
+        if args[:2] == ["git", "ls-remote"]:
+            return subprocess.CompletedProcess(args, 0, stdout=remote_lines, stderr="")
+        if args[:2] == ["git", "rev-list"]:
+            return subprocess.CompletedProcess(
+                args, 0 if local_commit else 1, stdout=(local_commit or ""), stderr=""
+            )
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    return fake_run
+
+
+def test_read_remote_tag_commit_prefers_the_peeled_commit(monkeypatch, tmp_path: Path) -> None:
+    """注釈付きタグでは`^{}`行（実体のコミット）を採ること。"""
+    lines = (
+        f"1111111111111111111111111111111111111111{_TAB}refs/tags/ver1.2.3\n"
+        f"{_COMMIT}{_TAB}refs/tags/ver1.2.3^{{}}\n"
+    )
+    monkeypatch.setattr(subprocess, "run", _tag_runner(lines, []))
+
+    assert read_remote_tag_commit(tmp_path, "ver1.2.3") == _COMMIT
+
+
+def test_read_remote_tag_commit_returns_none_when_absent(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(subprocess, "run", _tag_runner("", []))
+
+    assert read_remote_tag_commit(tmp_path, "ver1.2.3") is None
+
+
+def test_ensure_release_tag_creates_the_tag_at_the_built_commit(
+    monkeypatch, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(subprocess, "run", _tag_runner("", calls))
+
+    ensure_release_tag(tmp_path, "ver1.2.3", _COMMIT)
+
+    assert calls[0] == ["git", "tag", "-f", "ver1.2.3", _COMMIT]
+    assert calls[1] == ["git", "push", "origin", "-f", "refs/tags/ver1.2.3"]
+
+
+def test_ensure_release_tag_overwrites_a_stale_local_tag(monkeypatch, tmp_path: Path) -> None:
+    """公開前に作られていた古いローカルタグを、ビルド元コミットへ付け替えること。
+
+    これが2026-09-12のv1.2.1の直接原因だった（ghが古いローカルタグをpushし、
+    `--target`の指定が無視された）。
+    """
+    calls: list[list[str]] = []
+    monkeypatch.setattr(subprocess, "run", _tag_runner("", calls, local_commit=_STALE_COMMIT))
+
+    ensure_release_tag(tmp_path, "ver1.2.3", _COMMIT)
+
+    assert calls[0] == ["git", "tag", "-f", "ver1.2.3", _COMMIT]
+
+
+def test_ensure_release_tag_is_a_noop_when_already_correct(monkeypatch, tmp_path: Path) -> None:
+    """再実行しても、既に正しい位置にあるタグは触らないこと（再公開時の安全性）。"""
+    calls: list[list[str]] = []
+    lines = f"{_COMMIT}{_TAB}refs/tags/ver1.2.3\n"
+    monkeypatch.setattr(subprocess, "run", _tag_runner(lines, calls))
+
+    ensure_release_tag(tmp_path, "ver1.2.3", _COMMIT)
+
+    assert calls == []
+
+
+def test_ensure_release_tag_refuses_to_move_a_published_tag(monkeypatch, tmp_path: Path) -> None:
+    """公開済みタグが別コミットを指す場合は、黙って動かさず中止すること。"""
+    lines = f"{_STALE_COMMIT}{_TAB}refs/tags/ver1.2.3\n"
+    monkeypatch.setattr(subprocess, "run", _tag_runner(lines, []))
+
+    with pytest.raises(SystemExit):
+        ensure_release_tag(tmp_path, "ver1.2.3", _COMMIT)
