@@ -101,13 +101,18 @@ def build_release_body(version: str, summary: str) -> str:
     )
 
 
-def build_release_command(version: str, zip_path: Path, body_path: Path, commit: str) -> list[str]:
-    """`--target`でビルド元コミットを明示し、タグの位置を公開時刻に依存させない。
+def build_release_command(version: str, zip_path: Path, body_path: Path) -> list[str]:
+    """`--verify-tag`で「事前に作った正しいタグ」以外では公開しない。
 
-    `--target`を省くとGitHubはタグを既定ブランチの**その時点の先端**へ作るため
-    （REST API "Create a release" の`target_commitish`の既定値）、ビルドと公開の間に
-    `main`が進むと配布物と異なるコミットへタグが付く。なお`--target`はタグが既に
-    存在する場合は無視されるため、再公開時のフォールバック経路では指定しない。
+    タグ作成をghの自動生成（`--target`）に任せない理由:
+    `gh release create`は、同名のローカルタグが存在するとそれをリモートへpushし、
+    `--target`の指定を無視する。2026-09-12のv1.2.1公開で、公開前に作られていた
+    ローカルタグ（当時のmain先端）がそのまま押し出され、タグが配布物と異なるコミットを
+    指す事故が起きた。Release側の`target_commitish`には`--target`の値が入るため、
+    Releaseの情報だけを見ても食い違いに気付けない。
+
+    そこで`ensure_release_tag`でビルド元コミットへタグを確定させてからここを呼び、
+    `--verify-tag`（タグがリモートに無ければ中止）で取り違えを防ぐ。
     """
     return [
         "gh",
@@ -117,8 +122,7 @@ def build_release_command(version: str, zip_path: Path, body_path: Path, commit:
         str(zip_path),
         "--title",
         release_title(version),
-        "--target",
-        commit,
+        "--verify-tag",
         "--notes-file",
         str(body_path),
     ]
@@ -180,6 +184,75 @@ def read_build_commit(commit_path: Path, version: str) -> str:
     return commit
 
 
+def read_ref_commit(repo_root: Path, ref: str) -> str | None:
+    """`ref`が指すコミットSHAを返す（存在しなければNone）。ローカル・リモート双方に使う。"""
+    result = subprocess.run(
+        ["git", "rev-list", "-n", "1", ref],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
+
+
+def read_remote_tag_commit(repo_root: Path, tag: str) -> str | None:
+    """リモートの`tag`が指すコミットSHAを返す（存在しなければNone）。
+
+    `git ls-remote`はローカルの状態に依存せずリモートの実体を見るため、ローカルに
+    古いタグが残っていても正しく判定できる。注釈付きタグは`<tag>^{}`の行が実体の
+    コミットを指すので、そちらを優先して読む。
+    """
+    result = subprocess.run(
+        ["git", "ls-remote", "--tags", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    peeled: str | None = None
+    plain: str | None = None
+    for line in result.stdout.splitlines():
+        sha, _, ref = line.partition("	")
+        if ref.endswith("^{}"):
+            peeled = sha.strip()
+        elif ref.endswith(f"refs/tags/{tag}"):
+            plain = sha.strip()
+    return peeled or plain
+
+
+def ensure_release_tag(repo_root: Path, tag: str, commit: str) -> None:
+    """`tag`がビルド元`commit`を指す状態にしてリモートへ反映する。
+
+    ghの自動タグ生成に任せず、ここで確定させる理由は`build_release_command`のdocstring
+    を参照。既にリモートへ別のコミットで公開済みのタグがある場合は、配布済みの内容を
+    黙って書き換えることになるため中止する（付け替えるかどうかは人が判断する）。
+    """
+    remote_commit = read_remote_tag_commit(repo_root, tag)
+    if remote_commit == commit:
+        return
+    if remote_commit is not None:
+        raise SystemExit(
+            f"エラー: タグ {tag} は既にリモートに存在し、{remote_commit[:8]} を指しています"
+            f"（ビルド元は {commit[:8]}）。配布済みのタグを黙って動かさないため中止します。"
+            "意図した付け替えであれば、タグを削除するか別バージョンで公開してください。"
+        )
+
+    local_commit = read_ref_commit(repo_root, f"refs/tags/{tag}")
+    if local_commit is not None and local_commit != commit:
+        # ローカルの古いタグを残したままにすると、gh が push して --verify-tag を
+        # すり抜けるため、ここで正しい位置へ付け替える。
+        print(
+            f"  → ローカルタグ {tag} が {local_commit[:8]} を指しているため "
+            f"{commit[:8]} へ付け替えます"
+        )
+    subprocess.run(["git", "tag", "-f", tag, commit], cwd=repo_root, check=True)
+    subprocess.run(["git", "push", "origin", "-f", f"refs/tags/{tag}"], cwd=repo_root, check=True)
+    print(f"  → タグ {tag} を {commit[:8]} へ作成しました")
+
+
 def is_merged_into_base(repo_root: Path, commit: str) -> bool:
     """ビルド元コミットが`origin/main`へマージ済みかを判定する。
 
@@ -199,8 +272,9 @@ def is_merged_into_base(repo_root: Path, commit: str) -> bool:
 def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -> None:
     """`ver{version}`タグでリリースを作成し、zipと要約版の本文を添付する。
 
-    タグはビルド元コミット（`--target`）へ付ける。公開の前提として、そのコミットが
-    `origin/main`へマージ済みであることを検証する。
+    タグは`ensure_release_tag`でビルド元コミットへ確定させてから`--verify-tag`付きで
+    公開する（ghの自動タグ生成に任せない理由は`build_release_command`参照）。公開の
+    前提として、そのコミットが`origin/main`へマージ済みであることを検証する。
 
     タグが既存の場合（`gh release create`が失敗する場合）は、本文の差し替え
     （`gh release edit`）とアセットの差し替え（`gh release upload --clobber`）へ
@@ -228,9 +302,8 @@ def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -
         body_path = Path(work_dir) / "release_body.md"
         body_path.write_text(body, encoding="utf-8")
 
-        result = subprocess.run(
-            build_release_command(version, zip_path, body_path, commit), cwd=REPO_ROOT
-        )
+        ensure_release_tag(REPO_ROOT, release_tag(version), commit)
+        result = subprocess.run(build_release_command(version, zip_path, body_path), cwd=REPO_ROOT)
         if result.returncode == 0:
             return
 
