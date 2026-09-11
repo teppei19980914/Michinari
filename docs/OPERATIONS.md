@@ -540,6 +540,16 @@ uv run python scripts/publish_release.py
 （GitHub上で他者から見える公開操作のため、公開したいタイミングで開発者が明示的に
 実行する）。
 
+**公開はビルド対象コミットが `main` へマージされた直後に行うこと。** `gh release create` は
+`--target` を指定しない場合、タグをリポジトリの既定ブランチ（`main`）の**その時点の先端**に
+作成する（GitHub REST API "Create a release" の `target_commitish` の既定値。
+https://docs.github.com/en/rest/releases/releases ）。ビルドから日をおいて公開すると、
+その間に `main` が進んだぶんだけ**実際の配布物と異なるコミットにタグが付く**。実際に
+`ver1.0.0` を v1.1.0 公開と同じ日（2026-09-11）に遡って作成したため、`ver1.0.0` タグが
+v1.1.0 のコミットを指し、Releaseページの「Source code」アーカイブが配布物と一致しない
+状態が生じた。`ver1.0.0` の正しい指し先は `e71ca078`（配布した v1.0.0 パッケージの
+ビルド元コミット `7015436` とツリーが完全一致する、`main` 上のコミット）である。
+
 配布先には、生成されたReleaseページの固定URLを案内する。ユーザーはそのページから
 配布用zip（`Michinari-v{version}.zip`）をダウンロードし、展開して `Michinari.bat` を
 実行すればよい。
