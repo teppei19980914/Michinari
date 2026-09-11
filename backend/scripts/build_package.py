@@ -28,6 +28,7 @@ GitHub Releasesへの公開は本スクリプトでは行わない（`scripts/pu
 """
 
 import datetime as dt
+import json
 import os
 import re
 import shutil
@@ -48,6 +49,8 @@ OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
 PYPROJECT_PATH = BACKEND_DIR / "pyproject.toml"
 BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
+#: ビルド元コミットの記録ファイル名に付ける接尾辞（配布zipと対になる名前にする）。
+BUILD_COMMIT_SUFFIX = ".commit.json"
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
 #: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
 USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
@@ -224,6 +227,55 @@ def distribution_zip_filename(app_name: str, version: str) -> str:
     return f"{app_name}-v{version}.zip"
 
 
+def build_commit_filename(app_name: str, version: str) -> str:
+    """ビルド元コミットの記録ファイル名（配布zipと対になる名前にする）。
+
+    命名を`distribution_zip_filename`から導出し、zipとの対応を1箇所で決める
+    （CLAUDE.md DRYの原則）。
+    """
+    return distribution_zip_filename(app_name, version).removesuffix(".zip") + BUILD_COMMIT_SUFFIX
+
+
+def read_git_commit(repo_root: Path) -> str | None:
+    """`HEAD`のコミットSHAを返す（gitが使えない場合は`None`）。"""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=repo_root, capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def has_uncommitted_changes(repo_root: Path) -> bool | None:
+    """作業ツリーに未コミットの変更があるかを返す（gitが使えない場合は`None`）。
+
+    **バージョン確定（`write_version`）より前に呼ぶこと。** 本スクリプトはビルドの
+    過程で`pyproject.toml`のバージョン行を書き換えるため、確定後に判定すると常に
+    「変更あり」になってしまう。
+    """
+    result = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return None
+    return bool(result.stdout.strip())
+
+
+def generate_build_commit(
+    output_path: Path, version: str, commit: str | None, *, dirty: bool | None
+) -> Path:
+    """配布zipと対になる、ビルド元コミットの記録を書き出す。
+
+    `publish_release.py`がこれを読み、`gh release create --target <commit>`で
+    **配布物のコミットへタグを付ける**。記録が無いとタグは公開時点の既定ブランチ
+    先端に付くため、ビルドと公開の間に`main`が進むと配布物と異なるコミットへ
+    タグが付く（2026-09-11に`ver1.0.0`・`ver1.2.0`で実際に発生。OPERATIONS.md 7.4参照）。
+    """
+    record = {"version": version, "commit": commit, "dirty": dirty}
+    output_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    return output_path
+
+
 def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, version: str) -> Path:
     """ビルド済みパッケージフォルダをzip化し、配布時のコピー手間を省く。
 
@@ -254,6 +306,10 @@ def main() -> None:
     run_tests()
 
     print("[2/8] 配布バージョンを確認しています…")
+    # バージョン確定（write_version）でpyproject.tomlが書き換わる前に、作業ツリーの
+    # 状態とHEADを記録する（`has_uncommitted_changes`のdocstring参照）。
+    dirty = has_uncommitted_changes(REPO_ROOT)
+    commit = read_git_commit(REPO_ROOT)
     current_version = read_current_version(PYPROJECT_PATH)
     version = resolve_version(current_version)
     if version != current_version:
@@ -277,7 +333,17 @@ def main() -> None:
 
     print("[8/8] 配布用zipを作成しています…")
     zip_path = create_distribution_zip(OUTPUT_DIR, DIST_DIR, APP_NAME, version)
+    commit_path = generate_build_commit(
+        DIST_DIR / build_commit_filename(APP_NAME, version), version, commit, dirty=dirty
+    )
+    if dirty:
+        print("  → 警告: 未コミットの変更がある状態でビルドしました。")
+        print("     この配布物に対応するコミットが存在しないため、publish_release.py は")
+        print(
+            "     公開を中止します。変更をコミットして main へマージしてから再ビルドしてください。"
+        )
     print(f"完了: {zip_path}")
+    print(f"      {commit_path.name}（ビルド元コミットの記録）")
 
 
 if __name__ == "__main__":
