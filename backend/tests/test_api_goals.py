@@ -201,16 +201,35 @@ def test_resume_requires_allocation_to_be_set(client):
 
 
 def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(client):
+    """確認待ちはCLOSE_CONFIRMATION_REQUIRED（状態エラーとは別コード）で返る（仕様書7.1）。"""
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     rejected = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+    assert rejected.json()["error"]["code"] == "CLOSE_CONFIRMATION_REQUIRED"
 
     closed = client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
     assert closed.status_code == 200
     assert closed.json()["status"] == "CLOSED_WITHOUT_RESULT"
+
+
+def test_close_already_closed_goal_returns_state_error_not_confirmation(client):
+    """クローズ済み目標への再クローズは確認待ちではなく状態エラーとして返る。
+
+    両者を同じコードで返していたため、画面側が本当の状態エラーを「確認が必要」と誤解し、
+    無関係な確認文言を表示したまま本当のエラーを握り潰していた（2026-09-11の不具合）。
+    """
+    goal = _make_activatable_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
 def test_update_closed_goal_is_rejected(client):

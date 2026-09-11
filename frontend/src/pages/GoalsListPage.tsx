@@ -18,8 +18,8 @@ import {
   type GoalRead,
 } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
-
-const GOAL_CATEGORIES: GoalCategory[] = ['EXAM', 'READING', 'WORK']
+import { resolveDeleteGoalLabelKeys } from '../features/goal/deleteGoalLabels'
+import { GOAL_CATEGORIES } from '../constants/goalCategories'
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -114,10 +114,17 @@ function DeleteArchivedGoalModal({
     onError: showApiError,
   })
 
+  // 文言は目標種別ごとに異なる（何が消えるのかを正しく伝えるため）。goalが無い間は
+  // 種別を決められないため、既定の種別で代用せずモーダルごと描画しない。
+  if (goal === null) {
+    return null
+  }
+  const labelKeys = resolveDeleteGoalLabelKeys(goal.category)
+
   return (
-    <Modal open={goal !== null} onClose={onClose} title={t('goals.list.deleteModal.title')}>
+    <Modal open onClose={onClose} title={t('goals.list.deleteModal.title')}>
       <div className="flex flex-col gap-3 text-sm text-gray-700">
-        <p>{t('goals.list.deleteModal.warning')}</p>
+        <p>{t(labelKeys.warningKey)}</p>
         <label className="flex items-start gap-2">
           <input
             type="checkbox"
@@ -126,9 +133,9 @@ function DeleteArchivedGoalModal({
             onChange={(e) => setCascadeStudyLogs(e.target.checked)}
           />
           <span>
-            {t('goals.list.deleteModal.cascadeCheckbox')}
+            {t(labelKeys.cascadeCheckboxKey)}
             <span className="mt-0.5 block text-xs text-gray-500">
-              {t('goals.list.deleteModal.cascadeHint')}
+              {t(labelKeys.cascadeHintKey)}
             </span>
           </span>
         </label>
@@ -139,7 +146,7 @@ function DeleteArchivedGoalModal({
           <Button
             type="button"
             disabled={mutation.isPending}
-            onClick={() => goal && mutation.mutate(goal.id)}
+            onClick={() => mutation.mutate(goal.id)}
           >
             {t('goals.list.deleteModal.confirmButton')}
           </Button>

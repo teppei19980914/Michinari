@@ -266,20 +266,39 @@ def test_complete_book_on_draft_goal_is_rejected(client):
 
 
 def test_close_reading_goal_without_completing_book_is_interruption(client):
-    """POST /goals/{id}/close は読了ではなく中断に相当する（仕様書7.1）。"""
+    """POST /goals/{id}/close は読了ではなく中断に相当する（仕様書7.1）。
+
+    読書目標に「受験結果」は存在しないため、確認なしの要求はCLOSE_CONFIRMATION_REQUIRED
+    （状態エラーではなく確認待ち）で返る。画面側は確認モーダルの承認をもって
+    confirm_without_result=True を送るため、利用者の確認は1回で足りる（仕様書7.1の
+    読書目標の遷移条件「確認モーダルでの承認」）。
+    """
     goal = _make_activatable_reading_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
     response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
 
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+    assert response.json()["error"]["code"] == "CLOSE_CONFIRMATION_REQUIRED"
 
     confirmed = client.post(
         f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
     )
     assert confirmed.status_code == 200
     assert confirmed.json()["status"] == "CLOSED_WITHOUT_RESULT"
+
+
+def test_close_reading_goal_with_confirmation_succeeds_in_one_call(client):
+    """画面が確認モーダルの承認を1回で送る経路（確認済みなら一度で中断クローズできる）。"""
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "CLOSED_WITHOUT_RESULT"
 
 
 def test_update_book_on_closed_goal_is_rejected(client):

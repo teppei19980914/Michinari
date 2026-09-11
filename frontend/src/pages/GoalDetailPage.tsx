@@ -8,7 +8,7 @@ import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
-import { activateGoal, getGoal, pauseGoal, resumeGoal } from '../api/goals'
+import { activateGoal, getGoal, pauseGoal, resumeGoal, type GoalCategory } from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
@@ -18,6 +18,7 @@ import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
+import { ERROR_CODES } from '../constants/errorCodes'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 
 const EXAM_TABS = [
@@ -108,7 +109,7 @@ function GoalStatusActions({
 }: {
   goalId: number
   status: string
-  category: 'EXAM' | 'READING' | 'WORK'
+  category: GoalCategory
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
@@ -131,7 +132,7 @@ function GoalStatusActions({
     mutationFn: () => resumeGoal(goalId),
     onSuccess: invalidate,
     onError: (error) => {
-      if (error instanceof ApiError && error.code === 'RESOURCE_EXCEEDED') {
+      if (error instanceof ApiError && error.code === ERROR_CODES.RESOURCE_EXCEEDED) {
         setResumeErrorModalOpen(true)
         return
       }
