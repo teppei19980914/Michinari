@@ -70,7 +70,7 @@
 ## 使いはじめる（3ステップ）
 
 1. **ダウンロード**
-   [リリース一覧](https://github.com/teppei19980914/Michinari/releases) を開き、最新版の `Michinari-v◯.◯.◯.zip` をダウンロードします
+   [最新版のダウンロードページ](https://github.com/teppei19980914/Michinari/releases/latest) を開き、`Michinari-v◯.◯.◯.zip` をダウンロードします
 2. **解凍**
    ダウンロードしたzipファイルを右クリックし、「すべて展開」で好きな場所に解凍します（`Michinari` フォルダができます）
 3. **起動**
@@ -123,7 +123,7 @@
 
 ## 新しいバージョンに入れ替える
 
-1. [リリース一覧](https://github.com/teppei19980914/Michinari/releases) から新しいzipをダウンロードして解凍します
+1. [最新版のダウンロードページ](https://github.com/teppei19980914/Michinari/releases/latest) から新しいzipをダウンロードして解凍します（各版の変更点は [リリースノート](docs/release-notes/) を参照してください）
 2. 古い `Michinari` フォルダを、新しいものに置き換えます
 3. `Michinari.exe` をダブルクリックします
 
@@ -156,6 +156,7 @@
 | [docs/設計書_データ構造編_ミチナリ_v1.1.md](docs/設計書_データ構造編_ミチナリ_v1.1.md) | データ構造・API・ディレクトリ構成 |
 | [docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md](docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md) | 算出ロジック・AIプロンプト設計 |
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | 開発環境セットアップ・ビルド・リリース・運用手順 |
+| [docs/release-notes/](docs/release-notes/) | バージョンごとの詳細リリースノート |
 | [docs/CODING_RULES.md](docs/CODING_RULES.md) | コーディング規約 |
 
 開発環境の構築、ビルド、配布パッケージの作成手順は [docs/OPERATIONS.md](docs/OPERATIONS.md) を参照してください。

@@ -529,16 +529,39 @@ uv run python scripts/publish_release.py
 ```
 
 `publish_release.py` はバージョンを`pyproject.toml`から自動取得し、`ver{version}`タグ・
-`Michinari-v{version}`の表題で `gh release create ... --generate-notes` を実行する
+`Michinari-v{version}`の表題で `gh release create ... --notes-file` を実行する
 （アップロードするzipファイル名も`build_package.py`と同じ`Michinari-v{version}.zip`を使う。
 命名規則は`build_package.distribution_zip_filename`に集約し、二重管理しない）。タグ・表題は
-公開済みリリース（`ver1.0.0`/`ver1.1.0`、`Michinari-v1.0.0`/`Michinari-v1.1.0`）の命名へ
+公開済みリリース（`ver1.0.0`〜`ver1.2.0`、`Michinari-v1.0.0`〜`Michinari-v1.2.0`）の命名へ
 スクリプト側を合わせたものである（タグ名はReleaseページの固定URLに含まれ、READMEや外部からの
-参照先になるため、過去タグの付け替えは行わない）。同じバージョンで
-再実行するなど既にタグ・Releaseが存在する場合は、自動的に `gh release upload ... --clobber`
-へフォールバックしてzipを差し替える。`build_package.py`からは一切自動呼び出しされない
-（GitHub上で他者から見える公開操作のため、公開したいタイミングで開発者が明示的に
-実行する）。
+参照先になるため、過去タグの付け替えは行わない）。同じバージョンで再実行するなど既にタグ・
+Releaseが存在する場合は、自動的に `gh release edit ... --notes-file`（本文の差し替え）と
+`gh release upload ... --clobber`（zipの差し替え）へフォールバックする。`build_package.py`
+からは一切自動呼び出しされない（GitHub上で他者から見える公開操作のため、公開したい
+タイミングで開発者が明示的に実行する）。
+
+#### リリースノートの2層構成
+
+**公開前に `docs/release-notes/v{version}.md` を作成しておくこと**（存在しないと
+`publish_release.py` はエラー終了する）。Releases一覧ページは各リリースの本文を全文
+レンダリングするため、本文が長いと配布zip（Assets）が画面下へ埋もれ、利用者が目的の
+バージョンを見つけられなくなる。そこでRelease本文は要約のみとし、全変更点は
+`docs/release-notes/` 配下のファイルへ置く。
+
+| 層 | 置き場所 | 分量の目安 |
+|---|---|---|
+| 要約 | GitHub Release 本文（スクリプトが自動生成） | 15行以内 |
+| 詳細 | `docs/release-notes/v{version}.md` | 制限なし |
+
+`publish_release.py` は詳細ノートの `<!-- summary:start -->` 〜 `<!-- summary:end -->` で
+囲まれた範囲を抽出し、ダウンロード導線（配布zip名とREADMEへのリンク）と詳細ノートへの
+リンクを前後に付けてRelease本文を組み立てる。書き方と追加手順は
+[docs/release-notes/README.md](release-notes/README.md) を参照。
+
+詳細ノートへのリンクは**タグではなく`main`**を指す。過去バージョンのタグには当該ファイルが
+含まれないうえ、ノートの誤記を後から直した場合にRelease本文からのリンク先へも反映させたい
+ためである。したがって**詳細ノートを`main`へマージしてから公開すること**（未マージのまま
+公開すると本文のリンクが404になる）。
 
 **公開はビルド対象コミットが `main` へマージされた直後に行うこと。** `gh release create` は
 `--target` を指定しない場合、タグをリポジトリの既定ブランチ（`main`）の**その時点の先端**に
