@@ -51,6 +51,13 @@ BASE_BRANCH="${base_branch:-main}"
 echo ""
 echo "=== Git Automation (SessionStart) ==="
 
+# 終了メッセージ（複数の早期 return 経路から呼ぶため関数化する。CLAUDE.md DRYの原則）。
+finish() {
+  echo "=== Git Automation 完了 ==="
+  echo ""
+  exit 0
+}
+
 # ========================================
 # Step 1: 前提CLIチェック (Hybrid モード)
 # ========================================
@@ -191,9 +198,7 @@ fi
 if git show-ref --verify --quiet "refs/heads/$TODAY_BRANCH"; then
   echo "当日ブランチ $TODAY_BRANCH に切り替え"
   git checkout "$TODAY_BRANCH"
-  echo "=== Git Automation 完了 ==="
-  echo ""
-  exit 0
+  finish
 fi
 
 # 未マージの前日ブランチが残っている場合は「作業中」と判断し、当日ブランチを作らずに
@@ -204,9 +209,7 @@ if [ -n "$UNMERGED_PREV_BRANCH" ]; then
   echo "  → 作業中と判断し $UNMERGED_PREV_BRANCH 上で作業を継続します"
   echo "  → 当日ブランチへ切り替えるには、先に PR をマージしてください"
   git checkout "$UNMERGED_PREV_BRANCH" 2>/dev/null || true
-  echo "=== Git Automation 完了 ==="
-  echo ""
-  exit 0
+  finish
 fi
 
 # 前日ブランチが全てマージ済み（または存在しない）→ 最新の base から当日ブランチを切る。
@@ -225,15 +228,11 @@ if git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null;
     echo "  [!] $BASE_BRANCH が origin より $behind コミット遅れており fast-forward できません"
     echo "      当日ブランチの作成を中止します（古い base から切ると差分が巻き戻るため）"
     echo "      手動で $BASE_BRANCH を最新化してから、セッションを開き直してください"
-    echo "=== Git Automation 完了 ==="
-    echo ""
-    exit 0
+    finish
   fi
 fi
 
 echo "当日ブランチ $TODAY_BRANCH を作成（$BASE_BRANCH は最新化済み）"
 git checkout -b "$TODAY_BRANCH"
 
-echo "=== Git Automation 完了 ==="
-echo ""
-exit 0
+finish
