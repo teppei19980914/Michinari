@@ -133,18 +133,35 @@ def resolve_version(current_version: str, *, prompt=input) -> str:
 
 
 def run_tests() -> None:
-    """テストスイートを実行する。1件でも失敗すればここでビルドを中止する（`sys.exit(1)`）。
+    """バックエンド・フロントエンド双方のテストを実行する。1件でも失敗すればビルドを中止する。
 
     配布パッケージに不具合を含んだまま出荷しないための最終防波堤として、ビルドの
     一番最初に置く（バージョン入力より前。失敗する可能性のあるビルドでユーザに
     バージョンを入力させるのは手間の無駄なため）。
+
+    フロントエンドは長らく対象外で、`npm test`（カバレッジ閾値100%）も型チェックも
+    手動実行に頼っていた。バックエンドだけを通して出荷する状態は品質ゲートとして
+    不完全なため、双方を必須にしている。
     """
     print("[1/8] テストスイートを実行しています…")
+    print("  → バックエンド (pytest)")
     result = subprocess.run([sys.executable, "-m", "pytest"], cwd=BACKEND_DIR)
     if result.returncode != 0:
-        print("  → テストが失敗しました。配布パッケージのビルドを中止します。")
+        print("  → バックエンドのテストが失敗しました。配布パッケージのビルドを中止します。")
         print("     上記のテスト結果を確認して修正した後、再度実行してください。")
         sys.exit(1)
+
+    # npm は Windows ではシェル経由でないと解決できないため shell=True を使う
+    # （build_frontend と同じ理由）。
+    for label, command in (
+        ("フロントエンド (型チェック)", ["npx", "tsc", "-b"]),
+        ("フロントエンド (vitest + カバレッジ)", ["npm", "test"]),
+    ):
+        print(f"  → {label}")
+        result = subprocess.run(command, cwd=FRONTEND_DIR, shell=True)
+        if result.returncode != 0:
+            print(f"  → {label} が失敗しました。配布パッケージのビルドを中止します。")
+            sys.exit(1)
 
 
 def generate_build_info(
@@ -266,10 +283,10 @@ def generate_build_commit(
 ) -> Path:
     """配布zipと対になる、ビルド元コミットの記録を書き出す。
 
-    `publish_release.py`がこれを読み、`gh release create --target <commit>`で
-    **配布物のコミットへタグを付ける**。記録が無いとタグは公開時点の既定ブランチ
-    先端に付くため、ビルドと公開の間に`main`が進むと配布物と異なるコミットへ
-    タグが付く（2026-09-11に`ver1.0.0`・`ver1.2.0`で実際に発生。OPERATIONS.md 7.4参照）。
+    `publish_release.py`がこれを読み、`ensure_release_tag`で**配布物のコミットへタグを
+    付ける**。記録が無いとタグは公開時点の既定ブランチ先端に付くため、ビルドと公開の間に
+    `main`が進むと配布物と異なるコミットへタグが付く（2026-09-11に`ver1.0.0`・`ver1.2.0`
+    で実際に発生。OPERATIONS.md 7.4参照）。
     """
     record = {"version": version, "commit": commit, "dirty": dirty}
     output_path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")

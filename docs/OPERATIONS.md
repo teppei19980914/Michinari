@@ -382,9 +382,10 @@ kubectl rollout undo deployment/<name>
 ### 7.4 配布パッケージのビルド（他端末への配布用）
 
 本アプリは個人端末で完結するローカルアプリであるため、7.1〜7.3のサーバーデプロイとは別に、
-Windows端末へ配布するための単一実行ファイル化（PyInstaller）を用意している。ビルド〜
-パッケージ化〜zip化は半自動化されており、開発者はバージョンの入力のみ行えばよい
-（GitHub Releasesへのzipアップロードは自動化対象外。開発者が手動で行う）。
+Windows端末へ配布するための単一実行ファイル化（PyInstaller）を用意している。マージ〜ビルド〜
+パッケージ化〜zip化〜GitHub Releasesへの公開までを`scripts/release.py`が一続きで実行する
+（後述「配布物の公開方法」）。ビルド時にはバックエンド・フロントエンド双方のテストが
+必ず実行され、1件でも失敗すればビルドを中止する。
 
 #### ビルド前の準備（変更内容により手順が異なる）
 
@@ -522,9 +523,30 @@ OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期�
 残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
 GitHub Releasesにzipを添付する方式で行う。
 
+**推奨: `release.py` で一続きに実行する**（マージ → ビルド → 公開 → 公開後検証）。
+
 ```bash
 cd backend
-uv run python scripts/build_package.py
+uv run python scripts/release.py 1.2.2     # バージョンを引数で渡す（対話入力なし）
+uv run python scripts/release.py 1.2.2 --skip-merge   # 既に main へマージ済みの場合
+```
+
+工程を人が順に叩く運用では、順序違いがそのまま事故になっていた。`release.py` は以下を
+まとめて担う。
+
+| 工程 | 内容 |
+| --- | --- |
+| 事前検証 | バージョン形式（`N.N.N`）・作業ツリーがクリーン・リリースノートと要約ブロックの存在・**タグが未公開であること**。取り返しのつかない操作の前に全て確認する |
+| マージ | 現在のブランチを `main` へ squash マージし、`main` を最新化してビルド元コミットを確定する |
+| ビルド | `build_package.py` の各工程（テスト → バージョン確定 → ビルド → zip化）をバージョン入力なしで実行 |
+| 公開 | `publish_release.py` の `publish` を呼ぶ |
+| 公開後検証 | **リモートのタグ実体がビルド元コミットを指しているか**を突き合わせる |
+
+個別に実行する場合（従来どおり）:
+
+```bash
+cd backend
+uv run python scripts/build_package.py     # バージョンは対話入力
 uv run python scripts/publish_release.py
 ```
 
@@ -534,7 +556,15 @@ uv run python scripts/publish_release.py
 命名規則は`build_package.distribution_zip_filename`に集約し、二重管理しない）。タグ・表題は
 公開済みリリース（`ver1.0.0`〜`ver1.2.0`、`Michinari-v1.0.0`〜`Michinari-v1.2.0`）の命名へ
 スクリプト側を合わせたものである（タグ名はReleaseページの固定URLに含まれ、READMEや外部からの
-参照先になるため、過去タグの付け替えは行わない）。同じバージョンで再実行するなど既にタグ・
+参照先になるため、過去タグの付け替えは行わない）。
+
+**タグの作成は `gh` に任せない。** `ensure_release_tag` がビルド元コミットへタグを作成・push
+してから、`gh release create --verify-tag`（タグが無ければ中止）で公開する。`--target` を
+渡す方式では、**同名のローカルタグが存在すると `gh` がそれを push し、`--target` の指定が
+無視される**。2026-09-12 の v1.2.1 公開で、公開前に作られていたローカルタグ（当時の `main`
+先端）がそのまま押し出され、タグが配布物と異なるコミットを指す事故が起きた。Release 側の
+`target_commitish` には指定値が入るため、Release の情報だけを見ても食い違いに気付けない。
+公開済みのタグが別コミットを指している場合は、配布済みの内容を黙って書き換えないよう中止する。同じバージョンで再実行するなど既にタグ・
 Releaseが存在する場合は、自動的に `gh release edit ... --notes-file`（本文の差し替え）と
 `gh release upload ... --clobber`（zipの差し替え）へフォールバックする。`build_package.py`
 からは一切自動呼び出しされない（GitHub上で他者から見える公開操作のため、公開したい
