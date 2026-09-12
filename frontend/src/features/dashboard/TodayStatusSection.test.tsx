@@ -1,13 +1,13 @@
+/** 「本日の報告ボタンがどこへ遷移するか」の回帰テスト。1カテゴリだけ確定した日に残りの
+ * カテゴリを報告できるかを左右する（仕様書1.1（改20））。遷移先は分岐を持たない定数のため
+ * 純粋関数側では守れず、描画結果のリンク先として固定する（vite.config.tsのcoverage include
+ * が言う「押した結果まで含めて守りたいもの」に該当）。 */
 import { describe, expect, it, afterEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { t } from '../../locales/t'
 import { TodayStatusSection } from './TodayStatusSection'
 
-// 「本日の報告ボタンがどこへ遷移するか」は、1カテゴリだけ確定した日に残りのカテゴリを
-// 報告できるかを左右する（仕様書1.1（改20））。遷移先は定数化された分岐を持たないため
-// 純粋関数側ではなく、描画結果のリンク先として固定する（vite.config.tsのcoverage include
-// コメント「押した結果どこへ行くかまで含めて守りたいもの」に該当）。
 const LOGICAL_DATE = '2026-09-12'
 
 function renderSection(recordState: 'REPORTED' | 'PROGRESS_ONLY' | null) {

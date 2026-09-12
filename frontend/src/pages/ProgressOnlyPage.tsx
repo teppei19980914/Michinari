@@ -6,8 +6,9 @@ import { apiErrorMessage } from '../api/client'
 import { useToast } from '../components/Toast'
 import { Button } from '../components/Button'
 import { ROUTES } from '../constants/routes'
-import { getQuota, getRecord, registerProgress } from '../api/records'
+import { getQuota, getRecord, getToday, registerProgress } from '../api/records'
 import { StudyLogFields } from '../features/record/StudyLogFields'
+import { isFutureDate } from '../features/record/finalizableDate'
 import { listSlots } from '../api/resources'
 import {
   buildStudyLogPayload,
@@ -43,6 +44,9 @@ export function ProgressOnlyPage() {
     queryKey: ['quota', targetDate],
     queryFn: () => getQuota(targetDate),
   })
+  // 進捗のみ登録が可能なのは未来日以外（仕様書7.2「当日または前日以前」）。論理的な本日は
+  // クライアントで算出せずサーバから取得する（技術選定書7.1「禁止事項」）。
+  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
   const hydratedRef = useRef(false)
@@ -67,15 +71,27 @@ export function ProgressOnlyPage() {
     onError: showApiError,
   })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading) {
+  if (recordQuery.isLoading || quotaQuery.isLoading || todayQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (recordQuery.isError || !recordQuery.data || quotaQuery.isError || !quotaQuery.data) {
+  if (
+    recordQuery.isError ||
+    !recordQuery.data ||
+    quotaQuery.isError ||
+    !quotaQuery.data ||
+    todayQuery.isError ||
+    !todayQuery.data
+  ) {
     return (
       <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(recordQuery.error ?? quotaQuery.error)}
+        {apiErrorMessage(recordQuery.error ?? quotaQuery.error ?? todayQuery.error)}
       </p>
     )
+  }
+  if (isFutureDate(targetDate, todayQuery.data.logical_date)) {
+    // 未来日への実績登録はサーバが拒否する（仕様書7.2）。入力させてから送信時に弾くと入力内容が
+    // 失われるため、その前に閲覧画面へ誘導する（日次報告画面の入力可能期間ガードと同じ方針）。
+    return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
   if (recordQuery.data.exam_record_state === 'REPORTED') {
     // このページはEXAM専用（study_logsのみ扱う）のため、資格勉強が確定済みなら
