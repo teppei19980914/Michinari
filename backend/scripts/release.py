@@ -271,6 +271,7 @@ def publish(version: str, zip_path: Path, *, draft: bool) -> None:
     publish_release.publish(
         version,
         zip_path,
+        publish_release.release_notes_path(REPO_ROOT, version),
         publish_release.build_commit_path(build_package.DIST_DIR, version),
         draft=draft,
     )
