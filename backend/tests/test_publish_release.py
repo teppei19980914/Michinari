@@ -29,6 +29,7 @@ from publish_release import (
     release_notes_url,
     release_tag,
     release_title,
+    resolve_release_body,
 )
 
 _SUMMARY_TEXT = "読書の記録のしかたを見直しました。"
@@ -161,6 +162,21 @@ def test_build_edit_command_replaces_title_and_notes(tmp_path: Path) -> None:
     ]
 
 
+def test_build_release_command_omits_draft_by_default(tmp_path: Path) -> None:
+    result = build_release_command("1.2.3", tmp_path / "a.zip", tmp_path / "b.md")
+
+    assert "--draft" not in result
+
+
+def test_build_release_command_adds_draft_when_requested(tmp_path: Path) -> None:
+    """未記載のひな形が一般公開されないよう、下書きで作成できること。"""
+    result = build_release_command("1.2.3", tmp_path / "a.zip", tmp_path / "b.md", draft=True)
+
+    assert "--draft" in result
+    # 下書きでもタグの取り違え防止は外さない。
+    assert "--verify-tag" in result
+
+
 def test_build_upload_command_clobbers_existing_asset() -> None:
     zip_path = Path("dist/Michinari.zip")
 
@@ -179,15 +195,44 @@ def test_publish_exits_when_zip_missing(tmp_path: Path) -> None:
     assert exc.value.code == 1
 
 
-def test_publish_exits_when_notes_missing(tmp_path: Path) -> None:
-    zip_path = tmp_path / "Michinari-v1.2.3.zip"
-    zip_path.write_text("dummy", encoding="utf-8")
-    commit_path = _write_commit_record(tmp_path / "Michinari-v1.2.3.commit.json")
+def test_resolve_release_body_uses_the_summary_when_notes_exist(tmp_path: Path) -> None:
+    notes_path = _write_notes(tmp_path / "v1.2.3.md")
 
-    with pytest.raises(SystemExit) as exc:
-        publish("1.2.3", zip_path, tmp_path / "missing.md", commit_path)
+    body = resolve_release_body(notes_path, "1.2.3")
 
-    assert exc.value.code == 1
+    assert _SUMMARY_TEXT in body
+    assert release_notes_url("1.2.3") in body
+
+
+def test_resolve_release_body_falls_back_to_the_placeholder_when_notes_missing(
+    tmp_path: Path,
+) -> None:
+    """ノートが無くても公開できる（未記載のひな形を載せる）。
+
+    ノートを先に書く前提を外し、パッケージとタグを先に用意してノートは後から
+    GitHubの画面で書く運用のため。
+    """
+    body = resolve_release_body(tmp_path / "missing.md", "1.2.3")
+
+    assert "リリースノート未記載" in body
+    # ファイルが無い状態で詳細ノートへリンクすると404になるため、リンクは載せない。
+    assert release_notes_url("1.2.3") not in body
+
+
+def test_resolve_release_body_propagates_broken_summary_markers(tmp_path: Path) -> None:
+    """ノートはあるが要約ブロックが壊れている場合は、黙ってひな形へ落とさない。"""
+    notes_path = tmp_path / "v1.2.3.md"
+    notes_path.write_text("# Michinari v1.2.3\n\n（マーカー無し）\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        resolve_release_body(notes_path, "1.2.3")
+
+
+def test_placeholder_body_keeps_the_download_line(tmp_path: Path) -> None:
+    """ひな形でも配布zipの導線は残す（本文を書き換える前でもダウンロードできる）。"""
+    body = resolve_release_body(tmp_path / "missing.md", "1.2.3")
+
+    assert "Michinari-v1.2.3.zip" in body
 
 
 class _FakeCompletedProcess:

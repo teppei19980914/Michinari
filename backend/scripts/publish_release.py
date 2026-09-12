@@ -80,17 +80,24 @@ def extract_summary(notes_markdown: str) -> str:
     return notes_markdown[start + len(SUMMARY_START) : end].strip()
 
 
-def build_release_body(version: str, summary: str) -> str:
-    """Release本文（ダウンロード導線 + 要約 + 詳細ノートへのリンク）を組み立てる。
+def build_download_line(version: str) -> str:
+    """Release本文の先頭に置くダウンロード導線。
 
     配布zipのファイル名は`build_package.distribution_zip_filename`に集約しているため、
-    本文中でも同関数から導出して二重管理を避ける。
+    本文中でも同関数から導出して二重管理を避ける（CLAUDE.md DRYの原則）。
     """
     zip_filename = distribution_zip_filename(APP_NAME, version)
+    return (
+        f"**ダウンロード**: 下の Assets から `{zip_filename}` "
+        f"→ [インストールと使いかた]({REPOSITORY_URL}/blob/main/README.md)"
+    )
+
+
+def build_release_body(version: str, summary: str) -> str:
+    """Release本文（ダウンロード導線 + 要約 + 詳細ノートへのリンク）を組み立てる。"""
     return "\n".join(
         [
-            f"**ダウンロード**: 下の Assets から `{zip_filename}` "
-            f"→ [インストールと使いかた]({REPOSITORY_URL}/blob/main/README.md)",
+            build_download_line(version),
             "",
             summary,
             "",
@@ -101,7 +108,55 @@ def build_release_body(version: str, summary: str) -> str:
     )
 
 
-def build_release_command(version: str, zip_path: Path, body_path: Path) -> list[str]:
+def build_placeholder_body(version: str) -> str:
+    """詳細ノートが未作成のときのRelease本文（利用者が書き換えるひな形）。
+
+    リリース作業を「先にノートを書く」前提から外し、パッケージとタグを先に用意して
+    ノートは後からGitHubの画面で上書きする運用を可能にするためのもの。ひな形のまま
+    一般公開されることを防ぐため、下書き（draft）での作成と組み合わせて使う
+    （`release.py`の`--draft`）。
+
+    詳細ノートへのリンクは載せない。ファイルが無い状態でリンクすると404になるため、
+    2層構成を使う場合は`docs/release-notes/v{version}.md`を作ってから実行する
+    （`resolve_release_body`がファイルの有無で自動的に切り替える）。
+    """
+    return "\n".join(
+        [
+            build_download_line(version),
+            "",
+            "> [!IMPORTANT]",
+            "> **リリースノート未記載です。** 以下のひな形を書き換えてから公開してください",
+            "> （この引用ブロックごと削除してください）。",
+            "",
+            "## このバージョンの変更",
+            "",
+            "- （変更点1）",
+            "- （変更点2）",
+            "",
+            "## アップデート時のご注意",
+            "",
+            "- （特になければ「特にありません。"
+            "これまでに入力した内容はそのまま引き継がれます。」）",
+            "",
+        ]
+    )
+
+
+def resolve_release_body(notes_path: Path, version: str) -> str:
+    """詳細ノートの有無でRelease本文を切り替える。
+
+    ノートがあり要約ブロックも読めるならそれを使い、無ければ記入用のひな形を返す。
+    ノートはあるが要約ブロックが壊れている場合は、黙ってひな形へ落とすと書いた内容が
+    失われたように見えるため、`extract_summary`が送出する例外をそのまま伝える。
+    """
+    if not notes_path.is_file():
+        return build_placeholder_body(version)
+    return build_release_body(version, extract_summary(notes_path.read_text(encoding="utf-8")))
+
+
+def build_release_command(
+    version: str, zip_path: Path, body_path: Path, *, draft: bool = False
+) -> list[str]:
     """`--verify-tag`で「事前に作った正しいタグ」以外では公開しない。
 
     タグ作成をghの自動生成（`--target`）に任せない理由:
@@ -113,8 +168,13 @@ def build_release_command(version: str, zip_path: Path, body_path: Path) -> list
 
     そこで`ensure_release_tag`でビルド元コミットへタグを確定させてからここを呼び、
     `--verify-tag`（タグがリモートに無ければ中止）で取り違えを防ぐ。
+
+    `draft=True`ではリリースノート未記載のまま一般公開しないよう下書きで作成する
+    （`build_placeholder_body`参照）。ghの下書きは自身ではタグを作らないが、本関数を
+    呼ぶ前に`ensure_release_tag`がgit側でタグを作成・pushするため、下書きの時点でも
+    タグは付いた状態になる。
     """
-    return [
+    command = [
         "gh",
         "release",
         "create",
@@ -126,6 +186,9 @@ def build_release_command(version: str, zip_path: Path, body_path: Path) -> list
         "--notes-file",
         str(body_path),
     ]
+    if draft:
+        command.append("--draft")
+    return command
 
 
 def build_edit_command(version: str, body_path: Path) -> list[str]:
@@ -269,12 +332,18 @@ def is_merged_into_base(repo_root: Path, commit: str) -> bool:
     return result.returncode == 0
 
 
-def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -> None:
-    """`ver{version}`タグでリリースを作成し、zipと要約版の本文を添付する。
+def publish(
+    version: str, zip_path: Path, notes_path: Path, commit_path: Path, *, draft: bool = False
+) -> None:
+    """`ver{version}`タグでリリースを作成し、zipと本文を添付する。
 
     タグは`ensure_release_tag`でビルド元コミットへ確定させてから`--verify-tag`付きで
     公開する（ghの自動タグ生成に任せない理由は`build_release_command`参照）。公開の
     前提として、そのコミットが`origin/main`へマージ済みであることを検証する。
+
+    本文は`resolve_release_body`が決める。詳細ノートがあればその要約を、無ければ記入用の
+    ひな形を載せる。ひな形のまま一般公開されないよう、ノートが無い場合は`draft=True`での
+    呼び出しを前提とする（判断は呼び出し側の`release.py`が行う）。
 
     タグが既存の場合（`gh release create`が失敗する場合）は、本文の差し替え
     （`gh release edit`）とアセットの差し替え（`gh release upload --clobber`）へ
@@ -285,9 +354,6 @@ def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -
     if not zip_path.is_file():
         print(f"エラー: {zip_path} が見つかりません。先に build_package.py を実行してください。")
         raise SystemExit(1)
-    if not notes_path.is_file():
-        print(f"エラー: {notes_path} が見つかりません。詳細リリースノートを作成してください。")
-        raise SystemExit(1)
 
     commit = read_build_commit(commit_path, version)
     if not is_merged_into_base(REPO_ROOT, commit):
@@ -297,13 +363,15 @@ def publish(version: str, zip_path: Path, notes_path: Path, commit_path: Path) -
             "異なるコミットを指すか、詳細リリースノートへのリンクが404になります）。"
         )
 
-    body = build_release_body(version, extract_summary(notes_path.read_text(encoding="utf-8")))
+    body = resolve_release_body(notes_path, version)
     with tempfile.TemporaryDirectory() as work_dir:
         body_path = Path(work_dir) / "release_body.md"
         body_path.write_text(body, encoding="utf-8")
 
         ensure_release_tag(REPO_ROOT, release_tag(version), commit)
-        result = subprocess.run(build_release_command(version, zip_path, body_path), cwd=REPO_ROOT)
+        result = subprocess.run(
+            build_release_command(version, zip_path, body_path, draft=draft), cwd=REPO_ROOT
+        )
         if result.returncode == 0:
             return
 

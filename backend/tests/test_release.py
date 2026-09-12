@@ -7,6 +7,7 @@
 import subprocess
 from pathlib import Path
 
+import build_package
 import publish_release
 import pytest
 import release
@@ -49,16 +50,24 @@ def test_verify_preconditions_rejects_non_semver(monkeypatch, tmp_path: Path, ve
     _prepare(monkeypatch, tmp_path)
 
     with pytest.raises(SystemExit):
-        release.verify_preconditions(version)
+        release.verify_preconditions(version, require_notes=True)
 
 
-def test_verify_preconditions_rejects_dirty_worktree(monkeypatch, tmp_path: Path) -> None:
-    """未コミットの変更があると、配布物と公開されるソースが食い違うため中止すること。"""
-    _write_notes(tmp_path, "1.2.3")
+def test_verify_workspace_rejects_dirty_worktree(monkeypatch, tmp_path: Path) -> None:
+    """未コミットの変更があると、配布物と公開されるソースが食い違うため中止すること。
+
+    バージョン入力より前に確認する（入力させた後で止めるのは手間の無駄なため）。
+    """
     _prepare(monkeypatch, tmp_path, dirty=True)
 
     with pytest.raises(SystemExit):
-        release.verify_preconditions("1.2.3")
+        release.verify_workspace()
+
+
+def test_verify_workspace_accepts_a_clean_worktree(monkeypatch, tmp_path: Path) -> None:
+    _prepare(monkeypatch, tmp_path)
+
+    release.verify_workspace()
 
 
 def test_verify_preconditions_requires_release_notes(monkeypatch, tmp_path: Path) -> None:
@@ -66,7 +75,7 @@ def test_verify_preconditions_requires_release_notes(monkeypatch, tmp_path: Path
     _prepare(monkeypatch, tmp_path)
 
     with pytest.raises(SystemExit):
-        release.verify_preconditions("1.2.3")
+        release.verify_preconditions("1.2.3", require_notes=True)
 
 
 def test_verify_preconditions_requires_summary_markers(monkeypatch, tmp_path: Path) -> None:
@@ -77,7 +86,7 @@ def test_verify_preconditions_requires_summary_markers(monkeypatch, tmp_path: Pa
     _prepare(monkeypatch, tmp_path)
 
     with pytest.raises(SystemExit):
-        release.verify_preconditions("1.2.3")
+        release.verify_preconditions("1.2.3", require_notes=True)
 
 
 def test_verify_preconditions_rejects_already_published_version(
@@ -88,14 +97,14 @@ def test_verify_preconditions_rejects_already_published_version(
     _prepare(monkeypatch, tmp_path, remote_tag=f"{_STALE_COMMIT}{_TAB}refs/tags/ver1.2.3\n")
 
     with pytest.raises(SystemExit):
-        release.verify_preconditions("1.2.3")
+        release.verify_preconditions("1.2.3", require_notes=True)
 
 
 def test_verify_preconditions_accepts_a_ready_state(monkeypatch, tmp_path: Path) -> None:
     _write_notes(tmp_path, "1.2.3")
     _prepare(monkeypatch, tmp_path)
 
-    release.verify_preconditions("1.2.3")
+    release.verify_preconditions("1.2.3", require_notes=True)
 
 
 # --- 公開後の検証 ---
@@ -121,35 +130,200 @@ def test_verify_published_detects_a_tag_on_the_wrong_commit(monkeypatch, tmp_pat
         release.verify_published("1.2.3", _COMMIT)
 
 
+# --- マージ済みかの検証 ---
+
+
+def _stub_rev_parse(monkeypatch, head: str, base: str) -> None:
+    """`git rev-parse HEAD` と `origin/main` の戻り値だけを差し替える。"""
+
+    def fake_run_git(*args, check=True):
+        if args[:2] == ("rev-parse", "HEAD"):
+            return subprocess.CompletedProcess(args, 0, head, "")
+        if args[0] == "rev-parse":
+            return subprocess.CompletedProcess(args, 0, base, "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(release, "run_git", fake_run_git)
+
+
+def test_verify_base_is_checked_out_accepts_a_synced_worktree(monkeypatch) -> None:
+    _stub_rev_parse(monkeypatch, _COMMIT, _COMMIT)
+
+    assert release.verify_base_is_checked_out() == _COMMIT
+
+
+def test_verify_base_is_checked_out_rejects_a_worktree_behind_main(monkeypatch) -> None:
+    """作業ツリーとorigin/mainがずれたまま公開しないこと。
+
+    ビルドは作業ツリーの内容から作られる一方、ビルド元コミットはorigin/mainとして
+    扱われるため、ずれていると配布物と異なるコミットにタグが付く（v1.2.1と同種の事故）。
+    """
+    _stub_rev_parse(monkeypatch, _STALE_COMMIT, _COMMIT)
+
+    with pytest.raises(SystemExit):
+        release.verify_base_is_checked_out()
+
+
+# --- バージョン入力 ---
+
+
+def test_prompt_version_accepts_a_semver_value() -> None:
+    assert release.prompt_version("1.2.2", prompt=lambda _m: "1.2.3") == "1.2.3"
+
+
+def test_prompt_version_strips_surrounding_spaces() -> None:
+    assert release.prompt_version("1.2.2", prompt=lambda _m: "  1.2.3  ") == "1.2.3"
+
+
+def test_prompt_version_reasks_until_the_format_is_valid() -> None:
+    """タグ名の揺れを防ぐため、N.N.N以外は受け付けず再入力を求めること。"""
+    answers = iter(["", "v1.2.3", "1.2", "1.2.3"])
+
+    assert release.prompt_version("1.2.2", prompt=lambda _m: next(answers)) == "1.2.3"
+
+
+def test_prompt_version_shows_the_current_version_in_the_message() -> None:
+    """既定値として自動採用はしないが、参考として現在値を表示すること。"""
+    messages: list[str] = []
+
+    release.prompt_version("1.2.2", prompt=lambda m: (messages.append(m), "1.2.3")[1])
+
+    assert "1.2.2" in messages[0]
+
+
 # --- 工程の順序 ---
+
+
+def _stub_main_steps(monkeypatch, tmp_path: Path, order: list[str]) -> None:
+    """`main`の各工程を記録用のスタブへ差し替える（順序と省略の検証用）。"""
+    monkeypatch.setattr(release, "verify_workspace", lambda: order.append("workspace"))
+    monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: order.append("verify"))
+    monkeypatch.setattr(release, "merge_to_base", lambda v: (order.append("merge"), _COMMIT)[1])
+    monkeypatch.setattr(
+        release, "build", lambda v, **k: (order.append("build"), tmp_path / "a.zip")[1]
+    )
+    monkeypatch.setattr(release, "publish", lambda v, z, **k: order.append("publish"))
+    monkeypatch.setattr(release, "verify_published", lambda v, c: order.append("verified"))
 
 
 def test_main_runs_merge_build_publish_verify_in_order(monkeypatch, tmp_path: Path) -> None:
     """検証→マージ→ビルド→公開→公開後検証の順で、いずれも省略されないこと。"""
     order: list[str] = []
-    monkeypatch.setattr(release, "verify_preconditions", lambda v: order.append("verify"))
-    monkeypatch.setattr(release, "merge_to_base", lambda v: (order.append("merge"), _COMMIT)[1])
-    monkeypatch.setattr(release, "build", lambda v: (order.append("build"), tmp_path / "a.zip")[1])
-    monkeypatch.setattr(release, "publish", lambda v, z: order.append("publish"))
-    monkeypatch.setattr(release, "verify_published", lambda v, c: order.append("verified"))
+    _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3"])
 
     assert release.main() == 0
-    assert order == ["verify", "merge", "build", "publish", "verified"]
+    assert order == ["workspace", "verify", "merge", "build", "publish", "verified"]
 
 
 def test_main_can_skip_merge_but_still_verifies(monkeypatch, tmp_path: Path) -> None:
     """既にマージ済みの場合でも、公開後のタグ検証は必ず行うこと。"""
     order: list[str] = []
-    monkeypatch.setattr(release, "verify_preconditions", lambda v: order.append("verify"))
+    _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr(release, "merge_to_base", lambda v: pytest.fail("マージしてはならない"))
     monkeypatch.setattr(
-        release, "run_git", lambda *a, **k: subprocess.CompletedProcess(a, 0, _COMMIT, "")
+        release, "verify_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
     )
-    monkeypatch.setattr(release, "build", lambda v: (order.append("build"), tmp_path / "a.zip")[1])
-    monkeypatch.setattr(release, "publish", lambda v, z: order.append("publish"))
-    monkeypatch.setattr(release, "verify_published", lambda v, c: order.append("verified"))
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge"])
 
     assert release.main() == 0
-    assert order == ["verify", "build", "publish", "verified"]
+    # mainとの一致確認は、時間のかかるテストより前に行う。
+    assert order == ["workspace", "base", "verify", "build", "publish", "verified"]
+
+
+def test_main_checks_the_base_branch_before_running_tests(monkeypatch, tmp_path: Path) -> None:
+    """mainと一致しているかの確認を、テストとバージョン入力より前に行うこと。
+
+    テストは数分かかる。その後で「mainと一致していません」と言われるのは手間の無駄で、
+    かつバージョンを入力させた後に中止するのも同じ理由で避ける。
+    """
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(
+        release, "verify_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
+    )
+    monkeypatch.setattr(build_package, "run_tests", lambda: order.append("tests"))
+    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
+    monkeypatch.setattr(release, "prompt_version", lambda cur: (order.append("prompt"), "1.2.3")[1])
+    monkeypatch.setattr("sys.argv", ["release.py", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert order.index("base") < order.index("tests") < order.index("prompt")
+
+
+def test_main_does_not_check_the_base_branch_when_merging(monkeypatch, tmp_path: Path) -> None:
+    """マージする実行では、事前の一致確認は行わない（これからマージして揃えるため）。"""
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(
+        release, "verify_base_is_checked_out", lambda: pytest.fail("確認してはならない")
+    )
+    monkeypatch.setattr("sys.argv", ["release.py", "1.2.3"])
+
+    assert release.main() == 0
+    assert "merge" in order
+
+
+def test_main_prompts_for_the_version_only_after_tests_pass(monkeypatch, tmp_path: Path) -> None:
+    """バージョンを省略した場合、テストを通してから入力を求めること（要件）。
+
+    通らないビルドのためにバージョンを考えさせない。入力後はテストを再実行しない。
+    """
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(build_package, "run_tests", lambda: order.append("tests"))
+    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
+    monkeypatch.setattr(release, "prompt_version", lambda cur: (order.append("prompt"), "1.2.3")[1])
+    monkeypatch.setattr("sys.argv", ["release.py", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert order.index("tests") < order.index("prompt")
+
+
+def test_main_does_not_run_the_tests_twice(monkeypatch, tmp_path: Path) -> None:
+    """バージョン入力前にテスト済みなら、ビルド側で再実行しないこと。"""
+    captured: dict = {}
+    monkeypatch.setattr(release, "verify_workspace", lambda: None)
+    monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: None)
+    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(build_package, "run_tests", lambda: None)
+    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
+    monkeypatch.setattr(release, "prompt_version", lambda cur: "1.2.3")
+    monkeypatch.setattr(
+        release,
+        "build",
+        lambda v, **k: (captured.update(k), tmp_path / "a.zip")[1],
+    )
+    monkeypatch.setattr(release, "publish", lambda v, z, **k: None)
+    monkeypatch.setattr(release, "verify_published", lambda v, c: None)
+    monkeypatch.setattr("sys.argv", ["release.py", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert captured["skip_tests"] is True
+
+
+def test_main_passes_the_draft_flag_through_to_publish(monkeypatch, tmp_path: Path) -> None:
+    """`--draft`が公開処理まで伝わること（ひな形のまま一般公開しないため）。"""
+    captured: dict = {}
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "publish", lambda v, z, **k: captured.update(k))
+    monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert captured["draft"] is True
+
+
+def test_main_does_not_require_notes_when_drafting(monkeypatch, tmp_path: Path) -> None:
+    """下書き公開では詳細ノートの存在を求めないこと（ノートは後から書く運用）。"""
+    captured: dict = {}
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: captured.update(k))
+    monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert captured["require_notes"] is False
