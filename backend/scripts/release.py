@@ -297,6 +297,11 @@ def main() -> int:
 
     verify_workspace()
 
+    # マージしない実行では、mainが最新でチェックアウトされているかを最初に確かめる。
+    # テスト（数分かかる）とバージョン入力の後で「mainと一致していません」と言われるのは
+    # 手間の無駄なため、確認できるものは全て前に出す。
+    checked_out_commit = verify_base_is_checked_out() if args.skip_merge else None
+
     # バージョンを省略した場合は、テストを通してから尋ねる（要件: 本番リリース判定が
     # OKだと判断できたらバージョン入力欄を表示する）。通らないビルドのためにバージョンを
     # 考えさせない。
@@ -312,8 +317,8 @@ def main() -> int:
 
     verify_preconditions(version, require_notes=not args.draft)
 
-    if args.skip_merge:
-        build_commit = verify_base_is_checked_out()
+    if checked_out_commit is not None:
+        build_commit = checked_out_commit
         print(f"[1/4] マージをスキップします（{BASE_BRANCH} は {build_commit[:8]}）")
     else:
         build_commit = merge_to_base(version)
