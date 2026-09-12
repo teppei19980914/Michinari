@@ -104,6 +104,9 @@ export function CalendarPage() {
       case 'PROMOTE_TO_REPORT':
         navigate(ROUTES.dailyReport(date))
         return
+      case 'REGISTER_PROGRESS_ONLY':
+        navigate(ROUTES.dailyReportProgress(date))
+        return
       case 'VIEW_REPORT':
       case 'VIEW_ONLY':
         navigate(ROUTES.dailyReportView(date))
