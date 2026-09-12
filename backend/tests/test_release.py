@@ -133,35 +133,73 @@ def test_verify_published_detects_a_tag_on_the_wrong_commit(monkeypatch, tmp_pat
 # --- マージ済みかの検証 ---
 
 
-def _stub_rev_parse(monkeypatch, head: str, base: str) -> None:
-    """`git rev-parse HEAD` と `origin/main` の戻り値だけを差し替える。"""
+def _stub_git(monkeypatch, head: str, base: str, *, tree_matches: bool, ff_ok: bool = True):
+    """`ensure_base_is_checked_out`が使うgit操作を差し替え、呼ばれた引数を記録する。"""
+    calls: list[tuple] = []
 
     def fake_run_git(*args, check=True):
+        calls.append(args)
         if args[:2] == ("rev-parse", "HEAD"):
             return subprocess.CompletedProcess(args, 0, head, "")
         if args[0] == "rev-parse":
             return subprocess.CompletedProcess(args, 0, base, "")
+        if args[0] == "diff":
+            return subprocess.CompletedProcess(args, 0 if tree_matches else 1, "", "")
+        if args[0] == "merge":
+            return subprocess.CompletedProcess(args, 0 if ff_ok else 1, "", "")
         return subprocess.CompletedProcess(args, 0, "", "")
 
     monkeypatch.setattr(release, "run_git", fake_run_git)
+    return calls
 
 
-def test_verify_base_is_checked_out_accepts_a_synced_worktree(monkeypatch) -> None:
-    _stub_rev_parse(monkeypatch, _COMMIT, _COMMIT)
+def test_ensure_base_is_checked_out_does_nothing_when_already_synced(monkeypatch) -> None:
+    calls = _stub_git(monkeypatch, _COMMIT, _COMMIT, tree_matches=True)
 
-    assert release.verify_base_is_checked_out() == _COMMIT
+    assert release.ensure_base_is_checked_out() == _COMMIT
+    assert not [c for c in calls if c[0] == "checkout"]
 
 
-def test_verify_base_is_checked_out_rejects_a_worktree_behind_main(monkeypatch) -> None:
-    """作業ツリーとorigin/mainがずれたまま公開しないこと。
+def test_ensure_base_is_checked_out_switches_to_main_when_work_is_merged(monkeypatch) -> None:
+    """PRをマージした直後の状態から、mainへの切り替えと最新化まで行うこと。
 
-    ビルドは作業ツリーの内容から作られる一方、ビルド元コミットはorigin/mainとして
-    扱われるため、ずれていると配布物と異なるコミットにタグが付く（v1.2.1と同種の事故）。
+    以前はここで中止し、`git checkout main && git pull`を人にやらせていた。
     """
-    _stub_rev_parse(monkeypatch, _STALE_COMMIT, _COMMIT)
+    calls = _stub_git(monkeypatch, _STALE_COMMIT, _COMMIT, tree_matches=True)
+
+    assert release.ensure_base_is_checked_out() == _COMMIT
+    assert ("checkout", "main") in calls
+    assert ("merge", "--ff-only", "origin/main") in calls
+
+
+def test_ensure_base_is_checked_out_refuses_when_work_is_not_merged(monkeypatch) -> None:
+    """マージし忘れた状態でmainへ切り替えないこと。
+
+    無条件に切り替えると、変更を含まないパッケージを配布してしまう（CLAUDE.mdの
+    「未マージのままmainから当日ブランチを切ると成果が消える」と同種の取りこぼし）。
+    """
+    calls = _stub_git(monkeypatch, _STALE_COMMIT, _COMMIT, tree_matches=False)
 
     with pytest.raises(SystemExit):
-        release.verify_base_is_checked_out()
+        release.ensure_base_is_checked_out()
+    assert not [c for c in calls if c[0] == "checkout"]
+
+
+def test_ensure_base_is_checked_out_reports_a_diverged_local_main(monkeypatch) -> None:
+    """ローカルmainが分岐していてfast-forwardできない場合は中止すること。"""
+    _stub_git(monkeypatch, _STALE_COMMIT, _COMMIT, tree_matches=True, ff_ok=False)
+
+    with pytest.raises(SystemExit):
+        release.ensure_base_is_checked_out()
+
+
+def test_is_content_merged_into_base_uses_tree_comparison(monkeypatch) -> None:
+    """squashマージでもマージ済みと判定できるよう、祖先関係ではなくツリーを比べること。"""
+    calls = _stub_git(monkeypatch, _STALE_COMMIT, _COMMIT, tree_matches=True)
+
+    assert release.is_content_merged_into_base() is True
+    assert ("diff", "--quiet", "origin/main", "HEAD") in calls
+    assert not [c for c in calls if c[0] == "merge-base"]
 
 
 # --- バージョン入力 ---
@@ -222,7 +260,7 @@ def test_main_can_skip_merge_but_still_verifies(monkeypatch, tmp_path: Path) -> 
     _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr(release, "merge_to_base", lambda v: pytest.fail("マージしてはならない"))
     monkeypatch.setattr(
-        release, "verify_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
+        release, "ensure_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
     )
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge"])
 
@@ -240,7 +278,7 @@ def test_main_checks_the_base_branch_before_running_tests(monkeypatch, tmp_path:
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr(
-        release, "verify_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
+        release, "ensure_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
     )
     monkeypatch.setattr(build_package, "run_tests", lambda: order.append("tests"))
     monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
@@ -256,7 +294,7 @@ def test_main_does_not_check_the_base_branch_when_merging(monkeypatch, tmp_path:
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr(
-        release, "verify_base_is_checked_out", lambda: pytest.fail("確認してはならない")
+        release, "ensure_base_is_checked_out", lambda: pytest.fail("確認してはならない")
     )
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3"])
 
@@ -271,7 +309,7 @@ def test_main_prompts_for_the_version_only_after_tests_pass(monkeypatch, tmp_pat
     """
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
-    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "ensure_base_is_checked_out", lambda: _COMMIT)
     monkeypatch.setattr(build_package, "run_tests", lambda: order.append("tests"))
     monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
     monkeypatch.setattr(release, "prompt_version", lambda cur: (order.append("prompt"), "1.2.3")[1])
@@ -286,7 +324,7 @@ def test_main_does_not_run_the_tests_twice(monkeypatch, tmp_path: Path) -> None:
     captured: dict = {}
     monkeypatch.setattr(release, "verify_workspace", lambda: None)
     monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: None)
-    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "ensure_base_is_checked_out", lambda: _COMMIT)
     monkeypatch.setattr(build_package, "run_tests", lambda: None)
     monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
     monkeypatch.setattr(release, "prompt_version", lambda cur: "1.2.3")
@@ -308,7 +346,7 @@ def test_main_passes_the_draft_flag_through_to_publish(monkeypatch, tmp_path: Pa
     captured: dict = {}
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
-    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "ensure_base_is_checked_out", lambda: _COMMIT)
     monkeypatch.setattr(release, "publish", lambda v, z, **k: captured.update(k))
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge", "--draft"])
 
@@ -321,7 +359,7 @@ def test_main_does_not_require_notes_when_drafting(monkeypatch, tmp_path: Path) 
     captured: dict = {}
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
-    monkeypatch.setattr(release, "verify_base_is_checked_out", lambda: _COMMIT)
+    monkeypatch.setattr(release, "ensure_base_is_checked_out", lambda: _COMMIT)
     monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: captured.update(k))
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge", "--draft"])
 

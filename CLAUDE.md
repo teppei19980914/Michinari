@@ -107,7 +107,7 @@
 - コミットメッセージは変更内容を端的に記述する
 - **コミット & プッシュは Stop Hook が自動実行**（`auto-commit.sh`）
 - **PR の `main` へのマージは Claude Code が実施してよい**（依頼時に `gh pr merge`。Hook による無人自動マージは行わない）
-- **リリースは `main` へマージ後に `backend/release.bat` を実行する**（テスト→バージョン入力→パッケージ→タグ→**下書き**リリース作成まで自動。人はGitHubの画面で本文を書き換えて公開するだけ）。バージョン指定で一続きに実行する場合は `backend/scripts/release.py <version>`。工程を個別に叩くと順序違いが事故になる。詳細は `OPERATIONS.md` 7.4
+- **リリースは `main` へマージ後に `backend/release.bat` を実行する**（`main` への切り替え・最新化→テスト→バージョン入力→パッケージ→タグ→**下書き**リリース作成まで自動。ローカルは dev ブランチのままでよい）。人の作業はGitHubの画面で本文を書き換えて公開するだけ。ノートを先に書く方式は `backend/scripts/release.py <version>`。工程を個別に叩くと順序違いが事故になる。詳細は `OPERATIONS.md` 7.4
 - `main` / `master` / `develop` / `release/*` / `hotfix/*` への**直接コミット**は引き続き保護（auto-commit.sh が拒否）。PR 経由のマージはこの保護の対象外
 - 自動化を無効化したい場合は `.claude/.git-automation-config` を削除
 

@@ -3,10 +3,14 @@ rem Run the release gate, then build and stage a draft GitHub Release.
 rem
 rem Run this AFTER merging your work into main (see OPERATIONS.md 7.4):
 rem   1. develop on dev/YYYY-MM-DD
-rem   2. merge into main
-rem   3. run this file  <- tests, version prompt, package, tag, draft release
+rem   2. merge into main (merge the PR on GitHub)
+rem   3. run this file  <- everything below is automatic
 rem   4. overwrite the release notes on the GitHub Releases page
 rem   5. press "Publish release" to distribute
+rem
+rem You do NOT need to switch to main first: this checks out main and brings it
+rem up to date on its own. It refuses to do so when your work is not yet merged,
+rem because switching then would package changes that do not include your work.
 rem
 rem The release is created as a DRAFT so a release with unwritten notes is never
 rem visible to users. The tag and the zip are attached to the draft already, so
