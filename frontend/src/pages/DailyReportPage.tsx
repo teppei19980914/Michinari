@@ -120,7 +120,7 @@ export function DailyReportPage() {
     queryFn: () => listGoals(),
   })
   // 入力可能期間（当日・前日）の判定に使う論理的な本日。クライアント側で現在日時から
-  // 算出してはならない（技術選定書7章）ため、サーバのGET /records/todayから取得する。
+  // 算出してはならない（技術選定書7.1「禁止事項」）ため、サーバのGET /records/todayから取得する。
   const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
