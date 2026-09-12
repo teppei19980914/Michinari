@@ -322,11 +322,17 @@ def ensure_release_tag(repo_root: Path, tag: str, commit: str) -> None:
 
 
 def is_merged_into_base(repo_root: Path, commit: str) -> bool:
-    """ビルド元コミットが`origin/main`へマージ済みかを判定する。
+    """ビルド元コミットが`origin/main`の履歴に含まれるかを判定する。
 
     未マージのまま公開すると、GitHubがタグを作れないか、Release本文から詳細
     リリースノート（`main`を指す）へのリンクが404になる（`release_notes_url`参照）。
     ローカルの`origin/main`参照を見るため、事前に`git fetch`しておくこと。
+
+    ここは祖先関係（`merge-base --is-ancestor`）で判定するのが正しい。タグはこの
+    コミットそのものを指すため、`main`の履歴に無いコミットへタグを付けてはならない。
+    `release.is_content_merged_into_base`はツリーの一致で判定するが、あちらは
+    「作業内容が取り込み済みか（＝mainへ切り替えても成果を失わないか）」という別の問いで
+    あり、判定方法を互いに合わせてはならない。
     """
     result = subprocess.run(
         ["git", "merge-base", "--is-ancestor", commit, BASE_BRANCH_REF],
