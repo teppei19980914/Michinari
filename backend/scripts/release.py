@@ -11,7 +11,16 @@
 各工程の実体は既存スクリプト（`build_package.py` / `publish_release.py`）に置いたまま、
 本スクリプトは順序と事前検証だけを担う（CLAUDE.md DRYの原則）。
 
-実行例（backendディレクトリから）: `uv run python scripts/release.py 1.2.2`
+実行例（backendディレクトリから）:
+
+- `uv run python scripts/release.py 1.2.2`
+  マージから公開まで通しで行う。詳細リリースノートを先に用意しておく必要がある。
+
+- `uv run python scripts/release.py --skip-merge --draft`（`release.bat`が呼ぶ形）
+  main へマージ済みの状態から実行する。テストを通してからコンソールでバージョンを
+  尋ね、パッケージ・タグ・zip添付まで済ませた**下書き**リリースを作る。リリースノートは
+  作成後にGitHubの画面で書き換えて公開する。ノートを書く前に配布物とタグを確定でき、
+  人の作業を「本文を書く」1点に絞れる。
 """
 
 import argparse
@@ -46,32 +55,64 @@ def has_uncommitted_changes() -> bool:
     return bool(run_git("status", "--porcelain").stdout.strip())
 
 
-def verify_preconditions(version: str) -> None:
-    """公開してよい状態かを、変更を加える前にまとめて検証する。
+def verify_workspace() -> None:
+    """バージョンに依らない前提（作業ツリーの状態）を検証する。
 
-    途中まで進んでから失敗すると、マージ済みだがタグが無い等の中途半端な状態が残る。
-    取り返しのつかない操作（マージ・公開）の前に、確認できるものは全て確認する。
+    バージョン入力より前に確認する。入力させた後で「未コミットの変更があります」と
+    言われるのは手間の無駄なため。
     """
-    if not _SEMVER_PATTERN.fullmatch(version):
-        raise SystemExit(f"エラー: バージョンは N.N.N 形式で指定してください（指定値: {version}）")
-
     if has_uncommitted_changes():
         raise SystemExit(
             "エラー: 未コミットの変更があります。コミットまたは退避してから実行してください"
             "（配布物と公開されるソースを一致させるため）。"
         )
 
+
+def verify_base_is_checked_out() -> str:
+    """`main`が最新の状態でチェックアウトされていることを検証し、そのコミットを返す。
+
+    マージを行わない実行（`--skip-merge`）では、ビルドは作業ツリーの内容から作られる
+    一方で「ビルド元コミット」は`origin/main`として扱われる。両者がずれていると、
+    配布物と異なるコミットにタグが付く（v1.2.1と同種の事故）。ここで一致を強制する。
+    """
+    run_git("fetch", "origin")
+    head = run_git("rev-parse", "HEAD").stdout.strip()
+    base = run_git("rev-parse", f"origin/{BASE_BRANCH}").stdout.strip()
+    if head != base:
+        raise SystemExit(
+            f"エラー: 作業ツリーが origin/{BASE_BRANCH}（{base[:8]}）と一致していません"
+            f"（HEAD: {head[:8]}）。先に {BASE_BRANCH} へマージして最新化してください"
+            "（配布物とタグの指すコミットを一致させるため）。"
+        )
+    return head
+
+
+def verify_preconditions(version: str, *, require_notes: bool) -> None:
+    """指定バージョンで公開してよい状態かを、変更を加える前に検証する。
+
+    途中まで進んでから失敗すると、マージ済みだがタグが無い等の中途半端な状態が残る。
+    取り返しのつかない操作（マージ・公開）の前に、確認できるものは全て確認する。
+
+    `require_notes=False`（下書き公開）では詳細ノートの存在を求めない。ノートは公開後に
+    GitHubの画面で書く運用のため（`publish_release.build_placeholder_body`参照）。
+    ただしノートが存在する場合は、要約ブロックが読めるかをここで確認する。
+    """
+    if not _SEMVER_PATTERN.fullmatch(version):
+        raise SystemExit(f"エラー: バージョンは N.N.N 形式で指定してください（指定値: {version}）")
+
     notes_path = publish_release.release_notes_path(REPO_ROOT, version)
     if not notes_path.is_file():
-        raise SystemExit(
-            f"エラー: リリースノート {notes_path} がありません。"
-            "先に作成してください（Release本文はこのファイルの要約ブロックから作られます）。"
-        )
-    try:
-        publish_release.extract_summary(notes_path.read_text(encoding="utf-8"))
-    except ValueError as error:
-        # 公開直前ではなくここで止める（マージ済みだがタグが無い中途半端な状態を作らない）。
-        raise SystemExit(f"エラー: {notes_path} の要約ブロックが読めません: {error}") from error
+        if require_notes:
+            raise SystemExit(
+                f"エラー: リリースノート {notes_path} がありません。"
+                "先に作成してください（Release本文はこのファイルの要約ブロックから作られます）。"
+            )
+    else:
+        try:
+            publish_release.extract_summary(notes_path.read_text(encoding="utf-8"))
+        except ValueError as error:
+            # 公開直前ではなくここで止める（マージ済みだがタグが無い中途半端な状態を作らない）。
+            raise SystemExit(f"エラー: {notes_path} の要約ブロックが読めません: {error}") from error
 
     tag = publish_release.release_tag(version)
     remote_tag_commit = publish_release.read_remote_tag_commit(REPO_ROOT, tag)
@@ -80,6 +121,24 @@ def verify_preconditions(version: str) -> None:
             f"エラー: タグ {tag} は既にリモートに存在します（{remote_tag_commit[:8]}）。"
             "公開済みのバージョンは上書きしません。別のバージョンで実行してください。"
         )
+
+
+def prompt_version(current_version: str, *, prompt=input) -> str:
+    """配布バージョンをコンソールから入力させる。
+
+    テストが全て通った後にだけ呼ぶ（品質ゲートを通過していないビルドのために
+    バージョンを考えさせない）。`build_package.resolve_version`と役割は似ているが、
+    こちらはリリースタグに使うため`N.N.N`形式のみを許可する点が異なる。
+    """
+    while True:
+        entered = prompt(f"配布バージョンを入力してください（現在: {current_version}）: ").strip()
+        if not entered:
+            print("  → バージョンが未入力です。")
+            continue
+        if not _SEMVER_PATTERN.fullmatch(entered):
+            print("  → バージョンは N.N.N 形式で入力してください（例: 1.2.2）。")
+            continue
+        return entered
 
 
 def merge_to_base(version: str) -> str:
@@ -134,10 +193,15 @@ def merge_to_base(version: str) -> str:
     return commit
 
 
-def build(version: str) -> Path:
-    """`build_package.py`の各工程を、バージョンを対話入力させずに実行する。"""
+def build(version: str, *, skip_tests: bool = False) -> Path:
+    """`build_package.py`の各工程を、バージョンを対話入力させずに実行する。
+
+    `skip_tests=True`は、バージョン入力より前に既にテストを通してある場合に使う
+    （同じテストを二度流さないため）。テスト自体を省く手段としては使わない。
+    """
     print(f"[2/4] バージョン {version} でパッケージをビルドしています…")
-    build_package.run_tests()
+    if not skip_tests:
+        build_package.run_tests()
     dirty = build_package.has_uncommitted_changes(REPO_ROOT)
     commit = build_package.read_git_commit(REPO_ROOT)
     if build_package.read_current_version(build_package.PYPROJECT_PATH) != version:
@@ -164,13 +228,14 @@ def build(version: str) -> Path:
     return zip_path
 
 
-def publish(version: str, zip_path: Path) -> None:
-    print("[3/4] GitHub Releases へ公開しています…")
+def publish(version: str, zip_path: Path, *, draft: bool) -> None:
+    label = "下書きとして作成" if draft else "公開"
+    print(f"[3/4] GitHub Releases へ{label}しています…")
     publish_release.publish(
         version,
         zip_path,
-        publish_release.release_notes_path(REPO_ROOT, version),
         publish_release.build_commit_path(build_package.DIST_DIR, version),
+        draft=draft,
     )
 
 
@@ -193,30 +258,73 @@ def verify_published(version: str, build_commit: str) -> None:
     print(f"  → {publish_release.REPOSITORY_URL}/releases/tag/{tag}")
 
 
+def print_draft_next_steps(version: str) -> None:
+    """下書き作成後に、人が何をすればよいかを示す。
+
+    下書きは作成者にしか見えず、放置すると配布されないまま忘れられる。次の操作を
+    その場に出しておく（OPERATIONS.md 7.4の手順と同じ内容）。
+    """
+    tag = publish_release.release_tag(version)
+    print()
+    print("下書きリリースを作成しました。配布するには、次の操作を行ってください。")
+    print(f"  1. {publish_release.REPOSITORY_URL}/releases を開く")
+    print(f"  2. 下書き（Draft）の {publish_release.release_title(version)} を編集する")
+    print("  3. 本文のひな形をリリースノートへ書き換える")
+    print("  4. 「Publish release」を押して公開する")
+    print(f"     タグ {tag} と配布zipは作成済みのため、本文の編集だけで配布できます。")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="マージ・ビルド・公開を一続きで実行する（OPERATIONS.md 7.4）"
     )
-    parser.add_argument("version", help="公開するバージョン（例: 1.2.2）")
+    parser.add_argument(
+        "version",
+        nargs="?",
+        help="公開するバージョン（例: 1.2.2）。省略するとテスト通過後にコンソールで尋ねる",
+    )
     parser.add_argument(
         "--skip-merge",
         action="store_true",
         help="mainへのマージを行わない（既にマージ済みの場合）",
     )
+    parser.add_argument(
+        "--draft",
+        action="store_true",
+        help="下書きとして作成する（リリースノートは公開後にGitHubの画面で記入する）",
+    )
     args = parser.parse_args()
 
-    verify_preconditions(args.version)
+    verify_workspace()
+
+    # バージョンを省略した場合は、テストを通してから尋ねる（要件: 本番リリース判定が
+    # OKだと判断できたらバージョン入力欄を表示する）。通らないビルドのためにバージョンを
+    # 考えさせない。
+    version = args.version
+    tested = False
+    if version is None:
+        print("[0/4] テストスイートを実行しています（本番リリース判定）…")
+        build_package.run_tests()
+        print("  → すべて成功しました。リリース判定 OK")
+        print()
+        version = prompt_version(build_package.read_current_version(build_package.PYPROJECT_PATH))
+        tested = True
+
+    verify_preconditions(version, require_notes=not args.draft)
+
     if args.skip_merge:
-        run_git("fetch", "origin")
-        build_commit = run_git("rev-parse", f"origin/{BASE_BRANCH}").stdout.strip()
+        build_commit = verify_base_is_checked_out()
         print(f"[1/4] マージをスキップします（{BASE_BRANCH} は {build_commit[:8]}）")
     else:
-        build_commit = merge_to_base(args.version)
+        build_commit = merge_to_base(version)
 
-    zip_path = build(args.version)
-    publish(args.version, zip_path)
-    verify_published(args.version, build_commit)
-    print("リリースが完了しました。")
+    zip_path = build(version, skip_tests=tested)
+    publish(version, zip_path, draft=args.draft)
+    verify_published(version, build_commit)
+    if args.draft:
+        print_draft_next_steps(version)
+    else:
+        print("リリースが完了しました。")
     return 0
 
 
