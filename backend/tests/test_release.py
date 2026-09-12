@@ -227,7 +227,41 @@ def test_main_can_skip_merge_but_still_verifies(monkeypatch, tmp_path: Path) -> 
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3", "--skip-merge"])
 
     assert release.main() == 0
-    assert order == ["workspace", "verify", "base", "build", "publish", "verified"]
+    # mainとの一致確認は、時間のかかるテストより前に行う。
+    assert order == ["workspace", "base", "verify", "build", "publish", "verified"]
+
+
+def test_main_checks_the_base_branch_before_running_tests(monkeypatch, tmp_path: Path) -> None:
+    """mainと一致しているかの確認を、テストとバージョン入力より前に行うこと。
+
+    テストは数分かかる。その後で「mainと一致していません」と言われるのは手間の無駄で、
+    かつバージョンを入力させた後に中止するのも同じ理由で避ける。
+    """
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(
+        release, "verify_base_is_checked_out", lambda: (order.append("base"), _COMMIT)[1]
+    )
+    monkeypatch.setattr(build_package, "run_tests", lambda: order.append("tests"))
+    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.2")
+    monkeypatch.setattr(release, "prompt_version", lambda cur: (order.append("prompt"), "1.2.3")[1])
+    monkeypatch.setattr("sys.argv", ["release.py", "--skip-merge", "--draft"])
+
+    assert release.main() == 0
+    assert order.index("base") < order.index("tests") < order.index("prompt")
+
+
+def test_main_does_not_check_the_base_branch_when_merging(monkeypatch, tmp_path: Path) -> None:
+    """マージする実行では、事前の一致確認は行わない（これからマージして揃えるため）。"""
+    order: list[str] = []
+    _stub_main_steps(monkeypatch, tmp_path, order)
+    monkeypatch.setattr(
+        release, "verify_base_is_checked_out", lambda: pytest.fail("確認してはならない")
+    )
+    monkeypatch.setattr("sys.argv", ["release.py", "1.2.3"])
+
+    assert release.main() == 0
+    assert "merge" in order
 
 
 def test_main_prompts_for_the_version_only_after_tests_pass(monkeypatch, tmp_path: Path) -> None:
