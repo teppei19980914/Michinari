@@ -701,6 +701,58 @@ def _make_active_work_goal_with_assignment(client):
     return goal, work_assignment
 
 
+def test_finalize_work_endpoint_does_not_block_exam_and_reading_finalize(client):
+    """仕事を確定した後でも、読書・資格勉強の確定は引き続き成功する
+    （カテゴリごとに独立して確定する仕様変更2026-09-05のコア要件。
+    test_finalize_reading_endpoint_does_not_block_exam_finalizeの仕事版）。
+
+    1カテゴリだけ確定した日は集約値（record_state）が報告済となるため、以前は画面の遷移先
+    判定がこれを見て閲覧画面へ誘導し、残るカテゴリを報告する手段が失われていた
+    （1.1（改20）で是正）。APIは当初から確定できるが、報告された症状そのものの形で固定する。
+    """
+    exam_goal, material = _make_active_goal_with_material(client)
+    _reading_goal, book = _make_active_reading_goal_with_book(client)
+    _work_goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    target = dt.date.today().isoformat()
+
+    work_response = client.post(
+        f"/api/v1/records/{target}/work-finalize",
+        json={"work_logs": [{"work_assignment_id": work_assignment["id"], "body": "業務内容A"}]},
+    )
+    assert work_response.status_code == 200, work_response.text
+    after_work = work_response.json()
+    assert after_work["work_record_state"] == "REPORTED"
+    assert after_work["exam_record_state"] is None
+    assert after_work["reading_record_state"] is None
+
+    reading_response = client.post(
+        f"/api/v1/records/{target}/reading-finalize",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "読了に向けた想起"}]},
+    )
+    assert reading_response.status_code == 200, reading_response.text
+
+    exam_response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
+            ],
+            "diary_entries": [
+                {"goal_id": exam_goal["id"], "diary_body": "所感", "diary_learned": "学び"}
+            ],
+        },
+    )
+    assert exam_response.status_code == 200, exam_response.text
+    finalized = exam_response.json()
+    assert finalized["exam_record_state"] == "REPORTED"
+    assert finalized["reading_record_state"] == "REPORTED"
+    assert finalized["work_record_state"] == "REPORTED"
+
+
 # --- POST /records/{date}/work-chat（実装フェーズ分割計画書Phase22） ---
 
 

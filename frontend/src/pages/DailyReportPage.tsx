@@ -15,6 +15,7 @@ import {
   finalizeWorkRecord,
   getQuota,
   getRecord,
+  getToday,
   sendChat,
   sendReadingChat,
   sendWorkChat,
@@ -34,6 +35,7 @@ import { DiaryFields } from '../features/record/DiaryFields'
 import { DiaryEntrySummaryList } from '../features/record/DiaryEntrySummaryList'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { isAllCategoriesReported } from '../features/record/categoryCompletion'
+import { isFinalizableDate } from '../features/record/finalizableDate'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveCategoryGoalId } from '../features/record/resolveCategoryGoalId'
@@ -117,6 +119,9 @@ export function DailyReportPage() {
     queryKey: ['goals'],
     queryFn: () => listGoals(),
   })
+  // 入力可能期間（当日・前日）の判定に使う論理的な本日。クライアント側で現在日時から
+  // 算出してはならない（技術選定書7章）ため、サーバのGET /records/todayから取得する。
+  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
   const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>(
@@ -395,7 +400,8 @@ export function DailyReportPage() {
     quotaQuery.isLoading ||
     readingBooksQuery.isLoading ||
     workAssignmentsQuery.isLoading ||
-    goalsQuery.isLoading
+    goalsQuery.isLoading ||
+    todayQuery.isLoading
   ) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
@@ -407,7 +413,9 @@ export function DailyReportPage() {
     readingBooksQuery.isError ||
     workAssignmentsQuery.isError ||
     goalsQuery.isError ||
-    !goalsQuery.data
+    !goalsQuery.data ||
+    todayQuery.isError ||
+    !todayQuery.data
   ) {
     return (
       <p className="p-6 text-sm text-red-600">
@@ -416,10 +424,18 @@ export function DailyReportPage() {
             quotaQuery.error ??
             readingBooksQuery.error ??
             workAssignmentsQuery.error ??
-            goalsQuery.error,
+            goalsQuery.error ??
+            todayQuery.error,
         )}
       </p>
     )
+  }
+
+  if (!isFinalizableDate(targetDate, todayQuery.data.logical_date)) {
+    // 確定できるのは当日・前日のみ（仕様書7.2）。期間外の日で入力させると、確定時に
+    // BACKDATE_LIMIT_EXCEEDEDとなり入力内容が失われるため、その前に閲覧画面へ誘導する。
+    // 遷移元（カレンダー等）でも同じ判定を行うが、URL直接指定に対する受け皿として残す。
+    return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
 
   // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、selectedGoalIdに関わらず
