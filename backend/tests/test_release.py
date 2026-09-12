@@ -4,6 +4,7 @@
 各工程の関数を差し替え、事前検証と工程の順序だけを検証する。
 """
 
+import inspect
 import subprocess
 from pathlib import Path
 
@@ -365,3 +366,59 @@ def test_main_does_not_require_notes_when_drafting(monkeypatch, tmp_path: Path) 
 
     assert release.main() == 0
     assert captured["require_notes"] is False
+
+
+# --- 公開処理への引数の受け渡し ---
+
+
+def _capture_publish_release(monkeypatch) -> dict:
+    """`publish_release.publish`を、実シグネチャへ束縛してから記録するスタブへ差し替える。
+
+    `lambda *args`で受けると引数の欠落や順序違いを取りこぼすため、本物の
+    シグネチャで`bind`してから名前付きで記録する。5fb2a25で`notes_path`が
+    抜け落ちたまま公開工程まで到達した事故は、この束縛があれば検知できた。
+    """
+    captured: dict = {}
+    signature = inspect.signature(publish_release.publish)
+
+    def fake_publish(*args, **kwargs) -> None:
+        captured.update(signature.bind(*args, **kwargs).arguments)
+
+    monkeypatch.setattr(publish_release, "publish", fake_publish)
+    return captured
+
+
+def test_publish_passes_the_notes_and_commit_paths_to_publish_release(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """詳細ノートとビルド元コミットの記録を、それぞれ正しい引数位置で渡すこと。
+
+    5fb2a25の再発検知。`notes_path`が抜けると、ビルド元コミットの記録がノートとして
+    読まれてしまう（Pythonが引数不足で止めるため実害は出ないが、止まるのは公開直前で、
+    テスト・ビルドを全て終えた後になる）。
+    """
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(build_package, "DIST_DIR", tmp_path / "dist")
+    captured = _capture_publish_release(monkeypatch)
+    zip_path = tmp_path / "dist" / "Michinari-v1.2.3.zip"
+
+    release.publish("1.2.3", zip_path, draft=True)
+
+    assert captured["version"] == "1.2.3"
+    assert captured["zip_path"] == zip_path
+    assert captured["notes_path"] == publish_release.release_notes_path(tmp_path, "1.2.3")
+    assert captured["commit_path"] == publish_release.build_commit_path(tmp_path / "dist", "1.2.3")
+
+
+@pytest.mark.parametrize("draft", [True, False])
+def test_publish_forwards_the_draft_flag_to_publish_release(
+    monkeypatch, tmp_path: Path, draft: bool
+) -> None:
+    """`--draft`が実際の公開処理まで伝わること（ひな形のまま一般公開しないため）。"""
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(build_package, "DIST_DIR", tmp_path / "dist")
+    captured = _capture_publish_release(monkeypatch)
+
+    release.publish("1.2.3", tmp_path / "dist" / "Michinari-v1.2.3.zip", draft=draft)
+
+    assert captured["draft"] is draft
