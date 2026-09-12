@@ -17,7 +17,8 @@
   マージから公開まで通しで行う。詳細リリースノートを先に用意しておく必要がある。
 
 - `uv run python scripts/release.py --skip-merge --draft`（`release.bat`が呼ぶ形）
-  main へマージ済みの状態から実行する。テストを通してからコンソールでバージョンを
+  main へマージ済みの状態から実行する。mainへの切り替えと最新化を自前で行うため、
+  ローカルがdevブランチのままでもよい。テストを通してからコンソールでバージョンを
   尋ね、パッケージ・タグ・zip添付まで済ませた**下書き**リリースを作る。リリースノートは
   作成後にGitHubの画面で書き換えて公開する。ノートを書く前に配布物とタグを確定でき、
   人の作業を「本文を書く」1点に絞れる。
@@ -68,23 +69,55 @@ def verify_workspace() -> None:
         )
 
 
-def verify_base_is_checked_out() -> str:
-    """`main`が最新の状態でチェックアウトされていることを検証し、そのコミットを返す。
+def is_content_merged_into_base() -> bool:
+    """現在の作業内容が`origin/main`に取り込まれているかを、ツリーの一致で判定する。
+
+    コミットの祖先関係では判定できない。PRをsquashマージすると、取り込み済みでも
+    元ブランチのコミットは`origin/main`の祖先にならないため
+    （`git merge-base --is-ancestor`は偽を返す）。一方、取り込まれていれば内容は同一に
+    なるので、ツリー同士を比較する。
+
+    この判定を省いて無条件に`main`へ切り替えると、マージし忘れた状態で実行したときに
+    作業内容を含まないパッケージを配布してしまう（CLAUDE.md「未マージのままmainから
+    当日ブランチを切ると前日の成果が作業ツリーから消える」と同種の取りこぼし）。
+    """
+    return run_git("diff", "--quiet", f"origin/{BASE_BRANCH}", "HEAD", check=False).returncode == 0
+
+
+def ensure_base_is_checked_out() -> str:
+    """`main`を最新の状態でチェックアウトし、そのコミットを返す。
 
     マージを行わない実行（`--skip-merge`）では、ビルドは作業ツリーの内容から作られる
     一方で「ビルド元コミット」は`origin/main`として扱われる。両者がずれていると、
-    配布物と異なるコミットにタグが付く（v1.2.1と同種の事故）。ここで一致を強制する。
+    配布物と異なるコミットにタグが付く（v1.2.1と同種の事故）。
+
+    以前は一致していなければ中止し、`git checkout main && git pull`を人にやらせていたが、
+    GitHub上でPRをマージした直後は必ずこの状態になるため、毎回の手作業になっていた。
+    作業内容が取り込み済みであることを確認したうえで、ここで切り替えまで行う。
     """
     run_git("fetch", "origin")
-    head = run_git("rev-parse", "HEAD").stdout.strip()
     base = run_git("rev-parse", f"origin/{BASE_BRANCH}").stdout.strip()
-    if head != base:
+    head = run_git("rev-parse", "HEAD").stdout.strip()
+    if head == base:
+        return base
+
+    if not is_content_merged_into_base():
         raise SystemExit(
-            f"エラー: 作業ツリーが origin/{BASE_BRANCH}（{base[:8]}）と一致していません"
-            f"（HEAD: {head[:8]}）。先に {BASE_BRANCH} へマージして最新化してください"
-            "（配布物とタグの指すコミットを一致させるため）。"
+            f"エラー: 作業内容が origin/{BASE_BRANCH}（{base[:8]}）に取り込まれていません。"
+            f"先に {BASE_BRANCH} へマージしてから実行してください"
+            "（この状態で進めると、変更を含まないパッケージを配布することになります）。"
         )
-    return head
+
+    print(f"  → {BASE_BRANCH} へ切り替えて最新化します（{head[:8]} → {base[:8]}）")
+    run_git("checkout", BASE_BRANCH)
+    result = run_git("merge", "--ff-only", f"origin/{BASE_BRANCH}", check=False)
+    if result.returncode != 0:
+        raise SystemExit(
+            f"エラー: ローカルの {BASE_BRANCH} を origin/{BASE_BRANCH} へ"
+            "fast-forward できませんでした（履歴が分岐しています）。"
+            "手動で最新化してから実行してください。"
+        )
+    return base
 
 
 def verify_preconditions(version: str, *, require_notes: bool) -> None:
@@ -297,10 +330,9 @@ def main() -> int:
 
     verify_workspace()
 
-    # マージしない実行では、mainが最新でチェックアウトされているかを最初に確かめる。
-    # テスト（数分かかる）とバージョン入力の後で「mainと一致していません」と言われるのは
-    # 手間の無駄なため、確認できるものは全て前に出す。
-    checked_out_commit = verify_base_is_checked_out() if args.skip_merge else None
+    # マージしない実行では、mainを最新の状態にしてから始める。テスト（数分かかる）と
+    # バージョン入力の後で中止されるのは手間の無駄なため、確認・準備は全て前に出す。
+    checked_out_commit = ensure_base_is_checked_out() if args.skip_merge else None
 
     # バージョンを省略した場合は、テストを通してから尋ねる（要件: 本番リリース判定が
     # OKだと判断できたらバージョン入力欄を表示する）。通らないビルドのためにバージョンを

@@ -1,13 +1,18 @@
 """配布パッケージをGitHub Releasesへ公開するスクリプト（OPERATIONS.md 7.4参照）。
 
 `build_package.py`とは独立しており、ビルドスクリプトから自動的に呼び出されることはない。
-公開はGitHub上で他者から見える操作であるため、開発者が公開したいタイミングで明示的に
-実行する（CLAUDE.md「マージは開発者が手動実施」と同じ考え方で、公開も自動化の対象外とする）。
+公開の起点は常に人の操作とし、ビルドの副作用では公開しない（公開はGitHub上で他者から
+見える操作のため）。通常は`release.py`（`release.bat`）が工程の一つとして本モジュールの
+`publish`を呼ぶが、その`release.py`自体を人が実行する点は変わらない。
 
 リリースノートは2層構成とする。Release本文には`docs/release-notes/v{version}.md`の
 要約ブロックのみを載せ、全変更点は同ファイルへのリンクで示す。Releases一覧ページは各
 リリースの本文を全文レンダリングするため、本文が長いと配布zip（Assets）が画面下へ埋もれ、
 利用者が目的のバージョンを見つけられなくなることへの対処である。
+
+詳細ノートを用意せずに公開することもできる。その場合は記入用のひな形を本文に載せ、
+ノートは公開後にGitHubの画面で書く（`resolve_release_body`・`build_placeholder_body`）。
+未記載のまま一般公開されないよう、その経路は下書き作成（`draft=True`）と組み合わせる。
 
 実行例（backendディレクトリから、事前に `uv run python scripts/build_package.py` でzipを
 生成しておくこと）: `uv run python scripts/publish_release.py`
