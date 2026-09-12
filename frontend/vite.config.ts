@@ -32,6 +32,7 @@ export default defineConfig({
         'src/features/goal/CloseGoalModal.tsx',
         'src/features/goal/DeleteArchivedGoalModal.tsx',
         'src/components/Toast.tsx',
+        'src/features/dashboard/TodayStatusSection.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',

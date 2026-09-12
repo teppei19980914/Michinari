@@ -80,6 +80,10 @@ def is_content_merged_into_base() -> bool:
     この判定を省いて無条件に`main`へ切り替えると、マージし忘れた状態で実行したときに
     作業内容を含まないパッケージを配布してしまう（CLAUDE.md「未マージのままmainから
     当日ブランチを切ると前日の成果が作業ツリーから消える」と同種の取りこぼし）。
+
+    `publish_release.is_merged_into_base`は同じ「マージ済みか」を祖先関係で判定するが、
+    あちらは「タグを付けるコミットが`main`の履歴にあるか」という別の問いであり、
+    判定方法を互いに合わせてはならない（詳細は同関数のdocstring）。
     """
     return run_git("diff", "--quiet", f"origin/{BASE_BRANCH}", "HEAD", check=False).returncode == 0
 
