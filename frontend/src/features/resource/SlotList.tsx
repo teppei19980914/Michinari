@@ -12,19 +12,23 @@ import {
   updateSlot,
   type ResourceSlotRead,
 } from '../../api/resources'
+import { SlotTimeFields, SlotWeekdaysField } from './SlotFormFields'
+import type { SlotEnvironment } from './slotOptions'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
-const ENVIRONMENTS = ['PC', 'MOBILE'] as const
-const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
-
+/** 時間スロットの追加・編集フォーム。入力欄は SlotFormFields.tsx へ切り出してある
+ * （CODING_RULES.md「保守性（複雑度）」）。
+ *
+ * 送信内容を決める判定（新規作成では有効/無効を送らず常に有効として作る・スロットの
+ * 有無で作成と更新を呼び分ける）はこの関数に残す。 */
 function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => void }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const [name, setName] = useState(slot?.name ?? '')
   const [startTime, setStartTime] = useState(slot?.start_time ?? '07:00')
   const [endTime, setEndTime] = useState(slot?.end_time ?? '08:00')
-  const [environment, setEnvironment] = useState<(typeof ENVIRONMENTS)[number]>(
-    (slot?.environment as (typeof ENVIRONMENTS)[number]) ?? 'PC',
+  const [environment, setEnvironment] = useState<SlotEnvironment>(
+    (slot?.environment as SlotEnvironment) ?? 'PC',
   )
   const [weekdays, setWeekdays] = useState<number[]>(slot?.weekdays ?? [])
   const [isActive, setIsActive] = useState(slot?.is_active ?? true)
@@ -37,17 +41,15 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (slot) {
-        return updateSlot(slot.id, {
-          name,
-          start_time: startTime,
-          end_time: endTime,
-          environment,
-          weekdays,
-          is_active: isActive,
-        })
+      const shared = {
+        name,
+        start_time: startTime,
+        end_time: endTime,
+        environment,
+        weekdays,
       }
-      return createSlot({ name, start_time: startTime, end_time: endTime, environment, weekdays })
+      // 有効/無効は編集でのみ送る（新規作成は常に有効なスロットとして作られる）。
+      return slot ? updateSlot(slot.id, { ...shared, is_active: isActive }) : createSlot(shared)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceSlots() })
@@ -69,55 +71,15 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
         {t('resources.slots.nameLabel')}
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
-      <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('resources.slots.startTimeLabel')}
-          <Input
-            type="time"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            required
-          />
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('resources.slots.endTimeLabel')}
-          <Input
-            type="time"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            required
-          />
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('resources.slots.environmentLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={environment}
-            onChange={(e) => setEnvironment(e.target.value as (typeof ENVIRONMENTS)[number])}
-          >
-            {ENVIRONMENTS.map((value) => (
-              <option key={value} value={value}>
-                {t(`goals.materials.environment.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <fieldset className="flex flex-col gap-1 text-sm text-gray-700">
-        <legend>{t('resources.slots.weekdaysLabel')}</legend>
-        <div className="flex flex-wrap gap-3">
-          {WEEKDAYS.map((weekday) => (
-            <label key={weekday} className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={weekdays.includes(weekday)}
-                onChange={() => toggleWeekday(weekday)}
-              />
-              {t(`resources.weekdays.${weekday}`)}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <SlotTimeFields
+        startTime={startTime}
+        onChangeStartTime={setStartTime}
+        endTime={endTime}
+        onChangeEndTime={setEndTime}
+        environment={environment}
+        onChangeEnvironment={setEnvironment}
+      />
+      <SlotWeekdaysField weekdays={weekdays} onToggle={toggleWeekday} />
       {slot && (
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input

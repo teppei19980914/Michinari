@@ -9,9 +9,8 @@ import {
   updateHolidayTreatAsBuffer,
   type DayType,
 } from '../../api/resources'
+import { WEEKDAYS } from './slotOptions'
 import { QUERY_KEYS } from '../../constants/queryKeys'
-
-const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
 
 /** 日種別の既定設定（仕様書6.3「曜日ごとに計画日またはバッファ日を選択」「祝日の扱い」）。 */
 export function DayTypeDefaultsCard() {

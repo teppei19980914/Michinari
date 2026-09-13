@@ -6,15 +6,15 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
-import { Tooltip } from '../../components/Tooltip'
 import { useToast } from '../../components/Toast'
 import { isSubjectRangeStartInPast } from './subjectWarnings'
 import {
   buildPassingScorePayload,
   formatPassingScoreDisplay,
   initPassingScoreFormState,
-  type PassingScoreType,
 } from './passingScore'
+import { SubjectExamDateFields, SubjectPassingScoreFields } from './SubjectFormFields'
+import type { ExamDateType } from './subjectOptions'
 import {
   createSubject,
   deleteSubject,
@@ -25,9 +25,11 @@ import {
 } from '../../api/goals'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
-const EXAM_DATE_TYPES = ['RANGE', 'FIXED'] as const
-const PASSING_SCORE_TYPES: PassingScoreType[] = ['PERCENTAGE', 'RAW_SCORE']
-
+/** 試験科目の追加・編集フォーム。入力欄の並びは SubjectFormFields.tsx へ切り出してある
+ * （CODING_RULES.md「保守性（複雑度）」）。
+ *
+ * 送信内容を決める判定（選んでいない側の日付を`null`にする・科目の有無で作成と更新を
+ * 呼び分ける）はこの関数に残す。合格基準の組み立ては passingScore.ts が担う。 */
 function SubjectForm({
   goalId,
   subject,
@@ -40,7 +42,7 @@ function SubjectForm({
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const [name, setName] = useState(subject?.name ?? '')
-  const [examDateType, setExamDateType] = useState<(typeof EXAM_DATE_TYPES)[number]>(
+  const [examDateType, setExamDateType] = useState<ExamDateType>(
     subject?.exam_date_type ?? 'RANGE',
   )
   const [examDateFrom, setExamDateFrom] = useState(subject?.exam_date_from ?? '')
@@ -81,112 +83,20 @@ function SubjectForm({
         {t('goals.subjects.nameLabel')}
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
-        <Tooltip label={t('goals.subjects.examDateTypeTooltip')}>
-          <span>{t('goals.subjects.examDateTypeLabel')}</span>
-        </Tooltip>
-        <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-          value={examDateType}
-          onChange={(e) => setExamDateType(e.target.value as (typeof EXAM_DATE_TYPES)[number])}
-        >
-          {EXAM_DATE_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {t(`goals.subjects.examDateType.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      {examDateType === 'RANGE' ? (
-        <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-            {t('goals.subjects.examDateFromLabel')}
-            <Input
-              type="date"
-              value={examDateFrom}
-              onChange={(e) => setExamDateFrom(e.target.value)}
-              required
-            />
-          </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-            {t('goals.subjects.examDateToLabel')}
-            <Input
-              type="date"
-              value={examDateTo}
-              onChange={(e) => setExamDateTo(e.target.value)}
-              required
-            />
-          </label>
-        </div>
-      ) : (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.subjects.examDateFixedLabel')}
-          <Input
-            type="date"
-            value={examDateFixed}
-            onChange={(e) => setExamDateFixed(e.target.value)}
-            required
-          />
-        </label>
-      )}
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
-        {t('goals.subjects.passingScoreTypeLabel')}
-        <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-          value={passingScoreForm.type}
-          onChange={(e) =>
-            setPassingScoreForm((prev) => ({
-              ...prev,
-              type: e.target.value as PassingScoreType,
-            }))
-          }
-        >
-          {PASSING_SCORE_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {t(`goals.subjects.passingScoreType.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      {passingScoreForm.type === 'RAW_SCORE' ? (
-        <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-            {t('goals.subjects.passingScoreRawLabel')}
-            <Input
-              type="number"
-              min={0}
-              value={passingScoreForm.rawScoreValue}
-              onChange={(e) =>
-                setPassingScoreForm((prev) => ({ ...prev, rawScoreValue: e.target.value }))
-              }
-            />
-          </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-            {t('goals.subjects.passingScoreMaxLabel')}
-            <Input
-              type="number"
-              min={0}
-              value={passingScoreForm.rawMaxValue}
-              onChange={(e) =>
-                setPassingScoreForm((prev) => ({ ...prev, rawMaxValue: e.target.value }))
-              }
-            />
-          </label>
-        </div>
-      ) : (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.subjects.passingScoreLabel')}
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            value={passingScoreForm.percentValue}
-            onChange={(e) =>
-              setPassingScoreForm((prev) => ({ ...prev, percentValue: e.target.value }))
-            }
-          />
-        </label>
-      )}
+      <SubjectExamDateFields
+        examDateType={examDateType}
+        onChangeExamDateType={setExamDateType}
+        examDateFrom={examDateFrom}
+        onChangeExamDateFrom={setExamDateFrom}
+        examDateTo={examDateTo}
+        onChangeExamDateTo={setExamDateTo}
+        examDateFixed={examDateFixed}
+        onChangeExamDateFixed={setExamDateFixed}
+      />
+      <SubjectPassingScoreFields
+        value={passingScoreForm}
+        onChange={(update) => setPassingScoreForm((prev) => ({ ...prev, ...update }))}
+      />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={onDone}>
           {t('common.action.cancel')}

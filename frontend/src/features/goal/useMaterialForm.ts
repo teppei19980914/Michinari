@@ -9,7 +9,7 @@
  * としてのみ使う。 */
 import { useState } from 'react'
 import type { MaterialRead } from '../../api/goals'
-import type { MaterialEnvironment, MaterialQualityMetricType } from './MaterialFormFields'
+import type { MaterialEnvironment, MaterialQualityMetricType } from './materialOptions'
 import type { MaterialFormValues } from './materialPayload'
 
 export interface MaterialFormState {

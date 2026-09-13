@@ -10,17 +10,12 @@ import { t } from '../../locales/t'
 import { Input } from '../../components/Input'
 import { Tooltip } from '../../components/Tooltip'
 import type { SubjectRead } from '../../api/goals'
-
-/** 必要な環境・品質指標の選択肢。MaterialsTab.tsx と同じ値を二重に持たないため、
- * 定義はこのファイルへ置き MaterialForm 側から取り込む。 */
-export const ENVIRONMENTS = ['ANY', 'PC', 'MOBILE'] as const
-export const QUALITY_METRIC_TYPES = ['NONE', 'OBJECTIVE', 'SELF_SCORED', 'SUBJECTIVE'] as const
-
-export type MaterialEnvironment = (typeof ENVIRONMENTS)[number]
-export type MaterialQualityMetricType = (typeof QUALITY_METRIC_TYPES)[number]
-
-const LABEL_CLASS = 'flex flex-1 flex-col gap-1 text-sm text-gray-700'
-const SELECT_CLASS = 'rounded-md border border-gray-300 px-3 py-2 text-sm'
+import {
+  ENVIRONMENTS,
+  QUALITY_METRIC_TYPES,
+  type MaterialEnvironment,
+  type MaterialQualityMetricType,
+} from './materialOptions'
 
 /** 単位・総量・予定周回（いずれも必須項目）。 */
 export function MaterialAmountFields({
@@ -40,11 +35,11 @@ export function MaterialAmountFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.unitLabel')}
         <Input value={unitLabel} onChange={(e) => onChangeUnitLabel(e.target.value)} required />
       </label>
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.totalAmountLabel')}
         <Input
           type="number"
@@ -54,7 +49,7 @@ export function MaterialAmountFields({
           required
         />
       </label>
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.plannedCyclesLabel')}
         <Input
           type="number"
@@ -120,7 +115,7 @@ export function MaterialScheduleFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.startDateLabel')}
         <Input
           type="date"
@@ -129,7 +124,7 @@ export function MaterialScheduleFields({
           required
         />
       </label>
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         <span className="flex items-center gap-1">
           <input
             type="checkbox"
@@ -172,7 +167,7 @@ export function MaterialConditionFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.requiredBlockMinutesLabel')}
         <Input
           type="number"
@@ -181,10 +176,10 @@ export function MaterialConditionFields({
           onChange={(e) => onChangeRequiredBlockMinutes(e.target.value)}
         />
       </label>
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         {t('goals.materials.requiredEnvironmentLabel')}
         <select
-          className={SELECT_CLASS}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={requiredEnvironment}
           onChange={(e) => onChangeRequiredEnvironment(e.target.value as MaterialEnvironment)}
         >
@@ -195,12 +190,12 @@ export function MaterialConditionFields({
           ))}
         </select>
       </label>
-      <label className={LABEL_CLASS}>
+      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
         <Tooltip label={t('goals.materials.qualityMetricTypeTooltip')}>
           <span>{t('goals.materials.qualityMetricTypeLabel')}</span>
         </Tooltip>
         <select
-          className={SELECT_CLASS}
+          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={qualityMetricType}
           onChange={(e) => onChangeQualityMetricType(e.target.value as MaterialQualityMetricType)}
         >
