@@ -56,3 +56,59 @@ describe('resolveDesktopSettingsGuard', () => {
     })
   })
 })
+
+describe('buildDesktopSettingsPayload', () => {
+  const draft = {
+    openBrowserOnStartup: true,
+    launchAtLogin: false,
+    notificationEnabled: true,
+    notificationTime: '21:00',
+  }
+
+  it('sends every field when the time is valid', () => {
+    expect(buildDesktopSettingsPayload(draft)).toEqual({
+      open_browser_on_startup: true,
+      launch_at_login: false,
+      notification_enabled: true,
+      notification_time: '21:00',
+    })
+  })
+
+  it('omits an empty time so the server does not reject the save', () => {
+    // 空文字を送るとサーバのスキーマ（min_length=1）が400を返し、保存ボタンは押せるのに
+    // 必ず失敗する状態になる。送らなければ保存済みの時刻がそのまま保たれる。
+    const payload = buildDesktopSettingsPayload({
+      ...draft,
+      notificationEnabled: false,
+      notificationTime: '',
+    })
+
+    expect(payload).toEqual({
+      open_browser_on_startup: true,
+      launch_at_login: false,
+      notification_enabled: false,
+    })
+    expect('notification_time' in payload).toBe(false)
+  })
+
+  it('omits a malformed time for the same reason', () => {
+    const payload = buildDesktopSettingsPayload({
+      ...draft,
+      notificationEnabled: false,
+      notificationTime: '25:00',
+    })
+
+    expect('notification_time' in payload).toBe(false)
+  })
+
+  it('carries the toggled switches through', () => {
+    const payload = buildDesktopSettingsPayload({
+      ...draft,
+      openBrowserOnStartup: false,
+      launchAtLogin: true,
+    })
+
+    expect(payload.open_browser_on_startup).toBe(false)
+    expect(payload.launch_at_login).toBe(true)
+  })
+})

@@ -140,21 +140,37 @@ class TestLifecycle:
     「終了」を選んでもスレッドが止まらない不具合は、`tick` のテストでは捕まらない。
     `_stop_event.wait` を `time.sleep` へ書き換えても通ってしまうため、実際に起動して
     停止できることをここで確かめる。
+
+    確認間隔を0にすると、`_run`の`while`条件と`wait(0)`のどちらが停止を検出するかが
+    実行のたびに入れ替わり（`_stop_event.wait(0)`がTrueを返す分岐を通ることも通らない
+    こともある）、カバレッジ計測が不安定になっていた（2026-09-14に発覚）。
+    停止できることを確かめるテストは、`wait()`中に確実に`stop()`が届く程度の間隔を
+    与え、`wait()`がTrueを返す分岐を安定して通す。ループが何度も回ることを確かめる
+    テストだけ、意図的に確認間隔を0にして高速化する。
     """
+
+    #: `wait()`で確実にブロックさせつつ、テストを待たせすぎない間隔（秒）。
+    _BLOCKING_INTERVAL_SECONDS = 5
 
     @staticmethod
     def _immediate(instance: scheduler.ReminderScheduler) -> None:
-        """確認間隔を0にして、テストが待たされないようにする。"""
+        """確認間隔を0にして、テストが待たされないようにする（高速だが分岐は不安定）。"""
         instance._read_check_interval = lambda: 0
+
+    @classmethod
+    def _blocking(cls, instance: scheduler.ReminderScheduler) -> None:
+        """確認間隔を長めに固定し、`wait()`中の`stop()`を安定して検証できるようにする。"""
+        instance._read_check_interval = lambda: cls._BLOCKING_INTERVAL_SECONDS
 
     def test_starts_and_stops(self, notified, session_factory):
         instance = _build(notified, session_factory, AFTER)
-        self._immediate(instance)
+        self._blocking(instance)
 
         instance.start()
         instance.stop()
-        instance._thread.join(timeout=5)
+        instance._thread.join(timeout=self._BLOCKING_INTERVAL_SECONDS - 1)
 
+        # 待機中の`stop()`で即座に終わること（間隔いっぱい待たされないこと）を確かめる。
         assert not instance._thread.is_alive()
 
     def test_uses_a_daemon_thread_so_it_never_holds_the_process_open(
@@ -162,14 +178,14 @@ class TestLifecycle:
     ):
         """サーバスレッドと違い、こちらは取り残されてもプロセスを止めない側にする。"""
         instance = _build(notified, session_factory, AFTER)
-        self._immediate(instance)
+        self._blocking(instance)
 
         instance.start()
         try:
             assert instance._thread.daemon
         finally:
             instance.stop()
-            instance._thread.join(timeout=5)
+            instance._thread.join(timeout=self._BLOCKING_INTERVAL_SECONDS - 1)
 
     def test_keeps_checking_until_stopped(self, notified, session_factory):
         """ループが1回で抜けてしまわないこと（通知が一度きりになる退化を防ぐ）。"""
@@ -187,6 +203,33 @@ class TestLifecycle:
         instance._thread.join(timeout=5)
 
         assert len(ticks) >= 3
+
+    def test_exits_via_the_loop_condition_without_a_pending_wait(self, notified, session_factory):
+        """`_run`のもう一方の終了経路（`wait()`の外で`while`条件が偽になって抜ける）。
+
+        `test_starts_and_stops`は`wait()`が中断されて`True`を返す経路（`return`文）を
+        固定するが、`while not self._stop_event.is_set()`が偽になって素通りする経路は
+        別物であり、実時間の当たり外れに頼ると計測が安定しない（2026-09-14に発覚。
+        `test_starts_and_stops`を長い間隔へ固定した後もこちらは undetermined だった）。
+
+        `tick()`自体の中で`stop()`を呼ぶことで、「`wait(0)`がFalseを返した直後、次の
+        `while`チェックより前に停止要求が来る」順序をタイミングに頼らず固定する。
+        """
+        instance = _build(notified, session_factory, BEFORE)
+        self._immediate(instance)
+        original_tick = instance.tick
+
+        def _tick_then_stop() -> bool:
+            result = original_tick()
+            instance.stop()
+            return result
+
+        instance.tick = _tick_then_stop
+
+        instance.start()
+        instance._thread.join(timeout=5)
+
+        assert not instance._thread.is_alive()
 
 
 class TestNextDay:
