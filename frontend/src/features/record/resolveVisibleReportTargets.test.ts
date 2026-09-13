@@ -7,7 +7,7 @@ import {
 } from './resolveVisibleReportTargets'
 
 function buildGoal(id: number, category: GoalRead['category']): GoalRead {
-  return { id, category, name: `goal-${id}` } as GoalRead
+  return { id, category, name: `goal-${id}`, status: 'ACTIVE' } as GoalRead
 }
 
 const EXAM_GOAL = buildGoal(1, 'EXAM')
@@ -24,7 +24,7 @@ function buildInput(overrides: Partial<VisibleReportTargetsInput> = {}): Visible
   return {
     showGoalSelector: false,
     selectedGoal: undefined,
-    activeGoals: [EXAM_GOAL],
+    goals: [EXAM_GOAL],
     quotaItems: [EXAM_QUOTA],
     readingBooks: [{ goal: READING_GOAL, book: BOOK }],
     workAssignments: [{ goal: WORK_GOAL, workAssignment: WORK_ASSIGNMENT }],
@@ -49,7 +49,7 @@ describe('resolveVisibleReportTargets', () => {
     it('hides a category that has no target at all', () => {
       // 資格試験目標を持たない利用者に空のセクションと確定ボタンを出さない（2026-09-05）。
       const result = resolveVisibleReportTargets(
-        buildInput({ activeGoals: [], readingBooks: [], workAssignments: [] }),
+        buildInput({ goals: [], readingBooks: [], workAssignments: [] }),
       )
 
       expect(result.showExamSection).toBe(false)
@@ -71,7 +71,7 @@ describe('resolveVisibleReportTargets', () => {
         buildInput({
           showGoalSelector: true,
           selectedGoal: EXAM_GOAL,
-          activeGoals: [EXAM_GOAL, OTHER_EXAM_GOAL],
+          goals: [EXAM_GOAL, OTHER_EXAM_GOAL],
           quotaItems: [EXAM_QUOTA, OTHER_EXAM_QUOTA],
         }),
       )
@@ -149,5 +149,41 @@ describe('resolveVisibleReportTargets', () => {
 
       expect(result.books).toEqual([BOOK])
     })
+  })
+})
+
+describe('resolveVisibleReportTargets の presence', () => {
+  it('reports a category as present when it has an active target, regardless of the selected tab', () => {
+    // 選択中でないタブのカテゴリを「対象なし」と誤判定すると、1カテゴリ確定しただけで
+    // 全カテゴリ確定済みとみなしてしまう（2026-09-05の不具合）。
+    const result = resolveVisibleReportTargets(
+      buildInput({ showGoalSelector: true, selectedGoal: READING_GOAL }),
+    )
+
+    expect(result.presence).toEqual({
+      hasExamCategory: true,
+      hasReadingCategory: true,
+      hasWorkCategory: true,
+    })
+  })
+
+  it('reports a category as absent when it has no active target', () => {
+    const result = resolveVisibleReportTargets(
+      buildInput({ goals: [], readingBooks: [], workAssignments: [] }),
+    )
+
+    expect(result.presence).toEqual({
+      hasExamCategory: false,
+      hasReadingCategory: false,
+      hasWorkCategory: false,
+    })
+  })
+
+  it('ignores goals that are not active when deciding the exam category presence', () => {
+    const pausedExamGoal = { ...EXAM_GOAL, status: 'PAUSED' } as GoalRead
+    const result = resolveVisibleReportTargets(buildInput({ goals: [pausedExamGoal] }))
+
+    expect(result.presence.hasExamCategory).toBe(false)
+    expect(result.diaryGoals).toEqual([])
   })
 })

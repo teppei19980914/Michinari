@@ -34,6 +34,7 @@ import * as recordsApi from '../api/records'
 import * as resourcesApi from '../api/resources'
 import type { BookRead, GoalRead, WorkAssignmentRead } from '../api/goals'
 import type { DailyRecordRead, QuotaItemRead } from '../api/records'
+import type { ResourceSlotRead } from '../api/resources'
 import { DailyReportPage } from './DailyReportPage'
 
 vi.mock('../api/goals')
@@ -100,6 +101,9 @@ const WORK_ASSIGNMENT: WorkAssignmentRead = {
   has_recent_monthly_report: false,
 }
 
+const SLOT_NAME = 'morning-slot'
+const SLOT = { id: 40, name: SLOT_NAME } as ResourceSlotRead
+
 const QUOTA_ITEM: QuotaItemRead = {
   material_id: 30,
   material_name: 'material',
@@ -110,7 +114,7 @@ const QUOTA_ITEM: QuotaItemRead = {
   quality_metric_type: 'NONE',
   goal_id: EXAM_GOAL.id,
   goal_name: EXAM_GOAL_NAME,
-  slot_defaults: [],
+  slot_defaults: [{ slot_id: SLOT.id, slot_name: SLOT_NAME, minutes: 0 }],
 }
 
 function buildRecord(overrides: Partial<DailyRecordRead> = {}): DailyRecordRead {
@@ -154,7 +158,7 @@ function setupQueries({ goals = [EXAM_GOAL, READING_GOAL, WORK_GOAL], record }: 
     logical_date: LOGICAL_DATE,
     record_state: null,
   })
-  vi.mocked(resourcesApi.listSlots).mockResolvedValue([])
+  vi.mocked(resourcesApi.listSlots).mockResolvedValue([SLOT])
 }
 
 /** 離脱警告（useBlocker）はdata routerでのみ動作するため、App.tsxと同じくcreateMemoryRouterで
@@ -506,6 +510,21 @@ describe('DailyReportPage', () => {
     ).toBe('draft-exam')
   })
 
+  it('stays on the page when the leave warning is closed with the close button', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+    await screen.findByText(t('dailyReport.leaveConfirm.title'))
+
+    await user.click(screen.getByRole('button', { name: 'close' }))
+
+    expect(screen.queryByText(t('dailyReport.leaveConfirm.title'))).toBe(null)
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+  })
+
   it('leaves the page when the leave warning is confirmed', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -590,6 +609,100 @@ describe('DailyReportPage', () => {
         ) as HTMLInputElement
       ).value,
     ).toBe('12')
+  })
+
+  it('keeps the slot minutes typed into the study log', async () => {
+    // 投下時間は時間枠ごとに入力し、教材の投下時間はその合計とする（仕様書6.5、要件定義書R-14）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord())
+    renderPage()
+    await waitForTitle()
+
+    // 完了分量が未入力の教材は送信対象から外れる仕様のため、あわせて入力する。
+    await user.type(
+      screen.getByLabelText(t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label })),
+      '3',
+    )
+    await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '45')
+    await user.click(screen.getByRole('button', { name: t('dailyReport.studyLog.finalizeButton') }))
+
+    await waitFor(() =>
+      expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(
+        LOGICAL_DATE,
+        expect.objectContaining({
+          study_logs: [
+            expect.objectContaining({
+              slot_minutes: [expect.objectContaining({ slot_id: SLOT.id, minutes: 45 })],
+            }),
+          ],
+        }),
+      ),
+    )
+  })
+
+  it('keeps the slot minutes typed into the reading log', async () => {
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(buildRecord())
+    renderPage()
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    // 想起本文が未入力の書籍は送信対象から外れる仕様のため、あわせて入力する。
+    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    // 読書は配分済みの既定枠を持たないため、「他の時間枠を追加」で枠を足してから入力する。
+    await user.selectOptions(
+      screen.getByLabelText(t('dailyReport.studyLog.addSlotLabel')),
+      String(SLOT.id),
+    )
+    await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '30')
+    await user.click(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    )
+
+    await waitFor(() =>
+      expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(
+        LOGICAL_DATE,
+        expect.objectContaining({
+          reading_logs: [
+            expect.objectContaining({
+              slot_minutes: [expect.objectContaining({ slot_id: SLOT.id, minutes: 30 })],
+            }),
+          ],
+        }),
+      ),
+    )
+  })
+
+  it('keeps the draft of other categories when finalizing one refetches the record', async () => {
+    // 確定するとinvalidateで記録が取り直される。取り直しのたびに下書きを初期化すると、
+    // 入力途中の他カテゴリの内容が消える（初期化は取得完了後の1回だけ）。
+    const user = userEvent.setup()
+    // 確定後の取り直しでは読書が確定済みになって返る（同値だとキャッシュが参照を維持し、
+    // 取り直しが起きたことを観測できないため、実際の状態変化を再現する）。
+    vi.mocked(recordsApi.getRecord)
+      .mockResolvedValueOnce(buildRecord())
+      .mockResolvedValue(buildRecord({ reading_record_state: 'REPORTED' }))
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ reading_record_state: 'REPORTED' }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    await user.click(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    )
+    await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
+    // 無効化による記録の取り直しが完了するまで待つ（ここで初期化が走ると下書きが消える）。
+    await waitFor(() => expect(vi.mocked(recordsApi.getRecord).mock.calls.length).toBeGreaterThan(1))
+
+    await user.click(getGoalTab(EXAM_GOAL_NAME))
+    expect(
+      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-exam')
   })
 
   it('requests the record of the date in the url', async () => {
