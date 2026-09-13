@@ -100,6 +100,17 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: 'desktop',
+    titleKey: 'help.sections.desktop.title',
+    bodyKeys: [
+      'help.sections.desktop.p1',
+      'help.sections.desktop.p2',
+      'help.sections.desktop.p3',
+      'help.sections.desktop.p4',
+      'help.sections.desktop.p5',
+    ],
+  },
+  {
     id: 'promptVariables',
     titleKey: 'help.sections.promptVariables.title',
     bodyKeys: ['help.sections.promptVariables.p1'],
@@ -127,6 +138,7 @@ export const HELP_FAQ_ITEMS: HelpFaqItem[] = [
   { questionKey: 'help.sections.faq.q3', answerKey: 'help.sections.faq.a3' },
   { questionKey: 'help.sections.faq.q4', answerKey: 'help.sections.faq.a4' },
   { questionKey: 'help.sections.faq.q5', answerKey: 'help.sections.faq.a5' },
+  { questionKey: 'help.sections.faq.q6', answerKey: 'help.sections.faq.a6' },
 ]
 
 export type HelpPromptVariable = {

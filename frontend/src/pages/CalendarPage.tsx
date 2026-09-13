@@ -14,6 +14,7 @@ import { ReportTypeChoiceModal } from '../features/calendar/ReportTypeChoiceModa
 import { useCalendarMonth } from '../features/calendar/useCalendarMonth'
 import { resolveCalendarDateAction } from '../features/calendar/resolveCalendarDateAction'
 import { resolveAuxiliaryMarkers } from '../features/calendar/resolveAuxiliaryMarkers'
+import { resolveCalendarGuard } from '../features/calendar/resolveCalendarGuard'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
@@ -57,27 +58,22 @@ export function CalendarPage() {
     enabled: targetGoalId !== null,
   })
 
-  if (todayQuery.isLoading || calendarQuery.isLoading || goalsQuery.isLoading) {
+  // 表示状態（ローディング/エラー/表示可）の判定はresolveCalendarGuardへ集約している。
+  // 全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
+  const guard = resolveCalendarGuard({
+    today: todayQuery,
+    calendar: calendarQuery,
+    goals: goalsQuery,
+  })
+  if (guard.kind === 'LOADING') {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (
-    todayQuery.isError ||
-    !todayQuery.data ||
-    calendarQuery.isError ||
-    !calendarQuery.data ||
-    goalsQuery.isError
-  ) {
-    // goalsQueryが失敗すると対象目標を解決できず補助表示が常に空になってしまうため、
-    // 他の必須クエリと同様にエラー画面を表示する。
-    return (
-      <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(todayQuery.error ?? calendarQuery.error ?? goalsQuery.error)}
-      </p>
-    )
+  if (guard.kind === 'ERROR') {
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
 
-  const today = todayQuery.data.logical_date
-  const daysByDate = new Map(calendarQuery.data.map((day) => [day.target_date, day]))
+  const today = guard.today.logical_date
+  const daysByDate = new Map(guard.days.map((day) => [day.target_date, day]))
   const activeGoalDetails = selectedGoalDetailQuery.data ? [selectedGoalDetailQuery.data] : []
   const auxiliaryMarkersByDate = new Map(
     [...daysByDate.keys()].map((date) => [date, resolveAuxiliaryMarkers(date, activeGoalDetails)]),

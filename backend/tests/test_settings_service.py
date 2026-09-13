@@ -152,3 +152,67 @@ def test_reset_prompt_template_restores_initial_body(seeded_session):
     reset = settings_service.reset_prompt_template(seeded_session, AiPurpose.DAILY_FEEDBACK)
     assert reset.is_customized is False
     assert reset.body == settings_service.INITIAL_PROMPT_TEMPLATES[AiPurpose.DAILY_FEEDBACK]
+
+
+class TestDesktopSettings:
+    """デスクトップ常駐・記録リマインドの設定（実装スコープA〜C、Phase37）。"""
+
+    def test_get_returns_seeded_defaults(self, seeded_session):
+        """既定値が仕様どおりであること（ブラウザは毎回開く・自動起動は無効・通知は21:00）。"""
+        desktop = settings_service.get_app_settings(seeded_session).desktop
+
+        assert desktop.open_browser_on_startup is True
+        assert desktop.launch_at_login is False
+        assert desktop.notification_enabled is True
+        assert desktop.notification_time == "21:00"
+
+    def test_update_writes_every_field(self, seeded_session):
+        updated = settings_service.update_app_settings(
+            seeded_session,
+            desktop={
+                "open_browser_on_startup": False,
+                "launch_at_login": True,
+                "notification_enabled": False,
+                "notification_time": "07:30",
+            },
+        )
+
+        assert updated.desktop.open_browser_on_startup is False
+        assert updated.desktop.launch_at_login is True
+        assert updated.desktop.notification_enabled is False
+        assert updated.desktop.notification_time == "07:30"
+
+    def test_update_keeps_untouched_fields(self, seeded_session):
+        updated = settings_service.update_app_settings(
+            seeded_session, desktop={"launch_at_login": True}
+        )
+
+        assert updated.desktop.launch_at_login is True
+        assert updated.desktop.open_browser_on_startup is True
+        assert updated.desktop.notification_time == "21:00"
+
+    def test_update_keeps_other_groups(self, seeded_session):
+        updated = settings_service.update_app_settings(
+            seeded_session, desktop={"notification_enabled": False}
+        )
+
+        assert updated.display.theme == "system"
+        assert updated.log.ai_enabled is True
+
+    @pytest.mark.parametrize("value", ["24:00", "9:00", "夜9時", ""])
+    def test_update_rejects_a_malformed_notification_time(self, seeded_session, value: str):
+        """判定に使う形式（notification_service）と同じ規則で弾くこと。"""
+        with pytest.raises(ValidationError):
+            settings_service.update_app_settings(
+                seeded_session, desktop={"notification_time": value}
+            )
+
+    def test_update_does_not_store_a_rejected_notification_time(self, seeded_session):
+        with pytest.raises(ValidationError):
+            settings_service.update_app_settings(
+                seeded_session, desktop={"notification_time": "25:00"}
+            )
+
+        assert (
+            settings_service.get_app_settings(seeded_session).desktop.notification_time == "21:00"
+        )

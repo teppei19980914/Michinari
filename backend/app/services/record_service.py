@@ -492,6 +492,31 @@ def aggregate_record_state(
     return RecordState.PROGRESS_ONLY
 
 
+def resolve_record_state(record: DailyRecord | None) -> RecordState | None:
+    """日次記録から、カレンダー・ダッシュボード表示用の単一状態を求める。
+
+    「行が無ければ未入力、あれば3カテゴリを集約する」という展開が、カレンダー・
+    ダッシュボード・本日取得・記録リマインドの4箇所へ写されていたためここへ集約する
+    （CLAUDE.md DRYの原則）。カテゴリが増えたとき（実際にPhase13で読書、Phase19で仕事が
+    増えている）に直す箇所を1つにするのが狙い。
+
+    引数:
+        record: 対象日の日次記録。未入力の日は None。
+
+    返り値:
+        集約した確定状態。触れたカテゴリが1つも無ければ None。
+
+    使用例:
+        >>> resolve_record_state(None) is None
+        True
+    """
+    if record is None:
+        return None
+    return aggregate_record_state(
+        record.exam_record_state, record.reading_record_state, record.work_record_state
+    )
+
+
 def _ensure_category_not_reported(
     record: DailyRecord | None, target_date: dt.date, category: GoalCategory
 ) -> None:
