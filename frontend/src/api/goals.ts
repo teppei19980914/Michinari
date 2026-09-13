@@ -28,6 +28,11 @@ export type WorkAssignmentRead = components['schemas']['WorkAssignmentRead']
 export type WorkAssignmentCreate = components['schemas']['WorkAssignmentCreate']
 export type WorkAssignmentUpdate = components['schemas']['WorkAssignmentUpdate']
 
+/** 進行中の読書目標とその書籍（listActiveReadingBooksの戻り）。 */
+export type ActiveReadingBook = { goal: GoalRead; book: BookRead }
+/** 進行中の仕事目標とその案件（listActiveWorkAssignmentsの戻り）。 */
+export type ActiveWorkAssignment = { goal: GoalRead; workAssignment: WorkAssignmentRead }
+
 export function listGoals(): Promise<GoalRead[]> {
   return apiClient.get<GoalRead[]>('/goals')
 }
@@ -169,7 +174,7 @@ export function completeBook(bookId: number): Promise<GoalRead> {
  * （CLAUDE.md パフォーマンスチェックの原則上は望ましくないが、専用集約エンドポイントを
  * 新設するほどの規模ではないと判断した。Phase17実装時の判断）。
  */
-export async function listActiveReadingBooks(): Promise<{ goal: GoalRead; book: BookRead }[]> {
+export async function listActiveReadingBooks(): Promise<ActiveReadingBook[]> {
   const goals = await listGoals()
   const activeReadingGoals = goals.filter((g) => g.category === 'READING' && g.status === 'ACTIVE')
   const details = await Promise.all(activeReadingGoals.map((g) => getGoal(g.id)))
@@ -196,9 +201,7 @@ export function updateWorkAssignment(
  * 進行中の仕事目標とその案件情報を一覧する（listActiveReadingBooksの仕事版、
  * 実装フェーズ分割計画書Phase23。同じ理由でN+1構成を許容する）。
  */
-export async function listActiveWorkAssignments(): Promise<
-  { goal: GoalRead; workAssignment: WorkAssignmentRead }[]
-> {
+export async function listActiveWorkAssignments(): Promise<ActiveWorkAssignment[]> {
   const goals = await listGoals()
   const activeWorkGoals = goals.filter((g) => g.category === 'WORK' && g.status === 'ACTIVE')
   const details = await Promise.all(activeWorkGoals.map((g) => getGoal(g.id)))

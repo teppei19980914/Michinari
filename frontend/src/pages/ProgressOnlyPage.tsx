@@ -9,7 +9,8 @@ import { ROUTES } from '../constants/routes'
 import { getQuota, getRecord, getToday, registerProgress } from '../api/records'
 import { StudyLogFields } from '../features/record/StudyLogFields'
 import { isFutureDate } from '../features/record/finalizableDate'
-import { listSlots } from '../api/resources'
+import { useSlotNames } from '../features/record/useSlotNames'
+import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
 import {
   buildStudyLogPayload,
   hasAnyStudyLogInput,
@@ -21,13 +22,6 @@ import {
  * 「確定前に画面を離脱した場合の警告」（仕様書6.5）はSC-06の完了条件としてのみ明記されており、
  * SC-07には記載がないため、本画面には離脱警告（useUnsavedChangesWarning/useBlocker）を
  * 設けていない。 */
-/** 「他の時間枠を追加」の候補となる全時間枠（slot_id → 名称）。
- * 配分していない枠でも実績は記録できる（仕様書6.5「未配分スロットの追加」）。 */
-function useSlotNames(): Map<number, string> {
-  const query = useQuery({ queryKey: ['resource-slots'], queryFn: listSlots })
-  return new Map((query.data ?? []).map((slot) => [slot.id, slot.name]))
-}
-
 export function ProgressOnlyPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
@@ -62,10 +56,7 @@ export function ProgressOnlyPage() {
   const registerMutation = useMutation({
     mutationFn: () => registerProgress(targetDate, { study_logs: buildStudyLogPayload(studyLogValues) }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['record', targetDate] })
-      queryClient.invalidateQueries({ queryKey: ['today'] })
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      invalidateDailyRecordCaches(queryClient, targetDate)
       navigate(ROUTES.dashboard)
     },
     onError: showApiError,
