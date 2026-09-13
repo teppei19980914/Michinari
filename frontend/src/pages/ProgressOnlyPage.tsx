@@ -8,7 +8,7 @@ import { Button } from '../components/Button'
 import { ROUTES } from '../constants/routes'
 import { getQuota, getRecord, getToday, registerProgress } from '../api/records'
 import { StudyLogFields } from '../features/record/StudyLogFields'
-import { isFutureDate } from '../features/record/finalizableDate'
+import { resolveProgressOnlyGuard } from '../features/record/resolveProgressOnlyGuard'
 import { useSlotNames } from '../features/record/useSlotNames'
 import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
 import { patchFormValue } from '../features/record/formValues'
@@ -64,31 +64,19 @@ export function ProgressOnlyPage() {
     onError: showApiError,
   })
 
-  if (recordQuery.isLoading || quotaQuery.isLoading || todayQuery.isLoading) {
+  // 表示状態（ローディング/エラー/閲覧画面への転送/入力可）の判定はresolveProgressOnlyGuardへ
+  // 集約している。全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
+  const guard = resolveProgressOnlyGuard(
+    { record: recordQuery, quota: quotaQuery, today: todayQuery },
+    targetDate,
+  )
+  if (guard.kind === 'LOADING') {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (
-    recordQuery.isError ||
-    !recordQuery.data ||
-    quotaQuery.isError ||
-    !quotaQuery.data ||
-    todayQuery.isError ||
-    !todayQuery.data
-  ) {
-    return (
-      <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(recordQuery.error ?? quotaQuery.error ?? todayQuery.error)}
-      </p>
-    )
+  if (guard.kind === 'ERROR') {
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
-  if (isFutureDate(targetDate, todayQuery.data.logical_date)) {
-    // 未来日への実績登録はサーバが拒否する（仕様書7.2）。入力させてから送信時に弾くと入力内容が
-    // 失われるため、その前に閲覧画面へ誘導する（日次報告画面の入力可能期間ガードと同じ方針）。
-    return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
-  }
-  if (recordQuery.data.exam_record_state === 'REPORTED') {
-    // このページはEXAM専用（study_logsのみ扱う）のため、資格勉強が確定済みなら
-    // 変更不可（仕様書7.2）。閲覧画面へ誘導する。
+  if (guard.kind === 'REDIRECT_VIEW') {
     return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
 
@@ -99,7 +87,7 @@ export function ProgressOnlyPage() {
       </h1>
 
       <StudyLogFields
-        quotaItems={quotaQuery.data}
+        quotaItems={guard.quota}
         values={studyLogValues}
         slotNames={slotNames}
         showMinutesOptionalNotice
