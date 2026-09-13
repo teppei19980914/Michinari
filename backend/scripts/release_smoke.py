@@ -393,6 +393,45 @@ def _run_package_step(package: str | None) -> list[str]:
     return found
 
 
+def collect_problems(
+    *,
+    database: Path = DEFAULT_DB_PATH,
+    skip_startup: bool = False,
+    skip_migration: bool = False,
+    package: str | None = None,
+) -> list[str]:
+    """スモークの各確認を行い、見つかった問題の説明をまとめて返す（空なら全て正常）。
+
+    コマンドラインからの実行（`main`）と、リリースゲートからの呼び出し
+    （`build_package.run_smoke`）の双方がここを使う。判定と出力を1箇所に集約し、
+    呼び出し口ごとに確認内容がずれないようにする（CODING_RULES.md「①DRYの原則」）。
+    """
+    problems: list[str] = []
+
+    if skip_startup:
+        print("[1/3] 起動スモーク: 省略")
+    else:
+        print("[1/3] 起動スモークを実行しています…")
+        found = run_startup_smoke()
+        problems.extend(found)
+        print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
+
+    if skip_migration:
+        print("[2/3] 移行確認: 省略")
+    elif not database.is_file():
+        # 新規環境では既存DBが無いのが正常なので、失敗にはしない。
+        print(f"[2/3] 移行確認: 対象のデータベースがないため省略（{database}）")
+    else:
+        print(f"[2/3] 移行確認を実行しています…（{database} の複製に対して）")
+        with TemporaryDirectory() as temp_dir:
+            found = verify_migration(database, Path(temp_dir))
+        problems.extend(found)
+        print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
+
+    problems.extend(_run_package_step(package))
+    return problems
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="リリース前スモークテスト")
     parser.add_argument(
@@ -416,29 +455,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    problems: list[str] = []
-
-    if args.skip_startup:
-        print("[1/3] 起動スモーク: 省略")
-    else:
-        print("[1/3] 起動スモークを実行しています…")
-        found = run_startup_smoke()
-        problems.extend(found)
-        print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
-
-    if args.skip_migration:
-        print("[2/3] 移行確認: 省略")
-    elif not args.database.is_file():
-        # 新規環境では既存DBが無いのが正常なので、失敗にはしない。
-        print(f"[2/3] 移行確認: 対象のデータベースがないため省略（{args.database}）")
-    else:
-        print(f"[2/3] 移行確認を実行しています…（{args.database} の複製に対して）")
-        with TemporaryDirectory() as temp_dir:
-            found = verify_migration(args.database, Path(temp_dir))
-        problems.extend(found)
-        print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
-
-    problems.extend(_run_package_step(args.package))
+    problems = collect_problems(
+        database=args.database,
+        skip_startup=args.skip_startup,
+        skip_migration=args.skip_migration,
+        package=args.package,
+    )
 
     if problems:
         print("\nスモークテストで問題が見つかりました:")

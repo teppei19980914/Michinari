@@ -33,6 +33,7 @@ from build_package import (
     read_current_version,
     read_git_commit,
     resolve_version,
+    run_smoke,
     write_version,
 )
 
@@ -480,3 +481,27 @@ def test_generate_build_commit_keeps_dirty_builds_identifiable(tmp_path: Path) -
     generate_build_commit(output_path, "1.2.3", "abc1234", dirty=True)
 
     assert json.loads(output_path.read_text(encoding="utf-8"))["dirty"] is True
+
+
+class TestRunSmoke:
+    """リリースゲートに組み込んだスモークが、問題を見つけたらビルドを止めることを確かめる。
+
+    実際の起動・移行確認は release_smoke 側のテストが担うため、ここでは
+    「問題があれば中止し、無ければ素通しする」という接続部分だけを見る。
+    """
+
+    def test_passes_through_when_there_is_no_problem(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("release_smoke.collect_problems", lambda: [])
+
+        run_smoke()  # 例外もSystemExitも起きないこと
+
+    def test_aborts_the_build_when_a_problem_is_found(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        monkeypatch.setattr("release_smoke.collect_problems", lambda: ["goal: 5 行 → 4 行"])
+
+        with pytest.raises(SystemExit) as excinfo:
+            run_smoke()
+
+        assert excinfo.value.code == 1
+        assert "goal: 5 行 → 4 行" in capsys.readouterr().out

@@ -16,6 +16,7 @@ from release_smoke import (
     _run_package_step,
     build_child_env,
     check_endpoints,
+    collect_problems,
     extract_package,
     find_latest_package,
     find_shrunk_tables,
@@ -390,3 +391,40 @@ class TestRunPackageStep:
         monkeypatch.setattr("release_smoke.run_package_smoke", lambda _z: ["起動しませんでした"])
 
         assert _run_package_step("latest") == ["起動しませんでした"]
+
+
+class TestCollectProblems:
+    """コマンドライン実行とリリースゲートの双方が使う集約処理。"""
+
+    def test_gathers_problems_from_every_check(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        database = tmp_path / "michinari.db"
+        database.write_bytes(b"")
+        monkeypatch.setattr("release_smoke.run_startup_smoke", lambda: ["起動しませんでした"])
+        monkeypatch.setattr("release_smoke.verify_migration", lambda _s, _w: ["goal: 5 行 → 4 行"])
+
+        problems = collect_problems(database=database)
+
+        assert problems == ["起動しませんでした", "goal: 5 行 → 4 行"]
+
+    def test_reports_nothing_when_every_check_passes(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        database = tmp_path / "michinari.db"
+        database.write_bytes(b"")
+        monkeypatch.setattr("release_smoke.run_startup_smoke", lambda: [])
+        monkeypatch.setattr("release_smoke.verify_migration", lambda _s, _w: [])
+
+        assert collect_problems(database=database) == []
+
+    def test_leaves_the_package_check_out_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # 配布物の起動はブラウザを開くため、明示指定なしでは実行しない。
+        called: list[str] = []
+        monkeypatch.setattr(
+            "release_smoke.run_package_smoke", lambda _z: called.append("ran") or []
+        )
+
+        collect_problems(skip_startup=True, skip_migration=True)
+
+        assert called == []
