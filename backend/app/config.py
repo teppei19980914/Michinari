@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.constants import desktop as desktop_constants
+
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
 
@@ -29,10 +31,41 @@ def _default_data_dir() -> Path:
     return REPO_ROOT / "data"
 
 
+def resolve_bundled_path(bundled_relative: str, source_path: Path) -> Path:
+    """配布パッケージへ同梱したファイルの配置先を解決する。
+
+    PyInstallerでパッケージ化された実行ファイル（`sys.frozen`）として起動している場合、
+    同梱物は展開先（`sys._MEIPASS`）の下に置かれる。ソースから起動する開発環境では
+    リポジトリ内の原本を使う。フロントエンドの静的ファイル・`alembic.ini`・ロケール・
+    アイコンの4箇所が同じ判定を必要とするため、ここへ集約する（CLAUDE.md DRYの原則）。
+
+    引数:
+        bundled_relative: 配布パッケージ内での相対パス（`build_package.build_backend`の
+            `--add-data`の指定先と一致させること）。
+        source_path: 開発環境で使うリポジトリ内の絶対パス。
+
+    返り値:
+        解決したパス（存在するとは限らない。存在確認は呼び出し側が行う）。
+
+    使用例:
+        >>> resolve_bundled_path("alembic.ini", BACKEND_DIR / "alembic.ini")  # doctest: +SKIP
+        WindowsPath('.../backend/alembic.ini')
+    """
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+        return base / bundled_relative
+    return source_path
+
+
 DEFAULT_DATA_DIR = _default_data_dir()
 #: データ構造編8章のディレクトリ構成「data/ データベースファイル、バックアップ、エクスポート」。
 BACKUP_DIR = DEFAULT_DATA_DIR / "backups"
 EXPORT_DIR = DEFAULT_DATA_DIR / "exports"
+#: 常駐時のログ出力先（Phase37）。コンソールを表示しなくなったため、起動失敗や通知の記録は
+#: ここだけに残る。BACKUP_DIR・EXPORT_DIR と同じくデータフォルダ配下へ置く
+#: （配布時は `%LOCALAPPDATA%\\Michinari\\data\\logs\\`。開発環境では `data/logs/` となり、
+#: `.gitignore` の `data/*` で既に除外されているため新たな除外指定を要しない）。
+LOG_DIR = DEFAULT_DATA_DIR / desktop_constants.LOG_DIR_NAME
 
 
 class Settings(BaseSettings):
