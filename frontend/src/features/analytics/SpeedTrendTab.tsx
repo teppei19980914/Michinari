@@ -16,6 +16,7 @@ import { getSpeedAnalytics } from '../../api/analytics'
 import { GRID_LINE_COLOR, cycleSeriesColor } from './chartColors'
 import { cycleSeriesKey, mergeCycleSeries } from './mergeCycleSeries'
 import { formatAxisNumber, formatDateTick } from './formatPeriod'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type SpeedTrendTabProps = { goalId: number }
 
@@ -23,7 +24,7 @@ type SpeedTrendTabProps = { goalId: number }
  * 教材ごと・周回別に表示する。 */
 export function SpeedTrendTab({ goalId }: SpeedTrendTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'speed', goalId],
+    queryKey: QUERY_KEYS.analyticsSpeed(goalId),
     queryFn: () => getSpeedAnalytics(goalId),
   })
 

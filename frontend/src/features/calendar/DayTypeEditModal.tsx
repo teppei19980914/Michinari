@@ -5,6 +5,7 @@ import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { clearDayType, setDayType } from '../../api/calendar'
 import type { DayType } from '../../api/calendar'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const DAY_TYPES: DayType[] = ['PLAN', 'BUFFER', 'OFF']
 
@@ -22,7 +23,7 @@ export function DayTypeEditModal({
   const setMutation = useMutation({
     mutationFn: (dayType: DayType) => setDayType(targetDate as string, { day_type: dayType }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
       onClose()
     },
     onError: showApiError,
@@ -30,7 +31,7 @@ export function DayTypeEditModal({
   const clearMutation = useMutation({
     mutationFn: () => clearDayType(targetDate as string),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['calendar'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
       onClose()
     },
     onError: showApiError,

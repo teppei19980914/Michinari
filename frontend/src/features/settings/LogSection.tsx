@@ -6,6 +6,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** ログ設定（仕様書6.11「AI通信ログの保存」「ログ保持期間」）。 */
 export function LogSection({ settings }: { settings: AppSettingsRead }) {
@@ -20,7 +21,7 @@ export function LogSection({ settings }: { settings: AppSettingsRead }) {
         log: { ai_enabled: aiEnabled, retention_days: Number(retentionDays) },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

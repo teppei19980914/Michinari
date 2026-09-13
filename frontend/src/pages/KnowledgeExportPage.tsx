@@ -23,6 +23,7 @@ import {
   type ReadingExportSummary,
   type WorkExportSummary,
 } from '../features/export/knowledgeExportSummary'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 const DEFAULT_SELECTION: ExportSelection = {
   goal_overview: true,
@@ -113,14 +114,14 @@ function RetrospectiveSection({
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const retrospectiveQuery = useQuery({
-    queryKey: ['retrospective', goalId, anonymize],
+    queryKey: QUERY_KEYS.retrospectiveView(goalId, anonymize),
     queryFn: () => getRetrospective(goalId, anonymize),
   })
 
   const mutation = useMutation({
     mutationFn: () => generateRetrospective(goalId, anonymize),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['retrospective', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.retrospective(goalId) })
     },
     onError: showApiError,
   })
@@ -240,7 +241,7 @@ export function KnowledgeExportPage() {
   const [selection, setSelection] = useState<ExportSelection>(DEFAULT_SELECTION)
   const [anonymize, setAnonymize] = useState(false)
 
-  const goalQuery = useQuery({ queryKey: ['goal', goalId], queryFn: () => getGoal(goalId) })
+  const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 
   const previewMutation = useMutation({
     mutationFn: () => previewKnowledgeExport(goalId, selection, anonymize),
@@ -256,7 +257,7 @@ export function KnowledgeExportPage() {
   // 匿名化実行中は複数回のAI呼び出しを伴い時間がかかるため進捗をポーリング表示する
   // （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。
   const exportProgressQuery = useQuery({
-    queryKey: ['knowledgeExportProgress', goalId],
+    queryKey: QUERY_KEYS.knowledgeExportProgress(goalId),
     queryFn: () => getKnowledgeExportProgress(goalId),
     enabled: exportMutation.isPending && anonymize,
     refetchInterval: (query) => (query.state.data?.in_progress ? 1000 : false),

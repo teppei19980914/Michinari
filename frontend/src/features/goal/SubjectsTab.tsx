@@ -23,6 +23,7 @@ import {
   type GoalDetailRead,
   type SubjectRead,
 } from '../../api/goals'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const EXAM_DATE_TYPES = ['RANGE', 'FIXED'] as const
 const PASSING_SCORE_TYPES: PassingScoreType[] = ['PERCENTAGE', 'RAW_SCORE']
@@ -62,7 +63,7 @@ function SubjectForm({
     mutationFn: () =>
       subject ? updateSubject(subject.id, payload) : createSubject(goalId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
     },
     onError: showApiError,
@@ -214,7 +215,7 @@ function FixDateModal({
   const mutation = useMutation({
     mutationFn: () => fixSubjectDate(subject.id, examDateFixed),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onClose()
     },
     onError: showApiError,
@@ -251,11 +252,11 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [fixDateSubject, setFixDateSubject] = useState<SubjectRead | null>(null)
-  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const todayQuery = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
 
   const deleteMutation = useMutation({
     mutationFn: (subjectId: number) => deleteSubject(subjectId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) }),
     onError: showApiError,
   })
 

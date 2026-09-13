@@ -17,6 +17,7 @@ import { resolveAuxiliaryMarkers } from '../features/calendar/resolveAuxiliaryMa
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-05 カレンダー（仕様書6.4）。日付選択時の遷移先判定は
  * features/calendar/resolveCalendarDateAction.ts に切り出している（技術選定書4.5
@@ -38,12 +39,12 @@ export function CalendarPage() {
   const dateFrom = format(gridStart, 'yyyy-MM-dd')
   const dateTo = format(gridEnd, 'yyyy-MM-dd')
 
-  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const todayQuery = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
   const calendarQuery = useQuery({
-    queryKey: ['calendar', dateFrom, dateTo],
+    queryKey: QUERY_KEYS.calendarRange(dateFrom, dateTo),
     queryFn: () => getCalendar(dateFrom, dateTo),
   })
-  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: () => listGoals() })
+  const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: () => listGoals() })
   const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId } = goalTabs
 
@@ -55,7 +56,7 @@ export function CalendarPage() {
 
   const targetGoalId = resolveTargetGoalId(goalTabs)
   const selectedGoalDetailQuery = useQuery({
-    queryKey: ['goal', targetGoalId],
+    queryKey: QUERY_KEYS.goal(targetGoalId),
     queryFn: () => getGoal(targetGoalId as number),
     enabled: targetGoalId !== null,
   })

@@ -10,10 +10,11 @@ import { PromptDegradationSection } from '../features/settings/PromptDegradation
 import { DisplaySection } from '../features/settings/DisplaySection'
 import { LogSection } from '../features/settings/LogSection'
 import { PromptTemplateSection } from '../features/settings/PromptTemplateSection'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-11 設定（仕様書6.11「全ての設定項目は画面上から変更可能とする」）。 */
 export function SettingsPage() {
-  const settingsQuery = useQuery({ queryKey: ['settings'], queryFn: getSettings })
+  const settingsQuery = useQuery({ queryKey: QUERY_KEYS.settings(), queryFn: getSettings })
 
   if (settingsQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>

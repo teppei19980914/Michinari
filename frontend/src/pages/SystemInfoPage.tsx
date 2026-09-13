@@ -3,6 +3,7 @@ import { t } from '../locales/t'
 import { Card } from '../components/Card'
 import { apiErrorMessage } from '../api/client'
 import { getSystemInfo, type SystemInfoRead } from '../api/systemInfo'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 function LibraryTable({ libraries }: { libraries: SystemInfoRead['backend_libraries'] }) {
   return (
@@ -27,7 +28,7 @@ function LibraryTable({ libraries }: { libraries: SystemInfoRead['backend_librar
 
 /** SC-15 システム情報（仕様書6.14）。 */
 export function SystemInfoPage() {
-  const systemInfoQuery = useQuery({ queryKey: ['systemInfo'], queryFn: getSystemInfo })
+  const systemInfoQuery = useQuery({ queryKey: QUERY_KEYS.systemInfo(), queryFn: getSystemInfo })
 
   if (systemInfoQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>

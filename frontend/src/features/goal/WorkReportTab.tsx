@@ -16,6 +16,7 @@ import {
   updateSemiannualReview,
   type WorkReportRead,
 } from '../../api/closure'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type ReportKind = 'monthly' | 'semiannual'
 
@@ -43,7 +44,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: ReportKi
   const getReport = kind === 'monthly' ? getMonthlyReport : getSemiannualReview
   const generateReport = kind === 'monthly' ? generateMonthlyReport : generateSemiannualReview
   const updateReport = kind === 'monthly' ? updateMonthlyReport : updateSemiannualReview
-  const queryKey = ['workReport', kind, goalId, period]
+  const queryKey = QUERY_KEYS.workReportPeriod(kind, goalId, period)
   const periodLabelKey =
     kind === 'monthly' ? 'goals.workReport.periodLabelMonthly' : 'goals.workReport.periodLabelSemiannual'
   const periodPlaceholder = kind === 'monthly' ? 'YYYY-MM' : 'YYYY-H1 / YYYY-H2'
@@ -73,7 +74,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: ReportKi
     mutationFn: () => generateReport(goalId, period || undefined),
     onSuccess: (report) => {
       applyReport(report)
-      queryClient.invalidateQueries({ queryKey: ['workReport', kind, goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
     },
     onError: showApiError,
   })
@@ -94,7 +95,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: ReportKi
     },
     onSuccess: (report) => {
       applyReport(report)
-      queryClient.invalidateQueries({ queryKey: ['workReport', kind, goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

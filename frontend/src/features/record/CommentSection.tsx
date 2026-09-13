@@ -7,6 +7,7 @@ import { Textarea } from '../../components/Textarea'
 import { useToast } from '../../components/Toast'
 import { createComment, deleteComment, updateComment } from '../../api/records'
 import type { components } from '../../types/api.d.ts'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type CommentRead = components['schemas']['CommentRead']
 
@@ -16,7 +17,7 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
   const [editing, setEditing] = useState(false)
   const [body, setBody] = useState(comment.body)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['record', targetDate] })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.record(targetDate) })
 
   const updateMutation = useMutation({
     mutationFn: () => updateComment(comment.id, body),
@@ -90,7 +91,7 @@ export function CommentSection({
   const createMutation = useMutation({
     mutationFn: () => createComment(targetDate, newBody),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['record', targetDate] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.record(targetDate) })
       setNewBody('')
     },
     onError: showApiError,

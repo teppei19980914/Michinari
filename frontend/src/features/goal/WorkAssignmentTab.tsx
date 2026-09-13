@@ -12,6 +12,7 @@ import {
   type GoalDetailRead,
   type WorkAssignmentRead,
 } from '../../api/goals'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function WorkAssignmentForm({
   goalId,
@@ -40,7 +41,7 @@ function WorkAssignmentForm({
         ? updateWorkAssignment(goalId, payload)
         : createWorkAssignment(goalId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
     },
     onError: showApiError,

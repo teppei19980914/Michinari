@@ -21,6 +21,7 @@ import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { ERROR_CODES } from '../constants/errorCodes'
 import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 const EXAM_TABS = [
   {
@@ -120,7 +121,7 @@ function GoalStatusActions({
   const [closeModalOpen, setCloseModalOpen] = useState(false)
   const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
 
   const activateMutation = useMutation({
     mutationFn: () => activateGoal(goalId),
@@ -208,7 +209,7 @@ export function GoalDetailPage() {
   const goalId = Number(goalIdParam)
   const [tab, setTab] = useState<TabKey>('basicInfo')
 
-  const goalQuery = useQuery({ queryKey: ['goal', goalId], queryFn: () => getGoal(goalId) })
+  const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 
   if (goalQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>

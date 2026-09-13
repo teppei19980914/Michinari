@@ -7,6 +7,7 @@ import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateGoal, type GoalDetailRead } from '../../api/goals'
 import { resolveByGoalCategory } from './goalCategoryVariant'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 基本情報タブ（仕様書6.2「試験名、開始日、状態、備考」）。 */
 export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
@@ -19,7 +20,7 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
   const mutation = useMutation({
     mutationFn: () => updateGoal(goal.id, { name, start_date: startDate, memo }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

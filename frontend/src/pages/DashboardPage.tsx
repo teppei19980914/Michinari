@@ -13,6 +13,7 @@ import { StatsSummary } from '../features/dashboard/StatsSummary'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-01 ダッシュボード（仕様書6.1）。起動時の初期表示画面。
  *
@@ -27,8 +28,8 @@ import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
  * 選択中goal_idへの絞り込みのみで対応できる。本日の状態（record_state）・本日の
  * 日種別は目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */
 export function DashboardPage() {
-  const dashboardQuery = useQuery({ queryKey: ['dashboard'], queryFn: getDashboard })
-  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: () => listGoals() })
+  const dashboardQuery = useQuery({ queryKey: QUERY_KEYS.dashboard(), queryFn: getDashboard })
+  const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: () => listGoals() })
   const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId } = goalTabs
 

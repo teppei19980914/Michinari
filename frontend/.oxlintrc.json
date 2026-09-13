@@ -3,6 +3,16 @@
   "plugins": ["react", "typescript", "oxc"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+    "max-lines-per-function": ["warn", { "max": 100, "skipComments": true, "skipBlankLines": true }],
+    "max-depth": ["warn", { "max": 3 }]
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "max-lines-per-function": "off"
+      }
+    }
+  ]
 }

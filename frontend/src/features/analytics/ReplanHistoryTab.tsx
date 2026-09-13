@@ -4,15 +4,16 @@ import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getBaselines, getGoal } from '../../api/goals'
 import { buildReplanHistoryRows } from './replanHistoryRows'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type ReplanHistoryTabProps = { goalId: number }
 
 /** 分析画面「リプラン履歴」タブ（仕様書6.8、ANL-08）。Phase3で実装済みの
  * GET /goals/{id}/baselines をそのまま再利用する（新規エンドポイントを追加しない）。 */
 export function ReplanHistoryTab({ goalId }: ReplanHistoryTabProps) {
-  const goalQuery = useQuery({ queryKey: ['goal', goalId], queryFn: () => getGoal(goalId) })
+  const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
   const baselinesQuery = useQuery({
-    queryKey: ['analytics', 'baselines', goalId],
+    queryKey: QUERY_KEYS.analyticsBaselines(goalId),
     queryFn: () => getBaselines(goalId),
   })
 

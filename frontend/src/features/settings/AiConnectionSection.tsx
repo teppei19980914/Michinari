@@ -8,6 +8,7 @@ import { useToast } from '../../components/Toast'
 import { getAiStatus, listAssistants, loginAi } from '../../api/ai'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { resolveReauthOutcome } from './aiReauthOutcome'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const ASSISTANT_FIELDS = [
   { field: 'assistant_uid_daily_feedback', labelKey: 'settings.aiConnection.assistant.dailyFeedback' },
@@ -46,8 +47,8 @@ void _assistantFieldsAreExhaustive
 export function AiConnectionSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()
-  const assistantsQuery = useQuery({ queryKey: ['ai-assistants'], queryFn: listAssistants })
-  const statusQuery = useQuery({ queryKey: ['ai-status'], queryFn: getAiStatus })
+  const assistantsQuery = useQuery({ queryKey: QUERY_KEYS.aiAssistants(), queryFn: listAssistants })
+  const statusQuery = useQuery({ queryKey: QUERY_KEYS.aiStatus(), queryFn: getAiStatus })
 
   const [form, setForm] = useState(settings.ai_connection)
   const [pat, setPat] = useState('')
@@ -55,7 +56,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
   const saveMutation = useMutation({
     mutationFn: () => updateSettings({ ai_connection: form }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,
@@ -65,8 +66,8 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
     mutationFn: () => loginAi({ host: form.host || null, personal_access_token: pat }),
     onSuccess: (result) => {
       setPat('')
-      queryClient.invalidateQueries({ queryKey: ['ai-status'] })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiStatus() })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       const outcome = resolveReauthOutcome(result)
       showToast(
         outcome === 'succeeded'

@@ -18,6 +18,7 @@ import {
   initStudyLogFormValues,
   type StudyLogFormValue,
 } from '../features/record/studyLogForm'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-07 進捗のみ登録（仕様書6.6）。実績入力領域のみを持ち、日記記述・AI対話領域は持たない。
  * 「確定前に画面を離脱した場合の警告」（仕様書6.5）はSC-06の完了条件としてのみ明記されており、
@@ -32,16 +33,16 @@ export function ProgressOnlyPage() {
   const { showApiError } = useToast()
 
   const recordQuery = useQuery({
-    queryKey: ['record', targetDate],
+    queryKey: QUERY_KEYS.record(targetDate),
     queryFn: () => getRecord(targetDate),
   })
   const quotaQuery = useQuery({
-    queryKey: ['quota', targetDate],
+    queryKey: QUERY_KEYS.quota(targetDate),
     queryFn: () => getQuota(targetDate),
   })
   // 進捗のみ登録が可能なのは未来日以外（仕様書7.2「当日または前日以前」）。論理的な本日は
   // クライアントで算出せずサーバから取得する（技術選定書7.1「禁止事項」）。
-  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const todayQuery = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
   const hydratedRef = useRef(false)

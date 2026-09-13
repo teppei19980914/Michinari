@@ -13,6 +13,7 @@ import { getGoal, type SubjectRead } from '../api/goals'
 import { generateRetrospective, registerExamResult, updateExamResult } from '../api/closure'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 const RESULT_TYPES = ['PASS', 'FAIL', 'PENDING'] as const
 
@@ -45,7 +46,7 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
         ? updateExamResult(existing.id, payload)
         : registerExamResult(subject.id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       setEditing(false)
     },
     onError: showApiError,
@@ -135,7 +136,7 @@ export function ExamResultPage() {
   const navigate = useNavigate()
   const [closeModalOpen, setCloseModalOpen] = useState(false)
 
-  const goalQuery = useQuery({ queryKey: ['goal', goalId], queryFn: () => getGoal(goalId) })
+  const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 
   if (goalQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>

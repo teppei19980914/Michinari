@@ -20,6 +20,7 @@ import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../fe
 import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
 import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { GOAL_CATEGORIES } from '../constants/goalCategories'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
@@ -32,7 +33,7 @@ function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void })
   const mutation = useMutation({
     mutationFn: () => createGoal({ category, name, start_date: startDate }),
     onSuccess: (goal) => {
-      queryClient.invalidateQueries({ queryKey: ['goals'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       onClose()
       navigate(ROUTES.goalDetail(goal.id))
     },
@@ -162,16 +163,16 @@ export function GoalsListPage() {
   const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
-  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: listGoals })
+  const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: listGoals })
 
   const archiveMutation = useMutation({
     mutationFn: archiveGoal,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
     onError: showApiError,
   })
   const unarchiveMutation = useMutation({
     mutationFn: unarchiveGoal,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
     onError: showApiError,
   })
 

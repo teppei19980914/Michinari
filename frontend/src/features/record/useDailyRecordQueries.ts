@@ -8,6 +8,7 @@ import {
   type ActiveWorkAssignment,
   type GoalRead,
 } from '../../api/goals'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 export type DailyRecordQueries = {
   record: UseQueryResult<DailyRecordRead>
@@ -28,23 +29,23 @@ export type DailyRecordQueries = {
  */
 export function useDailyRecordQueries(targetDate: string): DailyRecordQueries {
   const record = useQuery({
-    queryKey: ['record', targetDate],
+    queryKey: QUERY_KEYS.record(targetDate),
     queryFn: () => getRecord(targetDate),
   })
   const quota = useQuery({
-    queryKey: ['quota', targetDate],
+    queryKey: QUERY_KEYS.quota(targetDate),
     queryFn: () => getQuota(targetDate),
   })
   const readingBooks = useQuery({
-    queryKey: ['activeReadingBooks'],
+    queryKey: QUERY_KEYS.activeReadingBooks(),
     queryFn: listActiveReadingBooks,
   })
   const workAssignments = useQuery({
-    queryKey: ['activeWorkAssignments'],
+    queryKey: QUERY_KEYS.activeWorkAssignments(),
     queryFn: listActiveWorkAssignments,
   })
   const goals = useQuery({
-    queryKey: ['goals'],
+    queryKey: QUERY_KEYS.goals(),
     queryFn: () => listGoals(),
   })
 

@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'
 import { useToast } from '../../components/Toast'
 import { deleteArchivedGoal, type GoalRead } from '../../api/goals'
 import { resolveDeleteGoalLabelKeys } from './deleteGoalLabels'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /**
  * MD-08 完全削除確認（仕様書5.3・6.15）。学習実績も含めるかのチェックボックスを持つ。
@@ -32,7 +33,7 @@ export function DeleteArchivedGoalModal({
     mutationFn: (goalId: number) =>
       deleteArchivedGoal(goalId, { cascade_study_logs: cascadeStudyLogs }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goals'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       onClose()
     },
     onError: showApiError,
