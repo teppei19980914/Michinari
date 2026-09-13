@@ -11,6 +11,7 @@ import {
   type GrowthDescriptionEntryRead,
 } from '../../api/analytics'
 import type { GoalRead } from '../../api/goals'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type GrowthDescriptionTabProps = {
   /** 選択中の目標(GoalTabBar)。この目標宛て + 同カテゴリの未割り当てレガシー分を表示する。 */
@@ -73,7 +74,7 @@ function UnassignedEntryAssignForm({
 export function GrowthDescriptionTab({ goalId, goals }: GrowthDescriptionTabProps) {
   const queryClient = useQueryClient()
   const query = useQuery({
-    queryKey: ['analytics', 'growth-descriptions', goalId],
+    queryKey: QUERY_KEYS.analyticsGrowthDescriptions(goalId),
     queryFn: () => getGrowthDescriptions(goalId),
   })
 
@@ -90,7 +91,7 @@ export function GrowthDescriptionTab({ goalId, goals }: GrowthDescriptionTabProp
   const category = goals.find((goal) => goal.id === goalId)?.category
   const candidateGoals = goals.filter((goal) => goal.category === category)
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['analytics', 'growth-descriptions', goalId] })
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.analyticsGrowthDescriptions(goalId) })
 
   return (
     <div className="flex flex-col gap-3">

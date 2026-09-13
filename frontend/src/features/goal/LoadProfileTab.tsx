@@ -12,6 +12,7 @@ import {
   type GoalDetailRead,
   type LoadProfileRead,
 } from '../../api/goals'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function LoadProfileForm({
   goalId,
@@ -40,7 +41,7 @@ function LoadProfileForm({
     mutationFn: () =>
       profile ? updateLoadProfile(profile.id, payload) : createLoadProfile(goalId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
     },
     onError: showApiError,
@@ -111,7 +112,7 @@ export function LoadProfileTab({
 
   const deleteMutation = useMutation({
     mutationFn: (profileId: number) => deleteLoadProfile(profileId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) }),
     onError: showApiError,
   })
 

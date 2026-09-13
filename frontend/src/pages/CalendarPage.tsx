@@ -1,26 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import { addMonths, endOfMonth, endOfWeek, format, startOfMonth, startOfWeek, subMonths } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { getCalendar } from '../api/calendar'
 import { getToday } from '../api/records'
 import { listGoals, getGoal } from '../api/goals'
-import { Button } from '../components/Button'
-import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
 import { CalendarGrid } from '../features/calendar/CalendarGrid'
+import { CalendarHeader } from '../features/calendar/CalendarHeader'
 import { DayTypeEditModal } from '../features/calendar/DayTypeEditModal'
+import { ReportTypeChoiceModal } from '../features/calendar/ReportTypeChoiceModal'
+import { useCalendarMonth } from '../features/calendar/useCalendarMonth'
 import { resolveCalendarDateAction } from '../features/calendar/resolveCalendarDateAction'
 import { resolveAuxiliaryMarkers } from '../features/calendar/resolveAuxiliaryMarkers'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-05 カレンダー（仕様書6.4）。日付選択時の遷移先判定は
  * features/calendar/resolveCalendarDateAction.ts に切り出している（技術選定書4.5
- * 「日付状態による遷移先の判定」）。
+ * 「日付状態による遷移先の判定」）。表示中の月の保持は useCalendarMonth.ts、選択モーダルは
+ * ReportTypeChoiceModal.tsx へ切り出してある（CODING_RULES.md「保守性（複雑度）」）。
  *
  * 補助表示（受験日・受験期間・負荷係数が1.0以外の期間。仕様書6.4の3種のみで、読書の
  * 読了目標日・仕事の案件はカレンダーの補助表示の対象外）は、日次報告（DailyReportPage）と同じGoalTabBarで
@@ -29,21 +31,16 @@ import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
  * 目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */
 export function CalendarPage() {
   const navigate = useNavigate()
-  const [month, setMonth] = useState(() => startOfMonth(new Date()))
+  const calendarMonth = useCalendarMonth()
   const [editingDayTypeDate, setEditingDayTypeDate] = useState<string | null>(null)
   const [choiceDate, setChoiceDate] = useState<string | null>(null)
 
-  const gridStart = startOfWeek(startOfMonth(month))
-  const gridEnd = endOfWeek(endOfMonth(month))
-  const dateFrom = format(gridStart, 'yyyy-MM-dd')
-  const dateTo = format(gridEnd, 'yyyy-MM-dd')
-
-  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const todayQuery = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
   const calendarQuery = useQuery({
-    queryKey: ['calendar', dateFrom, dateTo],
-    queryFn: () => getCalendar(dateFrom, dateTo),
+    queryKey: QUERY_KEYS.calendarRange(calendarMonth.dateFrom, calendarMonth.dateTo),
+    queryFn: () => getCalendar(calendarMonth.dateFrom, calendarMonth.dateTo),
   })
-  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: () => listGoals() })
+  const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: () => listGoals() })
   const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId } = goalTabs
 
@@ -55,7 +52,7 @@ export function CalendarPage() {
 
   const targetGoalId = resolveTargetGoalId(goalTabs)
   const selectedGoalDetailQuery = useQuery({
-    queryKey: ['goal', targetGoalId],
+    queryKey: QUERY_KEYS.goal(targetGoalId),
     queryFn: () => getGoal(targetGoalId as number),
     enabled: targetGoalId !== null,
   })
@@ -115,18 +112,11 @@ export function CalendarPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">{t('calendar.title')}</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => setMonth((m) => subMonths(m, 1))}>
-            {t('calendar.prevMonth')}
-          </Button>
-          <span className="text-sm text-gray-700">{format(month, 'yyyy-MM')}</span>
-          <Button variant="secondary" onClick={() => setMonth((m) => addMonths(m, 1))}>
-            {t('calendar.nextMonth')}
-          </Button>
-        </div>
-      </div>
+      <CalendarHeader
+        month={calendarMonth.month}
+        onShowPreviousMonth={calendarMonth.showPreviousMonth}
+        onShowNextMonth={calendarMonth.showNextMonth}
+      />
 
       {showGoalSelector && (
         <GoalTabBar
@@ -137,7 +127,7 @@ export function CalendarPage() {
       )}
 
       <CalendarGrid
-        month={month}
+        month={calendarMonth.month}
         daysByDate={daysByDate}
         auxiliaryMarkersByDate={auxiliaryMarkersByDate}
         onSelectDate={handleSelectDate}
@@ -146,25 +136,7 @@ export function CalendarPage() {
 
       <DayTypeEditModal targetDate={editingDayTypeDate} onClose={() => setEditingDayTypeDate(null)} />
 
-      <Modal
-        open={choiceDate !== null}
-        onClose={() => setChoiceDate(null)}
-        title={t('calendar.choiceModal.title')}
-      >
-        <p className="text-sm text-gray-600">{choiceDate}</p>
-        <div className="mt-4 flex flex-col gap-2">
-          <Link to={choiceDate ? ROUTES.dailyReport(choiceDate) : '#'}>
-            <Button className="w-full" onClick={() => setChoiceDate(null)}>
-              {t('calendar.choiceModal.report')}
-            </Button>
-          </Link>
-          <Link to={choiceDate ? ROUTES.dailyReportProgress(choiceDate) : '#'}>
-            <Button variant="secondary" className="w-full" onClick={() => setChoiceDate(null)}>
-              {t('calendar.choiceModal.progressOnly')}
-            </Button>
-          </Link>
-        </div>
-      </Modal>
+      <ReportTypeChoiceModal targetDate={choiceDate} onClose={() => setChoiceDate(null)} />
     </div>
   )
 }

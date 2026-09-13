@@ -1,10 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
 import { GOAL_CATEGORIES } from '../../constants/goalCategories'
-import { ToastProvider } from '../../components/Toast'
+import { renderWithProviders } from '../../test/renderWithProviders'
 import { t } from '../../locales/t'
 import type { GoalCategory, GoalRead } from '../../api/goals'
 import { DeleteArchivedGoalModal } from './DeleteArchivedGoalModal'
@@ -28,14 +26,8 @@ function makeGoal(category: GoalCategory): GoalRead {
 }
 
 function renderModal(goal: GoalRead | null) {
-  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>{children}</ToastProvider>
-    </QueryClientProvider>
-  )
   const onClose = vi.fn()
-  render(<DeleteArchivedGoalModal goal={goal} onClose={onClose} />, { wrapper })
+  renderWithProviders(<DeleteArchivedGoalModal goal={goal} onClose={onClose} />)
   return { onClose }
 }
 

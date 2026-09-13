@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDiaryEntriesPayload,
+  filterWrittenDiaryEntries,
   hasAnyDiaryInput,
   initDiaryFormValues,
   type DiaryFormValue,
@@ -96,5 +97,32 @@ describe('buildDiaryEntriesPayload', () => {
     expect(buildDiaryEntriesPayload(values)).toEqual([
       { goal_id: 1, diary_body: '', diary_learned: '学び' },
     ])
+  })
+})
+
+describe('filterWrittenDiaryEntries', () => {
+  function buildEntry(overrides: Partial<DiaryEntryRead>): DiaryEntryRead {
+    return {
+      goal_id: 1,
+      goal_name: 'goal',
+      diary_body: null,
+      diary_learned: null,
+      ...overrides,
+    }
+  }
+
+  it('keeps an entry that has a body', () => {
+    const entry = buildEntry({ diary_body: 'body' })
+    expect(filterWrittenDiaryEntries([entry])).toEqual([entry])
+  })
+
+  it('keeps an entry that only has the learned field', () => {
+    const entry = buildEntry({ diary_learned: 'learned' })
+    expect(filterWrittenDiaryEntries([entry])).toEqual([entry])
+  })
+
+  it('drops entries that were finalized without writing anything', () => {
+    // 日記の枠は目標ごとに作られるため、何も書かずに確定した目標の分は空で保存される。
+    expect(filterWrittenDiaryEntries([buildEntry({}), buildEntry({ diary_body: '' })])).toEqual([])
   })
 })

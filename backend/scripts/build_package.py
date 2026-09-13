@@ -2,7 +2,8 @@
 
 実行順序: テストスイートの実行（1件でも失敗すればここでビルドを中止する）→
 配布バージョンをユーザ入力で確定（`backend/pyproject.toml`へ反映）→
-既存パッケージのアーカイブ退避 → ビルド情報（バージョン・使用ライブラリ）の生成 →
+既存配布物（zip・ビルド元コミットの記録）のアーカイブ退避と旧ビルド出力の削除 →
+ビルド情報（バージョン・使用ライブラリ）の生成 →
 フロントエンドの静的ビルド（`npm run build`）→ PyInstallerによるバックエンドの
 パッケージ化（フロントエンドの静的ファイル・alembicマイグレーション・ビルド情報を
 同梱）→ 起動用batファイル・ユーザ手順書PDFの配置 → 配布用zipの作成。
@@ -51,6 +52,11 @@ PYPROJECT_PATH = BACKEND_DIR / "pyproject.toml"
 BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
 #: ビルド元コミットの記録ファイル名に付ける接尾辞（配布zipと対になる名前にする）。
 BUILD_COMMIT_SUFFIX = ".commit.json"
+#: `_archive/`へ退避する既存配布物の拡張子。配布zipと、それと対になるビルド元コミットの
+#: 記録（`BUILD_COMMIT_SUFFIX`）の2種類のみを対象とし、ビルド出力フォルダは含めない。
+ARCHIVED_DISTRIBUTION_SUFFIXES = (".zip", ".json")
+#: 旧パッケージフォルダを削除する前に付け替える一時名の接頭辞（`discard_previous_package`）。
+PREVIOUS_PACKAGE_PREFIX = "_previous_"
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
 #: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
 USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
@@ -65,27 +71,65 @@ _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 _VALID_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
-def archive_previous_package(
-    output_dir: Path, archive_dir: Path, app_name: str, *, now: dt.datetime | None = None
-) -> Path | None:
-    """既存の配布パッケージをタイムスタンプ付きフォルダへ退避する（削除せず残す）。
+def archive_previous_distributions(dist_dir: Path, archive_dir: Path) -> list[Path]:
+    """`dist/`直下の既存配布物（zipとビルド元コミットの記録）を`_archive/`へ退避する。
 
-    以前のパッケージと最新パッケージを比較調査できるようにするため、PyInstallerに
-    既存出力先の削除を任せず、本スクリプト側で先にリネーム（`shutil.move`）で
-    退避しておく。リネームはディレクトリエントリの付け替えのみで再帰的なファイル削除を
-    伴わないため、OneDriveファイルオンデマンド配下でリパースポイント化された
-    ディレクトリを`shutil.rmtree`で削除しようとして`WinError 5`になる問題
-    （OPERATIONS.md参照）も併せて回避できる。
+    退避対象は`ARCHIVED_DISTRIBUTION_SUFFIXES`の拡張子を持つ**ファイルのみ**で、
+    ビルド出力フォルダ（`dist/Michinari/`）は対象にしない。以前はフォルダごと
+    `_archive/`へ退避していたが、1回のビルドで数十〜100MB超になるフォルダが
+    ビルドのたびに積み上がり、`dist/`の容量が増大していたためである
+    （OPERATIONS.md「配布パッケージのビルド」参照）。zipには同じ内容が圧縮された形で
+    残るため、旧版を調べたいときはzipを展開すればよい。
 
-    戻り値: 退避先のパス。既存パッケージが無ければ何もせず`None`を返す。
+    退避先に同名ファイルがある場合（同一バージョンで再ビルドした場合）は上書きする。
+
+    戻り値: 退避したファイルの退避先パス一覧（ファイル名昇順）。対象が無ければ空リスト。
+    """
+    if not dist_dir.exists():
+        return []
+    sources = sorted(
+        path
+        for path in dist_dir.iterdir()
+        if path.is_file() and path.suffix in ARCHIVED_DISTRIBUTION_SUFFIXES
+    )
+    if not sources:
+        return []
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    moved: list[Path] = []
+    for source in sources:
+        destination = archive_dir / source.name
+        destination.unlink(missing_ok=True)
+        shutil.move(str(source), str(destination))
+        moved.append(destination)
+    return moved
+
+
+def discard_previous_package(output_dir: Path, *, now: dt.datetime | None = None) -> Path | None:
+    """既存のビルド出力フォルダを削除し、同じ場所へ新しいバージョンをビルドできるようにする。
+
+    削除は「同階層の一時名へリネーム → その一時フォルダを再帰削除」の2段階で行う。
+    リネームはディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、
+    OneDriveファイルオンデマンド配下で再帰削除が`WinError 5 アクセスが拒否されました`に
+    なる事象（OPERATIONS.md参照）が起きても、ビルド自体は中断せずに進められる。
+    削除できなかった一時フォルダは警告を表示して残す（手動削除できるようにする）。
+
+    PyInstallerの`--noconfirm`任せにせず本スクリプト側で先に空けるのも同じ理由である。
+
+    戻り値: 削除に失敗して残った一時フォルダのパス。削除できた場合・既存フォルダが
+    無い場合は`None`。
     """
     if not output_dir.exists():
         return None
-    archive_dir.mkdir(parents=True, exist_ok=True)
     timestamp = (now or dt.datetime.now()).strftime("%Y%m%d_%H%M%S")
-    destination = archive_dir / f"{app_name}_{timestamp}"
-    shutil.move(str(output_dir), str(destination))
-    return destination
+    staging_dir = output_dir.parent / f"{PREVIOUS_PACKAGE_PREFIX}{output_dir.name}_{timestamp}"
+    shutil.move(str(output_dir), str(staging_dir))
+    try:
+        shutil.rmtree(staging_dir)
+    except OSError as error:
+        print(f"  → 警告: 旧パッケージを削除できませんでした: {staging_dir} ({error})")
+        print("     ビルドは継続します。不要であれば手動で削除してください。")
+        return staging_dir
+    return None
 
 
 def read_current_version(pyproject_path: Path) -> str:
@@ -132,8 +176,37 @@ def resolve_version(current_version: str, *, prompt=input) -> str:
         return entered
 
 
+def run_smoke() -> None:
+    """リリース前スモーク（起動確認・既存DBの移行確認）を行う。問題があればビルドを中止する。
+
+    テストスイートでは原理的に確認できない2点（アプリが実際に起動して応答するか、既存の
+    利用者データベースが移行できるか）を、出荷前に機械的に確かめる（OPERATIONS.md
+    「リリース前スモークテスト」参照）。
+
+    `release.bat` の手順を増やさず `run_tests` の直後に置くのは、別手順にすると実行を
+    忘れうるためである。判定と表示は `release_smoke.collect_problems` に集約しており、
+    コマンドラインから単体で流したときと同じ確認を行う。
+
+    配布パッケージ（exe）の起動確認はここには含めない。配布物はフロントエンドを同梱して
+    おり起動するとブラウザが開くため、リリース中に割り込ませない
+    （`release_smoke.py --package` で必要なときに実行する）。
+    """
+    # release_smoke は配布物の命名・配置を本モジュールから取り込むため、モジュール先頭で
+    # 取り込むと循環参照になる。呼び出し時にだけ解決する。
+    import release_smoke
+
+    print("  → リリース前スモーク (起動確認・既存DBの移行確認)")
+    problems = release_smoke.collect_problems()
+    if problems:
+        print("  → スモークテストが失敗しました。配布パッケージのビルドを中止します。")
+        for problem in problems:
+            print(f"     - {problem}")
+        sys.exit(1)
+
+
 def run_tests() -> None:
-    """バックエンド・フロントエンド双方のテストを実行する。1件でも失敗すればビルドを中止する。
+    """バックエンド・フロントエンド双方のテストとリリース前スモークを実行する。
+    1件でも失敗すればビルドを中止する。
 
     配布パッケージに不具合を含んだまま出荷しないための最終防波堤として、ビルドの
     一番最初に置く（バージョン入力より前。失敗する可能性のあるビルドでユーザに
@@ -142,10 +215,19 @@ def run_tests() -> None:
     フロントエンドは長らく対象外で、`npm test`（カバレッジ閾値100%）も型チェックも
     手動実行に頼っていた。バックエンドだけを通して出荷する状態は品質ゲートとして
     不完全なため、双方を必須にしている。
+
+    テストファイルは pytest・vitest がそれぞれ既定の規則で探索するため、テストを追加しても
+    ここへ登録する必要はない（追加漏れで実行されないことがない）。
+
+    `--cov-fail-under=100` はここで明示的に渡す。CODING_RULES.md「テストカバレッジ」が
+    掲げる100%を出荷時に機械的に強制するためで、`pyproject.toml` の addopts へは入れない
+    （部分実行〈pytest tests/test_goal_service.py 等〉が常に閾値割れで失敗するため）。
     """
     print("[1/8] テストスイートを実行しています…")
-    print("  → バックエンド (pytest)")
-    result = subprocess.run([sys.executable, "-m", "pytest"], cwd=BACKEND_DIR)
+    print("  → バックエンド (pytest + カバレッジ)")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--cov-fail-under=100"], cwd=BACKEND_DIR
+    )
     if result.returncode != 0:
         print("  → バックエンドのテストが失敗しました。配布パッケージのビルドを中止します。")
         print("     上記のテスト結果を確認して修正した後、再度実行してください。")
@@ -162,6 +244,8 @@ def run_tests() -> None:
         if result.returncode != 0:
             print(f"  → {label} が失敗しました。配布パッケージのビルドを中止します。")
             sys.exit(1)
+
+    run_smoke()
 
 
 def generate_build_info(
@@ -296,12 +380,12 @@ def generate_build_commit(
 def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, version: str) -> Path:
     """ビルド済みパッケージフォルダをzip化し、配布時のコピー手間を省く。
 
-    既存パッケージのアーカイブ退避（`archive_previous_package`）はビルド前に
-    `output_dir`（例: `backend/dist/Michinari/`）をリネーム退避する処理であり、
-    本関数はビルド後に生成された最新の`output_dir`のみをzip化するため、退避処理
-    とは対象・実行順序の両面で独立している。zip出力先（`dist_dir`直下）は退避先
-    （`dist_dir/_archive/`）と重ならないため、退避処理が誤って新しいzipを巻き込む
-    ことも、zip化が退避済みの旧パッケージを巻き込むこともない。
+    既存配布物のアーカイブ退避（`archive_previous_distributions`）はビルド前に
+    `dist_dir`直下の旧zip・旧記録を`dist_dir/_archive/`へ移す処理であり、本関数は
+    ビルド後に生成された最新の`output_dir`（例: `backend/dist/Michinari/`）のみを
+    zip化するため、退避処理とは対象・実行順序の両面で独立している。zip化の対象は
+    `base_dir=app_name`に限られるため、`_archive/`や削除しきれず残った旧パッケージの
+    一時フォルダ（`PREVIOUS_PACKAGE_PREFIX`）を巻き込むことはない。
 
     ファイル名に確定済みバージョンを含める（例: `Michinari-v0.2.0.zip`）ため、
     GitHub Releasesへアップロードする際にタグ・リリース名と対応付けやすい。
@@ -334,12 +418,13 @@ def main() -> None:
         print(f"  → pyproject.tomlのバージョンを更新しました: {current_version} → {version}")
     print(f"  → バージョン {version} でビルドします")
 
-    print("[3/8] 既存パッケージを確認しています…")
-    archived_to = archive_previous_package(OUTPUT_DIR, ARCHIVE_DIR, APP_NAME)
-    if archived_to:
-        print(f"  → 既存パッケージを退避しました: {archived_to}")
+    print("[3/8] 既存パッケージを整理しています…")
+    archived = archive_previous_distributions(DIST_DIR, ARCHIVE_DIR)
+    if archived:
+        print(f"  → 既存の配布物 {len(archived)} 件を退避しました: {ARCHIVE_DIR}")
     else:
-        print("  → 既存パッケージはありません")
+        print("  → 退避する既存の配布物はありません")
+    discard_previous_package(OUTPUT_DIR)
 
     print("[4/8] ビルド情報（バージョン・使用ライブラリ）を生成しています…")
     generate_build_info(REPO_ROOT, BUILD_INFO_PATH)

@@ -9,19 +9,19 @@ import {
   updateHolidayTreatAsBuffer,
   type DayType,
 } from '../../api/resources'
-
-const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
+import { WEEKDAYS } from './slotOptions'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 日種別の既定設定（仕様書6.3「曜日ごとに計画日またはバッファ日を選択」「祝日の扱い」）。 */
 export function DayTypeDefaultsCard() {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const defaultsQuery = useQuery({
-    queryKey: ['day-type-defaults'],
+    queryKey: QUERY_KEYS.dayTypeDefaults(),
     queryFn: getDayTypeDefaults,
   })
   const holidayQuery = useQuery({
-    queryKey: ['holiday-treat-as-buffer'],
+    queryKey: QUERY_KEYS.holidayTreatAsBuffer(),
     queryFn: getHolidayTreatAsBuffer,
   })
 
@@ -30,13 +30,13 @@ export function DayTypeDefaultsCard() {
   const dayTypeMutation = useMutation({
     mutationFn: ({ weekday, dayType }: { weekday: number; dayType: DayType }) =>
       updateDayTypeDefaults({ [weekday]: dayType }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['day-type-defaults'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dayTypeDefaults() }),
     onError: showApiError,
   })
 
   const holidayMutation = useMutation({
     mutationFn: (value: boolean) => updateHolidayTreatAsBuffer(value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['holiday-treat-as-buffer'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.holidayTreatAsBuffer() }),
     onError: showApiError,
   })
 

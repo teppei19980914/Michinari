@@ -1,20 +1,22 @@
-import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../locales/t'
-import { Card } from '../components/Card'
-import { Button } from '../components/Button'
 import { useToast } from '../components/Toast'
 import { createBackup, downloadExportFile, importDataFile, listBackups, restoreBackup } from '../api/data'
-import { formatBytes } from '../features/data/formatBytes'
+import { BackupList } from '../features/data/BackupList'
+import { DataActionsCard } from '../features/data/DataActionsCard'
 import { downloadBlob } from '../utils/downloadBlob'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
-/** SC-12 データ管理（仕様書6.12）。 */
+/** SC-12 データ管理（仕様書6.12）。
+ *
+ * 操作列は DataActionsCard.tsx、バックアップ一覧は BackupList.tsx へ切り出してある
+ * （CODING_RULES.md「保守性（複雑度）」）。取り消せない操作（インポート・復元）の確認
+ * ダイアログはこの画面に残し、実行の可否をここで一元的に決める。 */
 export function DataManagementPage() {
   const queryClient = useQueryClient()
   const { showApiError, showToast } = useToast()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const backupsQuery = useQuery({ queryKey: ['backups'], queryFn: listBackups })
+  const backupsQuery = useQuery({ queryKey: QUERY_KEYS.backups(), queryFn: listBackups })
 
   const exportMutation = useMutation({
     mutationFn: async () => {
@@ -38,7 +40,7 @@ export function DataManagementPage() {
     mutationFn: createBackup,
     onSuccess: () => {
       showToast(t('dataManagement.backupSucceeded'))
-      queryClient.invalidateQueries({ queryKey: ['backups'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backups() })
     },
     onError: showApiError,
   })
@@ -56,84 +58,29 @@ export function DataManagementPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">{t('dataManagement.title')}</h1>
 
-      <Card className="flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          disabled={exportMutation.isPending}
-          onClick={() => exportMutation.mutate()}
-        >
-          {t('dataManagement.export')}
-        </Button>
-        <Button
-          variant="secondary"
-          disabled={importMutation.isPending}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {t('dataManagement.import')}
-        </Button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            event.target.value = ''
-            if (!file) {
-              return
-            }
-            if (window.confirm(t('dataManagement.importConfirm'))) {
-              importMutation.mutate(file)
-            }
-          }}
-        />
-        <Button
-          variant="secondary"
-          disabled={backupMutation.isPending}
-          onClick={() => backupMutation.mutate()}
-        >
-          {t('dataManagement.backup')}
-        </Button>
-      </Card>
+      <DataActionsCard
+        isExporting={exportMutation.isPending}
+        isImporting={importMutation.isPending}
+        isBackingUp={backupMutation.isPending}
+        onExport={() => exportMutation.mutate()}
+        onPickImportFile={(file) => {
+          if (window.confirm(t('dataManagement.importConfirm'))) {
+            importMutation.mutate(file)
+          }
+        }}
+        onBackup={() => backupMutation.mutate()}
+      />
 
-      <Card className="flex flex-col gap-2">
-        <h2 className="font-medium text-gray-900">{t('dataManagement.backups.title')}</h2>
-        {backupsQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
-        {backupsQuery.data && backupsQuery.data.length === 0 && (
-          <p className="text-sm text-gray-500">{t('dataManagement.backups.empty')}</p>
-        )}
-        {backupsQuery.data && backupsQuery.data.length > 0 && (
-          <ul className="flex flex-col gap-2">
-            {backupsQuery.data.map((backup) => (
-              <li
-                key={backup.id}
-                className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm"
-              >
-                <div>
-                  <p className="text-gray-900">
-                    {t('dataManagement.backups.createdAtLabel')}:{' '}
-                    {new Date(backup.created_at).toLocaleString()}
-                  </p>
-                  <p className="text-gray-500">
-                    {t('dataManagement.backups.sizeLabel')}: {formatBytes(backup.size_bytes)}
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  disabled={restoreMutation.isPending}
-                  onClick={() => {
-                    if (window.confirm(t('dataManagement.backups.restoreConfirm'))) {
-                      restoreMutation.mutate(backup.id)
-                    }
-                  }}
-                >
-                  {t('dataManagement.backups.restore')}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <BackupList
+        backups={backupsQuery.data}
+        isLoading={backupsQuery.isLoading}
+        isRestoring={restoreMutation.isPending}
+        onRestore={(backupId) => {
+          if (window.confirm(t('dataManagement.backups.restoreConfirm'))) {
+            restoreMutation.mutate(backupId)
+          }
+        }}
+      />
     </div>
   )
 }

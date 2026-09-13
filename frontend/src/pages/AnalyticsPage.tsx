@@ -19,6 +19,7 @@ import {
   hasArchivedAnalyticsGoals,
   selectableAnalyticsGoals,
 } from '../features/analytics/selectableAnalyticsGoals'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 const EXAM_TABS = [
   { key: 'quality', labelKey: 'analytics.tabs.quality' },
@@ -64,7 +65,7 @@ export function AnalyticsPage() {
   const [tab, setTab] = useState<TabKey>('quality')
   const [showArchived, setShowArchived] = useState(false)
 
-  const goalsQuery = useQuery({ queryKey: ['goals'], queryFn: listGoals })
+  const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: listGoals })
 
   if (goalsQuery.isLoading) {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>

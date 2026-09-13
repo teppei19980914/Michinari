@@ -8,65 +8,40 @@ import { useToast } from '../../components/Toast'
 import { getAiStatus, listAssistants, loginAi } from '../../api/ai'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { resolveReauthOutcome } from './aiReauthOutcome'
+import { AiAssistantFields } from './AiAssistantFields'
+import { AiAuthStatusCard } from './AiAuthStatusCard'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
-const ASSISTANT_FIELDS = [
-  { field: 'assistant_uid_daily_feedback', labelKey: 'settings.aiConnection.assistant.dailyFeedback' },
-  {
-    field: 'assistant_uid_daily_feedback_reading',
-    labelKey: 'settings.aiConnection.assistant.dailyFeedbackReading',
-  },
-  { field: 'assistant_uid_weekly_summary', labelKey: 'settings.aiConnection.assistant.weeklySummary' },
-  { field: 'assistant_uid_daily_message', labelKey: 'settings.aiConnection.assistant.dailyMessage' },
-  {
-    field: 'assistant_uid_goal_retrospective',
-    labelKey: 'settings.aiConnection.assistant.goalRetrospective',
-  },
-  {
-    field: 'assistant_uid_goal_retrospective_reading',
-    labelKey: 'settings.aiConnection.assistant.goalRetrospectiveReading',
-  },
-] as const
-
-// assistant_uid_*設定項目を画面に追加し忘れる回帰（読書用の2項目が長期間UI未対応だった実例）を
-// tscのビルドエラーとして検出するための網羅性チェック。型が一致しない場合はコンパイルが失敗する。
-type AssistantUidField = Extract<keyof AppSettingsRead['ai_connection'], `assistant_uid_${string}`>
-type DeclaredAssistantField = (typeof ASSISTANT_FIELDS)[number]['field']
-type _AssistantFieldsAreExhaustive = [AssistantUidField] extends [DeclaredAssistantField]
-  ? [DeclaredAssistantField] extends [AssistantUidField]
-    ? true
-    : never
-  : never
-const _assistantFieldsAreExhaustive: _AssistantFieldsAreExhaustive = true
-void _assistantFieldsAreExhaustive
-
-/** AI接続設定（仕様書6.11。Phase7完了条件「アシスタントが用途ごとに一覧から選択できる
- * （識別子の手入力を求めない）」）。接続用パラメータはHost・PATのみに絞る（UIの簡素化）。
- * client_id・tenant_id・api_base_urlはEntraIDフォールバック認証専用で通常は空でよいため
- * 画面上には出さない（設計書 ロジック・プロンプト編16.2、データ構造編228〜229行）。 */
+/** AI接続設定（仕様書6.11）。
+ *
+ * 認証状況と再認証は AiAuthStatusCard.tsx、用途ごとのアシスタント選択は
+ * AiAssistantFields.tsx へ切り出してある（CODING_RULES.md「保守性（複雑度）」）。
+ * この関数は設定値の保持と保存・再認証の実行を担う。 */
 export function AiConnectionSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()
-  const assistantsQuery = useQuery({ queryKey: ['ai-assistants'], queryFn: listAssistants })
-  const statusQuery = useQuery({ queryKey: ['ai-status'], queryFn: getAiStatus })
+  const assistantsQuery = useQuery({ queryKey: QUERY_KEYS.aiAssistants(), queryFn: listAssistants })
+  const statusQuery = useQuery({ queryKey: QUERY_KEYS.aiStatus(), queryFn: getAiStatus })
 
   const [form, setForm] = useState(settings.ai_connection)
-  const [pat, setPat] = useState('')
 
   const saveMutation = useMutation({
     mutationFn: () => updateSettings({ ai_connection: form }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,
   })
 
   const loginMutation = useMutation({
-    mutationFn: () => loginAi({ host: form.host || null, personal_access_token: pat }),
-    onSuccess: (result) => {
-      setPat('')
-      queryClient.invalidateQueries({ queryKey: ['ai-status'] })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+    mutationFn: (variables: { token: string; clearToken: () => void }) =>
+      loginAi({ host: form.host || null, personal_access_token: variables.token }),
+    onSuccess: (result, variables) => {
+      // 個人アクセストークンは再認証にだけ使う値のため、成功したら入力欄から消す。
+      variables.clearToken()
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.aiStatus() })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       const outcome = resolveReauthOutcome(result)
       showToast(
         outcome === 'succeeded'
@@ -82,49 +57,13 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
     <Card className="flex flex-col gap-3">
       <h2 className="font-medium text-gray-900">{t('settings.aiConnection.title')}</h2>
 
-      <div className="rounded-md border border-gray-200 p-3">
-        <h3 className="text-sm font-medium text-gray-900">
-          {t('settings.aiConnection.authStatus.title')}
-        </h3>
-        <p className="mt-1 text-sm text-gray-600">
-          {statusQuery.data?.authenticated
-            ? t('settings.aiConnection.authStatus.authenticated')
-            : t('settings.aiConnection.authStatus.notAuthenticated')}
-        </p>
-        {statusQuery.data?.login_in_progress && (
-          <p className="text-xs text-gray-500">
-            {t('settings.aiConnection.authStatus.loginInProgress')}
-          </p>
-        )}
-        {statusQuery.data && Object.keys(statusQuery.data.model_status).length > 0 && (
-          <div className="mt-2 text-xs text-gray-500">
-            <p>{t('settings.aiConnection.modelStatusTitle')}</p>
-            <ul>
-              {Object.entries(statusQuery.data.model_status).map(([model, ok]) => (
-                <li key={model}>
-                  {model}: {ok ? '✓' : '×'}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="mt-2 flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
-            {t('settings.aiConnection.hostLabel')}
-            <Input value={form.host} onChange={(e) => setForm({ ...form, host: e.target.value })} />
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
-            {t('settings.aiConnection.authStatus.patLabel')}
-            <Input type="password" value={pat} onChange={(e) => setPat(e.target.value)} />
-          </label>
-          <Button
-            disabled={loginMutation.isPending || !pat}
-            onClick={() => loginMutation.mutate()}
-          >
-            {t('settings.aiConnection.authStatus.reauth')}
-          </Button>
-        </div>
-      </div>
+      <AiAuthStatusCard
+        status={statusQuery.data}
+        host={form.host}
+        onChangeHost={(host) => setForm({ ...form, host })}
+        isReauthenticating={loginMutation.isPending}
+        onReauthenticate={(token, clearToken) => loginMutation.mutate({ token, clearToken })}
+      />
 
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
@@ -160,25 +99,11 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
       {assistantsQuery.isError && (
         <p className="text-xs text-red-600">{t('settings.aiConnection.assistant.loadFailed')}</p>
       )}
-      <div className="flex flex-wrap gap-3">
-        {ASSISTANT_FIELDS.map(({ field, labelKey }) => (
-          <label key={field} className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-            {t(labelKey)}
-            <select
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-              value={form[field]}
-              onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-            >
-              {!form[field] && <option value="">{t('common.unset')}</option>}
-              {assistantsQuery.data?.map((assistant) => (
-                <option key={assistant.uid} value={assistant.uid}>
-                  {assistant.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-      </div>
+      <AiAssistantFields
+        values={form}
+        assistants={assistantsQuery.data}
+        onChange={(field, uid) => setForm({ ...form, [field]: uid })}
+      />
 
       <div className="flex justify-end">
         <Button disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
