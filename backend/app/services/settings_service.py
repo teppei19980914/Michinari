@@ -27,6 +27,10 @@ from app.constants.app_setting_keys import (
     AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
+    DESKTOP_LAUNCH_AT_LOGIN,
+    DESKTOP_NOTIFICATION_ENABLED,
+    DESKTOP_NOTIFICATION_TIME,
+    DESKTOP_OPEN_BROWSER_ON_STARTUP,
     LOG_AI_ENABLED,
     LOG_RETENTION_DAYS,
     SUMMARY_INJECT_WEEKS,
@@ -45,7 +49,7 @@ from app.constants.app_setting_keys import (
 from app.constants.enums import AiPurpose, Granularity
 from app.init.seed_data import INITIAL_PROMPT_TEMPLATES
 from app.models.setting import AppSetting, PromptTemplate
-from app.services import setting_reader
+from app.services import notification_service, setting_reader
 from app.services.exceptions import AppSettingNotFoundError, NotFoundError, ValidationError
 
 #: 表示言語は技術選定書の対象が日本語のみのため、現時点ではこの1件のみを許容する。
@@ -109,6 +113,16 @@ class DisplaySettings:
 
 
 @dataclass(frozen=True)
+class DesktopSettings:
+    """デスクトップ常駐・記録リマインドの設定（実装スコープA〜C、Phase37）。"""
+
+    open_browser_on_startup: bool
+    launch_at_login: bool
+    notification_enabled: bool
+    notification_time: str
+
+
+@dataclass(frozen=True)
 class LogSettings:
     ai_enabled: bool
     retention_days: int
@@ -120,6 +134,7 @@ class AppSettings:
     threshold: ThresholdSettings
     prompt_degradation: PromptDegradationSettings
     display: DisplaySettings
+    desktop: DesktopSettings
     log: LogSettings
 
 
@@ -163,6 +178,12 @@ def get_app_settings(session: Session) -> AppSettings:
         theme=setting_reader.get_str(session, _DISPLAY_THEME),
         default_granularity=setting_reader.get_str(session, _DISPLAY_DEFAULT_GRANULARITY),
     )
+    desktop = DesktopSettings(
+        open_browser_on_startup=setting_reader.get_bool(session, DESKTOP_OPEN_BROWSER_ON_STARTUP),
+        launch_at_login=setting_reader.get_bool(session, DESKTOP_LAUNCH_AT_LOGIN),
+        notification_enabled=setting_reader.get_bool(session, DESKTOP_NOTIFICATION_ENABLED),
+        notification_time=setting_reader.get_str(session, DESKTOP_NOTIFICATION_TIME),
+    )
     log = LogSettings(
         ai_enabled=setting_reader.get_bool(session, LOG_AI_ENABLED),
         retention_days=setting_reader.get_int(session, LOG_RETENTION_DAYS),
@@ -172,6 +193,7 @@ def get_app_settings(session: Session) -> AppSettings:
         threshold=threshold,
         prompt_degradation=prompt_degradation,
         display=display,
+        desktop=desktop,
         log=log,
     )
 
@@ -242,6 +264,29 @@ def _update_display(session: Session, **fields: object) -> None:
         _set_str(session, _DISPLAY_DEFAULT_GRANULARITY, granularity)
 
 
+def _update_desktop(session: Session, **fields: object) -> None:
+    """デスクトップ常駐・通知の設定を更新する。
+
+    自動起動（`launch_at_login`）のWindowsへの反映は**ここでは行わない**。サービス層は
+    実行環境を知らない責務であり、レジストリへの反映は`app/desktop/autostart.py`が
+    起動時に設定値を読んで行う（CLAUDE.md「サービス層でのHTTP例外の送出」禁止と同じ整理）。
+    """
+    boolean_key_by_field = {
+        "open_browser_on_startup": DESKTOP_OPEN_BROWSER_ON_STARTUP,
+        "launch_at_login": DESKTOP_LAUNCH_AT_LOGIN,
+        "notification_enabled": DESKTOP_NOTIFICATION_ENABLED,
+    }
+    for field, key in boolean_key_by_field.items():
+        value = fields.get(field)
+        if value is not None:
+            _set_bool(session, key, value)
+    notification_time = fields.get("notification_time")
+    if notification_time is not None:
+        # 形式の検証はnotification_serviceが持つ（判定と同じ規則を使うため。DRYの原則）。
+        notification_service.parse_notification_time(notification_time)
+        _set_str(session, DESKTOP_NOTIFICATION_TIME, notification_time)
+
+
 def _update_log(session: Session, **fields: object) -> None:
     if fields.get("ai_enabled") is not None:
         _set_bool(session, LOG_AI_ENABLED, fields["ai_enabled"])
@@ -256,6 +301,7 @@ def update_app_settings(
     threshold: dict | None = None,
     prompt_degradation: dict | None = None,
     display: dict | None = None,
+    desktop: dict | None = None,
     log: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
@@ -266,6 +312,8 @@ def update_app_settings(
         _update_prompt_degradation(session, **prompt_degradation)
     if display:
         _update_display(session, **display)
+    if desktop:
+        _update_desktop(session, **desktop)
     if log:
         _update_log(session, **log)
     session.flush()

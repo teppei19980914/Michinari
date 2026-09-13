@@ -78,6 +78,23 @@ class DisplaySettingsUpdate(BaseModel):
     default_granularity: str | None = None
 
 
+class DesktopSettingsRead(BaseModel):
+    open_browser_on_startup: bool
+    launch_at_login: bool
+    notification_enabled: bool
+    notification_time: str
+
+
+class DesktopSettingsUpdate(BaseModel):
+    open_browser_on_startup: bool | None = None
+    launch_at_login: bool | None = None
+    notification_enabled: bool | None = None
+    #: `HH:MM`（24時間表記）。形式の検証はサービス層
+    #: （notification_service.parse_notification_time）が行い、ここでは長さだけを見る。
+    #: 判定に使う正規表現を2箇所へ書かないため（CODING_RULES.md DRYの原則）。
+    notification_time: str | None = Field(default=None, min_length=1)
+
+
 class LogSettingsRead(BaseModel):
     ai_enabled: bool
     retention_days: int
@@ -93,6 +110,7 @@ class AppSettingsRead(BaseModel):
     threshold: ThresholdSettingsRead
     prompt_degradation: PromptDegradationSettingsRead
     display: DisplaySettingsRead
+    desktop: DesktopSettingsRead
     log: LogSettingsRead
 
 
@@ -101,6 +119,7 @@ class AppSettingsUpdate(BaseModel):
     threshold: ThresholdSettingsUpdate | None = None
     prompt_degradation: PromptDegradationSettingsUpdate | None = None
     display: DisplaySettingsUpdate | None = None
+    desktop: DesktopSettingsUpdate | None = None
     log: LogSettingsUpdate | None = None
 
 

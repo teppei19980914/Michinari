@@ -29,6 +29,7 @@ GitHub Releasesへの公開は本スクリプトでは行わない（`scripts/pu
 """
 
 import datetime as dt
+import importlib.util
 import json
 import os
 import re
@@ -38,6 +39,18 @@ import sys
 import tomllib
 from pathlib import Path
 
+import collect_licenses
+
+from app.constants.bundle import (
+    ALEMBIC_DIR_NAME,
+    ALEMBIC_INI_FILE_NAME,
+    ASSETS_DIR_NAME,
+    BUILD_INFO_FILE_NAME,
+    FRONTEND_DIST_DIR_NAME,
+    LOCALES_DIR_NAME,
+)
+from app.desktop.assets import resolve_icon_path
+from app.locales import resolve_locale_path
 from app.services.system_info_service import build_info_to_json, collect_build_info
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -49,7 +62,7 @@ DIST_DIR = BACKEND_DIR / "dist"
 OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
 PYPROJECT_PATH = BACKEND_DIR / "pyproject.toml"
-BUILD_INFO_PATH = BACKEND_DIR / "build_info.json"
+BUILD_INFO_PATH = BACKEND_DIR / BUILD_INFO_FILE_NAME
 #: ビルド元コミットの記録ファイル名に付ける接尾辞（配布zipと対になる名前にする）。
 BUILD_COMMIT_SUFFIX = ".commit.json"
 #: `_archive/`へ退避する既存配布物の拡張子。配布zipと、それと対になるビルド元コミットの
@@ -60,10 +73,23 @@ PREVIOUS_PACKAGE_PREFIX = "_previous_"
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
 #: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
 USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
-#: 配布パッケージの起動用batの元になるテンプレート（`assemble_launcher`が
-#: `Michinari.bat`として複製する）。テストからも同じ実体を参照できるよう定数化する
+#: 配布パッケージへ同梱する障害調査用batの元になるテンプレート（`assemble_launcher`が
+#: `Michinari-console.bat`として複製する）。テストからも同じ実体を参照できるよう定数化する
 #: （CLAUDE.md DRYの原則）。
+#: **利用者の通常の起動手段ではない。** Phase37でコンソールを表示しない構成へ移行したため、
+#: 利用者は`Michinari.exe`を直接ダブルクリックする（README参照）。このbatは`--console`付きで
+#: 同じexeを起動し、動作中のログを画面で追うためのものである。
 LAUNCHER_TEMPLATE_PATH = BACKEND_DIR / "scripts" / "launcher_template.bat"
+CONSOLE_LAUNCHER_FILENAME = f"{APP_NAME}-console.bat"
+#: 配布パッケージへ同梱するロケールファイル・アイコンの「同梱元」。ビルドはソースから
+#: 実行するため、実行時にそれらを読む側の解決関数がそのまま原本のパスを返す。パスを
+#: 書き写さずに導くことで、置き場所を変えたときの直し忘れを防ぐ（CLAUDE.md DRYの原則）。
+#: exeへ埋め込まず素のファイルとして配置するライブラリ（LGPL-3.0のため差し替え可能に
+#: する必要がある。`collect_licenses.py` のdocstring参照）。
+LGPL_MODULE_NAME = "pystray"
+LOCALE_SOURCE_PATH = resolve_locale_path()
+ICON_SOURCE_PATH = resolve_icon_path()
+ICON_SOURCE_DIR = ICON_SOURCE_PATH.parent
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
 #: pyproject.tomlのTOML文字列・zipファイル名へ埋め込むため、`"`によるTOML破損や
@@ -274,19 +300,77 @@ def build_frontend() -> None:
     subprocess.run(["npm", "run", "build"], cwd=FRONTEND_DIR, check=True, shell=True)
 
 
-def build_backend() -> None:
-    print("[6/8] PyInstallerでバックエンドをパッケージ化しています…")
+def lgpl_module_source_dir() -> Path:
+    """素のまま同梱するLGPLライブラリの、インストール済みディレクトリを返す。
+
+    返り値:
+        `pystray` パッケージのディレクトリ。
+
+    例外:
+        FileNotFoundError: 見つからない場合（同梱漏れのまま配布しないため失敗させる）。
+    """
+    spec = importlib.util.find_spec(LGPL_MODULE_NAME)
+    if spec is None or not spec.submodule_search_locations:
+        raise FileNotFoundError(f"{LGPL_MODULE_NAME} が見つかりません")
+    return Path(next(iter(spec.submodule_search_locations)))
+
+
+def pyinstaller_args() -> list[str]:
+    """PyInstallerへ渡す引数を組み立てる（テストから内容を検証できるよう関数に分ける）。
+
+    同梱先の名前（`frontend_dist`・`locales`・`assets`）は、実行時にそれを読む側の定数
+    （`app/main.py`・`app/locales.py`・`app/constants/desktop.py`）と対になっている。
+    片方だけ変えると「開発環境では動くが配布物では動かない」不具合になるため、
+    ここでは定数を取り込んで使い、文字列を書き写さない（CLAUDE.md DRYの原則）。
+
+    `--noconsole`（コンソールを表示しない）が本パッケージの要である。従来は起動すると
+    黒いコンソールが開き、「使っている間は閉じないでください」と案内していたが、これが
+    非エンジニアの利用者にとって最大の不安要素だった（Phase37）。コンソールが無くなる
+    ことで`sys.stdout`が`None`になる点への対処は`app/desktop/logging_setup.py`にある。
+
+    返り値:
+        `python -m PyInstaller` に続けて渡す引数の一覧。
+    """
     add_data = [
-        f"{FRONTEND_DIST_DIR}{os.pathsep}frontend_dist",
-        f"{BACKEND_DIR / 'alembic.ini'}{os.pathsep}.",
-        f"{BACKEND_DIR / 'alembic'}{os.pathsep}alembic",
+        f"{FRONTEND_DIST_DIR}{os.pathsep}{FRONTEND_DIST_DIR_NAME}",
+        f"{BACKEND_DIR / ALEMBIC_INI_FILE_NAME}{os.pathsep}.",
+        f"{BACKEND_DIR / ALEMBIC_DIR_NAME}{os.pathsep}{ALEMBIC_DIR_NAME}",
         f"{BUILD_INFO_PATH}{os.pathsep}.",
+        # トレイ・通知の文言（フロントエンドと共有する単一の情報源）。
+        f"{LOCALE_SOURCE_PATH}{os.pathsep}{LOCALES_DIR_NAME}",
+        # exe・トレイ・通知で共用するアイコン。
+        f"{ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}",
+        # 差し替え可能にするため素のまま置く pystray（上記 --exclude-module と対になる）。
+        f"{lgpl_module_source_dir()}{os.pathsep}{LGPL_MODULE_NAME}",
     ]
-    args = [sys.executable, "-m", "PyInstaller", "--name", APP_NAME, "--noconfirm"]
+    args = [
+        sys.executable,
+        "-m",
+        "PyInstaller",
+        "--name",
+        APP_NAME,
+        "--noconfirm",
+        "--noconsole",
+        "--icon",
+        str(ICON_SOURCE_PATH),
+        # pystray は LGPL-3.0。利用者が改変版へ差し替えられるようにする義務があるため
+        # （LGPL-3.0 第4条(d)）、exeへ埋め込まず素のファイルとして配置する。純Pythonの
+        # ため、`_internal/pystray/` を置き換えればそのまま使われる。
+        "--exclude-module",
+        LGPL_MODULE_NAME,
+        # pystray からのみ参照される依存。除外した pystray を辿れなくなるため明示する。
+        "--hidden-import",
+        "six",
+    ]
     for entry in add_data:
         args += ["--add-data", entry]
     args.append(str(BACKEND_DIR / "app" / "main.py"))
-    subprocess.run(args, cwd=BACKEND_DIR, check=True)
+    return args
+
+
+def build_backend() -> None:
+    print("[6/8] PyInstallerでバックエンドをパッケージ化しています…")
+    subprocess.run(pyinstaller_args(), cwd=BACKEND_DIR, check=True)
 
 
 def copy_user_manual(manual_path: Path, output_dir: Path) -> Path | None:
@@ -312,9 +396,11 @@ def copy_user_manual(manual_path: Path, output_dir: Path) -> Path | None:
 
 
 def assemble_launcher() -> None:
-    print("[7/8] 起動用batファイル・ユーザ手順書を配置しています…")
-    launcher_dst = OUTPUT_DIR / f"{APP_NAME}.bat"
+    print("[7/8] 障害調査用bat・ライセンス表記・ユーザ手順書を配置しています…")
+    launcher_dst = OUTPUT_DIR / CONSOLE_LAUNCHER_FILENAME
     shutil.copy(LAUNCHER_TEMPLATE_PATH, launcher_dst)
+    notices_path = collect_licenses.collect(OUTPUT_DIR)
+    print(f"  → 同梱ライブラリのライセンス表記を配置しました: {notices_path.name}")
     copied_manual = copy_user_manual(USER_MANUAL_PATH, OUTPUT_DIR)
     if copied_manual is not None:
         print(f"  → ユーザ手順書を同梱しました: {copied_manual.name}")

@@ -13,6 +13,7 @@ import { StatsSummary } from '../features/dashboard/StatsSummary'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
+import { resolveDashboardGuard } from '../features/dashboard/resolveDashboardGuard'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-01 ダッシュボード（仕様書6.1）。起動時の初期表示画面。
@@ -39,21 +40,17 @@ export function DashboardPage() {
     }
   }, [reportableGoals, selectedGoalId, setSelectedGoalId])
 
-  if (dashboardQuery.isLoading || goalsQuery.isLoading) {
+  // 表示状態（ローディング/エラー/表示可）の判定はresolveDashboardGuardへ集約している。
+  // 全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
+  const guard = resolveDashboardGuard({ dashboard: dashboardQuery, goals: goalsQuery })
+  if (guard.kind === 'LOADING') {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (dashboardQuery.isError || !dashboardQuery.data || goalsQuery.isError) {
-    // 技術選定書7.3「エラーコードに対応するロケール文言を表示する」。goalsQueryが失敗すると
-    // 対象目標を解決できず全セクションが空表示になってしまうため、dashboardQueryと同様に
-    // エラー画面を表示する（goal_cards等はあるのに何も表示されない状態を避ける）。
-    return (
-      <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(dashboardQuery.error ?? goalsQuery.error)}
-      </p>
-    )
+  if (guard.kind === 'ERROR') {
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
 
-  const dashboard = dashboardQuery.data
+  const dashboard = guard.dashboard
   const targetGoalId = resolveTargetGoalId(goalTabs)
   const goalCards = dashboard.goal_cards.filter((card) => card.goal_id === targetGoalId)
   const goalStats = dashboard.goal_stats.filter((stats) => stats.goal_id === targetGoalId)

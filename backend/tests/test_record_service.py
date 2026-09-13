@@ -635,6 +635,38 @@ def test_register_progress_updates_existing_work_log_for_same_assignment(seeded_
     assert record.work_logs[0].body == "上書き後の業務内容"
 
 
+def test_register_progress_records_all_categories_in_one_request(seeded_session):
+    """資格試験・読書・仕事を3つまとめて1リクエストで登録できる。
+
+    進捗のみ登録画面（SC-07）は確定（finalize）と違いカテゴリ別の操作を持たず、
+    登録1回で着手中の全カテゴリ分をまとめて送る（仕様書6.6、1.1（改21））。
+    カテゴリ単体の登録は個別に検証しているが、同時に送った場合は未検証だった。
+    """
+    exam_goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, exam_goal)
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    work_goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, work_goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session,
+        today,
+        [_log(material.id)],
+        today,
+        [_reading_log(book.id)],
+        [_work_log(work_assignment.id)],
+    )
+
+    assert len(record.study_logs) == 1
+    assert len(record.reading_logs) == 1
+    assert len(record.work_logs) == 1
+    assert record.exam_record_state == RecordState.PROGRESS_ONLY
+    assert record.reading_record_state == RecordState.PROGRESS_ONLY
+    assert record.work_record_state == RecordState.PROGRESS_ONLY
+
+
 def test_finalize_work_record_persists_work_log(seeded_session):
     """仕事の確定は/finalize（EXAM）とは独立した専用関数（仕様変更2026-09-05）。"""
     goal = _make_work_goal(seeded_session)
@@ -1032,3 +1064,44 @@ def test_register_progress_records_reading_slot_minutes(seeded_session):
     assert [(row.slot_id, row.minutes) for row in record.reading_logs[0].slot_times] == [
         (slot.id, 25)
     ]
+
+
+class TestResolveRecordState:
+    """カレンダー・ダッシュボード・本日取得・記録リマインドが共有する集約（Phase37）。
+
+    4箇所へ写されていた展開を1つにまとめたもの。カテゴリが増えたときに直す箇所を
+    1つにするのが狙いであるため、3カテゴリすべてを見ていることを確かめる。
+    """
+
+    def test_returns_none_for_a_day_without_a_record(self):
+        assert record_service.resolve_record_state(None) is None
+
+    def test_returns_none_when_no_category_was_touched(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+
+        assert record_service.resolve_record_state(record) is None
+
+    @pytest.mark.parametrize(
+        "column",
+        ["exam_record_state", "reading_record_state", "work_record_state"],
+        ids=["exam", "reading", "work"],
+    )
+    def test_reports_progress_for_any_single_category(self, db_session, column: str):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        setattr(record, column, RecordState.PROGRESS_ONLY)
+
+        assert record_service.resolve_record_state(record) == RecordState.PROGRESS_ONLY
+
+    def test_reports_reported_only_when_every_touched_category_is_reported(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        record.exam_record_state = RecordState.REPORTED
+        record.reading_record_state = RecordState.REPORTED
+
+        assert record_service.resolve_record_state(record) == RecordState.REPORTED
+
+    def test_reports_progress_when_one_touched_category_is_unfinished(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        record.exam_record_state = RecordState.REPORTED
+        record.work_record_state = RecordState.PROGRESS_ONLY
+
+        assert record_service.resolve_record_state(record) == RecordState.PROGRESS_ONLY

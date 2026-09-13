@@ -1,11 +1,11 @@
 """アプリケーション起動（設計書 データ構造編 8章）。"""
 
+import logging
 import sys
-import webbrowser
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from threading import Timer
+from threading import Thread
 
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
@@ -35,9 +35,11 @@ from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
 from app.api.system_info import router as system_info_router
-from app.config import BACKEND_DIR, REPO_ROOT, get_settings
+from app.config import BACKEND_DIR, REPO_ROOT, get_settings, resolve_bundled_path
 from app.constants.app_setting_keys import SERVER_PORT
+from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
 from app.database import SessionLocal, engine
+from app.desktop import runner as desktop_runner
 from app.init.seed_data import run_all
 from app.models.setting import AppSetting
 from app.services import backup_service, goal_service, weekly_summary_service
@@ -49,29 +51,22 @@ API_V1_PREFIX = "/api/v1"
 def resolve_frontend_dist_dir() -> Path:
     """フロントエンドのビルド済み静的ファイルの配置先を解決する（配布パッケージ対応）。
 
-    PyInstallerでパッケージ化された実行ファイル（`sys.frozen`）として起動している場合は、
-    同梱した静的ファイル（ビルドスクリプトが `frontend_dist` として配置する）を参照する。
-    ソースから起動する開発環境では `frontend/dist`（`npm run build` の既定出力先）を参照する。
-    いずれの場合も存在しなければ create_app 側でマウントをスキップし、これまで通り
-    Vite開発サーバー（`npm run dev`）経由でのアクセスを前提とする。
+    配布パッケージでは同梱した静的ファイル（ビルドスクリプトが `frontend_dist` として
+    配置する）を、ソースから起動する開発環境では `frontend/dist`（`npm run build` の
+    既定出力先）を参照する。いずれの場合も存在しなければ create_app 側でマウントを
+    スキップし、これまで通りVite開発サーバー（`npm run dev`）経由でのアクセスを前提とする。
     """
-    if getattr(sys, "frozen", False):
-        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-        return base / "frontend_dist"
-    return REPO_ROOT / "frontend" / "dist"
+    return resolve_bundled_path(FRONTEND_DIST_DIR_NAME, REPO_ROOT / "frontend" / "dist")
 
 
 def resolve_alembic_ini_path() -> Path:
-    """alembic.iniの配置先を解決する（配布パッケージ対応）。resolve_frontend_dist_dirと同じ
-    理由で、PyInstallerでパッケージ化された実行ファイル（`sys.frozen`）として起動している
-    場合は同梱した`alembic.ini`（ビルドスクリプトbuild_backendが `.`＝バンドル直下へ配置、
-    `alembic/`本体もあわせて同梱）を、ソースから起動する開発環境では`backend/alembic.ini`
-    を参照する。
+    """alembic.iniの配置先を解決する（配布パッケージ対応）。
+
+    配布パッケージでは同梱した`alembic.ini`（ビルドスクリプトbuild_backendが `.`＝バンドル
+    直下へ配置、`alembic/`本体もあわせて同梱）を、ソースから起動する開発環境では
+    `backend/alembic.ini`を参照する。
     """
-    if getattr(sys, "frozen", False):
-        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-        return base / "alembic.ini"
-    return BACKEND_DIR / "alembic.ini"
+    return resolve_bundled_path(ALEMBIC_INI_FILE_NAME, BACKEND_DIR / ALEMBIC_INI_FILE_NAME)
 
 
 class _SpaStaticFiles(StaticFiles):
@@ -269,18 +264,41 @@ def run_ai_startup_tasks() -> None:
         session.close()
 
 
-def _open_browser(port: int) -> None:  # pragma: no cover (実ブラウザ起動のためユニットテスト対象外)
-    webbrowser.open(f"http://127.0.0.1:{port}")
+#: 起動に失敗したときのプロセスの終了コード。
+STARTUP_FAILURE_EXIT_CODE = 1
 
 
-if __name__ == "__main__":  # pragma: no cover (実サーバ起動のためユニットテスト対象外)
-    import uvicorn
+def main() -> int:
+    """アプリを常駐起動する（配布パッケージの`Michinari.exe`の入口）。
 
-    port = resolve_startup_port()
-    run_ai_startup_tasks()
-    # 配布パッケージ（フロントエンドを同一プロセスで静的配信する構成）でのみ、
-    # サーバー起動直後にブラウザを自動的に開く。フロントエンド未ビルドの開発環境
-    # （Vite開発サーバーを別途起動する運用）では、開いても404になるだけのため行わない。
-    if resolve_frontend_dist_dir().is_dir():
-        Timer(1.5, _open_browser, args=(port,)).start()
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    コンソールを表示しない実行形態（PyInstallerの`--noconsole`）で動くため、**一番最初に
+    標準出力の差し替えとログのファイル出力を済ませる**（`app/desktop/logging_setup.py`）。
+    これより前に例外が出ると、利用者には何も表示されないまま終了してしまう。
+
+    起動に失敗した場合（DBマイグレーションの失敗、ポートの重複など）はダイアログで知らせる。
+    従来は`Michinari.bat`が`pause`でコンソールを残してエラーを読ませていたが、コンソール
+    自体を出さなくなったため、その役割をダイアログとログファイルへ移している。**ここで
+    黙って終了すると、利用者には「ダブルクリックしても何も起きない」としか映らない。**
+
+    返り値:
+        プロセスの終了コード（正常終了なら0）。
+    """
+    log_path = desktop_runner.bootstrap_logging()
+    logger = logging.getLogger(__name__)
+    logger.info("ミチナリを起動します")
+
+    try:
+        port = resolve_startup_port()
+        # 週次要約の遡及生成はAI基盤への通信を伴い、応答待ちで数秒〜数十秒かかることがある。
+        # 画面が開くまで待たせないよう別スレッドで走らせる（失敗が起動を止めないことは
+        # weekly_summary_service.run_retroactive_generation側が保証する）。
+        Thread(target=run_ai_startup_tasks, name="ai-startup-tasks", daemon=True).start()
+        return desktop_runner.run(app, port)
+    except Exception as error:
+        logger.exception("起動に失敗しました")
+        desktop_runner.show_error_dialog(str(error), log_path)
+        return STARTUP_FAILURE_EXIT_CODE
+
+
+if __name__ == "__main__":  # pragma: no cover (プロセスの入口のためユニットテスト対象外)
+    sys.exit(main())
