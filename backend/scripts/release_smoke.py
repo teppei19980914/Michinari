@@ -258,7 +258,8 @@ def stop_app(process: subprocess.Popen[bytes]) -> None:
 def find_latest_package(dist_dir: Path = DIST_DIR) -> Path | None:
     """最新の配布zipを返す（無ければ None）。
 
-    `dist/` には過去バージョンのzipが積み上がるため、更新時刻が最も新しいものを選ぶ。
+    `dist/` 直下には通常は最新のzipだけが残る（過去のzipはビルド時に `dist/_archive/` へ
+    退避される）が、手動でzipを置いた場合に備えて更新時刻が最も新しいものを選ぶ。
     `_internal/base_library.zip` のような同梱物を拾わないよう、直下だけを対象にする。
     """
     if not dist_dir.is_dir():

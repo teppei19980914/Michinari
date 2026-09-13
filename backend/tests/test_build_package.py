@@ -1,8 +1,9 @@
 """配布パッケージビルドスクリプトのアーカイブ処理・zip化・バージョン確定・
 ビルド情報生成のテスト（scripts/build_package.py参照）。
 
-PyInstaller本体の実行はCI環境依存が大きいため対象外とし、既存パッケージの退避ロジック
-（`archive_previous_package`）・配布用zip化ロジック（`create_distribution_zip`）・
+PyInstaller本体の実行はCI環境依存が大きいため対象外とし、既存配布物の退避ロジック
+（`archive_previous_distributions`）・旧ビルド出力の削除ロジック
+（`discard_previous_package`）・配布用zip化ロジック（`create_distribution_zip`）・
 配布バージョンの読み書き/確定ロジック（`read_current_version`/`write_version`/
 `resolve_version`）・ビルド情報生成ロジック（`generate_build_info`）・ビルド元コミットの
 記録ロジック（`read_git_commit`/`has_uncommitted_changes`/`generate_build_commit`）・
@@ -18,15 +19,18 @@ import tomllib
 import zipfile
 from pathlib import Path
 
+import build_package
 import pytest
 from build_package import (
     LAUNCHER_TEMPLATE_PATH,
+    PREVIOUS_PACKAGE_PREFIX,
     PYPROJECT_PATH,
     USER_MANUAL_PATH,
-    archive_previous_package,
+    archive_previous_distributions,
     build_commit_filename,
     copy_user_manual,
     create_distribution_zip,
+    discard_previous_package,
     generate_build_commit,
     generate_build_info,
     has_uncommitted_changes,
@@ -38,51 +42,117 @@ from build_package import (
 )
 
 
-def test_archive_previous_package_returns_none_when_no_existing_output(tmp_path: Path) -> None:
-    output_dir = tmp_path / "dist" / "Michinari"
-    archive_dir = tmp_path / "dist" / "_archive"
+def test_archive_previous_distributions_returns_empty_when_dist_dir_is_absent(
+    tmp_path: Path,
+) -> None:
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
 
-    result = archive_previous_package(output_dir, archive_dir, "Michinari")
-
-    assert result is None
+    assert archive_previous_distributions(dist_dir, archive_dir) == []
     assert not archive_dir.exists()
 
 
-def test_archive_previous_package_moves_existing_output_with_timestamp(tmp_path: Path) -> None:
+def test_archive_previous_distributions_returns_empty_when_no_distribution_files(
+    tmp_path: Path,
+) -> None:
+    """退避対象が無ければ`_archive/`を作らない（空フォルダを増やさない）。"""
+    dist_dir = tmp_path / "dist"
+    (dist_dir / "Michinari").mkdir(parents=True)
+    (dist_dir / "Michinari" / "Michinari.exe").write_text("dummy", encoding="utf-8")
+
+    assert archive_previous_distributions(dist_dir, dist_dir / "_archive") == []
+    assert not (dist_dir / "_archive").exists()
+
+
+def test_archive_previous_distributions_moves_zip_and_commit_record(tmp_path: Path) -> None:
+    """zipとビルド元コミットの記録だけを退避し、ビルド出力フォルダには触れない。"""
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "Michinari-v1.2.2.zip").write_text("zip", encoding="utf-8")
+    (dist_dir / "Michinari-v1.2.2.commit.json").write_text("{}", encoding="utf-8")
+    output_dir = dist_dir / "Michinari"
+    output_dir.mkdir()
+    (output_dir / "Michinari.exe").write_text("exe", encoding="utf-8")
+
+    moved = archive_previous_distributions(dist_dir, archive_dir)
+
+    assert moved == [
+        archive_dir / "Michinari-v1.2.2.commit.json",
+        archive_dir / "Michinari-v1.2.2.zip",
+    ]
+    assert (archive_dir / "Michinari-v1.2.2.zip").read_text(encoding="utf-8") == "zip"
+    assert not (dist_dir / "Michinari-v1.2.2.zip").exists()
+    assert (output_dir / "Michinari.exe").read_text(encoding="utf-8") == "exe"
+
+
+def test_archive_previous_distributions_keeps_earlier_versions(tmp_path: Path) -> None:
+    """バージョンが異なる配布物は退避先で併存する（旧版のzipを失わない）。"""
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "Michinari-v1.2.1.zip").write_text("v1.2.1", encoding="utf-8")
+    archive_previous_distributions(dist_dir, archive_dir)
+    (dist_dir / "Michinari-v1.2.2.zip").write_text("v1.2.2", encoding="utf-8")
+
+    archive_previous_distributions(dist_dir, archive_dir)
+
+    assert (archive_dir / "Michinari-v1.2.1.zip").read_text(encoding="utf-8") == "v1.2.1"
+    assert (archive_dir / "Michinari-v1.2.2.zip").read_text(encoding="utf-8") == "v1.2.2"
+
+
+def test_archive_previous_distributions_overwrites_same_named_archive(tmp_path: Path) -> None:
+    """同一バージョンで再ビルドした場合は退避先の同名ファイルを上書きする。"""
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "Michinari-v1.2.2.zip").write_text("old", encoding="utf-8")
+    (dist_dir / "Michinari-v1.2.2.zip").write_text("new", encoding="utf-8")
+
+    archive_previous_distributions(dist_dir, archive_dir)
+
+    assert (archive_dir / "Michinari-v1.2.2.zip").read_text(encoding="utf-8") == "new"
+
+
+def test_discard_previous_package_returns_none_when_no_existing_output(tmp_path: Path) -> None:
     output_dir = tmp_path / "dist" / "Michinari"
-    output_dir.mkdir(parents=True)
-    marker_file = output_dir / "Michinari.exe"
-    marker_file.write_text("dummy", encoding="utf-8")
-    archive_dir = tmp_path / "dist" / "_archive"
-    fixed_now = dt.datetime(2026, 8, 27, 14, 30, 0)
 
-    result = archive_previous_package(output_dir, archive_dir, "Michinari", now=fixed_now)
-
-    assert result == archive_dir / "Michinari_20260827_143000"
+    assert discard_previous_package(output_dir) is None
     assert not output_dir.exists()
-    assert (result / "Michinari.exe").read_text(encoding="utf-8") == "dummy"
 
 
-def test_archive_previous_package_keeps_prior_archives_on_repeated_builds(tmp_path: Path) -> None:
-    output_dir = tmp_path / "dist" / "Michinari"
-    archive_dir = tmp_path / "dist" / "_archive"
-
+def test_discard_previous_package_removes_existing_output(tmp_path: Path) -> None:
+    dist_dir = tmp_path / "dist"
+    output_dir = dist_dir / "Michinari"
     output_dir.mkdir(parents=True)
-    (output_dir / "v1.txt").write_text("v1", encoding="utf-8")
-    first = archive_previous_package(
-        output_dir, archive_dir, "Michinari", now=dt.datetime(2026, 8, 27, 9, 0, 0)
-    )
+    (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
 
+    assert discard_previous_package(output_dir) is None
+    assert not output_dir.exists()
+    assert list(dist_dir.iterdir()) == []
+
+
+def test_discard_previous_package_keeps_the_staging_folder_when_removal_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """再帰削除に失敗しても出力先は空いている（OneDriveでの`WinError 5`対策）。"""
+    dist_dir = tmp_path / "dist"
+    output_dir = dist_dir / "Michinari"
     output_dir.mkdir(parents=True)
-    (output_dir / "v2.txt").write_text("v2", encoding="utf-8")
-    second = archive_previous_package(
-        output_dir, archive_dir, "Michinari", now=dt.datetime(2026, 8, 27, 10, 0, 0)
-    )
+    (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
 
-    assert first is not None and second is not None
-    assert first != second
-    assert (first / "v1.txt").exists()
-    assert (second / "v2.txt").exists()
+    def fail_rmtree(path: Path) -> None:
+        raise PermissionError("アクセスが拒否されました")
+
+    monkeypatch.setattr(build_package.shutil, "rmtree", fail_rmtree)
+    fixed_now = dt.datetime(2026, 9, 13, 18, 0, 0)
+
+    leftover = discard_previous_package(output_dir, now=fixed_now)
+
+    assert leftover == dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260913_180000"
+    assert (leftover / "Michinari.exe").read_text(encoding="utf-8") == "dummy"
+    assert not output_dir.exists()
+    assert "旧パッケージを削除できませんでした" in capsys.readouterr().out
 
 
 def test_create_distribution_zip_contains_top_level_app_folder(tmp_path: Path) -> None:
@@ -102,21 +172,25 @@ def test_create_distribution_zip_contains_top_level_app_folder(tmp_path: Path) -
 
 
 def test_create_distribution_zip_does_not_touch_archive_dir(tmp_path: Path) -> None:
+    """zip化は`Michinari/`のみを対象とし、`_archive/`や削除し残した旧パッケージを含めない。"""
     dist_dir = tmp_path / "dist"
     output_dir = dist_dir / "Michinari"
     archive_dir = dist_dir / "_archive"
     output_dir.mkdir(parents=True)
     (output_dir / "Michinari.exe").write_text("dummy-exe", encoding="utf-8")
-    archived = archive_dir / "Michinari_20260827_090000"
-    archived.mkdir(parents=True)
-    (archived / "v1.txt").write_text("v1", encoding="utf-8")
+    archive_dir.mkdir(parents=True)
+    (archive_dir / "Michinari-v0.1.0.zip").write_text("v1", encoding="utf-8")
+    leftover = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260913_180000"
+    leftover.mkdir()
+    (leftover / "v1.txt").write_text("v1", encoding="utf-8")
 
     create_distribution_zip(output_dir, dist_dir, "Michinari", "0.2.0")
 
-    assert (archived / "v1.txt").exists()
+    assert (archive_dir / "Michinari-v0.1.0.zip").exists()
+    assert (leftover / "v1.txt").exists()
     with zipfile.ZipFile(dist_dir / "Michinari-v0.2.0.zip") as zf:
         names = set(zf.namelist())
-    assert not any(name.startswith("_archive") for name in names)
+    assert all(name.startswith("Michinari/") for name in names)
 
 
 def test_create_distribution_zip_overwrites_previous_zip_of_same_version(tmp_path: Path) -> None:

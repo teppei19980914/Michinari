@@ -473,8 +473,11 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （`pyproject.toml` のTOML文字列・zipファイル名へそのまま埋め込むため、それ以外の
    文字を含む入力は再入力を求める）。確定したバージョンは `backend/pyproject.toml` の
    `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
-3. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
-   へリネームして退避する（削除しない。旧バージョンとの差分調査用）
+3. `backend/dist/` 直下の既存配布物（`*.zip` と対になる `*.commit.json`）を
+   `backend/dist/_archive/` へ移動し、既存のビルド出力フォルダ
+   `backend/dist/Michinari/` は削除して出力先を空ける
+   （`archive_previous_distributions`／`discard_previous_package`）。
+   旧バージョンを調べたいときは `_archive/` のzipを展開する
 4. アプリバージョン・使用ライブラリのスナップショットを `backend/build_info.json` へ生成する
    （`generate_build_info`。2で確定した`backend/pyproject.toml`の`[project].version`を
    単一の情報源として読む）
@@ -489,7 +492,9 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    飛ばし、ビルドは継続する）
 8. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
    `backend/dist/Michinari-v{version}.zip`（例: `Michinari-v0.2.0.zip`）を生成する
-   （`create_distribution_zip`）
+   （`create_distribution_zip`）。ビルド元コミットの記録
+   `backend/dist/Michinari-v{version}.commit.json` も併せて生成する
+   （`generate_build_commit`）
 
 `build_info.json`（配布パッケージ同梱後は起動画面「システム情報」SC-15から参照できる、
 仕様書6.14参照）は`built_at`がビルドの都度変わるため`.gitignore`で除外している
@@ -504,23 +509,33 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 では従来通り `data/` を使うため挙動に影響しない）。
 
 zip（`backend/dist/Michinari-v{version}.zip`）は3のアーカイブ退避（`_archive/`）とは
-対象・実行順序が独立している（zip化はビルド完了後に最新の`Michinari/`のみを対象に行う
-ため、退避済みの旧パッケージを巻き込むことはない）。zipファイル名にバージョンが入る
-ため、異なるバージョンでビルドすれば過去のzipを上書きせず併存する（同一バージョンで
-再ビルドした場合のみ上書きされる）。過去バージョンのzipが不要になれば手動で削除して
-よい（`backend/dist/` は `.gitignore` で除外済み）。
+対象・実行順序が独立している（退避はビルド前に`dist/`直下の**旧**zip・旧記録のみを移し、
+zip化はビルド完了後に最新の`Michinari/`のみを対象に行うため、互いを巻き込むことはない）。
+zipファイル名にバージョンが入るため、異なるバージョンでビルドすれば`_archive/`の中で
+過去のzipと併存する（同一バージョンで再ビルドした場合のみ上書きされる）。過去バージョンの
+zipが不要になれば手動で削除してよい（`backend/dist/` は `.gitignore` で除外済み）。
 
-退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
-OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
-既存出力先を`shutil.rmtree`により再帰削除しようとして`WinError 5 アクセスが拒否
-されました`になる事象も回避できる（リネームはディレクトリエントリの付け替えのみで
-再帰削除を伴わないため）。`backend/dist/_archive/` は自動生成物のため不要になったら
-手動で削除してよい（`.gitignore`で`backend/dist/`ごと除外済み）。
+**退避対象をzip・記録ファイルに限り、ビルド出力フォルダは退避せず削除する**のは、
+`Michinari/`が1ビルドあたり数十〜100MB超あり、ビルドのたびに`_archive/`へ積み上げると
+`backend/dist/`の容量が際限なく増大するためである（2026-09-13にこの方式へ変更。
+それ以前は`_archive/Michinari_YYYYMMDD_HHMMSS/`としてフォルダごと退避していた）。
+同じ内容は圧縮された形でzipに残るため、旧バージョンを調べたいときは`_archive/`の
+該当zipを展開すればよい。
+
+削除は「同階層の一時フォルダ（`_previous_Michinari_YYYYMMDD_HHMMSS`）へリネーム →
+その一時フォルダを再帰削除」の2段階で行う（`discard_previous_package`）。リネームは
+ディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、OneDrive
+ファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
+`shutil.rmtree`による再帰削除が`WinError 5 アクセスが拒否されました`になっても、
+警告を表示して一時フォルダを残すだけでビルドは継続できる（残った一時フォルダは
+zip化の対象外なので配布物には混入しない。不要になったら手動で削除する）。
+`backend/dist/_archive/` は自動生成物のため不要になったら手動で削除してよい
+（`.gitignore`で`backend/dist/`ごと除外済み）。
 
 #### 配布物の公開方法（GitHub Releases）
 
-`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版も
-残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
+`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版の
+zipも残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
 GitHub Releasesにzipを添付する方式で行う。
 
 **推奨: `release.bat` をダブルクリックする**（下書きリリースまでを自動で用意する）。
@@ -546,7 +561,7 @@ GitHub Releasesにzipを添付する方式で行う。
 | 3 | テスト（バックエンド `pytest` ＋ フロントエンド `tsc -b` / `npm test`）を実行する。1件でも失敗すれば中止 |
 | 3' | リリース前スモーク（アプリが実際に起動して応答するか・既存データベースが移行できるか）を実行する。問題があれば中止（下記「リリース前スモークテスト」参照） |
 | 4 | コンソールでバージョンを尋ねる（`N.N.N` 形式。テストが通った後にのみ表示される） |
-| 5 | パッケージをビルドし zip 化する |
+| 5 | 既存配布物を `backend/dist/_archive/` へ退避し、旧ビルド出力を削除してからパッケージをビルドし zip 化する |
 | 6 | ビルド元コミットへタグを付けて push する |
 | 7 | zip を添付した**下書き**リリースを作成する（本文は記入用のひな形） |
 | 8 | リモートのタグ実体がビルド元コミットを指しているか検証する |
