@@ -460,6 +460,11 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 コピー）を指定している。それでも`os error 396`が出る場合は`uv cache clean`で
 キャッシュを作り直してから再実行する。
 
+同じOneDriveロックは、直前のテスト実行の直後に`pytest`を再実行した際、
+`backend/tests/_test.db`の削除が`PermissionError: [WinError 32]`になる形でも起こり得る
+（`backend/tests/conftest.py`）。`uv sync`と同様に、削除失敗時は1秒待って最大5回まで
+自動的に再試行する（`_unlink_retrying`）。
+
 **処理内容**
 
 1. テストスイート（`pytest`）を実行する。**1件でも失敗すればここでビルドを中止する**
