@@ -12,8 +12,11 @@
    NOT NULL 制約違反になる不具合を配布してしまった。CODING_RULES.md「DBマイグレーションの
    テスト」参照）。
 
-実行例（backendディレクトリから）: `uv run python scripts/release_smoke.py`
-（`backend/smoke.bat` をダブルクリックしても同じ）。`backend/release.bat` の前に流す。
+`release.bat` はこの確認をリリースゲートの一部として自動実行する
+（`build_package.run_smoke` → `collect_problems`）。手順を増やすと実行を忘れうるため、
+別手順にはしていない。単体で流したいときは以下（`backend/smoke.bat` も同じ）。
+
+    uv run python scripts/release_smoke.py
 
 既定では「ソースからの起動スモーク」と「実データベースの複製に対する移行確認」を行う。
 いずれも一時ディレクトリ上で完結し、実行中のアプリや利用者データには触れない
@@ -47,14 +50,19 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+# 配布物の名前・置き場所は build_package が単一の情報源（publish_release.py と同じ取り込み方）。
+from build_package import APP_NAME, DIST_DIR, distribution_zip_filename  # noqa: E402
+
 from app.constants.app_setting_keys import SERVER_PORT as SERVER_PORT_KEY  # noqa: E402
 from app.init.seed_data import INITIAL_APP_SETTINGS  # noqa: E402
 
 ALEMBIC_INI_PATH = BACKEND_DIR / "alembic.ini"
 DATA_DIR = BACKEND_DIR.parent / "data"
 DEFAULT_DB_PATH = DATA_DIR / "michinari.db"
-DIST_DIR = BACKEND_DIR / "dist"
-PACKAGE_EXE_NAME = "Michinari.exe"
+PACKAGE_EXE_NAME = f"{APP_NAME}.exe"
+#: 配布zipの探索パターン。ファイル名の組み立ては build_package が持つため、
+#: バージョン欄を "*" にしてそのまま流用する（命名規則を書き写さない）。
+PACKAGE_GLOB = distribution_zip_filename(APP_NAME, "*")
 #: `server.port` の値型。seed_data の定義をそのまま使い、値を書き写さない（DRYの原則）。
 SERVER_PORT_VALUE_TYPE = INITIAL_APP_SETTINGS[SERVER_PORT_KEY][1].value
 
@@ -255,7 +263,7 @@ def find_latest_package(dist_dir: Path = DIST_DIR) -> Path | None:
     """
     if not dist_dir.is_dir():
         return None
-    packages = [path for path in dist_dir.glob("Michinari-v*.zip") if path.is_file()]
+    packages = [path for path in dist_dir.glob(PACKAGE_GLOB) if path.is_file()]
     if not packages:
         return None
     return max(packages, key=lambda path: path.stat().st_mtime)
