@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyRecordRead, QuotaItemRead, TodayRead } from '../../api/records'
-import {
-  resolveDailyReportGuard,
-  type DailyReportGuardQueries,
-  type QueryLike,
-} from './resolveDailyReportGuard'
+import { resolveDailyReportGuard, type DailyReportGuardQueries } from './resolveDailyReportGuard'
+import type { QueryLike } from '../../utils/queryGuard'
 import type { CategoryPresence } from './categoryCompletion'
 
 const LOGICAL_DATE = '2026-09-13'

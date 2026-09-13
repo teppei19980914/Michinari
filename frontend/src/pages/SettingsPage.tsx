@@ -8,6 +8,7 @@ import { AiConnectionSection } from '../features/settings/AiConnectionSection'
 import { ThresholdSection } from '../features/settings/ThresholdSection'
 import { PromptDegradationSection } from '../features/settings/PromptDegradationSection'
 import { DisplaySection } from '../features/settings/DisplaySection'
+import { DesktopSection } from '../features/settings/DesktopSection'
 import { LogSection } from '../features/settings/LogSection'
 import { PromptTemplateSection } from '../features/settings/PromptTemplateSection'
 import { QUERY_KEYS } from '../constants/queryKeys'
@@ -45,6 +46,7 @@ export function SettingsPage() {
       <ThresholdSection settings={settings} />
       <PromptDegradationSection settings={settings} />
       <DisplaySection settings={settings} />
+      <DesktopSection settings={settings} />
       <PromptTemplateSection />
       <LogSection settings={settings} />
     </div>

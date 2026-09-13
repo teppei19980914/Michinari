@@ -17,6 +17,7 @@ import {
 } from '../features/record/summaryLabels'
 import { filterWrittenDiaryEntries } from '../features/record/diaryForm'
 import { resolveDailyReportViewSections } from '../features/record/dailyReportViewSections'
+import { resolveDailyReportViewGuard } from '../features/record/resolveDailyReportViewGuard'
 import { DailyRecordChatHistories } from '../features/record/DailyRecordChatHistories'
 
 /** SC-08 日次報告閲覧（仕様書6.7）。実績・日記は読み取り専用、コメントのみ追加・修正・削除
@@ -56,20 +57,23 @@ export function DailyReportViewPage() {
     }
   }, [goalsQuery.data, setSelectedGoalId])
 
-  if (
-    recordQuery.isLoading ||
-    quotaQuery.isLoading ||
-    readingBooksQuery.isLoading ||
-    workAssignmentsQuery.isLoading ||
-    goalsQuery.isLoading
-  ) {
+  // 表示状態（ローディング/エラー/表示可）の判定はresolveDailyReportViewGuardへ集約している。
+  // 全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
+  const guard = resolveDailyReportViewGuard({
+    record: recordQuery,
+    quota: quotaQuery,
+    readingBooks: readingBooksQuery,
+    workAssignments: workAssignmentsQuery,
+    goals: goalsQuery,
+  })
+  if (guard.kind === 'LOADING') {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (recordQuery.isError || !recordQuery.data) {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(recordQuery.error)}</p>
+  if (guard.kind === 'ERROR') {
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
 
-  const record = recordQuery.data
+  const record = guard.record
   const diaryEntries = filterWrittenDiaryEntries(record.diary_entries)
   const materialLabels = buildMaterialLabels(quotaQuery.data ?? [])
   const bookLabels = buildBookLabels(readingBooksQuery.data ?? [])

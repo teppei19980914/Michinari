@@ -21,6 +21,9 @@ from dataclasses import asdict, dataclass
 from importlib import metadata
 from pathlib import Path
 
+from app.config import BACKEND_DIR, resolve_bundled_path
+from app.constants.bundle import BUILD_INFO_FILE_NAME
+
 #: pyproject.tomlの依存文字列（例: "uvicorn[standard]>=0.32"）からパッケージ名のみを
 #: 取り出す。対象は自プロジェクトの固定された依存文字列のみのため、PEP 508の完全な
 #: パーサ（`packaging`ライブラリ）は使わない（`packaging`はPyInstaller経由の推移的
@@ -111,8 +114,8 @@ def collect_build_info(repo_root: Path, *, built_at: str | None = None) -> Build
 
 
 def _bundled_build_info_path() -> Path:
-    base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
-    return base / "build_info.json"
+    """同梱された`build_info.json`のパスを返す（同梱先の名前は`constants/bundle.py`が持つ）。"""
+    return resolve_bundled_path(BUILD_INFO_FILE_NAME, BACKEND_DIR / BUILD_INFO_FILE_NAME)
 
 
 def get_system_info(repo_root: Path) -> BuildInfo:

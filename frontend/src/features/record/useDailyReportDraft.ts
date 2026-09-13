@@ -40,12 +40,17 @@ export type DailyReportDraft = {
  * 下書きは表示中のタブに関わらず全目標分を保持する。タブ切り替えは表示のみに作用し、確定は
  * カテゴリ単位で行うため、非表示のタブに入力済みの内容が確定時に失われることはない。
  *
+ * 進捗のみ登録（SC-07）も実績の下書きを同じ規則で保持するためこのフックを共有する
+ * （CODING_RULES.md「①DRYの原則」）。SC-07は日記・AI対話・目標タブを持たないため（仕様書6.6）、
+ * 日記・対話履歴の初期化結果を参照せず、setSelectedGoalIdも渡さない。
+ *
  * @param queries 下書きの初期値の元になる取得結果
- * @param setSelectedGoalId 初期表示するタブを決めるための設定関数（useGoalReportTabs）
+ * @param setSelectedGoalId 初期表示するタブを決めるための設定関数（useGoalReportTabs）。
+ *   目標タブを持たない画面（SC-07）では省略する
  */
 export function useDailyReportDraft(
   queries: DailyRecordQueries,
-  setSelectedGoalId: (goalId: number) => void,
+  setSelectedGoalId?: (goalId: number) => void,
 ): DailyReportDraft {
   const { record, quota, readingBooks, workAssignments, goals } = queries
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
@@ -96,7 +101,7 @@ export function useDailyReportDraft(
     )
     setChatMessages(recordData.chat_messages)
     const firstActiveGoal = goalsData.find((goal) => goal.status === 'ACTIVE')
-    if (firstActiveGoal) {
+    if (firstActiveGoal && setSelectedGoalId) {
       setSelectedGoalId(firstActiveGoal.id)
     }
   }, [recordData, quotaData, readingBooksData, workAssignmentsData, goalsData, setSelectedGoalId])

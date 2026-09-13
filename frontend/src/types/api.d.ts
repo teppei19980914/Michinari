@@ -1605,6 +1605,7 @@ export interface components {
             threshold: components["schemas"]["ThresholdSettingsRead"];
             prompt_degradation: components["schemas"]["PromptDegradationSettingsRead"];
             display: components["schemas"]["DisplaySettingsRead"];
+            desktop: components["schemas"]["DesktopSettingsRead"];
             log: components["schemas"]["LogSettingsRead"];
         };
         /** AppSettingsUpdate */
@@ -1613,6 +1614,7 @@ export interface components {
             threshold?: components["schemas"]["ThresholdSettingsUpdate"] | null;
             prompt_degradation?: components["schemas"]["PromptDegradationSettingsUpdate"] | null;
             display?: components["schemas"]["DisplaySettingsUpdate"] | null;
+            desktop?: components["schemas"]["DesktopSettingsUpdate"] | null;
             log?: components["schemas"]["LogSettingsUpdate"] | null;
         };
         /** BackupRead */
@@ -1923,6 +1925,28 @@ export interface components {
             day_type: components["schemas"]["DayType"];
             /** Note */
             note?: string | null;
+        };
+        /** DesktopSettingsRead */
+        DesktopSettingsRead: {
+            /** Open Browser On Startup */
+            open_browser_on_startup: boolean;
+            /** Launch At Login */
+            launch_at_login: boolean;
+            /** Notification Enabled */
+            notification_enabled: boolean;
+            /** Notification Time */
+            notification_time: string;
+        };
+        /** DesktopSettingsUpdate */
+        DesktopSettingsUpdate: {
+            /** Open Browser On Startup */
+            open_browser_on_startup?: boolean | null;
+            /** Launch At Login */
+            launch_at_login?: boolean | null;
+            /** Notification Enabled */
+            notification_enabled?: boolean | null;
+            /** Notification Time */
+            notification_time?: string | null;
         };
         /**
          * DiaryEntryInput

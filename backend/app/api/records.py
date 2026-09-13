@@ -181,14 +181,7 @@ def get_today(session: Session = Depends(get_db)) -> TodayRead:
     """
     today = goal_service.resolve_today(session)
     record = record_service.get_daily_record(session, today)
-    aggregate_state = (
-        record_service.aggregate_record_state(
-            record.exam_record_state, record.reading_record_state, record.work_record_state
-        )
-        if record
-        else None
-    )
-    return TodayRead(logical_date=today, record_state=aggregate_state)
+    return TodayRead(logical_date=today, record_state=record_service.resolve_record_state(record))
 
 
 @router.get("/records/{target_date}", response_model=DailyRecordRead)

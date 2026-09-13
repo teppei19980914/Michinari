@@ -12,6 +12,7 @@ from app.schemas.setting import (
     AiConnectionSettingsRead,
     AppSettingsRead,
     AppSettingsUpdate,
+    DesktopSettingsRead,
     DisplaySettingsRead,
     LogSettingsRead,
     PromptDegradationSettingsRead,
@@ -31,6 +32,7 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         threshold=ThresholdSettingsRead(**vars(settings.threshold)),
         prompt_degradation=PromptDegradationSettingsRead(**vars(settings.prompt_degradation)),
         display=DisplaySettingsRead(**vars(settings.display)),
+        desktop=DesktopSettingsRead(**vars(settings.desktop)),
         log=LogSettingsRead(**vars(settings.log)),
     )
 
@@ -66,6 +68,7 @@ def update_settings(
         threshold=groups.get("threshold"),
         prompt_degradation=groups.get("prompt_degradation"),
         display=groups.get("display"),
+        desktop=groups.get("desktop"),
         log=groups.get("log"),
     )
     session.commit()

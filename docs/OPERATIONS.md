@@ -488,8 +488,13 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    単一の情報源として読む）
 5. フロントエンドを `npm run build` でビルド（`frontend/dist`）
 6. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
-   `alembic/`・`build_info.json` を同梱、`backend/dist/Michinari/` に出力）
-7. 起動用 `Michinari.bat`（`backend/scripts/launcher_template.bat` の複製）と
+   `alembic/`・`build_info.json`・ロケール（`frontend/src/locales/ja.json`）・アイコン
+   （`backend/app/assets/michinari.ico`）を同梱、`backend/dist/Michinari/` に出力）。
+   **`--noconsole` でビルドするため、起動しても黒いコンソールは表示されない**（Phase37）。
+   PyInstallerへ渡す引数は `build_package.pyinstaller_args()` に集約してあり、同梱先の
+   名前は実行時にそれを読む側の定数（`app/main.py`・`app/locales.py`・
+   `app/constants/desktop.py`）から取り込んでいる（片方だけ変えると配布物だけが壊れるため）
+7. 障害調査用 `Michinari-console.bat`（`backend/scripts/launcher_template.bat` の複製）と
    ユーザ手順書 `ユーザ手順書.pdf`（`docs/ユーザ手順書.pdf`
    の複製）を `backend/dist/Michinari/` 直下へ配置する（`copy_user_manual`。利用者が
    エクスプローラから直接開けるよう、PyInstallerの `--add-data` によるexe内埋め込みでは
@@ -507,8 +512,40 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 （コミット対象）とは性質が異なるため、同じ扱いはしない）。
 
 配布時は `backend/dist/Michinari-v{version}.zip` を配布先へコピーして展開し、
-`Michinari.bat` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
-3で述べたフォルダ手動コピーの代わりにzipを渡すだけで済む）。データ保存先は配布先
+`Michinari.exe` を実行する（zipを展開すると `Michinari/` フォルダが得られるため、
+3で述べたフォルダ手動コピーの代わりにzipを渡すだけで済む）。
+
+**起動すると通知領域（システムトレイ）に常駐し、コンソールは表示されない**（Phase37）。
+同梱の `Michinari-console.bat` は利用者向けではなく、`--console` を付けて同じexeを起動し
+動作中のログを画面で追うための障害調査用である。コンソール版の実行ファイルを別にビルド
+しないのは、PyInstallerの同梱物一式がもう1組できて配布物の大きさが倍増するためである。
+ログは常に `%LOCALAPPDATA%\Michinari\data\logs\michinari.log`（1MB×4世代）へ出力される。
+
+#### 常駐時のプロセス構成（Phase37）
+
+**プロセスは1つだけである。** 通知のためにタスクスケジューラへ登録したり、常駐ヘルパーを
+別に立てたりはしていない（「アプリを終了したのに何かが残っている」状態を利用者へ説明せずに
+済ませるため）。1プロセスの中で3つのスレッドが動く。
+
+| スレッド | 役割 | 実装 |
+| --- | --- | --- |
+| メイン | 通知領域のアイコンとメニュー | `app/desktop/tray.py` |
+| サーバ | uvicorn（API・フロントエンドの静的配信） | `app/desktop/runner.py` の `ServerThread` |
+| 監視 | 記録リマインドの時刻監視 | `app/desktop/scheduler.py` |
+
+Webサーバをメインスレッドから外しているのは、`pystray` の `Icon.run()` がメインスレッドを
+要求するためである（公式ドキュメント）。uvicornは非メインスレッドでも動き、シグナル捕捉は
+「メインスレッドでなければ何もしない」と実装されているため（`uvicorn/server.py` の
+`capture_signals`）、こちらから無効化する必要はない。
+
+「終了」では `Server.should_exit` を立てる。uvicornは新規接続を止め、**処理中のリクエストと
+実行中のタスクの完了を待ってから**停止する（同 `shutdown`）。待ち時間の上限は `app_setting` の
+`server.graceful_shutdown_seconds`（既定10秒）。DBへの書き込みが途中で打ち切られないのは
+この仕組みによる。
+
+通知の判定そのもの（通知すべきか・どの文面か）はサービス層
+（`app/services/notification_service.py`）にあり、WindowsにもGUIにも依存しない。判定の
+全分岐を通常のテストで検証できるようにするための分離である。データ保存先は配布先
 ごとに `%LOCALAPPDATA%\Michinari\data\` を使う（`backend/app/config.py` の
 `_default_data_dir` が `sys.frozen` を判定して自動切替。ソースから起動する開発環境
 では従来通り `data/` を使うため挙動に影響しない）。
@@ -697,7 +734,7 @@ Releaseが存在する場合は、自動的に `gh release edit ... --notes-file
 再公開時のフォールバック経路（`gh release edit` / `gh release upload`）では指定しない。
 
 配布先には、生成されたReleaseページの固定URLを案内する。ユーザーはそのページから
-配布用zip（`Michinari-v{version}.zip`）をダウンロードし、展開して `Michinari.bat` を
+配布用zip（`Michinari-v{version}.zip`）をダウンロードし、展開して `Michinari.exe` を
 実行すればよい。
 
 **既知の制約**（初版時点、Phase 11の実環境検証で解消・調整する想定）:
@@ -709,7 +746,7 @@ Releaseが存在する場合は、自動的に `gh release edit ... --notes-file
 
 **2026-08-29時点、DBスキーマ更新はアプリ起動時に自動で行われる**（`app/main.py`の
 `upgrade_database_schema`）。配布先の実行ファイル一式（`Michinari.exe`）を新パッケージへ
-入れ替え、`data\michinari.db` はそのまま残した状態で `Michinari.bat` を起動するだけで、
+入れ替え、`data\michinari.db` はそのまま残した状態で `Michinari.exe` を起動するだけで、
 未適用のマイグレーション（Alembicの`alembic upgrade head`相当）が自動適用され、データは
 保持される。実行前にはDBファイルの安全退避コピー（`data\backups\backup_*_pre_migration.db`）
 が自動で作成される。
@@ -727,7 +764,7 @@ Releaseが存在する場合は、自動的に `gh release edit ... --notes-file
 
 1. 通常どおり `build_package.py` を実行し新パッケージを生成する
 2. 配布先の `%LOCALAPPDATA%\Michinari\data\` フォルダを削除またはリネーム退避する
-3. 新パッケージ（`backend/dist/Michinari/`）を配布先へコピーし `Michinari.bat` を起動する
+3. 新パッケージ（`backend/dist/Michinari/`）を配布先へコピーし `Michinari.exe` を起動する
 4. 初回起動時の自動マイグレーション（空DBのため`upgrade head`がチェーンの先頭から適用
    され、`create_all_tables()`と同じ最終スキーマになる）が全テーブルを新規作成する
 
@@ -772,7 +809,7 @@ Releaseが存在する場合は、自動的に `gh release edit ... --notes-file
 4. `build_package.py` で新パッケージを生成し、配布先の実行ファイル一式
    （`Michinari.exe` 等）を新パッケージへ入れ替える
 5. マイグレーション済みのDBファイルを配布先の `data\michinari.db` へ戻す
-6. 配布先で `Michinari.bat` を起動し、データが保持され新機能が動作することを確認する
+6. 配布先で `Michinari.exe` を起動し、データが保持され新機能が動作することを確認する
 
 | 方式 | データ保持 | 作業の複雑さ | 向いているケース |
 |---|---|---|---|
@@ -1036,9 +1073,14 @@ osv-scanner --version                      # 導入確認
 
 | 症状 | 原因 | 対処 |
 |---|---|---|
-| `Michinari.bat` 実行後、一瞬だけウィンドウが出て閉じる | 起動時エラーで異常終了している | `Michinari.bat` は異常終了時のみ `pause` で停止しエラーを表示する（`backend/scripts/launcher_template.bat`）。表示されない場合は配布物が古いため再ビルドして差し替える |
+| `Michinari.exe` をダブルクリックしても何も起きない | 起動時エラーで異常終了している | 起動失敗はダイアログで表示される（`app/desktop/runner.py` の `show_error_dialog`）。ダイアログも出ない場合は `%LOCALAPPDATA%\Michinari\data\logs\michinari.log` を確認する。詳しく追うときは同梱の `Michinari-console.bat`（`--console` 付き起動）を使う |
 | 起動時に `Can't locate revision identified by '<リビジョンID>'` | DBに記録されたリビジョンが、exeへ同梱されたマイグレーションより新しい（＝**配布物が古い**） | 最新のソースで再ビルドして配布物を差し替える。開発端末では `git pull` / マージ漏れがないか確認したうえで `backend/build.bat` を再実行する |
-| `is not recognized as an internal or external command` でexeが起動しない | 環境変数 `NoDefaultCurrentDirectoryInExePath` が設定された端末では、cmd.exe がカレントディレクトリを探索しない | `Michinari.bat` はexeをフルパス（`"%~dp0Michinari.exe"`）で起動する。旧版のbatを使っている場合は再ビルドして差し替える |
+| `is not recognized as an internal or external command` でexeが起動しない | 環境変数 `NoDefaultCurrentDirectoryInExePath` が設定された端末では、cmd.exe がカレントディレクトリを探索しない | `Michinari-console.bat` はexeをフルパス（`"%~dp0Michinari.exe"`）で起動する。旧版のbatを使っている場合は再ビルドして差し替える |
+| 通知領域にアイコンが出ない | Windowsがアイコンを隠している | 通知領域の「^」を押して隠れているアイコンを確認する。アプリ自体はログの「通知領域へ常駐します」で起動を確認できる |
+| 記録リマインドの通知が出ない | ①設定した時刻にアプリが起動していなかった ②Windows側で通知が無効 ③その日が記録済み／除外日 | ログに「記録リマインドは見送りました: reason=...」が出ていれば③（理由が `disabled`／`day_type_off`／`already_recorded` で分かる）。出ていなければ①。②はWindowsの「設定」→「システム」→「通知」で「ミチナリ」を確認する |
+| 通知の送信元が「ミチナリ」にならない／アイコンが出ない | AppUserModelIDの登録が壊れている | 起動のたびに `HKCU\SOFTWARE\Classes\AppUserModelId\Michinari.DesktopApp` へ登録し直すため、アプリを再起動する。**このキーの名前は配布後に変更しない**（変えると利用者が設定した通知のオン/オフが引き継がれない） |
+| 「終了」を選んでもプロセスが残る | 停止処理が完了していない | uvicornは処理中のリクエストの完了を `app_setting` の `server.graceful_shutdown_seconds`（既定10秒）まで待つ。それを過ぎても残る場合はログを添えて起票する（`tests/test_desktop_runner.py` の `TestServerThreadLifecycle` が実起動で停止まで検証している） |
+| 自動起動を有効にしたのに起動しない | ソースからの起動で設定した | 自動起動の登録は配布パッケージ（`sys.frozen`）でのみ行う。ソース起動時はログに「自動起動の設定はソースからの起動では反映しません」と記録される。登録先は `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` の `Michinari` |
 
 ---
 

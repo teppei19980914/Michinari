@@ -14,12 +14,14 @@ PyInstaller本体の実行はCI環境依存が大きいため対象外とし、�
 
 import datetime as dt
 import json
+import os
 import subprocess
 import tomllib
 import zipfile
 from pathlib import Path
 
 import build_package
+import collect_licenses
 import pytest
 from build_package import (
     LAUNCHER_TEMPLATE_PATH,
@@ -40,6 +42,14 @@ from build_package import (
     run_smoke,
     write_version,
 )
+
+from app.constants.bundle import (
+    ALEMBIC_INI_FILE_NAME,
+    ASSETS_DIR_NAME,
+    FRONTEND_DIST_DIR_NAME,
+    LOCALES_DIR_NAME,
+)
+from app.desktop import runner as desktop_runner
 
 
 def test_archive_previous_distributions_returns_empty_when_dist_dir_is_absent(
@@ -438,14 +448,25 @@ def test_launcher_template_starts_the_exe_from_its_own_folder() -> None:
 def test_launcher_template_keeps_the_window_open_when_startup_fails() -> None:
     """exeが異常終了したとき、ランチャが入力待ちで止まりエラーを読めること。
 
-    Michinari.exeは起動失敗（例: DBマイグレーションの解決失敗）をコンソールへ
-    出力して終了コード1で終わる。この停止処理が無いとウィンドウが一瞬で閉じ、
-    利用者にはエラー内容が一切残らない（2026-09-08に発生した事象）。
+    この停止処理が無いとウィンドウが一瞬で閉じ、エラー内容が一切残らない
+    （2026-09-08に発生した事象）。Phase37でコンソールを表示しない構成へ移行したため、
+    利用者向けの起動失敗の通知はダイアログとログファイルが担うようになったが
+    （`app/desktop/runner.py`の`show_error_dialog`）、このbatは開発者が`--console`付きで
+    起動して原因を追うためのものなので、入力待ちは引き続き必要である。
     """
     text = _launcher_template_text()
 
     assert "if errorlevel 1 (" in text
     assert "pause" in text
+
+
+def test_launcher_template_passes_the_console_option() -> None:
+    """障害調査用batが`--console`付きでexeを起動すること（Phase37）。
+
+    配布する実行ファイルはコンソールを表示しない構成でビルドする。このオプションが
+    無いと、batから起動しても動作中のログが画面に出ず、batを同梱する意味が失われる。
+    """
+    assert f'"%~dp0Michinari.exe" {desktop_runner.CONSOLE_OPTION}' in _launcher_template_text()
 
 
 def test_launcher_template_does_not_pause_after_a_normal_shutdown() -> None:
@@ -579,3 +600,123 @@ class TestRunSmoke:
 
         assert excinfo.value.code == 1
         assert "goal: 5 行 → 4 行" in capsys.readouterr().out
+
+
+class TestPyInstallerArgs:
+    """PyInstallerへ渡す引数の検証（Phase37）。
+
+    実際のビルドはCI環境依存が大きいため対象外とし、「配布物が正しく組み立つための
+    指定が欠けていないか」を引数の内容で確かめる。ここが崩れると、開発環境では動くのに
+    配布物だけが壊れる（同梱漏れは実行時まで表面化しない）。
+    """
+
+    @staticmethod
+    def _args() -> list[str]:
+        return build_package.pyinstaller_args()
+
+    def test_hides_the_console_window(self) -> None:
+        """黒いコンソールを出さないこと（Phase37の主目的）。"""
+        assert "--noconsole" in self._args()
+
+    def test_uses_the_application_icon(self) -> None:
+        args = self._args()
+
+        assert args[args.index("--icon") + 1] == str(build_package.ICON_SOURCE_PATH)
+        assert build_package.ICON_SOURCE_PATH.is_file()
+
+    def test_bundles_the_locale_file_where_the_app_looks_for_it(self) -> None:
+        """トレイ・通知の文言が配布物でも解決できること。"""
+        expected = f"{build_package.LOCALE_SOURCE_PATH}{os.pathsep}{LOCALES_DIR_NAME}"
+
+        assert expected in self._args()
+        assert build_package.LOCALE_SOURCE_PATH.is_file()
+
+    def test_bundles_the_icon_directory_where_the_app_looks_for_it(self) -> None:
+        """トレイ・通知がアイコンを読み込めること。"""
+        expected = f"{build_package.ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}"
+
+        assert expected in self._args()
+
+    def test_keeps_bundling_the_frontend_and_migrations(self) -> None:
+        """従来からの同梱物が落ちていないこと（Phase37の変更の巻き添えを防ぐ）。"""
+        args = self._args()
+
+        assert any(entry.endswith(f"{os.pathsep}{FRONTEND_DIST_DIR_NAME}") for entry in args)
+        assert any(entry.endswith(f"{os.pathsep}alembic") for entry in args)
+        assert any(ALEMBIC_INI_FILE_NAME in entry for entry in args)
+
+    def test_builds_the_application_entry_point(self) -> None:
+        assert self._args()[-1].endswith("main.py")
+
+
+class TestThirdPartyLicenses:
+    """同梱ライブラリのライセンス義務（Phase37）。
+
+    本アプリは公開リポジトリのGitHub Releasesで配布するため、義務は全世界への頒布として
+    発生する。とりわけ `pystray` は LGPL-3.0 であり、表記に加えて「利用者が改変版へ
+    差し替えられること」までが求められる。ここが崩れたまま配布すると気付けないため、
+    ビルド引数と生成物の両方を検証する。
+    """
+
+    def test_bundles_the_notices_and_license_texts(self, tmp_path: Path) -> None:
+        notices = collect_licenses.collect(tmp_path)
+
+        assert notices.name == collect_licenses.NOTICES_FILE_NAME
+        body = notices.read_text(encoding="utf-8")
+        for library in collect_licenses.BUNDLED_LIBRARIES:
+            assert library.distribution in body
+            assert library.license_name in body
+
+    def test_copies_every_declared_license_file(self, tmp_path: Path) -> None:
+        collect_licenses.collect(tmp_path)
+
+        licenses_dir = tmp_path / collect_licenses.LICENSES_DIR_NAME
+        copied = {path.name for path in licenses_dir.iterdir()}
+        for library in collect_licenses.BUNDLED_LIBRARIES:
+            for relative in library.license_files:
+                assert f"{library.distribution}-{Path(relative).name}" in copied
+
+    def test_license_texts_are_not_empty(self, tmp_path: Path) -> None:
+        collect_licenses.collect(tmp_path)
+
+        for path in (tmp_path / collect_licenses.LICENSES_DIR_NAME).iterdir():
+            assert path.stat().st_size > 0
+
+    def test_declares_pystray_as_lgpl(self) -> None:
+        """LGPLのライブラリが表記対象から外れていないこと。"""
+        by_name = {lib.distribution: lib for lib in collect_licenses.BUNDLED_LIBRARIES}
+
+        assert "LGPL" in by_name["pystray"].license_name
+
+    def test_fails_loudly_when_a_license_file_is_missing(self, tmp_path: Path) -> None:
+        """表記漏れのまま配布しないこと（警告で済ませず失敗させる）。"""
+        broken = (collect_licenses.BundledLibrary("pystray", "LGPL-3.0", ("NOT_A_REAL_FILE",)),)
+
+        with pytest.raises(FileNotFoundError):
+            collect_licenses.collect(tmp_path, broken)
+
+    def test_pystray_is_not_embedded_in_the_executable(self) -> None:
+        """LGPL-3.0 第4条(d): 利用者が改変版へ差し替えられる形で配置すること。
+
+        exeへ埋め込むと差し替えられないため、`--exclude-module` で除外し、
+        素のファイルとして同梱する。
+        """
+        args = build_package.pyinstaller_args()
+
+        assert "--exclude-module" in args
+        assert args[args.index("--exclude-module") + 1] == build_package.LGPL_MODULE_NAME
+        assert any(
+            entry.endswith(f"{os.pathsep}{build_package.LGPL_MODULE_NAME}") for entry in args
+        )
+
+    def test_keeps_the_dependency_that_only_pystray_pulls_in(self) -> None:
+        """除外した pystray からしか辿られない依存を明示すること（無いと起動時に落ちる）。"""
+        args = build_package.pyinstaller_args()
+
+        assert args[args.index("--hidden-import") + 1] == "six"
+
+    def test_lgpl_module_source_dir_points_at_the_installed_package(self) -> None:
+        source_dir = build_package.lgpl_module_source_dir()
+
+        assert source_dir.is_dir()
+        assert (source_dir / "__init__.py").is_file()

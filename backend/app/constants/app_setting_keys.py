@@ -5,6 +5,10 @@
 """
 
 SERVER_PORT = "server.port"
+#: 「終了」操作時、処理中のリクエスト（DBへの書き込みを含む）の完了を待つ上限秒数。
+#: server.port と同じく画面には出さない基盤値だが、待ち時間をコードへ直書きしないため
+#: app_setting へ置く（CLAUDE.md「閾値・パラメータの直接記述」禁止）。
+SERVER_GRACEFUL_SHUTDOWN_SECONDS = "server.graceful_shutdown_seconds"
 THRESHOLD_WARNING_RATIO = "threshold.warning_ratio"
 THRESHOLD_REPLAN_OVERRUN_DAYS = "threshold.replan_overrun_days"
 CALENDAR_DAY_BOUNDARY_HOUR = "calendar.day_boundary_hour"
@@ -50,3 +54,12 @@ DISPLAY_DEFAULT_GRANULARITY = "display.default_granularity"
 
 # データ管理（仕様書6.12、データ構造編9章D-02、実装フェーズ分割計画書Phase10）。
 BACKUP_RETENTION_COUNT = "backup.retention_count"
+
+# デスクトップ常駐・記録リマインド通知（Phase37）。
+DESKTOP_OPEN_BROWSER_ON_STARTUP = "desktop.open_browser_on_startup"
+DESKTOP_LAUNCH_AT_LOGIN = "desktop.launch_at_login"
+DESKTOP_NOTIFICATION_ENABLED = "desktop.notification_enabled"
+DESKTOP_NOTIFICATION_TIME = "desktop.notification_time"
+#: 通知時刻をまたいだかを調べる間隔。設定画面には出さない（利用者が調整する値ではない）が、
+#: 秒数をスケジューラへ直書きしないため app_setting へ置く。
+DESKTOP_NOTIFICATION_CHECK_INTERVAL_SECONDS = "desktop.notification_check_interval_seconds"

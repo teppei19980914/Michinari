@@ -107,3 +107,52 @@ def test_prompt_template_unknown_purpose_returns_404(client):
     response = client.patch("/api/v1/prompt-templates/UNKNOWN", json={"body": "x"})
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+class TestDesktopSettingsApi:
+    """デスクトップ常駐・記録リマインドの設定（SC-11、Phase37）。"""
+
+    def test_get_returns_the_desktop_group(self, client):
+        body = client.get("/api/v1/settings").json()
+
+        assert body["desktop"] == {
+            "open_browser_on_startup": True,
+            "launch_at_login": False,
+            "notification_enabled": True,
+            "notification_time": "21:00",
+        }
+
+    def test_patch_updates_the_desktop_group(self, client):
+        response = client.patch(
+            "/api/v1/settings",
+            json={"desktop": {"launch_at_login": True, "notification_time": "07:30"}},
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["desktop"]["launch_at_login"] is True
+        assert body["desktop"]["notification_time"] == "07:30"
+        # 指定していない項目は元のまま。
+        assert body["desktop"]["notification_enabled"] is True
+
+    def test_patch_rejects_a_malformed_notification_time(self, client):
+        """サービス層のドメイン例外がAPI層でエラーコードへ変換されること（技術選定書7.3）。"""
+        response = client.patch(
+            "/api/v1/settings", json={"desktop": {"notification_time": "25:00"}}
+        )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_patch_rejects_an_empty_notification_time(self, client):
+        """スキーマ側（min_length）で弾かれる場合も同じエラーコードになること。"""
+        response = client.patch("/api/v1/settings", json={"desktop": {"notification_time": ""}})
+
+        assert response.status_code == 400, response.text
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_patch_keeps_the_stored_value_when_rejected(self, client):
+        client.patch("/api/v1/settings", json={"desktop": {"notification_time": "25:00"}})
+
+        body = client.get("/api/v1/settings").json()
+        assert body["desktop"]["notification_time"] == "21:00"

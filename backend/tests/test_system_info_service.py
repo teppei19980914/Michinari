@@ -133,6 +133,13 @@ def test_get_system_info_reads_bundled_file_when_frozen(monkeypatch, tmp_path: P
 def test_bundled_build_info_path_falls_back_to_executable_dir_without_meipass(
     monkeypatch, tmp_path: Path
 ) -> None:
+    """配布exeとして起動していて`_MEIPASS`が無い場合は、exeと同じ場所を見ること。
+
+    `sys.frozen`を立てるのは、この関数が呼ばれるのが`get_system_info`のfrozen分岐からだけ
+    であり、共通の解決（`app/config.py`の`resolve_bundled_path`）もそこを分岐の条件に
+    しているためである（Phase37で判定を1箇所へ集約した）。
+    """
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.delattr(sys, "_MEIPASS", raising=False)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "Michinari.exe"), raising=False)
 

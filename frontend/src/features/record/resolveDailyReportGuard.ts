@@ -5,15 +5,7 @@ import {
   type CategoryPresence,
 } from './categoryCompletion'
 import { isFinalizableDate } from './finalizableDate'
-
-/** useQueryの結果のうち、表示可否の判定に必要な部分だけを表す型。
- * react-queryの`UseQueryResult`と構造的に互換であり、テストからは素のオブジェクトを渡せる。 */
-export type QueryLike<T> = {
-  isLoading: boolean
-  isError: boolean
-  error: unknown
-  data: T | undefined
-}
+import { findFailedQuery, isAnyLoading, type QueryLike } from '../../utils/queryGuard'
 
 /** 判定に関与する取得。補助情報（slotNames）は含めない（useDailyReportData参照）。 */
 export type DailyReportGuardQueries = {
@@ -58,11 +50,11 @@ export function resolveDailyReportGuard(
   // エラーメッセージの優先順もこの並び順に従う（先に失敗を検出した取得のエラーを表示する）。
   const allQueries = [record, quota, readingBooks, workAssignments, goals, today]
 
-  if (allQueries.some((query) => query.isLoading)) {
+  if (isAnyLoading(allQueries)) {
     return { kind: 'LOADING' }
   }
 
-  const failed = allQueries.find((query) => query.isError)
+  const failed = findFailedQuery(allQueries)
   // 取得済みデータの有無まで要求するのはこの4本のみ。readingBooks・workAssignmentsは
   // 以降も`?? []`として扱い、取得できなくても他カテゴリの入力を妨げない（従来の挙動）。
   if (
