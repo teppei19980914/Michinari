@@ -113,11 +113,7 @@ const QUOTA_ITEM: QuotaItemRead = {
   slot_defaults: [],
 }
 
-type ReportedStates = Partial<
-  Pick<DailyRecordRead, 'exam_record_state' | 'reading_record_state' | 'work_record_state'>
->
-
-function buildRecord(states: ReportedStates = {}): DailyRecordRead {
+function buildRecord(overrides: Partial<DailyRecordRead> = {}): DailyRecordRead {
   return {
     record_date: LOGICAL_DATE,
     exam_record_state: null,
@@ -132,7 +128,7 @@ function buildRecord(states: ReportedStates = {}): DailyRecordRead {
     work_logs: [],
     comments: [],
     chat_messages: [],
-    ...states,
+    ...overrides,
   }
 }
 
