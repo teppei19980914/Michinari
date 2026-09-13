@@ -810,15 +810,58 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 | `src/pages/**/*.tsx` | 画面本体。描画テストが読み込むため放置すると閾値割れする。振る舞いは描画テストで守る |
 | `src/features/record/*Fields.tsx`、`*SummaryList.tsx`、`ChatPanel.tsx`、`CommentSection.tsx`、`GoalTabBar.tsx` | 入力欄・一覧の部品（同上）。ディレクトリ丸ごとではなく列挙するのは、判定を含む `.tsx`（`CategoryReportSection.tsx`）まで黙って計測外になるのを防ぐため |
 | `src/**/*.test.ts`、`src/**/*.test.tsx` | テストコード自体 |
+| `src/test/**` | 描画テストの共通基盤（`renderWithProviders.tsx`・`fixtures.ts`）。テストから常に読み込まれるため放置すると計測対象に入るが、production へ出るコードではない |
 | `src/**/use*.ts` | Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を検証しても実際の使われ方を再現できない |
 | `src/types/**` | `openapi-typescript` による自動生成 |
-| `src/constants/**`、`src/locales/**` | 定数・文言のみで分岐を持たない |
-| `src/api/**` | API呼び出しの薄いラッパ。実通信なしでは意味のある検証にならない |
+| `src/constants/errorCodes.ts`、`goalCategories.ts` | 値を並べているだけで分岐も関数も持たない。同じ `src/constants/` でも `queryKeys.ts`（キャッシュキー）と `routes.ts`（画面遷移パス）は値を組み立てる関数を持ち、崩れても型検査では表に出ない（どちらも `string`）ため除外しない |
+| `src/api/!(client).ts` | エンドポイント単位のAPIラッパ。分岐を持たず、実通信なしでは意味のある検証にならない。同じ `src/api/` でも `client.ts` は除外しない（下記） |
 | `src/utils/downloadBlob.ts` | ブラウザAPI（`document` / `URL.createObjectURL`）に直接依存 |
 
-「押した結果どう送信されるか」まで守りたい `.tsx` は、除外の対象外に置いたうえで100%まで書く（`src/features/goal/CloseGoalModal.tsx` 等）。
+「押した結果どう送信されるか」まで守りたい `.tsx` は、除外の対象外に置いたうえで100%まで書く（`src/features/goal/CloseGoalModal.tsx`、`src/features/goal/MaterialsTab.tsx` 等）。`MaterialsTab.tsx` は300行規模だが、送信内容を決める判定（手動締切が off のときは入力済みの日付を送らない、所要ブロック時間の空欄は `null` にする、教材の有無で作成と更新を呼び分ける）と削除確認のガードを持つため、除外せず描画テストで100%まで到達させている（Phase 35）。画面本体を一律に除外するのではなく、「送信内容を決める判定を持つか」で線を引く。
+
+`src/api/client.ts` と `src/locales/t.ts` は、2026-09-13のカバレッジ監査（Phase 33）で除外理由が実態と異なることが判明したため対象へ戻した。前者は通信失敗の `NETWORK_ERROR` への変換・204の扱い・エラーコードの既定値・未登録コードのフォールバックという分岐を持ち（除外時の実測34.6%）、後者はキー未解決時のフォールバックと `{{var}}` 置換の分岐を持つ。いずれも全画面のエラー表示・文言表示が通る経路である。`src/locales/` を除外一覧から外しても `ja.json` は `include`（`src/**/*.ts`）に一致しないため計測されない。
 
 到達不能な防御的分岐（型の絞り込みのためだけのガード等）は `/* v8 ignore next N */` と理由コメントで個別に除外する（CODING_RULES.md「除外可」）。
+
+**描画テストの書き方**
+
+`src/test/renderWithProviders.tsx` を使い、`QueryClientProvider`（再試行なし・使い捨ての
+`QueryClient`）・`MemoryRouter`・`ToastProvider` で包んで描画する。各テストでProviderを
+組み立て直さない（CODING_RULES.md「①DRYの原則」）。`useBlocker`（離脱警告）のように
+データルータでしか動作しない機能を検証する場合だけ、`createMemoryRouter` を各テストで
+組み立てる（`src/pages/DailyReportPage.test.tsx` が該当）。
+
+APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMaterial` / `makeSubject`
+で組み立て、各テストは検証したい項目だけを上書きする。自動生成型は必須項目が多く、
+テストごとに丸ごと書くと意図がフィクスチャに埋もれるため。
+
+期待する文言は `t()` から取得し、ロケールの文字列を直書きしない（CODING_RULES.md
+「②ゼロハードコーディング」）。文言を変えるたびにテストが落ちるのを避けるためでもある。
+
+描画テストを書いたら、カバレッジが100%になったことで満足せず、**意図的に不具合を注入して
+テストが落ちることを確認する**（CODING_RULES.md「超過を解消するときの手順」②）。
+落ちなければ網が不十分である。Phase 33・35 では、送信内容の取り違え・確認ダイアログの
+素通し・エラーコードのフォールバック除去など10件の注入を行い、いずれも検知することを確認した。
+
+## リリース時に必ず実行されるテスト
+
+`backend/release.bat` → `scripts/release.py` → `build_package.run_tests()` が、ビルドの
+一番最初に以下をこの順で実行する。1件でも失敗すればビルドを中止するため、テストを通さずに
+配布物が作られることはない。
+
+| 対象 | コマンド | 失敗条件 |
+| --- | --- | --- |
+| バックエンド | `python -m pytest --cov-fail-under=100` | テスト失敗、または `app/` のカバレッジが100%未満 |
+| フロントエンド（型） | `npx tsc -b` | 型エラー |
+| フロントエンド（テスト） | `npm test`（`vitest run --coverage`） | テスト失敗、または計測対象のカバレッジが100%未満 |
+
+**テストを追加したときに、このリストへ登録する作業は不要である。** pytest は
+`backend/pyproject.toml` の `testpaths`、vitest は既定の探索規則（`**/*.{test,spec}.*`）で
+テストファイルを自動的に探すため、ファイルを置けば次回のリリースから実行される。
+追加漏れで実行されないことがない構造になっている。
+
+`--cov-fail-under=100` を `pyproject.toml` の `addopts` ではなくここで明示的に渡しているのは、
+部分実行（`pytest tests/test_goal_service.py` 等）が常に閾値割れで失敗してしまうのを避けるため。
 
 ## 任意ツールの導入
 

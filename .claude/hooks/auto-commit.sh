@@ -5,12 +5,12 @@
 #   1. git automation が有効か確認
 #   2. 現在ブランチが dev/YYYY-MM-DD パターンか確認 (main 等への commit を防止)
 #   3. 変更がなければ何もしない
-#   4. テスト実行 (失敗ならスキップ — Claude が修正する)
-#   5. secret-scan は別 hook で既に実行済 (Stop hook の順序に依存)
-#   6. commit & push
+#   4. commit & push
 #
-# 注意: テスト/secret-scan は別の Stop hook で実行される。
-#       本スクリプトはそれらが PASS した前提で commit する。
+# 注意: 静的解析・テスト・secret-scan は本スクリプトでは実行しない。いずれも別の
+#       Stop hook が担い、本スクリプトはそれらが PASS した前提で commit する
+#       (Stop hook の登録順に依存する)。以前は上の一覧に「テスト実行」を挙げていたが
+#       実装が伴っておらず、実態と食い違っていたため記述を改めた (2026-09-13)。
 
 set -u
 
