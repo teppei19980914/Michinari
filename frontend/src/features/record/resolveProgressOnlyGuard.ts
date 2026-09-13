@@ -1,4 +1,9 @@
 import type { DailyRecordRead, QuotaItemRead, TodayRead } from '../../api/records'
+import {
+  isAllCategoriesReported,
+  toCategoryReportedState,
+  type CategoryPresence,
+} from './categoryCompletion'
 import { findFailedQuery, isAnyLoading, type QueryLike } from '../../utils/queryGuard'
 import { isFutureDate } from './finalizableDate'
 
@@ -6,16 +11,19 @@ import { isFutureDate } from './finalizableDate'
 export type ProgressOnlyGuardQueries = {
   record: QueryLike<DailyRecordRead>
   quota: QueryLike<QuotaItemRead[]>
+  readingBooks: QueryLike<unknown>
+  workAssignments: QueryLike<unknown>
+  goals: QueryLike<unknown>
   today: QueryLike<TodayRead>
 }
 
 /** 進捗のみ登録画面が取るべき表示状態。
- * `EDITABLE`は取得済みのノルマを同伴し、呼び出し側が非nullアサーションを書かずに済むようにする。 */
+ * `EDITABLE`は取得済みの記録・ノルマを同伴し、呼び出し側が非nullアサーションを書かずに済むようにする。 */
 export type ProgressOnlyGuard =
   | { kind: 'LOADING' }
   | { kind: 'ERROR'; error: unknown }
   | { kind: 'REDIRECT_VIEW' }
-  | { kind: 'EDITABLE'; quota: QuotaItemRead[] }
+  | { kind: 'EDITABLE'; record: DailyRecordRead; quota: QuotaItemRead[] }
 
 /**
  * SC-07 進捗のみ登録（ProgressOnlyPage）の表示状態を決める純粋関数。
@@ -25,28 +33,42 @@ export type ProgressOnlyGuard =
  * 検証できる（CODING_RULES.md「フロントの分岐は`.ts`へ切り出す」「①DRYの原則」。
  * 日次報告のresolveDailyReportGuardと同じ形に揃えている）。
  *
- * 2種類の転送（未来日・資格勉強が確定済み）は遷移先が同じ閲覧画面のため`REDIRECT_VIEW`へ
- * まとめる。どちらの理由で転送されたかは呼び出し側の描画を変えない。
+ * 2種類の転送（未来日・登録できるカテゴリが残っていない）は遷移先が同じ閲覧画面のため
+ * `REDIRECT_VIEW`へまとめる。どちらの理由で転送されたかは呼び出し側の描画を変えない。
  *
- * @param queries 判定に関与する3本の取得結果
+ * 確定済み判定にはカテゴリ別の状態（isAllCategoriesReported）を使う。以前は資格勉強
+ * （exam_record_state）だけを見て転送していたため、資格勉強を確定した日は読書・仕事が
+ * 未入力でも閲覧画面へ飛ばされ、進捗を登録する手段が無かった（日次報告で2026-09-12に
+ * 是正した不具合、仕様書1.1（改20）と同型）。
+ *
+ * @param queries 判定に関与する6本の取得結果
+ * @param presence その日そのカテゴリに登録すべき対象があるか（resolveVisibleReportTargets）
  * @param targetDate 対象日（YYYY-MM-DD）
  */
 export function resolveProgressOnlyGuard(
   queries: ProgressOnlyGuardQueries,
+  presence: CategoryPresence,
   targetDate: string,
 ): ProgressOnlyGuard {
-  const { record, quota, today } = queries
+  const { record, quota, readingBooks, workAssignments, goals, today } = queries
   // エラーメッセージの優先順もこの並び順に従う（先に失敗を検出した取得のエラーを表示する）。
-  const allQueries = [record, quota, today]
+  const allQueries = [record, quota, readingBooks, workAssignments, goals, today]
 
   if (isAnyLoading(allQueries)) {
     return { kind: 'LOADING' }
   }
 
   const failed = findFailedQuery(allQueries)
-  // この画面は3本すべてが揃わないと描画できない（ノルマ＝入力欄、記録＝確定状況、
-  // 本日＝未来日判定）。取得は成功扱いでもデータが無ければ同様にエラーとする。
-  if (failed || record.data === undefined || quota.data === undefined || today.data === undefined) {
+  // 取得済みデータの有無まで要求するのはこの4本のみ。readingBooks・workAssignmentsは
+  // 以降も`?? []`として扱い、取得できなくても他カテゴリの入力を妨げない
+  // （resolveDailyReportGuardと同じ扱い）。
+  if (
+    failed ||
+    record.data === undefined ||
+    quota.data === undefined ||
+    goals.data === undefined ||
+    today.data === undefined
+  ) {
     return { kind: 'ERROR', error: failed?.error }
   }
 
@@ -56,11 +78,11 @@ export function resolveProgressOnlyGuard(
     return { kind: 'REDIRECT_VIEW' }
   }
 
-  // この画面はEXAM専用（study_logsのみ扱う）のため、資格勉強が確定済みなら
-  // 変更不可（仕様書7.2）。閲覧画面へ誘導する。
-  if (record.data.exam_record_state === 'REPORTED') {
+  // 登録対象のあるカテゴリがすべて確定済みなら、この画面でできることは無い（仕様書7.2）。
+  // 閲覧画面へ誘導する。
+  if (isAllCategoriesReported(presence, toCategoryReportedState(record.data))) {
     return { kind: 'REDIRECT_VIEW' }
   }
 
-  return { kind: 'EDITABLE', quota: quota.data }
+  return { kind: 'EDITABLE', record: record.data, quota: quota.data }
 }

@@ -635,6 +635,38 @@ def test_register_progress_updates_existing_work_log_for_same_assignment(seeded_
     assert record.work_logs[0].body == "上書き後の業務内容"
 
 
+def test_register_progress_records_all_categories_in_one_request(seeded_session):
+    """資格試験・読書・仕事を3つまとめて1リクエストで登録できる。
+
+    進捗のみ登録画面（SC-07）は確定（finalize）と違いカテゴリ別の操作を持たず、
+    登録1回で着手中の全カテゴリ分をまとめて送る（仕様書6.6、1.1（改21））。
+    カテゴリ単体の登録は個別に検証しているが、同時に送った場合は未検証だった。
+    """
+    exam_goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, exam_goal)
+    reading_goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, reading_goal)
+    work_goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, work_goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service.register_progress(
+        seeded_session,
+        today,
+        [_log(material.id)],
+        today,
+        [_reading_log(book.id)],
+        [_work_log(work_assignment.id)],
+    )
+
+    assert len(record.study_logs) == 1
+    assert len(record.reading_logs) == 1
+    assert len(record.work_logs) == 1
+    assert record.exam_record_state == RecordState.PROGRESS_ONLY
+    assert record.reading_record_state == RecordState.PROGRESS_ONLY
+    assert record.work_record_state == RecordState.PROGRESS_ONLY
+
+
 def test_finalize_work_record_persists_work_log(seeded_session):
     """仕事の確定は/finalize（EXAM）とは独立した専用関数（仕様変更2026-09-05）。"""
     goal = _make_work_goal(seeded_session)

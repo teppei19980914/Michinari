@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DailyRecordRead, QuotaItemRead, TodayRead } from '../../api/records'
 import { resolveProgressOnlyGuard, type ProgressOnlyGuardQueries } from './resolveProgressOnlyGuard'
+import type { CategoryPresence } from './categoryCompletion'
 import type { QueryLike } from '../../utils/queryGuard'
 
 const LOGICAL_DATE = '2026-09-13'
@@ -11,6 +12,13 @@ const RECORD = { exam_record_state: null } as unknown as DailyRecordRead
 const QUOTA = [] as QuotaItemRead[]
 const TODAY: TodayRead = { logical_date: LOGICAL_DATE, record_state: null }
 
+/** 資格試験の目標だけが着手中（従来のEXAM専用実装と同じ前提）。 */
+const EXAM_ONLY_PRESENCE: CategoryPresence = {
+  hasExamCategory: true,
+  hasReadingCategory: false,
+  hasWorkCategory: false,
+}
+
 function buildQuery<T>(data: T | undefined, overrides: Partial<QueryLike<T>> = {}): QueryLike<T> {
   return { isLoading: false, isError: false, error: null, data, ...overrides }
 }
@@ -20,6 +28,9 @@ function buildQueries(overrides: Partial<ProgressOnlyGuardQueries> = {}): Progre
   return {
     record: buildQuery<DailyRecordRead>(RECORD),
     quota: buildQuery<QuotaItemRead[]>(QUOTA),
+    readingBooks: buildQuery<unknown>([]),
+    workAssignments: buildQuery<unknown>([]),
+    goals: buildQuery<unknown>([]),
     today: buildQuery<TodayRead>(TODAY),
     ...overrides,
   }
@@ -28,13 +39,26 @@ function buildQueries(overrides: Partial<ProgressOnlyGuardQueries> = {}): Progre
 function resolve(
   overrides: Partial<ProgressOnlyGuardQueries> = {},
   targetDate: string = LOGICAL_DATE,
+  presence: CategoryPresence = EXAM_ONLY_PRESENCE,
 ) {
-  return resolveProgressOnlyGuard(buildQueries(overrides), targetDate)
+  return resolveProgressOnlyGuard(buildQueries(overrides), presence, targetDate)
 }
 
 const QUERY_NAMES = [
   'record',
   'quota',
+  'readingBooks',
+  'workAssignments',
+  'goals',
+  'today',
+] as const satisfies readonly (keyof ProgressOnlyGuardQueries)[]
+
+/** データの有無まで要求する取得。readingBooks・workAssignmentsは`?? []`として扱うため含めない
+ * （resolveDailyReportGuardと同じ扱い）。 */
+const REQUIRED_DATA_QUERY_NAMES = [
+  'record',
+  'quota',
+  'goals',
   'today',
 ] as const satisfies readonly (keyof ProgressOnlyGuardQueries)[]
 
@@ -64,10 +88,18 @@ describe('resolveProgressOnlyGuard', () => {
       expect(guard).toEqual({ kind: 'ERROR', error: recordError })
     })
 
-    // 取得は成功扱いなのにデータが無い場合も描画できない。3本すべてが対象。
-    it.each(QUERY_NAMES)('reports an error when the %s query has no data', (name) => {
+    // 取得は成功扱いなのにデータが無い場合も描画できない。
+    it.each(REQUIRED_DATA_QUERY_NAMES)('reports an error when the %s query has no data', (name) => {
       expect(resolve({ [name]: buildQuery(undefined) })).toEqual({ kind: 'ERROR', error: undefined })
     })
+
+    // 書籍・案件は取得できなくても他カテゴリの入力を妨げない（`?? []`として扱う）。
+    it.each(['readingBooks', 'workAssignments'] as const)(
+      'stays editable when the %s query has no data',
+      (name) => {
+        expect(resolve({ [name]: buildQuery(undefined) }).kind).toBe('EDITABLE')
+      },
+    )
   })
 
   describe('REDIRECT_VIEW', () => {
@@ -75,15 +107,31 @@ describe('resolveProgressOnlyGuard', () => {
       expect(resolve({}, FUTURE_DATE).kind).toBe('REDIRECT_VIEW')
     })
 
-    it('redirects when the exam category is already reported', () => {
+    it('redirects when the only category in progress is already reported', () => {
       const record = { exam_record_state: 'REPORTED' } as DailyRecordRead
       expect(resolve({ record: buildQuery(record) }).kind).toBe('REDIRECT_VIEW')
+    })
+
+    it('redirects once every category in progress has been reported', () => {
+      const record = {
+        exam_record_state: 'REPORTED',
+        reading_record_state: 'REPORTED',
+        work_record_state: 'REPORTED',
+      } as DailyRecordRead
+      const presence: CategoryPresence = {
+        hasExamCategory: true,
+        hasReadingCategory: true,
+        hasWorkCategory: true,
+      }
+      expect(resolve({ record: buildQuery(record) }, LOGICAL_DATE, presence).kind).toBe(
+        'REDIRECT_VIEW',
+      )
     })
   })
 
   describe('EDITABLE', () => {
-    it('returns the fetched quota so the caller needs no non-null assertion', () => {
-      expect(resolve()).toEqual({ kind: 'EDITABLE', quota: QUOTA })
+    it('returns the fetched record and quota so the caller needs no non-null assertion', () => {
+      expect(resolve()).toEqual({ kind: 'EDITABLE', record: RECORD, quota: QUOTA })
     })
 
     // 進捗のみ登録は当日・それ以前なら日付の古さを問わない（日次報告と違い確定を伴わないため）。
@@ -91,9 +139,30 @@ describe('resolveProgressOnlyGuard', () => {
       expect(resolve({}, '2026-01-01').kind).toBe('EDITABLE')
     })
 
-    it('stays editable while only another category is reported', () => {
-      const record = { exam_record_state: null, work_record_state: 'REPORTED' } as DailyRecordRead
-      expect(resolve({ record: buildQuery(record) }).kind).toBe('EDITABLE')
+    // 2026-09-12に日次報告で是正した不具合と同型の退行を防ぐ。資格勉強を確定した日でも、
+    // 読書・仕事が未確定なら進捗を登録できなければならない。
+    it('stays editable while another category in progress is not reported yet', () => {
+      const record = {
+        exam_record_state: 'REPORTED',
+        reading_record_state: null,
+      } as DailyRecordRead
+      const presence: CategoryPresence = {
+        hasExamCategory: true,
+        hasReadingCategory: true,
+        hasWorkCategory: false,
+      }
+      expect(resolve({ record: buildQuery(record) }, LOGICAL_DATE, presence).kind).toBe('EDITABLE')
+    })
+
+    // 着手中の目標が1件も無い日は「全カテゴリ確定済み」に当たらない（isAllCategoriesReported）。
+    // 入力欄の無い画面になるが、日次報告（SC-06）と同じ扱いに揃える。
+    it('stays editable when no category is in progress at all', () => {
+      const presence: CategoryPresence = {
+        hasExamCategory: false,
+        hasReadingCategory: false,
+        hasWorkCategory: false,
+      }
+      expect(resolve({}, LOGICAL_DATE, presence).kind).toBe('EDITABLE')
     })
   })
 })
