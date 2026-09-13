@@ -38,6 +38,10 @@ export default defineConfig({
         'src/features/goal/BookTab.tsx',
         'src/features/goal/LoadProfileTab.tsx',
         'src/features/goal/MaterialsTab.tsx',
+        // MaterialsTab から切り出した表示部品（Phase 36。1関数100行の上限への対応）。
+        // 切り出し元と同じく、描画テストで100%まで到達させる。
+        'src/features/goal/MaterialCard.tsx',
+        'src/features/goal/MaterialFormFields.tsx',
         'src/features/goal/ResourceAllocationTab.tsx',
         'src/features/goal/SubjectsTab.tsx',
         'src/features/goal/WorkAssignmentTab.tsx',

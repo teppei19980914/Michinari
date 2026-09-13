@@ -37,8 +37,6 @@ import sys
 import tomllib
 from pathlib import Path
 
-import release_smoke
-
 from app.services.system_info_service import build_info_to_json, collect_build_info
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -149,6 +147,10 @@ def run_smoke() -> None:
     おり起動するとブラウザが開くため、リリース中に割り込ませない
     （`release_smoke.py --package` で必要なときに実行する）。
     """
+    # release_smoke は配布物の命名・配置を本モジュールから取り込むため、モジュール先頭で
+    # 取り込むと循環参照になる。呼び出し時にだけ解決する。
+    import release_smoke
+
     print("  → リリース前スモーク (起動確認・既存DBの移行確認)")
     problems = release_smoke.collect_problems()
     if problems:

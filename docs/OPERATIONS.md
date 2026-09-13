@@ -866,6 +866,7 @@ APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMateria
 | バックエンド | `python -m pytest --cov-fail-under=100` | テスト失敗、または `app/` のカバレッジが100%未満 |
 | フロントエンド（型） | `npx tsc -b` | 型エラー |
 | フロントエンド（テスト） | `npm test`（`vitest run --coverage`） | テスト失敗、または計測対象のカバレッジが100%未満 |
+| リリース前スモーク | `release_smoke.collect_problems()` | アプリが起動しない、応答が200でない、既存データベースの移行で行が減る（下記「リリース前スモークテスト」） |
 
 **テストを追加したときに、このリストへ登録する作業は不要である。** pytest は
 `backend/pyproject.toml` の `testpaths`、vitest は既定の探索規則（`**/*.{test,spec}.*`）で
