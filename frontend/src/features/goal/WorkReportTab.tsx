@@ -16,9 +16,7 @@ import {
   updateSemiannualReview,
   type WorkReportRead,
 } from '../../api/closure'
-import { QUERY_KEYS } from '../../constants/queryKeys'
-
-type ReportKind = 'monthly' | 'semiannual'
+import { QUERY_KEYS, type WorkReportKind } from '../../constants/queryKeys'
 
 const ACHIEVEMENT_SCORES = [1, 2, 3, 4, 5] as const
 
@@ -30,7 +28,7 @@ const ACHIEVEMENT_SCORES = [1, 2, 3, 4, 5] as const
  * 表示欄として扱い、AIが再生成する対象ではない。ロジック・プロンプト編17.9「AIの
  * 役割を絞り込む設計」）。
  */
-export function WorkReportTab({ goalId, kind }: { goalId: number; kind: ReportKind }) {
+export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkReportKind }) {
   const queryClient = useQueryClient()
   const { showApiError, showToast } = useToast()
   const [period, setPeriod] = useState('')
