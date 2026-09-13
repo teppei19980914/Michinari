@@ -37,6 +37,8 @@ import sys
 import tomllib
 from pathlib import Path
 
+import release_smoke
+
 from app.services.system_info_service import build_info_to_json, collect_build_info
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -132,8 +134,33 @@ def resolve_version(current_version: str, *, prompt=input) -> str:
         return entered
 
 
+def run_smoke() -> None:
+    """リリース前スモーク（起動確認・既存DBの移行確認）を行う。問題があればビルドを中止する。
+
+    テストスイートでは原理的に確認できない2点（アプリが実際に起動して応答するか、既存の
+    利用者データベースが移行できるか）を、出荷前に機械的に確かめる（OPERATIONS.md
+    「リリース前スモークテスト」参照）。
+
+    `release.bat` の手順を増やさず `run_tests` の直後に置くのは、別手順にすると実行を
+    忘れうるためである。判定と表示は `release_smoke.collect_problems` に集約しており、
+    コマンドラインから単体で流したときと同じ確認を行う。
+
+    配布パッケージ（exe）の起動確認はここには含めない。配布物はフロントエンドを同梱して
+    おり起動するとブラウザが開くため、リリース中に割り込ませない
+    （`release_smoke.py --package` で必要なときに実行する）。
+    """
+    print("  → リリース前スモーク (起動確認・既存DBの移行確認)")
+    problems = release_smoke.collect_problems()
+    if problems:
+        print("  → スモークテストが失敗しました。配布パッケージのビルドを中止します。")
+        for problem in problems:
+            print(f"     - {problem}")
+        sys.exit(1)
+
+
 def run_tests() -> None:
-    """バックエンド・フロントエンド双方のテストを実行する。1件でも失敗すればビルドを中止する。
+    """バックエンド・フロントエンド双方のテストとリリース前スモークを実行する。
+    1件でも失敗すればビルドを中止する。
 
     配布パッケージに不具合を含んだまま出荷しないための最終防波堤として、ビルドの
     一番最初に置く（バージョン入力より前。失敗する可能性のあるビルドでユーザに
@@ -171,6 +198,8 @@ def run_tests() -> None:
         if result.returncode != 0:
             print(f"  → {label} が失敗しました。配布パッケージのビルドを中止します。")
             sys.exit(1)
+
+    run_smoke()
 
 
 def generate_build_info(

@@ -4,14 +4,14 @@ rem
 rem Run this AFTER merging your work into main (see OPERATIONS.md 7.4):
 rem   1. develop on dev/YYYY-MM-DD
 rem   2. merge into main (merge the PR on GitHub)
-rem   3. run smoke.bat  <- checks the app starts and the user database migrates
-rem   4. run this file  <- everything below is automatic
-rem   5. overwrite the release notes on the GitHub Releases page
-rem   6. press "Publish release" to distribute
+rem   3. run this file  <- everything below is automatic
+rem   4. overwrite the release notes on the GitHub Releases page
+rem   5. press "Publish release" to distribute
 rem
-rem Step 3 is separate on purpose: it starts a real server and touches a copy of
-rem the user database, so a flaky environment must not be able to abort a build
-rem whose test suites already passed. See scripts/release_smoke.py.
+rem The release gate runs the test suites AND the pre-release smoke (the app
+rem really starts, and the existing user database still migrates). The smoke is
+rem part of the gate rather than a separate step so it cannot be forgotten.
+rem See scripts/release_smoke.py; smoke.bat runs the same checks on their own.
 rem
 rem You do NOT need to switch to main first: this checks out main and brings it
 rem up to date on its own. It refuses to do so when your work is not yet merged,
@@ -19,7 +19,7 @@ rem because switching then would package changes that do not include your work.
 rem
 rem The release is created as a DRAFT so a release with unwritten notes is never
 rem visible to users. The tag and the zip are attached to the draft already, so
-rem step 5 is the only manual work left.
+rem step 4 is the only manual work left.
 rem
 rem See build.bat for why "uv sync" is retried (OneDrive file locking) and why
 rem every check below uses the single-line "if COND goto label" form.

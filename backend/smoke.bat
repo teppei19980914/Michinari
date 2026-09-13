@@ -1,8 +1,11 @@
 @echo off
 rem Run the pre-release smoke test (see scripts/release_smoke.py).
 rem
-rem Run this BEFORE release.bat. It checks the two things the test suites
-rem cannot cover:
+rem release.bat already runs these checks as part of the release gate, so the
+rem normal release flow does NOT need this file. Use it when you want to run the
+rem smoke on its own (for example while investigating a migration problem).
+rem
+rem It checks the two things the test suites cannot cover:
 rem   1. the app actually starts and answers (schema upgrade + seeding included)
 rem   2. the existing user database can be migrated without losing rows
 rem
@@ -49,9 +52,9 @@ exit /b 1
 uv run --no-sync python scripts\release_smoke.py
 if %errorlevel% neq 0 (
     echo.
-    echo Smoke test failed. Fix the problems above before running release.bat.
+    echo Smoke test failed. Fix the problems above.
 ) else (
     echo.
-    echo Smoke test passed. You can run release.bat now.
+    echo Smoke test passed.
 )
 pause
