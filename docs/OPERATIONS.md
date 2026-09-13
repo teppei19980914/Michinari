@@ -882,6 +882,7 @@ APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMateria
 | 確認すること | なぜテストスイートで確認できないか |
 | --- | --- |
 | アプリが実際に起動して応答するか | `app/main.py` の `__main__` と `_open_browser` は実サーバ・実ブラウザの起動を伴うため `pragma: no cover`。スキーマ更新（Alembic）と初期データ投入を含む起動経路は、プロセスを立ち上げて `/health` が返ることでしか確かめられない |
+| 配布パッケージ（exe）が起動するか | PyInstallerでの同梱物の取り込み漏れ・パス解決は、ソースからの起動では再現しない。`--package` 指定時のみ実行する |
 | 既存の利用者データベースが移行できるか | 空DBへの `upgrade head` は conftest が毎回行っているが、既存データを持つDBへの適用は別物。2026-08-29 に既存行のコピーが NOT NULL 制約違反になる不具合を配布した経緯がある（CODING_RULES.md「DBマイグレーションのテスト」） |
 
 **実行中のアプリや利用者データには触れない。** 起動は空きポート（OSに割り当てさせる）と一時DBで行い、
@@ -893,10 +894,15 @@ APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMateria
 
 ```bash
 # backend ディレクトリから
-uv run python scripts/release_smoke.py                 # 両方
-uv run python scripts/release_smoke.py --skip-startup  # 移行確認のみ
+uv run python scripts/release_smoke.py                    # 起動スモーク＋移行確認
+uv run python scripts/release_smoke.py --package          # 配布パッケージの起動も確認する
+uv run python scripts/release_smoke.py --skip-startup     # 移行確認のみ
 uv run python scripts/release_smoke.py --database <path>  # 別のDBを対象にする
 ```
+
+`--package` は既定で実行しない。配布物はフロントエンドを同梱しているため、起動すると1.5秒後にブラウザが開く（`app/main.py` の `_open_browser`。配布物本来の振る舞いであり、抑止する手段を製品側へ足すことはしない）。ビルド直後に一度だけ実行する使い方を想定している。
+
+配布パッケージは起動ポートを `app_setting.server.port` から決めるため、コマンドライン引数では空きポートを指定できない。そこでスモーク側が先にスキーマだけ作り、`server.port` の行を空きポートで入れておく（初期データ投入は既存キーを上書きしないため、この値がそのまま使われる）。利用者がアプリを起動したままでもスモークを実行できるようにするための仕組みである。
 
 `release.bat` からは意図的に切り離している。実サーバの起動を伴うため環境要因で不安定になりうり、
 テストスイートが通っているビルドを環境の揺らぎで止めてしまうのを避けるためである。
