@@ -69,7 +69,8 @@ DRY違反（重複）とは別に、単一のファイル/関数が肥大化・�
 
 - **目安**: 1関数は1画面に収まる程度（大まかな目安として100行以内）、ネストは3階層以内
 - **単一責任**: 1つの関数/コンポーネントが担う責務は1つに絞る。「〜と〜をする」関数は分割を検討
-- **機械的検知を優先**: 循環的複雑度（cyclomatic complexity）や関数行数の上限は、可能な限り `ruff check .` 側のLintルールで機械的に検知する（例: ESLint `complexity`/`max-lines-per-function`、Python `radon`/`ruff`、Dart `dart_code_metrics`）。LLMレビューの主観判断より優先する
+- **機械的検知を優先**: 循環的複雑度（cyclomatic complexity）や関数行数の上限は、可能な限りLintルールで機械的に検知する。LLMレビューの主観判断より優先する
+- **フロントエンドの設定**: `frontend/.oxlintrc.json` で `max-lines-per-function`（100行。コメント・空行は除外）と `max-depth`（3階層）を**warn**で有効化している。`npm run lint` に既存の超過分が並ぶが、これは「直すべき負債の一覧」であり、新しく増やさないための歯止めとして使う。テストファイルは `describe` のコールバックが1関数として数えられてしまうため `overrides` で対象外にしている
 - 検出は `dry-reviewer` エージェントが重複コードと合わせてレビューする（機械的Lintの補完）
 
 ---
@@ -80,6 +81,7 @@ DRY違反（重複）とは別に、単一のファイル/関数が肥大化・�
 |---|---|
 | 画面のラベル・ボタン文言 | `frontend/src/locales/ja.json` |
 | 画面ID・APIパス等「コード上の名前」 | `backend/app/constants/`、`frontend/src/constants/` |
+| キャッシュキー（TanStack Query） | `frontend/src/constants/queryKeys.ts`（取得と無効化が必ず同じキーを指すよう1箇所へ集約。前方一致に依存する組み合わせも同ファイルに明記） |
 | 複数画面で使う共通処理 | `backend/app/services/`（業務ロジック）、`frontend/src/hooks/`（フロント共通処理） |
 | 複数画面で使う共通部品 | `frontend/src/components/` |
 | 閾値・パラメータ | `app_setting` テーブル（画面から変更可能。ソースコードへの直接記述を禁止） |
