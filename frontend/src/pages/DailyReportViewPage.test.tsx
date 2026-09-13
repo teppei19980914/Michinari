@@ -6,12 +6,11 @@
  *
  * カバレッジの扱いは DailyReportPage.test.tsx と同じ（vite.config.ts の coverage.exclude）。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { ROUTES, ROUTE_PATTERNS } from '../constants/routes'
-import { ToastProvider } from '../components/Toast'
+import { renderWithProviders } from '../test/renderWithProviders'
 import { t } from '../locales/t'
 import * as goalsApi from '../api/goals'
 import * as recordsApi from '../api/records'
@@ -117,17 +116,11 @@ function setupQueries(goals: GoalRead[], record: DailyRecordRead) {
 }
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <MemoryRouter initialEntries={[ROUTES.dailyReportView(TARGET_DATE)]}>
-          <Routes>
-            <Route path={ROUTE_PATTERNS.dailyReportView} element={<DailyReportViewPage />} />
-          </Routes>
-        </MemoryRouter>
-      </ToastProvider>
-    </QueryClientProvider>,
+  renderWithProviders(
+    <Routes>
+      <Route path={ROUTE_PATTERNS.dailyReportView} element={<DailyReportViewPage />} />
+    </Routes>,
+    { initialEntries: [ROUTES.dailyReportView(TARGET_DATE)] },
   )
 }
 

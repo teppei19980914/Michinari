@@ -1,12 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, cleanup } from '@testing-library/react'
+import { screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
 import { ApiError } from '../../api/client'
 import type { GoalCategory } from '../../api/goals'
 import { ERROR_CODES } from '../../constants/errorCodes'
-import { ToastProvider } from '../../components/Toast'
+import { renderWithProviders } from '../../test/renderWithProviders'
 import { t } from '../../locales/t'
 import { CloseGoalModal } from './CloseGoalModal'
 
@@ -16,17 +14,9 @@ const closeGoal = vi.hoisted(() => vi.fn())
 vi.mock('../../api/goals', () => ({ closeGoal }))
 
 function renderModal(category: GoalCategory, onClosed = vi.fn()) {
-  // retry を切らないと失敗時に再試行が走り、エラー経路の検証が不安定になる。
-  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>{children}</ToastProvider>
-    </QueryClientProvider>
-  )
   const onClose = vi.fn()
-  render(
+  renderWithProviders(
     <CloseGoalModal goalId={1} category={category} open onClose={onClose} onClosed={onClosed} />,
-    { wrapper },
   )
   return { onClose, onClosed }
 }
@@ -153,19 +143,14 @@ describe('CloseGoalModal / 仕事目標', () => {
 
 describe('CloseGoalModal / 共通', () => {
   it('renders nothing while closed', () => {
-    const queryClient = new QueryClient()
-    render(
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <CloseGoalModal
-            goalId={1}
-            category="READING"
-            open={false}
-            onClose={vi.fn()}
-            onClosed={vi.fn()}
-          />
-        </ToastProvider>
-      </QueryClientProvider>,
+    renderWithProviders(
+      <CloseGoalModal
+        goalId={1}
+        category="READING"
+        open={false}
+        onClose={vi.fn()}
+        onClosed={vi.fn()}
+      />,
     )
 
     expect(screen.queryByText(t('goals.detail.closeConfirm.readingBody'))).toBeNull()

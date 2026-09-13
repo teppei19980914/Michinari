@@ -6,12 +6,11 @@
  *
  * カバレッジの扱いは DailyReportPage.test.tsx と同じ（vite.config.ts の coverage.exclude）。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { ROUTES, ROUTE_PATTERNS } from '../constants/routes'
-import { ToastProvider } from '../components/Toast'
+import { renderWithProviders } from '../test/renderWithProviders'
 import { t } from '../locales/t'
 import * as recordsApi from '../api/records'
 import * as resourcesApi from '../api/resources'
@@ -70,21 +69,13 @@ function setupQueries(record: DailyRecordRead = buildRecord()) {
 }
 
 function renderPage(targetDate: string = LOGICAL_DATE) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-  render(
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <MemoryRouter initialEntries={[ROUTES.dailyReportProgress(targetDate)]}>
-          <Routes>
-            <Route path={ROUTE_PATTERNS.dailyReportProgress} element={<ProgressOnlyPage />} />
-            <Route path={ROUTE_PATTERNS.dailyReportView} element={<p>{VIEW_PAGE_MARKER}</p>} />
-            <Route path={ROUTE_PATTERNS.dashboard} element={<p>{DASHBOARD_MARKER}</p>} />
-          </Routes>
-        </MemoryRouter>
-      </ToastProvider>
-    </QueryClientProvider>,
+  renderWithProviders(
+    <Routes>
+      <Route path={ROUTE_PATTERNS.dailyReportProgress} element={<ProgressOnlyPage />} />
+      <Route path={ROUTE_PATTERNS.dailyReportView} element={<p>{VIEW_PAGE_MARKER}</p>} />
+      <Route path={ROUTE_PATTERNS.dashboard} element={<p>{DASHBOARD_MARKER}</p>} />
+    </Routes>,
+    { initialEntries: [ROUTES.dailyReportProgress(targetDate)] },
   )
 }
 
