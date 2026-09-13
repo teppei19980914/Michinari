@@ -38,10 +38,6 @@ export default defineConfig({
         'src/features/goal/BookTab.tsx',
         'src/features/goal/LoadProfileTab.tsx',
         'src/features/goal/MaterialsTab.tsx',
-        // MaterialsTab から切り出した表示部品（Phase 36。1関数100行の上限への対応）。
-        // 切り出し元と同じく、描画テストで100%まで到達させる。
-        'src/features/goal/MaterialCard.tsx',
-        'src/features/goal/MaterialFormFields.tsx',
         'src/features/goal/ResourceAllocationTab.tsx',
         'src/features/goal/SubjectsTab.tsx',
         'src/features/goal/WorkAssignmentTab.tsx',
@@ -56,6 +52,29 @@ export default defineConfig({
         'src/features/dashboard/TodayQuotaSection.tsx',
         'src/features/dashboard/TodayStatusSection.tsx',
         'src/features/dashboard/WarningBanner.tsx',
+        // 1関数100行の上限（CODING_RULES.md「保守性（複雑度）」）への対応で、上記のタブや
+        // 画面（src/pages/**）から切り出した表示部品（Phase 36）。切り出し元が100%だったものを
+        // 分割しただけで計測面積が減るのは本末転倒のため、いずれも100%まで到達させる。
+        // StudyLogCard.tsx だけは切り出し元（features/record/*Fields.tsx）が除外側にあるが、
+        // 品質指標の方式で入力欄の形が3通りに変わり、取り違えても画面では気づけないため含める。
+        'src/features/calendar/CalendarHeader.tsx',
+        'src/features/calendar/ReportTypeChoiceModal.tsx',
+        'src/features/data/BackupList.tsx',
+        'src/features/data/DataActionsCard.tsx',
+        'src/features/export/ExportSelectionCard.tsx',
+        'src/features/export/ExportSummaryCard.tsx',
+        'src/features/export/RetrospectiveSection.tsx',
+        'src/features/goal/ExamResultFields.tsx',
+        'src/features/goal/MaterialCard.tsx',
+        'src/features/goal/MaterialFormFields.tsx',
+        'src/features/goal/SlotAllocationTable.tsx',
+        'src/features/goal/SubjectFormFields.tsx',
+        'src/features/goal/WorkReportForm.tsx',
+        'src/features/record/DailyRecordChatHistories.tsx',
+        'src/features/record/StudyLogCard.tsx',
+        'src/features/resource/SlotFormFields.tsx',
+        'src/features/settings/AiAssistantFields.tsx',
+        'src/features/settings/AiAuthStatusCard.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',

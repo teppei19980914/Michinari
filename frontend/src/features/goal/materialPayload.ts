@@ -5,7 +5,7 @@
  * 切り離して純粋関数に置き、単体テストで固定する（OPERATIONS.md「フロントエンドのテストと
  * カバレッジ」の「送信内容を決める判定を持つか」で線を引く方針）。 */
 import type { MaterialCreate } from '../../api/goals'
-import type { MaterialEnvironment, MaterialQualityMetricType } from './MaterialFormFields'
+import type { MaterialEnvironment, MaterialQualityMetricType } from './materialOptions'
 
 /** 教材フォームの入力値。数値項目も入力途中の状態を保てるよう文字列で持つ。 */
 export interface MaterialFormValues {

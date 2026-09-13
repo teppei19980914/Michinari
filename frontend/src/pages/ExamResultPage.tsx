@@ -5,27 +5,28 @@ import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
-import { Input } from '../components/Input'
-import { Textarea } from '../components/Textarea'
 import { useToast } from '../components/Toast'
 import { apiErrorMessage } from '../api/client'
 import { getGoal, type SubjectRead } from '../api/goals'
 import { generateRetrospective, registerExamResult, updateExamResult } from '../api/closure'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
+import { ExamResultFields } from '../features/goal/ExamResultFields'
+import type { ExamResultType } from '../features/goal/examResultOptions'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
-const RESULT_TYPES = ['PASS', 'FAIL', 'PENDING'] as const
-
+/** 科目1件分の受験結果（登録済みなら要約表示、未登録・編集中なら入力フォーム）。
+ *
+ * 入力欄の並びは ExamResultFields.tsx へ切り出してある（CODING_RULES.md「保守性
+ * （複雑度）」）。送信内容を決める判定（任意項目の空欄を`null`にする・既存の結果が
+ * あれば登録ではなく更新を呼ぶ）はこの関数に残す。 */
 function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectRead }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
   const existing = subject.exam_result
   const [editing, setEditing] = useState(existing === null)
   const [takenDate, setTakenDate] = useState(existing?.taken_date ?? '')
-  const [result, setResult] = useState<(typeof RESULT_TYPES)[number]>(
-    existing?.result ?? 'PENDING',
-  )
+  const [result, setResult] = useState<ExamResultType>(existing?.result ?? 'PENDING')
   const [score, setScore] = useState(
     existing?.score === null || existing?.score === undefined ? '' : String(existing.score),
   )
@@ -79,41 +80,18 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
           mutation.mutate()
         }}
       >
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goalResult.takenDateLabel')}
-          <Input
-            type="date"
-            value={takenDate}
-            onChange={(e) => setTakenDate(e.target.value)}
-            required
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goalResult.resultLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={result}
-            onChange={(e) => setResult(e.target.value as (typeof RESULT_TYPES)[number])}
-          >
-            {RESULT_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {t(`goalResult.result.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goalResult.scoreLabel')}
-          <Input type="number" value={score} onChange={(e) => setScore(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goalResult.evaluationLabel')}
-          <Input value={evaluation} onChange={(e) => setEvaluation(e.target.value)} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goalResult.noteLabel')}
-          <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
+        <ExamResultFields
+          takenDate={takenDate}
+          onChangeTakenDate={setTakenDate}
+          result={result}
+          onChangeResult={setResult}
+          score={score}
+          onChangeScore={setScore}
+          evaluation={evaluation}
+          onChangeEvaluation={setEvaluation}
+          note={note}
+          onChangeNote={setNote}
+        />
         <div className="flex justify-end gap-2">
           {existing && (
             <Button type="button" variant="secondary" onClick={() => setEditing(false)}>

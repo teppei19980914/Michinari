@@ -820,6 +820,10 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 
 **`.tsx` を計測対象へ含めるかは「送信内容を決める判定を持つか」で線を引く。** 画面本体だからという理由で一律に除外しない。Phase 35 では目標詳細の全8タブ（`BasicInfoTab`・`SubjectsTab`・`MaterialsTab`・`ResourceAllocationTab`・`LoadProfileTab`・`BookTab`・`WorkAssignmentTab`・`WorkReportTab`）を、300行規模のものも含めて除外せず描画テストで100%まで到達させた。いずれも「手動締切を off へ戻したら入力済みの日付を送らない」「任意項目の空欄は空文字ではなく `null` で送る」「既存の有無で作成と更新を呼び分ける」といった、壊れるとサーバへ誤った値が届く判定を持つためである。
 
+**1関数100行の上限への対応で切り出した `.tsx` も、切り出し元と同じ水準まで計測する。** Phase 36 で `max-lines-per-function` の超過13件を解消した際、入力欄・カード・モーダルを `features/` 配下へ切り出した（`MaterialFormFields`・`SubjectFormFields`・`WorkReportForm`・`SlotAllocationTable`・`StudyLogCard`・`SlotFormFields`・`ExamResultFields`・`BackupList`・`DataActionsCard`・`AiAuthStatusCard`・`AiAssistantFields`・`ReportTypeChoiceModal`・`CalendarHeader`・`ExportSelectionCard`・`RetrospectiveSection`・`DailyRecordChatHistories`）。切り出し元が100%だったものを分割しただけで計測面積が減るのは本末転倒のため、いずれも `include` へ明記して100%を維持している。切り出した先が `use*.ts`（フック）の場合は既存の除外規則（`src/**/use*.ts`）に従い計測しない。**この除外により、元は計測対象だった分岐がゲートの外へ出る点に注意する**（`useWorkReportDraft.ts` の `?? ''`、`useMaterialForm.ts` の初期値の絞り込みが該当）。振る舞い自体は切り出し元の描画テストが引き続き守るが、送信内容を決める判定をフックへ入れると網羅率の担保が失われるため、そうした判定は純粋関数の `.ts` 側へ置く（`materialPayload.ts` が該当。`buildMaterialPayload` は単体テスト付きで計測対象）。`*Options.ts`（選択肢の値）は `include`（`src/**/*.ts`）に一致し、コンポーネントから読み込まれるため計測対象に入るが、分岐を持たないため到達率は自然に100%になる。
+
+**画面単位の描画テストを新設すると、その画面が描画する既存の子部品まで計測対象に入る。** Phase 36 で `CalendarPage.test.tsx` を追加したところ、`CalendarGrid.tsx`（95%）と `DayTypeEditModal.tsx`（47%）が新たに計測対象へ入り閾値を割った。除外して逃げるのではなく、それぞれに部品単位のテスト（`CalendarGrid.test.tsx`・`DayTypeEditModal.test.tsx`）を追加して100%へ到達させた。後者は日種別の送信内容（種別の取り違え・「上書きを解除する」と種別送信の違い）を守るテストであり、計測対象化をきっかけに本来必要だった網が埋まった形になる。
+
 **表示しかしない `.tsx` でも、種別によって出す内容を変えるものは計測対象へ含める。** ダッシュボードの表示部品（`GoalCardList`・`StatsSummary`・`TodayMessage`・`TodayQuotaSection`・`WarningBanner`）が該当する。資格試験は計画管理の指標を、読書・仕事は記録の継続を示す指標を出す（要件定義書R-71・R-74）が、取り違えても数字が並ぶだけで画面を見ても気づけない。
 
 一方、入力欄の部品（`src/features/record/*Fields.tsx` 等）は判定を持たず入力ハンドラが並ぶだけのため除外を維持し、振る舞いは画面単位の描画テストが担う。
