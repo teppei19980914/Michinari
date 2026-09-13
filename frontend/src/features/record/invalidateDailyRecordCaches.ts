@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /**
  * 日次記録を更新（確定・進捗のみ登録）した後に作り直す必要のあるキャッシュをまとめて無効化する。
@@ -12,9 +13,9 @@ import type { QueryClient } from '@tanstack/react-query'
  * @param targetDate 更新した記録の日付（YYYY-MM-DD）
  */
 export function invalidateDailyRecordCaches(queryClient: QueryClient, targetDate: string): void {
-  queryClient.invalidateQueries({ queryKey: ['record', targetDate] })
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.record(targetDate) })
   // 本日の報告状況（ダッシュボードの導線）と、月次の記録状況（カレンダー）も変化する。
-  queryClient.invalidateQueries({ queryKey: ['today'] })
-  queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-  queryClient.invalidateQueries({ queryKey: ['calendar'] })
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.today() })
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard() })
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
 }

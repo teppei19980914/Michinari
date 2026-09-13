@@ -11,13 +11,14 @@ import {
   type AiPurpose,
   type PromptTemplateRead,
 } from '../../api/settings'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function TemplateEditor({ template }: { template: PromptTemplateRead }) {
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()
   const [body, setBody] = useState(template.body)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['prompt-templates'] })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.promptTemplates() })
 
   const saveMutation = useMutation({
     mutationFn: () => updatePromptTemplate(template.purpose, body),
@@ -77,7 +78,7 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
 /** プロンプトテンプレート編集（仕様書6.11。Phase7完了条件「プロンプトテンプレートが編集でき、
  * 初期値に戻せる」）。 */
 export function PromptTemplateSection() {
-  const query = useQuery({ queryKey: ['prompt-templates'], queryFn: listPromptTemplates })
+  const query = useQuery({ queryKey: QUERY_KEYS.promptTemplates(), queryFn: listPromptTemplates })
 
   return (
     <Card className="flex flex-col gap-3">

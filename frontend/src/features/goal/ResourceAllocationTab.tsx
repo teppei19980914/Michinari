@@ -16,6 +16,7 @@ import {
   totalMinutes,
   type SlotAllocationFormValues,
 } from './slotAllocationForm'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 1週間の日数（配分合計から1日あたりの平均を出すために使う）。 */
 const DAYS_PER_WEEK = 7
@@ -31,7 +32,7 @@ export function ResourceAllocationTab({
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()
   const query = useQuery({
-    queryKey: ['goal-slot-allocations', goal.id],
+    queryKey: QUERY_KEYS.goalSlotAllocations(goal.id),
     queryFn: () => listSlotAllocations(goal.id),
   })
   // 取得結果そのものではなく「利用者が編集した値」だけをstateに持つ。取得前・未編集の枠は
@@ -44,9 +45,9 @@ export function ResourceAllocationTab({
     mutationFn: () => updateSlotAllocations(goal.id, buildSlotAllocationPayload(rows, values)),
     onSuccess: () => {
       setEdited({})
-      queryClient.invalidateQueries({ queryKey: ['goal-slot-allocations', goal.id] })
-      queryClient.invalidateQueries({ queryKey: ['resource-allocation'] })
-      queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goalSlotAllocations(goal.id) })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceAllocation() })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

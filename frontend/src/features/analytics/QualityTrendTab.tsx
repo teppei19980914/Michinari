@@ -18,6 +18,7 @@ import { getQualityAnalytics, type Granularity } from '../../api/analytics'
 import { cycleSeriesColor, GRID_LINE_COLOR, THRESHOLD_LINE_COLOR } from './chartColors'
 import { cycleSeriesKey, mergeCycleSeries } from './mergeCycleSeries'
 import { formatAxisNumber, formatPeriodLabel } from './formatPeriod'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const GRANULARITIES: Granularity[] = ['DAY', 'WEEK', 'MONTH']
 
@@ -28,7 +29,7 @@ type QualityTrendTabProps = { goalId: number }
 export function QualityTrendTab({ goalId }: QualityTrendTabProps) {
   const [granularity, setGranularity] = useState<Granularity>('WEEK')
   const query = useQuery({
-    queryKey: ['analytics', 'quality', goalId, granularity],
+    queryKey: QUERY_KEYS.analyticsQuality(goalId, granularity),
     queryFn: () => getQualityAnalytics(goalId, granularity),
   })
 

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { listSlots } from '../../api/resources'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 「他の時間枠を追加」の候補となる全時間枠（slot_id → 名称）。
  * 配分していない枠でも実績は記録できる（仕様書6.5「未配分スロットの追加」）。
@@ -11,6 +12,6 @@ import { listSlots } from '../../api/resources'
  * 選択肢を埋めるための補助情報にすぎず、取得できなくても空のMapとして実績入力は続行できる
  * ため、ここで待たせると入力開始が不必要に遅れる。 */
 export function useSlotNames(): Map<number, string> {
-  const query = useQuery({ queryKey: ['resource-slots'], queryFn: listSlots })
+  const query = useQuery({ queryKey: QUERY_KEYS.resourceSlots(), queryFn: listSlots })
   return new Map((query.data ?? []).map((slot) => [slot.id, slot.name]))
 }

@@ -18,6 +18,7 @@ import {
 } from '../../api/goals'
 import { computeAutoDueDate } from './materialDueDate'
 import type { components } from '../../types/api.d.ts'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type SlotCheckRead = components['schemas']['SlotCheckRead']
 const ENVIRONMENTS = ['ANY', 'PC', 'MOBILE'] as const
@@ -25,7 +26,7 @@ const QUALITY_METRIC_TYPES = ['NONE', 'OBJECTIVE', 'SELF_SCORED', 'SUBJECTIVE'] 
 
 function SlotCheckWarning({ materialId }: { materialId: number }) {
   const query = useQuery({
-    queryKey: ['material-slot-check', materialId],
+    queryKey: QUERY_KEYS.materialSlotCheck(materialId),
     queryFn: () => apiClient.get<SlotCheckRead>(`/materials/${materialId}/slot-check`),
   })
   if (!query.data || query.data.sufficient) {
@@ -100,7 +101,7 @@ function MaterialForm({
       return material ? updateMaterial(material.id, shared) : createMaterial(goal.id, shared)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
       onDone()
     },
     onError: showApiError,
@@ -259,7 +260,7 @@ export function MaterialsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
 
   const deleteMutation = useMutation({
     mutationFn: (materialId: number) => deleteMaterial(materialId),

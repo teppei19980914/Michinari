@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query'
 import { getToday, type TodayRead } from '../../api/records'
 import { useDailyRecordQueries, type DailyRecordQueries } from './useDailyRecordQueries'
 import { useSlotNames } from './useSlotNames'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 export type DailyReportQueries = DailyRecordQueries & {
   today: UseQueryResult<TodayRead>
@@ -25,7 +26,7 @@ export function useDailyReportData(targetDate: string): DailyReportData {
   const recordQueries = useDailyRecordQueries(targetDate)
   // 入力可能期間（当日・前日）の判定に使う論理的な本日。クライアント側で現在日時から
   // 算出してはならない（技術選定書7.1「禁止事項」）ため、サーバのGET /records/todayから取得する。
-  const today = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const today = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
   const slotNames = useSlotNames()
 
   return { queries: { ...recordQueries, today }, slotNames }

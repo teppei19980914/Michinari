@@ -3,13 +3,14 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getForecastAnalytics } from '../../api/analytics'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type ForecastTabProps = { goalId: number }
 
 /** 分析画面「完了予測」タブ（仕様書6.8、ANL-05）。教材ごとの完了予測日と締切の乖離を表示する。 */
 export function ForecastTab({ goalId }: ForecastTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'forecast', goalId],
+    queryKey: QUERY_KEYS.analyticsForecast(goalId),
     queryFn: () => getForecastAnalytics(goalId),
   })
 

@@ -5,6 +5,7 @@ import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const THEMES = ['system', 'light', 'dark'] as const
 const GRANULARITIES = ['DAY', 'WEEK', 'MONTH'] as const
@@ -24,7 +25,7 @@ export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
         display: { locale, theme, default_granularity: granularity },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

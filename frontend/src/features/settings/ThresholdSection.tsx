@@ -6,6 +6,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 閾値設定（仕様書6.11「警告倍率」「強制リプラン超過日数」）。 */
 export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
@@ -27,7 +28,7 @@ export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

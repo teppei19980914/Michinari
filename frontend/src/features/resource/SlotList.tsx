@@ -12,6 +12,7 @@ import {
   updateSlot,
   type ResourceSlotRead,
 } from '../../api/resources'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const ENVIRONMENTS = ['PC', 'MOBILE'] as const
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const
@@ -49,8 +50,8 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
       return createSlot({ name, start_time: startTime, end_time: endTime, environment, weekdays })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resource-slots'] })
-      queryClient.invalidateQueries({ queryKey: ['resource-allocation'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceSlots() })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceAllocation() })
       onDone()
     },
     onError: showApiError,
@@ -146,13 +147,13 @@ export function SlotList() {
   const [addOpen, setAddOpen] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
 
-  const slotsQuery = useQuery({ queryKey: ['resource-slots'], queryFn: listSlots })
+  const slotsQuery = useQuery({ queryKey: QUERY_KEYS.resourceSlots(), queryFn: listSlots })
 
   const deleteMutation = useMutation({
     mutationFn: (slotId: number) => deleteSlot(slotId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['resource-slots'] })
-      queryClient.invalidateQueries({ queryKey: ['resource-allocation'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceSlots() })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceAllocation() })
     },
     onError: showApiError,
   })

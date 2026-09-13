@@ -7,6 +7,7 @@ import { useToast } from '../components/Toast'
 import { createBackup, downloadExportFile, importDataFile, listBackups, restoreBackup } from '../api/data'
 import { formatBytes } from '../features/data/formatBytes'
 import { downloadBlob } from '../utils/downloadBlob'
+import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-12 データ管理（仕様書6.12）。 */
 export function DataManagementPage() {
@@ -14,7 +15,7 @@ export function DataManagementPage() {
   const { showApiError, showToast } = useToast()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const backupsQuery = useQuery({ queryKey: ['backups'], queryFn: listBackups })
+  const backupsQuery = useQuery({ queryKey: QUERY_KEYS.backups(), queryFn: listBackups })
 
   const exportMutation = useMutation({
     mutationFn: async () => {
@@ -38,7 +39,7 @@ export function DataManagementPage() {
     mutationFn: createBackup,
     onSuccess: () => {
       showToast(t('dataManagement.backupSucceeded'))
-      queryClient.invalidateQueries({ queryKey: ['backups'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backups() })
     },
     onError: showApiError,
   })

@@ -3,6 +3,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getWorkLogAnalytics } from '../../api/analytics'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type WorkLogHistoryTabProps = { goalId: number }
 
@@ -11,7 +12,7 @@ type WorkLogHistoryTabProps = { goalId: number }
  * 列挙する（GET /analytics/work-logs）。 */
 export function WorkLogHistoryTab({ goalId }: WorkLogHistoryTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'work-logs', goalId],
+    queryKey: QUERY_KEYS.analyticsWorkLogs(goalId),
     queryFn: () => getWorkLogAnalytics(goalId),
   })
 

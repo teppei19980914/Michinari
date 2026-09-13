@@ -17,6 +17,7 @@ import { getProgressAnalytics } from '../../api/analytics'
 import { GRID_LINE_COLOR, PLAN_LINE_COLOR, cycleSeriesColor } from './chartColors'
 import { mergeProgressSeries } from './mergeProgressSeries'
 import { formatAxisNumber, formatDateTick } from './formatPeriod'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type ProgressTabProps = { goalId: number }
 
@@ -24,7 +25,7 @@ type ProgressTabProps = { goalId: number }
  * 周回の区切りを縦の参照線で表示する。 */
 export function ProgressTab({ goalId }: ProgressTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'progress', goalId],
+    queryKey: QUERY_KEYS.analyticsProgress(goalId),
     queryFn: () => getProgressAnalytics(goalId),
   })
 

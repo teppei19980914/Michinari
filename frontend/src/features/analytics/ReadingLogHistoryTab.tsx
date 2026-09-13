@@ -3,6 +3,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getReadingLogAnalytics } from '../../api/analytics'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type ReadingLogHistoryTabProps = { goalId: number }
 
@@ -11,7 +12,7 @@ type ReadingLogHistoryTabProps = { goalId: number }
  * 代わりに日々の想起記録を新しい順に列挙する（GET /analytics/reading-logs）。 */
 export function ReadingLogHistoryTab({ goalId }: ReadingLogHistoryTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'reading-logs', goalId],
+    queryKey: QUERY_KEYS.analyticsReadingLogs(goalId),
     queryFn: () => getReadingLogAnalytics(goalId),
   })
 
