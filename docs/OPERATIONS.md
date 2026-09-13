@@ -874,6 +874,38 @@ APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMateria
 `--cov-fail-under=100` を `pyproject.toml` の `addopts` ではなくここで明示的に渡しているのは、
 部分実行（`pytest tests/test_goal_service.py` 等）が常に閾値割れで失敗してしまうのを避けるため。
 
+## リリース前スモークテスト
+
+`backend/smoke.bat`（実体は `backend/scripts/release_smoke.py`）を **`release.bat` の前に**実行する。
+テストスイートでは原理的に確認できない次の2点を確かめる。
+
+| 確認すること | なぜテストスイートで確認できないか |
+| --- | --- |
+| アプリが実際に起動して応答するか | `app/main.py` の `__main__` と `_open_browser` は実サーバ・実ブラウザの起動を伴うため `pragma: no cover`。スキーマ更新（Alembic）と初期データ投入を含む起動経路は、プロセスを立ち上げて `/health` が返ることでしか確かめられない |
+| 既存の利用者データベースが移行できるか | 空DBへの `upgrade head` は conftest が毎回行っているが、既存データを持つDBへの適用は別物。2026-08-29 に既存行のコピーが NOT NULL 制約違反になる不具合を配布した経緯がある（CODING_RULES.md「DBマイグレーションのテスト」） |
+
+**実行中のアプリや利用者データには触れない。** 起動は空きポート（OSに割り当てさせる）と一時DBで行い、
+移行確認は `data/michinari.db` の**複製**に対して適用する。元のデータベースは読み取りしかしない。
+
+移行確認は、複製に `alembic upgrade head` を適用し、適用前後で**行数が減ったテーブルがないこと**を
+検証する。行やテーブルが増えるのは正常なので対象外とする。既存DBが無い環境（新規導入直後）では
+移行確認を省略し、失敗にはしない。
+
+```bash
+# backend ディレクトリから
+uv run python scripts/release_smoke.py                 # 両方
+uv run python scripts/release_smoke.py --skip-startup  # 移行確認のみ
+uv run python scripts/release_smoke.py --database <path>  # 別のDBを対象にする
+```
+
+`release.bat` からは意図的に切り離している。実サーバの起動を伴うため環境要因で不安定になりうり、
+テストスイートが通っているビルドを環境の揺らぎで止めてしまうのを避けるためである。
+
+判定ロジック（起動待ち・エンドポイント確認・行数比較）のテストは
+`backend/tests/test_release_smoke.py` にあり、通常の `pytest` で実行される。実プロセスの起動と
+実HTTP通信はOS・ネットワーク依存が大きいため対象外としている（`test_build_package.py` が
+PyInstaller本体を対象外としているのと同じ方針）。
+
 Stop Hook のデプロイチェックも同じ `pytest --cov-fail-under=100` を実行するが、`COVERAGE_FILE`
 で専用のデータファイル（`backend/.coverage.stop-hook`）を指定している。pytest-cov（coverage.py）は
 既定で作業ディレクトリの `.coverage` へ計測結果を書くため、開発者が手元で `pytest` を回している
