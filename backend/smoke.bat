@@ -6,6 +6,10 @@ rem cannot cover:
 rem   1. the app actually starts and answers (schema upgrade + seeding included)
 rem   2. the existing user database can be migrated without losing rows
 rem
+rem Add --package to also extract the latest dist zip and start the real
+rem Michinari.exe. That is off by default because the packaged app bundles the
+rem frontend and therefore opens a browser window on startup.
+rem
 rem Both run against throwaway copies: the app starts on a free port with a
 rem temporary database, and the migration is applied to a copy of data/michinari.db.
 rem Nothing touches a running app or the real data.

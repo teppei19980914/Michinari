@@ -13,8 +13,11 @@ from pathlib import Path
 
 import pytest
 from release_smoke import (
+    _run_package_step,
     build_child_env,
     check_endpoints,
+    extract_package,
+    find_latest_package,
     find_shrunk_tables,
     main,
     run_startup_smoke,
@@ -301,3 +304,89 @@ class TestMain:
     def test_can_skip_both_checks(self, capsys: pytest.CaptureFixture[str]) -> None:
         assert main(["--skip-startup", "--skip-migration"]) == 0
         assert "全て通過" in capsys.readouterr().out
+
+
+def _write_zip(zip_path: Path, names: list[str]) -> None:
+    """指定した相対パスを持つだけのzipを作る（中身は検証に使わないため空でよい）。"""
+    import zipfile
+
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        for name in names:
+            archive.writestr(name, "")
+
+
+class TestFindLatestPackage:
+    def test_returns_none_when_the_directory_does_not_exist(self, tmp_path: Path) -> None:
+        assert find_latest_package(tmp_path / "absent") is None
+
+    def test_returns_none_when_there_is_no_package(self, tmp_path: Path) -> None:
+        assert find_latest_package(tmp_path) is None
+
+    def test_picks_the_most_recently_built_package(self, tmp_path: Path) -> None:
+        import os
+
+        older = tmp_path / "Michinari-v1.0.0.zip"
+        newer = tmp_path / "Michinari-v1.2.2.zip"
+        _write_zip(older, ["Michinari/Michinari.exe"])
+        _write_zip(newer, ["Michinari/Michinari.exe"])
+        os.utime(older, (1000, 1000))
+        os.utime(newer, (2000, 2000))
+
+        assert find_latest_package(tmp_path) == newer
+
+    def test_ignores_zips_bundled_inside_the_package(self, tmp_path: Path) -> None:
+        # dist/Michinari/_internal/base_library.zip のような同梱物を拾ってはいけない。
+        nested = tmp_path / "Michinari" / "_internal"
+        nested.mkdir(parents=True)
+        _write_zip(nested / "Michinari-v9.9.9.zip", ["dummy"])
+
+        assert find_latest_package(tmp_path) is None
+
+
+class TestExtractPackage:
+    def test_returns_the_path_of_the_executable(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "Michinari-v1.0.0.zip"
+        _write_zip(zip_path, ["Michinari/Michinari.exe", "Michinari/readme.txt"])
+
+        exe_path = extract_package(zip_path, tmp_path / "out")
+
+        assert exe_path is not None
+        assert exe_path.name == "Michinari.exe"
+        assert exe_path.is_file()
+
+    def test_returns_none_when_the_executable_is_missing(self, tmp_path: Path) -> None:
+        zip_path = tmp_path / "Michinari-v1.0.0.zip"
+        _write_zip(zip_path, ["Michinari/readme.txt"])
+
+        assert extract_package(zip_path, tmp_path / "out") is None
+
+
+class TestRunPackageStep:
+    def test_does_nothing_without_the_option(self, capsys: pytest.CaptureFixture[str]) -> None:
+        assert _run_package_step(None) == []
+        assert "省略" in capsys.readouterr().out
+
+    def test_skips_when_no_package_has_been_built_yet(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        # ビルド前の状態は正常なので失敗にしない。
+        monkeypatch.setattr("release_smoke.find_latest_package", lambda: None)
+
+        assert _run_package_step("latest") == []
+        assert "省略" in capsys.readouterr().out
+
+    def test_reports_a_missing_package_given_explicitly(self, tmp_path: Path) -> None:
+        problems = _run_package_step(str(tmp_path / "absent.zip"))
+
+        assert len(problems) == 1
+        assert "見つかりません" in problems[0]
+
+    def test_runs_the_smoke_for_the_latest_package(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        zip_path = tmp_path / "Michinari-v1.0.0.zip"
+        _write_zip(zip_path, ["Michinari/Michinari.exe"])
+        monkeypatch.setattr("release_smoke.find_latest_package", lambda: zip_path)
+        monkeypatch.setattr("release_smoke.run_package_smoke", lambda _z: ["起動しませんでした"])
+
+        assert _run_package_step("latest") == ["起動しませんでした"]

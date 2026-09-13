@@ -38,10 +38,18 @@ from tempfile import TemporaryDirectory
 from alembic.config import Config
 
 from alembic import command
-from app.constants.app_setting_keys import SERVER_PORT as SERVER_PORT_KEY
-from app.init.seed_data import INITIAL_APP_SETTINGS
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+# ファイルとして実行されると sys.path[0] は scripts/ になり、app パッケージを解決できない。
+# `uv run` 経由なら通るが、`python scripts/release_smoke.py` でも動くよう backend/ を加える
+# （テストからの取り込み時は既に解決済みのため二重に入れない）。
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from app.constants.app_setting_keys import SERVER_PORT as SERVER_PORT_KEY  # noqa: E402
+from app.init.seed_data import INITIAL_APP_SETTINGS  # noqa: E402
+
 ALEMBIC_INI_PATH = BACKEND_DIR / "alembic.ini"
 DATA_DIR = BACKEND_DIR.parent / "data"
 DEFAULT_DB_PATH = DATA_DIR / "michinari.db"
@@ -362,6 +370,29 @@ def run_startup_smoke(
             stop_app(process)
 
 
+def _run_package_step(package: str | None) -> list[str]:
+    """`--package` の指定に応じて配布パッケージの起動スモークを行い、問題の説明を返す。
+
+    未指定なら何もしない。`--package`（値なし）なら `dist/` の最新zipを対象にし、
+    zipが無い環境ではビルド前の状態として省略する（失敗にはしない）。
+    """
+    if package is None:
+        print("[3/3] 配布パッケージの起動: 省略（--package の指定時のみ実行）")
+        return []
+
+    zip_path = find_latest_package() if package == "latest" else Path(package)
+    if zip_path is None:
+        print(f"[3/3] 配布パッケージの起動: zipが無いため省略（{DIST_DIR}）")
+        return []
+    if not zip_path.is_file():
+        return [f"配布パッケージが見つかりません（{zip_path}）"]
+
+    print(f"[3/3] 配布パッケージの起動を確認しています…（{zip_path.name}）")
+    found = run_package_smoke(zip_path)
+    print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
+    return found
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="リリース前スモークテスト")
     parser.add_argument(
@@ -372,29 +403,42 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--skip-startup", action="store_true", help="起動スモークを省略する")
     parser.add_argument("--skip-migration", action="store_true", help="移行確認を省略する")
+    parser.add_argument(
+        "--package",
+        nargs="?",
+        const="latest",
+        default=None,
+        metavar="ZIP",
+        help=(
+            "配布パッケージの起動も確認する（省略時は dist/ の最新zip）。"
+            "配布物はフロントエンドを同梱しているため起動時にブラウザが開く。既定では実行しない"
+        ),
+    )
     args = parser.parse_args(argv)
 
     problems: list[str] = []
 
     if args.skip_startup:
-        print("[1/2] 起動スモーク: 省略")
+        print("[1/3] 起動スモーク: 省略")
     else:
-        print("[1/2] 起動スモークを実行しています…")
+        print("[1/3] 起動スモークを実行しています…")
         found = run_startup_smoke()
         problems.extend(found)
         print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
 
     if args.skip_migration:
-        print("[2/2] 移行確認: 省略")
+        print("[2/3] 移行確認: 省略")
     elif not args.database.is_file():
         # 新規環境では既存DBが無いのが正常なので、失敗にはしない。
-        print(f"[2/2] 移行確認: 対象のデータベースがないため省略（{args.database}）")
+        print(f"[2/3] 移行確認: 対象のデータベースがないため省略（{args.database}）")
     else:
-        print(f"[2/2] 移行確認を実行しています…（{args.database} の複製に対して）")
+        print(f"[2/3] 移行確認を実行しています…（{args.database} の複製に対して）")
         with TemporaryDirectory() as temp_dir:
             found = verify_migration(args.database, Path(temp_dir))
         problems.extend(found)
         print("  → 問題なし" if not found else f"  → {len(found)} 件の問題")
+
+    problems.extend(_run_package_step(args.package))
 
     if problems:
         print("\nスモークテストで問題が見つかりました:")
