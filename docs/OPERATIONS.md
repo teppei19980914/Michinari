@@ -807,7 +807,8 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 
 | 除外 | 理由 |
 | --- | --- |
-| `src/pages/**/*.tsx`、`src/features/record/*.tsx` | 画面と入力欄。描画テストが読み込むため放置すると閾値割れする。振る舞いは描画テストで守る |
+| `src/pages/**/*.tsx` | 画面本体。描画テストが読み込むため放置すると閾値割れする。振る舞いは描画テストで守る |
+| `src/features/record/*Fields.tsx`、`*SummaryList.tsx`、`ChatPanel.tsx`、`CommentSection.tsx`、`GoalTabBar.tsx` | 入力欄・一覧の部品（同上）。ディレクトリ丸ごとではなく列挙するのは、判定を含む `.tsx`（`CategoryReportSection.tsx`）まで黙って計測外になるのを防ぐため |
 | `src/**/*.test.ts`、`src/**/*.test.tsx` | テストコード自体 |
 | `src/**/use*.ts` | Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を検証しても実際の使われ方を再現できない |
 | `src/types/**` | `openapi-typescript` による自動生成 |

@@ -39,6 +39,7 @@ import {
   buildWorkAssignmentLabels,
 } from '../features/record/summaryLabels'
 import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
+import { patchFormValue } from '../features/record/formValues'
 import { filterCategoryMessages } from '../features/record/dailyChatMessage'
 import { useCategoryChat } from '../features/record/useCategoryChat'
 import { useCategoryFinalize } from '../features/record/useCategoryFinalize'
@@ -385,26 +386,19 @@ export function DailyReportPage() {
                 values={studyLogValues}
                 slotNames={slotNames}
                 onChangeField={(materialId, field, value) =>
-                  setStudyLogValues((current) => ({
-                    ...current,
-                    [materialId]: { ...current[materialId], [field]: value },
-                  }))
+                  setStudyLogValues((current) => patchFormValue(current, materialId, field, value))
                 }
                 onChangeSlotMinutes={(materialId, slotMinutes) =>
-                  setStudyLogValues((current) => ({
-                    ...current,
-                    [materialId]: { ...current[materialId], slotMinutes },
-                  }))
+                  setStudyLogValues((current) =>
+                    patchFormValue(current, materialId, 'slotMinutes', slotMinutes),
+                  )
                 }
               />
               <DiaryFields
                 activeGoals={visibleDiaryGoals}
                 values={diaryValues}
                 onChangeField={(goalId, field, value) =>
-                  setDiaryValues((current) => ({
-                    ...current,
-                    [goalId]: { ...current[goalId], [field]: value },
-                  }))
+                  setDiaryValues((current) => patchFormValue(current, goalId, field, value))
                 }
               />
             </>
@@ -433,16 +427,12 @@ export function DailyReportPage() {
               values={readingLogValues}
               slotNames={slotNames}
               onChangeField={(bookId, field, value) =>
-                setReadingLogValues((current) => ({
-                  ...current,
-                  [bookId]: { ...current[bookId], [field]: value },
-                }))
+                setReadingLogValues((current) => patchFormValue(current, bookId, field, value))
               }
               onChangeSlotMinutes={(bookId, slotMinutes) =>
-                setReadingLogValues((current) => ({
-                  ...current,
-                  [bookId]: { ...current[bookId], slotMinutes },
-                }))
+                setReadingLogValues((current) =>
+                  patchFormValue(current, bookId, 'slotMinutes', slotMinutes),
+                )
               }
             />
           }
@@ -472,10 +462,9 @@ export function DailyReportPage() {
               workAssignments={visibleWorkAssignments}
               values={workLogValues}
               onChangeField={(workAssignmentId, field, value) =>
-                setWorkLogValues((current) => ({
-                  ...current,
-                  [workAssignmentId]: { ...current[workAssignmentId], [field]: value },
-                }))
+                setWorkLogValues((current) =>
+                  patchFormValue(current, workAssignmentId, field, value),
+                )
               }
             />
           }

@@ -11,6 +11,7 @@ import { StudyLogFields } from '../features/record/StudyLogFields'
 import { isFutureDate } from '../features/record/finalizableDate'
 import { useSlotNames } from '../features/record/useSlotNames'
 import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
+import { patchFormValue } from '../features/record/formValues'
 import {
   buildStudyLogPayload,
   hasAnyStudyLogInput,
@@ -102,16 +103,12 @@ export function ProgressOnlyPage() {
         slotNames={slotNames}
         showMinutesOptionalNotice
         onChangeField={(materialId, field, value) =>
-          setStudyLogValues((current) => ({
-            ...current,
-            [materialId]: { ...current[materialId], [field]: value },
-          }))
+          setStudyLogValues((current) => patchFormValue(current, materialId, field, value))
         }
         onChangeSlotMinutes={(materialId, slotMinutes) =>
-          setStudyLogValues((current) => ({
-            ...current,
-            [materialId]: { ...current[materialId], slotMinutes },
-          }))
+          setStudyLogValues((current) =>
+            patchFormValue(current, materialId, 'slotMinutes', slotMinutes),
+          )
         }
       />
 
