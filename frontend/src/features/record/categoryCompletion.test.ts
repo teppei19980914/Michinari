@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isAllCategoriesReported } from './categoryCompletion'
+import type { DailyRecordRead } from '../../api/records'
+import { isAllCategoriesReported, toCategoryReportedState } from './categoryCompletion'
 
 describe('isAllCategoriesReported', () => {
   it('returns false when no category has any active goal', () => {
@@ -56,5 +57,45 @@ describe('isAllCategoriesReported', () => {
         { isExamReported: true, isReadingReported: false, isWorkReported: true },
       ),
     ).toBe(true)
+  })
+})
+
+describe('toCategoryReportedState', () => {
+  function buildRecord(states: Partial<DailyRecordRead>): DailyRecordRead {
+    return {
+      exam_record_state: null,
+      reading_record_state: null,
+      work_record_state: null,
+      ...states,
+    } as DailyRecordRead
+  }
+
+  it('treats a record that has not been fetched yet as nothing reported', () => {
+    // 取得前に確定済みとみなすと、未確定カテゴリの入力欄が一瞬だけ読み取り専用になる。
+    expect(toCategoryReportedState(undefined)).toEqual({
+      isExamReported: false,
+      isReadingReported: false,
+      isWorkReported: false,
+    })
+  })
+
+  it('maps each category state independently', () => {
+    expect(
+      toCategoryReportedState(
+        buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'PROGRESS_ONLY' }),
+      ),
+    ).toEqual({ isExamReported: true, isReadingReported: false, isWorkReported: false })
+  })
+
+  it('marks every category as reported once all three are finalized', () => {
+    expect(
+      toCategoryReportedState(
+        buildRecord({
+          exam_record_state: 'REPORTED',
+          reading_record_state: 'REPORTED',
+          work_record_state: 'REPORTED',
+        }),
+      ),
+    ).toEqual({ isExamReported: true, isReadingReported: true, isWorkReported: true })
   })
 })

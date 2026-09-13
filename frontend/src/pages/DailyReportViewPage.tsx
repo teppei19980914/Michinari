@@ -1,22 +1,25 @@
 import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { Card } from '../components/Card'
-import { getQuota, getRecord, type ChatMessageRead } from '../api/records'
-import { listActiveReadingBooks, listActiveWorkAssignments, listGoals } from '../api/goals'
-import { StudyLogSummaryList, type MaterialLabel } from '../features/record/StudyLogSummaryList'
-import { ReadingLogSummaryList, type BookLabel } from '../features/record/ReadingLogSummaryList'
-import {
-  WorkLogSummaryList,
-  type WorkAssignmentLabel,
-} from '../features/record/WorkLogSummaryList'
+import type { ChatMessageRead } from '../api/records'
+import { StudyLogSummaryList } from '../features/record/StudyLogSummaryList'
+import { ReadingLogSummaryList } from '../features/record/ReadingLogSummaryList'
+import { WorkLogSummaryList } from '../features/record/WorkLogSummaryList'
 import { DiaryEntrySummaryList } from '../features/record/DiaryEntrySummaryList'
 import { ChatPanel } from '../features/record/ChatPanel'
 import { CommentSection } from '../features/record/CommentSection'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
+import { useDailyRecordQueries } from '../features/record/useDailyRecordQueries'
+import {
+  buildBookLabels,
+  buildMaterialLabels,
+  buildWorkAssignmentLabels,
+} from '../features/record/summaryLabels'
+import { filterWrittenDiaryEntries } from '../features/record/diaryForm'
+import { isSectionVisible } from '../features/record/sectionVisibility'
 
 /** SC-08 日次報告閲覧（仕様書6.7）。実績・日記は読み取り専用、コメントのみ追加・修正・削除
  * が可能。カレンダーから「進捗のみ登録済かつ2日以上前」を選んだ場合もこの画面を再利用する
@@ -33,26 +36,13 @@ export function DailyReportViewPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
 
-  const recordQuery = useQuery({
-    queryKey: ['record', targetDate],
-    queryFn: () => getRecord(targetDate),
-  })
-  const quotaQuery = useQuery({
-    queryKey: ['quota', targetDate],
-    queryFn: () => getQuota(targetDate),
-  })
-  const readingBooksQuery = useQuery({
-    queryKey: ['activeReadingBooks'],
-    queryFn: listActiveReadingBooks,
-  })
-  const workAssignmentsQuery = useQuery({
-    queryKey: ['activeWorkAssignments'],
-    queryFn: listActiveWorkAssignments,
-  })
-  const goalsQuery = useQuery({
-    queryKey: ['goals'],
-    queryFn: () => listGoals(),
-  })
+  const {
+    record: recordQuery,
+    quota: quotaQuery,
+    readingBooks: readingBooksQuery,
+    workAssignments: workAssignmentsQuery,
+    goals: goalsQuery,
+  } = useDailyRecordQueries(targetDate)
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId, selectedGoal } =
     useGoalReportTabs(goalsQuery.data ?? [])
 
@@ -82,28 +72,10 @@ export function DailyReportViewPage() {
   }
 
   const record = recordQuery.data
-  const diaryEntries = record.diary_entries.filter(
-    (entry) => entry.diary_body || entry.diary_learned,
-  )
-  const materialLabels = new Map<number, MaterialLabel>(
-    (quotaQuery.data ?? []).map((item) => [
-      item.material_id,
-      {
-        name: item.material_name,
-        unitLabel: item.unit_label,
-        qualityMetricType: item.quality_metric_type,
-      },
-    ]),
-  )
-  const bookLabels = new Map<number, BookLabel>(
-    (readingBooksQuery.data ?? []).map((entry) => [entry.book.id, { title: entry.book.title }]),
-  )
-  const workAssignmentLabels = new Map<number, WorkAssignmentLabel>(
-    (workAssignmentsQuery.data ?? []).map((entry) => [
-      entry.workAssignment.id,
-      { clientName: entry.workAssignment.client_name },
-    ]),
-  )
+  const diaryEntries = filterWrittenDiaryEntries(record.diary_entries)
+  const materialLabels = buildMaterialLabels(quotaQuery.data ?? [])
+  const bookLabels = buildBookLabels(readingBooksQuery.data ?? [])
+  const workAssignmentLabels = buildWorkAssignmentLabels(workAssignmentsQuery.data ?? [])
   // 日次フィードバックを目標単位の会話へ分離したため（Phase26、未決事項L-07の解消方針
   // 転換）、目標タブ表示中（showGoalSelector=true、着手中の目標が2件以上）は選択中の目標
   // 宛て（＋goal_id=nullの移行前レガシー）のみに絞り込む。タブが無い場合は従来どおり
@@ -121,28 +93,22 @@ export function DailyReportViewPage() {
     (m) => m.purpose === 'DAILY_FEEDBACK_WORK' && matchesSelectedGoal(m),
   )
 
-  // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、選択タブに関わらず従来通り
-  // データの有無のみで各セクションの表示を判定する（DailyReportPageのshow*Sectionと
-  // 同じ考え方）。
-  const showExamSection = showGoalSelector ? selectedGoal?.category === 'EXAM' : true
-  const showReadingSection = showGoalSelector
-    ? selectedGoal?.category === 'READING' && record.reading_logs.length > 0
-    : record.reading_logs.length > 0
-  const showWorkSection = showGoalSelector
-    ? selectedGoal?.category === 'WORK' && record.work_logs.length > 0
-    : record.work_logs.length > 0
-  const showDiarySection = showGoalSelector
-    ? selectedGoal?.category === 'EXAM' && diaryEntries.length > 0
-    : diaryEntries.length > 0
-  const showExamChatHistory = showGoalSelector
-    ? selectedGoal?.category === 'EXAM' && examMessages.length > 0
-    : examMessages.length > 0
-  const showReadingChatHistory = showGoalSelector
-    ? selectedGoal?.category === 'READING' && readingMessages.length > 0
-    : readingMessages.length > 0
-  const showWorkChatHistory = showGoalSelector
-    ? selectedGoal?.category === 'WORK' && workMessages.length > 0
-    : workMessages.length > 0
+  // セクションの表示可否は日次報告画面（SC-06）と同じ規則へ寄せる（sectionVisibility.ts）。
+  // タブが無い間は中身の有無だけで判定し、タブがある場合は選択中のカテゴリのみ表示する。
+  const goalTabs = { showGoalSelector, selectedGoal }
+  // 資格試験のみ中身の有無を問わない。実績も日記も無い日でも、その日を「報告済みだが
+  // 記録なし」として開けるようにするための従来の挙動。
+  const showExamSection = isSectionVisible(goalTabs, 'EXAM', true)
+  const showReadingSection = isSectionVisible(goalTabs, 'READING', record.reading_logs.length > 0)
+  const showWorkSection = isSectionVisible(goalTabs, 'WORK', record.work_logs.length > 0)
+  const showDiarySection = isSectionVisible(goalTabs, 'EXAM', diaryEntries.length > 0)
+  const showExamChatHistory = isSectionVisible(goalTabs, 'EXAM', examMessages.length > 0)
+  const showReadingChatHistory = isSectionVisible(
+    goalTabs,
+    'READING',
+    readingMessages.length > 0,
+  )
+  const showWorkChatHistory = isSectionVisible(goalTabs, 'WORK', workMessages.length > 0)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">

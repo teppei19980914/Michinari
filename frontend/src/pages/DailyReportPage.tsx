@@ -1,41 +1,47 @@
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useBlocker, useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { useToast } from '../components/Toast'
-import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { ROUTES } from '../constants/routes'
 import {
+  type ChatMessageRead,
   type DailyRecordRead,
   finalizeReadingRecord,
   finalizeRecord,
   finalizeWorkRecord,
-  getQuota,
-  getRecord,
-  getToday,
   sendChat,
   sendReadingChat,
   sendWorkChat,
 } from '../api/records'
-import { listActiveReadingBooks, listActiveWorkAssignments, listGoals } from '../api/goals'
 import { StudyLogFields } from '../features/record/StudyLogFields'
-import { listSlots } from '../api/resources'
-import { StudyLogSummaryList, type MaterialLabel } from '../features/record/StudyLogSummaryList'
+import { StudyLogSummaryList } from '../features/record/StudyLogSummaryList'
 import { ReadingLogFields } from '../features/record/ReadingLogFields'
-import { ReadingLogSummaryList, type BookLabel } from '../features/record/ReadingLogSummaryList'
+import { ReadingLogSummaryList } from '../features/record/ReadingLogSummaryList'
 import { WorkLogFields } from '../features/record/WorkLogFields'
-import {
-  WorkLogSummaryList,
-  type WorkAssignmentLabel,
-} from '../features/record/WorkLogSummaryList'
+import { WorkLogSummaryList } from '../features/record/WorkLogSummaryList'
 import { DiaryFields } from '../features/record/DiaryFields'
 import { DiaryEntrySummaryList } from '../features/record/DiaryEntrySummaryList'
-import { ChatPanel } from '../features/record/ChatPanel'
-import { isAllCategoriesReported } from '../features/record/categoryCompletion'
-import { isFinalizableDate } from '../features/record/finalizableDate'
+import {
+  isAllCategoriesReported,
+  toCategoryReportedState,
+} from '../features/record/categoryCompletion'
+import { useDailyReportData } from '../features/record/useDailyReportData'
+import { resolveDailyReportGuard } from '../features/record/resolveDailyReportGuard'
+import { CategoryReportSection } from '../features/record/CategoryReportSection'
+import { resolveVisibleReportTargets } from '../features/record/resolveVisibleReportTargets'
+import {
+  buildBookLabels,
+  buildMaterialLabels,
+  buildWorkAssignmentLabels,
+} from '../features/record/summaryLabels'
+import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
+import { filterCategoryMessages } from '../features/record/dailyChatMessage'
+import { useCategoryChat } from '../features/record/useCategoryChat'
+import { useCategoryFinalize } from '../features/record/useCategoryFinalize'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveCategoryGoalId } from '../features/record/resolveCategoryGoalId'
@@ -60,14 +66,11 @@ import {
 } from '../features/record/workLogForm'
 import {
   buildDiaryEntriesPayload,
+  filterWrittenDiaryEntries,
   hasAnyDiaryInput,
   initDiaryFormValues,
   type DiaryFormValue,
 } from '../features/record/diaryForm'
-import type { components } from '../types/api.d.ts'
-
-type ChatMessageRead = components['schemas']['ChatMessageRead']
-
 /** SC-06 日次報告（仕様書6.5）。上段=実績入力+日記、下段=AI対話の2段構成。
  * 実績・日記は確定（finalize）まで一切サーバへ保存しない下書き値であり、AI対話
  * （POST /records/{date}/chat）はこの下書きをプロンプトへ渡すのみで永続化しない
@@ -84,44 +87,21 @@ type ChatMessageRead = components['schemas']['ChatMessageRead']
  * 着手中の目標が2件以上ある場合、目標タブで表示対象を切り替える（useGoalReportTabs）。
  * 切り替えは表示のみに作用し、下書き値（studyLogValues等）は全目標分を常に保持したまま
  * カテゴリ単位で確定するため、非表示のタブに入力済みの内容が確定時に失われることはない。 */
-/** 「他の時間枠を追加」の候補となる全時間枠（slot_id → 名称）。
- * 配分していない枠でも実績は記録できる（仕様書6.5「未配分スロットの追加」）。 */
-function useSlotNames(): Map<number, string> {
-  const query = useQuery({ queryKey: ['resource-slots'], queryFn: listSlots })
-  return new Map((query.data ?? []).map((slot) => [slot.id, slot.name]))
-}
-
 export function DailyReportPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const slotNames = useSlotNames()
   const { showApiError } = useToast()
 
-  const recordQuery = useQuery({
-    queryKey: ['record', targetDate],
-    queryFn: () => getRecord(targetDate),
-  })
-  const quotaQuery = useQuery({
-    queryKey: ['quota', targetDate],
-    queryFn: () => getQuota(targetDate),
-  })
-  const readingBooksQuery = useQuery({
-    queryKey: ['activeReadingBooks'],
-    queryFn: listActiveReadingBooks,
-  })
-  const workAssignmentsQuery = useQuery({
-    queryKey: ['activeWorkAssignments'],
-    queryFn: listActiveWorkAssignments,
-  })
-  const goalsQuery = useQuery({
-    queryKey: ['goals'],
-    queryFn: () => listGoals(),
-  })
-  // 入力可能期間（当日・前日）の判定に使う論理的な本日。クライアント側で現在日時から
-  // 算出してはならない（技術選定書7.1「禁止事項」）ため、サーバのGET /records/todayから取得する。
-  const todayQuery = useQuery({ queryKey: ['today'], queryFn: getToday })
+  const { queries, slotNames } = useDailyReportData(targetDate)
+  const {
+    record: recordQuery,
+    quota: quotaQuery,
+    readingBooks: readingBooksQuery,
+    workAssignments: workAssignmentsQuery,
+    goals: goalsQuery,
+  } = queries
 
   const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
   const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>(
@@ -132,9 +112,6 @@ export function DailyReportPage() {
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId, selectedGoal } =
     useGoalReportTabs(goalsQuery.data ?? [])
   const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
-  const [wasTruncated, setWasTruncated] = useState(false)
-  const [readingWasTruncated, setReadingWasTruncated] = useState(false)
-  const [workWasTruncated, setWorkWasTruncated] = useState(false)
   const hydratedRef = useRef(false)
 
   // 日記（DiaryFields）は資格試験の複数目標混同対策（未決事項L-04）が目的のため、対象は
@@ -146,7 +123,7 @@ export function DailyReportPage() {
 
   // AI対話（送信・履歴フィルタ）の対象goal_id。日次フィードバックを目標単位の会話へ分離した
   // ため（Phase26、未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を
-  // 指しているかをresolveCategoryGoalIdで解決する。useMutationのmutationFnから参照するため、
+  // 指しているかをresolveCategoryGoalIdで解決する。送信処理から参照するため、
   // フックより前（早期returnより前）で計算する。
   const goalTabs = { showGoalSelector, selectedGoal }
   const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeGoals[0]?.id ?? null)
@@ -210,15 +187,15 @@ export function DailyReportPage() {
   const activeWorkAssignments = workAssignmentsQuery.data?.map((entry) => entry.workAssignment) ?? []
   // 「その日そのカテゴリに確定すべき目標があるか」は選択中タブに関係なく判定する必要がある
   // （showExamSection等はタブ切替で表示中のセクションを示すだけなので、確定完了判定
-  // （navigateIfAllSectionsReported/isFullyReported）にそのまま使うと、選択中でない
+  // （handleFinalized/resolveDailyReportGuard）にそのまま使うと、選択中でない
   // カテゴリを「対象なし」と誤判定してしまう）。
   const hasExamCategory = activeGoals.length > 0
   const hasReadingCategory = activeBooks.length > 0
   const hasWorkCategory = activeWorkAssignments.length > 0
 
-  const isExamReported = recordQuery.data?.exam_record_state === 'REPORTED'
-  const isReadingReported = recordQuery.data?.reading_record_state === 'REPORTED'
-  const isWorkReported = recordQuery.data?.work_record_state === 'REPORTED'
+  const { isExamReported, isReadingReported, isWorkReported } = toCategoryReportedState(
+    recordQuery.data,
+  )
   // 下書き値は全目標分を常に保持するため、確定済みでないカテゴリの入力有無のみで判定する
   // （確定済みカテゴリの下書きが残っていても、既にサーバへ反映済みのため警告対象にしない）。
   const hasUnsavedInput =
@@ -228,11 +205,11 @@ export function DailyReportPage() {
   // ブラウザレベルの離脱（タブを閉じる・再読み込み・アドレスバーへの直接入力）を警告する。
   useUnsavedChangesWarning(hasUnsavedInput)
 
-  // 確定成功によるnavigate()（各finalizeMutationのonSuccess）まで誤ってブロックしないための
+  // 確定成功によるnavigate()（handleFinalized）まで誤ってブロックしないための
   // フラグ。レンダー中にrefを読むとReactのルール違反になるため、hasUnsavedInputの計算には
   // 含めず、useBlockerへ渡す判定関数の「呼び出し時」にのみ参照する（この関数は
   // ナビゲーション試行のタイミングでルータから呼ばれるため、レンダー中の読み取りにはならない。
-  // finalizedRef.currentへの代入もonSuccess内でnavigate()の直前に行うため、
+  // finalizedRef.currentへの代入もhandleFinalized内でnavigate()の直前に行うため、
   // 同期的なnavigate()呼び出しに対しても値が確実に反映される）。
   const finalizedRef = useRef(false)
   // アプリ内遷移（GlobalNavのリンククリック、ブラウザの戻る/進む等）を警告する
@@ -240,117 +217,55 @@ export function DailyReportPage() {
   // ブラウザ離脱に限定されないため、data router化してuseBlockerを使う。App.tsx参照）。
   const blocker = useBlocker(() => hasUnsavedInput && !finalizedRef.current)
 
-  const chatMutation = useMutation({
-    mutationFn: (message: string | null) =>
+  const examChat = useCategoryChat({
+    goalId: examGoalId,
+    purpose: 'DAILY_FEEDBACK',
+    sendRequest: (message) =>
       sendChat(targetDate, {
         goal_id: examGoalId as number,
         message,
         study_logs: buildStudyLogPayload(studyLogValues),
         diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
-    onSuccess: (response, message) => {
-      // ユーザー発言もサーバ側では保存されるが、レスポンスにはassistant_messageしか
-      // 含まれない（ChatResponseスキーマ）ため、即時表示用に正のid（サーバ採番）と
-      // 衝突しない負の仮idを付けたローカル表示専用エントリを組み立てる。
-      setChatMessages((current) => [
-        ...current,
-        ...(message
-          ? [
-              {
-                id: -Date.now(),
-                goal_id: examGoalId,
-                purpose: 'DAILY_FEEDBACK' as const,
-                role: 'USER' as const,
-                content: message,
-                sequence: current.length,
-                created_at: new Date().toISOString(),
-              },
-            ]
-          : []),
-        response.assistant_message,
-      ])
-      setWasTruncated(response.was_truncated)
-    },
+    setMessages: setChatMessages,
     onError: showApiError,
   })
 
-  const readingChatMutation = useMutation({
-    mutationFn: (message: string | null) =>
+  const readingChat = useCategoryChat({
+    goalId: readingGoalId,
+    purpose: 'DAILY_FEEDBACK_READING',
+    sendRequest: (message) =>
       sendReadingChat(targetDate, {
         goal_id: readingGoalId as number,
         message,
         reading_logs: buildReadingLogPayload(readingLogValues),
       }),
-    onSuccess: (response, message) => {
-      setChatMessages((current) => [
-        ...current,
-        ...(message
-          ? [
-              {
-                id: -Date.now(),
-                goal_id: readingGoalId,
-                purpose: 'DAILY_FEEDBACK_READING' as const,
-                role: 'USER' as const,
-                content: message,
-                sequence: current.length,
-                created_at: new Date().toISOString(),
-              },
-            ]
-          : []),
-        response.assistant_message,
-      ])
-      setReadingWasTruncated(response.was_truncated)
-    },
+    setMessages: setChatMessages,
     onError: showApiError,
   })
 
-  const workChatMutation = useMutation({
-    mutationFn: (message: string | null) =>
+  const workChat = useCategoryChat({
+    goalId: workGoalId,
+    purpose: 'DAILY_FEEDBACK_WORK',
+    sendRequest: (message) =>
       sendWorkChat(targetDate, {
         goal_id: workGoalId as number,
         message,
         work_logs: buildWorkLogPayload(workLogValues),
       }),
-    onSuccess: (response, message) => {
-      setChatMessages((current) => [
-        ...current,
-        ...(message
-          ? [
-              {
-                id: -Date.now(),
-                goal_id: workGoalId,
-                purpose: 'DAILY_FEEDBACK_WORK' as const,
-                role: 'USER' as const,
-                content: message,
-                sequence: current.length,
-                created_at: new Date().toISOString(),
-              },
-            ]
-          : []),
-        response.assistant_message,
-      ])
-      setWorkWasTruncated(response.was_truncated)
-    },
+    setMessages: setChatMessages,
     onError: showApiError,
   })
 
-  const invalidateAfterFinalize = () => {
-    queryClient.invalidateQueries({ queryKey: ['record', targetDate] })
-    queryClient.invalidateQueries({ queryKey: ['today'] })
-    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-    queryClient.invalidateQueries({ queryKey: ['calendar'] })
-  }
+  /** 確定後の共通処理。関連キャッシュを無効化し、表示対象の全カテゴリが確定済みになった場合のみ
+   * ダッシュボードへ遷移する。1カテゴリのみの確定では画面に留まり、該当セクションだけが
+   * 読み取り専用に切り替わる（仕様変更2026-09-05）。 */
+  const handleFinalized = (record: DailyRecordRead) => {
+    invalidateDailyRecordCaches(queryClient, targetDate)
 
-  // 表示対象の全カテゴリが確定済みになった場合のみダッシュボードへ遷移する。1カテゴリのみの
-  // 確定では画面に留まり、該当セクションだけが読み取り専用に切り替わる（仕様変更2026-09-05）。
-  const navigateIfAllSectionsReported = (record: DailyRecordRead) => {
     const allReported = isAllCategoriesReported(
       { hasExamCategory, hasReadingCategory, hasWorkCategory },
-      {
-        isExamReported: record.exam_record_state === 'REPORTED',
-        isReadingReported: record.reading_record_state === 'REPORTED',
-        isWorkReported: record.work_record_state === 'REPORTED',
-      },
+      toCategoryReportedState(record),
     )
     if (allReported) {
       finalizedRef.current = true
@@ -358,174 +273,81 @@ export function DailyReportPage() {
     }
   }
 
-  const examFinalizeMutation = useMutation({
-    mutationFn: () =>
+  const examFinalize = useCategoryFinalize({
+    finalizeRequest: () =>
       finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(studyLogValues),
         diary_entries: buildDiaryEntriesPayload(diaryValues),
       }),
-    onSuccess: (record) => {
-      invalidateAfterFinalize()
-      navigateIfAllSectionsReported(record)
-    },
+    onFinalized: handleFinalized,
     onError: showApiError,
   })
 
-  const readingFinalizeMutation = useMutation({
-    mutationFn: () =>
+  const readingFinalize = useCategoryFinalize({
+    finalizeRequest: () =>
       finalizeReadingRecord(targetDate, {
         reading_logs: buildReadingLogPayload(readingLogValues),
       }),
-    onSuccess: (record) => {
-      invalidateAfterFinalize()
-      navigateIfAllSectionsReported(record)
-    },
+    onFinalized: handleFinalized,
     onError: showApiError,
   })
 
-  const workFinalizeMutation = useMutation({
-    mutationFn: () =>
+  const workFinalize = useCategoryFinalize({
+    finalizeRequest: () =>
       finalizeWorkRecord(targetDate, {
         work_logs: buildWorkLogPayload(workLogValues),
       }),
-    onSuccess: (record) => {
-      invalidateAfterFinalize()
-      navigateIfAllSectionsReported(record)
-    },
+    onFinalized: handleFinalized,
     onError: showApiError,
   })
 
-  if (
-    recordQuery.isLoading ||
-    quotaQuery.isLoading ||
-    readingBooksQuery.isLoading ||
-    workAssignmentsQuery.isLoading ||
-    goalsQuery.isLoading ||
-    todayQuery.isLoading
-  ) {
+  // 表示状態（ローディング/エラー/閲覧画面への転送/入力可）の判定はresolveDailyReportGuardへ
+  // 集約している。全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
+  const guard = resolveDailyReportGuard(
+    queries,
+    { hasExamCategory, hasReadingCategory, hasWorkCategory },
+    targetDate,
+  )
+  if (guard.kind === 'LOADING') {
     return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
   }
-  if (
-    recordQuery.isError ||
-    !recordQuery.data ||
-    quotaQuery.isError ||
-    !quotaQuery.data ||
-    readingBooksQuery.isError ||
-    workAssignmentsQuery.isError ||
-    goalsQuery.isError ||
-    !goalsQuery.data ||
-    todayQuery.isError ||
-    !todayQuery.data
-  ) {
-    return (
-      <p className="p-6 text-sm text-red-600">
-        {apiErrorMessage(
-          recordQuery.error ??
-            quotaQuery.error ??
-            readingBooksQuery.error ??
-            workAssignmentsQuery.error ??
-            goalsQuery.error ??
-            todayQuery.error,
-        )}
-      </p>
-    )
+  if (guard.kind === 'ERROR') {
+    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
-
-  if (!isFinalizableDate(targetDate, todayQuery.data.logical_date)) {
-    // 確定できるのは当日・前日のみ（仕様書7.2）。期間外の日で入力させると、確定時に
-    // BACKDATE_LIMIT_EXCEEDEDとなり入力内容が失われるため、その前に閲覧画面へ誘導する。
-    // 遷移元（カレンダー等）でも同じ判定を行うが、URL直接指定に対する受け皿として残す。
+  if (guard.kind === 'REDIRECT_VIEW') {
     return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
   }
+  const { record, quota } = guard
 
-  // showGoalSelectorがfalse（着手中の目標が0〜1件）の間は、selectedGoalIdに関わらず
-  // 常に全件をそのまま表示する（従来の挙動を維持し、切替UIがある場合にのみ絞り込む）。
-  const visibleQuotaItems = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'EXAM'
-      ? quotaQuery.data.filter((item) => item.goal_id === selectedGoal.id)
-      : []
-    : quotaQuery.data
+  const {
+    quotaItems: visibleQuotaItems,
+    diaryGoals: visibleDiaryGoals,
+    books: visibleBooks,
+    workAssignments: visibleWorkAssignments,
+    showExamSection,
+    showReadingSection,
+    showWorkSection,
+  } = resolveVisibleReportTargets({
+    showGoalSelector,
+    selectedGoal,
+    activeGoals,
+    quotaItems: quota,
+    readingBooks: readingBooksQuery.data ?? [],
+    workAssignments: workAssignmentsQuery.data ?? [],
+  })
 
-  const visibleDiaryGoals = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'EXAM'
-      ? [selectedGoal]
-      : []
-    : activeGoals
+  const examMessages = filterCategoryMessages(chatMessages, 'DAILY_FEEDBACK', examGoalId)
+  const readingMessages = filterCategoryMessages(
+    chatMessages,
+    'DAILY_FEEDBACK_READING',
+    readingGoalId,
+  )
+  const workMessages = filterCategoryMessages(chatMessages, 'DAILY_FEEDBACK_WORK', workGoalId)
 
-  const visibleBooks = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'READING'
-      ? (readingBooksQuery.data ?? [])
-          .filter((entry) => entry.goal.id === selectedGoal.id)
-          .map((entry) => entry.book)
-      : []
-    : activeBooks
-
-  const visibleWorkAssignments = showGoalSelector
-    ? selectedGoal && selectedGoal.category === 'WORK'
-      ? (workAssignmentsQuery.data ?? [])
-          .filter((entry) => entry.goal.id === selectedGoal.id)
-          .map((entry) => entry.workAssignment)
-      : []
-    : activeWorkAssignments
-
-  const examMessages = chatMessages.filter(
-    (m) => m.purpose === 'DAILY_FEEDBACK' && (m.goal_id === examGoalId || m.goal_id === null),
-  )
-  const readingMessages = chatMessages.filter(
-    (m) =>
-      m.purpose === 'DAILY_FEEDBACK_READING' && (m.goal_id === readingGoalId || m.goal_id === null),
-  )
-  const workMessages = chatMessages.filter(
-    (m) => m.purpose === 'DAILY_FEEDBACK_WORK' && (m.goal_id === workGoalId || m.goal_id === null),
-  )
-
-  // カテゴリごとに独立して確定する仕様変更（2026-09-05）に伴い、対象カテゴリの目標が
-  // 存在しない場合はそのセクション自体を表示しない（showReading/showWorkSectionと同じ
-  // 考え方に揃える。以前はEXAMのみ非選択時に無条件表示していたため、資格試験目標を
-  // 持たない利用者にも空のセクションと確定ボタンが表示され、確定操作が必要になっていた）。
-  const showExamSection = showGoalSelector
-    ? !!selectedGoal && selectedGoal.category === 'EXAM'
-    : activeGoals.length > 0
-  const showReadingSection = showGoalSelector
-    ? !!selectedGoal && selectedGoal.category === 'READING' && visibleBooks.length > 0
-    : activeBooks.length > 0
-  const showWorkSection = showGoalSelector
-    ? !!selectedGoal && selectedGoal.category === 'WORK' && visibleWorkAssignments.length > 0
-    : activeWorkAssignments.length > 0
-
-  // タブ表示中かどうかではなく、その日そのカテゴリに確定すべき目標があるか
-  // （hasExamCategory等）で判定する（navigateIfAllSectionsReportedと同じ理由）。
-  const isFullyReported = isAllCategoriesReported(
-    { hasExamCategory, hasReadingCategory, hasWorkCategory },
-    { isExamReported, isReadingReported, isWorkReported },
-  )
-  if (isFullyReported) {
-    // 表示対象の全カテゴリが確定済みは変更不可（仕様書7.2）。閲覧画面へ誘導する。
-    return <Navigate to={ROUTES.dailyReportView(targetDate)} replace />
-  }
-
-  const materialLabels = new Map<number, MaterialLabel>(
-    quotaQuery.data.map((item) => [
-      item.material_id,
-      {
-        name: item.material_name,
-        unitLabel: item.unit_label,
-        qualityMetricType: item.quality_metric_type,
-      },
-    ]),
-  )
-  const bookLabels = new Map<number, BookLabel>(
-    (readingBooksQuery.data ?? []).map((entry) => [entry.book.id, { title: entry.book.title }]),
-  )
-  const workAssignmentLabels = new Map<number, WorkAssignmentLabel>(
-    (workAssignmentsQuery.data ?? []).map((entry) => [
-      entry.workAssignment.id,
-      { clientName: entry.workAssignment.client_name },
-    ]),
-  )
-  const reportedDiaryEntries = recordQuery.data.diary_entries.filter(
-    (entry) => entry.diary_body || entry.diary_learned,
-  )
+  const materialLabels = buildMaterialLabels(quota)
+  const bookLabels = buildBookLabels(readingBooksQuery.data ?? [])
+  const workAssignmentLabels = buildWorkAssignmentLabels(workAssignmentsQuery.data ?? [])
+  const reportedDiaryEntries = filterWrittenDiaryEntries(record.diary_entries)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -542,24 +364,22 @@ export function DailyReportPage() {
       )}
 
       {showExamSection && (
-        <>
-          {isExamReported ? (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">
-                {t('dailyReport.studyLog.title')}
-                <span className="ml-2 text-xs font-normal text-gray-400">
-                  {t('dailyReport.confirmedBadge')}
-                </span>
-              </h2>
-              <StudyLogSummaryList
-                studyLogs={recordQuery.data.study_logs}
-                materialLabels={materialLabels}
-              />
+        <CategoryReportSection
+          labels={{
+            title: t('dailyReport.studyLog.title'),
+            chatTitle: t('dailyReport.chat.title'),
+            chatStartLabel: t('dailyReport.chat.startButton'),
+            finalizeLabel: t('dailyReport.studyLog.finalizeButton'),
+          }}
+          isReported={isExamReported}
+          summary={
+            <>
+              <StudyLogSummaryList studyLogs={record.study_logs} materialLabels={materialLabels} />
               <DiaryEntrySummaryList diaryEntries={reportedDiaryEntries} />
-            </section>
-          ) : (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">{t('dailyReport.studyLog.title')}</h2>
+            </>
+          }
+          editor={
+            <>
               <StudyLogFields
                 quotaItems={visibleQuotaItems}
                 values={studyLogValues}
@@ -587,197 +407,82 @@ export function DailyReportPage() {
                   }))
                 }
               />
-            </section>
-          )}
-
-          <Card className="flex flex-col gap-3">
-            <h2 className="font-medium text-gray-900">{t('dailyReport.chat.title')}</h2>
-            {isExamReported ? (
-              <ChatPanel messages={examMessages} readOnly />
-            ) : (
-              <>
-                {examMessages.length === 0 && (
-                  <Button
-                    disabled={chatMutation.isPending}
-                    onClick={() => chatMutation.mutate(null)}
-                  >
-                    {t('dailyReport.chat.startButton')}
-                  </Button>
-                )}
-                <ChatPanel
-                  messages={examMessages}
-                  wasTruncated={wasTruncated}
-                  isSending={chatMutation.isPending}
-                  onSend={
-                    examMessages.length > 0 ? (message) => chatMutation.mutate(message) : undefined
-                  }
-                />
-              </>
-            )}
-          </Card>
-
-          {!isExamReported && (
-            <div className="flex justify-end">
-              <Button
-                disabled={examFinalizeMutation.isPending}
-                onClick={() => examFinalizeMutation.mutate()}
-              >
-                {t('dailyReport.studyLog.finalizeButton')}
-              </Button>
-            </div>
-          )}
-        </>
+            </>
+          }
+          messages={examMessages}
+          chat={examChat}
+          finalize={examFinalize}
+        />
       )}
 
       {showReadingSection && (
-        <>
-          {isReadingReported ? (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">
-                {t('dailyReport.readingLog.title')}
-                <span className="ml-2 text-xs font-normal text-gray-400">
-                  {t('dailyReport.confirmedBadge')}
-                </span>
-              </h2>
-              <ReadingLogSummaryList
-                readingLogs={recordQuery.data.reading_logs}
-                bookLabels={bookLabels}
-              />
-            </section>
-          ) : (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">{t('dailyReport.readingLog.title')}</h2>
-              <ReadingLogFields
-                books={visibleBooks}
-                values={readingLogValues}
-                slotNames={slotNames}
-                onChangeField={(bookId, field, value) =>
-                  setReadingLogValues((current) => ({
-                    ...current,
-                    [bookId]: { ...current[bookId], [field]: value },
-                  }))
-                }
-                onChangeSlotMinutes={(bookId, slotMinutes) =>
-                  setReadingLogValues((current) => ({
-                    ...current,
-                    [bookId]: { ...current[bookId], slotMinutes },
-                  }))
-                }
-              />
-            </section>
-          )}
-
-          <Card className="flex flex-col gap-3">
-            <h2 className="font-medium text-gray-900">{t('dailyReport.readingChat.title')}</h2>
-            {isReadingReported ? (
-              <ChatPanel messages={readingMessages} readOnly />
-            ) : (
-              <>
-                {readingMessages.length === 0 && (
-                  <Button
-                    disabled={readingChatMutation.isPending}
-                    onClick={() => readingChatMutation.mutate(null)}
-                  >
-                    {t('dailyReport.readingChat.startButton')}
-                  </Button>
-                )}
-                <ChatPanel
-                  messages={readingMessages}
-                  wasTruncated={readingWasTruncated}
-                  isSending={readingChatMutation.isPending}
-                  onSend={
-                    readingMessages.length > 0
-                      ? (message) => readingChatMutation.mutate(message)
-                      : undefined
-                  }
-                />
-              </>
-            )}
-          </Card>
-
-          {!isReadingReported && (
-            <div className="flex justify-end">
-              <Button
-                disabled={readingFinalizeMutation.isPending}
-                onClick={() => readingFinalizeMutation.mutate()}
-              >
-                {t('dailyReport.readingLog.finalizeButton')}
-              </Button>
-            </div>
-          )}
-        </>
+        <CategoryReportSection
+          labels={{
+            title: t('dailyReport.readingLog.title'),
+            chatTitle: t('dailyReport.readingChat.title'),
+            chatStartLabel: t('dailyReport.readingChat.startButton'),
+            finalizeLabel: t('dailyReport.readingLog.finalizeButton'),
+          }}
+          isReported={isReadingReported}
+          summary={
+            <ReadingLogSummaryList readingLogs={record.reading_logs} bookLabels={bookLabels} />
+          }
+          editor={
+            <ReadingLogFields
+              books={visibleBooks}
+              values={readingLogValues}
+              slotNames={slotNames}
+              onChangeField={(bookId, field, value) =>
+                setReadingLogValues((current) => ({
+                  ...current,
+                  [bookId]: { ...current[bookId], [field]: value },
+                }))
+              }
+              onChangeSlotMinutes={(bookId, slotMinutes) =>
+                setReadingLogValues((current) => ({
+                  ...current,
+                  [bookId]: { ...current[bookId], slotMinutes },
+                }))
+              }
+            />
+          }
+          messages={readingMessages}
+          chat={readingChat}
+          finalize={readingFinalize}
+        />
       )}
 
       {showWorkSection && (
-        <>
-          {isWorkReported ? (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">
-                {t('dailyReport.workLog.title')}
-                <span className="ml-2 text-xs font-normal text-gray-400">
-                  {t('dailyReport.confirmedBadge')}
-                </span>
-              </h2>
-              <WorkLogSummaryList
-                workLogs={recordQuery.data.work_logs}
-                workAssignmentLabels={workAssignmentLabels}
-              />
-            </section>
-          ) : (
-            <section className="flex flex-col gap-3">
-              <h2 className="font-medium text-gray-900">{t('dailyReport.workLog.title')}</h2>
-              <WorkLogFields
-                workAssignments={visibleWorkAssignments}
-                values={workLogValues}
-                onChangeField={(workAssignmentId, field, value) =>
-                  setWorkLogValues((current) => ({
-                    ...current,
-                    [workAssignmentId]: { ...current[workAssignmentId], [field]: value },
-                  }))
-                }
-              />
-            </section>
-          )}
-
-          <Card className="flex flex-col gap-3">
-            <h2 className="font-medium text-gray-900">{t('dailyReport.workChat.title')}</h2>
-            {isWorkReported ? (
-              <ChatPanel messages={workMessages} readOnly />
-            ) : (
-              <>
-                {workMessages.length === 0 && (
-                  <Button
-                    disabled={workChatMutation.isPending}
-                    onClick={() => workChatMutation.mutate(null)}
-                  >
-                    {t('dailyReport.workChat.startButton')}
-                  </Button>
-                )}
-                <ChatPanel
-                  messages={workMessages}
-                  wasTruncated={workWasTruncated}
-                  isSending={workChatMutation.isPending}
-                  onSend={
-                    workMessages.length > 0
-                      ? (message) => workChatMutation.mutate(message)
-                      : undefined
-                  }
-                />
-              </>
-            )}
-          </Card>
-
-          {!isWorkReported && (
-            <div className="flex justify-end">
-              <Button
-                disabled={workFinalizeMutation.isPending}
-                onClick={() => workFinalizeMutation.mutate()}
-              >
-                {t('dailyReport.workLog.finalizeButton')}
-              </Button>
-            </div>
-          )}
-        </>
+        <CategoryReportSection
+          labels={{
+            title: t('dailyReport.workLog.title'),
+            chatTitle: t('dailyReport.workChat.title'),
+            chatStartLabel: t('dailyReport.workChat.startButton'),
+            finalizeLabel: t('dailyReport.workLog.finalizeButton'),
+          }}
+          isReported={isWorkReported}
+          summary={
+            <WorkLogSummaryList
+              workLogs={record.work_logs}
+              workAssignmentLabels={workAssignmentLabels}
+            />
+          }
+          editor={
+            <WorkLogFields
+              workAssignments={visibleWorkAssignments}
+              values={workLogValues}
+              onChangeField={(workAssignmentId, field, value) =>
+                setWorkLogValues((current) => ({
+                  ...current,
+                  [workAssignmentId]: { ...current[workAssignmentId], [field]: value },
+                }))
+              }
+            />
+          }
+          messages={workMessages}
+          chat={workChat}
+          finalize={workFinalize}
+        />
       )}
 
       <Modal
