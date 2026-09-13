@@ -44,7 +44,9 @@ htmlcov/
 # ＝除外ルールを1箇所に集約し、生成物の種類ごとに追記しない）。
 data/*
 !data/.gitkeep
-backend/tests/_test.db
+# テスト用SQLite。-journal・-wal・-shm等の付随ファイルも対象にする（`_test.db`のみを
+# 対象にすると、テスト中断時に残るジャーナルファイルがコミット対象になるため）。
+backend/tests/_test.db*
 
 # Node（フロントエンド、Phase 6以降）
 node_modules/
