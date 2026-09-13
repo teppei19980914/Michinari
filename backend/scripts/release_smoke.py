@@ -30,6 +30,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import zipfile
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,11 +38,17 @@ from tempfile import TemporaryDirectory
 from alembic.config import Config
 
 from alembic import command
+from app.constants.app_setting_keys import SERVER_PORT as SERVER_PORT_KEY
+from app.init.seed_data import INITIAL_APP_SETTINGS
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 ALEMBIC_INI_PATH = BACKEND_DIR / "alembic.ini"
 DATA_DIR = BACKEND_DIR.parent / "data"
 DEFAULT_DB_PATH = DATA_DIR / "michinari.db"
+DIST_DIR = BACKEND_DIR / "dist"
+PACKAGE_EXE_NAME = "Michinari.exe"
+#: `server.port` の値型。seed_data の定義をそのまま使い、値を書き写さない（DRYの原則）。
+SERVER_PORT_VALUE_TYPE = INITIAL_APP_SETTINGS[SERVER_PORT_KEY][1].value
 
 #: 起動確認で叩くエンドポイント。画面が最初に呼ぶものを選ぶ
 #: （どれか1つでも落ちれば起動失敗と見なす）。
@@ -230,6 +237,108 @@ def stop_app(process: subprocess.Popen[bytes]) -> None:
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait(timeout=10)
+
+
+def find_latest_package(dist_dir: Path = DIST_DIR) -> Path | None:
+    """最新の配布zipを返す（無ければ None）。
+
+    `dist/` には過去バージョンのzipが積み上がるため、更新時刻が最も新しいものを選ぶ。
+    `_internal/base_library.zip` のような同梱物を拾わないよう、直下だけを対象にする。
+    """
+    if not dist_dir.is_dir():
+        return None
+    packages = [path for path in dist_dir.glob("Michinari-v*.zip") if path.is_file()]
+    if not packages:
+        return None
+    return max(packages, key=lambda path: path.stat().st_mtime)
+
+
+def extract_package(zip_path: Path, dest_dir: Path) -> Path | None:
+    """配布zipを展開し、実行ファイルの場所を返す（見つからなければ None）。"""
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(dest_dir)
+    found = list(dest_dir.rglob(PACKAGE_EXE_NAME))
+    return found[0] if found else None
+
+
+def prepare_package_database(db_path: Path, port: int) -> None:
+    """配布パッケージ用の一時DBを、指定ポートで起動するよう用意する。
+
+    配布パッケージは起動ポートを `app_setting.server.port` から決めるため（`app/main.py` の
+    `resolve_startup_port`）、コマンドライン引数では空きポートを指定できない。そこで先に
+    スキーマだけ作り、`server.port` の行を空きポートで入れておく。初期データ投入
+    （`seed_app_settings`）は既存キーを上書きしないため、この値がそのまま使われる。
+
+    利用者の既定ポート（8100）で起動させないのは、利用者がアプリを起動したままでも
+    スモークを実行できるようにするため。
+    """
+    previous_url = os.environ.get("MICHINARI_DATABASE_URL")
+    os.environ["MICHINARI_DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
+    try:
+        command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
+    finally:
+        if previous_url is None:
+            os.environ.pop("MICHINARI_DATABASE_URL", None)
+        else:
+            os.environ["MICHINARI_DATABASE_URL"] = previous_url
+
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            "INSERT INTO app_setting (key, value, value_type, updated_at) "
+            "VALUES (?, ?, ?, datetime('now'))",
+            (SERVER_PORT_KEY, str(port), SERVER_PORT_VALUE_TYPE),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def start_package(exe_path: Path, db_path: Path) -> subprocess.Popen[bytes]:
+    """配布パッケージの実行ファイルを起動する。
+
+    ポートは `prepare_package_database` が仕込んだ `app_setting.server.port` から決まる。
+    配布物はフロントエンドを同梱しているため、起動から1.5秒後にブラウザが開く
+    （`app/main.py` の `_open_browser`）。これは配布物本来の振る舞いであり、抑止する
+    手段を製品側へ足すことはしない。スモークを既定で実行しないのはこのためである。
+    """
+    return subprocess.Popen(
+        [str(exe_path)],
+        cwd=exe_path.parent,
+        env=build_child_env(db_path),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+
+def run_package_smoke(
+    zip_path: Path, *, fetch: Fetch = fetch_status, endpoints: Sequence[str] = DEFAULT_ENDPOINTS
+) -> list[str]:
+    """配布zipを展開して起動し、主要エンドポイントが応答することを確かめる。
+
+    ソースからの起動スモークと違い、PyInstallerでのパッケージ化（同梱物の取り込み漏れ、
+    パスの解決）まで含めて検証できる。利用者へ実際に渡す成果物そのものを起動するため、
+    「手元では動くが配布物では動かない」を出荷前に捕まえられる。
+    """
+    port = find_free_port()
+    base_url = f"http://127.0.0.1:{port}"
+    with TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
+        work_dir = Path(temp_dir)
+        exe_path = extract_package(zip_path, work_dir / "extracted")
+        if exe_path is None:
+            return [f"{zip_path.name}: {PACKAGE_EXE_NAME} が見つかりません"]
+
+        db_path = work_dir / "package.db"
+        prepare_package_database(db_path, port)
+        process = start_package(exe_path, db_path)
+        try:
+            if not wait_for_health(fetch, base_url):
+                output = process.stdout.read().decode("utf-8", "replace") if process.stdout else ""
+                return [f"{zip_path.name}: 起動しませんでした\n{output}"]
+            failures = check_endpoints(fetch, base_url, endpoints)
+            return [f"{zip_path.name}: {failure}" for failure in failures]
+        finally:
+            stop_app(process)
 
 
 def run_startup_smoke(
