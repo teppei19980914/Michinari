@@ -142,10 +142,19 @@ def run_tests() -> None:
     フロントエンドは長らく対象外で、`npm test`（カバレッジ閾値100%）も型チェックも
     手動実行に頼っていた。バックエンドだけを通して出荷する状態は品質ゲートとして
     不完全なため、双方を必須にしている。
+
+    テストファイルは pytest・vitest がそれぞれ既定の規則で探索するため、テストを追加しても
+    ここへ登録する必要はない（追加漏れで実行されないことがない）。
+
+    `--cov-fail-under=100` はここで明示的に渡す。CODING_RULES.md「テストカバレッジ」が
+    掲げる100%を出荷時に機械的に強制するためで、`pyproject.toml` の addopts へは入れない
+    （部分実行〈pytest tests/test_goal_service.py 等〉が常に閾値割れで失敗するため）。
     """
     print("[1/8] テストスイートを実行しています…")
-    print("  → バックエンド (pytest)")
-    result = subprocess.run([sys.executable, "-m", "pytest"], cwd=BACKEND_DIR)
+    print("  → バックエンド (pytest + カバレッジ)")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--cov-fail-under=100"], cwd=BACKEND_DIR
+    )
     if result.returncode != 0:
         print("  → バックエンドのテストが失敗しました。配布パッケージのビルドを中止します。")
         print("     上記のテスト結果を確認して修正した後、再度実行してください。")

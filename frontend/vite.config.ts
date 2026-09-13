@@ -32,12 +32,17 @@ export default defineConfig({
         'src/**/*.ts',
         'src/features/goal/CloseGoalModal.tsx',
         'src/features/goal/DeleteArchivedGoalModal.tsx',
+        'src/features/goal/MaterialsTab.tsx',
         'src/components/Toast.tsx',
         'src/features/dashboard/TodayStatusSection.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',
         'src/**/*.test.tsx',
+        // 描画テストの共通基盤（Provider で包む処理）。テストから常に読み込まれるため
+        // include に挙げなくても計測対象に入ってしまうが、production へ出るコードではなく
+        // テストコードの一部であるため除外する。
+        'src/test/**',
         // 画面単位の描画テスト（DailyReportPage.test.tsx / DailyReportViewPage.test.tsx）が
         // 読み込む画面本体と入力欄。入力ハンドラを多数持つこれらを100%にするのは現実的で
         // ないため除外し、振る舞いの回帰検知は描画テストが、網羅率は判定ロジックを
@@ -52,11 +57,21 @@ export default defineConfig({
         'src/features/record/GoalTabBar.tsx',
         // 自動生成（openapi-typescript）。手で直さないため対象外。
         'src/types/**',
-        // 型のみ・定数のみで分岐を持たないファイル。
-        'src/constants/**',
-        'src/locales/**',
-        // API 呼び出しの薄いラッパ（分岐を持たず、実通信なしでは意味のある検証にならない）。
-        'src/api/**',
+        // 型のみ・定数のみで分岐を持たないファイル。値を並べているだけの
+        // errorCodes.ts・goalCategories.ts が該当する。queryKeys.ts（キャッシュキー）と
+        // routes.ts（画面遷移パス）は値を組み立てる関数を持ち、崩れても型検査で表に出ない
+        // （どちらも string）ため除外しない（Phase 33 の横展開チェックで判明）。
+        'src/constants/errorCodes.ts',
+        'src/constants/goalCategories.ts',
+        // src/locales/ は除外しない。ja.json は文言のみだが include（src/**/*.ts）に一致
+        // しないため自然に対象外となり、分岐（キー未解決時のフォールバック・{{var}}置換）を
+        // 持つ t.ts だけが計測される。
+        // エンドポイント単位のAPIラッパ。分岐を持たず、実通信なしでは意味のある検証に
+        // ならないため対象外とする。同じ src/api/ でも client.ts は通信失敗の NETWORK_ERROR
+        // への変換・204の扱い・エラーコードの既定値・未登録コードのフォールバックという分岐を
+        // 持ち、全画面のエラー表示がここを通るため計測する。ディレクトリ丸ごとの除外にしない
+        // のは、判定を含むファイルが黙って計測外になるのを防ぐため（features/record/ と同じ）。
+        'src/api/!(client).ts',
         // Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を直接
         // 検証しても実際の使われ方を再現できないため対象外（CODING_RULES.md「除外可」）。
         'src/**/use*.ts',
