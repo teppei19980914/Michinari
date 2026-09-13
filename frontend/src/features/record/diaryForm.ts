@@ -55,3 +55,14 @@ export function buildDiaryEntriesPayload(
       diary_learned: value.diaryLearned,
     }))
 }
+
+/**
+ * 実際に記述のある日記だけを取り出す（確定済みサマリの表示用）。
+ *
+ * 日記は目標ごとに枠が作られるため、何も書かずに確定した目標の分は本文・学びともに空で
+ * 保存される。空の枠をそのまま並べると見出しだけが並ぶため除く。日次報告（SC-06）と
+ * 日次報告閲覧（SC-08）で同じ判定が要るため共通化する（CODING_RULES.md「①DRYの原則」）。
+ */
+export function filterWrittenDiaryEntries(entries: DiaryEntryRead[]): DiaryEntryRead[] {
+  return entries.filter((entry) => entry.diary_body || entry.diary_learned)
+}

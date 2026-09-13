@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getDailyMessage } from '../../api/records'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type TodayMessageProps = {
   /** 表示対象のgoal_id（GoalTabBarの選択目標、Phase25）。nullのときは
@@ -17,7 +18,7 @@ type TodayMessageProps = {
  */
 export function TodayMessage({ goalId }: TodayMessageProps) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['daily-message'],
+    queryKey: QUERY_KEYS.dailyMessage(),
     queryFn: getDailyMessage,
   })
 

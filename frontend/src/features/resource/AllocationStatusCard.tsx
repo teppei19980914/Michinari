@@ -2,12 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { getAllocation } from '../../api/resources'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 配分状況の表示（仕様書6.3「曜日別の総確保時間」「時間枠ごとの各目標への配分時間と残り」
  * 「環境タグ別の時間内訳」）。時間表示はバックエンドで切り捨て済みの値をそのまま出す
  * （換算規則の二重実装を避ける。CLAUDE.md DRYの原則）。 */
 export function AllocationStatusCard() {
-  const query = useQuery({ queryKey: ['resource-allocation'], queryFn: getAllocation })
+  const query = useQuery({ queryKey: QUERY_KEYS.resourceAllocation(), queryFn: getAllocation })
   if (!query.data) {
     return null
   }

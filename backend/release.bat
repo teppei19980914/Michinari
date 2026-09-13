@@ -8,6 +8,11 @@ rem   3. run this file  <- everything below is automatic
 rem   4. overwrite the release notes on the GitHub Releases page
 rem   5. press "Publish release" to distribute
 rem
+rem The release gate runs the test suites AND the pre-release smoke (the app
+rem really starts, and the existing user database still migrates). The smoke is
+rem part of the gate rather than a separate step so it cannot be forgotten.
+rem See scripts/release_smoke.py; smoke.bat runs the same checks on their own.
+rem
 rem You do NOT need to switch to main first: this checks out main and brings it
 rem up to date on its own. It refuses to do so when your work is not yet merged,
 rem because switching then would package changes that do not include your work.

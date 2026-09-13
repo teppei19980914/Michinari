@@ -6,6 +6,7 @@ import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** プロンプト縮退設定（仕様書6.11「入力上限」「週次要約の注入週数」）。 */
 export function PromptDegradationSection({ settings }: { settings: AppSettingsRead }) {
@@ -27,7 +28,7 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
         },
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

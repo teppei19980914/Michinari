@@ -18,6 +18,7 @@ import {
 } from '../../api/goals'
 import { generateRetrospective } from '../../api/closure'
 import { resolveInitialBookTitle } from './bookTitle'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function BookForm({
   goalId,
@@ -50,7 +51,7 @@ function BookForm({
   const mutation = useMutation({
     mutationFn: () => (book ? updateBook(book.id, payload) : createBook(goalId, payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['goal', goalId] })
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
     },
     onError: showApiError,
@@ -230,7 +231,7 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
           // と同じ方針。仕様書6.9・実装フェーズ分割計画書Phase10注意点）。失敗時もエクスポート
           // 画面へは遷移し、同画面の生成ボタンから再試行できる。
           generateRetrospective(goal.id, false).catch(() => undefined)
-          queryClient.invalidateQueries({ queryKey: ['goal', goal.id] })
+          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
           setCompleteModalOpen(false)
           navigate(ROUTES.goalExport(goal.id))
         }}

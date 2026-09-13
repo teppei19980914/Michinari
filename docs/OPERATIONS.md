@@ -473,8 +473,11 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （`pyproject.toml` のTOML文字列・zipファイル名へそのまま埋め込むため、それ以外の
    文字を含む入力は再入力を求める）。確定したバージョンは `backend/pyproject.toml` の
    `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
-3. 既存の `backend/dist/Michinari/` があれば、`backend/dist/_archive/Michinari_YYYYMMDD_HHMMSS/`
-   へリネームして退避する（削除しない。旧バージョンとの差分調査用）
+3. `backend/dist/` 直下の既存配布物（`*.zip` と対になる `*.commit.json`）を
+   `backend/dist/_archive/` へ移動し、既存のビルド出力フォルダ
+   `backend/dist/Michinari/` は削除して出力先を空ける
+   （`archive_previous_distributions`／`discard_previous_package`）。
+   旧バージョンを調べたいときは `_archive/` のzipを展開する
 4. アプリバージョン・使用ライブラリのスナップショットを `backend/build_info.json` へ生成する
    （`generate_build_info`。2で確定した`backend/pyproject.toml`の`[project].version`を
    単一の情報源として読む）
@@ -489,7 +492,9 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    飛ばし、ビルドは継続する）
 8. `backend/dist/Michinari/` フォルダを zip 化し、2で確定したバージョンを名前に含む
    `backend/dist/Michinari-v{version}.zip`（例: `Michinari-v0.2.0.zip`）を生成する
-   （`create_distribution_zip`）
+   （`create_distribution_zip`）。ビルド元コミットの記録
+   `backend/dist/Michinari-v{version}.commit.json` も併せて生成する
+   （`generate_build_commit`）
 
 `build_info.json`（配布パッケージ同梱後は起動画面「システム情報」SC-15から参照できる、
 仕様書6.14参照）は`built_at`がビルドの都度変わるため`.gitignore`で除外している
@@ -504,23 +509,33 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 では従来通り `data/` を使うため挙動に影響しない）。
 
 zip（`backend/dist/Michinari-v{version}.zip`）は3のアーカイブ退避（`_archive/`）とは
-対象・実行順序が独立している（zip化はビルド完了後に最新の`Michinari/`のみを対象に行う
-ため、退避済みの旧パッケージを巻き込むことはない）。zipファイル名にバージョンが入る
-ため、異なるバージョンでビルドすれば過去のzipを上書きせず併存する（同一バージョンで
-再ビルドした場合のみ上書きされる）。過去バージョンのzipが不要になれば手動で削除して
-よい（`backend/dist/` は `.gitignore` で除外済み）。
+対象・実行順序が独立している（退避はビルド前に`dist/`直下の**旧**zip・旧記録のみを移し、
+zip化はビルド完了後に最新の`Michinari/`のみを対象に行うため、互いを巻き込むことはない）。
+zipファイル名にバージョンが入るため、異なるバージョンでビルドすれば`_archive/`の中で
+過去のzipと併存する（同一バージョンで再ビルドした場合のみ上書きされる）。過去バージョンの
+zipが不要になれば手動で削除してよい（`backend/dist/` は `.gitignore` で除外済み）。
 
-退避を削除ではなくリネームにしているのは差分調査を可能にするためだが、副次的に、
-OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
-既存出力先を`shutil.rmtree`により再帰削除しようとして`WinError 5 アクセスが拒否
-されました`になる事象も回避できる（リネームはディレクトリエントリの付け替えのみで
-再帰削除を伴わないため）。`backend/dist/_archive/` は自動生成物のため不要になったら
-手動で削除してよい（`.gitignore`で`backend/dist/`ごと除外済み）。
+**退避対象をzip・記録ファイルに限り、ビルド出力フォルダは退避せず削除する**のは、
+`Michinari/`が1ビルドあたり数十〜100MB超あり、ビルドのたびに`_archive/`へ積み上げると
+`backend/dist/`の容量が際限なく増大するためである（2026-09-13にこの方式へ変更。
+それ以前は`_archive/Michinari_YYYYMMDD_HHMMSS/`としてフォルダごと退避していた）。
+同じ内容は圧縮された形でzipに残るため、旧バージョンを調べたいときは`_archive/`の
+該当zipを展開すればよい。
+
+削除は「同階層の一時フォルダ（`_previous_Michinari_YYYYMMDD_HHMMSS`）へリネーム →
+その一時フォルダを再帰削除」の2段階で行う（`discard_previous_package`）。リネームは
+ディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、OneDrive
+ファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
+`shutil.rmtree`による再帰削除が`WinError 5 アクセスが拒否されました`になっても、
+警告を表示して一時フォルダを残すだけでビルドは継続できる（残った一時フォルダは
+zip化の対象外なので配布物には混入しない。不要になったら手動で削除する）。
+`backend/dist/_archive/` は自動生成物のため不要になったら手動で削除してよい
+（`.gitignore`で`backend/dist/`ごと除外済み）。
 
 #### 配布物の公開方法（GitHub Releases）
 
-`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版も
-残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
+`backend/dist/` はビルドのたびに数十〜100MB超が再生成され、かつ`_archive/`に旧版の
+zipも残り続けるため、リポジトリ本体には含めない（`.gitignore`で除外を維持）。配布は
 GitHub Releasesにzipを添付する方式で行う。
 
 **推奨: `release.bat` をダブルクリックする**（下書きリリースまでを自動で用意する）。
@@ -544,8 +559,9 @@ GitHub Releasesにzipを添付する方式で行う。
 | 1 | 未コミットの変更が無いことを確認する（あれば中止） |
 | 2 | `origin` を取得し、**`main` への切り替えと最新化を自動で行う**（ローカルが dev ブランチのままでよい） |
 | 3 | テスト（バックエンド `pytest` ＋ フロントエンド `tsc -b` / `npm test`）を実行する。1件でも失敗すれば中止 |
+| 3' | リリース前スモーク（アプリが実際に起動して応答するか・既存データベースが移行できるか）を実行する。問題があれば中止（下記「リリース前スモークテスト」参照） |
 | 4 | コンソールでバージョンを尋ねる（`N.N.N` 形式。テストが通った後にのみ表示される） |
-| 5 | パッケージをビルドし zip 化する |
+| 5 | 既存配布物を `backend/dist/_archive/` へ退避し、旧ビルド出力を削除してからパッケージをビルドし zip 化する |
 | 6 | ビルド元コミットへタグを付けて push する |
 | 7 | zip を添付した**下書き**リリースを作成する（本文は記入用のひな形） |
 | 8 | リモートのタグ実体がビルド元コミットを指しているか検証する |
@@ -799,18 +815,135 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 
 テストは Vitest（環境は `jsdom`）で実行する。純粋関数の単体テストに加え、`@testing-library/react` によるコンポーネントの描画テストも書ける。
 
-閾値は行・分岐・関数・文すべて100%（`vite.config.ts` の `test.coverage`）。計測対象は `src/**/*.ts`（判定ロジック）と、描画テストを書いた `.tsx` を個別に追加する方式とする。未計測の `.tsx` を一括で対象にすると 0% が大量に並んで実際の穴が埋もれるため、テストを書いたものから加えていく。
+閾値は行・分岐・関数・文すべて100%（`vite.config.ts` の `test.coverage`）。閾値は `perFile` ではなく**集計値**に効くため、1ファイルの1行が未通過でも全体が閾値割れする。
+
+計測対象の決まり方に注意する。**テスト実行中に読み込まれたファイルは常に計測される**（`include` はこれを絞り込まない）。`include` は「どのテストからも読み込まれないファイルを計測対象へ追加する」ための設定であり、`src/**/*.ts` を挙げているのは、テストを書き忘れた判定ロジックが 0% として表に出るようにするためである。したがって**計測したくないファイルは `exclude` に書く**必要がある。
+
+この性質上、画面単位の描画テスト（例: `src/pages/DailyReportPage.test.tsx`）を置くと、その画面と画面が描画する子コンポーネントがまとめて計測対象に入る。300行規模の画面や入力欄を100%にするのは現実的でないため、下表のとおり明示的に除外し、**振る舞いの回帰検知は描画テストが、網羅率の担保は判定ロジックを切り出した `.ts` が担う**という分担にしている。
 
 | 除外 | 理由 |
 | --- | --- |
-| テスト未整備の `src/**/*.tsx` | 一括で対象にすると実際の穴が埋もれる。テストを書いたものから `include` に追加する |
+| `src/pages/**/*.tsx` | 画面本体。描画テストが読み込むため放置すると閾値割れする。振る舞いは描画テストで守る |
+| `src/features/record/*Fields.tsx`、`*SummaryList.tsx`、`ChatPanel.tsx`、`CommentSection.tsx`、`GoalTabBar.tsx` | 入力欄・一覧の部品（同上）。ディレクトリ丸ごとではなく列挙するのは、判定を含む `.tsx`（`CategoryReportSection.tsx`）まで黙って計測外になるのを防ぐため |
+| `src/**/*.test.ts`、`src/**/*.test.tsx` | テストコード自体 |
+| `src/test/**` | 描画テストの共通基盤（`renderWithProviders.tsx`・`fixtures.ts`）。テストから常に読み込まれるため放置すると計測対象に入るが、production へ出るコードではない |
 | `src/**/use*.ts` | Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を検証しても実際の使われ方を再現できない |
 | `src/types/**` | `openapi-typescript` による自動生成 |
-| `src/constants/**`、`src/locales/**` | 定数・文言のみで分岐を持たない |
-| `src/api/**` | API呼び出しの薄いラッパ。実通信なしでは意味のある検証にならない |
+| `src/constants/errorCodes.ts`、`goalCategories.ts` | 値を並べているだけで分岐も関数も持たない。同じ `src/constants/` でも `queryKeys.ts`（キャッシュキー）と `routes.ts`（画面遷移パス）は値を組み立てる関数を持ち、崩れても型検査では表に出ない（どちらも `string`）ため除外しない |
+| `src/api/!(client).ts` | エンドポイント単位のAPIラッパ。分岐を持たず、実通信なしでは意味のある検証にならない。同じ `src/api/` でも `client.ts` は除外しない（下記） |
 | `src/utils/downloadBlob.ts` | ブラウザAPI（`document` / `URL.createObjectURL`）に直接依存 |
 
+**`.tsx` を計測対象へ含めるかは「送信内容を決める判定を持つか」で線を引く。** 画面本体だからという理由で一律に除外しない。Phase 35 では目標詳細の全8タブ（`BasicInfoTab`・`SubjectsTab`・`MaterialsTab`・`ResourceAllocationTab`・`LoadProfileTab`・`BookTab`・`WorkAssignmentTab`・`WorkReportTab`）を、300行規模のものも含めて除外せず描画テストで100%まで到達させた。いずれも「手動締切を off へ戻したら入力済みの日付を送らない」「任意項目の空欄は空文字ではなく `null` で送る」「既存の有無で作成と更新を呼び分ける」といった、壊れるとサーバへ誤った値が届く判定を持つためである。
+
+**1関数100行の上限への対応で切り出した `.tsx` も、切り出し元と同じ水準まで計測する。** Phase 36 で `max-lines-per-function` の超過13件を解消した際、入力欄・カード・モーダルを `features/` 配下へ切り出した（`MaterialFormFields`・`SubjectFormFields`・`WorkReportForm`・`SlotAllocationTable`・`StudyLogCard`・`SlotFormFields`・`ExamResultFields`・`BackupList`・`DataActionsCard`・`AiAuthStatusCard`・`AiAssistantFields`・`ReportTypeChoiceModal`・`CalendarHeader`・`ExportSelectionCard`・`RetrospectiveSection`・`DailyRecordChatHistories`）。切り出し元が100%だったものを分割しただけで計測面積が減るのは本末転倒のため、いずれも `include` へ明記して100%を維持している。切り出した先が `use*.ts`（フック）の場合は既存の除外規則（`src/**/use*.ts`）に従い計測しない。**この除外により、元は計測対象だった分岐がゲートの外へ出る点に注意する**（`useWorkReportDraft.ts` の `?? ''`、`useMaterialForm.ts` の初期値の絞り込みが該当）。振る舞い自体は切り出し元の描画テストが引き続き守るが、送信内容を決める判定をフックへ入れると網羅率の担保が失われるため、そうした判定は純粋関数の `.ts` 側へ置く（`materialPayload.ts` が該当。`buildMaterialPayload` は単体テスト付きで計測対象）。`*Options.ts`（選択肢の値）は `include`（`src/**/*.ts`）に一致し、コンポーネントから読み込まれるため計測対象に入るが、分岐を持たないため到達率は自然に100%になる。
+
+**画面単位の描画テストを新設すると、その画面が描画する既存の子部品まで計測対象に入る。** Phase 36 で `CalendarPage.test.tsx` を追加したところ、`CalendarGrid.tsx`（95%）と `DayTypeEditModal.tsx`（47%）が新たに計測対象へ入り閾値を割った。除外して逃げるのではなく、それぞれに部品単位のテスト（`CalendarGrid.test.tsx`・`DayTypeEditModal.test.tsx`）を追加して100%へ到達させた。後者は日種別の送信内容（種別の取り違え・「上書きを解除する」と種別送信の違い）を守るテストであり、計測対象化をきっかけに本来必要だった網が埋まった形になる。
+
+**表示しかしない `.tsx` でも、種別によって出す内容を変えるものは計測対象へ含める。** ダッシュボードの表示部品（`GoalCardList`・`StatsSummary`・`TodayMessage`・`TodayQuotaSection`・`WarningBanner`）が該当する。資格試験は計画管理の指標を、読書・仕事は記録の継続を示す指標を出す（要件定義書R-71・R-74）が、取り違えても数字が並ぶだけで画面を見ても気づけない。
+
+一方、入力欄の部品（`src/features/record/*Fields.tsx` 等）は判定を持たず入力ハンドラが並ぶだけのため除外を維持し、振る舞いは画面単位の描画テストが担う。
+
+`src/api/client.ts` と `src/locales/t.ts` は、2026-09-13のカバレッジ監査（Phase 33）で除外理由が実態と異なることが判明したため対象へ戻した。前者は通信失敗の `NETWORK_ERROR` への変換・204の扱い・エラーコードの既定値・未登録コードのフォールバックという分岐を持ち（除外時の実測34.6%）、後者はキー未解決時のフォールバックと `{{var}}` 置換の分岐を持つ。いずれも全画面のエラー表示・文言表示が通る経路である。`src/locales/` を除外一覧から外しても `ja.json` は `include`（`src/**/*.ts`）に一致しないため計測されない。
+
 到達不能な防御的分岐（型の絞り込みのためだけのガード等）は `/* v8 ignore next N */` と理由コメントで個別に除外する（CODING_RULES.md「除外可」）。
+
+**描画テストの書き方**
+
+`src/test/renderWithProviders.tsx` を使い、`QueryClientProvider`（再試行なし・使い捨ての
+`QueryClient`）・`MemoryRouter`・`ToastProvider` で包んで描画する。各テストでProviderを
+組み立て直さない（CODING_RULES.md「①DRYの原則」）。`useBlocker`（離脱警告）のように
+データルータでしか動作しない機能を検証する場合だけ、`createMemoryRouter` を各テストで
+組み立てる（`src/pages/DailyReportPage.test.tsx` が該当）。
+
+APIレスポンスは `src/test/fixtures.ts` の `makeGoalDetail` / `makeMaterial` / `makeSubject`
+で組み立て、各テストは検証したい項目だけを上書きする。自動生成型は必須項目が多く、
+テストごとに丸ごと書くと意図がフィクスチャに埋もれるため。
+
+期待する文言は `t()` から取得し、ロケールの文字列を直書きしない（CODING_RULES.md
+「②ゼロハードコーディング」）。文言を変えるたびにテストが落ちるのを避けるためでもある。
+
+描画テストを書いたら、カバレッジが100%になったことで満足せず、**意図的に不具合を注入して
+テストが落ちることを確認する**（CODING_RULES.md「超過を解消するときの手順」②）。
+落ちなければ網が不十分である。Phase 33・35 では、送信内容の取り違え・確認ダイアログの
+素通し・エラーコードのフォールバック除去など計28件の注入を行った。
+
+このうち1件はすり抜けた。科目の受験日種別を「確定日」で入力してから「期間」へ戻したとき、
+確定日を送らないことを確かめる経路が無く、`exam_date_fixed` を常に送るよう改変しても
+全テストが通ってしまった（入力欄が空のままでは改変前後で結果が変わらないため）。
+テストを追加して塞いだが、**カバレッジ100%は網の十分性を保証しない**ことの実例である。
+同じ形の判定（種別で送る項目を切り替える箇所）は、切り替え前の入力が残った状態での送信を
+必ず1件テストする。
+
+## リリース時に必ず実行されるテスト
+
+`backend/release.bat` → `scripts/release.py` → `build_package.run_tests()` が、ビルドの
+一番最初に以下をこの順で実行する。1件でも失敗すればビルドを中止するため、テストを通さずに
+配布物が作られることはない。
+
+| 対象 | コマンド | 失敗条件 |
+| --- | --- | --- |
+| バックエンド | `python -m pytest --cov-fail-under=100` | テスト失敗、または `app/` のカバレッジが100%未満 |
+| フロントエンド（型） | `npx tsc -b` | 型エラー |
+| フロントエンド（テスト） | `npm test`（`vitest run --coverage`） | テスト失敗、または計測対象のカバレッジが100%未満 |
+| リリース前スモーク | `release_smoke.collect_problems()` | アプリが起動しない、応答が200でない、既存データベースの移行で行が減る（下記「リリース前スモークテスト」） |
+
+**テストを追加したときに、このリストへ登録する作業は不要である。** pytest は
+`backend/pyproject.toml` の `testpaths`、vitest は既定の探索規則（`**/*.{test,spec}.*`）で
+テストファイルを自動的に探すため、ファイルを置けば次回のリリースから実行される。
+追加漏れで実行されないことがない構造になっている。
+
+`--cov-fail-under=100` を `pyproject.toml` の `addopts` ではなくここで明示的に渡しているのは、
+部分実行（`pytest tests/test_goal_service.py` 等）が常に閾値割れで失敗してしまうのを避けるため。
+
+## リリース前スモークテスト
+
+**`release.bat` がリリースゲートの一部として自動実行する**（実体は `backend/scripts/release_smoke.py`）。手順を増やすと実行を忘れうるため、別手順にはしていない。
+単体で流したいときは `backend/smoke.bat` を使う（移行の問題を調べるとき等）。
+テストスイートでは原理的に確認できない次の2点を確かめる。
+
+| 確認すること | なぜテストスイートで確認できないか |
+| --- | --- |
+| アプリが実際に起動して応答するか | `app/main.py` の `__main__` と `_open_browser` は実サーバ・実ブラウザの起動を伴うため `pragma: no cover`。スキーマ更新（Alembic）と初期データ投入を含む起動経路は、プロセスを立ち上げて `/health` が返ることでしか確かめられない |
+| 配布パッケージ（exe）が起動するか | PyInstallerでの同梱物の取り込み漏れ・パス解決は、ソースからの起動では再現しない。`--package` 指定時のみ実行する |
+| 既存の利用者データベースが移行できるか | 空DBへの `upgrade head` は conftest が毎回行っているが、既存データを持つDBへの適用は別物。2026-08-29 に既存行のコピーが NOT NULL 制約違反になる不具合を配布した経緯がある（CODING_RULES.md「DBマイグレーションのテスト」） |
+
+**実行中のアプリや利用者データには触れない。** 起動は空きポート（OSに割り当てさせる）と一時DBで行い、
+移行確認は `data/michinari.db` の**複製**に対して適用する。元のデータベースは読み取りしかしない。
+
+移行確認は、複製に `alembic upgrade head` を適用し、適用前後で**行数が減ったテーブルがないこと**を
+検証する。行やテーブルが増えるのは正常なので対象外とする。既存DBが無い環境（新規導入直後）では
+移行確認を省略し、失敗にはしない。
+
+```bash
+# backend ディレクトリから
+uv run python scripts/release_smoke.py                    # 起動スモーク＋移行確認
+uv run python scripts/release_smoke.py --package          # 配布パッケージの起動も確認する
+uv run python scripts/release_smoke.py --skip-startup     # 移行確認のみ
+uv run python scripts/release_smoke.py --database <path>  # 別のDBを対象にする
+```
+
+`--package` は既定で実行しない。配布物はフロントエンドを同梱しているため、起動すると1.5秒後にブラウザが開く（`app/main.py` の `_open_browser`。配布物本来の振る舞いであり、抑止する手段を製品側へ足すことはしない）。ビルド直後に一度だけ実行する使い方を想定している。
+
+配布パッケージは起動ポートを `app_setting.server.port` から決めるため、コマンドライン引数では空きポートを指定できない。そこでスモーク側が先にスキーマだけ作り、`server.port` の行を空きポートで入れておく（初期データ投入は既存キーを上書きしないため、この値がそのまま使われる）。利用者がアプリを起動したままでもスモークを実行できるようにするための仕組みである。
+
+リリースゲートからは `build_package.run_smoke()` が呼ぶ。`run_tests()` の直後に置いてあるため、
+`release.bat`・`build.bat`・`scripts/release.py` のどの経路から実行しても必ず通る。
+
+実サーバの起動を伴うため、環境要因で失敗することがある。その場合はテストスイートが通っていても
+ビルドが止まるが、**起動しない配布物を出荷するより望ましい**という判断による。切り分けが必要なときは
+`--skip-startup` / `--skip-migration` で個別に実行できる。
+
+判定ロジック（起動待ち・エンドポイント確認・行数比較）のテストは
+`backend/tests/test_release_smoke.py` にあり、通常の `pytest` で実行される。実プロセスの起動と
+実HTTP通信はOS・ネットワーク依存が大きいため対象外としている（`test_build_package.py` が
+PyInstaller本体を対象外としているのと同じ方針）。
+
+Stop Hook のデプロイチェックも同じ `pytest --cov-fail-under=100` を実行するが、`COVERAGE_FILE`
+で専用のデータファイル（`backend/.coverage.stop-hook`）を指定している。pytest-cov（coverage.py）は
+既定で作業ディレクトリの `.coverage` へ計測結果を書くため、開発者が手元で `pytest` を回している
+最中に Hook が走ると同じファイルを奪い合い、**全件通っているのに「Total coverage: 0.00%」で失敗する**
+（2026-09-13に実測）。データファイルを分けることでこの誤検知を防いでいる。`.coverage.*` は
+`.gitignore` 済み。
 
 ## 任意ツールの導入
 

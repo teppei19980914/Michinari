@@ -4,6 +4,7 @@ import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getGanttAnalytics } from '../../api/analytics'
 import { computeGanttLayout } from './ganttGeometry'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type GanttTabProps = { goalId: number }
 
@@ -11,7 +12,7 @@ type GanttTabProps = { goalId: number }
  * 専用ライブラリを使わずCSS Grid + Tailwindで自作する。 */
 export function GanttTab({ goalId }: GanttTabProps) {
   const query = useQuery({
-    queryKey: ['analytics', 'gantt', goalId],
+    queryKey: QUERY_KEYS.analyticsGantt(goalId),
     queryFn: () => getGanttAnalytics(goalId),
   })
 
