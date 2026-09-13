@@ -123,7 +123,7 @@
           },
           {
             "type": "command",
-            "command": "cd \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Michinari\\backend\" && echo '=== デプロイチェック ===' && echo '--- 静的解析 ---' && ./.venv/Scripts/python.exe -m ruff check . 2>&1 && echo '--- テスト ---' && ./.venv/Scripts/python.exe -m pytest -q --cov-fail-under=100 2>&1 && echo '=== チェック完了 ==='"
+            "command": "cd \"C:\\Users\\teppe\\OneDrive\\PersonalFolder\\GitHubRepository_teppei19980914\\Michinari\\backend\" && echo '=== デプロイチェック ===' && echo '--- 静的解析 ---' && ./.venv/Scripts/python.exe -m ruff check . 2>&1 && echo '--- テスト ---' && COVERAGE_FILE=.coverage.stop-hook ./.venv/Scripts/python.exe -m pytest -q --cov-fail-under=100 2>&1 && echo '=== チェック完了 ==='"
           },
           {
             "type": "command",

@@ -32,9 +32,26 @@ export default defineConfig({
         'src/**/*.ts',
         'src/features/goal/CloseGoalModal.tsx',
         'src/features/goal/DeleteArchivedGoalModal.tsx',
+        // 目標詳細のタブ群。いずれも「送信内容を決める判定」を持つため除外せず100%まで書く
+        // （Phase 35。方針は OPERATIONS.md「フロントエンドのテストとカバレッジ」参照）。
+        'src/features/goal/BasicInfoTab.tsx',
+        'src/features/goal/BookTab.tsx',
+        'src/features/goal/LoadProfileTab.tsx',
         'src/features/goal/MaterialsTab.tsx',
+        'src/features/goal/ResourceAllocationTab.tsx',
+        'src/features/goal/SubjectsTab.tsx',
+        'src/features/goal/WorkAssignmentTab.tsx',
+        'src/features/goal/WorkReportTab.tsx',
         'src/components/Toast.tsx',
+        // ダッシュボードの表示部品。送信は行わないが、目標種別ごとに出す指標が異なり
+        // （資格試験＝計画管理、読書・仕事＝記録の継続）、取り違えても数字が並ぶため
+        // 画面を見ても気づけない。種別ごとの出し分けをテストで固定する（Phase 35）。
+        'src/features/dashboard/GoalCardList.tsx',
+        'src/features/dashboard/StatsSummary.tsx',
+        'src/features/dashboard/TodayMessage.tsx',
+        'src/features/dashboard/TodayQuotaSection.tsx',
         'src/features/dashboard/TodayStatusSection.tsx',
+        'src/features/dashboard/WarningBanner.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',

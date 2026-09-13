@@ -80,6 +80,9 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
   const saveMutation = useMutation({
     mutationFn: () => {
       const report = reportQuery.data
+      /* v8 ignore next -- 保存ボタンは report があるときしか描画しないため到達しない。
+         period_key を取り出すための型の絞り込みであり、テストからは通せない
+         （OPERATIONS.md「到達不能な防御的分岐」）。 */
       if (!report) throw new Error('report not loaded')
       const payload = {
         target_goal_text: targetGoalText,
@@ -100,6 +103,8 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
   })
 
   const handleDownload = () => {
+    /* v8 ignore next -- ダウンロードボタンは report があるときしか描画しないため到達しない。
+       body / period_key を取り出すための型の絞り込みである（上の saveMutation と同じ）。 */
     if (!reportQuery.data) return
     const blob = new Blob([reportQuery.data.body], { type: 'text/markdown;charset=utf-8' })
     downloadBlob(blob, `${kind}-${reportQuery.data.period_key}.md`)

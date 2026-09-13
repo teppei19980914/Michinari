@@ -107,6 +107,10 @@ export function ResourceAllocationTab({
                         type="number"
                         min={0}
                         className="w-24"
+                        /* v8 ignore next -- values は initSlotAllocationValues が rows の
+                           全 slot_id を必ず埋めるため undefined にならない。値が未設定でも
+                           入力欄が非制御へ切り替わらないようにするための防御であり、
+                           テストからは到達できない（OPERATIONS.md「到達不能な防御的分岐」）。 */
                         value={values[row.slot_id] ?? ''}
                         disabled={readOnly}
                         onChange={(e) =>
