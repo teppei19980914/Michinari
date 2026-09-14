@@ -1,11 +1,17 @@
 """ai/prompt_builder のテスト（ロジック・プロンプト編16.5の4段階縮退、
-実装フェーズ分割計画書Phase5）。
+読書・仕事の段階的縮退（build_recent_log_feedback）、実装フェーズ分割計画書Phase5）。
 """
 
 import datetime as dt
 
 from app.ai import prompt_builder
-from app.ai.prompt_builder import ChatTurn, DailyFeedbackContext, MaterialStatusEntry
+from app.ai.prompt_builder import (
+    ChatTurn,
+    DailyFeedbackContext,
+    DatedLogEntry,
+    MaterialStatusEntry,
+    RecentLogFeedbackContext,
+)
 from app.constants.enums import ChatRole
 
 _TEMPLATE = (
@@ -157,6 +163,141 @@ def test_build_daily_feedback_all_stages_combined_marks_truncated():
 
     assert result.was_truncated is True
     assert result.prompt_chars == len(result.text)
+
+
+_RECENT_LOG_TEMPLATE = (
+    "固定:{{today}} {{summary}}\n直近:{{recent_recalls}}\n対話:{{conversation_history}}"
+)
+
+
+def _recent_log_context(**overrides) -> RecentLogFeedbackContext:
+    defaults = dict(
+        fixed_variables={"today": "2026-08-24", "summary": "書籍A"},
+        recent_logs=[],
+        recent_logs_key="recent_recalls",
+        recent_logs_empty_text="（直近の想起記録はありません）",
+        conversation_history=[],
+    )
+    defaults.update(overrides)
+    return RecentLogFeedbackContext(**defaults)
+
+
+def test_build_recent_log_feedback_returns_full_text_when_under_limit():
+    result = prompt_builder.build_recent_log_feedback(
+        _RECENT_LOG_TEMPLATE, _recent_log_context(), max_chars=100000
+    )
+
+    assert result.was_truncated is False
+    assert result.prompt_chars == len(result.text)
+    assert "書籍A" in result.text
+
+
+def test_build_recent_log_feedback_substitutes_fixed_variables_and_recent_logs():
+    context = _recent_log_context(
+        recent_logs=[
+            DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="窓内の記録"),
+        ],
+        conversation_history=[
+            ChatTurn(role=ChatRole.USER, content="質問です"),
+            ChatTurn(role=ChatRole.ASSISTANT, content="回答です"),
+        ],
+    )
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 100000)
+
+    assert "【2026-01-09 書籍A】" in result.text
+    assert "窓内の記録" in result.text
+    assert "【学習者】質問です" in result.text
+    assert "【AI】回答です" in result.text
+
+
+def test_build_recent_log_feedback_empty_recent_logs_uses_empty_text():
+    result = prompt_builder.build_recent_log_feedback(
+        _RECENT_LOG_TEMPLATE, _recent_log_context(), max_chars=100000
+    )
+
+    assert "（直近の想起記録はありません）" in result.text
+
+
+def test_build_recent_log_feedback_stage1_drops_oldest_recent_log_first():
+    logs = [
+        DatedLogEntry(record_date=dt.date(2026, 1, 8), label="書籍A", body="古い記録" * 50),
+        DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="新しい記録" * 50),
+    ]
+    context = _recent_log_context(recent_logs=logs)
+    full_text_len = len(
+        prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 10**9).text
+    )
+    threshold = full_text_len - 100  # 1件除けば収まるがフルでは収まらない閾値
+
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, threshold)
+
+    assert result.was_truncated is True
+    assert "新しい記録" in result.text
+    assert "古い記録" not in result.text
+
+
+def test_build_recent_log_feedback_stage1_can_drop_all_recent_logs():
+    # weekly_summaries（build_daily_feedback）と異なり「最低1件残す」制約は無い。
+    # 対話履歴で削れる余地が無い場合、直近記録が0件まで縮退することを確認する。
+    logs = [
+        DatedLogEntry(record_date=dt.date(2026, 1, 8), label="書籍A", body="記録A" * 500),
+        DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="記録B" * 500),
+    ]
+    context = _recent_log_context(recent_logs=logs)
+
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=60)
+
+    assert result.was_truncated is True
+    assert "（直近の想起記録はありません）" in result.text
+    assert "記録A" not in result.text
+    assert "記録B" not in result.text
+
+
+def test_build_recent_log_feedback_stage2_drops_oldest_conversation_turn_first():
+    # recent_logsは空にし、段階1が既に済んだ状態（＝段階2単独の挙動）を検証する
+    # （build_daily_feedbackのstage3テストと同じ、他段階を空にして切り分ける手法）。
+    history = [
+        ChatTurn(role=ChatRole.USER, content="古い質問" * 50),
+        ChatTurn(role=ChatRole.ASSISTANT, content="新しい回答" * 50),
+    ]
+    context = _recent_log_context(conversation_history=history)
+    full_len = len(
+        prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 10**9).text
+    )
+
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, full_len - 50)
+
+    assert "新しい回答" in result.text
+    assert "古い質問" not in result.text
+    assert result.was_truncated is True
+
+
+def test_build_recent_log_feedback_stage1_exhausts_recent_logs_before_stage2_starts():
+    # 直近記録・対話履歴の双方が縮退対象になる場合、段階1（直近記録）が尽きるまで
+    # 段階2（対話履歴）は着手しない（過去の記録から先に削る、という優先順位の検証）。
+    logs = [DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="直近の記録")]
+    history = [
+        ChatTurn(role=ChatRole.USER, content="古い質問" * 50),
+        ChatTurn(role=ChatRole.ASSISTANT, content="新しい回答" * 50),
+    ]
+    context = _recent_log_context(recent_logs=logs, conversation_history=history)
+
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=120)
+
+    assert "直近の記録" not in result.text  # 段階1で先に除外される
+    assert "（直近の想起記録はありません）" in result.text
+    assert result.was_truncated is True
+
+
+def test_build_recent_log_feedback_stage3_fallback_trims_tail_when_fixed_variables_alone_exceed():
+    # recent_logs・conversation_historyを使い切っても固定変数自体が閾値を超える状況
+    # （段階3の末尾切り詰めフェイルセーフに到達することを確認する）。
+    context = _recent_log_context(fixed_variables={"today": "2026-08-24", "summary": "A" * 200})
+
+    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=50)
+
+    assert len(result.text) == 50
+    assert result.was_truncated is True
 
 
 def test_build_simple_returns_full_text_when_under_limit():

@@ -13,7 +13,7 @@ from collections import defaultdict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.ai.prompt_builder import MaterialStatusEntry
+from app.ai.prompt_builder import DatedLogEntry, MaterialStatusEntry
 from app.constants.enums import (
     BaselineReason,
     ExamResultType,
@@ -706,14 +706,18 @@ def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, 
     return "\n\n".join(f"■ {books_by_id[item.book_id].title}\n{item.recall_body}" for item in items)
 
 
-def build_recent_recalls_text(
+def build_recent_recalls_entries(
     session: Session, books: list[Book], today: dt.date, recent_days: int
-) -> str:
+) -> list[DatedLogEntry]:
     """{{recent_recalls}}（DAILY_FEEDBACK_READING、17.6）: 直近recent_days日分の想起記録
     （21.4）。週次要約を経由せず原文を直接注入する（読書目標は週次要約を持たないため）。
+
+    record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
+    prompt_builder.build_recent_log_feedback側の責務とする（CLAUDE.md DRYの原則。
+    仕事のbuild_recent_work_logs_entriesと同じ形）。
     """
     if not books:
-        return "（進行中の読書目標はありません）"
+        return []
     book_ids = [book.id for book in books]
     book_titles = {book.id: book.title for book in books}
     period_start = today - dt.timedelta(days=recent_days - 1)
@@ -728,12 +732,10 @@ def build_recent_recalls_text(
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（直近の想起記録はありません）"
-    return "\n\n".join(
-        f"【{record_date.isoformat()} {book_titles[book_id]}】\n{recall_body}"
+    return [
+        DatedLogEntry(record_date=record_date, label=book_titles[book_id], body=recall_body)
         for record_date, book_id, recall_body in rows
-    )
+    ]
 
 
 # --- 読了レポート（GOAL_RETROSPECTIVE_READING、17.7、実装フェーズ分割計画書Phase16） ---
@@ -827,14 +829,18 @@ def build_today_work_text(
     return "\n\n".join(lines)
 
 
-def build_recent_work_logs_text(
+def build_recent_work_logs_entries(
     session: Session, work_assignments: list[WorkAssignment], today: dt.date, recent_days: int
-) -> str:
+) -> list[DatedLogEntry]:
     """{{recent_work_logs}}（DAILY_FEEDBACK_WORK、17.8）: 直近recent_days日分の業務記録
     （22.4）。月次報告を経由せず原文を直接注入する（読書の{{recent_recalls}}と同じ考え方）。
+
+    record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
+    prompt_builder.build_recent_log_feedback側の責務とする（CLAUDE.md DRYの原則。
+    読書のbuild_recent_recalls_entriesと同じ形）。
     """
     if not work_assignments:
-        return "（進行中の仕事目標はありません）"
+        return []
     work_assignment_ids = [wa.id for wa in work_assignments]
     goal_names = {wa.id: wa.goal.name for wa in work_assignments}
     period_start = today - dt.timedelta(days=recent_days - 1)
@@ -849,12 +855,10 @@ def build_recent_work_logs_text(
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（直近の業務記録はありません）"
-    return "\n\n".join(
-        f"【{record_date.isoformat()} {goal_names[work_assignment_id]}】\n{body}"
+    return [
+        DatedLogEntry(record_date=record_date, label=goal_names[work_assignment_id], body=body)
         for record_date, work_assignment_id, body in rows
-    )
+    ]
 
 
 # --- 月次報告・半期評価（GOAL_RETROSPECTIVE_WORK_MONTHLY/SEMIANNUAL、17.9〜17.10、22章、

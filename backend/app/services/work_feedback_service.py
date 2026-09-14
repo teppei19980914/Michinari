@@ -31,6 +31,12 @@ from app.services.exceptions import ValidationError
 from app.services.record_service import WorkLogItem
 
 _ACTION_LABEL = "日次報告フィードバック"
+#: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
+#: 表示（17.8）。ai_context_service.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
+#: を返すため、空の場合の文言は呼び出し側（prompt_builder.build_recent_log_feedback）が持つ
+#: この定数を使う（CLAUDE.md DRYの原則。reading_feedback_serviceの_NO_RECENT_RECALLS_TEXTと
+#: 同じ形）。
+_NO_RECENT_WORK_LOGS_TEXT = "（直近の業務記録はありません）"
 
 
 def _ensure_active_work_goal(goal: Goal) -> None:
@@ -98,23 +104,27 @@ def send_work_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
-    variables = {
-        "today": target_date.isoformat(),
-        "work_summary": ai_context_service.build_daily_work_summary_text(
-            active_work_assignments, today
-        ),
-        "today_work": ai_context_service.build_today_work_text(
-            work_log_items, work_assignments_by_id
-        ),
-        "recent_work_logs": ai_context_service.build_recent_work_logs_text(
+    context = prompt_builder.RecentLogFeedbackContext(
+        fixed_variables={
+            "today": target_date.isoformat(),
+            "work_summary": ai_context_service.build_daily_work_summary_text(
+                active_work_assignments, today
+            ),
+            "today_work": ai_context_service.build_today_work_text(
+                work_log_items, work_assignments_by_id
+            ),
+        },
+        recent_logs=ai_context_service.build_recent_work_logs_entries(
             session, active_work_assignments, target_date, recent_days
         ),
-        "conversation_history": prompt_builder.format_conversation_history(history),
-    }
+        recent_logs_key="recent_work_logs",
+        recent_logs_empty_text=_NO_RECENT_WORK_LOGS_TEXT,
+        conversation_history=history,
+    )
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_WORK)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
-    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+    build_result = prompt_builder.build_recent_log_feedback(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK)
     conversation = ai_conversation.ensure_conversation(
