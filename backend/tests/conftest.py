@@ -6,38 +6,16 @@ app.database はモジュールインポート時にエンジンを生成する�
 """
 
 import os
-import time
 from pathlib import Path
+
+from tests.db_retry import unlink_retrying
 
 TESTS_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = TESTS_DIR.parent
 TEST_DB_PATH = TESTS_DIR / "_test.db"
 
-#: OneDriveロック（本リポジトリはOneDrive同期フォルダ内にある）でファイル削除が
-#: 一時的に`PermissionError: [WinError 32]`になる既知の事象への再試行回数・間隔
-#: （`uv sync`の再試行と同じ対策。詳細はOPERATIONS.md「配布パッケージのビルド」参照）。
-_UNLINK_RETRY_ATTEMPTS = 5
-_UNLINK_RETRY_DELAY_SECONDS = 1.0
-
-
-def _unlink_retrying(path: Path) -> None:
-    """`path`を削除する。OneDriveの一時的なロックによる`PermissionError`は再試行する。
-
-    直前のテスト実行（別プロセス）がDBファイルを閉じた直後は、OneDriveが同期のため
-    一瞬だけファイルを掴んでいることがあり、即座に`unlink()`すると失敗する。
-    """
-    for attempt in range(1, _UNLINK_RETRY_ATTEMPTS + 1):
-        try:
-            path.unlink()
-            return
-        except PermissionError:
-            if attempt == _UNLINK_RETRY_ATTEMPTS:
-                raise
-            time.sleep(_UNLINK_RETRY_DELAY_SECONDS)
-
-
 if TEST_DB_PATH.exists():
-    _unlink_retrying(TEST_DB_PATH)
+    unlink_retrying(TEST_DB_PATH)
 
 os.environ["MICHINARI_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
 
@@ -60,7 +38,7 @@ def _migrated_database(alembic_config: Config):
     yield
     engine.dispose()
     if TEST_DB_PATH.exists():
-        _unlink_retrying(TEST_DB_PATH)
+        unlink_retrying(TEST_DB_PATH)
 
 
 def _wipe_all_tables(session) -> None:
