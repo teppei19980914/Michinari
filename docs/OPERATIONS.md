@@ -462,8 +462,11 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 
 同じOneDriveロックは、直前のテスト実行の直後に`pytest`を再実行した際、
 `backend/tests/_test.db`の削除が`PermissionError: [WinError 32]`になる形でも起こり得る
-（`backend/tests/conftest.py`）。`uv sync`と同様に、削除失敗時は1秒待って最大5回まで
-自動的に再試行する（`_unlink_retrying`）。
+（`backend/tests/conftest.py`）。特に`release.bat`/`build.bat`経由では直前の`uv sync`が
+`.venv`配下を書き換えた直後に本処理が走るため、削除失敗時は`uv sync`の再試行と同じ
+3秒待って最大5回（最大15秒）まで自動的に再試行する（`backend/tests/db_retry.py`の
+`unlink_retrying`。2026-09-14時点、1秒×5回＝最大5秒では不足しリリースが2回連続で
+失敗した事例があり延長）。
 
 **処理内容**
 
