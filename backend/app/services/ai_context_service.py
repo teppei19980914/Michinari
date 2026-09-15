@@ -13,7 +13,7 @@ from collections import defaultdict
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.ai.prompt_builder import MaterialStatusEntry
+from app.ai.prompt_builder import DatedLogEntry, MaterialStatusEntry
 from app.constants.enums import (
     BaselineReason,
     ExamResultType,
@@ -657,9 +657,13 @@ def build_exam_results_text(goal: Goal) -> str:
     return "\n".join(lines)
 
 
-def build_all_weekly_summaries_text(session: Session, goal: Goal) -> str:
+def build_all_weekly_summaries_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
     """{{weekly_summaries}}（総括レポート向け）: 全週の要約を時系列順に（17.5「全週の要約」。
     build_recent_weekly_summariesは日次報告向けに直近N週へ絞る別用途のため分離する）。
+
+    week_start_dateの昇順（古い順）で返す。整形前のlist[DatedLogEntry]を返し、空の場合の
+    表示・段階的縮退はprompt_builder.build_with_degradable_entries側の責務とする
+    （CLAUDE.md DRYの原則）。
     """
     rows = (
         session.query(WeeklySummary)
@@ -667,12 +671,14 @@ def build_all_weekly_summaries_text(session: Session, goal: Goal) -> str:
         .order_by(WeeklySummary.week_start_date)
         .all()
     )
-    if not rows:
-        return "（週次要約はありません）"
-    return "\n\n".join(
-        f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n{row.summary_body}"
+    return [
+        DatedLogEntry(
+            record_date=row.week_start_date,
+            text=f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n"
+            f"{row.summary_body}",
+        )
         for row in rows
-    )
+    ]
 
 
 # --- 読書日次報告フィードバック（DAILY_FEEDBACK_READING、17.6、実装フェーズ分割計画書Phase16） ---
@@ -706,34 +712,45 @@ def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, 
     return "\n\n".join(f"■ {books_by_id[item.book_id].title}\n{item.recall_body}" for item in items)
 
 
-def build_recent_recalls_text(
+def build_recent_recalls_entries(
     session: Session, books: list[Book], today: dt.date, recent_days: int
-) -> str:
+) -> list[DatedLogEntry]:
     """{{recent_recalls}}（DAILY_FEEDBACK_READING、17.6）: 直近recent_days日分の想起記録
     （21.4）。週次要約を経由せず原文を直接注入する（読書目標は週次要約を持たないため）。
+
+    対象日（today）自身は含めない。today分の想起は{{today_recall}}（下書きの値、
+    reading_feedback_service）で別途渡すため、todayの想起がDBへ保存済み（確定後の
+    再対話等）だと、含めた場合に同一内容が{{today_recall}}と本関数の結果で二重に
+    プロンプトへ注入されてしまう（2026-09-15、実運用で確認・是正）。そのためtodayを
+    含まないrecent_days日分（today-recent_days 〜 today-1）を対象とする。
+
+    record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
+    prompt_builder.build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則。
+    仕事のbuild_recent_work_logs_entriesと同じ形）。
     """
     if not books:
-        return "（進行中の読書目標はありません）"
+        return []
     book_ids = [book.id for book in books]
     book_titles = {book.id: book.title for book in books}
-    period_start = today - dt.timedelta(days=recent_days - 1)
+    period_start = today - dt.timedelta(days=recent_days)
     rows = (
         session.query(DailyRecord.record_date, ReadingLog.book_id, ReadingLog.recall_body)
         .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
         .filter(
             ReadingLog.book_id.in_(book_ids),
             DailyRecord.record_date >= period_start,
-            DailyRecord.record_date <= today,
+            DailyRecord.record_date < today,
         )
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（直近の想起記録はありません）"
-    return "\n\n".join(
-        f"【{record_date.isoformat()} {book_titles[book_id]}】\n{recall_body}"
+    return [
+        DatedLogEntry(
+            record_date=record_date,
+            text=f"【{record_date.isoformat()} {book_titles[book_id]}】\n{recall_body}",
+        )
         for record_date, book_id, recall_body in rows
-    )
+    ]
 
 
 # --- 読了レポート（GOAL_RETROSPECTIVE_READING、17.7、実装フェーズ分割計画書Phase16） ---
@@ -776,9 +793,12 @@ def build_reading_overall_metrics_text(session: Session, book: Book) -> str:
     return f"記録日数: {record_days}日\n最長連続記録日数: {max_streak}日"
 
 
-def build_reading_logs_text(session: Session, book: Book) -> str:
+def build_reading_logs_entries(session: Session, book: Book) -> list[DatedLogEntry]:
     """{{reading_logs}}（GOAL_RETROSPECTIVE_READING、17.7）: 想起記録を record_date の
     昇順で連結したもの（21.4）。週次要約による圧縮を経由しない全期間注入。
+
+    整形前のlist[DatedLogEntry]を返し、空の場合の表示・段階的縮退はprompt_builder.
+    build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則）。
     """
     rows = (
         session.query(DailyRecord.record_date, ReadingLog.recall_body)
@@ -787,11 +807,10 @@ def build_reading_logs_text(session: Session, book: Book) -> str:
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（想起記録はありません）"
-    return "\n\n".join(
-        f"【{record_date.isoformat()}】\n{recall_body}" for record_date, recall_body in rows
-    )
+    return [
+        DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{recall_body}")
+        for record_date, recall_body in rows
+    ]
 
 
 # --- 仕事日次報告フィードバック（DAILY_FEEDBACK_WORK、17.8、実装フェーズ分割計画書Phase22） ---
@@ -827,34 +846,42 @@ def build_today_work_text(
     return "\n\n".join(lines)
 
 
-def build_recent_work_logs_text(
+def build_recent_work_logs_entries(
     session: Session, work_assignments: list[WorkAssignment], today: dt.date, recent_days: int
-) -> str:
+) -> list[DatedLogEntry]:
     """{{recent_work_logs}}（DAILY_FEEDBACK_WORK、17.8）: 直近recent_days日分の業務記録
     （22.4）。月次報告を経由せず原文を直接注入する（読書の{{recent_recalls}}と同じ考え方）。
+
+    対象日（today）自身は含めない。理由・窓の定義はbuild_recent_recalls_entriesと同じ
+    （2026-09-15、実運用で確認・是正）。
+
+    record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
+    prompt_builder.build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則。
+    読書のbuild_recent_recalls_entriesと同じ形）。
     """
     if not work_assignments:
-        return "（進行中の仕事目標はありません）"
+        return []
     work_assignment_ids = [wa.id for wa in work_assignments]
     goal_names = {wa.id: wa.goal.name for wa in work_assignments}
-    period_start = today - dt.timedelta(days=recent_days - 1)
+    period_start = today - dt.timedelta(days=recent_days)
     rows = (
         session.query(DailyRecord.record_date, WorkLog.work_assignment_id, WorkLog.body)
         .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
         .filter(
             WorkLog.work_assignment_id.in_(work_assignment_ids),
             DailyRecord.record_date >= period_start,
-            DailyRecord.record_date <= today,
+            DailyRecord.record_date < today,
         )
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（直近の業務記録はありません）"
-    return "\n\n".join(
-        f"【{record_date.isoformat()} {goal_names[work_assignment_id]}】\n{body}"
+    return [
+        DatedLogEntry(
+            record_date=record_date,
+            text=f"【{record_date.isoformat()} {goal_names[work_assignment_id]}】\n{body}",
+        )
         for record_date, work_assignment_id, body in rows
-    )
+    ]
 
 
 # --- 月次報告・半期評価（GOAL_RETROSPECTIVE_WORK_MONTHLY/SEMIANNUAL、17.9〜17.10、22章、
@@ -874,13 +901,16 @@ def build_retrospective_work_summary_text(work_assignment: WorkAssignment) -> st
     )
 
 
-def build_work_logs_text_for_period(
+def build_work_logs_entries_for_period(
     session: Session, work_assignment: WorkAssignment, date_from: dt.date, date_to: dt.date
-) -> str:
+) -> list[DatedLogEntry]:
     """{{month_logs}}／{{period_logs}}（17.9〜17.10）: 対象期間分の業務記録を record_date
     の昇順で連結したもの（22.4）。月次報告のロールアップではなく、生の日次記録を直接参照
     する（読書のgoal_retrospectiveと同じ「生ログ直接参照」方式。半期評価が月次報告を
     ロールアップしない設計の根拠）。
+
+    整形前のlist[DatedLogEntry]を返し、空の場合の表示・段階的縮退はprompt_builder.
+    build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則）。
     """
     rows = (
         session.query(DailyRecord.record_date, WorkLog.body)
@@ -893,9 +923,10 @@ def build_work_logs_text_for_period(
         .order_by(DailyRecord.record_date)
         .all()
     )
-    if not rows:
-        return "（対象期間の業務記録はありません）"
-    return "\n\n".join(f"【{record_date.isoformat()}】\n{body}" for record_date, body in rows)
+    return [
+        DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{body}")
+        for record_date, body in rows
+    ]
 
 
 # --- 今日の一言（DAILY_MESSAGE）のWORK対応（17.4、実装フェーズ分割計画書Phase22） ---

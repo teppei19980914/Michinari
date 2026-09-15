@@ -30,6 +30,12 @@ from app.models.retrospective import GoalRetrospective
 from app.services import ai_context_service, retrospective_service, setting_reader
 from app.services.exceptions import ValidationError
 
+#: {{month_logs}}／{{period_logs}}が空（対象期間に業務記録なし）の場合の表示（17.9・17.10）。
+#: ai_context_service.build_work_logs_entries_for_periodは整形前のlist[DatedLogEntry]を
+#: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が
+#: 持つこの定数を使う（CLAUDE.md DRYの原則。月次・半期の両方で同じ文言を使い回す）。
+_NO_PERIOD_WORK_LOGS_TEXT = "（対象期間の業務記録はありません）"
+
 #: 月次報告のAI応答を分割する見出し文字列（17.9、この順序・この文字列を厳守）。
 _MONTHLY_HEADINGS = (
     "## 業務内容の要約",
@@ -242,21 +248,31 @@ def generate_monthly_report(
         else "（前月の記録が無いため、今回は目標との比較を行いません）"
     )
 
-    variables = {
-        "work_summary": ai_context_service.build_retrospective_work_summary_text(work_assignment),
-        "target_month": target_month,
-        "target_goal_text": target_goal_text,
-        "month_logs": ai_context_service.build_work_logs_text_for_period(
-            session, work_assignment, date_from, date_to
-        ),
-        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
-    }
+    context = prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "work_summary": ai_context_service.build_retrospective_work_summary_text(
+                work_assignment
+            ),
+            "target_month": target_month,
+            "target_goal_text": target_goal_text,
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="month_logs",
+                entries=ai_context_service.build_work_logs_entries_for_period(
+                    session, work_assignment, date_from, date_to
+                ),
+                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+            ),
+        ],
+    )
 
     template_body = ai_orchestration.load_template_body(
         session, AiPurpose.GOAL_RETROSPECTIVE_WORK_MONTHLY
     )
     max_chars = ai_orchestration.get_max_prompt_chars(session)
-    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+    build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(
         session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY
@@ -349,21 +365,31 @@ def generate_semiannual_review(
         else "（前半期の記録が無いため、今回は目標との比較を行いません）"
     )
 
-    variables = {
-        "work_summary": ai_context_service.build_retrospective_work_summary_text(work_assignment),
-        "target_period": target_period,
-        "target_goal_text": target_goal_text,
-        "period_logs": ai_context_service.build_work_logs_text_for_period(
-            session, work_assignment, date_from, date_to
-        ),
-        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
-    }
+    context = prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "work_summary": ai_context_service.build_retrospective_work_summary_text(
+                work_assignment
+            ),
+            "target_period": target_period,
+            "target_goal_text": target_goal_text,
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="period_logs",
+                entries=ai_context_service.build_work_logs_entries_for_period(
+                    session, work_assignment, date_from, date_to
+                ),
+                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+            ),
+        ],
+    )
 
     template_body = ai_orchestration.load_template_body(
         session, AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL
     )
     max_chars = ai_orchestration.get_max_prompt_chars(session)
-    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+    build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(
         session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL

@@ -244,6 +244,7 @@ def build(version: str, *, skip_tests: bool = False) -> Path:
     if build_package.read_current_version(build_package.PYPROJECT_PATH) != version:
         build_package.write_version(build_package.PYPROJECT_PATH, version)
         print(f"  → pyproject.toml のバージョンを {version} へ更新しました")
+    build_package.cleanup_stale_previous_packages(build_package.DIST_DIR)
     build_package.archive_previous_distributions(build_package.DIST_DIR, build_package.ARCHIVE_DIR)
     build_package.discard_previous_package(build_package.OUTPUT_DIR)
     build_package.generate_build_info(REPO_ROOT, build_package.BUILD_INFO_PATH)

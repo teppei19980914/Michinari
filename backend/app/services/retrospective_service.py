@@ -28,6 +28,15 @@ from app.services.exceptions import ValidationError
 #: （goal_retrospectiveはgoal_id単位、chat自体はconversation_uid一つで足りるため）。
 _SCOPE_KEY = "main"
 
+#: {{weekly_summaries}}／{{reading_logs}}が空の場合の表示（17.5・17.7）。
+#: ai_context_service側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
+#: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う
+#: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_entries／build_reading_logs_entriesの
+#: 前身（build_all_weekly_summaries_text／build_reading_logs_text）が元々返していた文言と
+#: 同じにし、縮退の追加以外は挙動を変えない。
+_NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
+_NO_READING_LOGS_TEXT = "（想起記録はありません）"
+
 
 def get_latest_retrospective(
     session: Session,
@@ -57,35 +66,53 @@ def get_latest_retrospective(
     return query.order_by(GoalRetrospective.generated_at.desc()).first()
 
 
-def _build_exam_variables(
+def _build_exam_context(
     session: Session, goal: Goal, today: dt.date, anonymize: bool
-) -> dict[str, str]:
+) -> prompt_builder.DegradableFeedbackContext:
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     materials = [material for material in goal.materials if material.is_active]
-    return {
-        "goal_summary": ai_context_service.build_goal_summary([goal], today),
-        "material_summary": ai_context_service.build_material_summary_text(session, materials),
-        "overall_metrics": ai_context_service.build_overall_metrics_text(
-            session, goal, today, treat_holiday_as_buffer
-        ),
-        "quality_trend": ai_context_service.build_quality_trend_text(session, materials),
-        "replan_history": ai_context_service.build_replan_history_text(session, goal),
-        "weekly_summaries": ai_context_service.build_all_weekly_summaries_text(session, goal),
-        "exam_results": ai_context_service.build_exam_results_text(goal),
-        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
-    }
+    return prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "goal_summary": ai_context_service.build_goal_summary([goal], today),
+            "material_summary": ai_context_service.build_material_summary_text(session, materials),
+            "overall_metrics": ai_context_service.build_overall_metrics_text(
+                session, goal, today, treat_holiday_as_buffer
+            ),
+            "quality_trend": ai_context_service.build_quality_trend_text(session, materials),
+            "replan_history": ai_context_service.build_replan_history_text(session, goal),
+            "exam_results": ai_context_service.build_exam_results_text(goal),
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=ai_context_service.build_all_weekly_summaries_entries(session, goal),
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+        ],
+    )
 
 
-def _build_reading_variables(session: Session, goal: Goal, anonymize: bool) -> dict[str, str]:
+def _build_reading_context(
+    session: Session, goal: Goal, anonymize: bool
+) -> prompt_builder.DegradableFeedbackContext:
     if goal.book is None:
         raise ValidationError("書籍が未登録の読書目標には読了レポートを生成できません")
     book = goal.book
-    return {
-        "book_summary": ai_context_service.build_retrospective_book_summary_text(book),
-        "overall_metrics": ai_context_service.build_reading_overall_metrics_text(session, book),
-        "reading_logs": ai_context_service.build_reading_logs_text(session, book),
-        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
-    }
+    return prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "book_summary": ai_context_service.build_retrospective_book_summary_text(book),
+            "overall_metrics": ai_context_service.build_reading_overall_metrics_text(session, book),
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="reading_logs",
+                entries=ai_context_service.build_reading_logs_entries(session, book),
+                empty_text=_NO_READING_LOGS_TEXT,
+            ),
+        ],
+    )
 
 
 def generate_retrospective(
@@ -109,17 +136,17 @@ def generate_retrospective(
         scope = ConversationScope.GOAL_RETROSPECTIVE_READING
         assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
         title = f"{goal.name} 読了レポート"
-        variables = _build_reading_variables(session, goal, anonymize)
+        context = _build_reading_context(session, goal, anonymize)
     else:
         purpose = AiPurpose.GOAL_RETROSPECTIVE
         scope = ConversationScope.GOAL_RETROSPECTIVE
         assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE
         title = f"{goal.name} 総括レポート"
-        variables = _build_exam_variables(session, goal, today, anonymize)
+        context = _build_exam_context(session, goal, today, anonymize)
 
     template_body = ai_orchestration.load_template_body(session, purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
-    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+    build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(session, assistant_uid_key)
     conversation = ai_conversation.ensure_conversation(
