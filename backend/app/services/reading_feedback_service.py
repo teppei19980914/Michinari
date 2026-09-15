@@ -32,6 +32,11 @@ from app.services.exceptions import ValidationError
 from app.services.record_service import ReadingLogItem
 
 _ACTION_LABEL = "日次報告フィードバック"
+#: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
+#: （17.6）。ai_context_service.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
+#: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
+#: この定数を使う（CLAUDE.md DRYの原則）。
+_NO_RECENT_RECALLS_TEXT = "（直近の想起記録はありません）"
 
 
 def _ensure_active_reading_goal(goal: Goal) -> None:
@@ -97,19 +102,29 @@ def send_reading_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
-    variables = {
-        "today": target_date.isoformat(),
-        "book_summary": ai_context_service.build_daily_book_summary_text(active_books, today),
-        "today_recall": ai_context_service.build_today_recall_text(reading_log_items, books_by_id),
-        "recent_recalls": ai_context_service.build_recent_recalls_text(
-            session, active_books, target_date, recent_days
-        ),
-        "conversation_history": prompt_builder.format_conversation_history(history),
-    }
+    context = prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "today": target_date.isoformat(),
+            "book_summary": ai_context_service.build_daily_book_summary_text(active_books, today),
+            "today_recall": ai_context_service.build_today_recall_text(
+                reading_log_items, books_by_id
+            ),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="recent_recalls",
+                entries=ai_context_service.build_recent_recalls_entries(
+                    session, active_books, target_date, recent_days
+                ),
+                empty_text=_NO_RECENT_RECALLS_TEXT,
+            ),
+        ],
+        conversation_history=history,
+    )
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_READING)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
-    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+    build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING)
     conversation = ai_conversation.ensure_conversation(

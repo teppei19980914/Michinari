@@ -13,11 +13,13 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalStatus
+from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
+from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalStatus, RecordState
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage
+from app.models.record import ChatMessage, DailyRecord, ReadingLog
+from app.models.setting import AppSetting
 from app.services import daily_feedback_service, reading_feedback_service, record_service
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
@@ -71,6 +73,16 @@ def _make_exam_goal_with_material(session, name="資格目標A"):
 
 def _reading_log(book_id, **overrides):
     return reading_helpers.reading_log_item(book_id, **overrides)
+
+
+def _add_past_reading_log(session, book_id, record_date, recall_body):
+    """{{recent_recalls}}に注入される過去日の想起記録（保存済み）を追加する
+    （ai_context_service.build_recent_recalls_entriesが参照するReadingLog行、17.6）。"""
+    record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    session.add(ReadingLog(daily_record_id=record.id, book_id=book_id, recall_body=recall_body))
+    session.flush()
 
 
 def _stub_send_message(monkeypatch, *, response="AIからの応答", raise_exc=None):
@@ -358,3 +370,45 @@ def test_reading_feedback_uses_separate_ai_conversation_from_exam(seeded_session
     assert scopes == {ConversationScope.DAILY_FEEDBACK, ConversationScope.DAILY_FEEDBACK_READING}
     goal_ids = {c.goal_id for c in conversations}
     assert goal_ids == {exam_goal.id, reading_goal.id}
+
+
+def test_send_reading_feedback_degrades_oldest_recent_logs_before_instructions(
+    seeded_session, monkeypatch
+):
+    """段階的縮退の回帰テスト（2026-09-14の実運用で発生した事象、work_feedback_serviceの
+    同名テストと対になる読書版）。旧実装（prompt_builder.build_simple）は上限超過時に
+    末尾（テンプレートの指示文＝「フィードバックの構成」「重要な原則」「出力形式」）を
+    問答無用で切り詰めていたため、AIが指示を受け取れなかった。build_recent_log_feedbackは
+    直近記録を古い日（{{recent_recalls}}の先頭）から先に削るため、指示文は必ず残ることを
+    確認する。
+    """
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    _add_past_reading_log(seeded_session, book.id, dt.date(2026, 1, 8), "OLD_MARKER" * 300)
+    _add_past_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), "NEW_MARKER" * 300)
+
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+    setting.value = "1500"  # 直近記録2件分は到底収まらないが、固定変数＋指示文は収まる閾値
+    seeded_session.flush()
+
+    calls = _stub_send_message(monkeypatch)
+    outcome = reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 1, 10),
+        today=dt.date(2026, 1, 10),
+        message=None,
+        reading_log_items=[_reading_log(book.id, recall_body="本日の想起内容")],
+    )
+
+    sent_message = calls[0]["message"]
+    assert outcome.was_truncated is True
+    # テンプレート末尾（指示文）が必ず残る（旧実装での回帰確認）。
+    assert "自然な文章で記述してください" in sent_message
+    assert "重要な原則" in sent_message
+    # 固定変数（today_recall）は縮退対象外のため常に残る。
+    assert "本日の想起内容" in sent_message
+    # 直近記録は閾値に収まらず、古い日・新しい日の別なく段階1で除外される。
+    assert "OLD_MARKER" not in sent_message
+    assert "NEW_MARKER" not in sent_message
+    assert "直近の想起記録はありません" in sent_message

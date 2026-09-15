@@ -30,6 +30,7 @@ from build_package import (
     USER_MANUAL_PATH,
     archive_previous_distributions,
     build_commit_filename,
+    cleanup_stale_previous_packages,
     copy_user_manual,
     create_distribution_zip,
     discard_previous_package,
@@ -145,16 +146,25 @@ def test_discard_previous_package_removes_existing_output(tmp_path: Path) -> Non
 def test_discard_previous_package_keeps_the_staging_folder_when_removal_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """再帰削除に失敗しても出力先は空いている（OneDriveでの`WinError 5`対策）。"""
+    """再試行しても全て失敗した場合、出力先は空いたまま一時フォルダを残す
+
+    （OneDriveでの`WinError 5`対策。`time.sleep`は潰してテストを遅延させない）。
+    """
     dist_dir = tmp_path / "dist"
     output_dir = dist_dir / "Michinari"
     output_dir.mkdir(parents=True)
     (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
 
+    call_count = 0
+
     def fail_rmtree(path: Path) -> None:
+        nonlocal call_count
+        call_count += 1
         raise PermissionError("アクセスが拒否されました")
 
     monkeypatch.setattr(build_package.shutil, "rmtree", fail_rmtree)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
     fixed_now = dt.datetime(2026, 9, 13, 18, 0, 0)
 
     leftover = discard_previous_package(output_dir, now=fixed_now)
@@ -163,6 +173,115 @@ def test_discard_previous_package_keeps_the_staging_folder_when_removal_fails(
     assert (leftover / "Michinari.exe").read_text(encoding="utf-8") == "dummy"
     assert not output_dir.exists()
     assert "旧パッケージを削除できませんでした" in capsys.readouterr().out
+    # 既定は5回試行・試行の間だけ待機するため、待機回数は試行回数-1回になる。
+    assert call_count == build_package.RMTREE_RETRY_ATTEMPTS
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * (
+        build_package.RMTREE_RETRY_ATTEMPTS - 1
+    )
+
+
+def test_discard_previous_package_succeeds_after_transient_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OneDriveロックのような一時的な失敗の後に削除が成功すれば残骸を残さない。"""
+    dist_dir = tmp_path / "dist"
+    output_dir = dist_dir / "Michinari"
+    output_dir.mkdir(parents=True)
+    (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
+
+    real_rmtree = build_package.shutil.rmtree
+    call_count = 0
+
+    def flaky_rmtree(path: Path) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise PermissionError("アクセスが拒否されました")
+        real_rmtree(path)
+
+    monkeypatch.setattr(build_package.shutil, "rmtree", flaky_rmtree)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    leftover = discard_previous_package(output_dir)
+
+    assert leftover is None
+    assert call_count == 3
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
+    assert not any(dist_dir.iterdir())
+
+
+def test_cleanup_stale_previous_packages_returns_empty_when_dist_dir_is_absent(
+    tmp_path: Path,
+) -> None:
+    dist_dir = tmp_path / "dist"
+
+    assert cleanup_stale_previous_packages(dist_dir) == []
+
+
+def test_cleanup_stale_previous_packages_returns_empty_when_none_exist(tmp_path: Path) -> None:
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "Michinari").mkdir()
+    (dist_dir / "_archive").mkdir()
+
+    assert cleanup_stale_previous_packages(dist_dir) == []
+
+
+def test_cleanup_stale_previous_packages_removes_only_prefixed_folders(
+    tmp_path: Path,
+) -> None:
+    """`_previous_`接頭辞のフォルダのみ削除し、出力フォルダ・`_archive/`・zipには触れない。"""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    stale_a = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260913_180000"
+    stale_a.mkdir()
+    (stale_a / "Michinari.exe").write_text("dummy", encoding="utf-8")
+    stale_b = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260912_090000"
+    stale_b.mkdir()
+    output_dir = dist_dir / "Michinari"
+    output_dir.mkdir()
+    archive_dir = dist_dir / "_archive"
+    archive_dir.mkdir()
+    zip_path = dist_dir / "Michinari-v0.1.0.zip"
+    zip_path.write_text("zip", encoding="utf-8")
+
+    removed = cleanup_stale_previous_packages(dist_dir)
+
+    assert removed == [stale_b, stale_a]
+    assert not stale_a.exists()
+    assert not stale_b.exists()
+    assert output_dir.exists()
+    assert archive_dir.exists()
+    assert zip_path.exists()
+
+
+def test_cleanup_stale_previous_packages_warns_and_continues_when_removal_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """1件の削除に失敗しても他の対象の削除を継続し、ビルドは中断しない。"""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    locked = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260912_090000"
+    locked.mkdir()
+    removable = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260913_180000"
+    removable.mkdir()
+
+    real_rmtree = build_package.shutil.rmtree
+
+    def selective_fail_rmtree(path: Path) -> None:
+        if path == locked:
+            raise PermissionError("アクセスが拒否されました")
+        real_rmtree(path)
+
+    monkeypatch.setattr(build_package.shutil, "rmtree", selective_fail_rmtree)
+
+    removed = cleanup_stale_previous_packages(dist_dir)
+
+    assert removed == [removable]
+    assert locked.exists()
+    assert not removable.exists()
+    assert "残存する旧パッケージを削除できませんでした" in capsys.readouterr().out
 
 
 def test_create_distribution_zip_contains_top_level_app_folder(tmp_path: Path) -> None:

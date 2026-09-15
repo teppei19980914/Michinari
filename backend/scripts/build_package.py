@@ -36,6 +36,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 from pathlib import Path
 
@@ -70,6 +71,12 @@ BUILD_COMMIT_SUFFIX = ".commit.json"
 ARCHIVED_DISTRIBUTION_SUFFIXES = (".zip", ".json")
 #: 旧パッケージフォルダを削除する前に付け替える一時名の接頭辞（`discard_previous_package`）。
 PREVIOUS_PACKAGE_PREFIX = "_previous_"
+#: `discard_previous_package`が`shutil.rmtree`の`PermissionError`/`OSError`を再試行する
+#: 回数・待機秒数。`uv sync`（build.bat/release.bat）・`backend/tests/db_retry.py`の
+#: `unlink_retrying`と同じ3秒×5回＝最大15秒に揃える（同種のOneDriveファイルオンデマンド
+#: ロックが原因のため。OPERATIONS.md「配布パッケージのビルド」参照）。
+RMTREE_RETRY_ATTEMPTS = 5
+RMTREE_RETRY_DELAY_SECONDS = 3.0
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
 #: 配布用の複製はビルド時にここから作成する。CLAUDE.md DRYの原則）。
 USER_MANUAL_PATH = REPO_ROOT / "docs" / "ユーザ手順書.pdf"
@@ -130,14 +137,27 @@ def archive_previous_distributions(dist_dir: Path, archive_dir: Path) -> list[Pa
     return moved
 
 
-def discard_previous_package(output_dir: Path, *, now: dt.datetime | None = None) -> Path | None:
+def discard_previous_package(
+    output_dir: Path,
+    *,
+    now: dt.datetime | None = None,
+    retry_attempts: int = RMTREE_RETRY_ATTEMPTS,
+    retry_delay_seconds: float = RMTREE_RETRY_DELAY_SECONDS,
+) -> Path | None:
     """既存のビルド出力フォルダを削除し、同じ場所へ新しいバージョンをビルドできるようにする。
 
     削除は「同階層の一時名へリネーム → その一時フォルダを再帰削除」の2段階で行う。
     リネームはディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、
     OneDriveファイルオンデマンド配下で再帰削除が`WinError 5 アクセスが拒否されました`に
     なる事象（OPERATIONS.md参照）が起きても、ビルド自体は中断せずに進められる。
-    削除できなかった一時フォルダは警告を表示して残す（手動削除できるようにする）。
+
+    再帰削除自体も`RMTREE_RETRY_ATTEMPTS`回まで`RMTREE_RETRY_DELAY_SECONDS`秒間隔で
+    再試行する（`uv sync`・`unlink_retrying`と同じ待機パターン）。OneDriveのロックは
+    数秒で解消することが多く、以前はここで1回失敗しただけで`_previous_*`フォルダが
+    残り続け、ビルドを重ねるたびに配布物と同じ内容（数十〜100MB超）が積み上がって
+    容量を圧迫していた（2026-09-14利用者報告）。全て失敗した場合のみ、削除できなかった
+    一時フォルダについて警告を表示して残す（手動削除できるようにする。次回ビルド開始時に
+    `cleanup_stale_previous_packages`が再度削除を試みる）。
 
     PyInstallerの`--noconfirm`任せにせず本スクリプト側で先に空けるのも同じ理由である。
 
@@ -149,13 +169,51 @@ def discard_previous_package(output_dir: Path, *, now: dt.datetime | None = None
     timestamp = (now or dt.datetime.now()).strftime("%Y%m%d_%H%M%S")
     staging_dir = output_dir.parent / f"{PREVIOUS_PACKAGE_PREFIX}{output_dir.name}_{timestamp}"
     shutil.move(str(output_dir), str(staging_dir))
-    try:
-        shutil.rmtree(staging_dir)
-    except OSError as error:
-        print(f"  → 警告: 旧パッケージを削除できませんでした: {staging_dir} ({error})")
-        print("     ビルドは継続します。不要であれば手動で削除してください。")
-        return staging_dir
-    return None
+    last_error: OSError | None = None
+    for attempt in range(1, retry_attempts + 1):
+        try:
+            shutil.rmtree(staging_dir)
+            return None
+        except OSError as error:
+            last_error = error
+            if attempt < retry_attempts:
+                time.sleep(retry_delay_seconds)
+    print(f"  → 警告: 旧パッケージを削除できませんでした: {staging_dir} ({last_error})")
+    print("     ビルドは継続します。不要であれば手動で削除してください。")
+    return staging_dir
+
+
+def cleanup_stale_previous_packages(
+    dist_dir: Path, *, prefix: str = PREVIOUS_PACKAGE_PREFIX
+) -> list[Path]:
+    """前回以前のビルドで`discard_previous_package`が削除しきれず残した
+    `_previous_*`フォルダを、今回のビルド開始時にあらためて削除する。
+
+    `discard_previous_package`の再試行が全て失敗した場合、展開済みビルド出力と同じ内容
+    （数十〜100MB超）を持つフォルダが残る。前回失敗の原因（OneDriveの一時的なロック）は
+    次回ビルド時には解消していることが多いため、ここで再度削除を試みることで残骸が
+    ビルドを重ねるたびに積み上がるのを防ぐ（2026-09-14利用者報告：`_archive/`にzipとして
+    同じ内容が残るため、このフォルダ自体を保持する必要はない）。
+
+    削除に失敗した場合は`discard_previous_package`と同様に警告のみ表示し、ビルドは
+    中断しない（次回以降のビルドで再度削除を試みる）。
+
+    戻り値: 削除できたフォルダのパス一覧（名前昇順）。対象が無ければ空リスト。
+    """
+    if not dist_dir.exists():
+        return []
+    stale_dirs = sorted(
+        path for path in dist_dir.iterdir() if path.is_dir() and path.name.startswith(prefix)
+    )
+    removed: list[Path] = []
+    for stale_dir in stale_dirs:
+        try:
+            shutil.rmtree(stale_dir)
+            removed.append(stale_dir)
+        except OSError as error:
+            print(f"  → 警告: 残存する旧パッケージを削除できませんでした: {stale_dir} ({error})")
+            print("     ビルドは継続します。不要であれば手動で削除してください。")
+    return removed
 
 
 def read_current_version(pyproject_path: Path) -> str:
@@ -505,6 +563,9 @@ def main() -> None:
     print(f"  → バージョン {version} でビルドします")
 
     print("[3/8] 既存パッケージを整理しています…")
+    stale_removed = cleanup_stale_previous_packages(DIST_DIR)
+    if stale_removed:
+        print(f"  → 前回以前に残った旧パッケージ {len(stale_removed)} 件を削除しました")
     archived = archive_previous_distributions(DIST_DIR, ARCHIVE_DIR)
     if archived:
         print(f"  → 既存の配布物 {len(archived)} 件を退避しました: {ARCHIVE_DIR}")

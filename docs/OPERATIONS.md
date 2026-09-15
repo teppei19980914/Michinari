@@ -481,11 +481,23 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （`pyproject.toml` のTOML文字列・zipファイル名へそのまま埋め込むため、それ以外の
    文字を含む入力は再入力を求める）。確定したバージョンは `backend/pyproject.toml` の
    `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
-3. `backend/dist/` 直下の既存配布物（`*.zip` と対になる `*.commit.json`）を
+3. 前回以前のビルドで削除しきれず残った `backend/dist/_previous_Michinari_*`
+   フォルダがあれば、まずそれを削除する（`cleanup_stale_previous_packages`）。
+   続いて `backend/dist/` 直下の既存配布物（`*.zip` と対になる `*.commit.json`）を
    `backend/dist/_archive/` へ移動し、既存のビルド出力フォルダ
    `backend/dist/Michinari/` は削除して出力先を空ける
    （`archive_previous_distributions`／`discard_previous_package`）。
-   旧バージョンを調べたいときは `_archive/` のzipを展開する
+   旧バージョンを調べたいときは `_archive/` のzipを展開する。
+
+   `discard_previous_package` の削除（`shutil.rmtree`）が
+   `PermissionError`/`OSError`（OneDriveロックによる`WinError 5`）で失敗した場合は、
+   `uv sync`と同じ3秒待って最大5回（`RMTREE_RETRY_ATTEMPTS`/
+   `RMTREE_RETRY_DELAY_SECONDS`）まで自動的に再試行する。全て失敗した場合のみ
+   `backend/dist/_previous_Michinari_YYYYMMDD_HHMMSS/` を残す（警告表示、ビルドは
+   継続）。**このフォルダは意図した退避先ではなく削除に失敗した残骸であり、同じ内容は
+   `_archive/`のzipに残っているため、手動削除しても問題ない**（次回ビルド開始時にも
+   手順3の`cleanup_stale_previous_packages`が自動的に削除を試みる。2026-09-14利用者報告：
+   `_previous_Michinari_20260913_214753`が残り続け容量を圧迫していた事象への対応）。
 4. アプリバージョン・使用ライブラリのスナップショットを `backend/build_info.json` へ生成する
    （`generate_build_info`。2で確定した`backend/pyproject.toml`の`[project].version`を
    単一の情報源として読む）

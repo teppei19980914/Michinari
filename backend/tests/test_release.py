@@ -368,6 +368,61 @@ def test_main_does_not_require_notes_when_drafting(monkeypatch, tmp_path: Path) 
     assert captured["require_notes"] is False
 
 
+# --- ビルド工程 ---
+
+
+def test_build_cleans_up_stale_leftovers_before_archiving_and_discarding(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """前回以前の削除残骸（`_previous_*`）の掃除を、既存配布物の退避・今回の出力
+    フォルダ削除より先に行うこと。
+
+    `release.py`は`build_package.py`本体の工程（`archive_previous_distributions`・
+    `discard_previous_package`）をそのまま呼び出す構成のため（CLAUDE.md DRYの原則）、
+    `cleanup_stale_previous_packages`の呼び出し漏れが起きやすい。実際に
+    `backend/release.bat`が呼ぶのはこの`release.build`であり`build_package.main`では
+    ないため、`main`側だけに追加しても`release.bat`実行時には効かない
+    （2026-09-14利用者報告の再発防止）。
+    """
+    order: list[str] = []
+    monkeypatch.setattr(build_package, "run_tests", lambda: None)
+    monkeypatch.setattr(build_package, "has_uncommitted_changes", lambda _root: False)
+    monkeypatch.setattr(build_package, "read_git_commit", lambda _root: _COMMIT)
+    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.3")
+    monkeypatch.setattr(
+        build_package,
+        "write_version",
+        lambda _p, _v: pytest.fail("バージョンが一致していれば書き換えない"),
+    )
+    monkeypatch.setattr(
+        build_package,
+        "cleanup_stale_previous_packages",
+        lambda _dist_dir: (order.append("cleanup_stale"), [])[1],
+    )
+    monkeypatch.setattr(
+        build_package,
+        "archive_previous_distributions",
+        lambda _dist_dir, _archive_dir: (order.append("archive"), [])[1],
+    )
+    monkeypatch.setattr(
+        build_package,
+        "discard_previous_package",
+        lambda _output_dir: (order.append("discard"), None)[1],
+    )
+    monkeypatch.setattr(build_package, "generate_build_info", lambda _root, _path: None)
+    monkeypatch.setattr(build_package, "build_frontend", lambda: None)
+    monkeypatch.setattr(build_package, "build_backend", lambda: None)
+    monkeypatch.setattr(build_package, "assemble_launcher", lambda: None)
+    zip_path = tmp_path / "Michinari-v1.2.3.zip"
+    monkeypatch.setattr(build_package, "create_distribution_zip", lambda *_args: zip_path)
+    monkeypatch.setattr(build_package, "generate_build_commit", lambda *_args, **_kwargs: None)
+
+    result = release.build("1.2.3")
+
+    assert result == zip_path
+    assert order == ["cleanup_stale", "archive", "discard"]
+
+
 # --- 公開処理への引数の受け渡し ---
 
 
