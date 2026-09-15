@@ -30,6 +30,12 @@ from app.models.retrospective import GoalRetrospective
 from app.services import ai_context_service, retrospective_service, setting_reader
 from app.services.exceptions import ValidationError
 
+#: {{month_logs}}／{{period_logs}}が空（対象期間に業務記録なし）の場合の表示（17.9・17.10）。
+#: ai_context_service.build_work_logs_entries_for_periodは整形前のlist[DatedLogEntry]を
+#: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が
+#: 持つこの定数を使う（CLAUDE.md DRYの原則。月次・半期の両方で同じ文言を使い回す）。
+_NO_PERIOD_WORK_LOGS_TEXT = "（対象期間の業務記録はありません）"
+
 #: 月次報告のAI応答を分割する見出し文字列（17.9、この順序・この文字列を厳守）。
 _MONTHLY_HEADINGS = (
     "## 業務内容の要約",

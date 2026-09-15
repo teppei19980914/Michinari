@@ -31,8 +31,9 @@ _SCOPE_KEY = "main"
 #: {{weekly_summaries}}／{{reading_logs}}が空の場合の表示（17.5・17.7）。
 #: ai_context_service側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
 #: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う
-#: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_text／build_reading_logs_textが
-#: 元々返していた文言と同じにし、縮退の追加以外は挙動を変えない。
+#: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_entries／build_reading_logs_entriesの
+#: 前身（build_all_weekly_summaries_text／build_reading_logs_text）が元々返していた文言と
+#: 同じにし、縮退の追加以外は挙動を変えない。
 _NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
 _NO_READING_LOGS_TEXT = "（想起記録はありません）"
 
