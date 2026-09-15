@@ -757,7 +757,7 @@ def test_build_exam_results_text_handles_no_subjects(seeded_session):
     assert "試験科目未登録" in text
 
 
-def test_build_all_weekly_summaries_text_orders_chronologically(seeded_session):
+def test_build_all_weekly_summaries_entries_orders_chronologically(seeded_session):
     goal = _make_goal(seeded_session)
     seeded_session.add(
         WeeklySummary(
@@ -777,17 +777,19 @@ def test_build_all_weekly_summaries_text_orders_chronologically(seeded_session):
     )
     seeded_session.flush()
 
-    text = ai_context_service.build_all_weekly_summaries_text(seeded_session, goal)
+    entries = ai_context_service.build_all_weekly_summaries_entries(seeded_session, goal)
 
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 5), dt.date(2026, 1, 12)]
+    text = "\n\n".join(entry.text for entry in entries)
     assert text.index("1週目") < text.index("2週目")
 
 
-def test_build_all_weekly_summaries_text_handles_no_summaries(seeded_session):
+def test_build_all_weekly_summaries_entries_handles_no_summaries(seeded_session):
     goal = _make_goal(seeded_session)
 
-    text = ai_context_service.build_all_weekly_summaries_text(seeded_session, goal)
+    entries = ai_context_service.build_all_weekly_summaries_entries(seeded_session, goal)
 
-    assert "週次要約はありません" in text
+    assert entries == []
 
 
 def test_build_anonymize_instruction_empty_when_not_anonymizing():
@@ -942,13 +944,50 @@ def test_build_recent_recalls_entries_excludes_entries_outside_window(seeded_ses
         seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
     )
 
-    bodies = [entry.body for entry in entries]
-    assert "窓内の記録" in bodies
-    assert "窓外の記録" not in bodies
+    texts = [entry.text for entry in entries]
+    assert any("窓内の記録" in text for text in texts)
+    assert not any("窓外の記録" in text for text in texts)
+
+
+def test_build_recent_recalls_entries_excludes_todays_own_record(seeded_session):
+    """対象日（today）自身の想起記録は含めない。todayの分は{{today_recall}}で別途渡す
+    ため、含めると二重にプロンプトへ注入される不具合になる（2026-09-15是正）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, title="書籍A")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 10), recall_body="本日分の記録")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="前日分の記録")
+
+    entries = ai_context_service.build_recent_recalls_entries(
+        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+    )
+
+    texts = [entry.text for entry in entries]
+    assert not any("本日分の記録" in text for text in texts)
+    assert any("前日分の記録" in text for text in texts)
+
+
+def test_build_recent_recalls_entries_window_covers_recent_days_count_ending_yesterday(
+    seeded_session,
+):
+    """todayを除外する分、窓をtoday-recent_days〜today-1へ後ろへずらし、実質的な日数
+    （recent_days）を変えない（2026-09-15是正）。recent_days=3・today=2026-1-10なら
+    2026-1-7〜2026-1-9の3日分が対象。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal, title="書籍A")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 7), recall_body="窓の始点")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 6), recall_body="窓の1日外側")
+
+    entries = ai_context_service.build_recent_recalls_entries(
+        seeded_session, [book], dt.date(2026, 1, 10), recent_days=3
+    )
+
+    texts = [entry.text for entry in entries]
+    assert any("窓の始点" in text for text in texts)
+    assert not any("窓の1日外側" in text for text in texts)
 
 
 def test_build_recent_recalls_entries_orders_oldest_first(seeded_session):
-    # build_recent_log_feedbackの段階1（古い日から除外）はリスト先頭を古い順と
+    # build_with_degradable_entriesの段階（古い日から除外）はリスト先頭を古い順と
     # 前提しているため、record_dateの昇順で返ることを固定する（16.5・21.4）。
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="書籍A")
@@ -1013,24 +1052,24 @@ def test_build_reading_overall_metrics_text_computes_max_streak(seeded_session):
     assert "最長連続記録日数: 3日" in text
 
 
-def test_build_reading_logs_text_orders_chronologically(seeded_session):
+def test_build_reading_logs_entries_orders_chronologically(seeded_session):
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal)
     _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 2), recall_body="2日目の想起")
     _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 1), recall_body="1日目の想起")
 
-    text = ai_context_service.build_reading_logs_text(seeded_session, book)
+    entries = ai_context_service.build_reading_logs_entries(seeded_session, book)
 
-    assert text.index("1日目の想起") < text.index("2日目の想起")
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 1), dt.date(2026, 1, 2)]
 
 
-def test_build_reading_logs_text_handles_no_logs(seeded_session):
+def test_build_reading_logs_entries_handles_no_logs(seeded_session):
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal)
 
-    text = ai_context_service.build_reading_logs_text(seeded_session, book)
+    entries = ai_context_service.build_reading_logs_entries(seeded_session, book)
 
-    assert "想起記録はありません" in text
+    assert entries == []
 
 
 # --- 仕事目標（WORK、実装フェーズ分割計画書Phase22） ---
@@ -1139,13 +1178,30 @@ def test_build_recent_work_logs_entries_excludes_entries_outside_window(seeded_s
         seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
     )
 
-    bodies = [entry.body for entry in entries]
-    assert "窓内の記録" in bodies
-    assert "窓外の記録" not in bodies
+    texts = [entry.text for entry in entries]
+    assert any("窓内の記録" in text for text in texts)
+    assert not any("窓外の記録" in text for text in texts)
+
+
+def test_build_recent_work_logs_entries_excludes_todays_own_record(seeded_session):
+    """対象日（today）自身の業務記録は含めない。理由はbuild_recent_recalls_entriesと同じ
+    （2026-09-15是正）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 10), body="本日分の記録")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="前日分の記録")
+
+    entries = ai_context_service.build_recent_work_logs_entries(
+        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+    )
+
+    texts = [entry.text for entry in entries]
+    assert not any("本日分の記録" in text for text in texts)
+    assert any("前日分の記録" in text for text in texts)
 
 
 def test_build_recent_work_logs_entries_orders_oldest_first(seeded_session):
-    # build_recent_log_feedbackの段階1（古い日から除外）はリスト先頭を古い順と
+    # build_with_degradable_entriesの段階（古い日から除外）はリスト先頭を古い順と
     # 前提しているため、record_dateの昇順で返ることを固定する（16.5・22.4）。
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
@@ -1195,42 +1251,43 @@ def test_build_retrospective_work_summary_text_includes_client_and_start_date(se
     assert "2026-02-01" in text
 
 
-def test_build_work_logs_text_for_period_orders_chronologically(seeded_session):
+def test_build_work_logs_entries_for_period_orders_chronologically(seeded_session):
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 2), body="2日目の業務")
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 1), body="1日目の業務")
 
-    text = ai_context_service.build_work_logs_text_for_period(
+    entries = ai_context_service.build_work_logs_entries_for_period(
         seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
     )
 
-    assert text.index("1日目の業務") < text.index("2日目の業務")
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 1), dt.date(2026, 1, 2)]
 
 
-def test_build_work_logs_text_for_period_excludes_entries_outside_range(seeded_session):
+def test_build_work_logs_entries_for_period_excludes_entries_outside_range(seeded_session):
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 15), body="範囲内の業務")
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 2, 1), body="範囲外の業務")
 
-    text = ai_context_service.build_work_logs_text_for_period(
+    entries = ai_context_service.build_work_logs_entries_for_period(
         seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
     )
 
-    assert "範囲内の業務" in text
-    assert "範囲外の業務" not in text
+    texts = [entry.text for entry in entries]
+    assert any("範囲内の業務" in text for text in texts)
+    assert not any("範囲外の業務" in text for text in texts)
 
 
-def test_build_work_logs_text_for_period_handles_no_logs(seeded_session):
+def test_build_work_logs_entries_for_period_handles_no_logs(seeded_session):
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
 
-    text = ai_context_service.build_work_logs_text_for_period(
+    entries = ai_context_service.build_work_logs_entries_for_period(
         seeded_session, work_assignment, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
     )
 
-    assert "対象期間の業務記録はありません" in text
+    assert entries == []
 
 
 def test_build_work_progress_summary_includes_elapsed_days_and_streak(seeded_session):

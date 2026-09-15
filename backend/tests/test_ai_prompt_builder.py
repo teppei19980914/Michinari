@@ -1,5 +1,5 @@
 """ai/prompt_builder のテスト（ロジック・プロンプト編16.5の4段階縮退、
-読書・仕事の段階的縮退（build_recent_log_feedback）、実装フェーズ分割計画書Phase5）。
+それ以外の用途向けの汎用縮退（build_with_degradable_entries）、実装フェーズ分割計画書Phase5）。
 """
 
 import datetime as dt
@@ -9,8 +9,9 @@ from app.ai.prompt_builder import (
     ChatTurn,
     DailyFeedbackContext,
     DatedLogEntry,
+    DegradableEntryStage,
+    DegradableFeedbackContext,
     MaterialStatusEntry,
-    RecentLogFeedbackContext,
 )
 from app.constants.enums import ChatRole
 
@@ -165,26 +166,34 @@ def test_build_daily_feedback_all_stages_combined_marks_truncated():
     assert result.prompt_chars == len(result.text)
 
 
-_RECENT_LOG_TEMPLATE = (
+_DEGRADABLE_TEMPLATE = (
     "固定:{{today}} {{summary}}\n直近:{{recent_recalls}}\n対話:{{conversation_history}}"
 )
 
 
-def _recent_log_context(**overrides) -> RecentLogFeedbackContext:
+def _recall_entry(record_date: dt.date, body: str, label: str = "書籍A") -> DatedLogEntry:
+    return DatedLogEntry(
+        record_date=record_date, text=f"【{record_date.isoformat()} {label}】\n{body}"
+    )
+
+
+def _degradable_context(**overrides) -> DegradableFeedbackContext:
     defaults = dict(
         fixed_variables={"today": "2026-08-24", "summary": "書籍A"},
-        recent_logs=[],
-        recent_logs_key="recent_recalls",
-        recent_logs_empty_text="（直近の想起記録はありません）",
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls", entries=[], empty_text="（直近の想起記録はありません）"
+            ),
+        ],
         conversation_history=[],
     )
     defaults.update(overrides)
-    return RecentLogFeedbackContext(**defaults)
+    return DegradableFeedbackContext(**defaults)
 
 
-def test_build_recent_log_feedback_returns_full_text_when_under_limit():
-    result = prompt_builder.build_recent_log_feedback(
-        _RECENT_LOG_TEMPLATE, _recent_log_context(), max_chars=100000
+def test_build_with_degradable_entries_returns_full_text_when_under_limit():
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, _degradable_context(), max_chars=100000
     )
 
     assert result.was_truncated is False
@@ -192,17 +201,21 @@ def test_build_recent_log_feedback_returns_full_text_when_under_limit():
     assert "書籍A" in result.text
 
 
-def test_build_recent_log_feedback_substitutes_fixed_variables_and_recent_logs():
-    context = _recent_log_context(
-        recent_logs=[
-            DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="窓内の記録"),
+def test_build_with_degradable_entries_substitutes_fixed_variables_and_entries():
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls",
+                entries=[_recall_entry(dt.date(2026, 1, 9), "窓内の記録")],
+                empty_text="（直近の想起記録はありません）",
+            ),
         ],
         conversation_history=[
             ChatTurn(role=ChatRole.USER, content="質問です"),
             ChatTurn(role=ChatRole.ASSISTANT, content="回答です"),
         ],
     )
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 100000)
+    result = prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, 100000)
 
     assert "【2026-01-09 書籍A】" in result.text
     assert "窓内の記録" in result.text
@@ -210,42 +223,56 @@ def test_build_recent_log_feedback_substitutes_fixed_variables_and_recent_logs()
     assert "【AI】回答です" in result.text
 
 
-def test_build_recent_log_feedback_empty_recent_logs_uses_empty_text():
-    result = prompt_builder.build_recent_log_feedback(
-        _RECENT_LOG_TEMPLATE, _recent_log_context(), max_chars=100000
+def test_build_with_degradable_entries_empty_stage_uses_empty_text():
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, _degradable_context(), max_chars=100000
     )
 
     assert "（直近の想起記録はありません）" in result.text
 
 
-def test_build_recent_log_feedback_stage1_drops_oldest_recent_log_first():
-    logs = [
-        DatedLogEntry(record_date=dt.date(2026, 1, 8), label="書籍A", body="古い記録" * 50),
-        DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="新しい記録" * 50),
+def test_build_with_degradable_entries_drops_oldest_entry_first():
+    entries = [
+        _recall_entry(dt.date(2026, 1, 8), "古い記録" * 50),
+        _recall_entry(dt.date(2026, 1, 9), "新しい記録" * 50),
     ]
-    context = _recent_log_context(recent_logs=logs)
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls", entries=entries, empty_text="（直近の想起記録はありません）"
+            ),
+        ],
+    )
     full_text_len = len(
-        prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 10**9).text
+        prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, 10**9).text
     )
     threshold = full_text_len - 100  # 1件除けば収まるがフルでは収まらない閾値
 
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, threshold)
+    result = prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, threshold)
 
     assert result.was_truncated is True
     assert "新しい記録" in result.text
     assert "古い記録" not in result.text
 
 
-def test_build_recent_log_feedback_stage1_can_drop_all_recent_logs():
+def test_build_with_degradable_entries_can_drop_all_entries_in_a_stage():
     # weekly_summaries（build_daily_feedback）と異なり「最低1件残す」制約は無い。
-    # 対話履歴で削れる余地が無い場合、直近記録が0件まで縮退することを確認する。
-    logs = [
-        DatedLogEntry(record_date=dt.date(2026, 1, 8), label="書籍A", body="記録A" * 500),
-        DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="記録B" * 500),
+    # 対話履歴で削れる余地が無い場合、段階内のエントリが0件まで縮退することを確認する。
+    entries = [
+        _recall_entry(dt.date(2026, 1, 8), "記録A" * 500),
+        _recall_entry(dt.date(2026, 1, 9), "記録B" * 500),
     ]
-    context = _recent_log_context(recent_logs=logs)
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls", entries=entries, empty_text="（直近の想起記録はありません）"
+            ),
+        ],
+    )
 
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=60)
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, context, max_chars=60
+    )
 
     assert result.was_truncated is True
     assert "（直近の想起記録はありません）" in result.text
@@ -253,48 +280,95 @@ def test_build_recent_log_feedback_stage1_can_drop_all_recent_logs():
     assert "記録B" not in result.text
 
 
-def test_build_recent_log_feedback_stage2_drops_oldest_conversation_turn_first():
-    # recent_logsは空にし、段階1が既に済んだ状態（＝段階2単独の挙動）を検証する
+def test_build_with_degradable_entries_drops_oldest_conversation_turn_after_stages_are_empty():
+    # stagesは空にし、段階側が既に済んだ状態（＝対話履歴の除外単独の挙動）を検証する
     # （build_daily_feedbackのstage3テストと同じ、他段階を空にして切り分ける手法）。
     history = [
         ChatTurn(role=ChatRole.USER, content="古い質問" * 50),
         ChatTurn(role=ChatRole.ASSISTANT, content="新しい回答" * 50),
     ]
-    context = _recent_log_context(conversation_history=history)
+    context = _degradable_context(stages=[], conversation_history=history)
     full_len = len(
-        prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, 10**9).text
+        prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, 10**9).text
     )
 
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, full_len - 50)
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, context, full_len - 50
+    )
 
     assert "新しい回答" in result.text
     assert "古い質問" not in result.text
     assert result.was_truncated is True
 
 
-def test_build_recent_log_feedback_stage1_exhausts_recent_logs_before_stage2_starts():
-    # 直近記録・対話履歴の双方が縮退対象になる場合、段階1（直近記録）が尽きるまで
-    # 段階2（対話履歴）は着手しない（過去の記録から先に削る、という優先順位の検証）。
-    logs = [DatedLogEntry(record_date=dt.date(2026, 1, 9), label="書籍A", body="直近の記録")]
+def test_build_with_degradable_entries_exhausts_stage_entries_before_conversation_history():
+    # 直近記録・対話履歴の双方が縮退対象になる場合、段階（直近記録）が尽きるまで
+    # 対話履歴の除外には着手しない（過去の記録から先に削る、という優先順位の検証）。
+    entries = [_recall_entry(dt.date(2026, 1, 9), "直近の記録")]
     history = [
         ChatTurn(role=ChatRole.USER, content="古い質問" * 50),
         ChatTurn(role=ChatRole.ASSISTANT, content="新しい回答" * 50),
     ]
-    context = _recent_log_context(recent_logs=logs, conversation_history=history)
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls", entries=entries, empty_text="（直近の想起記録はありません）"
+            ),
+        ],
+        conversation_history=history,
+    )
 
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=120)
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, context, max_chars=120
+    )
 
-    assert "直近の記録" not in result.text  # 段階1で先に除外される
+    assert "直近の記録" not in result.text  # 段階側で先に除外される
     assert "（直近の想起記録はありません）" in result.text
     assert result.was_truncated is True
 
 
-def test_build_recent_log_feedback_stage3_fallback_trims_tail_when_fixed_variables_alone_exceed():
-    # recent_logs・conversation_historyを使い切っても固定変数自体が閾値を超える状況
-    # （段階3の末尾切り詰めフェイルセーフに到達することを確認する）。
-    context = _recent_log_context(fixed_variables={"today": "2026-08-24", "summary": "A" * 200})
+def test_build_with_degradable_entries_multiple_stages_exhausts_earlier_stage_first():
+    # 複数段階（例：日次報告フィードバックに週次要約を追加した場合の想定）を持つとき、
+    # stagesの並び順どおり、先頭の段階（より古い情報を持つ想定）から使い切る。
+    older_stage_template = (
+        "固定:{{today}}\n古い層:{{weekly_summaries}}\n新しい層:{{recent_recalls}}"
+        "\n対話:{{conversation_history}}"
+    )
+    older_stage_entries = [_recall_entry(dt.date(2026, 1, 1), "古い層の記録" * 50, label="A")]
+    newer_stage_entries = [_recall_entry(dt.date(2026, 1, 9), "新しい層の記録" * 50, label="A")]
+    context = DegradableFeedbackContext(
+        fixed_variables={"today": "2026-08-24"},
+        stages=[
+            DegradableEntryStage(
+                key="weekly_summaries", entries=older_stage_entries, empty_text="（古い層なし）"
+            ),
+            DegradableEntryStage(
+                key="recent_recalls", entries=newer_stage_entries, empty_text="（新しい層なし）"
+            ),
+        ],
+    )
+    full_len = len(
+        prompt_builder.build_with_degradable_entries(older_stage_template, context, 10**9).text
+    )
 
-    result = prompt_builder.build_recent_log_feedback(_RECENT_LOG_TEMPLATE, context, max_chars=50)
+    result = prompt_builder.build_with_degradable_entries(
+        older_stage_template, context, full_len - 100
+    )
+
+    assert result.was_truncated is True
+    assert "（古い層なし）" in result.text
+    assert "古い層の記録" not in result.text
+    assert "新しい層の記録" in result.text  # 後の段階は先の段階が尽きるまで手つかず
+
+
+def test_build_with_degradable_entries_fallback_trims_tail_when_fixed_variables_alone_exceed():
+    # stages・conversation_historyを使い切っても固定変数自体が閾値を超える状況
+    # （末尾切り詰めフェイルセーフに到達することを確認する）。
+    context = _degradable_context(fixed_variables={"today": "2026-08-24", "summary": "A" * 200})
+
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, context, max_chars=50
+    )
 
     assert len(result.text) == 50
     assert result.was_truncated is True

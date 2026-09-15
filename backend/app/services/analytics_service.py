@@ -175,8 +175,8 @@ class ReadingLogEntry:
 def list_reading_log_entries(session: Session, book: Book) -> list[ReadingLogEntry]:
     """bookに紐づく想起記録を、記録日の新しい順に全件列挙する。
 
-    ai_context_service.build_reading_logs_textと結合条件（daily_record.id×book_id）が
-    同一だが、あちらはAIプロンプト用にテキスト連結する用途、こちらは分析タブ表示用に
+    ai_context_service.build_reading_logs_entriesと結合条件（daily_record.id×book_id）が
+    同一だが、あちらはAIプロンプト用に整形済みエントリ列を返す用途、こちらは分析タブ表示用に
     構造化データのまま返す用途のため、戻り値の形が異なり関数を分けている。
     """
     rows = (
@@ -210,7 +210,7 @@ class WorkLogEntry:
 def list_work_log_entries(session: Session, work_assignment: WorkAssignment) -> list[WorkLogEntry]:
     """work_assignmentに紐づく業務記録を、記録日の新しい順に全件列挙する。
 
-    ai_context_service.build_work_logs_text_for_periodと結合条件
+    ai_context_service.build_work_logs_entries_for_periodと結合条件
     （daily_record.id×work_assignment_id）が同一だが、読書と同じ理由
     （list_reading_log_entries参照）で戻り値の形が異なるため関数を分けている。
     """
