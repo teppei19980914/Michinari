@@ -391,10 +391,15 @@
       "assistant": {
         "dailyFeedback": "日次報告フィードバック用アシスタント",
         "dailyFeedbackReading": "日次報告フィードバック用アシスタント（読書）",
+        "dailyFeedbackWork": "日次報告フィードバック用アシスタント（仕事）",
         "weeklySummary": "週次要約用アシスタント",
+        "weeklySummaryReading": "週次要約用アシスタント（読書）",
+        "weeklySummaryWork": "週次要約用アシスタント（仕事）",
         "dailyMessage": "今日の一言用アシスタント",
         "goalRetrospective": "総括レポート用アシスタント",
         "goalRetrospectiveReading": "総括レポート用アシスタント（読書）",
+        "goalRetrospectiveWorkMonthly": "月次報告用アシスタント（仕事）",
+        "goalRetrospectiveWorkSemiannual": "半期評価用アシスタント（仕事）",
         "loading": "アシスタント一覧を取得しています…",
         "loadFailed": "アシスタント一覧を取得できませんでした"
       },

@@ -25,6 +25,9 @@ AI_ASSISTANT_UID_DAILY_MESSAGE = "ai.assistant_uid.daily_message"
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE = "ai.assistant_uid.goal_retrospective"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_READING = "ai.assistant_uid.daily_feedback_reading"
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING = "ai.assistant_uid.goal_retrospective_reading"
+#: 読書用の週次要約（AI-06・AI-07と同じく資格試験用（15章）とは別のプロンプト・
+#: アシスタント設定を用いる、L-11）。
+AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING = "ai.assistant_uid.weekly_summary_reading"
 AI_READING_RECALL_RECENT_DAYS = "ai.reading_recall_recent_days"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK = "ai.assistant_uid.daily_feedback_work"
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY = (
@@ -33,6 +36,8 @@ AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY = (
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = (
     "ai.assistant_uid.goal_retrospective_work_semiannual"
 )
+#: 仕事用の週次要約（読書のAI_ASSISTANT_UID_WEEKLY_SUMMARY_READINGと同じ位置づけ、L-11）。
+AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK = "ai.assistant_uid.weekly_summary_work"
 AI_WORK_RECENT_LOG_DAYS = "ai.work_recent_log_days"
 AI_FOLDER_PREFIX = "ai.folder_prefix"
 AI_TIMEOUT_SECONDS = "ai.timeout_seconds"

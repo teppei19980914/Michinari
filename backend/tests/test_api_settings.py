@@ -43,6 +43,10 @@ def test_get_settings_includes_reading_assistant_uids_and_recall_window(client):
         body["ai_connection"]["assistant_uid_goal_retrospective_reading"]
         == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
     )
+    assert (
+        body["ai_connection"]["assistant_uid_weekly_summary_reading"]
+        == "849c4042-c6de-404e-a1ce-89812eaf850e"
+    )
     assert body["prompt_degradation"]["reading_recall_recent_days"] == 14
 
 
@@ -53,6 +57,7 @@ def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client)
             "ai_connection": {
                 "assistant_uid_daily_feedback_reading": "uid-daily-reading",
                 "assistant_uid_goal_retrospective_reading": "uid-retrospective-reading",
+                "assistant_uid_weekly_summary_reading": "uid-weekly-summary-reading",
             },
             "prompt_degradation": {"reading_recall_recent_days": 7},
         },
@@ -64,7 +69,64 @@ def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client)
         body["ai_connection"]["assistant_uid_goal_retrospective_reading"]
         == "uid-retrospective-reading"
     )
+    assert (
+        body["ai_connection"]["assistant_uid_weekly_summary_reading"]
+        == "uid-weekly-summary-reading"
+    )
     assert body["prompt_degradation"]["reading_recall_recent_days"] == 7
+
+
+def test_get_settings_includes_work_assistant_uids(client):
+    """仕事用のアシスタント設定が設定画面（GET /settings）から参照可能であり、
+    実環境での疎通確認済みの既定値が入っていること（L-09解消。今回のセッションで
+    読書と同様に設定APIへ露出した、仕様書6.11「全ての設定項目を画面上から変更可能」）。"""
+    response = client.get("/api/v1/settings")
+    assert response.status_code == 200
+    body = response.json()
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_work"]
+        == "8ed280bb-3040-4ee3-9821-66bb7a4db125"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_goal_retrospective_work_monthly"]
+        == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_goal_retrospective_work_semiannual"]
+        == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_weekly_summary_work"]
+        == "849c4042-c6de-404e-a1ce-89812eaf850e"
+    )
+
+
+def test_patch_settings_updates_work_assistant_uids(client):
+    response = client.patch(
+        "/api/v1/settings",
+        json={
+            "ai_connection": {
+                "assistant_uid_daily_feedback_work": "uid-daily-work",
+                "assistant_uid_goal_retrospective_work_monthly": "uid-monthly-work",
+                "assistant_uid_goal_retrospective_work_semiannual": "uid-semiannual-work",
+                "assistant_uid_weekly_summary_work": "uid-weekly-summary-work",
+            }
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ai_connection"]["assistant_uid_daily_feedback_work"] == "uid-daily-work"
+    assert (
+        body["ai_connection"]["assistant_uid_goal_retrospective_work_monthly"] == "uid-monthly-work"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_goal_retrospective_work_semiannual"]
+        == "uid-semiannual-work"
+    )
+    assert body["ai_connection"]["assistant_uid_weekly_summary_work"] == "uid-weekly-summary-work"
+
+    confirmed = client.get("/api/v1/settings").json()
+    assert confirmed["ai_connection"]["assistant_uid_daily_feedback_work"] == "uid-daily-work"
 
 
 def test_patch_settings_rejects_invalid_theme(client):
