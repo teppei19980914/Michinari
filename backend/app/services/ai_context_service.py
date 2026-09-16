@@ -9,6 +9,7 @@ metrics_service・material_service）を組み合わせるのみで、算出ロ�
 
 import datetime as dt
 from collections import defaultdict
+from dataclasses import dataclass
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -423,6 +424,91 @@ def build_recent_weekly_summaries(
     ]
 
 
+def _format_weekly_summary_entry(row: WeeklySummary) -> DatedLogEntry:
+    return DatedLogEntry(
+        record_date=row.week_start_date,
+        text=f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n"
+        f"{row.summary_body}",
+    )
+
+
+@dataclass(frozen=True)
+class WeeklyCompressedPeriod:
+    """対象期間[period_start, period_end]（両端含む）のうち、週次要約バッチ
+    （weekly_summary_service.run_retroactive_generation）が既に生成済みの週を圧縮表現へ、
+    まだ生成されていない部分は生ログのまま呼び出し側が注入する境界の解決結果
+    （日次報告フィードバック17.6・17.8、総括レポート系17.5・17.7・17.9・17.10で共通、L-11）。
+
+    period_start（today-recent_days・book.start_date・対象月/半期の初日等）は
+    週次要約の週区切り（月曜始まり、15.1）と一致するとは限らないため、「period_startから
+    連続する週のみ圧縮対象」という判定は行わない（一致しないケースでは圧縮が実質
+    発動しなくなるバグになるため、2026-09-16是正）。[period_start, period_end]に
+    フル収まる週次要約はすべて圧縮対象とし、間に未生成の週（欠け）があっても構わない
+    （生ログ側がexclude_covered_datesでその欠けた週の日付を除外しないため、欠けた週は
+    自然に生ログのまま残る＝情報が失われない）。
+    """
+
+    weekly_summary_entries: list[DatedLogEntry]  # 古い順
+    covered_ranges: list[tuple[dt.date, dt.date]]  # 圧縮対象の各週の(開始日, 終了日)。古い順
+
+
+def resolve_weekly_compressed_period(
+    session: Session,
+    goal: Goal,
+    period_start: dt.date,
+    period_end: dt.date,
+    *,
+    limit: int | None = None,
+) -> WeeklyCompressedPeriod:
+    """[period_start, period_end]内に完全に収まる週次要約を古い順に列挙する。
+    呼び出し側は、生ログのビルダーが返した list[DatedLogEntry] へ
+    exclude_covered_dates(entries, result.covered_ranges) を適用し、圧縮済みの日付を
+    生ログ側から除外する（二重注入を避ける。日付単位の除外のため、period_start・
+    period_endの週境界との不一致や週の欠けがあっても正しく動く）。
+
+    週次要約が1件も無い場合はcovered_ranges=[]となり、生ログ側は無加工のまま
+    （＝全期間が生ログとして注入される、要約バッチが未実行でも情報が失われない
+    安全側の設計）。
+
+    limitを指定すると、period_end側に近い（新しい）方からlimit件までに絞る
+    （古い方から溢れた分は圧縮対象から除外＝生ログ側にも現れず、weekly_summariesにも
+    現れない。日次報告フィードバックで使う想定：period_startを目標開始日まで広げて
+    「窓の外側でも既に要約済みの週があれば圧縮できる」ようにしつつ、
+    summary.inject_weeksで昔まで遡りすぎないよう歯止めをかける、2026-09-16）。
+    """
+    query = session.query(WeeklySummary).filter(
+        WeeklySummary.goal_id == goal.id,
+        WeeklySummary.is_anonymized.is_(False),
+        WeeklySummary.week_start_date >= period_start,
+        WeeklySummary.week_end_date <= period_end,
+    )
+    if limit is None:
+        rows = query.order_by(WeeklySummary.week_start_date).all()
+    else:
+        rows = list(
+            reversed(query.order_by(WeeklySummary.week_start_date.desc()).limit(limit).all())
+        )
+    return WeeklyCompressedPeriod(
+        weekly_summary_entries=[_format_weekly_summary_entry(row) for row in rows],
+        covered_ranges=[(row.week_start_date, row.week_end_date) for row in rows],
+    )
+
+
+def exclude_covered_dates(
+    entries: list[DatedLogEntry], covered_ranges: list[tuple[dt.date, dt.date]]
+) -> list[DatedLogEntry]:
+    """生ログのエントリ列から、covered_ranges（resolve_weekly_compressed_periodが返した、
+    週次要約で圧縮済みの週の日付範囲）に含まれる日付のものを取り除く（L-11）。
+    """
+    if not covered_ranges:
+        return entries
+    return [
+        entry
+        for entry in entries
+        if not any(start <= entry.record_date <= end for start, end in covered_ranges)
+    ]
+
+
 def build_week_logs_text(
     session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
 ) -> str:
@@ -793,24 +879,59 @@ def build_reading_overall_metrics_text(session: Session, book: Book) -> str:
     return f"記録日数: {record_days}日\n最長連続記録日数: {max_streak}日"
 
 
-def build_reading_logs_entries(session: Session, book: Book) -> list[DatedLogEntry]:
+def build_reading_logs_entries(
+    session: Session, book: Book, *, date_from: dt.date | None = None
+) -> list[DatedLogEntry]:
     """{{reading_logs}}（GOAL_RETROSPECTIVE_READING、17.7）: 想起記録を record_date の
-    昇順で連結したもの（21.4）。週次要約による圧縮を経由しない全期間注入。
+    昇順で連結したもの（21.4）。
+
+    date_from省略時は全期間（従来どおり）。L-11で読了レポートに週次要約を追加した際、
+    下限の指定に対応した（通常はbook.start_dateを渡す）。既に週次要約が生成済みの日付を
+    重複させずに除外する処理は、呼び出し側がexclude_covered_datesで行う。
 
     整形前のlist[DatedLogEntry]を返し、空の場合の表示・段階的縮退はprompt_builder.
     build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則）。
     """
-    rows = (
+    query = (
         session.query(DailyRecord.record_date, ReadingLog.recall_body)
         .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
         .filter(ReadingLog.book_id == book.id)
-        .order_by(DailyRecord.record_date)
-        .all()
     )
+    if date_from is not None:
+        query = query.filter(DailyRecord.record_date >= date_from)
+    rows = query.order_by(DailyRecord.record_date).all()
     return [
         DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{recall_body}")
         for record_date, recall_body in rows
     ]
+
+
+# --- 読書用週次要約（WEEKLY_SUMMARY_READING、17.11、L-11） ---
+
+
+def build_week_recalls_text(
+    session: Session, book: Book, week_start: dt.date, week_end: dt.date
+) -> str:
+    """{{week_recalls}}（WEEKLY_SUMMARY_READING、17.11）: 週内の想起記録を record_date の
+    昇順で連結したもの。読書は実績・日記の区別を持たないため（17.6参照）、資格試験の
+    build_week_logs_text／build_week_diaries_textに相当する変数を1本に統合する。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, ReadingLog.recall_body)
+        .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(
+            ReadingLog.book_id == book.id,
+            DailyRecord.record_date >= week_start,
+            DailyRecord.record_date <= week_end,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（この週の想起記録はありません）"
+    return "\n\n".join(
+        f"【{record_date.isoformat()}】\n{recall_body}" for record_date, recall_body in rows
+    )
 
 
 # --- 仕事日次報告フィードバック（DAILY_FEEDBACK_WORK、17.8、実装フェーズ分割計画書Phase22） ---
@@ -927,6 +1048,32 @@ def build_work_logs_entries_for_period(
         DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{body}")
         for record_date, body in rows
     ]
+
+
+# --- 仕事用週次要約（WEEKLY_SUMMARY_WORK、17.12、L-11） ---
+
+
+def build_week_work_logs_text(
+    session: Session, work_assignment: WorkAssignment, week_start: dt.date, week_end: dt.date
+) -> str:
+    """{{week_logs}}（WEEKLY_SUMMARY_WORK、17.12）: 週内の業務記録を record_date の
+    昇順で連結したもの。仕事は実績・日記の区別を持たないため（17.8参照）、読書の
+    build_week_recalls_text（17.11）と同じ考え方で1変数に統合する。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, WorkLog.body)
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(
+            WorkLog.work_assignment_id == work_assignment.id,
+            DailyRecord.record_date >= week_start,
+            DailyRecord.record_date <= week_end,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+    if not rows:
+        return "（この週の業務記録はありません）"
+    return "\n\n".join(f"【{record_date.isoformat()}】\n{body}" for record_date, body in rows)
 
 
 # --- 今日の一言（DAILY_MESSAGE）のWORK対応（17.4、実装フェーズ分割計画書Phase22） ---

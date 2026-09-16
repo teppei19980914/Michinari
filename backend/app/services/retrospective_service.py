@@ -94,11 +94,16 @@ def _build_exam_context(
 
 
 def _build_reading_context(
-    session: Session, goal: Goal, anonymize: bool
+    session: Session, goal: Goal, today: dt.date, anonymize: bool
 ) -> prompt_builder.DegradableFeedbackContext:
     if goal.book is None:
         raise ValidationError("書籍が未登録の読書目標には読了レポートを生成できません")
     book = goal.book
+    # L-11: 週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない直近部分
+    # （週次要約バッチが未到達の場合を含む）は{{reading_logs}}のまま注入する。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session, goal, period_start=book.start_date, period_end=today
+    )
     return prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "book_summary": ai_context_service.build_retrospective_book_summary_text(book),
@@ -107,8 +112,18 @@ def _build_reading_context(
         },
         stages=[
             prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
                 key="reading_logs",
-                entries=ai_context_service.build_reading_logs_entries(session, book),
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_reading_logs_entries(
+                        session, book, date_from=book.start_date
+                    ),
+                    compressed.covered_ranges,
+                ),
                 empty_text=_NO_READING_LOGS_TEXT,
             ),
         ],
@@ -136,7 +151,7 @@ def generate_retrospective(
         scope = ConversationScope.GOAL_RETROSPECTIVE_READING
         assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
         title = f"{goal.name} 読了レポート"
-        context = _build_reading_context(session, goal, anonymize)
+        context = _build_reading_context(session, goal, today, anonymize)
     else:
         purpose = AiPurpose.GOAL_RETROSPECTIVE
         scope = ConversationScope.GOAL_RETROSPECTIVE

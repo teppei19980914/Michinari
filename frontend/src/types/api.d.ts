@@ -1513,6 +1513,16 @@ export interface components {
             assistant_uid_daily_feedback_reading: string;
             /** Assistant Uid Goal Retrospective Reading */
             assistant_uid_goal_retrospective_reading: string;
+            /** Assistant Uid Weekly Summary Reading */
+            assistant_uid_weekly_summary_reading: string;
+            /** Assistant Uid Daily Feedback Work */
+            assistant_uid_daily_feedback_work: string;
+            /** Assistant Uid Goal Retrospective Work Monthly */
+            assistant_uid_goal_retrospective_work_monthly: string;
+            /** Assistant Uid Goal Retrospective Work Semiannual */
+            assistant_uid_goal_retrospective_work_semiannual: string;
+            /** Assistant Uid Weekly Summary Work */
+            assistant_uid_weekly_summary_work: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -1542,6 +1552,16 @@ export interface components {
             assistant_uid_daily_feedback_reading?: string | null;
             /** Assistant Uid Goal Retrospective Reading */
             assistant_uid_goal_retrospective_reading?: string | null;
+            /** Assistant Uid Weekly Summary Reading */
+            assistant_uid_weekly_summary_reading?: string | null;
+            /** Assistant Uid Daily Feedback Work */
+            assistant_uid_daily_feedback_work?: string | null;
+            /** Assistant Uid Goal Retrospective Work Monthly */
+            assistant_uid_goal_retrospective_work_monthly?: string | null;
+            /** Assistant Uid Goal Retrospective Work Semiannual */
+            assistant_uid_goal_retrospective_work_semiannual?: string | null;
+            /** Assistant Uid Weekly Summary Work */
+            assistant_uid_weekly_summary_work?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -1571,7 +1591,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。

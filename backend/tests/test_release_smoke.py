@@ -12,6 +12,9 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+import release_smoke
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from release_smoke import (
     _run_package_step,
     build_child_env,
@@ -171,14 +174,23 @@ class TestVerifyMigration:
     """実データベースを壊さないことと、既存データを保ったまま適用できることを確かめる。"""
 
     def _make_legacy_db(self, db_path: Path) -> None:
-        """初期スキーマのまま止まっている既存DBを模す（`alembic_version`を古い版に固定）。"""
+        """初期スキーマのまま止まっている既存DBを模す（`alembic_version`を現在のheadに固定）。
+
+        本テストの狙いは移行の中身ではなく、verify_migrationが複製に対して動くこと・
+        元のDBを触らないこと・環境変数を戻すことの確認のため、実テーブル（prompt_template等）
+        は作らず「適用すべきものがない」状態にする。headのリビジョンIDを直書きすると、
+        新しいマイグレーションを追加するたびに本テストが「適用すべきものがある」状態へ
+        ずれて壊れる（2026-09-16、L-11のマイグレーション追加時に発生）ため、
+        ScriptDirectoryから現在のheadを都度解決する。
+        """
+        script_directory = ScriptDirectory.from_config(Config(str(release_smoke.ALEMBIC_INI_PATH)))
+        current_head = script_directory.get_current_head()
+
         connection = sqlite3.connect(db_path)
         connection.execute("CREATE TABLE legacy_note (id INTEGER PRIMARY KEY, body TEXT)")
         connection.execute("INSERT INTO legacy_note (id, body) VALUES (1, 'keep me')")
         connection.execute("CREATE TABLE alembic_version (version_num VARCHAR(32) NOT NULL)")
-        # head を指定して「適用すべきものがない」状態にする（本テストの狙いは移行の中身ではなく、
-        # 複製に対して動くこと・元のDBを触らないこと・環境変数を戻すことの確認のため）。
-        connection.execute("INSERT INTO alembic_version VALUES ('a9e3c5b71d64')")
+        connection.execute("INSERT INTO alembic_version VALUES (?)", (current_head,))
         connection.commit()
         connection.close()
 

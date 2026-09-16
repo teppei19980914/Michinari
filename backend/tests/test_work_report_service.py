@@ -15,7 +15,7 @@ from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.constants.enums import GoalCategory, GoalStatus, RecordState, RetrospectivePeriodType
 from app.models.goal import Goal
-from app.models.record import DailyRecord, WorkLog
+from app.models.record import DailyRecord, WeeklySummary, WorkLog
 from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import work_report_service
@@ -72,19 +72,20 @@ def _add_work_log(session, work_assignment_id, record_date, body="業務内容")
 
 
 def _stub_send_message(monkeypatch, *, response):
-    monkeypatch.setattr(
-        ai_client,
-        "send_message",
-        lambda session, *, chat_uid, message: ai_client.SendResult(
-            response_text=response, latency_ms=5
-        ),
-    )
+    calls = []
+
+    def _fake(session, *, chat_uid, message):
+        calls.append({"chat_uid": chat_uid, "message": message})
+        return ai_client.SendResult(response_text=response, latency_ms=5)
+
+    monkeypatch.setattr(ai_client, "send_message", _fake)
     counter = iter(range(1000))
     monkeypatch.setattr(
         ai_client,
         "create_chat_in_folder_by_name",
         lambda session, *, assistant_uid, folder_name, title: f"chat-{next(counter)}",
     )
+    return calls
 
 
 _MONTHLY_RESPONSE = """## 業務内容の要約
@@ -241,6 +242,37 @@ def test_generate_monthly_report_parses_sections_into_columns(seeded_session, mo
     assert "## 目標がどの程度達成されたか\n3" in retrospective.body
 
 
+def test_generate_monthly_report_includes_weekly_summary_and_excludes_its_raw_logs(
+    seeded_session, monkeypatch
+):
+    """L-11: 対象月のうち週次要約が既に生成済みの範囲は{{weekly_summaries}}として注入され、
+    その週の生ログは{{month_logs}}側から除外される（resolve_weekly_compressed_periodの
+    サービス層への配線確認）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    # 対象月2026-08の先頭週（8/1-8/7）は週次要約が生成済み、後半（8/10）は未生成のまま。
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 8, 1),
+            week_end_date=dt.date(2026, 8, 7),
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 8, 3), body="COMPRESSED_LOG")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 8, 10), body="RAW_LOG")
+    calls = _stub_send_message(monkeypatch, response=_MONTHLY_RESPONSE)
+
+    work_report_service.generate_monthly_report(
+        seeded_session, goal, period_key="2026-08", today=dt.date(2026, 9, 5)
+    )
+
+    sent_message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in sent_message
+    assert "COMPRESSED_LOG" not in sent_message  # 週次要約でカバー済みのため生ログは除外
+    assert "RAW_LOG" in sent_message  # 週次要約が及ばない直近部分は生ログのまま
+
+
 def test_generate_monthly_report_defaults_period_to_previous_month(seeded_session, monkeypatch):
     goal = _make_work_goal(seeded_session)
     _make_work_assignment(seeded_session, goal)
@@ -328,6 +360,37 @@ def test_generate_semiannual_review_parses_sections_into_columns(seeded_session,
     assert retrospective.next_goal_text == "新機能の設計を開始する。"
     assert retrospective.report_notes is None
     assert "# 半期評価（2026年3月〜8月）" in retrospective.body
+
+
+def test_generate_semiannual_review_includes_weekly_summary_and_excludes_its_raw_logs(
+    seeded_session, monkeypatch
+):
+    """L-11: 半期評価は最大6ヶ月分の生ログ注入となるため、対象半期の前半が週次要約
+    済みであれば圧縮表現に置き換わり、その週の生ログは{{period_logs}}側から除外される
+    （月次報告の同名テストと対になる半期評価版）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    # 対象半期2026-H1（3/1-8/31）の先頭週は週次要約が生成済み、それ以降は未生成のまま。
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 3, 1),
+            week_end_date=dt.date(2026, 3, 7),
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 3, 3), body="COMPRESSED_LOG")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 4, 1), body="RAW_LOG")
+    calls = _stub_send_message(monkeypatch, response=_SEMIANNUAL_RESPONSE)
+
+    work_report_service.generate_semiannual_review(
+        seeded_session, goal, period_key="2026-H1", today=dt.date(2026, 8, 20)
+    )
+
+    sent_message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in sent_message
+    assert "COMPRESSED_LOG" not in sent_message  # 週次要約でカバー済みのため生ログは除外
+    assert "RAW_LOG" in sent_message  # 週次要約が及ばない直近部分は生ログのまま
 
 
 def test_regenerate_semiannual_review_overwrites_same_row(seeded_session, monkeypatch):

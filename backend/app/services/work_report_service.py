@@ -35,6 +35,8 @@ from app.services.exceptions import ValidationError
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が
 #: 持つこの定数を使う（CLAUDE.md DRYの原則。月次・半期の両方で同じ文言を使い回す）。
 _NO_PERIOD_WORK_LOGS_TEXT = "（対象期間の業務記録はありません）"
+#: {{weekly_summaries}}が空（週次要約が1件も無い）場合の表示（17.9・17.10、L-11）。
+_NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
 
 #: 月次報告のAI応答を分割する見出し文字列（17.9、この順序・この文字列を厳守）。
 _MONTHLY_HEADINGS = (
@@ -248,6 +250,11 @@ def generate_monthly_report(
         else "（前月の記録が無いため、今回は目標との比較を行いません）"
     )
 
+    # L-11: 対象月のうち週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない
+    # 直近部分（週次要約バッチが未到達の場合を含む）は{{month_logs}}のまま注入する。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session, goal, period_start=date_from, period_end=date_to
+    )
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "work_summary": ai_context_service.build_retrospective_work_summary_text(
@@ -259,9 +266,17 @@ def generate_monthly_report(
         },
         stages=[
             prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
                 key="month_logs",
-                entries=ai_context_service.build_work_logs_entries_for_period(
-                    session, work_assignment, date_from, date_to
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_work_logs_entries_for_period(
+                        session, work_assignment, date_from, date_to
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
             ),
@@ -365,6 +380,13 @@ def generate_semiannual_review(
         else "（前半期の記録が無いため、今回は目標との比較を行いません）"
     )
 
+    # L-11: 対象半期のうち週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない
+    # 直近部分（週次要約バッチが未到達の場合を含む）は{{period_logs}}のまま注入する。
+    # 半期評価は最大6ヶ月分の生ログ注入となるため、この置き換えの効果が最も大きい
+    # （L-11「対象期間の前半の実績が評価から漏れる」副作用の根本対応）。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session, goal, period_start=date_from, period_end=date_to
+    )
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "work_summary": ai_context_service.build_retrospective_work_summary_text(
@@ -376,9 +398,17 @@ def generate_semiannual_review(
         },
         stages=[
             prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
                 key="period_logs",
-                entries=ai_context_service.build_work_logs_entries_for_period(
-                    session, work_assignment, date_from, date_to
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_work_logs_entries_for_period(
+                        session, work_assignment, date_from, date_to
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
             ),

@@ -26,7 +26,7 @@ from app.constants.enums import (
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, WorkLog
+from app.models.record import ChatMessage, DailyRecord, WeeklySummary, WorkLog
 from app.models.setting import AppSetting
 from app.models.work import WorkAssignment
 from app.services import daily_feedback_service, record_service, work_feedback_service
@@ -52,11 +52,13 @@ def _cleanup_committed_rows(seeded_session):
     seeded_session.commit()
 
 
-def _make_work_goal(session, name="仕事目標A", status=GoalStatus.ACTIVE):
+def _make_work_goal(
+    session, name="仕事目標A", status=GoalStatus.ACTIVE, start_date=dt.date(2026, 1, 1)
+):
     goal = Goal(
         category=GoalCategory.WORK,
         name=name,
-        start_date=dt.date(2026, 1, 1),
+        start_date=start_date,
         status=status,
     )
     session.add(goal)
@@ -434,3 +436,48 @@ def test_send_work_feedback_degrades_oldest_recent_logs_before_instructions(
     assert "OLD_MARKER" not in sent_message
     assert "NEW_MARKER" not in sent_message
     assert "直近の業務記録はありません" in sent_message
+
+
+def test_send_work_feedback_compresses_weekly_summaries_inside_and_outside_recent_window(
+    seeded_session, monkeypatch
+):
+    """L-11（2026-09-16是正）: 週次要約はperiod_start=goal.start_dateまで遡って探索する
+    （summary.inject_weeksを上限に、直近recent_days日分〈既定14日〉の窓より前の週も
+    {{weekly_summaries}}へ注入される＝過去の経緯を要約で反映し続ける）。加えて、窓と
+    重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し{{recent_work_logs}}側の
+    生ログからは除外する（reading_feedback_serviceの同名テストと対になる仕事版）。
+    """
+    goal = _make_work_goal(seeded_session, start_date=dt.date(2025, 11, 1))
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 11, 24),
+            week_end_date=dt.date(2025, 11, 30),  # target_date(2026-1-10)の14日窓より前
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 12, 29),
+            week_end_date=dt.date(2026, 1, 4),  # 直近14日窓と重なる週
+            summary_body="OVERLAPPING_WEEK_SUMMARY",
+        )
+    )
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    work_feedback_service.send_work_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 1, 10),
+        today=dt.date(2026, 1, 10),
+        message=None,
+        work_log_items=[_work_log(work_assignment.id)],
+    )
+
+    sent_message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in sent_message
+    # 是正後: 窓と重なる週も既に要約済みなら圧縮対象となり、weekly_summariesへ注入される。
+    assert "OVERLAPPING_WEEK_SUMMARY" in sent_message

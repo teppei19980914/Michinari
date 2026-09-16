@@ -19,8 +19,20 @@ export const ASSISTANT_FIELDS = [
     labelKey: 'settings.aiConnection.assistant.dailyFeedbackReading',
   },
   {
+    field: 'assistant_uid_daily_feedback_work',
+    labelKey: 'settings.aiConnection.assistant.dailyFeedbackWork',
+  },
+  {
     field: 'assistant_uid_weekly_summary',
     labelKey: 'settings.aiConnection.assistant.weeklySummary',
+  },
+  {
+    field: 'assistant_uid_weekly_summary_reading',
+    labelKey: 'settings.aiConnection.assistant.weeklySummaryReading',
+  },
+  {
+    field: 'assistant_uid_weekly_summary_work',
+    labelKey: 'settings.aiConnection.assistant.weeklySummaryWork',
   },
   { field: 'assistant_uid_daily_message', labelKey: 'settings.aiConnection.assistant.dailyMessage' },
   {
@@ -30,6 +42,14 @@ export const ASSISTANT_FIELDS = [
   {
     field: 'assistant_uid_goal_retrospective_reading',
     labelKey: 'settings.aiConnection.assistant.goalRetrospectiveReading',
+  },
+  {
+    field: 'assistant_uid_goal_retrospective_work_monthly',
+    labelKey: 'settings.aiConnection.assistant.goalRetrospectiveWorkMonthly',
+  },
+  {
+    field: 'assistant_uid_goal_retrospective_work_semiannual',
+    labelKey: 'settings.aiConnection.assistant.goalRetrospectiveWorkSemiannual',
   },
 ] as const
 

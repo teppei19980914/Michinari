@@ -22,6 +22,7 @@ from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
     AI_WORK_RECENT_LOG_DAYS,
+    SUMMARY_INJECT_WEEKS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -37,6 +38,8 @@ _ACTION_LABEL = "日次報告フィードバック"
 #: この定数を使う（CLAUDE.md DRYの原則。reading_feedback_serviceの_NO_RECENT_RECALLS_TEXTと
 #: 同じ形）。
 _NO_RECENT_WORK_LOGS_TEXT = "（直近の業務記録はありません）"
+#: {{weekly_summaries}}が空（週次要約が1件も無い）場合の表示（17.8、L-11）。
+_NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 
 def _ensure_active_work_goal(goal: Goal) -> None:
@@ -86,6 +89,24 @@ def send_work_feedback(
 
     active_work_assignments = ai_context_service.list_active_work_assignments([goal])
     recent_days = setting_reader.get_int(session, AI_WORK_RECENT_LOG_DAYS)
+    inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
+    # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
+    # ある週次要約もlimit=inject_weeks件まで遡って見せつつ、直近の窓のうち既に週次要約が
+    # 生成済みの週は圧縮表現へ、それ以外は生ログのまま注入する
+    # （2026-09-16、reading_feedback_serviceと同じ是正。理由もそちらのコメント参照）。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session,
+        goal,
+        period_start=goal.start_date,
+        period_end=target_date - dt.timedelta(days=1),
+        limit=inject_weeks,
+    )
+    recent_work_logs_entries = ai_context_service.exclude_covered_dates(
+        ai_context_service.build_recent_work_logs_entries(
+            session, active_work_assignments, target_date, recent_days
+        ),
+        compressed.covered_ranges,
+    )
 
     # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_service・reading_feedback_service
     # と同じ理由。ChatMessageモデルのdocstring参照）。goal_id=NULLの行は移行前のレガシー
@@ -116,10 +137,13 @@ def send_work_feedback(
         },
         stages=[
             prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=_NO_OLDER_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
                 key="recent_work_logs",
-                entries=ai_context_service.build_recent_work_logs_entries(
-                    session, active_work_assignments, target_date, recent_days
-                ),
+                entries=recent_work_logs_entries,
                 empty_text=_NO_RECENT_WORK_LOGS_TEXT,
             ),
         ],

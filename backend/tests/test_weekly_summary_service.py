@@ -137,44 +137,35 @@ def test_list_pending_weeks_finds_goal_with_logs_in_completed_week(seeded_sessio
     assert pending[0].week_end == dt.date(2026, 8, 23)
 
 
-def test_list_pending_weeks_excludes_reading_goals(seeded_session):
-    """読書目標（category=READING）はstudy_logを持たないため、reading_logがあっても
-    週次要約の生成対象から自動的に除外されエラーも起きないこと（ロジック・プロンプト編21.1、
-    実装フェーズ分割計画書Phase16完了条件）。
+def _make_reading_goal_with_recall(session, record_date, name="読書目標A", recall_body="想起本文"):
+    """読書目標（category=READING）に、指定日の想起記録を1件作成する（L-11。
+    以前はstudy_logを持たないため週次要約の対象から自動的に除外されていたが、
+    読書用週次要約（17.11）の新設により対象に含まれるようになった）。
     """
     from app.constants.enums import GoalCategory, RecordState
     from app.models.record import ReadingLog
 
     reading_goal = Goal(
         category=GoalCategory.READING,
-        name="読書目標A",
+        name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
     )
-    seeded_session.add(reading_goal)
-    seeded_session.flush()
-    book = reading_helpers.make_book(seeded_session, reading_goal.id)
-    record = DailyRecord(
-        record_date=dt.date(2026, 8, 18), reading_record_state=RecordState.PROGRESS_ONLY
-    )
-    seeded_session.add(record)
-    seeded_session.flush()
-    seeded_session.add(
-        ReadingLog(daily_record_id=record.id, book_id=book.id, recall_body="想起本文")
-    )
-    seeded_session.flush()
-
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
-    )
-
-    assert pending == []
+    session.add(reading_goal)
+    session.flush()
+    book = reading_helpers.make_book(session, reading_goal.id)
+    record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    session.add(ReadingLog(daily_record_id=record.id, book_id=book.id, recall_body=recall_body))
+    session.flush()
+    return reading_goal, book
 
 
-def test_list_pending_weeks_excludes_work_goals(seeded_session):
-    """仕事目標（category=WORK）はstudy_logを持たないため、work_logがあっても
-    週次要約の生成対象から自動的に除外されエラーも起きないこと（読書と同じ理由。
-    実装フェーズ分割計画書Phase22回帰防止観点）。
+def _make_work_goal_with_log(session, record_date, name="仕事目標A", body="業務内容"):
+    """仕事目標（category=WORK）に、指定日の業務記録を1件作成する（L-11。
+    以前はstudy_logを持たないため週次要約の対象から自動的に除外されていたが、
+    仕事用週次要約（17.12）の新設により対象に含まれるようになった）。
     """
     from app.constants.enums import GoalCategory, RecordState
     from app.models.record import WorkLog
@@ -182,32 +173,73 @@ def test_list_pending_weeks_excludes_work_goals(seeded_session):
 
     work_goal = Goal(
         category=GoalCategory.WORK,
-        name="仕事目標A",
+        name=name,
         start_date=dt.date(2026, 1, 1),
         status=GoalStatus.ACTIVE,
     )
-    seeded_session.add(work_goal)
-    seeded_session.flush()
+    session.add(work_goal)
+    session.flush()
     work_assignment = WorkAssignment(
         goal_id=work_goal.id, expected_content="想定業務内容", start_date=dt.date(2026, 1, 1)
     )
-    seeded_session.add(work_assignment)
-    seeded_session.flush()
-    record = DailyRecord(
-        record_date=dt.date(2026, 8, 18), work_record_state=RecordState.PROGRESS_ONLY
+    session.add(work_assignment)
+    session.flush()
+    record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
+    session.add(record)
+    session.flush()
+    session.add(
+        WorkLog(daily_record_id=record.id, work_assignment_id=work_assignment.id, body=body)
     )
-    seeded_session.add(record)
-    seeded_session.flush()
-    seeded_session.add(
-        WorkLog(daily_record_id=record.id, work_assignment_id=work_assignment.id, body="業務内容")
-    )
-    seeded_session.flush()
+    session.flush()
+    return work_goal, work_assignment
+
+
+def test_list_pending_weeks_includes_reading_goals_with_recall_logs(seeded_session):
+    """読書目標（category=READING）はreading_logがあれば週次要約の生成対象に含まれる
+    （L-11、17.11新設。以前はstudy_logの有無で判定していたため自動的に除外されていた）。
+    """
+    reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 18))
 
     pending = weekly_summary_service.list_pending_weeks(
         seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
     )
 
-    assert pending == []
+    assert len(pending) == 1
+    assert pending[0].goal.id == reading_goal.id
+    assert pending[0].week_start == dt.date(2026, 8, 17)
+    assert pending[0].week_end == dt.date(2026, 8, 23)
+
+
+def test_list_pending_weeks_includes_work_goals_with_work_logs(seeded_session):
+    """仕事目標（category=WORK）はwork_logがあれば週次要約の生成対象に含まれる
+    （読書と同じ理由。L-11、17.12新設）。
+    """
+    work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 18))
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+    )
+
+    assert len(pending) == 1
+    assert pending[0].goal.id == work_goal.id
+    assert pending[0].week_start == dt.date(2026, 8, 17)
+    assert pending[0].week_end == dt.date(2026, 8, 23)
+
+
+def test_list_pending_weeks_covers_three_categories_in_the_same_week(seeded_session):
+    """同じ週に資格試験・読書・仕事の3カテゴリの実績があれば、3件とも生成対象に含まれる
+    （L-11、カテゴリ横断の横展開確認）。"""
+    exam_goal = _make_goal(seeded_session, name="資格目標A")
+    material = _make_material(seeded_session, exam_goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 19))
+    work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 20))
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+    )
+
+    assert {item.goal.id for item in pending} == {exam_goal.id, reading_goal.id, work_goal.id}
 
 
 def test_list_pending_weeks_excludes_already_generated(seeded_session):
@@ -289,6 +321,52 @@ def test_generate_for_week_creates_summary_and_logs_call(seeded_session, monkeyp
     # 週次要約でも成功時に更新されることを確認する（リファクタ前の片手落ちの回帰防止）。
     conversation = seeded_session.query(AiConversation).one()
     assert conversation.last_parent_order == 1
+
+
+def test_generate_for_week_reading_uses_reading_purpose_and_book_variables(
+    seeded_session, monkeypatch
+):
+    """読書目標はWEEKLY_SUMMARY_READING（17.11）を使い、{{book_title}}・{{week_recalls}}が
+    注入されること（L-11、goal.categoryによる分岐の確認）。"""
+    from app.constants.enums import AiPurpose
+
+    reading_goal, book = _make_reading_goal_with_recall(
+        seeded_session, dt.date(2026, 8, 18), recall_body="週次要約対象の想起本文"
+    )
+    calls = _stub_send_message(monkeypatch, response="読書週次要約の本文")
+
+    summary = weekly_summary_service.generate_for_week(
+        seeded_session, reading_goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert summary.goal_id == reading_goal.id
+    assert summary.summary_body == "読書週次要約の本文"
+    assert book.title in calls[0]["message"]
+    assert "週次要約対象の想起本文" in calls[0]["message"]
+    ai_log = seeded_session.query(AiLog).one()
+    assert ai_log.purpose == AiPurpose.WEEKLY_SUMMARY_READING
+
+
+def test_generate_for_week_work_uses_work_purpose_and_work_variables(seeded_session, monkeypatch):
+    """仕事目標はWEEKLY_SUMMARY_WORK（17.12）を使い、{{work_name}}・{{week_logs}}が
+    注入されること（L-11、goal.categoryによる分岐の確認）。"""
+    from app.constants.enums import AiPurpose
+
+    work_goal, _work_assignment = _make_work_goal_with_log(
+        seeded_session, dt.date(2026, 8, 18), name="仕事目標X", body="週次要約対象の業務内容"
+    )
+    calls = _stub_send_message(monkeypatch, response="仕事週次要約の本文")
+
+    summary = weekly_summary_service.generate_for_week(
+        seeded_session, work_goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert summary.goal_id == work_goal.id
+    assert summary.summary_body == "仕事週次要約の本文"
+    assert "仕事目標X" in calls[0]["message"]
+    assert "週次要約対象の業務内容" in calls[0]["message"]
+    ai_log = seeded_session.query(AiLog).one()
+    assert ai_log.purpose == AiPurpose.WEEKLY_SUMMARY_WORK
 
 
 # --- run_retroactive_generation ---
