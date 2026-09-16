@@ -72,9 +72,12 @@ ARCHIVED_DISTRIBUTION_SUFFIXES = (".zip", ".json")
 #: 旧パッケージフォルダを削除する前に付け替える一時名の接頭辞（`discard_previous_package`）。
 PREVIOUS_PACKAGE_PREFIX = "_previous_"
 #: `discard_previous_package`が`shutil.rmtree`の`PermissionError`/`OSError`を再試行する
-#: 回数・待機秒数。`uv sync`（build.bat/release.bat）・`backend/tests/db_retry.py`の
-#: `unlink_retrying`と同じ3秒×5回＝最大15秒に揃える（同種のOneDriveファイルオンデマンド
-#: ロックが原因のため。OPERATIONS.md「配布パッケージのビルド」参照）。
+#: 回数・待機秒数。`uv sync`（build.bat/release.bat）と同じ3秒×5回＝最大15秒に揃える
+#: （同種のOneDriveファイルオンデマンドロックが原因のため。OPERATIONS.md
+#: 「配布パッケージのビルド」参照。2026-09-16、テスト用DBの同種の`PermissionError`は
+#: OneDriveに限らない原因と判明し`backend/tests/conftest.py`側は再試行自体を廃止したが、
+#: こちらは大きなビルド出力フォルダ〈`backend/dist/Michinari/`〉の削除であり、実際に
+#: OneDriveのクラウドファイル絡みの`os error 5`/`396`が観測されているため対象が異なる）。
 RMTREE_RETRY_ATTEMPTS = 5
 RMTREE_RETRY_DELAY_SECONDS = 3.0
 #: 配布パッケージへ同梱するユーザ手順書（`docs/`配下の原本を単一の情報源とし、
