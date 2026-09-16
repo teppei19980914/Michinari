@@ -90,23 +90,43 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
-    # 読書用週次要約（AI-11、L-11）は新規用途のため、月次報告・半期評価用（下記）と同様に
-    # 実環境での疎通確認前は未選定のまま投入する。
-    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING: ("", AppSettingValueType.STRING),
+    # 読書用週次要約（AI-11、L-11）は資格試験用週次要約（AI-02、上記）と同じ「要約」という
+    # タスクのため、対象がカテゴリを問わず同一アシスタント（Gemini 2.5 Flash・高速。
+    # 「日常的な要約や調べものに適しています」）を既定値とする（2026-09-16、S-11解消。
+    # 万が一利用者が設定を変更し忘れても動作不良にならないよう、既定値を空文字のままには
+    # しない方針。ユーザーが明示的に変更した場合のみ設定APIから上書きする、他の用途と
+    # 同じ運用）。
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING: (
+        "849c4042-c6de-404e-a1ce-89812eaf850e",
+        AppSettingValueType.STRING,
+    ),
     AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
     # 仕事の日次フィードバックは読書の日次フィードバックと同一アシスタント
     # （GPT-5.4-mini・高速）を既定値とする。要件定義時点で「読書機能同様に日々の頑張りを
     # 労うフィードバック」と明示されており、高頻度・低負荷という性質も読書と一致するため
-    # （実装フェーズ分割計画書Phase22）。月次報告・半期評価用アシスタントは低頻度・高品質
-    # 重視の判断がまだ実環境で検証できていないため、読書と同様に未選定のまま投入する。
+    # （実装フェーズ分割計画書Phase22）。
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK: (
         "8ed280bb-3040-4ee3-9821-66bb7a4db125",
         AppSettingValueType.STRING,
     ),
-    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY: ("", AppSettingValueType.STRING),
-    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: ("", AppSettingValueType.STRING),
-    # 仕事用週次要約（L-11）も月次報告・半期評価用と同様に未選定のまま投入する。
-    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK: ("", AppSettingValueType.STRING),
+    # 月次報告・半期評価は低頻度・高品質重視のため、総括レポート（AI-04）・読了レポート
+    # （AI-07）と同じアシスタント（GPT-5.4・高性能。「複雑なタスクの整理や具体的な提案に
+    # 適しています」）を既定値とする（2026-09-16、S-09解消。理由はAI_ASSISTANT_UID_
+    # WEEKLY_SUMMARY_READINGと同じ、空文字のまま投入しない方針）。
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY: (
+        "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
+        AppSettingValueType.STRING,
+    ),
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: (
+        "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
+        AppSettingValueType.STRING,
+    ),
+    # 仕事用週次要約（L-11）は読書用（AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING）と同じ理由・
+    # 同じアシスタントを既定値とする（2026-09-16、S-11解消）。
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK: (
+        "849c4042-c6de-404e-a1ce-89812eaf850e",
+        AppSettingValueType.STRING,
+    ),
     AI_WORK_RECENT_LOG_DAYS: ("14", AppSettingValueType.INTEGER),
     AI_FOLDER_PREFIX: ("ミチナリ", AppSettingValueType.STRING),
     AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
@@ -188,17 +208,24 @@ def seed_day_type_defaults(session: Session) -> None:
         session.add(DayTypeDefault(weekday=weekday, day_type=day_type))
 
 
-# カテゴリ別アシスタント既定値の一度きりの補正（仕様書8.9.1・12章S-07解消）。
-# 実環境での疎通確認前は空欄で投入されており、seed_app_settingsの「既存キーは上書きしない」
-# 仕組みだけでは既存DBの空欄値が更新されない。ユーザーが設定画面から既に値を入れている場合
-# （空文字以外）は上書きしない。
+# カテゴリ別アシスタント既定値の一度きりの補正（仕様書8.9.1・12章S-07・S-09・S-11解消）。
+# 当初は空欄で投入されており、seed_app_settingsの「既存キーは上書きしない」仕組みだけでは
+# 既存DBの空欄値が更新されない。ユーザーが設定画面から既に値を入れている場合
+# （空文字以外）は上書きしない。2026-09-16、アシスタント一覧（説明付き）の提供を受けて
+# 月次報告・半期評価・読書用/仕事用週次要約の既定値も選定し対象に追加した
+# （万が一設定を変更し忘れても空文字のままにはしないため、L-09・L-11解消）。
 _READING_ASSISTANT_DEFAULT_KEYS = (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
 )
 
-# 仕事は日次フィードバックのみ選定済み（月次報告・半期評価は未選定のため対象外）。
-_WORK_ASSISTANT_DEFAULT_KEYS = (AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,)
+_WORK_ASSISTANT_DEFAULT_KEYS = (
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+)
 
 
 def _backfill_assistant_defaults(session: Session, keys: tuple[str, ...]) -> None:

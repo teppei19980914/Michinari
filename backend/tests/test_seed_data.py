@@ -6,6 +6,8 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
     AI_WORK_RECENT_LOG_DAYS,
     SERVER_PORT,
 )
@@ -92,14 +94,19 @@ def test_work_prompt_templates_and_settings_are_seeded(db_session):
     assert daily_feedback_assistant is not None
     assert daily_feedback_assistant.value == "8ed280bb-3040-4ee3-9821-66bb7a4db125"
 
-    # 月次報告・半期評価用アシスタントは実環境での疎通確認前のため、読書と同様に未選定のまま。
+    # 月次報告・半期評価・仕事用週次要約は、総括レポート・読了レポートと同一アシスタント
+    # （GPT-5.4・高性能）を既定値とする（2026-09-16、S-09・S-11解消）。
     for key in (
         AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
         AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     ):
         setting = db_session.get(AppSetting, key)
         assert setting is not None
-        assert setting.value == ""
+        assert setting.value == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
+
+    weekly_summary_work_assistant = db_session.get(AppSetting, AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK)
+    assert weekly_summary_work_assistant is not None
+    assert weekly_summary_work_assistant.value == "849c4042-c6de-404e-a1ce-89812eaf850e"
 
 
 def test_backfill_reading_assistant_defaults_fills_existing_empty_value(db_session):
@@ -130,6 +137,21 @@ def test_backfill_reading_assistant_defaults_does_not_overwrite_customization(db
     assert reloaded.value == "利用者が選択済みのUID"
 
 
+def test_backfill_reading_assistant_defaults_fills_weekly_summary(db_session):
+    """L-11で新設した読書用週次要約も、既存の空欄DBに対して一度きりで補われること
+    （2026-09-16、S-11解消）。"""
+    run_all(db_session)
+    setting = db_session.get(AppSetting, AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING)
+    setting.value = ""
+    db_session.commit()
+
+    backfill_reading_assistant_defaults(db_session)
+    db_session.commit()
+
+    reloaded = db_session.get(AppSetting, AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING)
+    assert reloaded.value == INITIAL_APP_SETTINGS[AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING][0]
+
+
 def test_backfill_work_assistant_defaults_fills_existing_empty_value(db_session):
     """既に空欄のままseed済みだった既存DBに対し、実環境での疎通確認後に選定した
     仕事の日次フィードバック用既定値を一度きりで補うこと（実装フェーズ分割計画書Phase22）。"""
@@ -155,4 +177,38 @@ def test_backfill_work_assistant_defaults_does_not_overwrite_customization(db_se
     db_session.commit()
 
     reloaded = db_session.get(AppSetting, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK)
+    assert reloaded.value == "利用者が選択済みのUID"
+
+
+def test_backfill_work_assistant_defaults_fills_monthly_semiannual_and_weekly_summary(db_session):
+    """月次報告・半期評価（S-09）・仕事用週次要約（L-11、S-11）も、既存の空欄DBに対して
+    一度きりで補われること（2026-09-16解消）。"""
+    run_all(db_session)
+    keys = (
+        AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
+        AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+        AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    )
+    for key in keys:
+        db_session.get(AppSetting, key).value = ""
+    db_session.commit()
+
+    backfill_work_assistant_defaults(db_session)
+    db_session.commit()
+
+    for key in keys:
+        reloaded = db_session.get(AppSetting, key)
+        assert reloaded.value == INITIAL_APP_SETTINGS[key][0]
+
+
+def test_backfill_work_assistant_defaults_does_not_overwrite_semiannual_customization(db_session):
+    run_all(db_session)
+    setting = db_session.get(AppSetting, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL)
+    setting.value = "利用者が選択済みのUID"
+    db_session.commit()
+
+    backfill_work_assistant_defaults(db_session)
+    db_session.commit()
+
+    reloaded = db_session.get(AppSetting, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL)
     assert reloaded.value == "利用者が選択済みのUID"
