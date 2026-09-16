@@ -6,13 +6,22 @@ app.database はモジュールインポート時にエンジンを生成する�
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 from tests.db_retry import unlink_retrying
 
 TESTS_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = TESTS_DIR.parent
-TEST_DB_PATH = TESTS_DIR / "_test.db"
+# 2026-09-16、release.bat経由の実行でOneDriveロック（PermissionError: WinError 32）により
+# db_retry.pyの再試行（3秒×5回＝最大15秒）を使い切ってもテストDBを削除できずリリースが
+# 失敗する事象が発生した。本リポジトリ配下（tests/直下）はOneDrive同期フォルダのため、
+# 直前のuv sync・別のpytest実行によるファイル書き換えが多いとロックが長引きうる。
+# scripts/release_smoke.py のスモークDB（tempfile.TemporaryDirectory）と同じ方針で、
+# OneDrive同期の対象外である一時ディレクトリへ置き、問題の根本原因を避ける
+# （db_retry.pyの再試行はアンチウイルス等の別要因への保険として維持する）。
+TEST_DB_PATH = Path(tempfile.gettempdir()) / "michinari-backend-tests" / "_test.db"
+TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 if TEST_DB_PATH.exists():
     unlink_retrying(TEST_DB_PATH)
