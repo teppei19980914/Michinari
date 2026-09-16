@@ -44,9 +44,8 @@ htmlcov/
 # ＝除外ルールを1箇所に集約し、生成物の種類ごとに追記しない）。
 data/*
 !data/.gitkeep
-# テスト用SQLite。-journal・-wal・-shm等の付随ファイルも対象にする（`_test.db`のみを
-# 対象にすると、テスト中断時に残るジャーナルファイルがコミット対象になるため）。
-backend/tests/_test.db*
+# テスト用SQLiteは2026-09-16以降 tempfile.gettempdir() 配下（OneDrive同期対象外）に生成する
+# ため、リポジトリ配下には作られない（backend/tests/conftest.py）。
 
 # Node（フロントエンド、Phase 6以降）
 node_modules/
