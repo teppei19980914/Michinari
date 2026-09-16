@@ -18,7 +18,7 @@ from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalStat
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import ChatMessage, DailyRecord, ReadingLog
+from app.models.record import ChatMessage, DailyRecord, ReadingLog, WeeklySummary
 from app.models.setting import AppSetting
 from app.services import daily_feedback_service, reading_feedback_service, record_service
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
@@ -412,3 +412,44 @@ def test_send_reading_feedback_degrades_oldest_recent_logs_before_instructions(
     assert "OLD_MARKER" not in sent_message
     assert "NEW_MARKER" not in sent_message
     assert "直近の想起記録はありません" in sent_message
+
+
+def test_send_reading_feedback_includes_weekly_summaries_older_than_recent_window(
+    seeded_session, monkeypatch
+):
+    """L-11: 直近recent_days日分（既定14日）より前の週次要約が{{weekly_summaries}}へ
+    注入される。窓と重なる週の要約は{{recent_recalls}}との二重注入を避けるため除外する。
+    """
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 11, 24),
+            week_end_date=dt.date(2025, 11, 30),  # target_date(2026-1-10)の14日窓より前
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 12, 29),
+            week_end_date=dt.date(2026, 1, 4),  # 直近14日窓と重なる週
+            summary_body="OVERLAPPING_WEEK_SUMMARY",
+        )
+    )
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 1, 10),
+        today=dt.date(2026, 1, 10),
+        message=None,
+        reading_log_items=[_reading_log(book.id)],
+    )
+
+    sent_message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in sent_message
+    assert "OVERLAPPING_WEEK_SUMMARY" not in sent_message

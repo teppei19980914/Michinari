@@ -10,6 +10,7 @@
 
 import sqlite3
 
+import pytest
 from alembic.config import Config
 from sqlalchemy import inspect
 
@@ -1008,3 +1009,71 @@ def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_pa
         total_pages = connection.execute("SELECT total_pages FROM book WHERE id = 1").fetchone()[0]
 
     assert total_pages == 1
+
+
+_WEEKLY_SUMMARIES_PROMPT_PURPOSES = (
+    "DAILY_FEEDBACK_READING",
+    "DAILY_FEEDBACK_WORK",
+    "GOAL_RETROSPECTIVE_READING",
+    "GOAL_RETROSPECTIVE_WORK_MONTHLY",
+    "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL",
+)
+
+
+@pytest.mark.parametrize("purpose", _WEEKLY_SUMMARIES_PROMPT_PURPOSES)
+def test_weekly_summaries_prompt_migration_updates_non_customized_template(
+    tmp_path, monkeypatch, purpose
+):
+    """L-11（f7c3e9a1b5d6）: 読書・仕事の日次報告フィードバックと総括レポート系5用途に
+    {{weekly_summaries}}を追加するマイグレーションを、既存データがある状態への適用として
+    検証する。is_customized=False（利用者が未編集）のテンプレートは、{{weekly_summaries}}
+    を含む新文面へ更新されること（c1a5f9e3d7b2の同名テストと同じ方針）。
+    """
+    db_path = tmp_path / f"weekly_summaries_prompt_migration_non_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("a9e3c5b71d64")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, '旧文面（{{weekly_summaries}}を含まない）', 0, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert "{{weekly_summaries}}" in row[0]
+
+
+@pytest.mark.parametrize("purpose", _WEEKLY_SUMMARIES_PROMPT_PURPOSES)
+def test_weekly_summaries_prompt_migration_preserves_customized_template(
+    tmp_path, monkeypatch, purpose
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （f7c3e9a1b5d6）でも上書きしないこと。"""
+    db_path = tmp_path / f"weekly_summaries_prompt_migration_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("a9e3c5b71d64")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, 'ユーザーがカスタマイズした文面', 1, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"

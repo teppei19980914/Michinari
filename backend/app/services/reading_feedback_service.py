@@ -23,6 +23,7 @@ from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_READING_RECALL_RECENT_DAYS,
+    SUMMARY_INJECT_WEEKS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -37,6 +38,8 @@ _ACTION_LABEL = "日次報告フィードバック"
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
 #: この定数を使う（CLAUDE.md DRYの原則）。
 _NO_RECENT_RECALLS_TEXT = "（直近の想起記録はありません）"
+#: {{weekly_summaries}}が空（週次要約が1件も無い）場合の表示（17.6、L-11）。
+_NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 
 def _ensure_active_reading_goal(goal: Goal) -> None:
@@ -84,6 +87,7 @@ def send_reading_feedback(
 
     active_books = ai_context_service.list_active_books([goal])
     recent_days = setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS)
+    recent_window_start = target_date - dt.timedelta(days=recent_days)
 
     # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_serviceと同じ理由。
     # ChatMessageモデルのdocstring参照）。goal_id=NULLの行は移行前のレガシーメッセージ
@@ -111,6 +115,16 @@ def send_reading_feedback(
             ),
         },
         stages=[
+            prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=ai_context_service.build_older_weekly_summaries_entries(
+                    session,
+                    goal,
+                    before_date=recent_window_start,
+                    inject_weeks=setting_reader.get_int(session, SUMMARY_INJECT_WEEKS),
+                ),
+                empty_text=_NO_OLDER_WEEKLY_SUMMARIES_TEXT,
+            ),
             prompt_builder.DegradableEntryStage(
                 key="recent_recalls",
                 entries=ai_context_service.build_recent_recalls_entries(
