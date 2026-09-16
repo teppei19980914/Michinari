@@ -460,13 +460,14 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 コピー）を指定している。それでも`os error 396`が出る場合は`uv cache clean`で
 キャッシュを作り直してから再実行する。
 
-同じOneDriveロックは、直前のテスト実行の直後に`pytest`を再実行した際、
-`backend/tests/_test.db`の削除が`PermissionError: [WinError 32]`になる形でも起こり得る
-（`backend/tests/conftest.py`）。特に`release.bat`/`build.bat`経由では直前の`uv sync`が
-`.venv`配下を書き換えた直後に本処理が走るため、削除失敗時は`uv sync`の再試行と同じ
-3秒待って最大5回（最大15秒）まで自動的に再試行する（`backend/tests/db_retry.py`の
-`unlink_retrying`。2026-09-14時点、1秒×5回＝最大5秒では不足しリリースが2回連続で
-失敗した事例があり延長）。
+同じOneDriveロックは、直前のテスト実行の直後に`pytest`を再実行した際、テスト用DBの
+削除が`PermissionError: [WinError 32]`になる形でも起こり得る（`backend/tests/conftest.py`）。
+テスト用DBは`tempfile.gettempdir()`配下（OneDrive同期対象外）に生成するため2026-09-16以降
+発生しにくくなっているが、削除失敗時は`uv sync`の再試行と同じ3秒待って最大5回（最大15秒）
+まで自動的に再試行する仕組み（`backend/tests/db_retry.py`の`unlink_retrying`）をアンチ
+ウイルス等の別要因への保険として維持している（2026-09-14時点、1秒×5回＝最大5秒では
+不足しリリースが2回連続で失敗した事例があり3秒×5回へ延長。2026-09-16、延長後も
+再発したためテストDB自体をOneDrive同期フォルダ外へ移す根本対応を実施）。
 
 **処理内容**
 
