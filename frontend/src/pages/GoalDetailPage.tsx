@@ -278,7 +278,12 @@ export function GoalDetailPage() {
 
       {activeTab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
       {goal.category === 'READING' && (
-        <>{activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />}</>
+        <>
+          {activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />}
+          {activeTab === 'resourceAllocation' && (
+            <ResourceAllocationTab goal={goal} readOnly={isReadOnly} />
+          )}
+        </>
       )}
       {goal.category === 'WORK' && (
         <>
