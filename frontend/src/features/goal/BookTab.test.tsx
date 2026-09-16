@@ -216,6 +216,22 @@ describe('BookTab の送信内容', () => {
     expect(createBook).not.toHaveBeenCalled()
   })
 
+  it('prefills the edit form with the registered start date, not the goal start date', async () => {
+    // 書籍が既に登録済みなら、目標開始日ではなく書籍自身のstart_dateを優先する
+    // （転記はあくまで未登録時の初期値であり、登録済みの値を上書きしない）。
+    const user = userEvent.setup()
+    const { container } = renderWithProviders(
+      <BookTab
+        goal={goalWithBook({ start_date: '2026-10-15' }, { start_date: '2026-09-01' })}
+        readOnly={false}
+      />,
+    )
+
+    await user.click(editButton())
+
+    expect(dateInputs(container)[0].value).toBe('2026-10-15')
+  })
+
   it('leaves the edit form without sending anything on cancel', async () => {
     const user = userEvent.setup()
     renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
