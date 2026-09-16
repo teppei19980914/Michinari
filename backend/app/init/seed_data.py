@@ -18,6 +18,8 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
     AI_HOST,
@@ -88,6 +90,9 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b",
         AppSettingValueType.STRING,
     ),
+    # 読書用週次要約（AI-11、L-11）は新規用途のため、月次報告・半期評価用（下記）と同様に
+    # 実環境での疎通確認前は未選定のまま投入する。
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING: ("", AppSettingValueType.STRING),
     AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
     # 仕事の日次フィードバックは読書の日次フィードバックと同一アシスタント
     # （GPT-5.4-mini・高速）を既定値とする。要件定義時点で「読書機能同様に日々の頑張りを
@@ -100,6 +105,8 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     ),
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY: ("", AppSettingValueType.STRING),
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: ("", AppSettingValueType.STRING),
+    # 仕事用週次要約（L-11）も月次報告・半期評価用と同様に未選定のまま投入する。
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK: ("", AppSettingValueType.STRING),
     AI_WORK_RECENT_LOG_DAYS: ("14", AppSettingValueType.INTEGER),
     AI_FOLDER_PREFIX: ("ミチナリ", AppSettingValueType.STRING),
     AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
@@ -138,9 +145,11 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts.GOAL_RETROSPECTIVE,
     AiPurpose.DAILY_FEEDBACK_READING: prompt_texts.DAILY_FEEDBACK_READING,
     AiPurpose.GOAL_RETROSPECTIVE_READING: prompt_texts.GOAL_RETROSPECTIVE_READING,
+    AiPurpose.WEEKLY_SUMMARY_READING: prompt_texts.WEEKLY_SUMMARY_READING,
     AiPurpose.DAILY_FEEDBACK_WORK: prompt_texts.DAILY_FEEDBACK_WORK,
     AiPurpose.GOAL_RETROSPECTIVE_WORK_MONTHLY: prompt_texts.GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: prompt_texts.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+    AiPurpose.WEEKLY_SUMMARY_WORK: prompt_texts.WEEKLY_SUMMARY_WORK,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

@@ -179,7 +179,10 @@ def test_goal_detail_includes_exam_result_in_subject(client):
 
 
 def _stub_send_message(monkeypatch, *, response="総括レポート本文"):
+    calls = []
+
     def _fake(session, *, chat_uid, message):
+        calls.append({"chat_uid": chat_uid, "message": message})
         return ai_client.SendResult(response_text=response, latency_ms=5)
 
     monkeypatch.setattr(ai_client, "send_message", _fake)
@@ -189,6 +192,7 @@ def _stub_send_message(monkeypatch, *, response="総括レポート本文"):
         "create_chat_in_folder_by_name",
         lambda session, *, assistant_uid, folder_name, title: f"chat-{next(counter)}",
     )
+    return calls
 
 
 def test_get_retrospective_returns_null_when_not_generated(client):
@@ -296,6 +300,38 @@ def test_generate_retrospective_on_reading_goal_creates_reading_report(client, m
 
     fetched = client.get(f"/api/v1/goals/{goal['id']}/retrospective").json()
     assert fetched["id"] == body["id"]
+
+
+def test_generate_retrospective_on_reading_goal_includes_weekly_summary(
+    client, seeded_session, monkeypatch
+):
+    """L-11: 読了レポートに既存の週次要約が{{weekly_summaries}}として注入され、その週の
+    生ログは{{reading_logs}}側から除外される（resolve_weekly_compressed_periodの
+    サービス層への配線確認、reading_feedback_serviceの同名テストと対になる読了レポート版）。
+    """
+    import datetime as dt
+
+    from app.models.record import WeeklySummary
+
+    goal, book = _make_reading_goal_with_book(client)
+    # resolve_weekly_compressed_periodはperiod_start（=book.start_date）から連続する週次
+    # 要約のみを圧縮対象とするため、week_start_dateをbook.start_dateへ一致させる。
+    book_start_date = dt.date.fromisoformat(book["start_date"])
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal["id"],
+            week_start_date=book_start_date,
+            week_end_date=book_start_date + dt.timedelta(days=6),
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    seeded_session.commit()
+    calls = _stub_send_message(monkeypatch, response="読了レポート本文")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 200, response.text
+    assert "OLDER_WEEK_SUMMARY" in calls[0]["message"]
 
 
 def test_generate_retrospective_on_reading_goal_does_not_affect_exam_assistant_settings(

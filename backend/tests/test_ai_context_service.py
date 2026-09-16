@@ -504,6 +504,125 @@ def test_build_recent_weekly_summaries_empty_when_no_goals(seeded_session):
     assert result == []
 
 
+# --- build_older_weekly_summaries_entries（L-11） ---
+
+
+def _add_weekly_summary(session, goal, week_start, *, summary_body=None, is_anonymized=False):
+    week_end = week_start + dt.timedelta(days=6)
+    session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=week_start,
+            week_end_date=week_end,
+            summary_body=summary_body or f"{week_start.isoformat()}の要約",
+            is_anonymized=is_anonymized,
+        )
+    )
+    session.flush()
+    return week_end
+
+
+def test_build_older_weekly_summaries_entries_excludes_weeks_on_or_after_boundary(seeded_session):
+    """直近の生ログの窓（before_date以降）と重複しないよう、週の終了日がbefore_date以降の
+    週次要約は除外する（L-11、二重注入の再発防止）。"""
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 20))  # 7/20-7/26、窓の外
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 27))  # 7/27-8/2、窓と重なる
+
+    entries = ai_context_service.build_older_weekly_summaries_entries(
+        seeded_session, goal, before_date=dt.date(2026, 7, 27), inject_weeks=4
+    )
+
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 7, 20)]
+
+
+def test_build_older_weekly_summaries_entries_orders_oldest_first_and_respects_limit(
+    seeded_session,
+):
+    goal = _make_goal(seeded_session)
+    for week_start in (dt.date(2026, 7, 6), dt.date(2026, 7, 13), dt.date(2026, 7, 20)):
+        _add_weekly_summary(seeded_session, goal, week_start)
+
+    entries = ai_context_service.build_older_weekly_summaries_entries(
+        seeded_session, goal, before_date=dt.date(2026, 8, 1), inject_weeks=2
+    )
+
+    # 新しい順に2件（7/13・7/20）取得したのち、古い順へ並べ替える。
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 7, 13), dt.date(2026, 7, 20)]
+
+
+def test_build_older_weekly_summaries_entries_excludes_anonymized(seeded_session):
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6), is_anonymized=True)
+
+    entries = ai_context_service.build_older_weekly_summaries_entries(
+        seeded_session, goal, before_date=dt.date(2026, 8, 1), inject_weeks=4
+    )
+
+    assert entries == []
+
+
+# --- resolve_weekly_compressed_period（L-11） ---
+
+
+def test_resolve_weekly_compressed_period_no_summaries_keeps_full_period_raw(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
+    )
+
+    assert result.weekly_summary_entries == []
+    assert result.raw_log_start == dt.date(2026, 7, 6)
+
+
+def test_resolve_weekly_compressed_period_compresses_contiguous_prefix(seeded_session):
+    """period_startから連続する週次要約を圧縮対象とし、raw_log_startをその直後の日へ
+    進める（L-11）。"""
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
+    week2_end = _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 13))  # 7/13-7/19
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
+    )
+
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [
+        dt.date(2026, 7, 6),
+        dt.date(2026, 7, 13),
+    ]
+    assert result.raw_log_start == week2_end + dt.timedelta(days=1)
+
+
+def test_resolve_weekly_compressed_period_stops_at_gap_to_avoid_data_loss(seeded_session):
+    """途中に未生成の週（欠け）があれば、そこで圧縮対象を打ち切る。欠けた週より後ろに
+    要約済みの週があっても圧縮対象に含めない（生ログ側で再度カバーするため情報は
+    失われないが、欠けた週以降は安全側に倒してすべて生ログ扱いとする、L-11）。"""
+    goal = _make_goal(seeded_session)
+    week1_end = _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
+    # 7/13週は未生成（欠け）
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 20))  # 7/20-7/26
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 8, 2)
+    )
+
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [dt.date(2026, 7, 6)]
+    assert result.raw_log_start == week1_end + dt.timedelta(days=1)
+
+
+def test_resolve_weekly_compressed_period_ignores_summaries_before_period_start(seeded_session):
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 6, 22))  # period_startより前
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
+    )
+
+    assert result.weekly_summary_entries == []
+    assert result.raw_log_start == dt.date(2026, 7, 6)
+
+
 # --- build_week_logs_text / build_week_diaries_text / build_week_metrics_text ---
 
 
@@ -1063,6 +1182,20 @@ def test_build_reading_logs_entries_orders_chronologically(seeded_session):
     assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 1), dt.date(2026, 1, 2)]
 
 
+def test_build_reading_logs_entries_date_from_excludes_earlier_entries(seeded_session):
+    """L-11: 週次要約で既に圧縮済みの範囲を除外するため、date_from以降のみに絞れること。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 1), recall_body="圧縮済みの想起")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 10), recall_body="未圧縮の想起")
+
+    entries = ai_context_service.build_reading_logs_entries(
+        seeded_session, book, date_from=dt.date(2026, 1, 5)
+    )
+
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 10)]
+
+
 def test_build_reading_logs_entries_handles_no_logs(seeded_session):
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal)
@@ -1070,6 +1203,31 @@ def test_build_reading_logs_entries_handles_no_logs(seeded_session):
     entries = ai_context_service.build_reading_logs_entries(seeded_session, book)
 
     assert entries == []
+
+
+def test_build_week_recalls_text_lists_entries_within_range(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="窓内の記録")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 20), recall_body="窓外の記録")
+
+    text = ai_context_service.build_week_recalls_text(
+        seeded_session, book, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+    )
+
+    assert "窓内の記録" in text
+    assert "窓外の記録" not in text
+
+
+def test_build_week_recalls_text_handles_no_logs(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+
+    text = ai_context_service.build_week_recalls_text(
+        seeded_session, book, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+    )
+
+    assert "この週の想起記録はありません" in text
 
 
 # --- 仕事目標（WORK、実装フェーズ分割計画書Phase22） ---
@@ -1288,6 +1446,31 @@ def test_build_work_logs_entries_for_period_handles_no_logs(seeded_session):
     )
 
     assert entries == []
+
+
+def test_build_week_work_logs_text_lists_entries_within_range(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="窓内の記録")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 20), body="窓外の記録")
+
+    text = ai_context_service.build_week_work_logs_text(
+        seeded_session, work_assignment, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+    )
+
+    assert "窓内の記録" in text
+    assert "窓外の記録" not in text
+
+
+def test_build_week_work_logs_text_handles_no_logs(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+
+    text = ai_context_service.build_week_work_logs_text(
+        seeded_session, work_assignment, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+    )
+
+    assert "この週の業務記録はありません" in text
 
 
 def test_build_work_progress_summary_includes_elapsed_days_and_streak(seeded_session):

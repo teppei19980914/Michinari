@@ -1,11 +1,16 @@
-"""週次要約の生成判定と遡及実行（設計書 ロジック・プロンプト編15章・17.3、
-データ構造編5.5、実装フェーズ分割計画書Phase5）。
+"""週次要約の生成判定と遡及実行（設計書 ロジック・プロンプト編15章・17.3・17.11・17.12、
+データ構造編5.5、実装フェーズ分割計画書Phase5、L-11）。
 
 アプリケーション起動時に評価し、完了しているが未生成の週を遡及生成する（15.2）。
 実運用でのAI呼び出しを伴うため、実サーバ起動（app/main.py の __main__ ブロック）から
 のみ呼び出す。1件の生成失敗が他の週・目標の生成を妨げないよう、失敗はai_logへ記録して
 継続する（16.7「AI呼び出しの失敗により実績入力の内容が失われてはならない」と同じ考え方で、
 週次要約生成の失敗が起動そのものを妨げないようにする）。
+
+L-11で読書・仕事にも週次要約を新設した際、資格試験専用だった実装をカテゴリ別の差分
+（_CategorySpec）を注入する形に一般化した。goal_id・週の一意性で貫くAPI形状（PendingWeek・
+WeeklySummary）自体はカテゴリを問わず共通のため、weekly_summaryテーブルもスキーマ変更なく
+そのまま共用する（データ構造編5.5）。
 """
 
 import datetime as dt
@@ -17,12 +22,19 @@ from sqlalchemy.orm import Session
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
-from app.constants.app_setting_keys import AI_ASSISTANT_UID_WEEKLY_SUMMARY, SUMMARY_LOOKBACK_WEEKS
-from app.constants.enums import AiPurpose, ConversationScope
+from app.constants.app_setting_keys import (
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    SUMMARY_LOOKBACK_WEEKS,
+)
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
 from app.models.base import utcnow
+from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyRecord, StudyLog, WeeklySummary
+from app.models.record import DailyRecord, ReadingLog, StudyLog, WeeklySummary, WorkLog
+from app.models.work import WorkAssignment
 from app.services import ai_context_service, goal_service, setting_reader
 
 #: 曜日番号（Python標準のweekday(): 月曜=0〜日曜=6）における週の終了曜日（15.1「日曜日を終了日」）。
@@ -36,6 +48,126 @@ class PendingWeek:
     week_end: dt.date
 
 
+@dataclass(frozen=True)
+class _CategorySpec:
+    """週次要約のカテゴリ別差分（L-11）。goal.categoryごとに、対象goal_idの判定方法・
+    AI用途・{{...}}変数の組み立て方だけが異なり、それ以外（週の判定・重複防止・保存先・
+    起動時の遡及生成手順）は共通のためここへ集約する（CLAUDE.md DRYの原則）。
+    """
+
+    goal_category: GoalCategory
+    purpose: AiPurpose
+    scope: ConversationScope
+    assistant_uid_key: str
+    #: その週にログがある goal_id 集合を返す（15.2手順3のカテゴリ別実装）。
+    goal_ids_with_logs_in_week: Callable[[Session, dt.date, dt.date], set[int]]
+    #: {{week_range}}・{{anonymize}}以外の、カテゴリ固有の注入変数を組み立てる。
+    build_variables: Callable[[Session, Goal, dt.date, dt.date], dict[str, str]]
+
+
+def _exam_goal_ids_with_logs(session: Session, week_start: dt.date, week_end: dt.date) -> set[int]:
+    return {
+        row[0]
+        for row in session.query(Material.goal_id)
+        .join(StudyLog, StudyLog.material_id == Material.id)
+        .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .distinct()
+    }
+
+
+def _exam_week_variables(
+    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+) -> dict[str, str]:
+    treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
+    return {
+        "goal_name": goal.name,
+        "week_logs": ai_context_service.build_week_logs_text(session, goal, week_start, week_end),
+        "week_metrics": ai_context_service.build_week_metrics_text(
+            session, goal, week_start, week_end, treat_holiday_as_buffer
+        ),
+        "week_diaries": ai_context_service.build_week_diaries_text(
+            session, goal, week_start, week_end
+        ),
+    }
+
+
+def _reading_goal_ids_with_logs(
+    session: Session, week_start: dt.date, week_end: dt.date
+) -> set[int]:
+    return {
+        row[0]
+        for row in session.query(Book.goal_id)
+        .join(ReadingLog, ReadingLog.book_id == Book.id)
+        .join(DailyRecord, ReadingLog.daily_record_id == DailyRecord.id)
+        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .distinct()
+    }
+
+
+def _reading_week_variables(
+    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+) -> dict[str, str]:
+    book = goal.book
+    return {
+        "book_title": book.title,
+        "week_recalls": ai_context_service.build_week_recalls_text(
+            session, book, week_start, week_end
+        ),
+    }
+
+
+def _work_goal_ids_with_logs(session: Session, week_start: dt.date, week_end: dt.date) -> set[int]:
+    return {
+        row[0]
+        for row in session.query(WorkAssignment.goal_id)
+        .join(WorkLog, WorkLog.work_assignment_id == WorkAssignment.id)
+        .join(DailyRecord, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .distinct()
+    }
+
+
+def _work_week_variables(
+    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+) -> dict[str, str]:
+    work_assignment = goal.work_assignment
+    return {
+        "work_name": goal.name,
+        "week_logs": ai_context_service.build_week_work_logs_text(
+            session, work_assignment, week_start, week_end
+        ),
+    }
+
+
+_EXAM_SPEC = _CategorySpec(
+    goal_category=GoalCategory.EXAM,
+    purpose=AiPurpose.WEEKLY_SUMMARY,
+    scope=ConversationScope.WEEKLY_SUMMARY,
+    assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    goal_ids_with_logs_in_week=_exam_goal_ids_with_logs,
+    build_variables=_exam_week_variables,
+)
+_READING_SPEC = _CategorySpec(
+    goal_category=GoalCategory.READING,
+    purpose=AiPurpose.WEEKLY_SUMMARY_READING,
+    scope=ConversationScope.WEEKLY_SUMMARY_READING,
+    assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    goal_ids_with_logs_in_week=_reading_goal_ids_with_logs,
+    build_variables=_reading_week_variables,
+)
+_WORK_SPEC = _CategorySpec(
+    goal_category=GoalCategory.WORK,
+    purpose=AiPurpose.WEEKLY_SUMMARY_WORK,
+    scope=ConversationScope.WEEKLY_SUMMARY_WORK,
+    assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    goal_ids_with_logs_in_week=_work_goal_ids_with_logs,
+    build_variables=_work_week_variables,
+)
+_SPECS = (_EXAM_SPEC, _READING_SPEC, _WORK_SPEC)
+_SPEC_BY_CATEGORY = {spec.goal_category: spec for spec in _SPECS}
+
+
 def _last_completed_sunday(today: dt.date) -> dt.date:
     """T以前で最も近い日曜日を返す（15.2手順1。Tが日曜ならT自身）。"""
     offset = (today.weekday() - _WEEK_END_WEEKDAY) % 7
@@ -43,21 +175,16 @@ def _last_completed_sunday(today: dt.date) -> dt.date:
 
 
 def list_pending_weeks(session: Session, today: dt.date, lookback_weeks: int) -> list[PendingWeek]:
-    """完了しているが未生成の(goal, week)組を列挙する（15.2手順1〜3）。"""
+    """完了しているが未生成の(goal, week)組を列挙する（15.2手順1〜3、3カテゴリ横断）。"""
     last_sunday = _last_completed_sunday(today)
     pending: list[PendingWeek] = []
     for offset in range(lookback_weeks):
         week_end = last_sunday - dt.timedelta(days=7 * offset)
         week_start = week_end - dt.timedelta(days=6)
 
-        goal_ids_with_logs = {
-            row[0]
-            for row in session.query(Material.goal_id)
-            .join(StudyLog, StudyLog.material_id == Material.id)
-            .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
-            .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
-            .distinct()
-        }
+        goal_ids_with_logs: set[int] = set()
+        for spec in _SPECS:
+            goal_ids_with_logs |= spec.goal_ids_with_logs_in_week(session, week_start, week_end)
         if not goal_ids_with_logs:
             continue
 
@@ -87,39 +214,33 @@ def generate_for_week(
     *,
     anonymize: bool = False,
 ) -> WeeklySummary:
-    """1件の(goal, week)について週次要約を生成する（17.3）。失敗時は例外をそのまま送出する
-    （呼び出し側 run_retroactive_generation で1件ずつ捕捉し、他の生成を継続させる）。
+    """1件の(goal, week)について週次要約を生成する（17.3・17.11・17.12）。失敗時は例外を
+    そのまま送出する（呼び出し側 run_retroactive_generation で1件ずつ捕捉し、他の生成を
+    継続させる）。goal.categoryに応じた_CategorySpecで、AI用途・注入変数を切り替える（L-11）。
 
     anonymize=True の場合、匿名化版として別のAI会話（scope_keyを分離）で生成する
     （データ構造編7.3「匿名化版の週次要約は別レコードとして保持し、元の版は削除しない」）。
     既に匿名化版が存在する週の再エクスポートでは、そのレコードを最新内容へ更新する
     （goal_id・week_start_date・is_anonymizedの一意制約により重複作成できないため）。
     """
-    treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
+    spec = _SPEC_BY_CATEGORY[goal.category]
     variables = {
         "week_range": f"{week_start.isoformat()}〜{week_end.isoformat()}",
-        "goal_name": goal.name,
-        "week_logs": ai_context_service.build_week_logs_text(session, goal, week_start, week_end),
-        "week_metrics": ai_context_service.build_week_metrics_text(
-            session, goal, week_start, week_end, treat_holiday_as_buffer
-        ),
-        "week_diaries": ai_context_service.build_week_diaries_text(
-            session, goal, week_start, week_end
-        ),
+        **spec.build_variables(session, goal, week_start, week_end),
         "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
     }
 
-    template_body = ai_orchestration.load_template_body(session, AiPurpose.WEEKLY_SUMMARY)
+    template_body = ai_orchestration.load_template_body(session, spec.purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     build_result = prompt_builder.build_simple(template_body, variables, max_chars)
 
-    assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_WEEKLY_SUMMARY)
+    assistant_uid = setting_reader.get_str(session, spec.assistant_uid_key)
     scope_key = f"{week_start.isoformat()}_anon" if anonymize else week_start.isoformat()
     title = f"{week_start.isoformat()}週 週次要約" + ("（匿名化）" if anonymize else "")
     conversation = ai_conversation.ensure_conversation(
         session,
         goal=goal,
-        scope=ConversationScope.WEEKLY_SUMMARY,
+        scope=spec.scope,
         scope_key=scope_key,
         assistant_uid=assistant_uid,
         title=title,
@@ -127,7 +248,7 @@ def generate_for_week(
 
     send_result = ai_orchestration.send_and_log(
         session,
-        purpose=AiPurpose.WEEKLY_SUMMARY,
+        purpose=spec.purpose,
         conversation=conversation,
         prompt_text=build_result.text,
         prompt_chars=build_result.prompt_chars,
