@@ -432,88 +432,81 @@ def _format_weekly_summary_entry(row: WeeklySummary) -> DatedLogEntry:
     )
 
 
-def build_older_weekly_summaries_entries(
-    session: Session, goal: Goal, before_date: dt.date, inject_weeks: int
-) -> list[DatedLogEntry]:
-    """{{weekly_summaries}}（DAILY_FEEDBACK_READING・DAILY_FEEDBACK_WORK、17.6・17.8、L-11）:
-    読書・仕事の日次報告フィードバックへ、直近の生ログ（{{recent_recalls}}・
-    {{recent_work_logs}}）より前の経過を週次要約で補う。build_recent_weekly_summaries
-    （資格試験のDAILY_FEEDBACK向け、15.3）と異なり、直近の生ログの窓と重複させないため
-    before_date（生ログの窓の開始日）より前に終わった週のみを対象とする。
-
-    新しい順にinject_weeks件まで取得したのち、DatedLogEntryの前提（古い順）に合わせて
-    並べ替えて返す。
-    """
-    rows = (
-        session.query(WeeklySummary)
-        .filter(
-            WeeklySummary.goal_id == goal.id,
-            WeeklySummary.is_anonymized.is_(False),
-            WeeklySummary.week_end_date < before_date,
-        )
-        .order_by(WeeklySummary.week_start_date.desc())
-        .limit(inject_weeks)
-        .all()
-    )
-    rows.sort(key=lambda row: row.week_start_date)
-    return [_format_weekly_summary_entry(row) for row in rows]
-
-
 @dataclass(frozen=True)
 class WeeklyCompressedPeriod:
-    """総括レポート系（読了レポート17.7・月次報告17.9・半期評価17.10、L-11）向けの
-    「既に週次要約が生成済みの部分は圧縮表現・まだ生成されていない直近部分は生ログのまま」
-    という境界の解決結果。日次報告フィードバック（build_older_weekly_summaries_entries）と
-    異なり、件数上限を設けず対象期間全体を漏れなく圧縮対象にする（対象期間そのものを
-    漏れなく要約することが目的のため、CLAUDE.mdコメント方針「なぜこうしたか」参照）。
+    """対象期間[period_start, period_end]（両端含む）のうち、週次要約バッチ
+    （weekly_summary_service.run_retroactive_generation）が既に生成済みの週を圧縮表現へ、
+    まだ生成されていない部分は生ログのまま呼び出し側が注入する境界の解決結果
+    （日次報告フィードバック17.6・17.8、総括レポート系17.5・17.7・17.9・17.10で共通、L-11）。
+
+    period_start（today-recent_days・book.start_date・対象月/半期の初日等）は
+    週次要約の週区切り（月曜始まり、15.1）と一致するとは限らないため、「period_startから
+    連続する週のみ圧縮対象」という判定は行わない（一致しないケースでは圧縮が実質
+    発動しなくなるバグになるため、2026-09-16是正）。[period_start, period_end]に
+    フル収まる週次要約はすべて圧縮対象とし、間に未生成の週（欠け）があっても構わない
+    （生ログ側がexclude_covered_datesでその欠けた週の日付を除外しないため、欠けた週は
+    自然に生ログのまま残る＝情報が失われない）。
     """
 
     weekly_summary_entries: list[DatedLogEntry]  # 古い順
-    raw_log_start: dt.date  # 生ログはこの日（含む）以降のみを対象とする
+    covered_ranges: list[tuple[dt.date, dt.date]]  # 圧縮対象の各週の(開始日, 終了日)。古い順
 
 
 def resolve_weekly_compressed_period(
-    session: Session, goal: Goal, period_start: dt.date, period_end: dt.date
+    session: Session,
+    goal: Goal,
+    period_start: dt.date,
+    period_end: dt.date,
+    *,
+    limit: int | None = None,
 ) -> WeeklyCompressedPeriod:
-    """対象期間[period_start, period_end]（両端含む）のうち、週次要約バッチ
-    （weekly_summary_service.run_retroactive_generation）が既に生成済みの週を圧縮表現へ、
-    まだ生成されていない直近部分（バッチが未実行・未到達の場合を含む）は
-    raw_log_start以降として生ログのまま呼び出し側が注入する。
+    """[period_start, period_end]内に完全に収まる週次要約を古い順に列挙する。
+    呼び出し側は、生ログのビルダーが返した list[DatedLogEntry] へ
+    exclude_covered_dates(entries, result.covered_ranges) を適用し、圧縮済みの日付を
+    生ログ側から除外する（二重注入を避ける。日付単位の除外のため、period_start・
+    period_endの週境界との不一致や週の欠けがあっても正しく動く）。
 
-    period_startから連続して要約が存在する範囲のみを圧縮対象とする。途中に未生成の週
-    （欠け）があれば、そこで圧縮対象を打ち切り、以降は全て生ログとして扱う（欠けた週より
-    後ろに要約済みの週があっても、生ログ側で再度カバーされるため情報が失われることはない。
-    週次要約バッチは基本的に古い週から順に生成するため、通常この欠けは生じない想定だが、
-    目標のアーカイブ・再開等で生じ得るため安全側に倒す）。
+    週次要約が1件も無い場合はcovered_ranges=[]となり、生ログ側は無加工のまま
+    （＝全期間が生ログとして注入される、要約バッチが未実行でも情報が失われない
+    安全側の設計）。
 
-    週次要約が1件も無い場合はraw_log_start=period_startとなり、全期間が生ログのまま
-    注入される（要約バッチが未実行でも情報が失われない、安全側の設計）。
+    limitを指定すると、period_end側に近い（新しい）方からlimit件までに絞る
+    （古い方から溢れた分は圧縮対象から除外＝生ログ側にも現れず、weekly_summariesにも
+    現れない。日次報告フィードバックで使う想定：period_startを目標開始日まで広げて
+    「窓の外側でも既に要約済みの週があれば圧縮できる」ようにしつつ、
+    summary.inject_weeksで昔まで遡りすぎないよう歯止めをかける、2026-09-16）。
     """
-    rows = (
-        session.query(WeeklySummary)
-        .filter(
-            WeeklySummary.goal_id == goal.id,
-            WeeklySummary.is_anonymized.is_(False),
-            WeeklySummary.week_start_date >= period_start,
-            WeeklySummary.week_end_date <= period_end,
+    query = session.query(WeeklySummary).filter(
+        WeeklySummary.goal_id == goal.id,
+        WeeklySummary.is_anonymized.is_(False),
+        WeeklySummary.week_start_date >= period_start,
+        WeeklySummary.week_end_date <= period_end,
+    )
+    if limit is None:
+        rows = query.order_by(WeeklySummary.week_start_date).all()
+    else:
+        rows = list(
+            reversed(query.order_by(WeeklySummary.week_start_date.desc()).limit(limit).all())
         )
-        .order_by(WeeklySummary.week_start_date)
-        .all()
-    )
-    covered: list[WeeklySummary] = []
-    expected_start = period_start
-    for row in rows:
-        if row.week_start_date != expected_start:
-            break
-        covered.append(row)
-        expected_start = row.week_end_date + dt.timedelta(days=1)
-
-    if not covered:
-        return WeeklyCompressedPeriod(weekly_summary_entries=[], raw_log_start=period_start)
     return WeeklyCompressedPeriod(
-        weekly_summary_entries=[_format_weekly_summary_entry(row) for row in covered],
-        raw_log_start=covered[-1].week_end_date + dt.timedelta(days=1),
+        weekly_summary_entries=[_format_weekly_summary_entry(row) for row in rows],
+        covered_ranges=[(row.week_start_date, row.week_end_date) for row in rows],
     )
+
+
+def exclude_covered_dates(
+    entries: list[DatedLogEntry], covered_ranges: list[tuple[dt.date, dt.date]]
+) -> list[DatedLogEntry]:
+    """生ログのエントリ列から、covered_ranges（resolve_weekly_compressed_periodが返した、
+    週次要約で圧縮済みの週の日付範囲）に含まれる日付のものを取り除く（L-11）。
+    """
+    if not covered_ranges:
+        return entries
+    return [
+        entry
+        for entry in entries
+        if not any(start <= entry.record_date <= end for start, end in covered_ranges)
+    ]
 
 
 def build_week_logs_text(
@@ -893,8 +886,8 @@ def build_reading_logs_entries(
     昇順で連結したもの（21.4）。
 
     date_from省略時は全期間（従来どおり）。L-11で読了レポートに週次要約を追加した際、
-    既に週次要約が生成済みの部分と重複させないため、resolve_weekly_compressed_periodの
-    raw_log_startを渡して直近の未圧縮部分のみに絞れるようにした。
+    下限の指定に対応した（通常はbook.start_dateを渡す）。既に週次要約が生成済みの日付を
+    重複させずに除外する処理は、呼び出し側がexclude_covered_datesで行う。
 
     整形前のlist[DatedLogEntry]を返し、空の場合の表示・段階的縮退はprompt_builder.
     build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則）。

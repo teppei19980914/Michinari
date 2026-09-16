@@ -272,8 +272,11 @@ def generate_monthly_report(
             ),
             prompt_builder.DegradableEntryStage(
                 key="month_logs",
-                entries=ai_context_service.build_work_logs_entries_for_period(
-                    session, work_assignment, compressed.raw_log_start, date_to
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_work_logs_entries_for_period(
+                        session, work_assignment, date_from, date_to
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
             ),
@@ -401,8 +404,11 @@ def generate_semiannual_review(
             ),
             prompt_builder.DegradableEntryStage(
                 key="period_logs",
-                entries=ai_context_service.build_work_logs_entries_for_period(
-                    session, work_assignment, compressed.raw_log_start, date_to
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_work_logs_entries_for_period(
+                        session, work_assignment, date_from, date_to
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
             ),

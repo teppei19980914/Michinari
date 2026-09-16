@@ -118,8 +118,11 @@ def _build_reading_context(
             ),
             prompt_builder.DegradableEntryStage(
                 key="reading_logs",
-                entries=ai_context_service.build_reading_logs_entries(
-                    session, book, date_from=compressed.raw_log_start
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_reading_logs_entries(
+                        session, book, date_from=book.start_date
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_READING_LOGS_TEXT,
             ),

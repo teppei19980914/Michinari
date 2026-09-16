@@ -14,7 +14,14 @@ from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
 from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
-from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalStatus, RecordState
+from app.constants.enums import (
+    AiPurpose,
+    ChatRole,
+    ConversationScope,
+    GoalCategory,
+    GoalStatus,
+    RecordState,
+)
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.material import Material
@@ -414,13 +421,24 @@ def test_send_reading_feedback_degrades_oldest_recent_logs_before_instructions(
     assert "直近の想起記録はありません" in sent_message
 
 
-def test_send_reading_feedback_includes_weekly_summaries_older_than_recent_window(
+def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_recent_window(
     seeded_session, monkeypatch
 ):
-    """L-11: 直近recent_days日分（既定14日）より前の週次要約が{{weekly_summaries}}へ
-    注入される。窓と重なる週の要約は{{recent_recalls}}との二重注入を避けるため除外する。
+    """L-11（2026-09-16是正）: 週次要約はperiod_start=goal.start_dateまで遡って探索する
+    （summary.inject_weeksを上限に、直近recent_days日分〈既定14日〉の窓より前の週も
+    {{weekly_summaries}}へ注入される＝過去の経緯を要約で反映し続ける）。加えて、窓と
+    重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し{{recent_recalls}}側の
+    生ログからは除外する（二重注入を避けつつ、要約による文字数削減の効果が生ログ側にも
+    及ぶようにする是正）。
     """
-    goal = _make_reading_goal(seeded_session)
+    goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標A",
+        start_date=dt.date(2025, 11, 1),
+        status=GoalStatus.ACTIVE,
+    )
+    seeded_session.add(goal)
+    seeded_session.flush()
     book = _make_book(seeded_session, goal)
     seeded_session.add(
         WeeklySummary(
@@ -452,4 +470,5 @@ def test_send_reading_feedback_includes_weekly_summaries_older_than_recent_windo
 
     sent_message = calls[0]["message"]
     assert "OLDER_WEEK_SUMMARY" in sent_message
-    assert "OVERLAPPING_WEEK_SUMMARY" not in sent_message
+    # 是正後: 窓と重なる週も既に要約済みなら圧縮対象となり、weekly_summariesへ注入される。
+    assert "OVERLAPPING_WEEK_SUMMARY" in sent_message

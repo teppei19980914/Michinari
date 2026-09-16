@@ -504,7 +504,7 @@ def test_build_recent_weekly_summaries_empty_when_no_goals(seeded_session):
     assert result == []
 
 
-# --- build_older_weekly_summaries_entries（L-11） ---
+# --- resolve_weekly_compressed_period／exclude_covered_dates（L-11、2026-09-16是正） ---
 
 
 def _add_weekly_summary(session, goal, week_start, *, summary_body=None, is_anonymized=False):
@@ -522,50 +522,7 @@ def _add_weekly_summary(session, goal, week_start, *, summary_body=None, is_anon
     return week_end
 
 
-def test_build_older_weekly_summaries_entries_excludes_weeks_on_or_after_boundary(seeded_session):
-    """直近の生ログの窓（before_date以降）と重複しないよう、週の終了日がbefore_date以降の
-    週次要約は除外する（L-11、二重注入の再発防止）。"""
-    goal = _make_goal(seeded_session)
-    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 20))  # 7/20-7/26、窓の外
-    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 27))  # 7/27-8/2、窓と重なる
-
-    entries = ai_context_service.build_older_weekly_summaries_entries(
-        seeded_session, goal, before_date=dt.date(2026, 7, 27), inject_weeks=4
-    )
-
-    assert [entry.record_date for entry in entries] == [dt.date(2026, 7, 20)]
-
-
-def test_build_older_weekly_summaries_entries_orders_oldest_first_and_respects_limit(
-    seeded_session,
-):
-    goal = _make_goal(seeded_session)
-    for week_start in (dt.date(2026, 7, 6), dt.date(2026, 7, 13), dt.date(2026, 7, 20)):
-        _add_weekly_summary(seeded_session, goal, week_start)
-
-    entries = ai_context_service.build_older_weekly_summaries_entries(
-        seeded_session, goal, before_date=dt.date(2026, 8, 1), inject_weeks=2
-    )
-
-    # 新しい順に2件（7/13・7/20）取得したのち、古い順へ並べ替える。
-    assert [entry.record_date for entry in entries] == [dt.date(2026, 7, 13), dt.date(2026, 7, 20)]
-
-
-def test_build_older_weekly_summaries_entries_excludes_anonymized(seeded_session):
-    goal = _make_goal(seeded_session)
-    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6), is_anonymized=True)
-
-    entries = ai_context_service.build_older_weekly_summaries_entries(
-        seeded_session, goal, before_date=dt.date(2026, 8, 1), inject_weeks=4
-    )
-
-    assert entries == []
-
-
-# --- resolve_weekly_compressed_period（L-11） ---
-
-
-def test_resolve_weekly_compressed_period_no_summaries_keeps_full_period_raw(seeded_session):
+def test_resolve_weekly_compressed_period_no_summaries_returns_empty(seeded_session):
     goal = _make_goal(seeded_session)
 
     result = ai_context_service.resolve_weekly_compressed_period(
@@ -573,33 +530,40 @@ def test_resolve_weekly_compressed_period_no_summaries_keeps_full_period_raw(see
     )
 
     assert result.weekly_summary_entries == []
-    assert result.raw_log_start == dt.date(2026, 7, 6)
+    assert result.covered_ranges == []
 
 
-def test_resolve_weekly_compressed_period_compresses_contiguous_prefix(seeded_session):
-    """period_startから連続する週次要約を圧縮対象とし、raw_log_startをその直後の日へ
-    進める（L-11）。"""
+def test_resolve_weekly_compressed_period_includes_all_weeks_fully_inside_period(seeded_session):
+    """period_startが週境界（月曜）と一致しなくても、[period_start, period_end]に
+    フル収容される週次要約はすべて圧縮対象とする（2026-09-16是正。旧実装はperiod_startと
+    週開始日が完全一致する場合しか圧縮が発動しないバグがあった）。"""
     goal = _make_goal(seeded_session)
     _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
-    week2_end = _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 13))  # 7/13-7/19
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 13))  # 7/13-7/19
 
+    # period_startを週開始日からわざと1日ずらす（火曜始まり）。
     result = ai_context_service.resolve_weekly_compressed_period(
-        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
+        seeded_session, goal, period_start=dt.date(2026, 7, 1), period_end=dt.date(2026, 7, 26)
     )
 
     assert [entry.record_date for entry in result.weekly_summary_entries] == [
         dt.date(2026, 7, 6),
         dt.date(2026, 7, 13),
     ]
-    assert result.raw_log_start == week2_end + dt.timedelta(days=1)
+    assert result.covered_ranges == [
+        (dt.date(2026, 7, 6), dt.date(2026, 7, 12)),
+        (dt.date(2026, 7, 13), dt.date(2026, 7, 19)),
+    ]
 
 
-def test_resolve_weekly_compressed_period_stops_at_gap_to_avoid_data_loss(seeded_session):
-    """途中に未生成の週（欠け）があれば、そこで圧縮対象を打ち切る。欠けた週より後ろに
-    要約済みの週があっても圧縮対象に含めない（生ログ側で再度カバーするため情報は
-    失われないが、欠けた週以降は安全側に倒してすべて生ログ扱いとする、L-11）。"""
+def test_resolve_weekly_compressed_period_includes_weeks_independently_across_a_gap(
+    seeded_session,
+):
+    """途中に未生成の週（欠け）があっても、それより後ろの週次要約は独立して圧縮対象に
+    含める（旧実装は欠けで以降すべて打ち切っていたが、生ログ側はexclude_covered_datesで
+    日付単位に除外するため、打ち切る必要がない、2026-09-16是正）。"""
     goal = _make_goal(seeded_session)
-    week1_end = _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
     # 7/13週は未生成（欠け）
     _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 20))  # 7/20-7/26
 
@@ -607,20 +571,92 @@ def test_resolve_weekly_compressed_period_stops_at_gap_to_avoid_data_loss(seeded
         seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 8, 2)
     )
 
-    assert [entry.record_date for entry in result.weekly_summary_entries] == [dt.date(2026, 7, 6)]
-    assert result.raw_log_start == week1_end + dt.timedelta(days=1)
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [
+        dt.date(2026, 7, 6),
+        dt.date(2026, 7, 20),
+    ]
+    assert result.covered_ranges == [
+        (dt.date(2026, 7, 6), dt.date(2026, 7, 12)),
+        (dt.date(2026, 7, 20), dt.date(2026, 7, 26)),
+    ]
 
 
-def test_resolve_weekly_compressed_period_ignores_summaries_before_period_start(seeded_session):
+def test_resolve_weekly_compressed_period_excludes_weeks_not_fully_inside_period(seeded_session):
+    """開始日がperiod_startより前、または終了日がperiod_endより後ろの週は、部分的にしか
+    重ならないため圧縮対象から除外する（フル収容のみ対象、L-11）。"""
     goal = _make_goal(seeded_session)
-    _add_weekly_summary(seeded_session, goal, dt.date(2026, 6, 22))  # period_startより前
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 6, 22))  # 6/22-6/28、period_startより前
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 27))  # 7/27-8/2、period_endより後
 
     result = ai_context_service.resolve_weekly_compressed_period(
         seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
     )
 
     assert result.weekly_summary_entries == []
-    assert result.raw_log_start == dt.date(2026, 7, 6)
+    assert result.covered_ranges == []
+
+
+def test_resolve_weekly_compressed_period_excludes_anonymized(seeded_session):
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6), is_anonymized=True)
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 26)
+    )
+
+    assert result.weekly_summary_entries == []
+    assert result.covered_ranges == []
+
+
+def test_resolve_weekly_compressed_period_limit_keeps_most_recent_weeks_and_drops_oldest(
+    seeded_session,
+):
+    """limit指定時は、period_end側に近い（新しい）方からlimit件までに絞り、古い方から
+    溢れた分は圧縮対象から除外する（縮退の方向性＝直近の記憶を優先し遠い過去から
+    削る、と同じ考え方をweekly_summariesの選定にも適用する、2026-09-16）。"""
+    goal = _make_goal(seeded_session)
+    for week_start in (dt.date(2026, 7, 6), dt.date(2026, 7, 13), dt.date(2026, 7, 20)):
+        _add_weekly_summary(seeded_session, goal, week_start)
+
+    result = ai_context_service.resolve_weekly_compressed_period(
+        seeded_session,
+        goal,
+        period_start=dt.date(2026, 7, 6),
+        period_end=dt.date(2026, 7, 26),
+        limit=2,
+    )
+
+    # 新しい順に2件（7/13・7/20）を採用したのち、古い順へ並べ替える。7/6は溢れて除外。
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [
+        dt.date(2026, 7, 13),
+        dt.date(2026, 7, 20),
+    ]
+    assert result.covered_ranges == [
+        (dt.date(2026, 7, 13), dt.date(2026, 7, 19)),
+        (dt.date(2026, 7, 20), dt.date(2026, 7, 26)),
+    ]
+
+
+def test_exclude_covered_dates_removes_entries_within_ranges(seeded_session):
+    entries = [
+        ai_context_service.DatedLogEntry(record_date=dt.date(2026, 7, 6), text="7/6"),
+        ai_context_service.DatedLogEntry(record_date=dt.date(2026, 7, 10), text="7/10"),
+        ai_context_service.DatedLogEntry(record_date=dt.date(2026, 7, 15), text="7/15"),
+    ]
+
+    result = ai_context_service.exclude_covered_dates(
+        entries, covered_ranges=[(dt.date(2026, 7, 6), dt.date(2026, 7, 12))]
+    )
+
+    assert [entry.record_date for entry in result] == [dt.date(2026, 7, 15)]
+
+
+def test_exclude_covered_dates_returns_entries_unchanged_when_no_ranges(seeded_session):
+    entries = [ai_context_service.DatedLogEntry(record_date=dt.date(2026, 7, 6), text="7/6")]
+
+    result = ai_context_service.exclude_covered_dates(entries, covered_ranges=[])
+
+    assert result == entries
 
 
 # --- build_week_logs_text / build_week_diaries_text / build_week_metrics_text ---

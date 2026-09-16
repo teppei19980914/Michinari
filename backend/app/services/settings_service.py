@@ -15,10 +15,15 @@ from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
     AI_HOST,
@@ -87,6 +92,11 @@ class AiConnectionSettings:
     assistant_uid_goal_retrospective: str
     assistant_uid_daily_feedback_reading: str
     assistant_uid_goal_retrospective_reading: str
+    assistant_uid_weekly_summary_reading: str
+    assistant_uid_daily_feedback_work: str
+    assistant_uid_goal_retrospective_work_monthly: str
+    assistant_uid_goal_retrospective_work_semiannual: str
+    assistant_uid_weekly_summary_work: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -160,6 +170,21 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_goal_retrospective_reading=setting_reader.get_str(
             session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
         ),
+        assistant_uid_weekly_summary_reading=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING
+        ),
+        assistant_uid_daily_feedback_work=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK
+        ),
+        assistant_uid_goal_retrospective_work_monthly=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY
+        ),
+        assistant_uid_goal_retrospective_work_semiannual=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL
+        ),
+        assistant_uid_weekly_summary_work=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK
+        ),
         folder_prefix=setting_reader.get_str(session, AI_FOLDER_PREFIX),
         timeout_seconds=setting_reader.get_int(session, AI_TIMEOUT_SECONDS),
         min_interval_seconds=setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS),
@@ -210,6 +235,15 @@ def _update_ai_connection(session: Session, **fields: object) -> None:
         "assistant_uid_goal_retrospective": AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
         "assistant_uid_daily_feedback_reading": AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
         "assistant_uid_goal_retrospective_reading": AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+        "assistant_uid_weekly_summary_reading": AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+        "assistant_uid_daily_feedback_work": AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
+        "assistant_uid_goal_retrospective_work_monthly": (
+            AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY
+        ),
+        "assistant_uid_goal_retrospective_work_semiannual": (
+            AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL
+        ),
+        "assistant_uid_weekly_summary_work": AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
         "folder_prefix": AI_FOLDER_PREFIX,
     }
     number_key_by_field = {
