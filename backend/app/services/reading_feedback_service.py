@@ -87,7 +87,29 @@ def send_reading_feedback(
 
     active_books = ai_context_service.list_active_books([goal])
     recent_days = setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS)
-    recent_window_start = target_date - dt.timedelta(days=recent_days)
+    inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
+    # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
+    # ある週次要約もlimit=inject_weeks件まで遡って見せる（要約による過去の経緯の反映）。
+    # 同時に、直近の窓のうち既に週次要約が生成済みの週は圧縮表現へ、それ以外は生ログの
+    # まま注入することで、要約による文字数削減の効果が生ログ側にも及ぶ（2026-09-16是正。
+    # 従来はrecent_recallsが常に窓いっぱいの生ログを返し、weekly_summariesは窓より前の
+    # 分を追加するだけだったため、週次要約が増えてもプロンプト全体は縮まらなかった。
+    # またperiod_startを窓の開始日に限定すると、窓より過去の週次要約が一切見えなくなり
+    # 従来あった「直近の窓を越えた過去の経緯の反映」機能が失われるため、limitで歯止め
+    # をかけつつperiod_startは目標開始日まで広げる）。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session,
+        goal,
+        period_start=goal.start_date,
+        period_end=target_date - dt.timedelta(days=1),
+        limit=inject_weeks,
+    )
+    recent_recalls_entries = ai_context_service.exclude_covered_dates(
+        ai_context_service.build_recent_recalls_entries(
+            session, active_books, target_date, recent_days
+        ),
+        compressed.covered_ranges,
+    )
 
     # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_serviceと同じ理由。
     # ChatMessageモデルのdocstring参照）。goal_id=NULLの行は移行前のレガシーメッセージ
@@ -117,19 +139,12 @@ def send_reading_feedback(
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
-                entries=ai_context_service.build_older_weekly_summaries_entries(
-                    session,
-                    goal,
-                    before_date=recent_window_start,
-                    inject_weeks=setting_reader.get_int(session, SUMMARY_INJECT_WEEKS),
-                ),
+                entries=compressed.weekly_summary_entries,
                 empty_text=_NO_OLDER_WEEKLY_SUMMARIES_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
                 key="recent_recalls",
-                entries=ai_context_service.build_recent_recalls_entries(
-                    session, active_books, target_date, recent_days
-                ),
+                entries=recent_recalls_entries,
                 empty_text=_NO_RECENT_RECALLS_TEXT,
             ),
         ],
