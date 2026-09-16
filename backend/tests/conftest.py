@@ -9,22 +9,25 @@ import os
 import tempfile
 from pathlib import Path
 
-from tests.db_retry import unlink_retrying
-
 TESTS_DIR = Path(__file__).resolve().parent
 BACKEND_DIR = TESTS_DIR.parent
-# 2026-09-16、release.bat経由の実行でOneDriveロック（PermissionError: WinError 32）により
-# db_retry.pyの再試行（3秒×5回＝最大15秒）を使い切ってもテストDBを削除できずリリースが
-# 失敗する事象が発生した。本リポジトリ配下（tests/直下）はOneDrive同期フォルダのため、
-# 直前のuv sync・別のpytest実行によるファイル書き換えが多いとロックが長引きうる。
-# scripts/release_smoke.py のスモークDB（tempfile.TemporaryDirectory）と同じ方針で、
-# OneDrive同期の対象外である一時ディレクトリへ置き、問題の根本原因を避ける
-# （db_retry.pyの再試行はアンチウイルス等の別要因への保険として維持する）。
-TEST_DB_PATH = Path(tempfile.gettempdir()) / "michinari-backend-tests" / "_test.db"
-TEST_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-if TEST_DB_PATH.exists():
-    unlink_retrying(TEST_DB_PATH)
+# 2026-09-16、release.bat経由の実行で、固定パスのテストDB（当初はリポジトリ配下の
+# tests/_test.db、その後 tempfile.gettempdir() 配下の固定ファイル名）の削除が
+# `PermissionError: [WinError 32]` で2回連続失敗した（3秒×5回＝最大15秒の再試行を
+# 使い切っても解消せず）。tempfile配下へ移した後も再発したことから、原因はOneDrive
+# ロックに限らない（アンチウイルスの一時スキャン等、他プロセスが一時的にロックする
+# 要因は他にも起こりうる）と判断した。「削除してから使う」設計そのものが、前回実行の
+# 残骸ファイルに新しい実行がロックで阻まれるという構造的な弱点を持つため、
+# 固定パスではなく`tempfile.TemporaryDirectory`でテスト実行のたびに専用の一意な
+# ディレクトリを割り当てる方式へ改めた。これにより「削除対象が存在しない＝削除に
+# 失敗しようがない」という形で起動時の失敗経路自体を無くした。終了時の後片付けも
+# `ignore_cleanup_errors=True`（scripts/release_smoke.py のスモークDBと同じ）とし、
+# 万一ロックが残っていても後片付けの失敗でテスト結果自体を失敗させない
+# （一時ディレクトリはOSが定期的に掃除する領域のため、まれに残っても実害はない）。
+_test_db_dir = tempfile.TemporaryDirectory(
+    prefix="michinari-backend-tests-", ignore_cleanup_errors=True
+)
+TEST_DB_PATH = Path(_test_db_dir.name) / "_test.db"
 
 os.environ["MICHINARI_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
 
@@ -46,8 +49,7 @@ def _migrated_database(alembic_config: Config):
     command.upgrade(alembic_config, "head")
     yield
     engine.dispose()
-    if TEST_DB_PATH.exists():
-        unlink_retrying(TEST_DB_PATH)
+    _test_db_dir.cleanup()
 
 
 def _wipe_all_tables(session) -> None:
