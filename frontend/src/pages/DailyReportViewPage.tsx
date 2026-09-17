@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
@@ -44,18 +43,6 @@ export function DailyReportViewPage() {
   } = useDailyRecordQueries(targetDate)
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId, selectedGoal } =
     useGoalReportTabs(goalsQuery.data ?? [])
-
-  const hydratedTabRef = useRef(false)
-  useEffect(() => {
-    if (hydratedTabRef.current || !goalsQuery.data) {
-      return
-    }
-    hydratedTabRef.current = true
-    const firstActiveGoal = goalsQuery.data.find((goal) => goal.status === 'ACTIVE')
-    if (firstActiveGoal) {
-      setSelectedGoalId(firstActiveGoal.id)
-    }
-  }, [goalsQuery.data, setSelectedGoalId])
 
   // 表示状態（ローディング/エラー/表示可）の判定はresolveDailyReportViewGuardへ集約している。
   // 全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。

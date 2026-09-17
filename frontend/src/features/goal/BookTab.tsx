@@ -18,16 +18,19 @@ import {
 } from '../../api/goals'
 import { generateRetrospective } from '../../api/closure'
 import { resolveInitialBookTitle } from './bookTitle'
+import { resolveInitialBookStartDate } from './bookStartDate'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function BookForm({
   goalId,
   goalName,
+  goalStartDate,
   book,
   onDone,
 }: {
   goalId: number
   goalName: string
+  goalStartDate: string
   book?: BookRead
   onDone: () => void
 }) {
@@ -36,7 +39,9 @@ function BookForm({
   const [title, setTitle] = useState(resolveInitialBookTitle(book?.title, goalName))
   const [author, setAuthor] = useState(book?.author ?? '')
   const [totalPages, setTotalPages] = useState(String(book?.total_pages ?? ''))
-  const [startDate, setStartDate] = useState(book?.start_date ?? '')
+  const [startDate, setStartDate] = useState(
+    resolveInitialBookStartDate(book?.start_date, goalStartDate),
+  )
   const [dueDate, setDueDate] = useState(book?.due_date ?? '')
 
   const payload = {
@@ -191,13 +196,28 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
     if (readOnly) {
       return <p className="text-sm text-gray-500">{t('goals.book.empty')}</p>
     }
-    return <BookForm goalId={goal.id} goalName={goal.name} onDone={() => undefined} />
+    return (
+      <BookForm
+        goalId={goal.id}
+        goalName={goal.name}
+        goalStartDate={goal.start_date}
+        onDone={() => undefined}
+      />
+    )
   }
 
   const book = goal.book
 
   if (editing) {
-    return <BookForm goalId={goal.id} goalName={goal.name} book={book} onDone={() => setEditing(false)} />
+    return (
+      <BookForm
+        goalId={goal.id}
+        goalName={goal.name}
+        goalStartDate={goal.start_date}
+        book={book}
+        onDone={() => setEditing(false)}
+      />
+    )
   }
 
   return (

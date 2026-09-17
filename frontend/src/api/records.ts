@@ -22,6 +22,7 @@ export type WorkLogRead = components['schemas']['WorkLogRead']
 export type ChatMessageRead = components['schemas']['ChatMessageRead']
 export type DiaryEntryInput = components['schemas']['DiaryEntryInput']
 export type DiaryEntryRead = components['schemas']['DiaryEntryRead']
+export type PreviousEntryRead = components['schemas']['PreviousEntryRead']
 
 /** 今日の一言を目標ごとに取得する（生成に時間がかかる場合があるため非同期・遅延表示
  * とする）。ACTIVEな目標が無い日はgoal_id=NULLの1件が返る（未決事項L-04）。 */
@@ -97,6 +98,37 @@ export function sendReadingChat(
  * 別の会話・プロンプトとして分離する、データ構造編6.2）。 */
 export function sendWorkChat(targetDate: string, payload: WorkChatRequest): Promise<ChatResponse> {
   return apiClient.post<ChatResponse>(`/records/${targetDate}/work-chat`, payload)
+}
+
+/** 記述欄の「前回はこう書いていました」ヒント表示用（記録画面改善タスク2026-09-17）。
+ * 対象目標で一度も日記を書いていない場合はnullが返る。 */
+export function getPreviousDiary(
+  targetDate: string,
+  goalId: number,
+): Promise<PreviousEntryRead | null> {
+  return apiClient.get<PreviousEntryRead | null>(
+    `/records/${targetDate}/previous-diary?goal_id=${goalId}`,
+  )
+}
+
+/** 同上（読書、書籍ごとの直近の想起記録）。 */
+export function getPreviousReadingLog(
+  targetDate: string,
+  bookId: number,
+): Promise<PreviousEntryRead | null> {
+  return apiClient.get<PreviousEntryRead | null>(
+    `/records/${targetDate}/previous-reading-log?book_id=${bookId}`,
+  )
+}
+
+/** 同上（仕事、案件ごとの直近の業務記録）。 */
+export function getPreviousWorkLog(
+  targetDate: string,
+  workAssignmentId: number,
+): Promise<PreviousEntryRead | null> {
+  return apiClient.get<PreviousEntryRead | null>(
+    `/records/${targetDate}/previous-work-log?work_assignment_id=${workAssignmentId}`,
+  )
 }
 
 export function createComment(targetDate: string, body: string): Promise<CommentRead> {

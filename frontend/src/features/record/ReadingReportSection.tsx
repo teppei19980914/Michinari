@@ -11,6 +11,8 @@ import type { DailyReportDraft } from './useDailyReportDraft'
 import type { VisibleReportTargets } from './resolveVisibleReportTargets'
 
 export type ReadingReportSectionProps = {
+  /** 「前回はこう書いていました」ヒントの取得に使う対象日。 */
+  targetDate: string
   record: DailyRecordRead
   /** ラベルの引き当て用の全書籍（表示対象の絞り込み前）。 */
   readingBooks: ActiveReadingBook[]
@@ -23,6 +25,7 @@ export type ReadingReportSectionProps = {
 
 /** 読書カテゴリの想起入力とAI対話・確定（仕様書6.5「読書目標の実績入力」、要件定義書R-65）。 */
 export function ReadingReportSection({
+  targetDate,
   record,
   readingBooks,
   targets,
@@ -48,6 +51,7 @@ export function ReadingReportSection({
       }
       editor={
         <ReadingLogFields
+          targetDate={targetDate}
           books={targets.books}
           values={draft.readingLogValues}
           slotNames={slotNames}

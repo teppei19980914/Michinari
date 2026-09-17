@@ -755,6 +755,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/records/{target_date}/previous-diary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Previous Diary
+         * @description 記録画面の「前回はこう書いていました」ヒント表示用（仕様書6.5改）。
+         *     対象目標で一度も日記を書いていない場合はNoneを返す（フロントは非表示にする）。
+         */
+        get: operations["get_previous_diary_api_v1_records__target_date__previous_diary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/previous-reading-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Previous Reading Log
+         * @description 記録画面の「前回はこう書いていました」ヒント表示用（読書、仕様書6.5改）。
+         */
+        get: operations["get_previous_reading_log_api_v1_records__target_date__previous_reading_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/previous-work-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Previous Work Log
+         * @description 記録画面の「前回はこう書いていました」ヒント表示用（仕事、仕様書6.5改）。
+         */
+        get: operations["get_previous_work_log_api_v1_records__target_date__previous_work_log_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records/{target_date}/quota": {
         parameters: {
             query?: never;
@@ -2786,6 +2847,22 @@ export interface components {
             /** Planned Cycles At Baseline */
             planned_cycles_at_baseline: number;
             reason: components["schemas"]["BaselineReason"];
+        };
+        /**
+         * PreviousEntryRead
+         * @description 「前回の記録」ヒント表示（仕様書6.5改、記録画面改善タスク2026-09-17）。
+         *
+         *     対象がその目標/書籍/案件で一度も記録していない場合はエンドポイントが`None`を返す
+         *     （フロントは「前回の記録が無い場合は表示しない」ため、存在確認をエラーにしない）。
+         */
+        PreviousEntryRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Body */
+            body: string;
         };
         /**
          * ProgressAnalyticsRead
@@ -5255,6 +5332,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ChatResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_previous_diary_api_v1_records__target_date__previous_diary_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviousEntryRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_previous_reading_log_api_v1_records__target_date__previous_reading_log_get: {
+        parameters: {
+            query: {
+                book_id: number;
+            };
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviousEntryRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_previous_work_log_api_v1_records__target_date__previous_work_log_get: {
+        parameters: {
+            query: {
+                work_assignment_id: number;
+            };
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviousEntryRead"] | null;
                 };
             };
             /** @description Validation Error */

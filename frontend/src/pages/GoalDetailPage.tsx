@@ -277,6 +277,14 @@ export function GoalDetailPage() {
       </div>
 
       {activeTab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
+      {/* リソース配分タブは資格試験・読書の2種別で共通のため、カテゴリ別ブロックの外で
+          1箇所にまとめる。カテゴリ別ブロックの中に重複して書くと、タブ構成
+          （EXAM_TABS/READING_TABS）には追加したのに描画側へ反映し忘れる実装漏れが起きうる
+          （実際に読書目標で発生し、タブボタンは出るのに中身が空白になっていた）。 */}
+      {(goal.category === 'EXAM' || goal.category === 'READING') &&
+        activeTab === 'resourceAllocation' && (
+          <ResourceAllocationTab goal={goal} readOnly={isReadOnly} />
+        )}
       {goal.category === 'READING' && (
         <>{activeTab === 'book' && <BookTab goal={goal} readOnly={isReadOnly} />}</>
       )}
@@ -295,9 +303,6 @@ export function GoalDetailPage() {
         <>
           {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
-          {activeTab === 'resourceAllocation' && (
-            <ResourceAllocationTab goal={goal} readOnly={isReadOnly} />
-          )}
           {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
         </>
       )}

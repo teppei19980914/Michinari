@@ -4,7 +4,8 @@
  * 伴い取り消せないため、確認ダイアログを経ること・読了レポートの生成失敗が遷移を妨げないことを固定する
  * （後者は仕様書6.9の方針であり、壊れると読了できたのに画面が進まない状態になる）。
  *
- * 書名初期値の決定（`resolveInitialBookTitle`）は `bookTitle.test.ts` が担う。 */
+ * 書名・読書開始日の初期値の決定（`resolveInitialBookTitle`・`resolveInitialBookStartDate`）は
+ * `bookTitle.test.ts`・`bookStartDate.test.ts` が担う。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -42,7 +43,8 @@ function setDate(input: HTMLInputElement, value: string) {
 }
 
 /** 書籍未登録の読書目標。 */
-const goalWithoutBook = () => makeGoalDetail({ category: 'READING', name: '書籍の目標名' })
+const goalWithoutBook = (goalOverrides = {}) =>
+  makeGoalDetail({ category: 'READING', name: '書籍の目標名', ...goalOverrides })
 /** 書籍登録済みの読書目標。 */
 const goalWithBook = (bookOverrides = {}, goalOverrides = {}) =>
   makeGoalDetail({ category: 'READING', book: makeBook(bookOverrides), ...goalOverrides })
@@ -67,12 +69,16 @@ describe('BookTab の表示', () => {
   })
 
   it('offers the registration form when there is no book yet', () => {
-    renderWithProviders(<BookTab goal={goalWithoutBook()} readOnly={false} />)
+    const { container } = renderWithProviders(
+      <BookTab goal={goalWithoutBook({ start_date: '2026-10-05' })} readOnly={false} />,
+    )
 
     // 書名の初期値には目標名を転記する（二重入力を避けるため）。
     expect(screen.getByLabelText<HTMLInputElement>(t('goals.book.titleLabel')).value).toBe(
       '書籍の目標名',
     )
+    // 読書開始日の初期値には目標の開始日を転記する（二重入力を避けるため）。
+    expect(dateInputs(container)[0].value).toBe('2026-10-05')
     // 登録前は取りやめる先がないためキャンセルは出さない。
     expect(screen.queryByRole('button', { name: t('common.action.cancel') })).toBeNull()
   })
@@ -166,6 +172,22 @@ describe('BookTab の送信内容', () => {
     expect(createBook.mock.calls[0][1]).toMatchObject({ title: '実際の書名' })
   })
 
+  it('sends the start date the user picked over the transcribed goal start date', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithProviders(
+      <BookTab goal={goalWithoutBook({ start_date: '2026-09-01' })} readOnly={false} />,
+    )
+
+    // 目標開始日からの転記はあくまで初期値で、以降は利用者の編集を優先する。
+    await user.type(screen.getByLabelText(t('goals.book.totalPagesLabel')), '250')
+    setDate(dateInputs(container)[0], '2026-10-20')
+    setDate(dateInputs(container)[1], '2026-11-30')
+    await user.click(saveButton())
+
+    await waitFor(() => expect(createBook).toHaveBeenCalledOnce())
+    expect(createBook.mock.calls[0][1]).toMatchObject({ start_date: '2026-10-20' })
+  })
+
   it('keeps the author when it is entered', async () => {
     const user = userEvent.setup()
     const { container } = renderWithProviders(
@@ -192,6 +214,22 @@ describe('BookTab の送信内容', () => {
     await waitFor(() => expect(updateBook).toHaveBeenCalledOnce())
     expect(updateBook.mock.calls[0][0]).toBe(BOOK_ID)
     expect(createBook).not.toHaveBeenCalled()
+  })
+
+  it('prefills the edit form with the registered start date, not the goal start date', async () => {
+    // 書籍が既に登録済みなら、目標開始日ではなく書籍自身のstart_dateを優先する
+    // （転記はあくまで未登録時の初期値であり、登録済みの値を上書きしない）。
+    const user = userEvent.setup()
+    const { container } = renderWithProviders(
+      <BookTab
+        goal={goalWithBook({ start_date: '2026-10-15' }, { start_date: '2026-09-01' })}
+        readOnly={false}
+      />,
+    )
+
+    await user.click(editButton())
+
+    expect(dateInputs(container)[0].value).toBe('2026-10-15')
   })
 
   it('leaves the edit form without sending anything on cancel', async () => {

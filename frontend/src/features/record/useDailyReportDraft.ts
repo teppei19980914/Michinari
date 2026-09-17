@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useEffect, type Dispatch, type SetStateAction } from 'react'
 import type { ChatMessageRead } from '../../api/records'
 import type { DailyRecordQueries } from './useDailyRecordQueries'
 import { toCategoryReportedState } from './categoryCompletion'
+import { applySetStateAction, useDraftStore } from './dailyReportDraftStore'
 import {
   hasAnyStudyLogInput,
   initStudyLogFormValues,
@@ -37,30 +38,37 @@ export type DailyReportDraft = {
  * プロンプトへ渡すのみで永続化しない（仕様書16.7「AI呼び出しが失敗しても実績入力が失われない」）
  * ため、ローカルstateを常に正とする。
  *
+ * 実体は`dailyReportDraftStore`（App.tsxのLayoutに置いたDailyReportDraftProvider）が
+ * `storeKey`ごとに保持する（記録画面改善タスク2026-09-17）。ページコンポーネントの
+ * useStateではなく上位のProviderに置くことで、確定前に別画面へ移動して戻っても下書きが
+ * 復元される（要件E）。「取得完了後の初期化を1回だけ行う」という制約
+ * （再取得のたびに初期値へ戻すと入力途中の下書きが消える）は、hydratedフラグを
+ * storeKey単位で保持することで維持している。
+ *
  * 下書きは表示中のタブに関わらず全目標分を保持する。タブ切り替えは表示のみに作用し、確定は
  * カテゴリ単位で行うため、非表示のタブに入力済みの内容が確定時に失われることはない。
  *
  * 進捗のみ登録（SC-07）も実績の下書きを同じ規則で保持するためこのフックを共有する
  * （CODING_RULES.md「①DRYの原則」）。SC-07は日記・AI対話・目標タブを持たないため（仕様書6.6）、
- * 日記・対話履歴の初期化結果を参照せず、setSelectedGoalIdも渡さない。
+ * 日記・対話履歴の初期化結果を参照しない。SC-06とSC-07は同じ日付でも別々の下書きを持つよう、
+ * 呼び出し側が画面種別を含めた`storeKey`を渡す（例: `daily-report:2026-09-17` /
+ * `progress-only:2026-09-17`）。
  *
+ * 初期表示タブ（目標タブの選択状態）は本フックの関心事ではなくuseGoalReportTabsが自身で
+ * 持つ（記録画面改善タスク2026-09-17）。以前は本フックの初期化と結合していたが、下書きの
+ * hydrateがstoreKey単位で1回だけになったことで、画面の再訪問時にタブ選択だけ再初期化されない
+ * 問題が起きたため分離した。
+ *
+ * @param storeKey 下書きを一意に識別するキー（画面種別+対象日）
  * @param queries 下書きの初期値の元になる取得結果
- * @param setSelectedGoalId 初期表示するタブを決めるための設定関数（useGoalReportTabs）。
- *   目標タブを持たない画面（SC-07）では省略する
  */
 export function useDailyReportDraft(
+  storeKey: string,
   queries: DailyRecordQueries,
-  setSelectedGoalId?: (goalId: number) => void,
 ): DailyReportDraft {
   const { record, quota, readingBooks, workAssignments, goals } = queries
-  const [studyLogValues, setStudyLogValues] = useState<Record<number, StudyLogFormValue>>({})
-  const [readingLogValues, setReadingLogValues] = useState<Record<number, ReadingLogFormValue>>({})
-  const [workLogValues, setWorkLogValues] = useState<Record<number, WorkLogFormValue>>({})
-  const [diaryValues, setDiaryValues] = useState<Record<number, DiaryFormValue>>({})
-  const [chatMessages, setChatMessages] = useState<ChatMessageRead[]>([])
-  // 初期化は取得完了後の1回だけ行う。再取得（確定後のinvalidate等）のたびに初期値へ戻すと、
-  // 入力途中の下書きが消えてしまう。
-  const hydratedRef = useRef(false)
+  const store = useDraftStore()
+  const draftState = store.getDraft(storeKey)
 
   const recordData = record.data
   const quotaData = quota.data
@@ -70,7 +78,7 @@ export function useDailyReportDraft(
 
   useEffect(() => {
     if (
-      hydratedRef.current ||
+      draftState.hydrated ||
       !recordData ||
       !quotaData ||
       !readingBooksData ||
@@ -79,50 +87,81 @@ export function useDailyReportDraft(
     ) {
       return
     }
-    hydratedRef.current = true
-    setStudyLogValues(initStudyLogFormValues(quotaData, recordData.study_logs))
-    setReadingLogValues(
-      initReadingLogFormValues(
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      hydrated: true,
+      studyLogValues: initStudyLogFormValues(quotaData, recordData.study_logs),
+      readingLogValues: initReadingLogFormValues(
         readingBooksData.map((entry) => entry.book),
         recordData.reading_logs,
       ),
-    )
-    setWorkLogValues(
-      initWorkLogFormValues(
+      workLogValues: initWorkLogFormValues(
         workAssignmentsData.map((entry) => entry.workAssignment),
         recordData.work_logs,
       ),
-    )
-    setDiaryValues(
-      initDiaryFormValues(
+      diaryValues: initDiaryFormValues(
         goalsData.filter((goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM'),
         recordData.diary_entries,
       ),
-    )
-    setChatMessages(recordData.chat_messages)
-    const firstActiveGoal = goalsData.find((goal) => goal.status === 'ACTIVE')
-    if (firstActiveGoal && setSelectedGoalId) {
-      setSelectedGoalId(firstActiveGoal.id)
-    }
-  }, [recordData, quotaData, readingBooksData, workAssignmentsData, goalsData, setSelectedGoalId])
+      chatMessages: recordData.chat_messages,
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftState.hydrated,
+    recordData,
+    quotaData,
+    readingBooksData,
+    workAssignmentsData,
+    goalsData,
+    storeKey,
+  ])
 
   // 確定済みカテゴリの下書きが残っていても、既にサーバへ反映済みのため警告対象にしない。
   const { isExamReported, isReadingReported, isWorkReported } = toCategoryReportedState(recordData)
   const hasUnsavedInput =
-    (!isExamReported && (hasAnyStudyLogInput(studyLogValues) || hasAnyDiaryInput(diaryValues))) ||
-    (!isReadingReported && hasAnyReadingLogInput(readingLogValues)) ||
-    (!isWorkReported && hasAnyWorkLogInput(workLogValues))
+    (!isExamReported &&
+      (hasAnyStudyLogInput(draftState.studyLogValues) || hasAnyDiaryInput(draftState.diaryValues))) ||
+    (!isReadingReported && hasAnyReadingLogInput(draftState.readingLogValues)) ||
+    (!isWorkReported && hasAnyWorkLogInput(draftState.workLogValues))
+
+  const setStudyLogValues: Dispatch<SetStateAction<Record<number, StudyLogFormValue>>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      studyLogValues: applySetStateAction(action, current.studyLogValues),
+    }))
+  const setReadingLogValues: Dispatch<SetStateAction<Record<number, ReadingLogFormValue>>> = (
+    action,
+  ) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      readingLogValues: applySetStateAction(action, current.readingLogValues),
+    }))
+  const setWorkLogValues: Dispatch<SetStateAction<Record<number, WorkLogFormValue>>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      workLogValues: applySetStateAction(action, current.workLogValues),
+    }))
+  const setDiaryValues: Dispatch<SetStateAction<Record<number, DiaryFormValue>>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      diaryValues: applySetStateAction(action, current.diaryValues),
+    }))
+  const setChatMessages: Dispatch<SetStateAction<ChatMessageRead[]>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      chatMessages: applySetStateAction(action, current.chatMessages),
+    }))
 
   return {
-    studyLogValues,
+    studyLogValues: draftState.studyLogValues,
     setStudyLogValues,
-    readingLogValues,
+    readingLogValues: draftState.readingLogValues,
     setReadingLogValues,
-    workLogValues,
+    workLogValues: draftState.workLogValues,
     setWorkLogValues,
-    diaryValues,
+    diaryValues: draftState.diaryValues,
     setDiaryValues,
-    chatMessages,
+    chatMessages: draftState.chatMessages,
     setChatMessages,
     hasUnsavedInput,
   }
