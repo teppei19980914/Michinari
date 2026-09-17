@@ -164,9 +164,22 @@ def upgrade_database_schema() -> None:
         engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
         backup_service.create_safety_copy(db_path, "pre_migration")
 
-    if is_legacy_unversioned_database:
-        command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
-    command.upgrade(alembic_cfg, "head")
+    # alembic/env.pyのfileConfig()がルートロガーのハンドラをalembic.ini側の設定
+    # （StreamHandler(sys.stderr)）へ差し替えてしまう。コンソールを持たない配布実行形態
+    # ではsys.stderrがos.devnullへ差し替え済み（logging_setup.ensure_standard_streams）
+    # のため、以降このプロセスの寿命が尽きるまで全ログ（uvicornのアクセスログ・エラーログを
+    # 含む）が黙って消える。migration未発生時はfileConfig自体が呼ばれないため気づかれにくい
+    # （2026-09-17、work-chatの500エラー調査時に発覚）。
+    root_logger = logging.getLogger()
+    handlers_snapshot = list(root_logger.handlers)
+    level_snapshot = root_logger.level
+    try:
+        if is_legacy_unversioned_database:
+            command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
+        command.upgrade(alembic_cfg, "head")
+    finally:
+        root_logger.handlers = handlers_snapshot
+        root_logger.setLevel(level_snapshot)
     _schema_confirmed_current = True
 
 

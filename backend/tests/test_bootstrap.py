@@ -1,5 +1,6 @@
 """起動補助関数のテスト（DBテーブル作成、起動ポートの解決、AI連携の起動時タスク）。"""
 
+import logging
 import sqlite3
 import sys
 
@@ -266,3 +267,43 @@ def test_upgrade_database_schema_upgrades_normally_tracked_database_without_stam
         assert purpose == "DAILY_FEEDBACK"
     finally:
         connection.close()
+
+
+def test_upgrade_database_schema_restores_logging_handlers_after_alembic_fileconfig(
+    tmp_path, monkeypatch
+):
+    """実際の不具合の再現・再発防止テスト（2026-09-17、work-chatの500エラー調査時に発覚）。
+
+    alembic/env.pyの`fileConfig()`はルートロガーのハンドラをalembic.ini側の設定
+    （StreamHandler(sys.stderr)）へ差し替える。配布実行形態（PyInstaller `--noconsole`）は
+    `sys.stderr`をos.devnullへ差し替え済みのため、マイグレーションが実際に走った起動では
+    以降のプロセス寿命が尽きるまで全ログ（uvicornのアクセスログ・エラーログを含む）が
+    黙って消えていた。migrationが発生しない起動（既にhead）では発現しないため長らく
+    気づかれなかった。本関数はマイグレーション前後でルートロガーの状態を退避・復元する。
+    """
+    db_path = tmp_path / "tracked.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+    migration_helpers.upgrade_to("a3f9c1d7e2b4")  # headより1つ前。実際にupgradeが走る状態
+
+    stub_engine = create_engine(f"sqlite:///{db_path}")
+    monkeypatch.setattr(app_main, "engine", stub_engine)
+    monkeypatch.setattr(app_main, "_schema_confirmed_current", False)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(backup_service, "database_path", lambda: tmp_path / "does_not_exist.db")
+
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+    original_level = root_logger.level
+    sentinel_handler = logging.NullHandler()
+    root_logger.handlers = [sentinel_handler]
+    root_logger.setLevel(logging.INFO)
+    try:
+        app_main.upgrade_database_schema()
+
+        # fileConfig()に上書きされず、呼び出し前のハンドラ・レベルのまま残っていること。
+        assert root_logger.handlers == [sentinel_handler]
+        assert root_logger.level == logging.INFO
+    finally:
+        stub_engine.dispose()
+        root_logger.handlers = original_handlers
+        root_logger.setLevel(original_level)
