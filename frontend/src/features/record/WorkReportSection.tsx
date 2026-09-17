@@ -11,6 +11,8 @@ import type { DailyReportDraft } from './useDailyReportDraft'
 import type { VisibleReportTargets } from './resolveVisibleReportTargets'
 
 export type WorkReportSectionProps = {
+  /** 「前回はこう書いていました」ヒントの取得に使う対象日。 */
+  targetDate: string
   record: DailyRecordRead
   /** ラベルの引き当て用の全案件（表示対象の絞り込み前）。 */
   workAssignments: ActiveWorkAssignment[]
@@ -23,6 +25,7 @@ export type WorkReportSectionProps = {
 /** 仕事カテゴリの業務記録入力とAI対話・確定（仕様書6.5「仕事目標の実績入力」、要件定義書R-75）。
  * 資格試験・読書と異なり日次ノルマ・時間枠を持たないため、投下時間の入力欄はない。 */
 export function WorkReportSection({
+  targetDate,
   record,
   workAssignments,
   targets,
@@ -47,6 +50,7 @@ export function WorkReportSection({
       }
       editor={
         <WorkLogFields
+          targetDate={targetDate}
           workAssignments={targets.workAssignments}
           values={draft.workLogValues}
           onChangeField={(workAssignmentId, field, value) =>

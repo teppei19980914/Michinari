@@ -51,8 +51,6 @@ export type DailyReportActionsOptions = {
   goalTabs: { showGoalSelector: boolean; selectedGoal: GoalRead | undefined }
   /** その日そのカテゴリに確定すべき目標があるか（resolveVisibleReportTargets）。 */
   presence: CategoryPresence
-  /** 確定完了でダッシュボードへ遷移する直前に呼ぶ（離脱警告を通すため）。 */
-  onBeforeLeave: () => void
 }
 
 /** 各カテゴリ共通の引数。異なるのは送信先と積む下書きだけなので、それ以外をここにまとめる。 */
@@ -187,7 +185,6 @@ export function useDailyReportActions({
   draft,
   goalTabs,
   presence,
-  onBeforeLeave,
 }: DailyReportActionsOptions): DailyReportActions {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -205,7 +202,6 @@ export function useDailyReportActions({
   const onFinalized = (record: DailyRecordRead) => {
     invalidateDailyRecordCaches(queryClient, targetDate)
     if (isAllCategoriesReported(presence, toCategoryReportedState(record))) {
-      onBeforeLeave()
       navigate(ROUTES.dashboard)
     }
   }

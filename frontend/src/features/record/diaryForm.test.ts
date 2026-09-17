@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildDiaryEntriesPayload,
+  combineDiaryBody,
   filterWrittenDiaryEntries,
+  getDiaryQuestions,
   hasAnyDiaryInput,
   initDiaryFormValues,
   type DiaryFormValue,
@@ -26,10 +28,10 @@ function makeGoal(id: number, name: string): GoalRead {
 describe('initDiaryFormValues', () => {
   it('defaults to empty strings when no existing entry for a goal', () => {
     const values = initDiaryFormValues([makeGoal(1, '目標A')], [])
-    expect(values[1]).toEqual({ diaryBody: '', diaryLearned: '' })
+    expect(values[1]).toEqual({ diaryLearned: '', questionAnswers: ['', ''], freeText: '' })
   })
 
-  it('prefills from an existing diary entry', () => {
+  it('prefills the free-write field from an existing diary entry (no reverse-parsing into questions)', () => {
     const existing: DiaryEntryRead = {
       goal_id: 1,
       goal_name: '目標A',
@@ -37,7 +39,11 @@ describe('initDiaryFormValues', () => {
       diary_learned: '学び',
     }
     const values = initDiaryFormValues([makeGoal(1, '目標A')], [existing])
-    expect(values[1]).toEqual({ diaryBody: '今日は頑張った', diaryLearned: '学び' })
+    expect(values[1]).toEqual({
+      diaryLearned: '学び',
+      questionAnswers: ['', ''],
+      freeText: '今日は頑張った',
+    })
   })
 
   it('treats null diary text as an empty string', () => {
@@ -48,7 +54,7 @@ describe('initDiaryFormValues', () => {
       diary_learned: null,
     }
     const values = initDiaryFormValues([makeGoal(1, '目標A')], [existing])
-    expect(values[1]).toEqual({ diaryBody: '', diaryLearned: '' })
+    expect(values[1]).toEqual({ diaryLearned: '', questionAnswers: ['', ''], freeText: '' })
   })
 
   it('ignores entries with no goal_id (historical fallback rows)', () => {
@@ -59,40 +65,77 @@ describe('initDiaryFormValues', () => {
       diary_learned: null,
     }
     const values = initDiaryFormValues([makeGoal(1, '目標A')], [orphan])
-    expect(values[1]).toEqual({ diaryBody: '', diaryLearned: '' })
+    expect(values[1]).toEqual({ diaryLearned: '', questionAnswers: ['', ''], freeText: '' })
   })
 })
 
 describe('hasAnyDiaryInput', () => {
   it('is false when every goal is untouched', () => {
     const values: Record<number, DiaryFormValue> = {
-      1: { diaryBody: '', diaryLearned: '' },
+      1: { diaryLearned: '', questionAnswers: ['', ''], freeText: '' },
     }
     expect(hasAnyDiaryInput(values)).toBe(false)
   })
 
-  it('is true once a goal has body or learned text', () => {
+  it('is true once a goal has learned text', () => {
     const values: Record<number, DiaryFormValue> = {
-      1: { diaryBody: '', diaryLearned: '学び' },
+      1: { diaryLearned: '学び', questionAnswers: ['', ''], freeText: '' },
     }
     expect(hasAnyDiaryInput(values)).toBe(true)
+  })
+
+  it('is true once a goal has a question answer', () => {
+    const values: Record<number, DiaryFormValue> = {
+      1: { diaryLearned: '', questionAnswers: ['回答', ''], freeText: '' },
+    }
+    expect(hasAnyDiaryInput(values)).toBe(true)
+  })
+
+  it('is true once a goal has free-write text', () => {
+    const values: Record<number, DiaryFormValue> = {
+      1: { diaryLearned: '', questionAnswers: ['', ''], freeText: '自由記述' },
+    }
+    expect(hasAnyDiaryInput(values)).toBe(true)
+  })
+})
+
+describe('combineDiaryBody', () => {
+  it('returns the free-write text as-is when no question is answered (backward compatibility)', () => {
+    expect(
+      combineDiaryBody({ diaryLearned: '', questionAnswers: ['', ''], freeText: '今日は頑張った' }),
+    ).toBe('今日は頑張った')
+  })
+
+  it('labels answered questions and appends the free-write text', () => {
+    const [question1] = getDiaryQuestions()
+    expect(
+      combineDiaryBody({
+        diaryLearned: '',
+        questionAnswers: ['回答1', ''],
+        freeText: '自由記述',
+      }),
+    ).toBe(`【${question1}】\n回答1\n\n自由記述`)
+  })
+
+  it('returns an empty string when nothing is filled in', () => {
+    expect(combineDiaryBody({ diaryLearned: '', questionAnswers: ['', ''], freeText: '' })).toBe('')
   })
 })
 
 describe('buildDiaryEntriesPayload', () => {
   it('excludes goals with no input', () => {
     const values: Record<number, DiaryFormValue> = {
-      1: { diaryBody: '', diaryLearned: '' },
-      2: { diaryBody: '今日は頑張った', diaryLearned: '学び' },
+      1: { diaryLearned: '', questionAnswers: ['', ''], freeText: '' },
+      2: { diaryLearned: '学び', questionAnswers: ['', ''], freeText: '今日は頑張った' },
     }
     expect(buildDiaryEntriesPayload(values)).toEqual([
       { goal_id: 2, diary_body: '今日は頑張った', diary_learned: '学び' },
     ])
   })
 
-  it('includes a goal when only one of the two fields has text', () => {
+  it('includes a goal when only the learned field has text', () => {
     const values: Record<number, DiaryFormValue> = {
-      1: { diaryBody: '', diaryLearned: '学び' },
+      1: { diaryLearned: '学び', questionAnswers: ['', ''], freeText: '' },
     }
     expect(buildDiaryEntriesPayload(values)).toEqual([
       { goal_id: 1, diary_body: '', diary_learned: '学び' },

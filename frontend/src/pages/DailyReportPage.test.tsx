@@ -28,10 +28,12 @@ import {
 } from 'react-router-dom'
 import { ROUTES, ROUTE_PATTERNS } from '../constants/routes'
 import { ToastProvider } from '../components/Toast'
+import { DailyReportDraftProvider } from '../features/record/dailyReportDraftStore'
 import { t } from '../locales/t'
 import * as goalsApi from '../api/goals'
 import * as recordsApi from '../api/records'
 import * as resourcesApi from '../api/resources'
+import * as calendarApi from '../api/calendar'
 import type { BookRead, GoalRead, WorkAssignmentRead } from '../api/goals'
 import type { DailyRecordRead, QuotaItemRead } from '../api/records'
 import type { ResourceSlotRead } from '../api/resources'
@@ -40,6 +42,7 @@ import { DailyReportPage } from './DailyReportPage'
 vi.mock('../api/goals')
 vi.mock('../api/records')
 vi.mock('../api/resources')
+vi.mock('../api/calendar')
 
 const LOGICAL_DATE = '2026-09-13'
 /** 当日・前日のいずれでもない日（入力可能期間外。仕様書7.2）。 */
@@ -53,8 +56,10 @@ const WORK_GOAL_NAME = 'work-goal'
  * 面倒を見ることになり、判定したい「どこへ遷移したか」が埋もれるため差し替える。 */
 const VIEW_PAGE_MARKER = 'view-page'
 const DASHBOARD_MARKER = 'dashboard-page'
-/** 離脱警告（useBlocker）を発火させるためのアプリ内リンク。 */
+/** アプリ内遷移（別画面への移動）を発火させるためのリンク。 */
 const NAV_LINK_LABEL = 'nav-link'
+/** ダッシュボードマーカー画面から日次報告へ戻るためのリンク（下書き復元の検証用）。 */
+const BACK_LINK_LABEL = 'back-link'
 
 function buildGoal(id: number, category: GoalRead['category'], name: string): GoalRead {
   return {
@@ -159,10 +164,19 @@ function setupQueries({ goals = [EXAM_GOAL, READING_GOAL, WORK_GOAL], record }: 
     record_state: null,
   })
   vi.mocked(resourcesApi.listSlots).mockResolvedValue([SLOT])
+  // 「前回はこう書いていました」ヒント・「今日は何もしていない」ボタンの日種別取得。
+  // 既定では前回の記録なし・PLAN日とする（記録画面改善タスク2026-09-17）。
+  vi.mocked(recordsApi.getPreviousDiary).mockResolvedValue(null)
+  vi.mocked(recordsApi.getPreviousReadingLog).mockResolvedValue(null)
+  vi.mocked(recordsApi.getPreviousWorkLog).mockResolvedValue(null)
+  vi.mocked(calendarApi.getCalendar).mockResolvedValue([
+    { target_date: LOGICAL_DATE, day_type: 'PLAN', record_state: null },
+  ])
 }
 
-/** 離脱警告（useBlocker）はdata routerでのみ動作するため、App.tsxと同じくcreateMemoryRouterで
- * 組み立てる（App.tsxのLayoutのコメント参照）。 */
+/** App.tsxと同じくcreateMemoryRouter＋DailyReportDraftProviderで組み立てる。下書きは
+ * ページの外（DailyReportDraftProvider）が保持するため、別画面へ移動して戻ってきても
+ * 下書きが残ることを検証できる（BACK_LINK_LABEL、記録画面改善タスク2026-09-17）。 */
 function renderPage(targetDate: string = LOGICAL_DATE) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -179,7 +193,15 @@ function renderPage(targetDate: string = LOGICAL_DATE) {
       >
         <Route path={ROUTE_PATTERNS.dailyReport} element={<DailyReportPage />} />
         <Route path={ROUTE_PATTERNS.dailyReportView} element={<p>{VIEW_PAGE_MARKER}</p>} />
-        <Route path={ROUTE_PATTERNS.dashboard} element={<p>{DASHBOARD_MARKER}</p>} />
+        <Route
+          path={ROUTE_PATTERNS.dashboard}
+          element={
+            <>
+              <p>{DASHBOARD_MARKER}</p>
+              <Link to={ROUTES.dailyReport(targetDate)}>{BACK_LINK_LABEL}</Link>
+            </>
+          }
+        />
       </Route>,
     ),
     { initialEntries: [ROUTES.dailyReport(targetDate)] },
@@ -187,7 +209,9 @@ function renderPage(targetDate: string = LOGICAL_DATE) {
   render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <RouterProvider router={router} />
+        <DailyReportDraftProvider>
+          <RouterProvider router={router} />
+        </DailyReportDraftProvider>
       </ToastProvider>
     </QueryClientProvider>,
   )
@@ -470,122 +494,36 @@ describe('DailyReportPage', () => {
     ).toBe('draft-reading')
   })
 
-  it('warns before leaving the page while an unsaved draft exists', async () => {
+  it('navigates away immediately even while an unsaved draft exists', async () => {
+    // 下書きはページの外（DailyReportDraftProvider）が保持するため、アプリ内遷移は
+    // 警告なしで通す（記録画面改善タスク2026-09-17。旧仕様のuseBlockerによる確認
+    // ダイアログは、下書きが実際には失われなくなったため撤去した）。
     const user = userEvent.setup()
     renderPage()
     await waitForTitle()
 
     await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
-    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
-
-    expect(await screen.findByText(t('dailyReport.leaveConfirm.title'))).toBeTruthy()
-    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
-  })
-
-  it('does not warn when there is no unsaved draft', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await waitForTitle()
-
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
 
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })
 
-  it('stays on the page when the leave warning is dismissed', async () => {
+  it('restores the draft after navigating away and back to the same date', async () => {
+    // 要件E: 確定前に別画面へ移動して戻っても入力内容が残っている。
     const user = userEvent.setup()
     renderPage()
     await waitForTitle()
 
     await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
-    await screen.findByText(t('dailyReport.leaveConfirm.title'))
+    await screen.findByText(DASHBOARD_MARKER)
 
-    await user.click(screen.getByRole('button', { name: t('dailyReport.leaveConfirm.stay') }))
+    await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
+    await waitForTitle()
 
-    expect(screen.queryByText(t('dailyReport.leaveConfirm.title'))).toBe(null)
-    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
     expect(
       (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
     ).toBe('draft-exam')
-  })
-
-  it('stays on the page when the leave warning is closed with the close button', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await waitForTitle()
-
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
-    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
-    await screen.findByText(t('dailyReport.leaveConfirm.title'))
-
-    await user.click(screen.getByRole('button', { name: 'close' }))
-
-    expect(screen.queryByText(t('dailyReport.leaveConfirm.title'))).toBe(null)
-    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
-  })
-
-  it('leaves the page when the leave warning is confirmed', async () => {
-    const user = userEvent.setup()
-    renderPage()
-    await waitForTitle()
-
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
-    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
-    await screen.findByText(t('dailyReport.leaveConfirm.title'))
-
-    await user.click(screen.getByRole('button', { name: t('dailyReport.leaveConfirm.leave') }))
-
-    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
-  })
-
-  it('does not warn on the navigation caused by finalizing the last category', async () => {
-    // 確定成功による遷移まで離脱警告でブロックすると、確定したのに画面から出られなくなる
-    // （finalizedRefの役割）。下書きを残したまま確定させて、警告が出ないことを固定する。
-    const user = userEvent.setup()
-    setupQueries({
-      record: buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'REPORTED' }),
-    })
-    vi.mocked(recordsApi.finalizeWorkRecord).mockResolvedValue(
-      buildRecord({
-        exam_record_state: 'REPORTED',
-        reading_record_state: 'REPORTED',
-        work_record_state: 'REPORTED',
-      }),
-    )
-    renderPage()
-    await waitForTitle()
-
-    await user.click(getGoalTab(WORK_GOAL_NAME))
-    await user.type(screen.getByLabelText(t('dailyReport.workLog.bodyLabel')), 'draft-work')
-    await user.click(screen.getByRole('button', { name: t('dailyReport.workLog.finalizeButton') }))
-
-    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
-    expect(screen.queryByText(t('dailyReport.leaveConfirm.title'))).toBe(null)
-  })
-
-  it('does not warn about drafts of categories that are already finalized', async () => {
-    // 確定済みカテゴリの下書きが残っていても、既にサーバへ反映済みのため警告対象にしない。
-    const user = userEvent.setup()
-    setupQueries({
-      record: buildRecord({
-        exam_record_state: 'REPORTED',
-        diary_entries: [
-          {
-            goal_id: EXAM_GOAL.id,
-            goal_name: EXAM_GOAL_NAME,
-            diary_body: 'already-reported',
-            diary_learned: null,
-          },
-        ],
-      }),
-    })
-    renderPage()
-    await waitForTitle()
-
-    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
-
-    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })
 
   it('keeps the study log draft of a goal that is not currently selected', async () => {
@@ -711,5 +649,70 @@ describe('DailyReportPage', () => {
 
     expect(recordsApi.getRecord).toHaveBeenCalledWith(LOGICAL_DATE)
     expect(recordsApi.getQuota).toHaveBeenCalledWith(LOGICAL_DATE)
+  })
+
+  it('shows the zero-record button when every active category is untouched', async () => {
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') })).toBeTruthy()
+  })
+
+  it('hides the zero-record button once every active category has data', async () => {
+    setupQueries({
+      record: buildRecord({
+        exam_record_state: 'PROGRESS_ONLY',
+        reading_record_state: 'PROGRESS_ONLY',
+        work_record_state: 'PROGRESS_ONLY',
+      }),
+    })
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.queryByRole('button', { name: t('dailyReport.zeroRecord.button') })).toBe(null)
+  })
+
+  it('confirms the zero-record button with an empty payload for every untouched category', async () => {
+    // categoriesは['EXAM', 'READING', 'WORK']の順に確定するため、最後（WORK）の応答が
+    // 3カテゴリとも報告済みを反映する（実際のAPIも同一レコードを都度返すため、finalize
+    // するたびに他カテゴリの確定状況も含めて返る）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'REPORTED' }),
+    )
+    vi.mocked(recordsApi.finalizeWorkRecord).mockResolvedValue(
+      buildRecord({
+        exam_record_state: 'REPORTED',
+        reading_record_state: 'REPORTED',
+        work_record_state: 'REPORTED',
+      }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeWorkRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      study_logs: [],
+      diary_entries: [],
+    })
+    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, { reading_logs: [] })
+    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, { work_logs: [] })
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  it('shows the previous entry as a hint above the free-write field', async () => {
+    vi.mocked(recordsApi.getPreviousDiary).mockResolvedValue({
+      record_date: '2026-09-12',
+      body: '前回はここまで進めた',
+    })
+    renderPage()
+    await waitForTitle()
+
+    expect(await screen.findByText('前回はここまで進めた')).toBeTruthy()
+    expect(screen.getByText(t('dailyReport.previousEntry.label'))).toBeTruthy()
   })
 })
