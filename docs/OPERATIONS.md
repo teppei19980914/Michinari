@@ -1096,6 +1096,7 @@ osv-scanner --version                      # 導入確認
 | 症状 | 原因 | 対処 |
 |---|---|---|
 | `Michinari.exe` をダブルクリックしても何も起きない | 起動時エラーで異常終了している | 起動失敗はダイアログで表示される（`app/desktop/runner.py` の `show_error_dialog`）。ダイアログも出ない場合は `%LOCALAPPDATA%\Michinari\data\logs\michinari.log` を確認する。詳しく追うときは同梱の `Michinari-console.bat`（`--console` 付き起動）を使う |
+| マイグレーションが走った起動以降、`michinari.log` にそのセッションの記録が一切残らない（2026-09-17 修正済み） | alembic/env.pyの`fileConfig()`がルートロガーのハンドラをalembic.ini側（`StreamHandler(sys.stderr)`）へ差し替え、配布実行形態では`sys.stderr`がos.devnullへ差し替え済みのため以降の全ログが消える | `app/main.py` の `upgrade_database_schema()` がマイグレーション前後でルートロガーの状態を退避・復元する（`test_upgrade_database_schema_restores_logging_handlers_after_alembic_fileconfig`で回帰防止）。旧バージョンの配布物ではmigrationが走った回のログが失われるため、当該セッションの障害調査は再現待ちになる |
 | 起動時に `Can't locate revision identified by '<リビジョンID>'` | DBに記録されたリビジョンが、exeへ同梱されたマイグレーションより新しい（＝**配布物が古い**） | 最新のソースで再ビルドして配布物を差し替える。開発端末では `git pull` / マージ漏れがないか確認したうえで `backend/build.bat` を再実行する |
 | `is not recognized as an internal or external command` でexeが起動しない | 環境変数 `NoDefaultCurrentDirectoryInExePath` が設定された端末では、cmd.exe がカレントディレクトリを探索しない | `Michinari-console.bat` はexeをフルパス（`"%~dp0Michinari.exe"`）で起動する。旧版のbatを使っている場合は再ビルドして差し替える |
 | 通知領域にアイコンが出ない | Windowsがアイコンを隠している | 通知領域の「^」を押して隠れているアイコンを確認する。アプリ自体はログの「通知領域へ常駐します」で起動を確認できる |
