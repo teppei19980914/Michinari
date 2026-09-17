@@ -34,6 +34,13 @@ export const QUERY_KEYS = {
   dailyMessage: () => ['daily-message'] as const,
   activeReadingBooks: () => ['activeReadingBooks'] as const,
   activeWorkAssignments: () => ['activeWorkAssignments'] as const,
+  /** 「前回はこう書いていました」ヒント（記録画面改善タスク2026-09-17）。 */
+  previousDiary: (targetDate: string, goalId: number) =>
+    ['previous-diary', targetDate, goalId] as const,
+  previousReadingLog: (targetDate: string, bookId: number) =>
+    ['previous-reading-log', targetDate, bookId] as const,
+  previousWorkLog: (targetDate: string, workAssignmentId: number) =>
+    ['previous-work-log', targetDate, workAssignmentId] as const,
 
   // --- カレンダー（calendar が calendarRange の前方一致になる） ---
   calendar: () => ['calendar'] as const,

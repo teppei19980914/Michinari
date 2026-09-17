@@ -16,10 +16,10 @@ const FILLED_DRAFT: ProgressOnlyDraftValues = {
     [MATERIAL_ID]: { slotMinutes: {}, amountCompleted: '5', cycleNumber: '1', qualityValue: '' },
   },
   readingLogValues: {
-    [BOOK_ID]: { recallBody: 'recall', slotMinutes: {}, currentPage: '' },
+    [BOOK_ID]: { questionAnswers: ['', ''], freeText: 'recall', slotMinutes: {}, currentPage: '' },
   },
   workLogValues: {
-    [WORK_ASSIGNMENT_ID]: { body: 'work' },
+    [WORK_ASSIGNMENT_ID]: { questionAnswers: ['', ''], freeText: 'work' },
   },
 }
 

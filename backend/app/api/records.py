@@ -21,6 +21,7 @@ from app.schemas.record import (
     DiaryEntryInput,
     DiaryEntryRead,
     FinalizeRequest,
+    PreviousEntryRead,
     ProgressRegisterRequest,
     QuotaItemRead,
     ReadingChatRequest,
@@ -327,6 +328,35 @@ def work_chat(
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
     )
+
+
+@router.get("/records/{target_date}/previous-diary", response_model=PreviousEntryRead | None)
+def get_previous_diary(
+    target_date: dt.date, goal_id: int, session: Session = Depends(get_db)
+) -> PreviousEntryRead | None:
+    """記録画面の「前回はこう書いていました」ヒント表示用（仕様書6.5改）。
+    対象目標で一度も日記を書いていない場合はNoneを返す（フロントは非表示にする）。
+    """
+    entry = record_service.get_previous_diary_entry(session, goal_id, target_date)
+    return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
+
+
+@router.get("/records/{target_date}/previous-reading-log", response_model=PreviousEntryRead | None)
+def get_previous_reading_log(
+    target_date: dt.date, book_id: int, session: Session = Depends(get_db)
+) -> PreviousEntryRead | None:
+    """記録画面の「前回はこう書いていました」ヒント表示用（読書、仕様書6.5改）。"""
+    entry = record_service.get_previous_reading_log(session, book_id, target_date)
+    return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
+
+
+@router.get("/records/{target_date}/previous-work-log", response_model=PreviousEntryRead | None)
+def get_previous_work_log(
+    target_date: dt.date, work_assignment_id: int, session: Session = Depends(get_db)
+) -> PreviousEntryRead | None:
+    """記録画面の「前回はこう書いていました」ヒント表示用（仕事、仕様書6.5改）。"""
+    entry = record_service.get_previous_work_log(session, work_assignment_id, target_date)
+    return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
 
 
 @router.get("/records/{target_date}/quota", response_model=list[QuotaItemRead])

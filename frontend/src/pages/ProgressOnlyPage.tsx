@@ -42,8 +42,9 @@ export function ProgressOnlyPage() {
   // 進捗のみ登録が可能なのは未来日以外（仕様書7.2「当日または前日以前」）。論理的な本日は
   // クライアントで算出せずサーバから取得する（技術選定書7.1「禁止事項」）。
   const todayQuery = useQuery({ queryKey: QUERY_KEYS.today(), queryFn: getToday })
-  // 目標タブを持たないため、初期表示するタブの設定関数は渡さない。
-  const draft = useDailyReportDraft(queries)
+  // 目標タブを持たないため、初期表示するタブの設定関数は渡さない。SC-06とは別画面のため、
+  // storeKeyの接頭辞を分けて下書きを独立させる（useDailyReportDraftのコメント参照）。
+  const draft = useDailyReportDraft(`progress-only:${targetDate}`, queries)
 
   // 目標タブが無い（showGoalSelector=false）ため、着手中の全目標の入力対象がそのまま返る。
   const targets = resolveVisibleReportTargets({
@@ -93,6 +94,7 @@ export function ProgressOnlyPage() {
       </h1>
 
       <ProgressLogSections
+        targetDate={targetDate}
         input={input}
         targets={targets}
         quotaItems={guard.quota}

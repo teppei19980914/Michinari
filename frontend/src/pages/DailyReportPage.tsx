@@ -3,23 +3,24 @@ import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { ROUTES } from '../constants/routes'
 import { GoalTabBar } from '../features/record/GoalTabBar'
-import { LeaveConfirmModal } from '../features/record/LeaveConfirmModal'
 import { ExamReportSection } from '../features/record/ExamReportSection'
 import { ReadingReportSection } from '../features/record/ReadingReportSection'
 import { WorkReportSection } from '../features/record/WorkReportSection'
 import { toCategoryReportedState } from '../features/record/categoryCompletion'
 import { resolveDailyReportGuard } from '../features/record/resolveDailyReportGuard'
 import { resolveVisibleReportTargets } from '../features/record/resolveVisibleReportTargets'
+import { resolveZeroRecordCategories } from '../features/record/resolveZeroRecordCategories'
 import { useDailyReportData } from '../features/record/useDailyReportData'
 import { useDailyReportDraft } from '../features/record/useDailyReportDraft'
 import { useDailyReportActions } from '../features/record/useDailyReportActions'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
-import { useLeaveConfirm } from '../features/record/useLeaveConfirm'
+import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
+import { ZeroRecordButton } from '../features/record/ZeroRecordButton'
 
 /** SC-06 日次報告（仕様書6.5）。上段=実績入力+日記、下段=AI対話の2段構成。
  *
  * この画面は「取得 → 表示状態の判定 → カテゴリ別セクションの配置」に徹し、下書きの保持
- * （useDailyReportDraft）・送信と確定（useDailyReportActions）・離脱警告（useLeaveConfirm）・
+ * （useDailyReportDraft）・送信と確定（useDailyReportActions）・
  * 表示対象の絞り込み（resolveVisibleReportTargets）はそれぞれのモジュールへ委ねる。
  *
  * 確定（finalize）はカテゴリ（資格試験/読書/仕事）ごとに独立しており、あるカテゴリを確定
@@ -27,7 +28,12 @@ import { useLeaveConfirm } from '../features/record/useLeaveConfirm'
  * そのセクションのみ読み取り専用表示に切り替わる。
  *
  * 着手中の目標が2件以上ある場合、目標タブで表示対象を切り替える（useGoalReportTabs）。
- * 切り替えは表示のみに作用し、下書き値は全目標分を常に保持する。 */
+ * 切り替えは表示のみに作用し、下書き値は全目標分を常に保持する。
+ *
+ * アプリ内遷移（別画面への移動）は警告しない（記録画面改善タスク2026-09-17）。下書きは
+ * ページの外（DailyReportDraftProvider、App.tsx）が保持するため、別画面へ移動して戻っても
+ * 入力内容は失われないため。ブラウザを閉じる・再読み込みは下書きが本当に失われるため、
+ * その場合のみ`useUnsavedChangesWarning`（beforeunload）で警告する。 */
 export function DailyReportPage() {
   const { date } = useParams<{ date: string }>()
   const targetDate = date as string
@@ -35,8 +41,8 @@ export function DailyReportPage() {
   const { queries, slotNames } = useDailyReportData(targetDate)
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId, selectedGoal } =
     useGoalReportTabs(queries.goals.data ?? [])
-  const draft = useDailyReportDraft(queries, setSelectedGoalId)
-  const leaveConfirm = useLeaveConfirm(draft.hasUnsavedInput)
+  const draft = useDailyReportDraft(`daily-report:${targetDate}`, queries)
+  useUnsavedChangesWarning(draft.hasUnsavedInput)
 
   const targets = resolveVisibleReportTargets({
     showGoalSelector,
@@ -52,7 +58,6 @@ export function DailyReportPage() {
     draft,
     goalTabs: { showGoalSelector, selectedGoal },
     presence: targets.presence,
-    onBeforeLeave: leaveConfirm.allowNextNavigation,
   })
 
   // 表示状態（ローディング/エラー/閲覧画面への転送/入力可）の判定はresolveDailyReportGuardへ
@@ -69,12 +74,20 @@ export function DailyReportPage() {
   }
   const { record, quota } = guard
   const reported = toCategoryReportedState(record)
+  const zeroRecordCategories = resolveZeroRecordCategories(targets.presence, record)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">
         {t('dailyReport.title', { date: targetDate })}
       </h1>
+      <p className="text-sm text-gray-500">{t('dailyReport.estimatedDuration')}</p>
+
+      <ZeroRecordButton
+        targetDate={targetDate}
+        categories={zeroRecordCategories}
+        presence={targets.presence}
+      />
 
       {showGoalSelector && (
         <GoalTabBar
@@ -86,6 +99,7 @@ export function DailyReportPage() {
 
       {targets.showExamSection && (
         <ExamReportSection
+          targetDate={targetDate}
           record={record}
           quotaItems={quota}
           targets={targets}
@@ -98,6 +112,7 @@ export function DailyReportPage() {
 
       {targets.showReadingSection && (
         <ReadingReportSection
+          targetDate={targetDate}
           record={record}
           readingBooks={queries.readingBooks.data ?? []}
           targets={targets}
@@ -110,6 +125,7 @@ export function DailyReportPage() {
 
       {targets.showWorkSection && (
         <WorkReportSection
+          targetDate={targetDate}
           record={record}
           workAssignments={queries.workAssignments.data ?? []}
           targets={targets}
@@ -118,8 +134,6 @@ export function DailyReportPage() {
           isReported={reported.isWorkReported}
         />
       )}
-
-      <LeaveConfirmModal blocker={leaveConfirm.blocker} />
     </div>
   )
 }

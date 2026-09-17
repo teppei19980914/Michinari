@@ -134,6 +134,22 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
       await screen.findByRole('button', { name: t('goals.subjects.addTitle') }),
     ).toBeDefined()
   })
+
+  it('renders the resource allocation tab content for a reading goal', async () => {
+    // 読書目標のリソース配分タブは、タブボタンは出るのに中身が描画されない
+    // 実装漏れが過去に発生した（GoalDetailPage.tsxの種別ごとの描画分岐からREADINGが
+    // 抜けていた）。ボタンの存在だけでなく中身が出ることまで確認して再発を防ぐ。
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(makeGoalDetail({ category: 'READING' }))
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    await user.click(tabButton('goals.detail.tabs.resourceAllocation')!)
+
+    expect(
+      await screen.findByText(t('goals.resourceAllocation.optionalForReading')),
+    ).toBeDefined()
+  })
 })
 
 describe('GoalDetailPage の状態遷移', () => {
