@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildReadingLogPayload,
+  combineRecallBody,
+  getReadingLogQuestions,
   hasAnyReadingLogInput,
   initReadingLogFormValues,
   type ReadingLogFormValue,
@@ -28,10 +30,15 @@ const BOOK: BookRead = {
 describe('initReadingLogFormValues', () => {
   it('defaults to empty values when no existing log', () => {
     const values = initReadingLogFormValues([BOOK], [])
-    expect(values[1]).toEqual({ slotMinutes: {}, recallBody: '', currentPage: '' })
+    expect(values[1]).toEqual({
+      questionAnswers: ['', ''],
+      freeText: '',
+      slotMinutes: {},
+      currentPage: '',
+    })
   })
 
-  it('prefills from an existing reading log, including the per-slot reading minutes', () => {
+  it('prefills the free-write field from an existing reading log, including the per-slot reading minutes', () => {
     const existing: ReadingLogRead = {
       id: 100,
       book_id: 1,
@@ -42,7 +49,8 @@ describe('initReadingLogFormValues', () => {
     }
     const values = initReadingLogFormValues([BOOK], [existing])
     expect(values[1]).toEqual({
-      recallBody: '第1章を読んだ',
+      questionAnswers: ['', ''],
+      freeText: '第1章を読んだ',
       slotMinutes: { 10: '25' },
       currentPage: '20',
     })
@@ -66,24 +74,51 @@ describe('initReadingLogFormValues', () => {
 describe('hasAnyReadingLogInput', () => {
   it('is false when every row is untouched', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { slotMinutes: {}, recallBody: '', currentPage: '' },
+      1: { questionAnswers: ['', ''], freeText: '', slotMinutes: {}, currentPage: '' },
     }
     expect(hasAnyReadingLogInput(values)).toBe(false)
   })
 
-  it('is true once a row has a recall body', () => {
+  it('is true once a row has free-write text', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { slotMinutes: {}, recallBody: '今日読んだ', currentPage: '' },
+      1: { questionAnswers: ['', ''], freeText: '今日読んだ', slotMinutes: {}, currentPage: '' },
+    }
+    expect(hasAnyReadingLogInput(values)).toBe(true)
+  })
+
+  it('is true once a row has a question answer', () => {
+    const values: Record<number, ReadingLogFormValue> = {
+      1: { questionAnswers: ['回答', ''], freeText: '', slotMinutes: {}, currentPage: '' },
     }
     expect(hasAnyReadingLogInput(values)).toBe(true)
   })
 })
 
+describe('combineRecallBody', () => {
+  it('returns the free-write text as-is when no question is answered (backward compatibility)', () => {
+    expect(
+      combineRecallBody({ questionAnswers: ['', ''], freeText: '今日読んだ', slotMinutes: {}, currentPage: '' }),
+    ).toBe('今日読んだ')
+  })
+
+  it('labels answered questions and appends the free-write text', () => {
+    const [question1] = getReadingLogQuestions()
+    expect(
+      combineRecallBody({
+        questionAnswers: ['回答1', ''],
+        freeText: '自由記述',
+        slotMinutes: {},
+        currentPage: '',
+      }),
+    ).toBe(`【${question1}】\n回答1\n\n自由記述`)
+  })
+})
+
 describe('buildReadingLogPayload', () => {
-  it('excludes rows with no recall_body entered', () => {
+  it('excludes rows with no input entered', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { slotMinutes: {}, recallBody: '', currentPage: '10' },
-      2: { slotMinutes: {}, recallBody: '想起本文', currentPage: '25' },
+      1: { questionAnswers: ['', ''], freeText: '', slotMinutes: {}, currentPage: '10' },
+      2: { questionAnswers: ['', ''], freeText: '想起本文', slotMinutes: {}, currentPage: '25' },
     }
     expect(buildReadingLogPayload(values)).toEqual([
       { book_id: 2, recall_body: '想起本文', slot_minutes: [], current_page: 25 },
@@ -92,7 +127,7 @@ describe('buildReadingLogPayload', () => {
 
   it('converts blank optional fields to null', () => {
     const values: Record<number, ReadingLogFormValue> = {
-      1: { slotMinutes: {}, recallBody: '想起本文', currentPage: '' },
+      1: { questionAnswers: ['', ''], freeText: '想起本文', slotMinutes: {}, currentPage: '' },
     }
     expect(buildReadingLogPayload(values)).toEqual([
       { book_id: 1, recall_body: '想起本文', slot_minutes: [], current_page: null },

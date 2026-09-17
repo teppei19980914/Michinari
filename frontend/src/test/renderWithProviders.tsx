@@ -7,14 +7,15 @@
  * 実行順で結果が変わるため。再試行は切る。既定では失敗したクエリ・ミューテーションを
  * 再試行するため、エラー表示を検証するテストが再試行の完了待ちで遅くなり不安定になる。
  *
- * ルータは `MemoryRouter` を使う。`useBlocker`（離脱警告）のようにデータルータでしか
- * 動作しない機能を検証する場合は、このヘルパではなく `createMemoryRouter` を各テストで
- * 組み立てる（`src/pages/DailyReportPage.test.tsx` が該当）。 */
+ * `DailyReportDraftProvider` も本番同様に含める（App.tsxのLayout参照）。SC-06/SC-07の
+ * 下書きはこのProviderが無いと `useDraftStore` が例外を投げるため、これらを描画する
+ * テストは全てこのヘルパ（または同等のProvider構成）を経由する必要がある。 */
 import type { ReactElement, ReactNode } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { ToastProvider } from '../components/Toast'
+import { DailyReportDraftProvider } from '../features/record/dailyReportDraftStore'
 
 export interface RenderWithProvidersOptions {
   /** 初期表示のURL。ルートパラメータを読む画面で使う（既定は `/`）。 */
@@ -40,7 +41,9 @@ export function renderWithProviders(
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={options.initialEntries ?? ['/']}>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <DailyReportDraftProvider>{children}</DailyReportDraftProvider>
+        </ToastProvider>
       </MemoryRouter>
     </QueryClientProvider>
   )

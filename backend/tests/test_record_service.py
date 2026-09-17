@@ -912,6 +912,127 @@ def test_compute_daily_quota_excludes_inactive_material(seeded_session):
     assert items == []
 
 
+# --- 前回の記録（記録画面改善タスク2026-09-17、get_previous_diary_entry等） ---
+
+
+def test_get_previous_diary_entry_returns_most_recent_before_target_date(seeded_session):
+    goal = _make_goal(seeded_session)
+    record_service.finalize_record(
+        seeded_session, dt.date(2026, 3, 8), [], [_diary(goal.id, "3/8の所感")], dt.date(2026, 3, 8)
+    )
+    record_service.finalize_record(
+        seeded_session, dt.date(2026, 3, 9), [], [_diary(goal.id, "3/9の所感")], dt.date(2026, 3, 9)
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry.record_date == dt.date(2026, 3, 9)
+    assert entry.body == "3/9の所感"
+
+
+def test_get_previous_diary_entry_excludes_entry_on_target_date(seeded_session):
+    """対象日「より前」のみが対象（同日は「前回」ではなく「今回」のため除外する）。"""
+    goal = _make_goal(seeded_session)
+    target = dt.date(2026, 3, 10)
+    record_service.finalize_record(
+        seeded_session, target, [], [_diary(goal.id, "当日の所感")], target
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, target)
+
+    assert entry is None
+
+
+def test_get_previous_diary_entry_skips_empty_body_and_falls_back_to_earlier_entry(seeded_session):
+    """日記は任意入力のため空文字の記録がありうる。「前回」として提示する意味が無いため
+    スキップし、その前に本文のある記録まで遡る。"""
+    goal = _make_goal(seeded_session)
+    record_service.finalize_record(
+        seeded_session, dt.date(2026, 3, 8), [], [_diary(goal.id, "3/8の所感")], dt.date(2026, 3, 8)
+    )
+    record_service.finalize_record(
+        seeded_session, dt.date(2026, 3, 9), [], [_diary(goal.id, "")], dt.date(2026, 3, 9)
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry.record_date == dt.date(2026, 3, 8)
+
+
+def test_get_previous_diary_entry_returns_none_when_no_record_exists(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry is None
+
+
+def test_get_previous_reading_log_returns_most_recent_before_target_date(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    record_service.finalize_reading_record(
+        seeded_session,
+        dt.date(2026, 3, 8),
+        [_reading_log(book.id, recall_body="3/8の想起")],
+        dt.date(2026, 3, 8),
+    )
+    record_service.finalize_reading_record(
+        seeded_session,
+        dt.date(2026, 3, 9),
+        [_reading_log(book.id, recall_body="3/9の想起")],
+        dt.date(2026, 3, 9),
+    )
+
+    entry = record_service.get_previous_reading_log(seeded_session, book.id, dt.date(2026, 3, 10))
+
+    assert entry.record_date == dt.date(2026, 3, 9)
+    assert entry.body == "3/9の想起"
+
+
+def test_get_previous_reading_log_returns_none_when_no_record_exists(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+
+    entry = record_service.get_previous_reading_log(seeded_session, book.id, dt.date(2026, 3, 10))
+
+    assert entry is None
+
+
+def test_get_previous_work_log_returns_most_recent_before_target_date(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    record_service.finalize_work_record(
+        seeded_session,
+        dt.date(2026, 3, 8),
+        [_work_log(work_assignment.id, body="3/8の業務内容")],
+        dt.date(2026, 3, 8),
+    )
+    record_service.finalize_work_record(
+        seeded_session,
+        dt.date(2026, 3, 9),
+        [_work_log(work_assignment.id, body="3/9の業務内容")],
+        dt.date(2026, 3, 9),
+    )
+
+    entry = record_service.get_previous_work_log(
+        seeded_session, work_assignment.id, dt.date(2026, 3, 10)
+    )
+
+    assert entry.record_date == dt.date(2026, 3, 9)
+    assert entry.body == "3/9の業務内容"
+
+
+def test_get_previous_work_log_returns_none_when_no_record_exists(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+
+    entry = record_service.get_previous_work_log(
+        seeded_session, work_assignment.id, dt.date(2026, 3, 10)
+    )
+
+    assert entry is None
+
+
 # --- カレンダー（GET /calendar） ---
 
 

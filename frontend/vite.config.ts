@@ -32,6 +32,11 @@ export default defineConfig({
         'src/**/*.ts',
         'src/features/goal/CloseGoalModal.tsx',
         'src/features/goal/DeleteArchivedGoalModal.tsx',
+        // 記録画面改善タスク2026-09-17で追加。前回の記録ヒント・ゼロ記録確認モーダルは
+        // *Fields.tsx/*SummaryList.tsxの除外に当たらない新規部品のため明示的に含める
+        // （CloseGoalModal.tsxと同じ方針。押した結果どうなるかまで含めて守りたい）。
+        'src/features/record/PreviousEntryHint.tsx',
+        'src/features/record/ZeroRecordButton.tsx',
         // 目標詳細のタブ群。いずれも「送信内容を決める判定」を持つため除外せず100%まで書く
         // （Phase 35。方針は OPERATIONS.md「フロントエンドのテストとカバレッジ」参照）。
         'src/features/goal/BasicInfoTab.tsx',

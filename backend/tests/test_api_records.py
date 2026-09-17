@@ -882,3 +882,76 @@ def test_quota_omits_slot_default_rounded_down_to_zero(client):
 
     assert all(item["slot_defaults"] == [] for item in items)
     assert {item["material_id"] for item in items} >= {first["id"]}
+
+
+# --- 前回の記録ヒント（記録画面改善タスク2026-09-17） ---
+
+
+def test_get_previous_diary_endpoint_returns_null_without_previous_entry(client):
+    goal, _material = _make_active_goal_with_material(client)
+    target = dt.date.today().isoformat()
+
+    response = client.get(f"/api/v1/records/{target}/previous-diary?goal_id={goal['id']}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() is None
+
+
+def test_get_previous_diary_endpoint_returns_previous_entry(client):
+    goal, material = _make_active_goal_with_material(client)
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    target = dt.date.today().isoformat()
+    client.post(
+        f"/api/v1/records/{yesterday}/finalize",
+        json={
+            "study_logs": [],
+            "diary_entries": [
+                {"goal_id": goal["id"], "diary_body": "昨日の所感", "diary_learned": ""}
+            ],
+        },
+    )
+
+    response = client.get(f"/api/v1/records/{target}/previous-diary?goal_id={goal['id']}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["record_date"] == yesterday
+    assert body["body"] == "昨日の所感"
+
+
+def test_get_previous_reading_log_endpoint_returns_previous_entry(client):
+    _goal, book = _make_active_reading_goal_with_book(client)
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    target = dt.date.today().isoformat()
+    client.post(
+        f"/api/v1/records/{yesterday}/reading-finalize",
+        json={"reading_logs": [{"book_id": book["id"], "recall_body": "昨日の想起"}]},
+    )
+
+    response = client.get(f"/api/v1/records/{target}/previous-reading-log?book_id={book['id']}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["record_date"] == yesterday
+    assert body["body"] == "昨日の想起"
+
+
+def test_get_previous_work_log_endpoint_returns_previous_entry(client):
+    _goal, work_assignment = _make_active_work_goal_with_assignment(client)
+    yesterday = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    target = dt.date.today().isoformat()
+    client.post(
+        f"/api/v1/records/{yesterday}/work-finalize",
+        json={
+            "work_logs": [{"work_assignment_id": work_assignment["id"], "body": "昨日の業務内容"}]
+        },
+    )
+
+    response = client.get(
+        f"/api/v1/records/{target}/previous-work-log?work_assignment_id={work_assignment['id']}"
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["record_date"] == yesterday
+    assert body["body"] == "昨日の業務内容"

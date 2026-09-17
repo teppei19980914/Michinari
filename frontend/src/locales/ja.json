@@ -653,6 +653,23 @@
   },
   "dailyReport": {
     "title": "日次報告（{{date}}）",
+    "estimatedDuration": "3分で終わります",
+    "voiceInputHint": "Windowsキー + H で音声入力できます",
+    "questionAnswerPlaceholder": "（任意）",
+    "zeroRecord": {
+      "button": "今日は何もしていない",
+      "confirmTitle": "今日を「何もしていない日」として記録しますか？",
+      "confirmBody": "実績や記述は空のまま、その日を記録済みとして確定します。この操作は取り消せません。",
+      "confirmSubmit": "記録する",
+      "confirmCancel": "キャンセル",
+      "planDayMessage": "記録しました。明日また開いてください",
+      "restDayMessage": "今日はお休みの日です。休むことも計画のうちです"
+    },
+    "previousEntry": {
+      "label": "前回はこう書いていました",
+      "expand": "全文を表示",
+      "collapse": "閉じる"
+    },
     "studyLog": {
       "title": "実績入力",
       "empty": "本日対象の教材はありません",
@@ -680,9 +697,11 @@
       "addSlotPlaceholder": "選択してください"
     },
     "diary": {
-      "bodyLabel": "本日の行動・所感",
+      "bodyLabel": "自由に書く",
       "learnedLabel": "本日学んだこと",
-      "learnedPlaceholder": "例: ○○の仕組みを理解した、△△の解き方のコツをつかんだ"
+      "learnedPlaceholder": "例: ○○の仕組みを理解した、△△の解き方のコツをつかんだ",
+      "question1": "今日いちばん印象に残った問題や概念は？",
+      "question2": "詰まったところはある？"
     },
     "chat": {
       "title": "AI対話",
@@ -695,11 +714,13 @@
     "readingLog": {
       "title": "想起の記録",
       "remainingDays": "読了目標まで残り{{days}}日",
-      "recallLabel": "今日読んだ内容の想起",
+      "recallLabel": "自由に書く",
       "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
       "currentPageLabel": "現在ページ（全{{total}}ページ）",
       "finalizeButton": "読書の報告を確定する",
-      "slotMinutesLabel": "時間枠ごとの読書時間"
+      "slotMinutesLabel": "時間枠ごとの読書時間",
+      "question1": "今日読んだ中で心に残った箇所は？",
+      "question2": "自分の仕事や生活とつながると感じたことは？"
     },
     "readingChat": {
       "title": "AI対話（読書）",
@@ -708,21 +729,17 @@
     "workLog": {
       "title": "業務内容の記録",
       "noClientName": "取引先未登録",
-      "bodyLabel": "今日の業務内容",
+      "bodyLabel": "自由に書く",
       "bodyPlaceholder": "例: 今日はどのような業務に取り組みましたか",
-      "finalizeButton": "仕事の報告を確定する"
+      "finalizeButton": "仕事の報告を確定する",
+      "question1": "今日いちばん時間を使ったことは？",
+      "question2": "気になっているが手をつけていないことは？"
     },
     "workChat": {
       "title": "AI対話（仕事）",
       "startButton": "業務内容を送信してAIフィードバックを受け取る"
     },
     "confirmedBadge": "確定済み",
-    "leaveConfirm": {
-      "title": "この画面から移動しますか？",
-      "body": "報告を確定する前にこの画面を離れると、入力した実績・日記・対話の内容は保存されません。",
-      "stay": "入力を続ける",
-      "leave": "移動する（内容は破棄されます）"
-    },
     "minutesOptionalNotice": "投下時間は未入力にできます（時間枠の欄をすべて空欄にする）。未入力の場合、当該日は実効速度の算出対象から除外されます"
   },
   "progressOnly": {

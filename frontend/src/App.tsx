@@ -3,6 +3,7 @@ import { Outlet, Route, createBrowserRouter, createRoutesFromElements, RouterPro
 import { ROUTE_PATTERNS } from './constants/routes'
 import { ToastProvider } from './components/Toast'
 import { GlobalNav } from './components/GlobalNav'
+import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
 import { GoalsListPage } from './pages/GoalsListPage'
 import { GoalDetailPage } from './pages/GoalDetailPage'
@@ -21,18 +22,18 @@ import { HelpPage } from './pages/HelpPage'
 
 const queryClient = new QueryClient()
 
-/** 全画面共通のレイアウト（グローバルナビゲーション）。data router化（createBrowserRouter）
- * したのは、SC-06の「確定前に画面を離脱した場合の警告」をアプリ内遷移（GlobalNavのリンク
- * クリック等）にも適用するため、react-router-domの`useBlocker`を使う必要があるから
- * （`useBlocker`はdata routerでのみ動作し、`<BrowserRouter>`+`<Routes>`の宣言的構成では
- * 使用できない）。ページ側の実装は features/record/useUnsavedChangesWarning.ts と
- * DailyReportPage.tsx を参照。 */
+/** 全画面共通のレイアウト（グローバルナビゲーション、日次報告/進捗のみ登録の下書き保持）。
+ *
+ * DailyReportDraftProviderをルータより上位（各ページの外側）に置くのは、SC-06/SC-07の
+ * 下書きをページのマウント状態に関わらず保持するため（記録画面改善タスク2026-09-17）。
+ * 別画面へ移動して戻っても、Providerがアンマウントされない限り下書きが残る。詳細は
+ * features/record/dailyReportDraftStore.tsx を参照。 */
 function Layout() {
   return (
-    <>
+    <DailyReportDraftProvider>
       <GlobalNav />
       <Outlet />
-    </>
+    </DailyReportDraftProvider>
   )
 }
 

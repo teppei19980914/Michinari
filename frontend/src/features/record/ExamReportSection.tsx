@@ -13,6 +13,8 @@ import type { DailyReportDraft } from './useDailyReportDraft'
 import type { VisibleReportTargets } from './resolveVisibleReportTargets'
 
 export type ExamReportSectionProps = {
+  /** 「前回はこう書いていました」ヒントの取得に使う対象日。 */
+  targetDate: string
   record: DailyRecordRead
   /** ラベルの引き当て用の全ノルマ（表示対象の絞り込み前）。 */
   quotaItems: QuotaItemRead[]
@@ -26,6 +28,7 @@ export type ExamReportSectionProps = {
 /** 資格試験カテゴリの実績入力（学習実績＋日記）とAI対話・確定。
  * 日記を持つのは資格試験のみで、読書は想起（ReadingLogFields）が同じ役割を果たす。 */
 export function ExamReportSection({
+  targetDate,
   record,
   quotaItems,
   targets,
@@ -70,6 +73,7 @@ export function ExamReportSection({
             }
           />
           <DiaryFields
+            targetDate={targetDate}
             activeGoals={targets.diaryGoals}
             values={draft.diaryValues}
             onChangeField={(goalId, field, value) =>

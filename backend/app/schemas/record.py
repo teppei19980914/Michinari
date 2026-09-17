@@ -206,6 +206,17 @@ class WorkFinalizeRequest(BaseModel):
     work_logs: list[WorkLogInput] = Field(default_factory=list)
 
 
+class PreviousEntryRead(BaseModel):
+    """「前回の記録」ヒント表示（仕様書6.5改、記録画面改善タスク2026-09-17）。
+
+    対象がその目標/書籍/案件で一度も記録していない場合はエンドポイントが`None`を返す
+    （フロントは「前回の記録が無い場合は表示しない」ため、存在確認をエラーにしない）。
+    """
+
+    record_date: dt.date
+    body: str
+
+
 class TodayRead(BaseModel):
     logical_date: dt.date
     record_state: RecordState | None

@@ -798,6 +798,80 @@ def _compute_slot_defaults(
 
 
 @dataclass(frozen=True)
+class PreviousEntry:
+    """「前回の記録」ヒント表示用（仕様書6.5、記録画面改善タスク2026-09-17）。
+
+    記述欄の上部に「前回はこう書いていました」として提示するための、対象日より前で
+    直近の記録日・本文を持つ。空文字/NULLの記録（想起・業務記録は必須入力だが、日記は
+    任意のため空でも行が存在しうる）は「前回」として提示する意味がないため対象から除く。
+    """
+
+    record_date: dt.date
+    body: str
+
+
+def _get_previous_entry(
+    session: Session,
+    model: type[DailyGoalDiary] | type[ReadingLog] | type[WorkLog],
+    owner_column: InstrumentedAttribute,
+    owner_id: int,
+    body_column: InstrumentedAttribute,
+    before_date: dt.date,
+) -> PreviousEntry | None:
+    """対象日より前で本文のある直近1件を取得する共通実装。
+
+    日記（目標別）・想起記録（書籍別）・業務記録（案件別）は「所有者列で絞り込み、
+    対象日より前で直近の1件を取る」という同型のクエリが3回必要になるため共通化する
+    （CODING_RULES.md「①DRYの原則」、_replace_slot_timesと同じ考え方）。
+    """
+    row = (
+        session.query(DailyRecord.record_date, body_column)
+        .join(model, model.daily_record_id == DailyRecord.id)
+        .filter(
+            owner_column == owner_id,
+            DailyRecord.record_date < before_date,
+            body_column.isnot(None),
+            body_column != "",
+        )
+        .order_by(DailyRecord.record_date.desc())
+        .first()
+    )
+    return PreviousEntry(record_date=row[0], body=row[1]) if row else None
+
+
+def get_previous_diary_entry(
+    session: Session, goal_id: int, before_date: dt.date
+) -> PreviousEntry | None:
+    """対象目標について、対象日より前で本文のある直近の日記（本日の行動・所感）を取得する。"""
+    return _get_previous_entry(
+        session,
+        DailyGoalDiary,
+        DailyGoalDiary.goal_id,
+        goal_id,
+        DailyGoalDiary.diary_body,
+        before_date,
+    )
+
+
+def get_previous_reading_log(
+    session: Session, book_id: int, before_date: dt.date
+) -> PreviousEntry | None:
+    """対象書籍について、対象日より前で直近の想起記録を取得する。"""
+    return _get_previous_entry(
+        session, ReadingLog, ReadingLog.book_id, book_id, ReadingLog.recall_body, before_date
+    )
+
+
+def get_previous_work_log(
+    session: Session, work_assignment_id: int, before_date: dt.date
+) -> PreviousEntry | None:
+    """対象案件について、対象日より前で直近の業務記録を取得する。"""
+    return _get_previous_entry(
+        session, WorkLog, WorkLog.work_assignment_id, work_assignment_id, WorkLog.body, before_date
+    )
+
+
+@dataclass(frozen=True)
 class CalendarDayView:
     """カレンダー1日分の表示情報（データ構造編6.2 GET /calendar）。"""
 
