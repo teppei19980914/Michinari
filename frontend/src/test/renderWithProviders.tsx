@@ -13,13 +13,15 @@
 import type { ReactElement, ReactNode } from 'react'
 import { render, type RenderResult } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, type InitialEntry } from 'react-router-dom'
 import { ToastProvider } from '../components/Toast'
 import { DailyReportDraftProvider } from '../features/record/dailyReportDraftStore'
 
 export interface RenderWithProvidersOptions {
-  /** 初期表示のURL。ルートパラメータを読む画面で使う（既定は `/`）。 */
-  initialEntries?: string[]
+  /** 初期表示のURL。ルートパラメータを読む画面で使う（既定は `/`）。
+   * `location.state` を検証したい画面では `{ pathname, state }` の形でも渡せる
+   * （`MemoryRouter`の`initialEntries`へそのまま渡すだけのため）。 */
+  initialEntries?: InitialEntry[]
 }
 
 /** テスト用の `QueryClient`（再試行なし・使い捨て）。 */

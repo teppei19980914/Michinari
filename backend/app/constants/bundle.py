@@ -26,3 +26,7 @@ LOCALES_DIR_NAME = "locales"
 #: アプリアイコン（exe・トレイ・通知で共用）。`scripts/generate_icon.py`が生成する。
 ASSETS_DIR_NAME = "assets"
 ICON_FILE_NAME = "michinari.ico"
+
+#: 資格試験テンプレート（JSON）の同梱先フォルダ名。原本は`app/templates/exams/`
+#: （`app/services/exam_template_service.py`参照）。
+EXAM_TEMPLATES_DIR_NAME = "exam_templates"

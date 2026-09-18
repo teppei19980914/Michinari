@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { CollapsibleSection } from '../../components/CollapsibleSection'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
@@ -117,58 +118,67 @@ export function LoadProfileTab({
   })
 
   return (
-    <div className="flex flex-col gap-3">
-      {goal.load_profiles.length === 0 && !addOpen && (
-        <p className="text-sm text-gray-500">{t('goals.loadProfile.empty')}</p>
-      )}
+    <CollapsibleSection
+      title={t('common.action.showAdvanced')}
+      hiddenTitle={t('common.action.hideAdvanced')}
+    >
+      <div className="flex flex-col gap-3">
+        {goal.load_profiles.length === 0 && !addOpen && (
+          <p className="text-sm text-gray-500">{t('goals.loadProfile.empty')}</p>
+        )}
 
-      {goal.load_profiles.map((profile) =>
-        editingId === profile.id ? (
-          <Card key={profile.id}>
-            <LoadProfileForm goalId={goal.id} profile={profile} onDone={() => setEditingId(null)} />
-          </Card>
-        ) : (
-          <Card key={profile.id} className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-900">
-                {profile.date_from} 〜 {profile.date_to}
-              </p>
-              <p className="text-sm text-gray-500">
-                {t('goals.loadProfile.coefficientLabel')}: {profile.coefficient}
-                {profile.note ? ` (${profile.note})` : ''}
-              </p>
-            </div>
-            {!readOnly && (
-              <div className="flex gap-2">
-                <Button variant="secondary" onClick={() => setEditingId(profile.id)}>
-                  {t('common.action.edit')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    if (window.confirm(t('common.confirmDelete'))) {
-                      deleteMutation.mutate(profile.id)
-                    }
-                  }}
-                >
-                  {t('common.action.delete')}
-                </Button>
+        {goal.load_profiles.map((profile) =>
+          editingId === profile.id ? (
+            <Card key={profile.id}>
+              <LoadProfileForm
+                goalId={goal.id}
+                profile={profile}
+                onDone={() => setEditingId(null)}
+              />
+            </Card>
+          ) : (
+            <Card key={profile.id} className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-900">
+                  {profile.date_from} 〜 {profile.date_to}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {t('goals.loadProfile.coefficientLabel')}: {profile.coefficient}
+                  {profile.note ? ` (${profile.note})` : ''}
+                </p>
               </div>
-            )}
-          </Card>
-        ),
-      )}
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <Button variant="secondary" onClick={() => setEditingId(profile.id)}>
+                    {t('common.action.edit')}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      if (window.confirm(t('common.confirmDelete'))) {
+                        deleteMutation.mutate(profile.id)
+                      }
+                    }}
+                  >
+                    {t('common.action.delete')}
+                  </Button>
+                </div>
+              )}
+            </Card>
+          ),
+        )}
 
-      {!readOnly &&
-        (addOpen ? (
-          <Card>
-            <LoadProfileForm goalId={goal.id} onDone={() => setAddOpen(false)} />
-          </Card>
-        ) : (
-          <Button variant="secondary" onClick={() => setAddOpen(true)}>
-            {t('goals.loadProfile.addTitle')}
-          </Button>
-        ))}
-    </div>
+        {!readOnly &&
+          (addOpen ? (
+            <Card>
+              <LoadProfileForm goalId={goal.id} onDone={() => setAddOpen(false)} />
+            </Card>
+          ) : (
+            <Button variant="secondary" onClick={() => setAddOpen(true)}>
+              {t('goals.loadProfile.addTitle')}
+            </Button>
+          ))}
+      </div>
+    </CollapsibleSection>
   )
 }

@@ -1,0 +1,31 @@
+{
+  "id": "ap",
+  "exam_name": "応用情報技術者試験",
+  "subjects": [
+    { "name": "科目A", "passing_score_type": "PERCENTAGE", "passing_score": 60 },
+    { "name": "科目B", "passing_score_type": "PERCENTAGE", "passing_score": 60 }
+  ],
+  "materials": [
+    {
+      "name": "教科書（通読）",
+      "unit_label": "ページ",
+      "total_amount": 600,
+      "planned_cycles": 1,
+      "subject_names": ["科目A", "科目B"]
+    },
+    {
+      "name": "科目A過去問演習",
+      "unit_label": "問",
+      "total_amount": 800,
+      "planned_cycles": 2,
+      "subject_names": ["科目A"]
+    },
+    {
+      "name": "科目B記述式演習",
+      "unit_label": "問",
+      "total_amount": 50,
+      "planned_cycles": 3,
+      "subject_names": ["科目B"]
+    }
+  ]
+}

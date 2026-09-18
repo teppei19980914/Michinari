@@ -5,7 +5,9 @@ import { ToastProvider } from './components/Toast'
 import { GlobalNav } from './components/GlobalNav'
 import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
+import { WelcomePage } from './pages/WelcomePage'
 import { GoalsListPage } from './pages/GoalsListPage'
+import { ExamGoalWizardPage } from './pages/ExamGoalWizardPage'
 import { GoalDetailPage } from './pages/GoalDetailPage'
 import { ExamResultPage } from './pages/ExamResultPage'
 import { KnowledgeExportPage } from './pages/KnowledgeExportPage'
@@ -41,7 +43,9 @@ const router = createBrowserRouter(
   createRoutesFromElements(
     <Route element={<Layout />}>
       <Route path={ROUTE_PATTERNS.dashboard} element={<DashboardPage />} />
+      <Route path={ROUTE_PATTERNS.welcome} element={<WelcomePage />} />
       <Route path={ROUTE_PATTERNS.goals} element={<GoalsListPage />} />
+      <Route path={ROUTE_PATTERNS.goalNewExam} element={<ExamGoalWizardPage />} />
       <Route path={ROUTE_PATTERNS.goalDetail} element={<GoalDetailPage />} />
       <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
       <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />

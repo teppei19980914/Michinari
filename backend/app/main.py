@@ -28,6 +28,7 @@ from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
 from app.api.data import router as data_router
 from app.api.errors import register_exception_handlers
+from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
 from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
@@ -217,6 +218,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(goals_router, prefix=API_V1_PREFIX)
+    app.include_router(exam_templates_router, prefix=API_V1_PREFIX)
     app.include_router(materials_router, prefix=API_V1_PREFIX)
     app.include_router(books_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
