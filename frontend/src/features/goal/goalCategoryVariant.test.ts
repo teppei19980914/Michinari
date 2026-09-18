@@ -11,12 +11,6 @@ const CATEGORY_LABEL_KEYS = {
     READING: 'goals.basicInfo.nameLabelReading',
     WORK: 'goals.basicInfo.nameLabelWork',
   },
-  /** GoalsListPage: 新規作成モーダルの目標名ラベル。 */
-  newGoalNameLabel: {
-    EXAM: 'goals.new.nameLabel',
-    READING: 'goals.new.nameLabelReading',
-    WORK: 'goals.new.nameLabelWork',
-  },
   /** GoalDetailPage: 基本情報タブのツールチップ（タブ定義が種別ごとに持つ）。 */
   basicInfoTooltip: {
     EXAM: 'goals.detail.tabTooltips.basicInfo',

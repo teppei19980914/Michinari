@@ -142,8 +142,11 @@ if [ -n "$PREV_BRANCHES" ]; then
       continue
     fi
 
-    # 未コミット変更をコミット
-    if ! git diff --quiet || ! git diff --cached --quiet; then
+    # 未コミット変更をコミット（追跡済み変更に加え、新規作成した未追跡ファイルも対象に含める。
+    # 未追跡ファイルを見落とすと、このあとの分岐でブランチが削除された際に取りこぼす
+    # 危険がある。2026-09-17〜18、Write済みの計画ドキュメントが未追跡のまま残り、
+    # この判定漏れにより検知されずマージ・削除が進んで消失した事例が発生した）
+    if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
       echo "  未コミット変更をコミット中..."
       git add -A
       git commit -m "chore: auto-commit on session start ($(date +%Y-%m-%d\ %H:%M))" >/dev/null 2>&1 || true

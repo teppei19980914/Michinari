@@ -7,6 +7,7 @@
  * 値と変更ハンドラを個別のpropsで受け取るのは、stateの持ち方を変えずに移設するためである
  * （features/record/StudyLogFields.tsx と同じ書き方）。 */
 import { t } from '../../locales/t'
+import { CollapsibleSection } from '../../components/CollapsibleSection'
 import { Input } from '../../components/Input'
 import { Tooltip } from '../../components/Tooltip'
 import type { SubjectRead } from '../../api/goals'
@@ -166,46 +167,53 @@ export function MaterialConditionFields({
   onChangeQualityMetricType: (value: MaterialQualityMetricType) => void
 }) {
   return (
-    <div className="flex gap-2">
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-        {t('goals.materials.requiredBlockMinutesLabel')}
-        <Input
-          type="number"
-          min={1}
-          value={requiredBlockMinutes}
-          onChange={(e) => onChangeRequiredBlockMinutes(e.target.value)}
-        />
-      </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-        {t('goals.materials.requiredEnvironmentLabel')}
-        <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-          value={requiredEnvironment}
-          onChange={(e) => onChangeRequiredEnvironment(e.target.value as MaterialEnvironment)}
-        >
-          {ENVIRONMENTS.map((value) => (
-            <option key={value} value={value}>
-              {t(`goals.materials.environment.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-        <Tooltip label={t('goals.materials.qualityMetricTypeTooltip')}>
-          <span>{t('goals.materials.qualityMetricTypeLabel')}</span>
-        </Tooltip>
-        <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-          value={qualityMetricType}
-          onChange={(e) => onChangeQualityMetricType(e.target.value as MaterialQualityMetricType)}
-        >
-          {QUALITY_METRIC_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {t(`goals.materials.qualityMetricType.${value}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
+    <CollapsibleSection
+      title={t('common.action.showAdvanced')}
+      hiddenTitle={t('common.action.hideAdvanced')}
+    >
+      <div className="flex gap-2">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          {t('goals.materials.requiredBlockMinutesLabel')}
+          <Input
+            type="number"
+            min={1}
+            value={requiredBlockMinutes}
+            onChange={(e) => onChangeRequiredBlockMinutes(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          {t('goals.materials.requiredEnvironmentLabel')}
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={requiredEnvironment}
+            onChange={(e) => onChangeRequiredEnvironment(e.target.value as MaterialEnvironment)}
+          >
+            {ENVIRONMENTS.map((value) => (
+              <option key={value} value={value}>
+                {t(`goals.materials.environment.${value}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <Tooltip label={t('goals.materials.qualityMetricTypeTooltip')}>
+            <span>{t('goals.materials.qualityMetricTypeLabel')}</span>
+          </Tooltip>
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={qualityMetricType}
+            onChange={(e) =>
+              onChangeQualityMetricType(e.target.value as MaterialQualityMetricType)
+            }
+          >
+            {QUALITY_METRIC_TYPES.map((value) => (
+              <option key={value} value={value}>
+                {t(`goals.materials.qualityMetricType.${value}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </CollapsibleSection>
   )
 }

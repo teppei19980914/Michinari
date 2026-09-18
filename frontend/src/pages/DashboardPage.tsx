@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboard } from '../api/dashboard'
 import { listGoals } from '../api/goals'
 import { apiErrorMessage } from '../api/client'
 import { t } from '../locales/t'
+import { ROUTES } from '../constants/routes'
 import { TodayMessage } from '../features/dashboard/TodayMessage'
 import { WarningBanner } from '../features/dashboard/WarningBanner'
 import { TodayStatusSection } from '../features/dashboard/TodayStatusSection'
@@ -29,6 +31,7 @@ import { QUERY_KEYS } from '../constants/queryKeys'
  * 選択中goal_idへの絞り込みのみで対応できる。本日の状態（record_state）・本日の
  * 日種別は目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */
 export function DashboardPage() {
+  const location = useLocation()
   const dashboardQuery = useQuery({ queryKey: QUERY_KEYS.dashboard(), queryFn: getDashboard })
   const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: () => listGoals() })
   const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
@@ -50,15 +53,29 @@ export function DashboardPage() {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
   }
 
+  // 目標が0件の初回起動時はウェルカム画面へ誘導する（仕様書「初回起動時のウェルカム画面」）。
+  // 判定はDBの全goal件数（DRAFT等も含む）で都度行い、専用フラグは持たない。
+  if ((goalsQuery.data ?? []).length === 0) {
+    return <Navigate to={ROUTES.welcome} replace />
+  }
+
   const dashboard = guard.dashboard
   const targetGoalId = resolveTargetGoalId(goalTabs)
   const goalCards = dashboard.goal_cards.filter((card) => card.goal_id === targetGoalId)
   const goalStats = dashboard.goal_stats.filter((stats) => stats.goal_id === targetGoalId)
   const todayQuota = dashboard.today_quota.filter((item) => item.goal_id === targetGoalId)
+  const state = location.state as { showFirstRecordBanner?: boolean } | null
+  const showFirstRecordBanner = state?.showFirstRecordBanner === true
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
+
+      {showFirstRecordBanner && (
+        <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+          {t('dashboard.firstRecordBanner')}
+        </p>
+      )}
 
       {showGoalSelector && (
         <GoalTabBar

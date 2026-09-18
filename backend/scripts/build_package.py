@@ -47,6 +47,7 @@ from app.constants.bundle import (
     ALEMBIC_INI_FILE_NAME,
     ASSETS_DIR_NAME,
     BUILD_INFO_FILE_NAME,
+    EXAM_TEMPLATES_DIR_NAME,
     FRONTEND_DIST_DIR_NAME,
     LOCALES_DIR_NAME,
 )
@@ -99,6 +100,9 @@ CONSOLE_LAUNCHER_FILENAME = f"{APP_NAME}-console.bat"
 LGPL_MODULE_NAME = "pystray"
 LOCALE_SOURCE_PATH = resolve_locale_path()
 ICON_SOURCE_PATH = resolve_icon_path()
+#: 資格試験テンプレート（JSON）の同梱元ディレクトリ（`app/services/exam_template_service.py`
+#: が実行時に`resolve_bundled_path`で解決する先と対にする）。
+EXAM_TEMPLATES_SOURCE_DIR = BACKEND_DIR / "app" / "templates" / "exams"
 ICON_SOURCE_DIR = ICON_SOURCE_PATH.parent
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
@@ -401,6 +405,8 @@ def pyinstaller_args() -> list[str]:
         f"{LOCALE_SOURCE_PATH}{os.pathsep}{LOCALES_DIR_NAME}",
         # exe・トレイ・通知で共用するアイコン。
         f"{ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}",
+        # 資格試験テンプレート（JSON、利用者が編集・追加できる例示データ）。
+        f"{EXAM_TEMPLATES_SOURCE_DIR}{os.pathsep}{EXAM_TEMPLATES_DIR_NAME}",
         # 差し替え可能にするため素のまま置く pystray（上記 --exclude-module と対になる）。
         f"{lgpl_module_source_dir()}{os.pathsep}{LGPL_MODULE_NAME}",
     ]

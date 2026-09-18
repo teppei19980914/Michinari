@@ -6,7 +6,7 @@
  * 状態から遷移先・アーカイブ可否を決める判定（`goalStatus.ts`）は `goalStatus.test.ts` が、
  * 完全削除の確認は `DeleteArchivedGoalModal.test.tsx` が担うため、ここでは結線を確かめる。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
@@ -16,16 +16,25 @@ import { GoalsListPage } from './GoalsListPage'
 
 const listGoals = vi.hoisted(() => vi.fn())
 const createGoal = vi.hoisted(() => vi.fn())
+const createBook = vi.hoisted(() => vi.fn())
+const createWorkAssignment = vi.hoisted(() => vi.fn())
+const activateGoal = vi.hoisted(() => vi.fn())
 const archiveGoal = vi.hoisted(() => vi.fn())
 const unarchiveGoal = vi.hoisted(() => vi.fn())
 const deleteArchivedGoal = vi.hoisted(() => vi.fn())
 vi.mock('../api/goals', () => ({
   listGoals,
   createGoal,
+  createBook,
+  createWorkAssignment,
+  activateGoal,
   archiveGoal,
   unarchiveGoal,
   deleteArchivedGoal,
 }))
+
+const getToday = vi.hoisted(() => vi.fn())
+vi.mock('../api/records', () => ({ getToday }))
 
 const navigate = vi.hoisted(() => vi.fn())
 vi.mock('react-router-dom', async (importOriginal) => ({
@@ -43,7 +52,6 @@ const archivedGoal = () =>
   })
 
 const newGoalButton = () => screen.getByRole('button', { name: t('goals.list.newGoal') })
-const saveButton = () => screen.getByRole('button', { name: t('common.action.save') })
 const archiveButton = () => screen.getByRole('button', { name: t('goals.list.archiveButton') })
 const showArchivedToggle = () =>
   screen.getByRole('checkbox', { name: t('goals.list.showArchivedToggle') })
@@ -52,8 +60,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   listGoals.mockResolvedValue([makeGoal()])
   createGoal.mockResolvedValue(makeGoal())
+  createBook.mockResolvedValue({})
+  createWorkAssignment.mockResolvedValue({})
+  activateGoal.mockResolvedValue(makeGoal())
   archiveGoal.mockResolvedValue(undefined)
   unarchiveGoal.mockResolvedValue(undefined)
+  getToday.mockResolvedValue({ logical_date: '2026-09-20' })
 })
 
 afterEach(() => {
@@ -181,45 +193,64 @@ describe('GoalsListPage のアーカイブ操作', () => {
   })
 })
 
-describe('GoalsListPage の新規作成', () => {
-  it('creates the goal and moves to its detail screen', async () => {
+describe('GoalsListPage の新規作成（種別選択）', () => {
+  it('navigates to the exam wizard when the exam option is chosen', async () => {
     const user = userEvent.setup()
     renderWithProviders(<GoalsListPage />)
 
     await user.click(newGoalButton())
-    await user.type(screen.getByLabelText(t('goals.new.nameLabel')), '新しい目標')
-    fireEvent.change(screen.getByLabelText(t('goals.new.startDateLabel')), {
-      target: { value: '2026-09-20' },
-    })
-    await user.click(saveButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.EXAM') }))
 
-    await waitFor(() => expect(createGoal).toHaveBeenCalledOnce())
-    expect(createGoal).toHaveBeenCalledWith({
-      category: 'EXAM',
-      name: '新しい目標',
-      start_date: '2026-09-20',
-    })
-    expect(navigate).toHaveBeenCalledWith(ROUTES.goalDetail(GOAL_ID))
+    expect(navigate).toHaveBeenCalledWith(ROUTES.goalNewExam)
+    expect(createGoal).not.toHaveBeenCalled()
   })
 
-  it('switches the name label and the sent category together', async () => {
+  it('opens the reading quick-create form and navigates to the dashboard on success', async () => {
     const user = userEvent.setup()
     renderWithProviders(<GoalsListPage />)
 
     await user.click(newGoalButton())
-    await user.selectOptions(screen.getByLabelText(t('goals.new.categoryLabel')), 'READING')
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.READING') }))
+    await waitFor(() => expect(getToday).toHaveBeenCalled())
+    await user.type(screen.getByLabelText(t('goals.new.quickCreate.reading.titleLabel')), '読みたい本')
+    await user.click(screen.getByRole('button', { name: t('goals.new.quickCreate.submitButton') }))
 
-    // 種別を変えると入力を促す文言も切り替わる（資格試験は試験名、読書は書名）。
-    expect(screen.getByLabelText(t('goals.new.nameLabelReading'))).toBeDefined()
-
-    await user.type(screen.getByLabelText(t('goals.new.nameLabelReading')), '読みたい本')
-    fireEvent.change(screen.getByLabelText(t('goals.new.startDateLabel')), {
-      target: { value: '2026-09-20' },
+    await waitFor(() => expect(activateGoal).toHaveBeenCalledOnce())
+    expect(createGoal).toHaveBeenCalledWith({
+      category: 'READING',
+      name: '読みたい本',
+      start_date: '2026-09-20',
     })
-    await user.click(saveButton())
+    expect(navigate).toHaveBeenCalledWith(ROUTES.dashboard, {
+      state: { showFirstRecordBanner: true },
+    })
+  })
 
-    await waitFor(() => expect(createGoal).toHaveBeenCalledOnce())
-    expect(createGoal.mock.calls[0][0]).toMatchObject({ category: 'READING' })
+  it('opens the work quick-create form', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<GoalsListPage />)
+
+    await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.WORK') }))
+
+    expect(screen.getByLabelText(t('goals.new.quickCreate.work.nameLabel'))).toBeDefined()
+  })
+
+  it('does not leak input typed for one category into the form for another', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<GoalsListPage />)
+
+    await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.READING') }))
+    await user.type(screen.getByLabelText(t('goals.new.quickCreate.reading.titleLabel')), '読みたい本')
+    await user.click(screen.getByRole('button', { name: t('common.action.cancel') }))
+
+    await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.WORK') }))
+
+    expect(
+      screen.getByLabelText<HTMLInputElement>(t('goals.new.quickCreate.work.nameLabel')).value,
+    ).toBe('')
   })
 
   it('closes the dialog without creating anything on cancel', async () => {
@@ -227,6 +258,7 @@ describe('GoalsListPage の新規作成', () => {
     renderWithProviders(<GoalsListPage />)
 
     await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.READING') }))
     await user.click(screen.getByRole('button', { name: t('common.action.cancel') }))
 
     expect(createGoal).not.toHaveBeenCalled()

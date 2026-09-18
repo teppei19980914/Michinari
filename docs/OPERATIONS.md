@@ -1009,6 +1009,36 @@ Stop Hook のデプロイチェックも同じ `pytest --cov-fail-under=100` を
 （2026-09-13に実測）。データファイルを分けることでこの誤検知を防いでいる。`.coverage.*` は
 `.gitignore` 済み。
 
+## 資格テンプレートの追加・編集（実装フェーズ分割計画書Phase38）
+
+資格モード作成ウィザード（仕様書SC-17）が提示するテンプレートは、`backend/app/templates/exams/`配下のJSONファイル1件＝1試験として同梱している。DBへのシード（`app/init/seed_data.py`）ではなく、`GET /exam-templates`呼び出しの都度ディレクトリを読み込む方式のため、**アプリを再起動しなくてもファイルの追加・編集がそのまま選択肢へ反映される**（開発時のみ。配布パッケージは同梱物のため、パッケージのビルドし直しが必要）。
+
+**JSONの構造**
+
+```json
+{
+  "id": "fe",
+  "exam_name": "基本情報技術者試験",
+  "subjects": [
+    { "name": "科目A", "passing_score_type": "PERCENTAGE", "passing_score": 60 }
+  ],
+  "materials": [
+    { "name": "教科書", "unit_label": "ページ", "total_amount": 500, "planned_cycles": 1, "subject_names": ["科目A"] }
+  ]
+}
+```
+
+- `subjects`は1件以上必須。`materials`は省略可
+- `materials[].subject_names`は`subjects[].name`と一致する名前で紐付ける（IDはウィザード実行時に採番されるため）
+- 受験日に関する項目は含めない（利用者がウィザードで入力する）
+- 構文エラー・スキーマ不一致のファイルは、そのファイルのみ警告ログを出して読み飛ばす（`exam_template_service.list_exam_templates`）。一覧全体は失敗しない
+
+**新しい試験を追加する手順**
+
+1. `backend/app/templates/exams/`に新しいJSONファイルを追加する（ファイル名は`id`と揃えておくと管理しやすい）
+2. `backend/tests/test_exam_template_service.py`の一覧テスト（返却される`id`の集合を検証している）を更新する
+3. `cd backend && pytest tests/test_exam_template_service.py tests/test_api_exam_templates.py`で確認する
+
 ## 任意ツールの導入
 
 開発ツール・CLIのインストールは**仮想環境（`myvenv`）配下に閉じる**（CLAUDE.md「ツール導入ルール」）。システム全体へのインストール（`winget` / `choco` / `scoop` 等）は行わない。環境を汚さず、不要になればディレクトリごと捨てられる状態を保つため。
@@ -1061,6 +1091,7 @@ osv-scanner --version                      # 導入確認
 | auto-commit が発火しない（2） | テストが失敗している | テスト修正 → 再度セッション終了 |
 | PreToolUse Hook で編集ブロック | 危険API / 機密ファイル | 代替実装に変更 or テンプレートファイル編集 |
 | PR が自動作成されない | `gh` 未認証 | `gh auth login` |
+| 新規作成した未追跡ファイルが日を跨いで消失 | `session-start-git.sh`の未コミット判定が追跡済み変更のみを見ており、未追跡ファイル（`git ls-files --others --exclude-standard`）を見落としていた（2026-09-17〜18に発生、修正済み） | 修正後は未追跡ファイルも判定対象。心当たりがある場合は`git fsck --lost-found`で復旧を試みる |
 
 ### 8.2 Git / GitHub 関連
 
