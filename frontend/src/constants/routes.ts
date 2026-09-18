@@ -7,7 +7,9 @@
  */
 export const ROUTE_PATTERNS = {
   dashboard: '/',
+  welcome: '/welcome',
   goals: '/goals',
+  goalNewExam: '/goals/new/exam',
   goalDetail: '/goals/:goalId',
   goalExport: '/goals/:goalId/export',
   goalResult: '/goals/:goalId/result',
@@ -25,7 +27,9 @@ export const ROUTE_PATTERNS = {
 
 export const ROUTES = {
   dashboard: ROUTE_PATTERNS.dashboard,
+  welcome: ROUTE_PATTERNS.welcome,
   goals: ROUTE_PATTERNS.goals,
+  goalNewExam: ROUTE_PATTERNS.goalNewExam,
   goalDetail: (goalId: number) => `/goals/${goalId}`,
   goalExport: (goalId: number) => `/goals/${goalId}/export`,
   goalResult: (goalId: number) => `/goals/${goalId}/result`,

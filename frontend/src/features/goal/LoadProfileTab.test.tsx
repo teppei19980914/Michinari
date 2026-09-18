@@ -37,6 +37,13 @@ function setDate(input: HTMLInputElement, value: string) {
 
 const goalWith = (profiles = [makeLoadProfile()]) => makeGoalDetail({ load_profiles: profiles })
 
+/** 既定で折りたたまれているため、内容を検証する前に展開しておく。 */
+function renderExpandedTab(props: { goal: ReturnType<typeof makeGoalDetail>; readOnly: boolean }) {
+  const result = renderWithProviders(<LoadProfileTab {...props} />)
+  fireEvent.click(screen.getByText(t('common.action.showAdvanced')))
+  return result
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   createLoadProfile.mockResolvedValue(makeLoadProfile())
@@ -48,15 +55,27 @@ afterEach(() => {
   cleanup()
 })
 
+describe('LoadProfileTab の折りたたみ', () => {
+  it('hides the content by default and reveals it after a click', () => {
+    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly={false} />)
+
+    expect(screen.queryByRole('button', { name: t('goals.loadProfile.addTitle') })).toBeNull()
+
+    fireEvent.click(screen.getByText(t('common.action.showAdvanced')))
+
+    expect(screen.getByRole('button', { name: t('goals.loadProfile.addTitle') })).toBeDefined()
+  })
+})
+
 describe('LoadProfileTab の一覧', () => {
   it('shows the empty message when the goal has no profile', () => {
-    renderWithProviders(<LoadProfileTab goal={goalWith([])} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith([]), readOnly: false })
 
     expect(screen.getByText(t('goals.loadProfile.empty'))).toBeDefined()
   })
 
   it('hides every editing action when read only', () => {
-    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly />)
+    renderExpandedTab({ goal: goalWith(), readOnly: true })
 
     expect(screen.queryByRole('button', { name: t('common.action.edit') })).toBeNull()
     expect(screen.queryByRole('button', { name: t('common.action.delete') })).toBeNull()
@@ -64,13 +83,11 @@ describe('LoadProfileTab の一覧', () => {
   })
 
   it('appends the note in parentheses only when there is one', () => {
-    const { unmount } = renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly />)
+    const { unmount } = renderExpandedTab({ goal: goalWith(), readOnly: true })
     expect(screen.getByText(/\(繁忙期\)/)).toBeDefined()
 
     unmount()
-    renderWithProviders(
-      <LoadProfileTab goal={goalWith([makeLoadProfile({ note: null })])} readOnly />,
-    )
+    renderExpandedTab({ goal: goalWith([makeLoadProfile({ note: null })]), readOnly: true })
 
     expect(screen.queryByText(/\(/)).toBeNull()
   })
@@ -80,7 +97,7 @@ describe('LoadProfileTab の取り消せない操作', () => {
   it('does not delete when the confirmation is dismissed', async () => {
     const user = userEvent.setup()
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith(), readOnly: false })
 
     await user.click(deleteButton())
 
@@ -91,7 +108,7 @@ describe('LoadProfileTab の取り消せない操作', () => {
   it('deletes only after the confirmation is accepted', async () => {
     const user = userEvent.setup()
     vi.spyOn(window, 'confirm').mockReturnValue(true)
-    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith(), readOnly: false })
 
     await user.click(deleteButton())
 
@@ -102,9 +119,7 @@ describe('LoadProfileTab の取り消せない操作', () => {
 describe('LoadProfileTab の送信内容', () => {
   it('creates a profile with a numeric coefficient and a null note', async () => {
     const user = userEvent.setup()
-    const { container } = renderWithProviders(
-      <LoadProfileTab goal={goalWith([])} readOnly={false} />,
-    )
+    const { container } = renderExpandedTab({ goal: goalWith([]), readOnly: false })
 
     await user.click(addButton())
     setDate(dateInputs(container)[0], DATE_FROM)
@@ -124,9 +139,7 @@ describe('LoadProfileTab の送信内容', () => {
 
   it('sends the entered coefficient and note', async () => {
     const user = userEvent.setup()
-    const { container } = renderWithProviders(
-      <LoadProfileTab goal={goalWith([])} readOnly={false} />,
-    )
+    const { container } = renderExpandedTab({ goal: goalWith([]), readOnly: false })
 
     await user.click(addButton())
     setDate(dateInputs(container)[0], DATE_FROM)
@@ -142,7 +155,7 @@ describe('LoadProfileTab の送信内容', () => {
 
   it('updates the existing profile instead of creating a new one', async () => {
     const user = userEvent.setup()
-    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith(), readOnly: false })
 
     await user.click(editButton())
     await user.click(saveButton())
@@ -154,7 +167,7 @@ describe('LoadProfileTab の送信内容', () => {
 
   it('closes the form without sending anything on cancel', async () => {
     const user = userEvent.setup()
-    renderWithProviders(<LoadProfileTab goal={goalWith([])} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith([]), readOnly: false })
 
     await user.click(addButton())
     await user.click(cancelButton())
@@ -165,7 +178,7 @@ describe('LoadProfileTab の送信内容', () => {
 
   it('leaves the edit form without sending anything on cancel', async () => {
     const user = userEvent.setup()
-    renderWithProviders(<LoadProfileTab goal={goalWith()} readOnly={false} />)
+    renderExpandedTab({ goal: goalWith(), readOnly: false })
 
     await user.click(editButton())
     await user.click(cancelButton())

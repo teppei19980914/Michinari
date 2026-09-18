@@ -47,6 +47,7 @@ from build_package import (
 from app.constants.bundle import (
     ALEMBIC_INI_FILE_NAME,
     ASSETS_DIR_NAME,
+    EXAM_TEMPLATES_DIR_NAME,
     FRONTEND_DIST_DIR_NAME,
     LOCALES_DIR_NAME,
 )
@@ -755,6 +756,13 @@ class TestPyInstallerArgs:
         expected = f"{build_package.ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}"
 
         assert expected in self._args()
+
+    def test_bundles_the_exam_templates_where_the_app_looks_for_them(self) -> None:
+        """資格テンプレートJSONが配布物でも`GET /exam-templates`から読めること（Phase38）。"""
+        expected = f"{build_package.EXAM_TEMPLATES_SOURCE_DIR}{os.pathsep}{EXAM_TEMPLATES_DIR_NAME}"
+
+        assert expected in self._args()
+        assert build_package.EXAM_TEMPLATES_SOURCE_DIR.is_dir()
 
     def test_keeps_bundling_the_frontend_and_migrations(self) -> None:
         """従来からの同梱物が落ちていないこと（Phase37の変更の巻き添えを防ぐ）。"""

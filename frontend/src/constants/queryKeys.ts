@@ -25,6 +25,7 @@ export const QUERY_KEYS = {
   goal: (goalId: number | null) => ['goal', goalId] as const,
   goalSlotAllocations: (goalId: number) => ['goal-slot-allocations', goalId] as const,
   materialSlotCheck: (materialId: number) => ['material-slot-check', materialId] as const,
+  examTemplates: () => ['exam-templates'] as const,
 
   // --- 日次記録 ---
   record: (targetDate: string) => ['record', targetDate] as const,

@@ -8,8 +8,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { Route, Routes, type InitialEntry } from 'react-router-dom'
 import { t } from '../locales/t'
 import { ApiError } from '../api/client'
+import { ROUTE_PATTERNS } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
 import {
   GOAL_ID,
@@ -33,6 +35,20 @@ vi.mock('../api/records', () => ({ getDailyMessage }))
 
 const OTHER_GOAL_ID = GOAL_ID + 1
 const OTHER_MATERIAL_NAME = '別目標の教材'
+const WELCOME_MARKER = 'welcome-marker'
+
+/** `/welcome`へのリダイレクト・`location.state`の初回記録バナーを検証するための
+ * ルータ込みの描画（ProgressOnlyPage.test.tsxと同じ、実際のルートへ遷移したかを
+ * マーカー要素の出現で確かめる方式）。 */
+function renderDashboardWithRouter(initialEntries: InitialEntry[]) {
+  return renderWithProviders(
+    <Routes>
+      <Route path={ROUTE_PATTERNS.dashboard} element={<DashboardPage />} />
+      <Route path={ROUTE_PATTERNS.welcome} element={<p>{WELCOME_MARKER}</p>} />
+    </Routes>,
+    { initialEntries },
+  )
+}
 
 /** 2目標が同時進行し、それぞれのカード・統計・ノルマが返っている状態。 */
 function twoActiveGoals() {
@@ -140,5 +156,38 @@ describe('DashboardPage の目標の絞り込み', () => {
     await user.click(screen.getByRole('button', { name: /目標B/ }))
 
     expect(screen.getByText(statusText)).toBeDefined()
+  })
+})
+
+describe('DashboardPage のウェルカム画面誘導', () => {
+  it('redirects to /welcome when there are no goals', async () => {
+    listGoals.mockResolvedValue([])
+    renderDashboardWithRouter([ROUTE_PATTERNS.dashboard])
+
+    expect(await screen.findByText(WELCOME_MARKER)).toBeDefined()
+  })
+
+  it('does not redirect while at least one goal exists', async () => {
+    renderDashboardWithRouter([ROUTE_PATTERNS.dashboard])
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(WELCOME_MARKER)).toBeNull()
+  })
+})
+
+describe('DashboardPage の初回記録バナー', () => {
+  it('shows the banner when navigated with showFirstRecordBanner state', async () => {
+    renderDashboardWithRouter([
+      { pathname: ROUTE_PATTERNS.dashboard, state: { showFirstRecordBanner: true } },
+    ])
+
+    expect(await screen.findByText(t('dashboard.firstRecordBanner'))).toBeDefined()
+  })
+
+  it('hides the banner when there is no navigation state', async () => {
+    renderDashboardWithRouter([ROUTE_PATTERNS.dashboard])
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(t('dashboard.firstRecordBanner'))).toBeNull()
   })
 })

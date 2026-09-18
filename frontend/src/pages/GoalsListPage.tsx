@@ -5,93 +5,56 @@ import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
-import { Input } from '../components/Input'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
-import {
-  archiveGoal,
-  createGoal,
-  listGoals,
-  unarchiveGoal,
-  type GoalCategory,
-  type GoalRead,
-} from '../api/goals'
+import { archiveGoal, listGoals, unarchiveGoal, type GoalRead } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
 import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
-import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
-import { GOAL_CATEGORIES } from '../constants/goalCategories'
+import { QuickCreateGoalModal } from '../features/goal/QuickCreateGoalModal'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
-function NewGoalModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** 新規目標作成の入口（仕様書「初学者導線」）。種別を選ぶと、資格はウィザードへ遷移し、
+ * 読書・仕事はその場で簡易作成フォーム（QuickCreateGoalModal）を開く。目標一覧からの
+ * 入口とウェルカム画面（WelcomePage）の入口を統一する設計（2026-09-18）。 */
+function NewGoalEntryModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const { showApiError } = useToast()
-  const [category, setCategory] = useState<GoalCategory>('EXAM')
-  const [name, setName] = useState('')
-  const [startDate, setStartDate] = useState('')
-
-  const mutation = useMutation({
-    mutationFn: () => createGoal({ category, name, start_date: startDate }),
-    onSuccess: (goal) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
-      onClose()
-      navigate(ROUTES.goalDetail(goal.id))
-    },
-    onError: showApiError,
-  })
+  const [quickCreateCategory, setQuickCreateCategory] = useState<'READING' | 'WORK' | null>(null)
 
   return (
-    <Modal open={open} onClose={onClose} title={t('goals.new.title')}>
-      <form
-        className="flex flex-col gap-3"
-        onSubmit={(event) => {
-          event.preventDefault()
-          mutation.mutate()
-        }}
-      >
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.new.categoryLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as GoalCategory)}
-          >
-            {GOAL_CATEGORIES.map((value) => (
-              <option key={value} value={value}>
-                {t(`goals.new.category.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t(
-            resolveByGoalCategory(category, {
-              EXAM: 'goals.new.nameLabel',
-              READING: 'goals.new.nameLabelReading',
-              WORK: 'goals.new.nameLabelWork',
-            }),
-          )}
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
-          {t('goals.new.startDateLabel')}
-          <Input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            required
-          />
-        </label>
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            {t('common.action.cancel')}
+    <>
+      <Modal open={open && quickCreateCategory === null} onClose={onClose} title={t('goals.list.newGoal')}>
+        <div className="flex flex-col gap-2">
+          <Button onClick={() => setQuickCreateCategory('READING')}>
+            {t('goals.new.category.READING')}
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
-            {t('common.action.save')}
+          <Button onClick={() => setQuickCreateCategory('WORK')}>{t('goals.new.category.WORK')}</Button>
+          <Button
+            onClick={() => {
+              onClose()
+              navigate(ROUTES.goalNewExam)
+            }}
+          >
+            {t('goals.new.category.EXAM')}
           </Button>
         </div>
-      </form>
-    </Modal>
+      </Modal>
+      <QuickCreateGoalModal
+        // WelcomePageと同じ理由：キャンセル後の再オープンや種別切り替え時に前回の
+        // 入力が残らないよう、開閉のたびに別インスタンスとして作り直す。
+        key={quickCreateCategory ?? 'closed'}
+        open={quickCreateCategory !== null}
+        category={quickCreateCategory ?? 'READING'}
+        onClose={() => {
+          setQuickCreateCategory(null)
+          onClose()
+        }}
+        onCreated={() => {
+          setQuickCreateCategory(null)
+          onClose()
+          navigate(ROUTES.dashboard, { state: { showFirstRecordBanner: true } })
+        }}
+      />
+    </>
   )
 }
 
@@ -238,7 +201,7 @@ export function GoalsListPage() {
         </div>
       )}
 
-      <NewGoalModal open={newGoalModalOpen} onClose={() => setNewGoalModalOpen(false)} />
+      <NewGoalEntryModal open={newGoalModalOpen} onClose={() => setNewGoalModalOpen(false)} />
       <DeleteArchivedGoalModal goal={deleteTarget} onClose={() => setDeleteTarget(null)} />
     </div>
   )
