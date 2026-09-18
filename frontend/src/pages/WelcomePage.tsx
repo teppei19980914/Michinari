@@ -52,6 +52,10 @@ export function WelcomePage() {
       </div>
 
       <QuickCreateGoalModal
+        // キャンセル後の再オープンや種別の切り替え時に前回の入力が残らないよう、
+        // 開閉のたびに別インスタンスとして作り直す（QuickCreateGoalModal自身は
+        // onSuccess時にしか入力をクリアしないため）。
+        key={quickCreateCategory ?? 'closed'}
         open={quickCreateCategory !== null}
         category={quickCreateCategory ?? 'READING'}
         onClose={() => setQuickCreateCategory(null)}

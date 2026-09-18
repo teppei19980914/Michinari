@@ -236,6 +236,23 @@ describe('GoalsListPage の新規作成（種別選択）', () => {
     expect(screen.getByLabelText(t('goals.new.quickCreate.work.nameLabel'))).toBeDefined()
   })
 
+  it('does not leak input typed for one category into the form for another', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<GoalsListPage />)
+
+    await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.READING') }))
+    await user.type(screen.getByLabelText(t('goals.new.quickCreate.reading.titleLabel')), '読みたい本')
+    await user.click(screen.getByRole('button', { name: t('common.action.cancel') }))
+
+    await user.click(newGoalButton())
+    await user.click(screen.getByRole('button', { name: t('goals.new.category.WORK') }))
+
+    expect(
+      screen.getByLabelText<HTMLInputElement>(t('goals.new.quickCreate.work.nameLabel')).value,
+    ).toBe('')
+  })
+
   it('closes the dialog without creating anything on cancel', async () => {
     const user = userEvent.setup()
     renderWithProviders(<GoalsListPage />)

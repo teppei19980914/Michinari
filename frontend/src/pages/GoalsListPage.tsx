@@ -39,6 +39,9 @@ function NewGoalEntryModal({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
       </Modal>
       <QuickCreateGoalModal
+        // WelcomePageと同じ理由：キャンセル後の再オープンや種別切り替え時に前回の
+        // 入力が残らないよう、開閉のたびに別インスタンスとして作り直す。
+        key={quickCreateCategory ?? 'closed'}
         open={quickCreateCategory !== null}
         category={quickCreateCategory ?? 'READING'}
         onClose={() => {
