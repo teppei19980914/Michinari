@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { t } from '../locales/t'
+import { ROUTES } from '../constants/routes'
 import { Card } from '../components/Card'
 import { Input } from '../components/Input'
 import {
@@ -41,6 +43,10 @@ export function HelpPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">{t('help.title')}</h1>
       <p className="text-sm text-gray-600">{t('help.subtitle')}</p>
+
+      <Link to={ROUTES.welcome} className="text-sm text-blue-600 hover:underline">
+        {t('welcome.reopenLink')}
+      </Link>
 
       <Card className="flex flex-col gap-2">
         <label className="flex flex-col gap-1 text-sm text-gray-700">

@@ -361,6 +361,23 @@ export interface paths {
         patch: operations["update_load_profile_api_v1_load_profiles__load_profile_id__patch"];
         trace?: never;
     };
+    "/api/v1/exam-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Exam Templates */
+        get: operations["get_exam_templates_api_v1_exam_templates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/materials/{material_id}": {
         parameters: {
             query?: never;
@@ -2137,6 +2154,42 @@ export interface components {
             evaluation?: string | null;
             /** Note */
             note?: string | null;
+        };
+        /** ExamTemplateMaterial */
+        ExamTemplateMaterial: {
+            /** Name */
+            name: string;
+            /** Unit Label */
+            unit_label: string;
+            /** Total Amount */
+            total_amount: number;
+            /**
+             * Planned Cycles
+             * @default 1
+             */
+            planned_cycles: number;
+            /** Subject Names */
+            subject_names: string[];
+        };
+        /** ExamTemplateRead */
+        ExamTemplateRead: {
+            /** Id */
+            id: string;
+            /** Exam Name */
+            exam_name: string;
+            /** Subjects */
+            subjects: components["schemas"]["ExamTemplateSubject"][];
+            /** Materials */
+            materials?: components["schemas"]["ExamTemplateMaterial"][];
+        };
+        /** ExamTemplateSubject */
+        ExamTemplateSubject: {
+            /** Name */
+            name: string;
+            /** @default PERCENTAGE */
+            passing_score_type: components["schemas"]["PassingScoreType"];
+            /** Passing Score */
+            passing_score: number;
         };
         /**
          * FinalizeRequest
@@ -4520,6 +4573,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_exam_templates_api_v1_exam_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExamTemplateRead"][];
                 };
             };
         };

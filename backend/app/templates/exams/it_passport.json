@@ -1,0 +1,26 @@
+{
+  "id": "it_passport",
+  "exam_name": "ITパスポート試験",
+  "subjects": [
+    { "name": "総合評価", "passing_score_type": "PERCENTAGE", "passing_score": 60 },
+    { "name": "ストラテジ系（分野別評価）", "passing_score_type": "PERCENTAGE", "passing_score": 30 },
+    { "name": "マネジメント系（分野別評価）", "passing_score_type": "PERCENTAGE", "passing_score": 30 },
+    { "name": "テクノロジ系（分野別評価）", "passing_score_type": "PERCENTAGE", "passing_score": 30 }
+  ],
+  "materials": [
+    {
+      "name": "参考書（通読）",
+      "unit_label": "ページ",
+      "total_amount": 400,
+      "planned_cycles": 1,
+      "subject_names": ["総合評価", "ストラテジ系（分野別評価）", "マネジメント系（分野別評価）", "テクノロジ系（分野別評価）"]
+    },
+    {
+      "name": "過去問道場演習",
+      "unit_label": "問",
+      "total_amount": 300,
+      "planned_cycles": 2,
+      "subject_names": ["総合評価", "ストラテジ系（分野別評価）", "マネジメント系（分野別評価）", "テクノロジ系（分野別評価）"]
+    }
+  ]
+}

@@ -72,6 +72,11 @@ async function openAddFormWithValidInput(user: ReturnType<typeof userEvent.setup
   setDate(screen.getByLabelText<HTMLInputElement>(t('goals.materials.startDateLabel')), START_DATE)
 }
 
+/** 必要連続時間・必要環境・品質指標は既定で折りたたまれているため、触る前に展開する。 */
+async function openAdvancedSection(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByText(t('common.action.showAdvanced')))
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   createMaterial.mockResolvedValue(makeMaterial())
@@ -253,6 +258,7 @@ describe('MaterialsTab の送信内容', () => {
     renderWithProviders(<MaterialsTab goal={makeGoalDetail()} readOnly={false} />)
 
     await openAddFormWithValidInput(user)
+    await openAdvancedSection(user)
     await user.type(
       screen.getByLabelText(t('goals.materials.requiredBlockMinutesLabel')),
       '45',
@@ -286,6 +292,7 @@ describe('MaterialsTab の送信内容', () => {
     await openAddFormWithValidInput(user)
     await user.clear(screen.getByLabelText(t('goals.materials.plannedCyclesLabel')))
     await user.type(screen.getByLabelText(t('goals.materials.plannedCyclesLabel')), '3')
+    await openAdvancedSection(user)
     await user.selectOptions(selects()[0], 'PC')
     await user.selectOptions(selects()[1], 'SELF_SCORED')
     await user.click(saveButton())
@@ -322,6 +329,7 @@ describe('MaterialsTab の送信内容', () => {
     )
 
     await user.click(editButton())
+    await openAdvancedSection(user)
 
     // 未設定（null）と 0分 を取り違えないよう、値がある場合は文字列として入力欄へ出す。
     expect(
