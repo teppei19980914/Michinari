@@ -104,4 +104,17 @@ describe('WelcomePage からの遷移', () => {
 
     expect(screen.getByLabelText(t('goals.new.quickCreate.work.nameLabel'))).toBeDefined()
   })
+
+  it('does not leak input typed for one category into the form for another', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByText(t('welcome.reading.title')))
+    await user.type(screen.getByLabelText(t('goals.new.quickCreate.reading.titleLabel')), '銀河鉄道の夜')
+    await user.click(screen.getByRole('button', { name: t('common.action.cancel') }))
+
+    await user.click(screen.getByText(t('welcome.work.title')))
+
+    expect(screen.getByLabelText<HTMLInputElement>(t('goals.new.quickCreate.work.nameLabel')).value).toBe('')
+  })
 })

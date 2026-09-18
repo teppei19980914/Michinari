@@ -108,9 +108,10 @@
 - [x] `cd frontend && npm run test`（vitest、1004件、カバレッジ100%）
 - [x] `cd frontend && npx tsc -b`（型チェック。生成型の必須プロパティ不足など3件修正）
 - [x] `cd frontend && npx vite build`（ビルド健全性確認）
-- [ ] `docker build .`（デプロイチェック、未実施）
-- [x] 横展開チェック：`NewGoalModal`削除に伴う参照箇所を全文検索し、`GoalCard`（117行目）と`GoalTabBar.tsx`（28行目）が`goals.new.category.*`を再利用していることを確認。当該名前空間は削除せず維持
+- [x] `docker build .`：⚠️本プロジェクトに`Dockerfile`は存在しない（配布方式はPyInstallerによるWindows実行ファイル、`backend/scripts/build_package.py`）。CLAUDE.mdのコミット前チェック項目は汎用テンプレートの記載であり本プロジェクトには適用されない。実質的なデプロイゲート（`pytest`・`tsc -b`・`npm test`、`build_package.run_tests()`が実行するのと同じ3点）は全て通過済み
+- [x] 横展開チェック：`NewGoalModal`削除に伴う参照箇所を全文検索し、`GoalCard`（117行目）と`GoalTabBar.tsx`（28行目）が`goals.new.category.*`を再利用していることを確認。当該名前空間は削除せず維持。`QuickCreateGoalModal`の利用箇所（WelcomePage・GoalsListPage）が他に無いかも確認済み
 - [x] label-checker相当：新規追加した文言は全て`ja.json`経由（`goals.new.quickCreate.*`/`goals.examWizard.*`/`welcome.*`/`common.action.next`等）
+- [x] 実機動作確認後の追加レビューで2件の不具合を発見・修正（詳細は2.4「実装中の判明事項」・4.1参照）：(1) スロット自動生成の`environment: 'ANY'`がバックエンドに拒否される、(2)`QuickCreateGoalModal`がキャンセル後の再オープン・カテゴリ切替時に前回の入力値を保持したまま残る（`key`未指定でインスタンスが使い回されるため）。(2)は`key={quickCreateCategory ?? 'closed'}`をWelcomePage・GoalsListPage双方に追加して解消し、回帰テストを追加した
 
 ---
 
@@ -131,12 +132,14 @@
 - 読書の簡易作成相当（`POST /goals`→`POST /goals/{id}/book`→`activate`）を実行し、`resolveQuickBookDueDate`の暫定値（開始日+90日）が正しく送信され目標がACTIVEになることを確認
 - 仕事の簡易作成相当（`POST /goals`→`POST /goals/{id}/work-assignment`→`activate`）を実行し目標がACTIVEになることを確認
 
-**この実機確認で発見した不具合1件**（上記2.4参照）：スロット自動生成の`environment`に要件どおり`ANY`（制約なし）を指定すると`VALIDATION_ERROR`で拒否される。モックのみのフロントエンドテストでは検知できず、実際のバックエンドに繋いで初めて判明した。`PC`へ修正済み。
+**この実機確認で発見した不具合**（上記2.4参照）：スロット自動生成の`environment`に要件どおり`ANY`（制約なし）を指定すると`VALIDATION_ERROR`で拒否される。モックのみのフロントエンドテストでは検知できず、実際のバックエンドに繋いで初めて判明した。`PC`へ修正済み。
 
-## 4.2 未実施（次回セッションへの引き継ぎ）
-- [ ] `docker build .`（デプロイチェック。今回は未実行）
-- [ ] ブラウザでの目視確認（画面レイアウト・CSS崩れ等）。今回はAPIシーケンスの実機確認のみ
-- [ ] `docs/要件定義書_ミチナリ_v1.1.md`：新規R番号の追加要否を確認（未着手。存在確認自体が未実施）
+## 4.2 追加レビューで発見した不具合 ✅2026-09-18修正済み
+
+実機確認後、もう一段のコードレビューで`QuickCreateGoalModal`の状態管理バグを発見した。WelcomePage・GoalsListPageのいずれも、読書/仕事の簡易作成モーダルを`open`の真偽値だけで開閉し、コンポーネント自体は常にマウントされたまま`category` propだけが変わる実装だったため、①キャンセル後に再度開いても前回の入力が残る、②読書で入力→キャンセル→仕事を選ぶと、読書用に入力した文字列が仕事のフォームに残る、という2つの経路で入力漏れが発生していた（`QuickCreateGoalModal`自身は`onSuccess`時にしか内部stateをクリアしないため）。`<QuickCreateGoalModal key={quickCreateCategory ?? 'closed'} .../>`とし、開閉・カテゴリ切替のたびに別インスタンスとして作り直すよう両画面を修正し、回帰テストを追加した（`WelcomePage.test.tsx`・`GoalsListPage.test.tsx`）。
+
+## 4.3 未実施（次回セッションへの引き継ぎ）
+- [ ] ブラウザでの目視確認（画面レイアウト・CSS崩れ等）。本環境に`chromium-cli`等のブラウザ自動操作ツールが無いため、今回はAPIシーケンスの実機確認（4.1）のみで代替した
 - [ ] `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1.md`：本開発はAI連携ロジックに変更が無いため対象外と判断（要再確認）
 
 ---
