@@ -704,6 +704,32 @@ describe('DailyReportPage', () => {
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })
 
+  it('shows the reading log fields for a reading goal created after the page was already open', async () => {
+    // 実際に発生した不具合（2026-09-18）の再現。日次報告画面を開いた後に読書目標・書籍を
+    // 新規作成してアプリ内遷移で戻ると、下書きのhydrateは1回きりのため、新しく増えた
+    // 書籍の入力欄が空のまま表示され、そのまま確定できてしまっていた（reading_logsが空の
+    // ままREPORTEDになるデータロス）。useDailyReportDraft.test.tsxはフック単体の分岐を、
+    // 本テストは画面遷移込みの実際の再現手順を固定する。
+    const user = userEvent.setup()
+    setupQueries({ goals: [EXAM_GOAL, WORK_GOAL] })
+    renderPage()
+    await waitForTitle()
+
+    // 別画面（目標詳細・ウィザード等）で読書目標・書籍を新規作成した状況を再現する
+    // （以降のクエリは新しい読書目標を含めて返す）。
+    setupQueries({ goals: [EXAM_GOAL, READING_GOAL, WORK_GOAL] })
+
+    // DailyReportDraftProviderはLayout相当の位置にあるため、アプリ内遷移で戻ってきても
+    // hydratedフラグはリセットされない（クエリだけ最新化される）。
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+    await screen.findByText(DASHBOARD_MARKER)
+    await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    expect(screen.getByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
+  })
+
   it('shows the previous entry as a hint above the free-write field', async () => {
     vi.mocked(recordsApi.getPreviousDiary).mockResolvedValue({
       record_date: '2026-09-12',

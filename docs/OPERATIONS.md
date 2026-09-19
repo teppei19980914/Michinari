@@ -891,7 +891,7 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 | `src/features/record/*Fields.tsx`、`*SummaryList.tsx`、`ChatPanel.tsx`、`CommentSection.tsx`、`GoalTabBar.tsx` | 入力欄・一覧の部品（同上）。ディレクトリ丸ごとではなく列挙するのは、判定を含む `.tsx`（`CategoryReportSection.tsx`）まで黙って計測外になるのを防ぐため |
 | `src/**/*.test.ts`、`src/**/*.test.tsx` | テストコード自体 |
 | `src/test/**` | 描画テストの共通基盤（`renderWithProviders.tsx`・`fixtures.ts`）。テストから常に読み込まれるため放置すると計測対象に入るが、production へ出るコードではない |
-| `src/**/use*.ts` | Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を検証しても実際の使われ方を再現できない |
+| `src/**/use*.ts` | Reactフック。閾値（集計値100%）の対象からは外すが、`@testing-library/react`の`renderHook`で直接テストすること自体は可能（下記参照）。振る舞いの回帰検知は直接テストか、無ければ呼び出し元の描画テストが担う |
 | `src/types/**` | `openapi-typescript` による自動生成 |
 | `src/constants/errorCodes.ts`、`goalCategories.ts` | 値を並べているだけで分岐も関数も持たない。同じ `src/constants/` でも `queryKeys.ts`（キャッシュキー）と `routes.ts`（画面遷移パス）は値を組み立てる関数を持ち、崩れても型検査では表に出ない（どちらも `string`）ため除外しない |
 | `src/api/!(client).ts` | エンドポイント単位のAPIラッパ。分岐を持たず、実通信なしでは意味のある検証にならない。同じ `src/api/` でも `client.ts` は除外しない（下記） |
@@ -906,6 +906,14 @@ npm run test:no-coverage # 計測なしで素早く回したいとき
 **表示しかしない `.tsx` でも、種別によって出す内容を変えるものは計測対象へ含める。** ダッシュボードの表示部品（`GoalCardList`・`StatsSummary`・`TodayMessage`・`TodayQuotaSection`・`WarningBanner`）が該当する。資格試験は計画管理の指標を、読書・仕事は記録の継続を示す指標を出す（要件定義書R-71・R-74）が、取り違えても数字が並ぶだけで画面を見ても気づけない。
 
 一方、入力欄の部品（`src/features/record/*Fields.tsx` 等）は判定を持たず入力ハンドラが並ぶだけのため除外を維持し、振る舞いは画面単位の描画テストが担う。
+
+**`use*.ts`（フック）は計測対象外でも、直接テストできる場合は書く。** 除外理由は当初「フック単体の呼び出しは実際の使われ方を再現できない」としていたが、2026-09-19の監査で誤りと判明した。`@testing-library/react`の`renderHook`を使えば、Providerだけを最小限で包んでフックを直接マウントし、状態遷移・エラー処理・副作用（`useEffect`でのイベント登録等）を個別に検証できる。実際に以下のフックへ`renderHook`ベースの直接テストを追加した。
+- `useDailyReportDraft.ts`・`useWorkReportDraft.ts`：下書きhydrateの不具合修正（本書2026-09-19の記録参照）に伴う回帰テスト
+- `useExamGoalWizard.ts`：`ExamGoalWizardPage.test.tsx`が正常系2ルートしか検証しておらず、`runStep`のcatch節（APIエラー時のトースト表示・`isSubmitting`解除）と`goalId===null`等の早期returnガードが未検証だったため
+- `useUnsavedChangesWarning.ts`：呼び出し元の描画テストは`shouldWarn`を渡していることまでしか見ておらず、`beforeunload`ハンドラの中身とイベントリスナーの登録・解除が未検証だったため
+- `useGoalReportTabs.ts`：着手中(ACTIVE)の目標が0件のエッジケースが未検証だったため
+
+これらの直接テストは**閾値（集計値100%）には反映されない**（`use*.ts`は`exclude`のまま）。したがって「フックへ判定を書くと網羅率の担保が失われる」という902番落の注意点は変わらず有効であり、送信内容を決める判定は引き続き純粋関数の`.ts`側へ置く方針とする。閾値に関係なく検証したい非自明な分岐（エラー処理・ガード条件・副作用の後始末）がフックにある場合にのみ、個別に`renderHook`テストを追加する（薄いラッパー——`useQuery`/`useMutation`をそのまま返すだけ等——には追加しない）。
 
 `src/api/client.ts` と `src/locales/t.ts` は、2026-09-13のカバレッジ監査（Phase 33）で除外理由が実態と異なることが判明したため対象へ戻した。前者は通信失敗の `NETWORK_ERROR` への変換・204の扱い・エラーコードの既定値・未登録コードのフォールバックという分岐を持ち（除外時の実測34.6%）、後者はキー未解決時のフォールバックと `{{var}}` 置換の分岐を持つ。いずれも全画面のエラー表示・文言表示が通る経路である。`src/locales/` を除外一覧から外しても `ja.json` は `include`（`src/**/*.ts`）に一致しないため計測されない。
 
