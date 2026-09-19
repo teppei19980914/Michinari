@@ -55,13 +55,16 @@ export function ChatPanel({
       )}
 
       {contextCategories.length > 0 && (
-        <p className="text-xs text-gray-500">
-          {t('dailyReport.chat.contextCategoriesLabel', {
-            categories: contextCategories
-              .map((category) => t(`dailyReport.chat.contextCategories.${category}`))
-              .join('・'),
-          })}
-        </p>
+        <details className="text-xs text-gray-500">
+          <summary className="cursor-pointer select-none">
+            {t('dailyReport.chat.contextCategoriesSummary')}
+          </summary>
+          <ul className="mt-1 list-disc pl-4">
+            {contextCategories.map((category) => (
+              <li key={category}>{t(`dailyReport.chat.contextCategories.${category}`)}</li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {!readOnly && onSend && (

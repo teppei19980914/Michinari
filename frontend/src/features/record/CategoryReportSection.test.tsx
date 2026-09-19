@@ -3,12 +3,22 @@
  * 従来この出し分けは DailyReportPage 内に3回書かれていた。1箇所へ集約したことで、ここが
  * 壊れると3カテゴリすべてが同時に壊れるため、確定済み/未確定の切り替えと対話の開始→送信の
  * 遷移を直接検証する（vite.config.ts の「押した結果まで含めて守りたいもの」に該当）。 */
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import type { ChatMessageRead } from '../../api/records'
 import { CategoryReportSection, type CategoryReportSectionProps } from './CategoryReportSection'
+
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../../api/ai', () => ({ getAiStatus }))
+
+const navigate = vi.hoisted(() => vi.fn())
+vi.mock('react-router-dom', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('react-router-dom')>()),
+  useNavigate: () => navigate,
+}))
 
 const LABELS = {
   title: t('dailyReport.readingLog.title'),
@@ -30,26 +40,40 @@ const MESSAGE: ChatMessageRead = {
   created_at: '2026-09-13T00:00:00Z',
 }
 
+/** 既定はAI接続済み（現行の大半のテストは既存の対話UIの振る舞いを検証するため）。
+ * 未設定時の案内表示だけを検証するテストは、renderSection呼び出し前に上書きする。 */
+function mockAiConfigured(authenticated = true) {
+  getAiStatus.mockResolvedValue({ authenticated, model_status: {}, login_in_progress: false })
+}
+
 function renderSection(overrides: Partial<CategoryReportSectionProps> = {}) {
   const chat = { isPending: false, wasTruncated: false, contextCategories: [], send: vi.fn() }
   const finalize = { isPending: false, submit: vi.fn() }
+  const queryClient = new QueryClient()
   render(
-    <CategoryReportSection
-      labels={LABELS}
-      isReported={false}
-      summary={<p>{SUMMARY_MARKER}</p>}
-      editor={<p>{EDITOR_MARKER}</p>}
-      messages={[]}
-      chat={chat}
-      finalize={finalize}
-      {...overrides}
-    />,
+    <QueryClientProvider client={queryClient}>
+      <CategoryReportSection
+        labels={LABELS}
+        isReported={false}
+        summary={<p>{SUMMARY_MARKER}</p>}
+        editor={<p>{EDITOR_MARKER}</p>}
+        messages={[]}
+        chat={chat}
+        finalize={finalize}
+        {...overrides}
+      />
+    </QueryClientProvider>,
   )
   return { chat, finalize }
 }
 
+beforeEach(() => {
+  mockAiConfigured()
+})
+
 afterEach(() => {
   cleanup()
+  vi.clearAllMocks()
 })
 
 describe('CategoryReportSection', () => {
@@ -123,7 +147,7 @@ describe('CategoryReportSection', () => {
       expect(screen.getByText(t('dailyReport.chat.truncatedNotice'))).toBeTruthy()
     })
 
-    it('shows what information was sent to the AI on the last exchange', () => {
+    it('shows a collapsed summary of what information was sent to the AI on the last exchange', () => {
       renderSection({
         messages: [MESSAGE],
         chat: {
@@ -134,23 +158,47 @@ describe('CategoryReportSection', () => {
         },
       })
 
-      const goalInfo = t('dailyReport.chat.contextCategories.GOAL_INFO')
-      const todayRecord = t('dailyReport.chat.contextCategories.TODAY_RECORD')
-      expect(
-        screen.getByText(
-          t('dailyReport.chat.contextCategoriesLabel', {
-            categories: `${goalInfo}・${todayRecord}`,
-          }),
-        ),
-      ).toBeTruthy()
+      const summary = screen.getByText(t('dailyReport.chat.contextCategoriesSummary'))
+      // 展開できる（折りたたみ）ことを検証する。プロンプト全文は表示しない前提のため、
+      // 種別の一覧が<details>の中身として存在すること自体を確認すれば十分（仕様書該当追加分）。
+      const details = summary.closest('details')
+      expect(details?.open).toBe(false)
+      expect(screen.getByText(t('dailyReport.chat.contextCategories.GOAL_INFO'))).toBeTruthy()
+      expect(screen.getByText(t('dailyReport.chat.contextCategories.TODAY_RECORD'))).toBeTruthy()
     })
 
     it('shows nothing about the AI context before any exchange happens', () => {
       renderSection({ messages: [] })
 
       expect(
-        screen.queryByText(t('dailyReport.chat.contextCategoriesLabel', { categories: '' })),
+        screen.queryByText(t('dailyReport.chat.contextCategoriesSummary')),
       ).toBe(null)
+    })
+
+    it('always shows that nothing is sent outside this PC, even before the first exchange', () => {
+      renderSection({ messages: [] })
+
+      expect(screen.getByText(t('dailyReport.chat.privacyNotice'))).toBeTruthy()
+    })
+
+    it('shows a guidance notice instead of the chat when AI is not configured', async () => {
+      mockAiConfigured(false)
+      renderSection({ messages: [] })
+
+      expect(
+        await screen.findByText(t('aiUnconfigured.message')),
+      ).toBeTruthy()
+      expect(screen.queryByRole('button', { name: LABELS.chatStartLabel })).toBe(null)
+      expect(screen.queryByText(t('dailyReport.chat.privacyNotice'))).toBe(null)
+    })
+
+    it('still shows the summary and finalize button when AI is not configured (recording keeps working)', async () => {
+      mockAiConfigured(false)
+      renderSection()
+
+      await screen.findByText(t('aiUnconfigured.message'))
+      expect(screen.getByText(EDITOR_MARKER)).toBeTruthy()
+      expect(screen.getByRole('button', { name: LABELS.finalizeLabel })).toBeTruthy()
     })
   })
 
