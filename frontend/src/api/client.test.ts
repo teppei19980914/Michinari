@@ -10,7 +10,7 @@
  * 期待する文言は `t()` から取得する。ロケールを直書きすると文言変更のたびにテストが
  * 落ちるうえ、ゼロハードコーディング（CODING_RULES.md ②）にも反するため。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiClient, apiErrorMessage } from './client'
+import { ApiError, apiClient, apiErrorDetail, apiErrorMessage } from './client'
 import { t } from '../locales/t'
 import { ERROR_REASONS } from '../constants/errorCodes'
 
@@ -119,6 +119,23 @@ describe('apiErrorMessage', () => {
   it('falls back to the default message for anything else', () => {
     expect(apiErrorMessage(new Error('boom'))).toBe(t('errors.default'))
     expect(apiErrorMessage(undefined)).toBe(t('errors.default'))
+  })
+})
+
+describe('apiErrorDetail', () => {
+  it('combines the code and the developer-facing message for an ApiError', () => {
+    expect(apiErrorDetail(new ApiError(REGISTERED_CODE, 'message'))).toBe(
+      `${REGISTERED_CODE}: message`,
+    )
+  })
+
+  it('uses the message for a plain Error', () => {
+    expect(apiErrorDetail(new Error('boom'))).toBe('boom')
+  })
+
+  it('is undefined for anything that is not an Error', () => {
+    expect(apiErrorDetail(undefined)).toBeUndefined()
+    expect(apiErrorDetail('boom')).toBeUndefined()
   })
 })
 

@@ -5,6 +5,8 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
+import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
+import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { downloadBlob } from '../../utils/downloadBlob'
 import { WorkReportForm } from './WorkReportForm'
 import { resolveWorkReportKind } from './workReportKind'
@@ -27,6 +29,7 @@ import { QUERY_KEYS, type WorkReportKind } from '../../constants/queryKeys'
 export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkReportKind }) {
   const queryClient = useQueryClient()
   const { showApiError, showToast } = useToast()
+  const aiConfigured = useAiConfigured()
   const [period, setPeriod] = useState('')
 
   const config = resolveWorkReportKind(kind)
@@ -91,15 +94,21 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
             placeholder={config.periodPlaceholder}
           />
         </label>
-        <div className="flex justify-end gap-2">
-          <Button
-            variant="secondary"
-            disabled={generateMutation.isPending}
-            onClick={() => generateMutation.mutate()}
-          >
-            {report ? t('goals.workReport.regenerateButton') : t('goals.workReport.generateButton')}
-          </Button>
-        </div>
+        {aiConfigured ? (
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              disabled={generateMutation.isPending}
+              onClick={() => generateMutation.mutate()}
+            >
+              {report
+                ? t('goals.workReport.regenerateButton')
+                : t('goals.workReport.generateButton')}
+            </Button>
+          </div>
+        ) : (
+          <AiUnconfiguredNotice />
+        )}
       </Card>
 
       {reportQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}

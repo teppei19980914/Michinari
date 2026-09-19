@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
+import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
 import { ChatPanel } from './ChatPanel'
 import type { ChatMessageRead } from '../../api/records'
 import type { CategoryChat } from './useCategoryChat'
 import type { CategoryFinalize } from './useCategoryFinalize'
+import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { t } from '../../locales/t'
 
 export type CategoryReportLabels = {
@@ -55,6 +57,7 @@ export function CategoryReportSection({
   chat,
   finalize,
 }: CategoryReportSectionProps) {
+  const aiConfigured = useAiConfigured()
   return (
     <>
       {isReported ? (
@@ -78,8 +81,11 @@ export function CategoryReportSection({
         <h2 className="font-medium text-gray-900">{labels.chatTitle}</h2>
         {isReported ? (
           <ChatPanel messages={messages} readOnly />
+        ) : !aiConfigured ? (
+          <AiUnconfiguredNotice />
         ) : (
           <>
+            <p className="text-xs text-gray-400">{t('dailyReport.chat.privacyNotice')}</p>
             {messages.length === 0 && (
               <Button disabled={chat.isPending} onClick={() => chat.send(null)}>
                 {labels.chatStartLabel}

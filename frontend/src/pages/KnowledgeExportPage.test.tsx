@@ -27,6 +27,9 @@ const getRetrospective = vi.hoisted(() => vi.fn())
 const generateRetrospective = vi.hoisted(() => vi.fn())
 vi.mock('../api/closure', () => ({ getRetrospective, generateRetrospective }))
 
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../api/ai', () => ({ getAiStatus }))
+
 const previewKnowledgeExport = vi.hoisted(() => vi.fn())
 const executeKnowledgeExport = vi.hoisted(() => vi.fn())
 const getKnowledgeExportProgress = vi.hoisted(() => vi.fn())
@@ -84,6 +87,7 @@ beforeEach(() => {
     json_path: '/out/a.json',
   })
   getKnowledgeExportProgress.mockResolvedValue({ in_progress: false, completed: 0, total: 0 })
+  getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
 afterEach(() => {
@@ -323,6 +327,17 @@ describe('KnowledgeExportPage の総括レポート', () => {
       await screen.findByRole('heading', { name: t('knowledgeExport.retrospective.readingTitle') }),
     ).toBeTruthy()
     expect(screen.getByText(t('knowledgeExport.retrospective.readingEmpty'))).toBeTruthy()
+  })
+
+  it('shows a guidance notice instead of the generate button when AI is not configured', async () => {
+    getAiStatus.mockResolvedValue({ authenticated: false, model_status: {}, login_in_progress: false })
+    await renderPage()
+    await screen.findByText(RETROSPECTIVE_BODY)
+
+    expect(await screen.findByText(t('aiUnconfigured.message'))).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: t('knowledgeExport.retrospective.regenerateButton') }),
+    ).toBe(null)
   })
 
   it('generates the retrospective with the current anonymisation flag', async () => {
