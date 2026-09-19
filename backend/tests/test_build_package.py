@@ -261,7 +261,11 @@ def test_cleanup_stale_previous_packages_removes_only_prefixed_folders(
 def test_cleanup_stale_previous_packages_warns_and_continues_when_removal_fails(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """1件の削除に失敗しても他の対象の削除を継続し、ビルドは中断しない。"""
+    """1件の削除に再試行しても失敗した場合、他の対象の削除は継続し、ビルドは中断しない。
+
+    `discard_previous_package`と同じ回数だけ再試行すること自体もここで検証する
+    （2026-09-19、再試行が無く1回失敗しただけで諦めていた不具合の修正）。
+    """
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
     locked = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260912_090000"
@@ -270,13 +274,18 @@ def test_cleanup_stale_previous_packages_warns_and_continues_when_removal_fails(
     removable.mkdir()
 
     real_rmtree = build_package.shutil.rmtree
+    locked_call_count = 0
 
     def selective_fail_rmtree(path: Path) -> None:
+        nonlocal locked_call_count
         if path == locked:
+            locked_call_count += 1
             raise PermissionError("アクセスが拒否されました")
         real_rmtree(path)
 
     monkeypatch.setattr(build_package.shutil, "rmtree", selective_fail_rmtree)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
 
     removed = cleanup_stale_previous_packages(dist_dir)
 
@@ -284,6 +293,41 @@ def test_cleanup_stale_previous_packages_warns_and_continues_when_removal_fails(
     assert locked.exists()
     assert not removable.exists()
     assert "残存する旧パッケージを削除できませんでした" in capsys.readouterr().out
+    assert locked_call_count == build_package.RMTREE_RETRY_ATTEMPTS
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * (
+        build_package.RMTREE_RETRY_ATTEMPTS - 1
+    )
+
+
+def test_cleanup_stale_previous_packages_succeeds_after_transient_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OneDriveロックのような一時的な失敗の後に削除が成功すれば残骸を残さない。"""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    flaky = dist_dir / f"{PREVIOUS_PACKAGE_PREFIX}Michinari_20260913_180000"
+    flaky.mkdir()
+
+    real_rmtree = build_package.shutil.rmtree
+    call_count = 0
+
+    def flaky_rmtree(path: Path) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise PermissionError("アクセスが拒否されました")
+        real_rmtree(path)
+
+    monkeypatch.setattr(build_package.shutil, "rmtree", flaky_rmtree)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    removed = cleanup_stale_previous_packages(dist_dir)
+
+    assert removed == [flaky]
+    assert call_count == 3
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
+    assert not flaky.exists()
 
 
 def test_create_distribution_zip_contains_top_level_app_folder(tmp_path: Path) -> None:
