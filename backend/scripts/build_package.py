@@ -144,6 +144,27 @@ def archive_previous_distributions(dist_dir: Path, archive_dir: Path) -> list[Pa
     return moved
 
 
+def _rmtree_with_retry(
+    path: Path, *, retry_attempts: int, retry_delay_seconds: float
+) -> OSError | None:
+    """`path`を`retry_attempts`回まで`retry_delay_seconds`秒間隔で再帰削除する
+    （`discard_previous_package`・`cleanup_stale_previous_packages`共通処理。
+    CLAUDE.md DRYの原則）。
+
+    戻り値: 削除できた場合は`None`、全て失敗した場合は最後の`OSError`。
+    """
+    last_error: OSError | None = None
+    for attempt in range(1, retry_attempts + 1):
+        try:
+            shutil.rmtree(path)
+            return None
+        except OSError as error:
+            last_error = error
+            if attempt < retry_attempts:
+                time.sleep(retry_delay_seconds)
+    return last_error
+
+
 def discard_previous_package(
     output_dir: Path,
     *,
@@ -176,15 +197,11 @@ def discard_previous_package(
     timestamp = (now or dt.datetime.now()).strftime("%Y%m%d_%H%M%S")
     staging_dir = output_dir.parent / f"{PREVIOUS_PACKAGE_PREFIX}{output_dir.name}_{timestamp}"
     shutil.move(str(output_dir), str(staging_dir))
-    last_error: OSError | None = None
-    for attempt in range(1, retry_attempts + 1):
-        try:
-            shutil.rmtree(staging_dir)
-            return None
-        except OSError as error:
-            last_error = error
-            if attempt < retry_attempts:
-                time.sleep(retry_delay_seconds)
+    last_error = _rmtree_with_retry(
+        staging_dir, retry_attempts=retry_attempts, retry_delay_seconds=retry_delay_seconds
+    )
+    if last_error is None:
+        return None
     print(f"  → 警告: 旧パッケージを削除できませんでした: {staging_dir} ({last_error})")
     print("     ビルドは継続します。不要であれば手動で削除してください。")
     return staging_dir
@@ -225,16 +242,11 @@ def cleanup_stale_previous_packages(
     )
     removed: list[Path] = []
     for stale_dir in stale_dirs:
-        last_error: OSError | None = None
-        for attempt in range(1, retry_attempts + 1):
-            try:
-                shutil.rmtree(stale_dir)
-                removed.append(stale_dir)
-                break
-            except OSError as error:
-                last_error = error
-                if attempt < retry_attempts:
-                    time.sleep(retry_delay_seconds)
+        last_error = _rmtree_with_retry(
+            stale_dir, retry_attempts=retry_attempts, retry_delay_seconds=retry_delay_seconds
+        )
+        if last_error is None:
+            removed.append(stale_dir)
         else:
             print(
                 f"  → 警告: 残存する旧パッケージを削除できませんでした: {stale_dir} ({last_error})"
