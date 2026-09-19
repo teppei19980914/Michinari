@@ -22,6 +22,9 @@ export type CategoryChat = {
   isPending: boolean
   /** プロンプトが長すぎて一部が省略されたか（仕様書6.5「truncatedNotice」）。 */
   wasTruncated: boolean
+  /** 直近の送信でAIへ渡した情報の種別（2026-09-19、非エンジニア向け「AIが参照した情報」表示）。
+   * 用途（AiPurpose）固定のためgoalIdやpurposeに依らず送信のたびに置き換わる。未送信のうちは空。 */
+  contextCategories: string[]
   send: (message: string | null) => void
 }
 
@@ -43,6 +46,7 @@ export function useCategoryChat({
   onError,
 }: CategoryChatOptions): CategoryChat {
   const [wasTruncated, setWasTruncated] = useState(false)
+  const [contextCategories, setContextCategories] = useState<string[]>([])
 
   const mutation = useMutation({
     mutationFn: sendRequest,
@@ -56,9 +60,10 @@ export function useCategoryChat({
         }),
       )
       setWasTruncated(response.was_truncated)
+      setContextCategories(response.context_categories)
     },
     onError,
   })
 
-  return { isPending: mutation.isPending, wasTruncated, send: mutation.mutate }
+  return { isPending: mutation.isPending, wasTruncated, contextCategories, send: mutation.mutate }
 }

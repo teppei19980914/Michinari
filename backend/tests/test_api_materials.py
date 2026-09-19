@@ -159,7 +159,11 @@ def test_delete_material_with_study_logs_is_rejected(client, seeded_session):
 
     response = client.delete(f"/api/v1/materials/{material['id']}")
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    # コード自体は増やさず、原因（実績が紐づくため削除不可）をdetailsで画面へ伝える
+    # （2026-09-19、非エンジニア向けエラー表示改善）。
+    assert body["error"]["details"] == [{"reason": "MATERIAL_HAS_LOGS"}]
 
 
 def test_deactivate_material(client):

@@ -10,6 +10,9 @@ type ChatPanelProps = {
   messages: ChatMessageRead[]
   /** 直近のAI呼び出しで縮退が発生したか（仕様書6.5「縮退の発生が対話領域に通知される」）。 */
   wasTruncated?: boolean
+  /** 直近のAI呼び出しでAIへ渡した情報の種別（2026-09-19、非エンジニア向け「AIが参照した
+   * 情報」表示）。プロンプト全文は表示せず、種別のみをロケール文言へ変換して一覧表示する。 */
+  contextCategories?: string[]
   readOnly?: boolean
   onSend?: (message: string) => void
   isSending?: boolean
@@ -19,6 +22,7 @@ type ChatPanelProps = {
 export function ChatPanel({
   messages,
   wasTruncated = false,
+  contextCategories = [],
   readOnly = false,
   onSend,
   isSending = false,
@@ -48,6 +52,16 @@ export function ChatPanel({
 
       {wasTruncated && (
         <p className="text-xs text-amber-700">{t('dailyReport.chat.truncatedNotice')}</p>
+      )}
+
+      {contextCategories.length > 0 && (
+        <p className="text-xs text-gray-500">
+          {t('dailyReport.chat.contextCategoriesLabel', {
+            categories: contextCategories
+              .map((category) => t(`dailyReport.chat.contextCategories.${category}`))
+              .join('・'),
+          })}
+        </p>
       )}
 
       {!readOnly && onSend && (

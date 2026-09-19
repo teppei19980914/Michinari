@@ -11,7 +11,7 @@
  * カバレッジの扱いは他の画面テストと同じ（vite.config.ts の coverage.exclude で
  * `src/pages/**\/*.tsx` を除外し、振る舞いはこのテストが守る）。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../locales/t'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -74,10 +74,16 @@ const evaluationInput = () => screen.getByLabelText(t('goalResult.evaluationLabe
 const noteInput = () => screen.getByLabelText(t('goalResult.noteLabel'))
 
 /** 日付欄は `userEvent.type` だと既存値へ追記されて書式が崩れるため、change を直接起こす。 */
+/** date input はuserEvent.typeでの入力を安定して再現できないため、ネイティブのsetterで
+ * 値を書き換えてinputイベントを発火する（既存の実装方針）。onChangeハンドラのstate更新を
+ * actでラップしないと、テスト本体の外でReactの更新が起きたとみなされ
+ * 「not wrapped in act(...)」警告が出る（2026-09-19確認）。 */
 function setDate(input: HTMLInputElement, value: string) {
-  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-  setter?.call(input, value)
-  input.dispatchEvent(new Event('input', { bubbles: true }))
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+    setter?.call(input, value)
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
 }
 
 function renderPage() {

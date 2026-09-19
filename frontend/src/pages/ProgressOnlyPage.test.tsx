@@ -123,6 +123,13 @@ function setupQueries(options: { record?: DailyRecordRead; goals?: GoalRead[] } 
     logical_date: LOGICAL_DATE,
     record_state: null,
   })
+  // 「前回はこう書いていました」ヒント用の取得（usePreviousEntryQueries）。読書・仕事の
+  // 入力欄（ReadingLogFields/WorkLogFields）が無条件に呼ぶため、既定値を与えないと
+  // vi.mock('../api/records')のautomockがundefinedを返し、Reactクエリが
+  // 「Query data cannot be undefined」警告を出す（DailyReportPage.test.tsxと同じ対応、
+  // CODING_RULES.md①DRYの原則に沿って同じ既定値nullを揃える）。
+  vi.mocked(recordsApi.getPreviousReadingLog).mockResolvedValue(null)
+  vi.mocked(recordsApi.getPreviousWorkLog).mockResolvedValue(null)
   vi.mocked(resourcesApi.listSlots).mockResolvedValue([SLOT])
   vi.mocked(goalsApi.listGoals).mockResolvedValue(goals)
   vi.mocked(goalsApi.listActiveReadingBooks).mockResolvedValue(
