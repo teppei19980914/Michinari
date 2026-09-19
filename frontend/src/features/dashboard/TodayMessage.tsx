@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { getDailyMessage } from '../../api/records'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
+import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type TodayMessageProps = {
@@ -21,9 +23,13 @@ export function TodayMessage({ goalId }: TodayMessageProps) {
     queryKey: QUERY_KEYS.dailyMessage(),
     queryFn: getDailyMessage,
   })
+  const aiConfigured = useAiConfigured()
 
   if (isError) {
-    return null
+    // AI未設定はエラーではなく案内として扱う（非エンジニア向けエラー表示改善、完了条件D）。
+    // それ以外の失敗（AI基盤側のエラー等）は、この一言ウィジェットの重要度が低いため
+    // 従来どおり静かに何も表示しない。
+    return aiConfigured ? null : <AiUnconfiguredNotice />
   }
 
   const messages = data?.filter((message) => message.goal_id === goalId) ?? []

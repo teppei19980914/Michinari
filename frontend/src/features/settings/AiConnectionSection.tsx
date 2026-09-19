@@ -10,6 +10,7 @@ import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { resolveReauthOutcome } from './aiReauthOutcome'
 import { AiAssistantFields } from './AiAssistantFields'
 import { AiAuthStatusCard } from './AiAuthStatusCard'
+import { AiConnectionGuide } from './AiConnectionGuide'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** AI接続設定（仕様書6.11）。
@@ -56,6 +57,8 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
   return (
     <Card className="flex flex-col gap-3">
       <h2 className="font-medium text-gray-900">{t('settings.aiConnection.title')}</h2>
+
+      <AiConnectionGuide host={form.host} />
 
       <AiAuthStatusCard
         status={statusQuery.data}

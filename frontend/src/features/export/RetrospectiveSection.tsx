@@ -7,6 +7,8 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
+import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
+import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { generateRetrospective, getRetrospective } from '../../api/closure'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
@@ -21,6 +23,7 @@ export function RetrospectiveSection({
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
+  const aiConfigured = useAiConfigured()
   const retrospectiveQuery = useQuery({
     queryKey: QUERY_KEYS.retrospectiveView(goalId, anonymize),
     queryFn: () => getRetrospective(goalId, anonymize),
@@ -54,17 +57,21 @@ export function RetrospectiveSection({
           )}
         </p>
       )}
-      <div>
-        <Button
-          variant="secondary"
-          disabled={mutation.isPending}
-          onClick={() => mutation.mutate()}
-        >
-          {body
-            ? t('knowledgeExport.retrospective.regenerateButton')
-            : t('knowledgeExport.retrospective.generateButton')}
-        </Button>
-      </div>
+      {aiConfigured ? (
+        <div>
+          <Button
+            variant="secondary"
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
+            {body
+              ? t('knowledgeExport.retrospective.regenerateButton')
+              : t('knowledgeExport.retrospective.generateButton')}
+          </Button>
+        </div>
+      ) : (
+        <AiUnconfiguredNotice />
+      )}
     </Card>
   )
 }

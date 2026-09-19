@@ -9,6 +9,7 @@
   },
   "common": {
     "loading": "読み込み中…",
+    "errorDetailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）",
     "unit": {
       "minutes": "分",
       "days": "日",
@@ -54,6 +55,15 @@
     },
     "later": "あとで",
     "reopenLink": "ウェルカム画面をもう一度見る"
+  },
+  "errorBoundary": {
+    "message": "予期しないエラーが発生しました。画面を再読み込みしてください",
+    "detailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）"
+  },
+  "aiUnconfigured": {
+    "message": "この機能を使うには、AIの接続設定が必要です",
+    "recordingStillWorks": "設定しなくても、記録や閲覧はそのまま使えます",
+    "settingsButton": "設定画面へ"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -476,13 +486,25 @@
         "title": "認証状態",
         "authenticated": "認証済み",
         "notAuthenticated": "未認証",
-        "reauth": "再認証する",
-        "reauthSucceeded": "認証に成功しました",
-        "reauthFailed": "認証に失敗しました。ホスト・PATを確認してください",
+        "reauth": "接続を確認する",
+        "reauthSucceeded": "接続できました",
+        "reauthFailed": "接続できませんでした。接続先URLとアクセストークンを確認してください",
         "patLabel": "Personal Access Token",
-        "loginInProgress": "認証処理中です…"
+        "loginInProgress": "確認しています…"
       },
-      "modelStatusTitle": "稼働状況"
+      "modelStatusTitle": "稼働状況",
+      "guide": {
+        "step1Title": "① NewtonX のWeb版を開く",
+        "step1LinkLabel": "NewtonX のWeb版を開く",
+        "step1HostMissing": "下の「接続先URL」を入力すると、ここにリンクが表示されます",
+        "step2Title": "② アクセストークンを発行する",
+        "step2Description": "NewtonX のWeb版にサインインし、画面右上のアカウントメニューから「アクセストークン」の発行画面を開いて、新しいトークンを発行してください。",
+        "step2ScreenshotAlt": "アクセストークン発行画面の例",
+        "step3Title": "③ 発行されたトークンを下に貼り付ける",
+        "step4Title": "④ 接続を確認する",
+        "whatIsPatTitle": "アクセストークンとは",
+        "whatIsPatDescription": "あなたの代わりにアプリがAIへ接続するための合言葉です。他の人に教えないでください"
+      }
     },
     "threshold": {
       "title": "閾値",
@@ -779,13 +801,14 @@
       "inputPlaceholder": "AIへのメッセージを入力",
       "sendButton": "送信",
       "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました",
-      "contextCategoriesLabel": "AIが参照した情報：{{categories}}",
+      "contextCategoriesSummary": "AIが参照した情報",
       "contextCategories": {
         "GOAL_INFO": "目標情報",
         "TODAY_RECORD": "本日の記録",
         "WEEKLY_SUMMARY": "週次要約",
         "MATERIAL_PROGRESS": "教材の進捗"
-      }
+      },
+      "privacyNotice": "送信されるのはこのPCの中の記録だけです。外部に保存されることはありません"
     },
     "readingLog": {
       "title": "想起の記録",
@@ -1114,31 +1137,31 @@
     }
   },
   "errors": {
-    "VALIDATION_ERROR": "入力内容に誤りがあります",
-    "EXAM_SUBJECT_REQUIRED": "「試験科目」タブで科目を1件以上登録してください",
-    "MATERIAL_REQUIRED": "「教材」タブで教材を1件以上登録してください",
-    "RESOURCE_ALLOCATION_REQUIRED": "「リソース配分」タブで配分する時間を設定してください",
-    "RESOURCE_EXCEEDED": "時間枠に配分した時間の合計が、その時間枠の確保時間を超えています",
-    "CYCLE_CONFLICT": "周回数の設定に矛盾があります",
-    "BOOK_ALREADY_EXISTS": "この目標には既に書籍が登録されています",
-    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "現在ページは書籍の総ページ数以下で入力してください",
-    "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標には既に案件情報が登録されています",
-    "BACKDATE_LIMIT_EXCEEDED": "遡って入力できる期間を超えています",
-    "INVALID_STATE_TRANSITION": "現在の状態では実行できません",
-    "CLOSE_CONFIRMATION_REQUIRED": "クローズするには確認が必要です",
-    "IMMUTABLE_RECORD": "確定済みの記録は変更できません",
-    "NOT_FOUND": "対象が見つかりません",
-    "AI_AUTH_REQUIRED": "AI連携の認証が必要です",
-    "AI_CONFIG_ERROR": "AI連携の設定に誤りがあります",
-    "AI_TIMEOUT": "AI連携がタイムアウトしました",
-    "AI_ERROR": "AI連携でエラーが発生しました",
-    "INTERNAL_ERROR": "サーバ内部でエラーが発生しました",
-    "NETWORK_ERROR": "サーバへ接続できませんでした",
-    "default": "エラーが発生しました",
+    "VALIDATION_ERROR": "入力内容に誤りがあります。エラーが表示されている項目を確認し、入力し直してください",
+    "EXAM_SUBJECT_REQUIRED": "この目標を始めるには試験科目の登録が必要です。「試験科目」タブで1件以上登録してください",
+    "MATERIAL_REQUIRED": "この目標を始めるには教材の登録が必要です。「教材」タブで1件以上登録してください",
+    "RESOURCE_ALLOCATION_REQUIRED": "この目標を始めるには学習時間の割り当てが必要です。「リソース配分」タブで時間を設定してください",
+    "RESOURCE_EXCEEDED": "選んだ時間帯に、確保されている時間より多くの予定を入れています。配分する時間を減らすか、他の時間帯に移してください",
+    "CYCLE_CONFLICT": "予定の周回数を、すでに終えた周回数より少なくすることはできません。周回数を見直してください",
+    "BOOK_ALREADY_EXISTS": "この目標にはすでに書籍が登録されています。登録できる書籍は1冊までです",
+    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "現在のページ数が本の総ページ数を超えています。総ページ数以下の値を入力してください",
+    "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標にはすでに案件情報が登録されています。登録できる案件は1件までです",
+    "BACKDATE_LIMIT_EXCEEDED": "その日までさかのぼって記録することはできません。記録できる期間内の日付を選んでください",
+    "INVALID_STATE_TRANSITION": "今の状態ではこの操作はできません。画面を再読み込みしてから、もう一度お試しください",
+    "CLOSE_CONFIRMATION_REQUIRED": "受験結果がまだ登録されていません。内容を確認し、問題なければもう一度実行してください",
+    "IMMUTABLE_RECORD": "確定済みの記録は変更できません。確定前の内容に戻す機能はありません",
+    "NOT_FOUND": "対象のデータが見つかりませんでした。画面を再読み込みしてから、もう一度お試しください",
+    "AI_AUTH_REQUIRED": "AIとの接続が切れています。設定画面で接続を確認してください",
+    "AI_CONFIG_ERROR": "AIの接続設定が正しくありません。設定画面を確認してください",
+    "AI_TIMEOUT": "AIからの返事が時間内に届きませんでした。もう一度送ってみてください",
+    "AI_ERROR": "AIとの通信でエラーが起きました。少し待ってからもう一度お試しください",
+    "INTERNAL_ERROR": "アプリ内部で予期しないエラーが起きました。しばらく待ってから、もう一度お試しください",
+    "NETWORK_ERROR": "アプリ本体との通信ができませんでした。アプリを再起動してみてください",
+    "default": "エラーが発生しました。しばらく待ってから、もう一度お試しください",
     "reasons": {
-      "MATERIAL_HAS_LOGS": "実績が記録されている教材があるため削除できません",
-      "BOOK_HAS_LOGS": "想起記録が残っている書籍があるため削除できません",
-      "WORK_ASSIGNMENT_HAS_LOGS": "業務記録が残っている案件情報があるため削除できません"
+      "MATERIAL_HAS_LOGS": "この教材には実績が記録されているため削除できません。先に実績を削除するか、教材を編集してご利用ください",
+      "BOOK_HAS_LOGS": "この書籍には想起記録が残っているため削除できません。先に想起記録を削除するか、書籍情報を編集してご利用ください",
+      "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください"
     }
   }
 }

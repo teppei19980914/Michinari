@@ -30,6 +30,9 @@ vi.mock('../../api/closure', () => ({
 const downloadBlob = vi.hoisted(() => vi.fn())
 vi.mock('../../utils/downloadBlob', () => ({ downloadBlob }))
 
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../../api/ai', () => ({ getAiStatus }))
+
 const saveButton = () => screen.getByRole('button', { name: t('common.action.save') })
 const downloadButton = () =>
   screen.getByRole('button', { name: t('goals.workReport.downloadButton') })
@@ -53,6 +56,7 @@ beforeEach(() => {
   updateSemiannualReview.mockResolvedValue(
     makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1' }),
   )
+  getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
 afterEach(() => {
@@ -116,6 +120,16 @@ describe('WorkReportTab の表示', () => {
     renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
 
     await waitFor(() => expect(regenerateButton()).toBeDefined())
+  })
+
+  it('shows a guidance notice instead of the generate button when AI is not configured', async () => {
+    getAiStatus.mockResolvedValue({ authenticated: false, model_status: {}, login_in_progress: false })
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
+
+    expect(await screen.findByText(t('aiUnconfigured.message'))).toBeDefined()
+    expect(screen.queryByRole('button', { name: t('goals.workReport.regenerateButton') })).toBe(
+      null,
+    )
   })
 
   it('fills the form from the stored report', async () => {

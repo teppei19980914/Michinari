@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Outlet, Route, createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom'
 import { ROUTE_PATTERNS } from './constants/routes'
 import { ToastProvider } from './components/Toast'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalNav } from './components/GlobalNav'
 import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
@@ -65,10 +66,12 @@ const router = createBrowserRouter(
 
 export function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
