@@ -393,6 +393,7 @@ describe('DailyReportPage', () => {
           created_at: '2026-09-13T00:00:00Z',
         },
         was_truncated: false,
+        context_categories: [],
       })
       renderPage()
       await waitForTitle()
@@ -443,6 +444,7 @@ describe('DailyReportPage', () => {
         created_at: '2026-09-13T00:00:00Z',
       },
       was_truncated: true,
+      context_categories: [],
     })
     renderPage()
     await waitForTitle()

@@ -778,7 +778,14 @@
       "startButton": "実績・日記を送信してAIフィードバックを受け取る",
       "inputPlaceholder": "AIへのメッセージを入力",
       "sendButton": "送信",
-      "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました"
+      "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました",
+      "contextCategoriesLabel": "AIが参照した情報：{{categories}}",
+      "contextCategories": {
+        "GOAL_INFO": "目標情報",
+        "TODAY_RECORD": "本日の記録",
+        "WEEKLY_SUMMARY": "週次要約",
+        "MATERIAL_PROGRESS": "教材の進捗"
+      }
     },
     "readingLog": {
       "title": "想起の記録",
@@ -1127,6 +1134,11 @@
     "AI_ERROR": "AI連携でエラーが発生しました",
     "INTERNAL_ERROR": "サーバ内部でエラーが発生しました",
     "NETWORK_ERROR": "サーバへ接続できませんでした",
-    "default": "エラーが発生しました"
+    "default": "エラーが発生しました",
+    "reasons": {
+      "MATERIAL_HAS_LOGS": "実績が記録されている教材があるため削除できません",
+      "BOOK_HAS_LOGS": "想起記録が残っている書籍があるため削除できません",
+      "WORK_ASSIGNMENT_HAS_LOGS": "業務記録が残っている案件情報があるため削除できません"
+    }
   }
 }

@@ -12,11 +12,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, apiClient, apiErrorMessage } from './client'
 import { t } from '../locales/t'
+import { ERROR_REASONS } from '../constants/errorCodes'
 
 /** バックエンドが実際に返すエラーコードのひとつ（`backend/app/api/errors.py`）。 */
 const REGISTERED_CODE = 'VALIDATION_ERROR'
 /** ロケールに登録のないコード。既定文言へフォールバックする経路の確認に使う。 */
 const UNREGISTERED_CODE = 'SOMETHING_UNKNOWN'
+/** ロケールに登録のないreason。reasonの既定文言フォールバック（コードの文言）の確認に使う。 */
+const UNREGISTERED_REASON = 'SOMETHING_UNKNOWN_REASON'
 const PATH = '/goals'
 const EXPECTED_URL = '/api/v1/goals'
 
@@ -74,6 +77,35 @@ describe('ApiError', () => {
     const error = new ApiError(UNREGISTERED_CODE, 'サーバ側の文言')
 
     expect(error.localizedMessage).toBe(t('errors.default'))
+  })
+
+  it('prefers the reason message over the code message when details contain a reason', () => {
+    const error = new ApiError(REGISTERED_CODE, 'サーバ側の文言', [
+      { reason: ERROR_REASONS.MATERIAL_HAS_LOGS },
+    ])
+
+    expect(error.localizedMessage).toBe(t(`errors.reasons.${ERROR_REASONS.MATERIAL_HAS_LOGS}`))
+    expect(error.localizedMessage).not.toBe(t(`errors.${REGISTERED_CODE}`))
+  })
+
+  it('falls back to the code message when the reason has no registered message', () => {
+    const error = new ApiError(REGISTERED_CODE, 'サーバ側の文言', [
+      { reason: UNREGISTERED_REASON },
+    ])
+
+    expect(error.localizedMessage).toBe(t(`errors.${REGISTERED_CODE}`))
+  })
+
+  it('ignores details entries without a reason field', () => {
+    const error = new ApiError(REGISTERED_CODE, 'サーバ側の文言', [{ loc: ['name'] }])
+
+    expect(error.localizedMessage).toBe(t(`errors.${REGISTERED_CODE}`))
+  })
+
+  it('ignores a reason field that is not a string', () => {
+    const error = new ApiError(REGISTERED_CODE, 'サーバ側の文言', [{ reason: 123 }])
+
+    expect(error.localizedMessage).toBe(t(`errors.${REGISTERED_CODE}`))
   })
 })
 

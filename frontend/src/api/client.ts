@@ -8,6 +8,22 @@ import { t } from '../locales/t'
 
 const BASE_URL = '/api/v1'
 
+/** `details`から`{"reason": "..."}`形式のreasonを1件取り出す（削除不可エラー3種のみが持つ、
+ * app/api/errors.py handle_domain_error・app/services/exceptions.pyのreasonクラス属性）。
+ * detailsは他の形（バリデーションエラーの`{"loc", "msg"}`等）も許容する汎用構造のため、
+ * reasonを持たない要素は無視する。 */
+function findReason(details: unknown[]): string | null {
+  for (const detail of details) {
+    if (typeof detail === 'object' && detail !== null && 'reason' in detail) {
+      const reason = (detail as { reason: unknown }).reason
+      if (typeof reason === 'string') {
+        return reason
+      }
+    }
+  }
+  return null
+}
+
 export class ApiError extends Error {
   readonly code: string
   readonly details: unknown[]
@@ -18,8 +34,22 @@ export class ApiError extends Error {
     this.details = details
   }
 
-  /** エラーコードに対応するロケール文言（未登録コードは既定文言）。 */
+  /** エラーコードに対応するロケール文言（未登録コードは既定文言）。
+   *
+   * `details`にreasonがあり、かつそのreasonに対応する文言（`errors.reasons.*`）が
+   * 登録されている場合は、コード自体の汎用文言（例: VALIDATION_ERROR＝「入力内容に
+   * 誤りがあります」）より優先する。削除不可エラー3種のように、コードは増やさず
+   * detailsで原因を伝える設計（2026-09-19、非エンジニア向けエラー表示改善）のため、
+   * reasonが無い・対応する文言も無い場合は従来どおりコードの文言へフォールバックする。 */
   get localizedMessage(): string {
+    const reason = findReason(this.details)
+    if (reason !== null) {
+      const reasonKey = `errors.reasons.${reason}`
+      const reasonMessage = t(reasonKey)
+      if (reasonMessage !== reasonKey) {
+        return reasonMessage
+      }
+    }
     const key = `errors.${this.code}`
     const localized = t(key)
     return localized === key ? t('errors.default') : localized
