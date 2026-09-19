@@ -70,6 +70,87 @@ describe('ToastProvider', () => {
 
     expect(screen.getByText(t('errors.default'))).toBeTruthy()
   })
+
+  it('dismisses immediately when the close button is clicked', () => {
+    const toast = renderWithProvider()
+    act(() => toast.showToast('保存しました'))
+
+    act(() => screen.getByRole('button', { name: t('common.action.close') }).click())
+
+    expect(screen.queryByText('保存しました')).toBeNull()
+  })
+
+  it('shows a foldable technical detail for an API error, for reporting purposes', () => {
+    const toast = renderWithProvider()
+
+    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象(id=1)がありません')))
+
+    expect(screen.getByText(t('common.errorDetailsSummary'))).toBeTruthy()
+    expect(screen.getByText('NOT_FOUND: 対象(id=1)がありません')).toBeTruthy()
+  })
+
+  it('does not show a foldable detail for a plain showToast call', () => {
+    const toast = renderWithProvider()
+
+    act(() => toast.showToast('保存しました'))
+
+    expect(screen.queryByText(t('common.errorDetailsSummary'))).toBeNull()
+  })
+
+  it('does nothing extra when the technical detail is toggled closed', () => {
+    vi.useFakeTimers()
+    const toast = renderWithProvider()
+    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
+
+    const details = screen.getByText(t('common.errorDetailsSummary')).closest('details')
+    if (!details) {
+      throw new Error('details要素が見つかりません')
+    }
+    // 開かずに（openのまま変化させず）toggleイベントだけ発生した場合は自動消滅を止めない。
+    act(() => {
+      details.open = false
+      details.dispatchEvent(new Event('toggle'))
+    })
+    act(() => vi.advanceTimersByTime(4000))
+
+    expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
+  })
+
+  it('still dismisses via the close button after the auto-dismiss was already cancelled', () => {
+    const toast = renderWithProvider()
+    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
+
+    const details = screen.getByText(t('common.errorDetailsSummary')).closest('details')
+    if (!details) {
+      throw new Error('details要素が見つかりません')
+    }
+    act(() => {
+      details.open = true
+      details.dispatchEvent(new Event('toggle'))
+    })
+    act(() => screen.getByRole('button', { name: t('common.action.close') }).click())
+
+    expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
+  })
+
+  it('stops the auto-dismiss once the technical detail is opened', () => {
+    vi.useFakeTimers()
+    const toast = renderWithProvider()
+    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
+
+    const details = screen.getByText(t('common.errorDetailsSummary')).closest('details')
+    if (!details) {
+      throw new Error('details要素が見つかりません')
+    }
+    act(() => {
+      details.open = true
+      details.dispatchEvent(new Event('toggle'))
+    })
+
+    act(() => vi.advanceTimersByTime(4000))
+
+    expect(screen.getByText(t('errors.NOT_FOUND'))).toBeTruthy()
+  })
 })
 
 describe('useToast', () => {

@@ -14,6 +14,9 @@ import { TodayMessage } from './TodayMessage'
 const getDailyMessage = vi.hoisted(() => vi.fn())
 vi.mock('../../api/records', () => ({ getDailyMessage }))
 
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../../api/ai', () => ({ getAiStatus }))
+
 const OTHER_GOAL_ID = GOAL_ID + 1
 
 function message(goalId: number | null, body: string) {
@@ -29,6 +32,7 @@ function message(goalId: number | null, body: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   getDailyMessage.mockResolvedValue([message(GOAL_ID, '今日もいい調子です')])
+  getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
 afterEach(() => {
@@ -63,12 +67,21 @@ describe('TodayMessage', () => {
     await waitFor(() => expect(container.textContent).toBe(''))
   })
 
-  it('renders nothing when fetching fails, instead of an error', async () => {
-    // 一言は補助的な表示であり、取得できないことを利用者へ伝える価値がない。
+  it('renders nothing when fetching fails for a reason other than AI being unconfigured', async () => {
+    // 一言は補助的な表示であり、取得できないことを利用者へ伝える価値がない
+    // （AI未設定の場合は下のテストの通り案内を出す。それ以外の失敗は静かに何も出さない）。
     getDailyMessage.mockRejectedValue(new Error('boom'))
     const { container } = renderWithProviders(<TodayMessage goalId={GOAL_ID} />)
 
     await waitFor(() => expect(container.textContent).toBe(''))
+  })
+
+  it('shows a guidance notice instead of an error when AI is not configured', async () => {
+    getDailyMessage.mockRejectedValue(new Error('boom'))
+    getAiStatus.mockResolvedValue({ authenticated: false, model_status: {}, login_in_progress: false })
+    renderWithProviders(<TodayMessage goalId={GOAL_ID} />)
+
+    expect(await screen.findByText(t('aiUnconfigured.message'))).toBeDefined()
   })
 
   it('shows the goal independent message when no goal is selected', async () => {

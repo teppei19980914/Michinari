@@ -62,6 +62,19 @@ export function apiErrorMessage(error: unknown): string {
   return error instanceof ApiError ? error.localizedMessage : t('errors.default')
 }
 
+/** 技術的な詳細（エラーコード＋開発者向けメッセージ）。非エンジニア向けの平易な文言
+ * （apiErrorMessage）とは別に、サポートへ報告する際に伝えられる情報として折りたたみで
+ * 残す（Toast.tsx、2026-09-19 非エンジニア向けエラー表示改善）。 */
+export function apiErrorDetail(error: unknown): string | undefined {
+  if (error instanceof ApiError) {
+    return `${error.code}: ${error.message}`
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return undefined
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
