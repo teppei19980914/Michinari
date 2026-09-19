@@ -41,6 +41,7 @@ from build_package import (
     read_git_commit,
     resolve_version,
     run_smoke,
+    sync_lock_file,
     write_version,
 )
 
@@ -387,6 +388,70 @@ def test_write_version_raises_when_version_line_is_missing(tmp_path: Path) -> No
 
     with pytest.raises(ValueError):
         write_version(pyproject_path, "0.2.0")
+
+
+def test_sync_lock_file_succeeds_on_first_try(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`write_version`の直後にuv.lockを追従させる（2026-09-19、1.7.1リリースで
+    uv.lockの追従漏れが発覚した不具合の再発防止）。"""
+    calls: list[list[str]] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    sync_lock_file(tmp_path)
+
+    assert calls == [["uv", "lock"]]
+    assert sleep_calls == []
+
+
+def test_sync_lock_file_retries_after_transient_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """OneDriveロックのような一時的な失敗の後に成功すれば例外を送出しない
+    （discard_previous_packageと同じ再試行方針、CLAUDE.md DRYの原則）。"""
+    call_count = 0
+
+    def flaky_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            return subprocess.CompletedProcess(args, returncode=1, stdout="", stderr="locked")
+        return subprocess.CompletedProcess(args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(build_package.subprocess, "run", flaky_run)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    sync_lock_file(tmp_path)
+
+    assert call_count == 3
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
+
+
+def test_sync_lock_file_raises_when_all_retries_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    call_count = 0
+
+    def always_fail_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        nonlocal call_count
+        call_count += 1
+        return subprocess.CompletedProcess(args, returncode=1, stdout="", stderr="locked")
+
+    monkeypatch.setattr(build_package.subprocess, "run", always_fail_run)
+    monkeypatch.setattr(build_package.time, "sleep", lambda _seconds: None)
+
+    with pytest.raises(SystemExit, match="uv.lock"):
+        sync_lock_file(tmp_path)
+
+    assert call_count == build_package.RMTREE_RETRY_ATTEMPTS
 
 
 def test_resolve_version_returns_the_explicitly_entered_value(tmp_path: Path) -> None:
