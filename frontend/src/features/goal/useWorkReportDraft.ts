@@ -6,7 +6,7 @@
  * このフックは WorkReportTab の直下で呼ぶこと。フォーム（WorkReportForm）は報告が
  * 未取得のあいだ描画されないため、条件付きで描画される側へフックを移すと、生成のたびに
  * 入力内容が失われて振る舞いが変わる。 */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WorkReportRead } from '../../api/closure'
 
 export interface WorkReportDraft {
@@ -36,7 +36,17 @@ export function useWorkReportDraft(report: WorkReportRead | null | undefined): W
   const [nextGoalText, setNextGoalText] = useState('')
   const [reportNotes, setReportNotes] = useState('')
 
+  // フォームへ最後に反映したperiod_key。ウィンドウ再フォーカス等によるreportQueryの
+  // バックグラウンド再取得は、内容が変わっていなくても新しいオブジェクト参照を返すため、
+  // 単純に`report`の参照変化をトリガーにすると、入力途中（未保存）の内容がそのたびに
+  // 黙って取得済みの値へ巻き戻されてしまっていた（2026-09-19、下書きhydrateの調査で
+  // 発覚した同根の不具合。取得結果の鮮度とフォーム下書きの鮮度を区別していなかった）。
+  // period_keyが変わったとき（初回表示・期間の切り替え）だけ反映すればよいため、これをrefで
+  // 追跡し、同じ期間への無関係な再取得では上書きしないようにする。
+  const appliedPeriodKeyRef = useRef<string | null>(null)
+
   const applyReport = (loaded: WorkReportRead) => {
+    appliedPeriodKeyRef.current = loaded.period_key
     setBusinessSummary(loaded.business_summary ?? '')
     setTargetGoalText(loaded.target_goal_text ?? '')
     setAchievementScore(loaded.achievement_score)
@@ -46,9 +56,10 @@ export function useWorkReportDraft(report: WorkReportRead | null | undefined): W
   }
 
   useEffect(() => {
-    if (report) {
-      applyReport(report)
+    if (!report || report.period_key === appliedPeriodKeyRef.current) {
+      return
     }
+    applyReport(report)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report])
 
