@@ -117,8 +117,11 @@ export default defineConfig({
         // 持ち、全画面のエラー表示がここを通るため計測する。ディレクトリ丸ごとの除外にしない
         // のは、判定を含むファイルが黙って計測外になるのを防ぐため（features/record/ と同じ）。
         'src/api/!(client).ts',
-        // Reactフック。呼び出しにコンポーネントのレンダリングが必要で、フック単体を直接
-        // 検証しても実際の使われ方を再現できないため対象外（CODING_RULES.md「除外可」）。
+        // Reactフック。renderHookで直接テストすること自体は可能（2026-09-19に誤りと判明し
+        // OPERATIONS.md「フロントエンドのテストとカバレッジ」を訂正済み）だが、薄いラッパー
+        // （useQuery/useMutationをそのまま返すだけ等）まで一律100%を求めると割に合わないため、
+        // 閾値（集計値100%）の対象からは外す。非自明な分岐を持つフックは直接テストを書くが、
+        // カウントはされない（OPERATIONS.md参照）。
         'src/**/use*.ts',
         // ブラウザAPI（document / URL.createObjectURL）に直接依存し、同じ理由で対象外。
         'src/utils/downloadBlob.ts',
