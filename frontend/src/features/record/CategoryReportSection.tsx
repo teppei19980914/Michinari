@@ -88,6 +88,7 @@ export function CategoryReportSection({
             <ChatPanel
               messages={messages}
               wasTruncated={chat.wasTruncated}
+              contextCategories={chat.contextCategories}
               isSending={chat.isPending}
               onSend={messages.length > 0 ? (message) => chat.send(message) : undefined}
             />
