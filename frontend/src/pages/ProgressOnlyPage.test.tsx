@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes } from 'react-router-dom'
 import { ROUTES, ROUTE_PATTERNS } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { t } from '../locales/t'
@@ -133,13 +133,46 @@ function setupQueries(options: { record?: DailyRecordRead; goals?: GoalRead[] } 
   )
 }
 
-function renderPage(targetDate: string = LOGICAL_DATE) {
-  renderWithProviders(
+/** アプリ内遷移用のマーカー・ラベル（下書き保持の検証用。DailyReportPage.test.tsxと同じ方針）。 */
+const NAV_LINK_LABEL = 'nav-link'
+const BACK_LINK_LABEL = 'back-link'
+
+function buildRoutes(targetDate: string) {
+  return (
     <Routes>
       <Route path={ROUTE_PATTERNS.dailyReportProgress} element={<ProgressOnlyPage />} />
       <Route path={ROUTE_PATTERNS.dailyReportView} element={<p>{VIEW_PAGE_MARKER}</p>} />
-      <Route path={ROUTE_PATTERNS.dashboard} element={<p>{DASHBOARD_MARKER}</p>} />
-    </Routes>,
+      <Route
+        path={ROUTE_PATTERNS.dashboard}
+        element={
+          <>
+            <p>{DASHBOARD_MARKER}</p>
+            <Link to={ROUTES.dailyReportProgress(targetDate)}>{BACK_LINK_LABEL}</Link>
+          </>
+        }
+      />
+    </Routes>
+  )
+}
+
+function renderPage(targetDate: string = LOGICAL_DATE) {
+  renderWithProviders(buildRoutes(targetDate), {
+    initialEntries: [ROUTES.dailyReportProgress(targetDate)],
+  })
+}
+
+/** `renderPage`にアプリ内遷移用のリンクを加えただけの描画。DailyReportDraftProviderは
+ * renderWithProvidersのwrapper側（Routesの外）にあるため、リンククリックによる
+ * ルート切り替えではアンマウントされず、下書きのhydrated状態を保持したまま画面へ
+ * 戻れる。SC-06を開いた後に新規作成された項目が反映されるかの回帰
+ * （useDailyReportDraft.test.tsx・DailyReportPage.test.tsxの回帰）が、SC-07固有の配線
+ * （ProgressLogSections経由）でも実際に機能することを固定するために使う。 */
+function renderPageWithNavLink(targetDate: string = LOGICAL_DATE) {
+  renderWithProviders(
+    <>
+      <Link to={ROUTES.dashboard}>{NAV_LINK_LABEL}</Link>
+      {buildRoutes(targetDate)}
+    </>,
     { initialEntries: [ROUTES.dailyReportProgress(targetDate)] },
   )
 }
@@ -301,6 +334,31 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
         work_logs: [],
       }),
     )
+  })
+
+  it('shows the reading log fields for a reading goal created after the page was already open', async () => {
+    // SC-06（日次報告）で発生した不具合（2026-09-18）と同じ原因（useDailyReportDraftの
+    // hydrateがstoreKeyごとに1回きり）がSC-07（進捗のみ登録）にも及んでいたための横展開
+    // 回帰テスト。分岐そのものはuseDailyReportDraft.test.tsxが、SC-06側の実配線は
+    // DailyReportPage.test.tsxが固定しているため、ここではSC-07固有の配線
+    // （ProgressLogSections経由）でも実際に直っていることだけを確認する。
+    const user = userEvent.setup()
+    setupQueries({ goals: [EXAM_GOAL] })
+    renderPageWithNavLink()
+    await waitForPage()
+
+    // 別画面（目標詳細・ウィザード等）で読書目標・書籍を新規作成した状況を再現する
+    // （以降のクエリは新しい読書目標を含めて返す）。
+    setupQueries({ goals: [EXAM_GOAL, READING_GOAL] })
+
+    // DailyReportDraftProviderはrenderWithProvidersのwrapper側にあるため、アプリ内遷移で
+    // 戻ってきてもhydratedフラグはリセットされない（クエリだけ最新化される）。
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+    await screen.findByText(DASHBOARD_MARKER)
+    await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
+    await waitForPage()
+
+    expect(screen.getByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
   })
 })
 
