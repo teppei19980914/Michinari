@@ -22,7 +22,9 @@ PROMPT_DIARY_TRIM_CHUNK_CHARS = 200
 # 返すカテゴリ集合。プロンプトは常に全項目を埋め込む設計（データが無くても「まだ〜
 # ありません」という文言が入る、app/ai/prompt_builder.py）ため、実際の値を都度見て動的に
 # 判定するのではなく、用途固定のリストとする。フロントではロケールキー
-# （frontend/src/locales/ja.json の chat.contextCategories.*）へ変換して一覧表示する。
+# （frontend/src/locales/ja.json の dailyReport.chat.contextCategories.*）へ変換して
+# 一覧表示する（ChatPanel.tsx、backend/tests/test_api_records.pyの
+# test_every_context_category_has_a_frontend_messageが整合を横断チェックする）。
 CONTEXT_CATEGORIES_BY_PURPOSE: dict[AiPurpose, list[str]] = {
     AiPurpose.DAILY_FEEDBACK: [
         "GOAL_INFO",
