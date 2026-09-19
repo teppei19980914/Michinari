@@ -28,6 +28,7 @@ from build_package import (
     PREVIOUS_PACKAGE_PREFIX,
     PYPROJECT_PATH,
     USER_MANUAL_PATH,
+    _rmtree_with_retry,
     archive_previous_distributions,
     build_commit_filename,
     cleanup_stale_previous_packages,
@@ -211,6 +212,28 @@ def test_discard_previous_package_succeeds_after_transient_failure(
     assert call_count == 3
     assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
     assert not any(dist_dir.iterdir())
+
+
+def test_rmtree_with_retry_returns_last_error_when_all_attempts_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`discard_previous_package`・`cleanup_stale_previous_packages`が共通で使う
+    再試行ヘルパー自体の挙動を検証する（CLAUDE.md DRYの原則で共通化した処理）。"""
+    target = tmp_path / "locked"
+    target.mkdir()
+
+    def always_fail_rmtree(path: Path) -> None:
+        raise PermissionError("アクセスが拒否されました")
+
+    monkeypatch.setattr(build_package.shutil, "rmtree", always_fail_rmtree)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    error = _rmtree_with_retry(target, retry_attempts=3, retry_delay_seconds=1.5)
+
+    assert isinstance(error, PermissionError)
+    assert sleep_calls == [1.5, 1.5]
+    assert target.exists()
 
 
 def test_cleanup_stale_previous_packages_returns_empty_when_dist_dir_is_absent(
