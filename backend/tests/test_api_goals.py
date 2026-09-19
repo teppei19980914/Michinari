@@ -2,7 +2,7 @@
 
 import datetime as dt
 
-from app.models.record import DailyRecord, StudyLog
+from app.models.record import DailyRecord, ReadingLog, StudyLog, WorkLog
 from tests import api_allocation_helpers
 
 
@@ -781,6 +781,90 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
     # コード自体は増やさず、原因（実績が紐づくため削除不可）をdetailsで画面へ伝える
     # （2026-09-19、非エンジニア向けエラー表示改善）。
     assert body["error"]["details"] == [{"reason": "MATERIAL_HAS_LOGS"}]
+
+
+def test_delete_archived_reading_goal_without_cascade_rejects_when_reading_logs_remain(
+    client, seeded_session
+):
+    """test_delete_archived_goal_without_cascade_rejects_when_study_logs_remainの読書版。
+    reasonはBOOK_HAS_LOGS（MATERIAL_HAS_LOGSと異なる値）になること、API層のdetailsまで
+    正しく届くことを固定する（サービス層の例外送出はtest_goal_service.pyが別途検証済みだが、
+    APIレスポンスのreason値はそちらでは検証できない、2026-09-19）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
+    ).json()
+    book = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-06-30",
+        },
+    ).json()
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), reading_record_state="PROGRESS_ONLY")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        ReadingLog(daily_record_id=record.id, book_id=book["id"], recall_body="想起")
+    )
+    seeded_session.commit()
+
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.request(
+        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["details"] == [{"reason": "BOOK_HAS_LOGS"}]
+
+
+def test_delete_archived_work_goal_without_cascade_rejects_when_work_logs_remain(
+    client, seeded_session
+):
+    """test_delete_archived_goal_without_cascade_rejects_when_study_logs_remainの仕事版。
+    reasonはWORK_ASSIGNMENT_HAS_LOGSになること、API層のdetailsまで正しく届くことを固定する
+    （2026-09-19）。"""
+    goal = client.post(
+        "/api/v1/goals",
+        json={"category": "WORK", "name": "仕事目標A", "start_date": "2026-01-01"},
+    ).json()
+    work_assignment = client.post(
+        f"/api/v1/goals/{goal['id']}/work-assignment",
+        json={
+            "client_name": "取引先A",
+            "expected_content": "想定業務内容",
+            "start_date": "2026-01-01",
+        },
+    ).json()
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
+
+    record = DailyRecord(record_date=dt.date(2026, 1, 5), work_record_state="PROGRESS_ONLY")
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(
+            daily_record_id=record.id,
+            work_assignment_id=work_assignment["id"],
+            body="業務内容",
+        )
+    )
+    seeded_session.commit()
+
+    client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.request(
+        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert body["error"]["details"] == [{"reason": "WORK_ASSIGNMENT_HAS_LOGS"}]
 
 
 def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):

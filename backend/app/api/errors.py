@@ -86,8 +86,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def handle_domain_error(_request: Request, exc: DomainError) -> JSONResponse:
         status_code, code = _STATUS_AND_CODE.get(type(exc), _FALLBACK)
-        # 一部のドメイン例外はコード自体を増やさず（禁止事項「エラーコードの体系を変更しない」）、
-        # detailsのreasonで原因を画面へ伝える（例: 削除対象に実績が紐づく3種、CLAUDE.md参照）。
+        # 一部のドメイン例外はコード自体を増やさず（削除対象に実績が紐づく3種、
+        # app/services/exceptions.pyのreasonクラス属性参照）、detailsのreasonで
+        # 原因を画面へ伝える（2026-09-19、非エンジニア向けエラー表示改善）。
         reason = getattr(exc, "reason", None)
         details = [{"reason": reason}] if reason else None
         return JSONResponse(status_code=status_code, content=_error_body(code, str(exc), details))

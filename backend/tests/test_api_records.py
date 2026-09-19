@@ -9,11 +9,14 @@ POST /records/{date}/chat（Phase5）は実際のAI基盤へ接続せず、app.a
 """
 
 import datetime as dt
+import json
+from pathlib import Path
 
 import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
+from app.constants.domain import CONTEXT_CATEGORIES_BY_PURPOSE
 from tests import api_allocation_helpers
 
 
@@ -526,6 +529,14 @@ def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
     assert body["assistant_message"]["content"] == "今日もよく頑張りましたね"
     assert body["assistant_message"]["role"] == "ASSISTANT"
     assert body["was_truncated"] is False
+    # 「AIが参照した情報」表示用（2026-09-19）。資格試験のみMATERIAL_PROGRESSを含む
+    # （教材を持つのはEXAMだけのため、CONTEXT_CATEGORIES_BY_PURPOSE参照）。
+    assert body["context_categories"] == [
+        "GOAL_INFO",
+        "TODAY_RECORD",
+        "WEEKLY_SUMMARY",
+        "MATERIAL_PROGRESS",
+    ]
     # 実績・日記は下書きのままDBへ確定されない（16.7、Phase5完了条件）。
     assert body["record"]["study_logs"] == []
     assert body["record"]["diary_entries"] == []
@@ -626,6 +637,9 @@ def test_reading_chat_endpoint_returns_assistant_message(client, monkeypatch):
     body = response.json()
     assert body["assistant_message"]["content"] == "想起を深める応答"
     assert body["assistant_message"]["purpose"] == "DAILY_FEEDBACK_READING"
+    # 「AIが参照した情報」表示用（2026-09-19）。読書は教材を持たないためMATERIAL_PROGRESSは
+    # 含まない（CONTEXT_CATEGORIES_BY_PURPOSE参照）。
+    assert body["context_categories"] == ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"]
     # 想起は下書きのままDBへ確定されない（16.7と同じ保証）。
     assert body["record"]["reading_logs"] == []
 
@@ -773,6 +787,9 @@ def test_work_chat_endpoint_returns_assistant_message(client, monkeypatch):
     body = response.json()
     assert body["assistant_message"]["content"] == "今日の業務、お疲れさまでした"
     assert body["assistant_message"]["purpose"] == "DAILY_FEEDBACK_WORK"
+    # 「AIが参照した情報」表示用（2026-09-19）。仕事は教材を持たないためMATERIAL_PROGRESSは
+    # 含まない（CONTEXT_CATEGORIES_BY_PURPOSE参照）。
+    assert body["context_categories"] == ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"]
     # 業務記録は下書きのままDBへ確定されない（16.7と同じ保証）。
     assert body["record"]["work_logs"] == []
 
@@ -955,3 +972,28 @@ def test_get_previous_work_log_endpoint_returns_previous_entry(client):
     body = response.json()
     assert body["record_date"] == yesterday
     assert body["body"] == "昨日の業務内容"
+
+
+# --- 「AIが参照した情報」表示（context_categories、2026-09-19） ---
+
+
+def test_every_context_category_has_a_frontend_message():
+    """`CONTEXT_CATEGORIES_BY_PURPOSE`が返しうる値すべてに画面文言があること
+    （test_api_errors.pyのreason版・横断チェック）。文言が無いカテゴリは
+    `t()`が未解決時にキー文字列をそのまま返す仕様（frontend/src/locales/t.ts）のため、
+    「dailyReport.chat.contextCategories.MATERIAL_PROGRESS」のような生のキーが
+    画面にそのまま表示されてしまう。
+    """
+    categories = {
+        category for values in CONTEXT_CATEGORIES_BY_PURPOSE.values() for category in values
+    }
+    locale_path = Path(__file__).resolve().parents[2] / "frontend" / "src" / "locales" / "ja.json"
+    messages = json.loads(locale_path.read_text(encoding="utf-8"))["dailyReport"]["chat"][
+        "contextCategories"
+    ]
+    missing = sorted(categories - set(messages))
+    assert missing == [], (
+        f"ja.json の dailyReport.chat.contextCategories.* に文言が無いカテゴリ: {missing}"
+    )
+    stale = sorted(set(messages) - categories)
+    assert stale == [], f"バックエンドが返さないカテゴリの文言が残っている: {stale}"

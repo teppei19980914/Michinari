@@ -116,9 +116,9 @@ class CloseConfirmationRequiredError(DomainError):
 class MaterialHasStudyLogsError(DomainError):
     """実績（study_log）が存在する教材を削除しようとした場合（データ構造編6.2）。
 
-    エラーコード自体はVALIDATION_ERRORのまま（禁止事項「エラーコードの体系を変更しない」）
-    だが、原因（実績が紐づくため削除不可）を画面表示できるよう`reason`をAPI層
-    （app/api/errors.py）がdetailsへ転記する。
+    エラーコード自体はVALIDATION_ERRORのまま増やさず、原因（実績が紐づくため削除不可）を
+    画面表示できるよう`reason`をAPI層（app/api/errors.py）がdetailsへ転記する
+    （2026-09-19、非エンジニア向けエラー表示改善）。
     """
 
     reason = "MATERIAL_HAS_LOGS"
