@@ -243,7 +243,9 @@ def build(version: str, *, skip_tests: bool = False) -> Path:
     commit = build_package.read_git_commit(REPO_ROOT)
     if build_package.read_current_version(build_package.PYPROJECT_PATH) != version:
         build_package.write_version(build_package.PYPROJECT_PATH, version)
+        build_package.sync_lock_file(BACKEND_DIR)
         print(f"  → pyproject.toml のバージョンを {version} へ更新しました")
+        print("  → uv.lock を追従させました")
     build_package.cleanup_stale_previous_packages(build_package.DIST_DIR)
     build_package.archive_previous_distributions(build_package.DIST_DIR, build_package.ARCHIVE_DIR)
     build_package.discard_previous_package(build_package.OUTPUT_DIR)
