@@ -236,12 +236,52 @@ def write_version(pyproject_path: Path, version: str) -> None:
     tomllibは読み取り専用（標準ライブラリにTOML書き込み機能が無い）ため、対象行を
     正規表現で置換する。`version = "..."`という1行のみを対象とし、それ以外の記述
     （コメント・依存関係一覧等）には触れない。
+
+    呼び出し側は本関数の直後に`sync_lock_file`を呼び、`uv.lock`（同ディレクトリの
+    ローカルパッケージ自身のバージョンを埋め込んでいる）を追従させること。片方だけ
+    書き換えると、次回以降の`uv sync`（build.bat/release.bat）が`uv.lock`を無言で
+    書き換えて作業ツリーを汚し、`release.py`の`未コミットの変更があります`という
+    無関係な自己矛盾（配布物を作る側の操作で作業ツリーが汚れ、その汚れを配布側が
+    エラーとして検知する）を起こす（2026-09-19判明。1.7.1リリース時にこの手順が
+    抜けており、`uv.lock`がversion 1.6.1のまま取り残されていた）。
     """
     text = pyproject_path.read_text(encoding="utf-8")
     new_text, count = _VERSION_LINE_PATTERN.subn(f'version = "{version}"', text, count=1)
     if count != 1:
         raise ValueError(f"pyproject.tomlのversion行が見つかりません: {pyproject_path}")
     pyproject_path.write_text(new_text, encoding="utf-8")
+
+
+def sync_lock_file(
+    backend_dir: Path,
+    *,
+    retry_attempts: int = RMTREE_RETRY_ATTEMPTS,
+    retry_delay_seconds: float = RMTREE_RETRY_DELAY_SECONDS,
+) -> None:
+    """`write_version`の直後に呼び、`uv.lock`をpyproject.tomlのバージョンへ追従させる。
+
+    `uv lock`は`uv.lock`のみを書き換え、`.venv`には触れない（`uv sync`と違い大きな
+    パッケージの入れ替えを伴わないため、リトライ回数・間隔は`RMTREE_RETRY_*`と同じ値を
+    流用する。CLAUDE.md DRYの原則。OneDriveのファイルオンデマンドロックは`.venv`配下に
+    限らず`uv.lock`単体でも起こりうるため、同じ再試行方針を適用する）。
+
+    失敗した場合は例外を送出してビルドを中止する（`uv.lock`が古いまま配布物を作ると、
+    次回の`uv sync`で同じ問題が再発するため、警告のみで継続させない）。
+    """
+    last_error: subprocess.CalledProcessError | None = None
+    for attempt in range(1, retry_attempts + 1):
+        result = subprocess.run(["uv", "lock"], cwd=backend_dir, capture_output=True, text=True)
+        if result.returncode == 0:
+            return
+        last_error = subprocess.CalledProcessError(
+            result.returncode, "uv lock", result.stdout, result.stderr
+        )
+        if attempt < retry_attempts:
+            time.sleep(retry_delay_seconds)
+    raise SystemExit(
+        f"エラー: uv.lockの更新（uv lock）に{retry_attempts}回失敗しました。"
+        f"OneDriveのファイルロックが解消しない場合は時間をおいて再試行してください。\n{last_error}"
+    )
 
 
 def resolve_version(current_version: str, *, prompt=input) -> str:
@@ -568,7 +608,9 @@ def main() -> None:
     version = resolve_version(current_version)
     if version != current_version:
         write_version(PYPROJECT_PATH, version)
+        sync_lock_file(BACKEND_DIR)
         print(f"  → pyproject.tomlのバージョンを更新しました: {current_version} → {version}")
+        print("  → uv.lockを追従させました")
     print(f"  → バージョン {version} でビルドします")
 
     print("[3/8] 既存パッケージを整理しています…")

@@ -487,7 +487,23 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    しない）。使用できる文字は半角英数字・ドット・ハイフン・アンダースコアのみ
    （`pyproject.toml` のTOML文字列・zipファイル名へそのまま埋め込むため、それ以外の
    文字を含む入力は再入力を求める）。確定したバージョンは `backend/pyproject.toml` の
-   `version` に反映される（`read_current_version`/`write_version`/`resolve_version`）
+   `version` に反映され、直後に `uv lock`（`sync_lock_file`）で `backend/uv.lock` の
+   ローカルパッケージ自身のバージョン記載も追従させる（`read_current_version`/
+   `write_version`/`resolve_version`）
+
+   **`uv.lock`を追従させないと何が起きるか（2026-09-19、1.7.1リリースで発覚）**:
+   `uv.lock`はローカルパッケージ（`michinari-backend`）自身のバージョンも記録するが、
+   これは`uv sync`/`uv lock`を実行しない限り更新されない。`write_version`で
+   `pyproject.toml`だけ書き換えて`uv.lock`を追従させずに終えると、**次回**
+   `release.bat`/`build.bat`を実行したとき、冒頭の`uv sync`が両者のズレを検知して
+   `uv.lock`を無言で書き換えてしまう。これにより作業ツリーが汚れ、直後の
+   `verify_workspace`（未コミットの変更チェック、手順0・`release.py`のみ）が
+   「エラー: 未コミットの変更があります」で止まる——**ビルド側の準備操作（`uv sync`）
+   自身が汚したファイルを、同じビルドの安全チェックが拒否する**という自己矛盾で、
+   原因を知らないと`backend/uv.lock`が「勝手に作られた」ように見える。`sync_lock_file`が
+   バージョン確定の直後に追従させることで、以後の`uv sync`は差分無しで終わり再発しない。
+   既にこの状態に陥っている場合は、`backend`で`uv lock`を1回実行して差分をコミットすれば
+   解消する
 3. 前回以前のビルドで削除しきれず残った `backend/dist/_previous_Michinari_*`
    フォルダがあれば、まずそれを削除する（`cleanup_stale_previous_packages`）。
    続いて `backend/dist/` 直下の既存配布物（`*.zip` と対になる `*.commit.json`）を
