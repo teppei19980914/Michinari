@@ -1877,6 +1877,8 @@ export interface components {
             assistant_message: components["schemas"]["ChatMessageRead"];
             /** Was Truncated */
             was_truncated: boolean;
+            /** Context Categories */
+            context_categories: string[];
         };
         /**
          * ChatRole
