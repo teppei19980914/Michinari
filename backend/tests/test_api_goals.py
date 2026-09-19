@@ -776,7 +776,11 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
         "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
     )
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    # コード自体は増やさず、原因（実績が紐づくため削除不可）をdetailsで画面へ伝える
+    # （2026-09-19、非エンジニア向けエラー表示改善）。
+    assert body["error"]["details"] == [{"reason": "MATERIAL_HAS_LOGS"}]
 
 
 def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):

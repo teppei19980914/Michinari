@@ -2,7 +2,7 @@
 
 作成日: 2026-09-19
 対象: 2026-09-18〜19に実施された「日次報告の下書きが黙って上書きされる」系の不具合修正（`dev/2026-09-19`ブランチ、コミット `f0cbaee`〜`66948b1`、37d7220からの差分11ファイル）についての全ソースコードフルスキャン・デグレ確認・横展開漏れ確認
-前提: 本ドキュメント作成時点で、本ドキュメントのための新規ソースコード変更は行っていない（調査・確認のみ）。テスト・lint・型検査は確認のために実行したが、コードは一切変更していない。4章「残TODO」は未着手であり、着手には承認が必要。
+前提: 0〜3章は当初調査時点（コード変更なし）の記録。ユーザー承認を受け、4章の残TODO3件はテストファイルのみ修正して対応済み（2026-09-19、詳細は4章）。本番コード（`app/`・`src/features`等の実装本体）の変更は無い。
 
 ---
 
@@ -68,15 +68,17 @@
 
 ---
 
-## 4. 残TODO（未着手・承認後に着手すること）
+## 4. 残TODO（2026-09-19 対応済み）
 
-いずれも今回の不具合修正がブロッカーになるものではなく、スキャン中に副次的に見つかった小さな債務。**着手前に必ずユーザーの承認を得ること。**
+いずれも今回の不具合修正がブロッカーになるものではなく、スキャン中に副次的に見つかった小さな債務。ユーザー承認（「不具合修正や残TODOも含めて、要件の取り込みをお願いします」）を受け、3件とも対応済み。
 
-- [ ] `CalendarPage.test.tsx`「starts on the current month and steps back and forward」が、カバレッジ計測込みのフルスイート実行時にまれにタイムアウトする件の恒久対応要否を判断する（`testTimeout`個別指定 or 待機処理の見直し）。次回のデプロイチェック実行時にも再現するか経過観察してから判断でもよい。
-- [ ] `ProgressOnlyPage.test.tsx`実行時にコンソールへ出る`Query data cannot be undefined`警告（`previous-reading-log`/`previous-work-log`クエリ）の要否確認。テスト結果自体には影響していないが、該当テストで`getPreviousReadingLog`/`getPreviousWorkLog`のモックが未設定なまま呼ばれている可能性があり、本来モックすべきかを確認する。
-- [ ] 複数のテストファイルで見られる`An update ... was not wrapped in act(...)`警告（`ExamResultPage.test.tsx`・`TodayMessage.test.tsx`）の要否確認。今回の差分より前から存在する既存警告で、今回のスキャンで新規に増えたものではない。
+- [x] `CalendarPage.test.tsx`「starts on the current month and steps back and forward」が、カバレッジ計測込みのフルスイート実行時にまれにタイムアウトする件。単体実行では578msで正常終了し、`CalendarPage.tsx`本体（今回の差分外）に問題は無いと判断。実装側を変更せず、このテストのみ既定5000ms→15000msへ個別に猶予を広げた（`it(name, fn, 15000)`。CODING_RULES.md「実時間の当たり外れに検証を委ねないこと」と同じ考え方で、間隔を切り詰める側ではなく余裕を確保する側で対応）。他ファイルに`testTimeout`個別指定の前例は無かったため横展開はせず、このテスト固有の対応とした。
+- [x] `ProgressOnlyPage.test.tsx`実行時の`Query data cannot be undefined`警告（`previous-reading-log`/`previous-work-log`）。原因はテスト側の設定漏れで、`DailyReportPage.test.tsx`の`setupQueries`（169〜171行目）が`getPreviousReadingLog`/`getPreviousWorkLog`に既定値`null`を与えているのに対し、`ProgressOnlyPage.test.tsx`の`setupQueries`には同じ既定値が無く、`vi.mock('../api/records')`のautomockが`undefined`を返していたことによる横展開漏れそのものだった。`ProgressOnlyPage.test.tsx`の`setupQueries`に同じ既定値`null`を追加して解消（プロダクションコードの変更は無し）。
+- [x] `An update ... was not wrapped in act(...)`警告2件。原因は異なる2件だった。
+  - `ExamResultPage.test.tsx`: `setDate`ヘルパーがネイティブのvalueセッター経由でinputイベントを手動発火しており、`@testing-library/react`の`act()`でラップされていなかった（`userEvent`/`fireEvent`は自動でactラップするが、生の`dispatchEvent`はラップされない）。`act(() => {...})`で囲んで解消。同じ手動dispatchパターンは他ファイルに無いことを`Grep`で確認済み（横展開対象なし）。
+  - `TodayMessage.test.tsx`: 3箇所で`vi.waitFor`（ReactのactやDOM再描画を意識しないVitest汎用のポーリングユーティリティ）を使っていたため、クエリ解決に伴う状態更新がactの外側で起きていた。`@testing-library/react`の`waitFor`（act対応）へ置き換えて解消。`vi.waitFor`の使用箇所はこの3件のみで、他ファイルは元々全て`@testing-library/react`の`waitFor`を使っていたことを`Grep`で確認済み（このファイルだけの孤立した逸脱であり、横展開対象なし）。
 
-上記3件はいずれも**テストの健全性に関する軽微な債務**であり、本番機能への影響は無い。着手の要否・優先度についてご指示をお願いします。
+**確認結果（3件対応後）**: フロントエンド全体`npm run test`（カバレッジ込み）で118ファイル1031テスト全通過、カバレッジ100%（Statements/Branches/Functions/Lines）維持、コンソール警告0件。`npm run lint`は今回の変更と無関係な既存警告5件のみ（変化なし）。`npx tsc --noEmit`エラー0件。バックエンドは対象外（変更なし）。
 
 ---
 

@@ -123,18 +123,28 @@ describe('CalendarPage の読み込み', () => {
 })
 
 describe('CalendarPage の月移動', () => {
-  it('starts on the current month and steps back and forward', async () => {
-    const user = userEvent.setup()
-    await renderPage()
-    const currentMonth = `${TODAY.getFullYear()}-${String(TODAY.getMonth() + 1).padStart(2, '0')}`
-    expect(screen.getByText(currentMonth)).toBeTruthy()
+  // 既定の5000msだと、カバレッジ計測込みの全体実行（並列ワーカーの負荷が高い）でまれに
+  // タイムアウトする（2026-09-19確認）。3回のuser.click（内部でpointer/keyboardイベントを
+  // 複数ディスパッチしactでフラッシュする）を直列で行うテストで、単体実行では578ms程度と
+  // 実処理時間は短いため、実装側の不具合ではなく実行環境の負荷起因と判断し、このテストのみ
+  // 猶予を広げる（CODING_RULES.md「実時間の当たり外れに検証を委ねないこと」と同じ考え方で、
+  // 間隔を切り詰めるのではなく余裕を確保する側で対応する）。
+  it(
+    'starts on the current month and steps back and forward',
+    async () => {
+      const user = userEvent.setup()
+      await renderPage()
+      const currentMonth = `${TODAY.getFullYear()}-${String(TODAY.getMonth() + 1).padStart(2, '0')}`
+      expect(screen.getByText(currentMonth)).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: t('calendar.prevMonth') }))
-    expect(screen.queryByText(currentMonth)).toBe(null)
+      await user.click(screen.getByRole('button', { name: t('calendar.prevMonth') }))
+      expect(screen.queryByText(currentMonth)).toBe(null)
 
-    await user.click(screen.getByRole('button', { name: t('calendar.nextMonth') }))
-    expect(screen.getByText(currentMonth)).toBeTruthy()
-  })
+      await user.click(screen.getByRole('button', { name: t('calendar.nextMonth') }))
+      expect(screen.getByText(currentMonth)).toBeTruthy()
+    },
+    15000,
+  )
 })
 
 describe('CalendarPage の日付選択', () => {
