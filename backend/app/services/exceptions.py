@@ -114,7 +114,14 @@ class CloseConfirmationRequiredError(DomainError):
 
 
 class MaterialHasStudyLogsError(DomainError):
-    """実績（study_log）が存在する教材を削除しようとした場合（データ構造編6.2）。"""
+    """実績（study_log）が存在する教材を削除しようとした場合（データ構造編6.2）。
+
+    エラーコード自体はVALIDATION_ERRORのまま増やさず、原因（実績が紐づくため削除不可）を
+    画面表示できるよう`reason`をAPI層（app/api/errors.py）がdetailsへ転記する
+    （2026-09-19、非エンジニア向けエラー表示改善）。
+    """
+
+    reason = "MATERIAL_HAS_LOGS"
 
     def __init__(self, material_id: int) -> None:
         self.material_id = material_id
@@ -123,7 +130,9 @@ class MaterialHasStudyLogsError(DomainError):
 
 class BookHasReadingLogsError(DomainError):
     """想起記録（reading_log）が存在する書籍を削除しようとした場合
-    （MaterialHasStudyLogsErrorの読書版、データ構造編6.2）。"""
+    （MaterialHasStudyLogsErrorの読書版、データ構造編6.2）。reasonの用途は同クラス参照。"""
+
+    reason = "BOOK_HAS_LOGS"
 
     def __init__(self, book_id: int) -> None:
         self.book_id = book_id
@@ -156,7 +165,9 @@ class CurrentPageExceedsTotalPagesError(DomainError):
 
 class WorkAssignmentHasWorkLogsError(DomainError):
     """業務記録（work_log）が存在する案件情報を削除しようとした場合
-    （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。"""
+    （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。reasonの用途はMaterialHasStudyLogsError参照。"""
+
+    reason = "WORK_ASSIGNMENT_HAS_LOGS"
 
     def __init__(self, work_assignment_id: int) -> None:
         self.work_assignment_id = work_assignment_id

@@ -263,6 +263,10 @@ class ChatResponse(BaseModel):
     record: DailyRecordRead
     assistant_message: ChatMessageRead
     was_truncated: bool
+    #: 「AIが参照した情報」表示用（非エンジニア向け、プロンプト全文は表示しない）。
+    #: 用途（AiPurpose）固定のカテゴリ集合。app/constants/domain.py の
+    #: CONTEXT_CATEGORIES_BY_PURPOSE 参照。
+    context_categories: list[str]
 
 
 class ReadingChatRequest(BaseModel):

@@ -31,7 +31,7 @@ const MESSAGE: ChatMessageRead = {
 }
 
 function renderSection(overrides: Partial<CategoryReportSectionProps> = {}) {
-  const chat = { isPending: false, wasTruncated: false, send: vi.fn() }
+  const chat = { isPending: false, wasTruncated: false, contextCategories: [], send: vi.fn() }
   const finalize = { isPending: false, submit: vi.fn() }
   render(
     <CategoryReportSection
@@ -91,7 +91,9 @@ describe('CategoryReportSection', () => {
     })
 
     it('disables the start button while the request is in flight', () => {
-      renderSection({ chat: { isPending: true, wasTruncated: false, send: vi.fn() } })
+      renderSection({
+        chat: { isPending: true, wasTruncated: false, contextCategories: [], send: vi.fn() },
+      })
 
       expect(
         (screen.getByRole('button', { name: LABELS.chatStartLabel }) as HTMLButtonElement).disabled,
@@ -115,10 +117,40 @@ describe('CategoryReportSection', () => {
     it('notifies when the prompt had to be truncated', () => {
       renderSection({
         messages: [MESSAGE],
-        chat: { isPending: false, wasTruncated: true, send: vi.fn() },
+        chat: { isPending: false, wasTruncated: true, contextCategories: [], send: vi.fn() },
       })
 
       expect(screen.getByText(t('dailyReport.chat.truncatedNotice'))).toBeTruthy()
+    })
+
+    it('shows what information was sent to the AI on the last exchange', () => {
+      renderSection({
+        messages: [MESSAGE],
+        chat: {
+          isPending: false,
+          wasTruncated: false,
+          contextCategories: ['GOAL_INFO', 'TODAY_RECORD'],
+          send: vi.fn(),
+        },
+      })
+
+      const goalInfo = t('dailyReport.chat.contextCategories.GOAL_INFO')
+      const todayRecord = t('dailyReport.chat.contextCategories.TODAY_RECORD')
+      expect(
+        screen.getByText(
+          t('dailyReport.chat.contextCategoriesLabel', {
+            categories: `${goalInfo}・${todayRecord}`,
+          }),
+        ),
+      ).toBeTruthy()
+    })
+
+    it('shows nothing about the AI context before any exchange happens', () => {
+      renderSection({ messages: [] })
+
+      expect(
+        screen.queryByText(t('dailyReport.chat.contextCategoriesLabel', { categories: '' })),
+      ).toBe(null)
     })
   })
 

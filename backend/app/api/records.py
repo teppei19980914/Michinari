@@ -8,6 +8,8 @@ import datetime as dt
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.constants.domain import CONTEXT_CATEGORIES_BY_PURPOSE
+from app.constants.enums import AiPurpose
 from app.database import get_db
 from app.models.record import DailyRecord
 from app.schemas.record import (
@@ -277,6 +279,7 @@ def chat(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK],
     )
 
 
@@ -302,6 +305,7 @@ def reading_chat(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK_READING],
     )
 
 
@@ -327,6 +331,7 @@ def work_chat(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK_WORK],
     )
 
 
