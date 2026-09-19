@@ -191,7 +191,11 @@ def discard_previous_package(
 
 
 def cleanup_stale_previous_packages(
-    dist_dir: Path, *, prefix: str = PREVIOUS_PACKAGE_PREFIX
+    dist_dir: Path,
+    *,
+    prefix: str = PREVIOUS_PACKAGE_PREFIX,
+    retry_attempts: int = RMTREE_RETRY_ATTEMPTS,
+    retry_delay_seconds: float = RMTREE_RETRY_DELAY_SECONDS,
 ) -> list[Path]:
     """前回以前のビルドで`discard_previous_package`が削除しきれず残した
     `_previous_*`フォルダを、今回のビルド開始時にあらためて削除する。
@@ -202,7 +206,14 @@ def cleanup_stale_previous_packages(
     ビルドを重ねるたびに積み上がるのを防ぐ（2026-09-14利用者報告：`_archive/`にzipとして
     同じ内容が残るため、このフォルダ自体を保持する必要はない）。
 
-    削除に失敗した場合は`discard_previous_package`と同様に警告のみ表示し、ビルドは
+    フォルダ単位で`discard_previous_package`と同じ回数・間隔だけ再試行する
+    （`RMTREE_RETRY_ATTEMPTS`・`RMTREE_RETRY_DELAY_SECONDS`、CLAUDE.md DRYの原則）。
+    以前はここに再試行が無く1回失敗しただけで諦めていたため、`_previous_*`が
+    ビルドのたびに積み上がり続けていた（2026-09-19判明。`alembic/versions/__pycache__`
+    はOneDriveのファイルオンデマンドでクラウド専用プレースホルダ化されやすく、ロック解消に
+    `discard_previous_package`の待機時間（最大15秒）を超えて数分かかることがある）。
+
+    再試行しても失敗した場合は`discard_previous_package`と同様に警告のみ表示し、ビルドは
     中断しない（次回以降のビルドで再度削除を試みる）。
 
     戻り値: 削除できたフォルダのパス一覧（名前昇順）。対象が無ければ空リスト。
@@ -214,11 +225,20 @@ def cleanup_stale_previous_packages(
     )
     removed: list[Path] = []
     for stale_dir in stale_dirs:
-        try:
-            shutil.rmtree(stale_dir)
-            removed.append(stale_dir)
-        except OSError as error:
-            print(f"  → 警告: 残存する旧パッケージを削除できませんでした: {stale_dir} ({error})")
+        last_error: OSError | None = None
+        for attempt in range(1, retry_attempts + 1):
+            try:
+                shutil.rmtree(stale_dir)
+                removed.append(stale_dir)
+                break
+            except OSError as error:
+                last_error = error
+                if attempt < retry_attempts:
+                    time.sleep(retry_delay_seconds)
+        else:
+            print(
+                f"  → 警告: 残存する旧パッケージを削除できませんでした: {stale_dir} ({last_error})"
+            )
             print("     ビルドは継続します。不要であれば手動で削除してください。")
     return removed
 
