@@ -8,25 +8,13 @@
 import { describe, expect, it } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useGoalReportTabs } from './useGoalReportTabs'
-import type { GoalRead } from '../../api/goals'
-
-function buildGoal(id: number, status: GoalRead['status']): GoalRead {
-  return {
-    id,
-    category: 'EXAM',
-    name: `goal-${id}`,
-    start_date: '2026-09-01',
-    status,
-    memo: null,
-    activated_at: null,
-    closed_at: null,
-    archived_at: null,
-  }
-}
+import { makeGoal } from '../../test/fixtures'
 
 describe('useGoalReportTabs', () => {
   it('hides the selector and has no selected goal when there is no ACTIVE goal', () => {
-    const { result } = renderHook(() => useGoalReportTabs([buildGoal(1, 'CLOSED_WITH_RESULT')]))
+    const { result } = renderHook(() =>
+      useGoalReportTabs([makeGoal({ id: 1, status: 'CLOSED_WITH_RESULT' })]),
+    )
 
     expect(result.current.reportableGoals).toEqual([])
     expect(result.current.showGoalSelector).toBe(false)
@@ -35,7 +23,7 @@ describe('useGoalReportTabs', () => {
   })
 
   it('hides the selector but still resolves the single ACTIVE goal by id', () => {
-    const goal = buildGoal(1, 'ACTIVE')
+    const goal = makeGoal({ id: 1, status: 'ACTIVE' })
     const { result } = renderHook(() => useGoalReportTabs([goal]))
 
     expect(result.current.showGoalSelector).toBe(false)
@@ -45,7 +33,7 @@ describe('useGoalReportTabs', () => {
   })
 
   it('defaults to the first ACTIVE goal and lets the caller switch tabs', () => {
-    const goals = [buildGoal(1, 'ACTIVE'), buildGoal(2, 'ACTIVE')]
+    const goals = [makeGoal({ id: 1, status: 'ACTIVE' }), makeGoal({ id: 2, status: 'ACTIVE' })]
     const { result } = renderHook(() => useGoalReportTabs(goals))
 
     expect(result.current.showGoalSelector).toBe(true)
@@ -59,7 +47,11 @@ describe('useGoalReportTabs', () => {
   })
 
   it('excludes non-ACTIVE goals from the selectable set', () => {
-    const goals = [buildGoal(1, 'ACTIVE'), buildGoal(2, 'DRAFT'), buildGoal(3, 'ACTIVE')]
+    const goals = [
+      makeGoal({ id: 1, status: 'ACTIVE' }),
+      makeGoal({ id: 2, status: 'DRAFT' }),
+      makeGoal({ id: 3, status: 'ACTIVE' }),
+    ]
     const { result } = renderHook(() => useGoalReportTabs(goals))
 
     expect(result.current.reportableGoals.map((goal) => goal.id)).toEqual([1, 3])
