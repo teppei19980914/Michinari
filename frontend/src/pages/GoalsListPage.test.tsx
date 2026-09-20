@@ -12,6 +12,7 @@ import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { GOAL_ID, makeGoal } from '../test/fixtures'
+import { resolveGoalCategoryBadgeClass } from '../features/goal/goalCategoryBadge'
 import { GoalsListPage } from './GoalsListPage'
 
 const listGoals = vi.hoisted(() => vi.fn())
@@ -127,6 +128,14 @@ describe('GoalsListPage の一覧', () => {
     await screen.findByText('目標A')
     expect(screen.queryByRole('checkbox')).toBeNull()
   })
+
+  it('colors the category label with the badge matching its category', async () => {
+    listGoals.mockResolvedValue([makeGoal({ category: 'READING' })])
+    renderWithProviders(<GoalsListPage />)
+
+    const badge = await screen.findByText(t('goals.new.category.READING'))
+    expect(badge.className).toContain(resolveGoalCategoryBadgeClass('READING'))
+  })
 })
 
 describe('GoalsListPage のアーカイブ操作', () => {
@@ -221,9 +230,7 @@ describe('GoalsListPage の新規作成（種別選択）', () => {
       name: '読みたい本',
       start_date: '2026-09-20',
     })
-    expect(navigate).toHaveBeenCalledWith(ROUTES.dashboard, {
-      state: { showFirstRecordBanner: true },
-    })
+    expect(navigate).toHaveBeenCalledWith(ROUTES.dashboard)
   })
 
   it('opens the work quick-create form', async () => {

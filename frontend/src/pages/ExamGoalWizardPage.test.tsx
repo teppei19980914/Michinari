@@ -134,9 +134,7 @@ describe('ExamGoalWizardPage の一連の流れ（テンプレート・スロッ
     await user.click(screen.getByRole('button', { name: t('goals.examWizard.startButton') }))
 
     await waitFor(() => expect(activateGoal).toHaveBeenCalledWith(1), { timeout: 8000 })
-    expect(navigate).toHaveBeenCalledWith(ROUTES.dashboard, {
-      state: { showFirstRecordBanner: true },
-    })
+    expect(navigate).toHaveBeenCalledWith(ROUTES.dashboard)
   }, 15000)
 
   it('disables next until a template (or manual name) is chosen', async () => {

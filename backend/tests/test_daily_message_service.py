@@ -25,6 +25,17 @@ def _no_rate_limit_sleep(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _ai_configured(monkeypatch):
+    """get_or_generateはAI呼び出し前にai_client.is_authenticated()を確認する（S-4 4-1）。
+
+    実機のNewtonX ADK設定（ローカルの認証キャッシュ）に依存させず、本ファイルの
+    大半のテストは「AI設定済み」を前提に固定する。未設定時の分岐は
+    test_get_or_generate_returns_fallback_* が個別にFalseへ上書きして検証する。
+    """
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+
+
+@pytest.fixture(autouse=True)
 def _cleanup_committed_rows(seeded_session):
     """get_or_generateはAI呼び出し失敗時にcommitする（ai_logのエラー記録を残すため、
     16.8）。後始末パターンはtest_daily_feedback_service.pyと同じ。
@@ -117,7 +128,7 @@ def test_get_or_generate_does_not_regenerate_same_day(seeded_session, monkeypatc
     first = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
     second = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
 
-    assert first[0].id == second[0].id
+    assert first[0].generated_at == second[0].generated_at
     assert len(calls) == 1  # 2回目はAI呼び出しをしない
 
 
@@ -156,7 +167,7 @@ def test_get_or_generate_zero_active_goals_does_not_regenerate_same_day(
     first = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
     second = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
 
-    assert first[0].id == second[0].id
+    assert first[0].generated_at == second[0].generated_at
     assert len(calls) == 1
 
 
@@ -316,3 +327,73 @@ def test_get_or_generate_work_and_exam_goals_do_not_cross_contaminate(seeded_ses
 
     assert "案件Yのみ" not in call_by_goal["exam"]
     assert "教材Xのみ" not in call_by_goal["work"]
+
+
+# --- AI未設定時のフォールバック（S-4 4-1、GET /daily-message はAI必須のままではなく
+# --- 固定文言のフォールバックを返す） ---
+
+
+def test_get_or_generate_returns_fallback_without_calling_ai_when_unconfigured(
+    seeded_session, monkeypatch
+):
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+    calls = _stub_send_message(monkeypatch)
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert len(result) == 1
+    assert result[0].goal_id == goal.id
+    assert result[0].is_fallback is True
+    assert result[0].body == ""
+    assert len(calls) == 0  # AI呼び出し自体を行わない
+    assert seeded_session.query(DailyMessage).count() == 0  # DBへは保存しない
+
+
+def test_get_or_generate_returns_fallback_per_active_goal_when_unconfigured(
+    seeded_session, monkeypatch
+):
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    _make_material(seeded_session, goal_a)
+    _make_material(seeded_session, goal_b)
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert {message.goal_id for message in result} == {goal_a.id, goal_b.id}
+    assert all(message.is_fallback for message in result)
+
+
+def test_get_or_generate_returns_fallback_goal_independent_when_no_active_goals(
+    seeded_session, monkeypatch
+):
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+
+    result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert len(result) == 1
+    assert result[0].goal_id is None
+    assert result[0].is_fallback is True
+
+
+def test_get_or_generate_switches_back_to_real_generation_once_ai_is_configured(
+    seeded_session, monkeypatch
+):
+    """フォールバックは永続化しないため、AI設定後の再取得で通常の生成に切り替わること。"""
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+
+    fallback_result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+    assert fallback_result[0].is_fallback is True
+
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+    calls = _stub_send_message(monkeypatch, response="設定後の一言")
+
+    real_result = daily_message_service.get_or_generate(seeded_session, dt.date(2026, 8, 24))
+
+    assert real_result[0].is_fallback is False
+    assert real_result[0].body == "設定後の一言"
+    assert len(calls) == 1

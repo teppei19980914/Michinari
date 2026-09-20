@@ -44,6 +44,9 @@ AI_TIMEOUT_SECONDS = "ai.timeout_seconds"
 AI_MAX_RETRIES = "ai.max_retries"
 AI_MIN_INTERVAL_SECONDS = "ai.min_interval_seconds"
 AI_MAX_PROMPT_CHARS = "ai.max_prompt_chars"
+#: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
+#: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
+AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"
 LOG_AI_ENABLED = "log.ai_enabled"
 LOG_RETENTION_DAYS = "log.retention_days"
 SUMMARY_LOOKBACK_WEEKS = "summary.lookback_weeks"

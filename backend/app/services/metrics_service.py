@@ -18,7 +18,7 @@ from app.constants.enums import (
 )
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
-from app.models.record import DailyRecord, StudyLog
+from app.models.record import DailyRecord, ReadingLog, StudyLog, WorkLog
 from app.services import calendar_service, record_service
 from app.services.cycle_service import MaterialProgress
 
@@ -311,3 +311,86 @@ def resolve_passing_score(material: Material) -> float | None:
         if score is not None
     ]
     return max(scores) if scores else None
+
+
+def resolve_last_week_range(today: dt.date) -> tuple[dt.date, dt.date]:
+    """「先週」の月曜〜日曜の範囲を返す（ダッシュボード週次まとめ、S-4 4-4）。
+
+    今日が属する週（月曜始まり）の直前の1週間を指す。weekly_summary_serviceの
+    週次要約生成が対象とする「完了した週」（今日が日曜ならその週自身を含む、15.2）
+    とは定義が異なる（今日を含む週は表示対象にしない、常に1つ前の週を指す）ため、
+    意図的に別関数とする。
+    """
+    this_week_start = today - dt.timedelta(days=today.weekday())
+    last_week_start = this_week_start - dt.timedelta(days=7)
+    last_week_end = this_week_start - dt.timedelta(days=1)
+    return last_week_start, last_week_end
+
+
+@dataclass(frozen=True)
+class WeeklyRecordSummary:
+    """週次まとめ（S-4 4-4）の非AI集計。AI週次要約が無い週のフォールバック表示に使う。
+
+    記録日数はカテゴリを問わず算出できるが、投下時間は資格試験のみ定量管理する
+    （要件定義書R-71・R-74、読書・仕事は時間を評価対象としない設計）ため、
+    total_minutesはEXAM以外ではNoneとする。
+    """
+
+    recorded_days: int
+    total_minutes: int | None
+
+
+def compute_weekly_record_summary(
+    session: Session, goal: Goal, week_start: dt.date, week_end: dt.date
+) -> WeeklyRecordSummary:
+    """週次まとめの非AI集計を算出する。対象カテゴリの記録（教材の実績・想起・業務記録）
+    のうち、週内に記録された日数（重複日は1日として数える）を返す。"""
+    if goal.category == GoalCategory.EXAM:
+        material_ids = [material.id for material in goal.materials]
+        if not material_ids:
+            return WeeklyRecordSummary(recorded_days=0, total_minutes=0)
+        rows = (
+            session.query(DailyRecord.record_date, StudyLog.minutes_spent)
+            .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+            .filter(
+                StudyLog.material_id.in_(material_ids),
+                DailyRecord.record_date >= week_start,
+                DailyRecord.record_date <= week_end,
+            )
+            .all()
+        )
+        recorded_days = len({row.record_date for row in rows})
+        total_minutes = sum(row.minutes_spent or 0 for row in rows)
+        return WeeklyRecordSummary(recorded_days=recorded_days, total_minutes=total_minutes)
+
+    if goal.category == GoalCategory.READING:
+        if goal.book is None:
+            return WeeklyRecordSummary(recorded_days=0, total_minutes=None)
+        recorded_days = (
+            session.query(func.count(func.distinct(DailyRecord.record_date)))
+            .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
+            .filter(
+                ReadingLog.book_id == goal.book.id,
+                DailyRecord.record_date >= week_start,
+                DailyRecord.record_date <= week_end,
+            )
+            .scalar()
+            or 0
+        )
+        return WeeklyRecordSummary(recorded_days=recorded_days, total_minutes=None)
+
+    # category == GoalCategory.WORK（他2カテゴリで既にreturn済み、3種のみ）。
+    if goal.work_assignment is None:
+        return WeeklyRecordSummary(recorded_days=0, total_minutes=None)
+    recorded_days = (
+        session.query(func.count(func.distinct(DailyRecord.record_date)))
+        .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
+        .filter(
+            WorkLog.work_assignment_id == goal.work_assignment.id,
+            DailyRecord.record_date >= week_start,
+            DailyRecord.record_date <= week_end,
+        )
+        .scalar()
+        or 0
+    )
+    return WeeklyRecordSummary(recorded_days=recorded_days, total_minutes=None)

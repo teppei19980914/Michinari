@@ -1021,6 +1021,9 @@ export interface paths {
         /**
          * Get Daily Message
          * @description 今日の一言を目標ごとに取得する。未生成の目標があれば生成する（データ構造編6.2）。
+         *
+         *     AI未設定時はdaily_message_serviceがフォールバック結果（is_fallback=True）を返す
+         *     ため、ここでは例外処理を行わない（S-4 4-1）。
          */
         get: operations["get_daily_message_api_v1_daily_message_get"];
         put?: never;
@@ -1940,6 +1943,11 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+            /**
+             * Is Fallback
+             * @default false
+             */
+            is_fallback: boolean;
         };
         /**
          * DailyRecordRead
@@ -1985,6 +1993,8 @@ export interface components {
          *     論理的な本日・記録状態は GET /records/today と同じ値だが、ダッシュボード画面が
          *     往復を増やさず取得できるようここにも含める（/records/todayは他画面からも汎用的に
          *     参照されるため存続する）。
+         *
+         *     has_ever_reported_record は初回記録バナー（S-4 4-2）の非表示条件に使う。
          */
         DashboardRead: {
             /**
@@ -2004,6 +2014,10 @@ export interface components {
             today_quota: components["schemas"]["TodayQuotaEntryRead"][];
             /** Available Slot Names */
             available_slot_names: string[];
+            /** Has Ever Reported Record */
+            has_ever_reported_record: boolean;
+            /** Weekly Digests */
+            weekly_digests: components["schemas"]["WeeklyDigestRead"][];
         };
         /** DayBoundaryHourRead */
         DayBoundaryHourRead: {
@@ -2962,6 +2976,8 @@ export interface components {
             summary_inject_weeks: number;
             /** Reading Recall Recent Days */
             reading_recall_recent_days: number;
+            /** Perspective Suggestion Min Records */
+            perspective_suggestion_min_records: number;
         };
         /** PromptDegradationSettingsUpdate */
         PromptDegradationSettingsUpdate: {
@@ -2971,6 +2987,8 @@ export interface components {
             summary_inject_weeks?: number | null;
             /** Reading Recall Recent Days */
             reading_recall_recent_days?: number | null;
+            /** Perspective Suggestion Min Records */
+            perspective_suggestion_min_records?: number | null;
         };
         /** PromptTemplateRead */
         PromptTemplateRead: {
@@ -3530,6 +3548,36 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WeeklyDigestRead
+         * @description 先週のまとめ（仕様書6.1「先週のまとめ」、S-4 4-4）。
+         *
+         *     AI週次要約（is_anonymized=Falseの版）が既に生成済みならその本文を、無ければ
+         *     （AI未設定、または生成前）非AI集計（記録日数・投下時間）へフォールバックする。
+         *     ai_summary_textがNoneのときのみrecorded_days・total_minutesを画面が使う。
+         */
+        WeeklyDigestRead: {
+            /** Goal Id */
+            goal_id: number;
+            /** Goal Name */
+            goal_name: string;
+            /**
+             * Week Start Date
+             * Format: date
+             */
+            week_start_date: string;
+            /**
+             * Week End Date
+             * Format: date
+             */
+            week_end_date: string;
+            /** Ai Summary Text */
+            ai_summary_text: string | null;
+            /** Recorded Days */
+            recorded_days: number;
+            /** Total Minutes */
+            total_minutes: number | null;
         };
         /** WorkAssignmentCreate */
         WorkAssignmentCreate: {

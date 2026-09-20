@@ -23,12 +23,14 @@ from app.constants.enums import GoalCategory
 from app.database import get_db
 from app.models.goal import Goal
 from app.models.material import Material
+from app.models.record import WeeklySummary
 from app.schemas.dashboard import (
     DashboardRead,
     GoalCardRead,
     GoalStatsRead,
     MaterialSpeedRead,
     TodayQuotaEntryRead,
+    WeeklyDigestRead,
 )
 from app.services import (
     ai_context_service,
@@ -148,6 +150,47 @@ def _build_goal_card_and_stats(
     return card, stats
 
 
+def _build_weekly_digest(session: Session, goal: Goal, today: dt.date) -> WeeklyDigestRead:
+    """先週のまとめ（仕様書6.1、S-4 4-4）。AI週次要約（is_anonymized=False）があれば
+    その本文を、無ければ非AI集計へフォールバックする。AI呼び出しは行わない
+    （既存のweekly_summary_service.run_retroactive_generationが起動時に生成済みの
+    ものをDBから読むだけの軽量な処理のため、GET /dashboardに含めても初期表示の
+    性能要件を損なわない）。
+    """
+    week_start, week_end = metrics_service.resolve_last_week_range(today)
+    ai_summary = (
+        session.query(WeeklySummary)
+        .filter(
+            WeeklySummary.goal_id == goal.id,
+            WeeklySummary.week_start_date == week_start,
+            WeeklySummary.is_anonymized.is_(False),
+        )
+        .first()
+    )
+    if ai_summary is not None:
+        return WeeklyDigestRead(
+            goal_id=goal.id,
+            goal_name=goal.name,
+            week_start_date=week_start,
+            week_end_date=week_end,
+            ai_summary_text=ai_summary.summary_body,
+            recorded_days=0,
+            total_minutes=None,
+        )
+    record_summary = metrics_service.compute_weekly_record_summary(
+        session, goal, week_start, week_end
+    )
+    return WeeklyDigestRead(
+        goal_id=goal.id,
+        goal_name=goal.name,
+        week_start_date=week_start,
+        week_end_date=week_end,
+        ai_summary_text=None,
+        recorded_days=record_summary.recorded_days,
+        total_minutes=record_summary.total_minutes,
+    )
+
+
 def _build_today_quota(
     session: Session,
     today: dt.date,
@@ -232,6 +275,8 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
         goal_cards.append(card)
         goal_stats.append(stats)
 
+    weekly_digests = [_build_weekly_digest(session, goal, today) for goal in active_goals]
+
     today_quota = _build_today_quota(session, today, materials_by_id, effective_speed_by_material)
 
     slots_by_weekday = slot_service.group_slots_by_weekday(slot_service.get_active_slots(session))
@@ -246,4 +291,6 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
         goal_stats=goal_stats,
         today_quota=today_quota,
         available_slot_names=available_slot_names,
+        has_ever_reported_record=record_service.has_any_reported_record(session),
+        weekly_digests=weekly_digests,
     )

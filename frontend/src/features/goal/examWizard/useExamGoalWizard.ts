@@ -168,7 +168,7 @@ export function useExamGoalWizard() {
       if (s.goalId === null) return
       await activateGoal(s.goalId)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
-      navigate(ROUTES.dashboard, { state: { showFirstRecordBanner: true } })
+      navigate(ROUTES.dashboard)
     })
 
   return {

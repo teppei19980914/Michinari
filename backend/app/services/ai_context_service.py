@@ -1148,3 +1148,42 @@ def build_anonymize_instruction(anonymize: bool) -> str:
         "業務・家庭など個人や勤務先を特定しうる固有の事情への言及を避け、"
         "一般化して記述してください。"
     )
+
+
+#: {{perspective_suggestion}}のカテゴリ別文面（S-4 4-3）。まだ実績が少ない段階でAIが
+#: 傾向を断定してしまわないよう、複数の観点から問いかけるよう促す（前回セッション提示の
+#: 初日体験改善案B「初日のAI応答強化」に相当）。
+_PERSPECTIVE_SUGGESTION_TEXTS: dict[GoalCategory, str] = {
+    GoalCategory.EXAM: (
+        "# 記録がまだ少ない場合\n"
+        "まだ記録が数回に満たない学習者です。学習の傾向や課題を断定せず、"
+        "生活リズムや学習のしやすさ、気になっていることなど複数の観点から問いかけ、"
+        "学習者自身の言語化を促してください。"
+    ),
+    GoalCategory.READING: (
+        "# 記録がまだ少ない場合\n"
+        "まだ記録が数回に満たない読者です。読み方の傾向を断定せず、"
+        "読みやすさや興味を持った点、読む時間帯など複数の観点から問いかけ、"
+        "本人の言語化を促してください。"
+    ),
+    GoalCategory.WORK: (
+        "# 記録がまだ少ない場合\n"
+        "まだ記録が数回に満たない働き手です。業務の傾向を断定せず、"
+        "業務のしやすさや工夫した点、気になっていることなど複数の観点から問いかけ、"
+        "本人の言語化を促してください。"
+    ),
+}
+
+
+def build_perspective_suggestion_instruction(
+    category: GoalCategory, is_below_threshold: bool
+) -> str:
+    """{{perspective_suggestion}}: 記録件数が閾値未満の学習者への追加指示（S-4 4-3）。
+
+    判定（件数の集計・閾値との比較）は呼び出し側（各*_feedback_service）が行い、
+    ここは真偽値から文面を組み立てるだけに徹する（build_anonymize_instructionと同じ
+    分担、業務判断はservices層・文字列組み立てはこちらという役割分担）。
+    """
+    if not is_below_threshold:
+        return ""
+    return _PERSPECTIVE_SUGGESTION_TEXTS[category]

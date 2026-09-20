@@ -15,10 +15,12 @@ from app.constants.enums import (
     QualityMetricType,
     RecordState,
 )
+from app.models.book import Book
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, MaterialSubject, PlanBaseline
-from app.models.record import DailyRecord, StudyLog
+from app.models.record import DailyRecord, ReadingLog, StudyLog, WorkLog
 from app.models.setting import CalendarDayOverride
+from app.models.work import WorkAssignment
 from app.services import cycle_service, metrics_service
 
 
@@ -531,3 +533,187 @@ def test_resolve_passing_score_compares_normalized_values_across_mixed_types(db_
     )
 
     assert metrics_service.resolve_passing_score(material) == 80.0
+
+
+# --- 週次まとめの非AI集計（S-4 4-4） ---
+
+
+class TestResolveLastWeekRange:
+    def test_returns_the_monday_to_sunday_range_before_the_current_week(self):
+        # 2026-01-14は水曜日（週の開始2026-01-12月曜〜01-18日曜）。先週は01-05〜01-11。
+        assert metrics_service.resolve_last_week_range(dt.date(2026, 1, 14)) == (
+            dt.date(2026, 1, 5),
+            dt.date(2026, 1, 11),
+        )
+
+    def test_excludes_the_current_week_even_when_today_is_sunday(self):
+        # 2026-01-18は日曜日（今週の最終日）。先週はあくまで01-05〜01-11のまま。
+        assert metrics_service.resolve_last_week_range(dt.date(2026, 1, 18)) == (
+            dt.date(2026, 1, 5),
+            dt.date(2026, 1, 11),
+        )
+
+
+class TestComputeWeeklyRecordSummary:
+    def test_exam_counts_distinct_days_and_sums_minutes(self, db_session):
+        goal = _make_goal(db_session)
+        material = _make_material(db_session, goal.id)
+        week_start, week_end = dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        for offset, minutes in ((0, 30), (1, 45)):
+            record = DailyRecord(
+                record_date=week_start + dt.timedelta(days=offset),
+                exam_record_state=RecordState.PROGRESS_ONLY,
+            )
+            db_session.add(record)
+            db_session.flush()
+            db_session.add(
+                StudyLog(
+                    daily_record_id=record.id,
+                    material_id=material.id,
+                    minutes_spent=minutes,
+                    amount_completed=1,
+                    cycle_number=1,
+                )
+            )
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, week_start, week_end
+        )
+
+        assert result.recorded_days == 2
+        assert result.total_minutes == 75
+
+    def test_exam_excludes_logs_outside_the_week(self, db_session):
+        goal = _make_goal(db_session)
+        material = _make_material(db_session, goal.id)
+        week_start, week_end = dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        record = DailyRecord(
+            record_date=week_start - dt.timedelta(days=1),
+            exam_record_state=RecordState.PROGRESS_ONLY,
+        )
+        db_session.add(record)
+        db_session.flush()
+        db_session.add(
+            StudyLog(
+                daily_record_id=record.id,
+                material_id=material.id,
+                minutes_spent=30,
+                amount_completed=1,
+                cycle_number=1,
+            )
+        )
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, week_start, week_end
+        )
+
+        assert result.recorded_days == 0
+        assert result.total_minutes == 0
+
+    def test_exam_with_no_materials_returns_zero(self, db_session):
+        goal = _make_goal(db_session)
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        )
+
+        assert result.recorded_days == 0
+        assert result.total_minutes == 0
+
+    def test_reading_counts_distinct_recall_days_without_minutes(self, db_session):
+        goal = Goal(
+            category=GoalCategory.READING,
+            name="読書目標",
+            start_date=dt.date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+        db_session.add(goal)
+        db_session.flush()
+        book = Book(
+            goal_id=goal.id,
+            title="書籍A",
+            total_pages=300,
+            start_date=dt.date(2026, 1, 1),
+            due_date=dt.date(2026, 12, 31),
+        )
+        db_session.add(book)
+        db_session.flush()
+        week_start, week_end = dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        record = DailyRecord(record_date=week_start)
+        db_session.add(record)
+        db_session.flush()
+        db_session.add(ReadingLog(daily_record_id=record.id, book_id=book.id, recall_body="想起"))
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, week_start, week_end
+        )
+
+        assert result.recorded_days == 1
+        assert result.total_minutes is None
+
+    def test_reading_with_no_book_returns_zero(self, db_session):
+        goal = Goal(
+            category=GoalCategory.READING,
+            name="読書目標",
+            start_date=dt.date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+        db_session.add(goal)
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        )
+
+        assert result.recorded_days == 0
+        assert result.total_minutes is None
+
+    def test_work_counts_distinct_log_days_without_minutes(self, db_session):
+        goal = Goal(
+            category=GoalCategory.WORK,
+            name="仕事目標",
+            start_date=dt.date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+        db_session.add(goal)
+        db_session.flush()
+        work_assignment = WorkAssignment(
+            goal_id=goal.id, expected_content="想定業務内容", start_date=dt.date(2026, 1, 1)
+        )
+        db_session.add(work_assignment)
+        db_session.flush()
+        week_start, week_end = dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        record = DailyRecord(record_date=week_start)
+        db_session.add(record)
+        db_session.flush()
+        db_session.add(
+            WorkLog(daily_record_id=record.id, work_assignment_id=work_assignment.id, body="業務")
+        )
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, week_start, week_end
+        )
+
+        assert result.recorded_days == 1
+        assert result.total_minutes is None
+
+    def test_work_with_no_work_assignment_returns_zero(self, db_session):
+        goal = Goal(
+            category=GoalCategory.WORK,
+            name="仕事目標",
+            start_date=dt.date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+        db_session.add(goal)
+        db_session.flush()
+
+        result = metrics_service.compute_weekly_record_summary(
+            db_session, goal, dt.date(2026, 1, 5), dt.date(2026, 1, 11)
+        )
+
+        assert result.recorded_days == 0
+        assert result.total_minutes is None
