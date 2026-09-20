@@ -10,7 +10,7 @@ Phase4時点ではAI連携（chat_message の生成）は対象外としてい�
 import datetime as dt
 from dataclasses import dataclass, field
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 
 from app.constants.enums import DayType, GoalCategory, GoalStatus, QualityMetricType, RecordState
@@ -515,6 +515,42 @@ def resolve_record_state(record: DailyRecord | None) -> RecordState | None:
     return aggregate_record_state(
         record.exam_record_state, record.reading_record_state, record.work_record_state
     )
+
+
+def count_reported_records_before(
+    session: Session, category: GoalCategory, before_date: dt.date
+) -> int:
+    """指定日より前に、そのカテゴリで確定済み(REPORTED)の記録が何件あるかを返す
+    （観点提案プロンプトの閾値判定、S-4 4-3。記録がまだ少ない学習者にAIが断定的な
+    分析をしないよう、日次報告フィードバックへ条件付きで追加指示を注入するために使う）。
+    """
+    column = category_state_column(category)
+    return (
+        session.query(func.count(DailyRecord.id))
+        .filter(DailyRecord.record_date < before_date, column == RecordState.REPORTED)
+        .scalar()
+    )
+
+
+def has_any_reported_record(session: Session) -> bool:
+    """一度でも確定済み(REPORTED)の記録があるかを返す（初回記録バナーの非表示条件、S-4 4-2）。
+
+    カテゴリを問わず1件でもREPORTEDがあればTrue。バナーの表示・非表示を
+    `location.state`のような遷移1回限りの状態ではなく、実データ（記録確定という
+    ドメインイベント）に紐づけるために追加した。
+    """
+    exists = (
+        session.query(DailyRecord.id)
+        .filter(
+            or_(
+                DailyRecord.exam_record_state == RecordState.REPORTED,
+                DailyRecord.reading_record_state == RecordState.REPORTED,
+                DailyRecord.work_record_state == RecordState.REPORTED,
+            )
+        )
+        .first()
+    )
+    return exists is not None
 
 
 def _ensure_category_not_reported(

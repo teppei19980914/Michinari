@@ -172,6 +172,25 @@ export function makeDashboard(overrides: Partial<DashboardRead> = {}): Dashboard
     goal_stats: [makeGoalStats()],
     today_quota: [makeTodayQuotaEntry()],
     available_slot_names: ['朝の枠'],
+    // 既定は「初回記録バナー(S-4 4-2)が出ない、確立した利用者」の状態。
+    // バナー表示を検証するテストは明示的にfalseへ上書きすること。
+    has_ever_reported_record: true,
+    weekly_digests: [makeWeeklyDigest()],
+    ...overrides,
+  }
+}
+
+export function makeWeeklyDigest(
+  overrides: Partial<DashboardRead['weekly_digests'][number]> = {},
+): DashboardRead['weekly_digests'][number] {
+  return {
+    goal_id: GOAL_ID,
+    goal_name: '目標A',
+    week_start_date: '2026-09-01',
+    week_end_date: '2026-09-07',
+    ai_summary_text: null,
+    recorded_days: 3,
+    total_minutes: 90,
     ...overrides,
   }
 }

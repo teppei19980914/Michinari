@@ -7,6 +7,8 @@
 
 import datetime as dt
 
+import pytest
+
 from app.constants.enums import (
     BaselineReason,
     Environment,
@@ -955,6 +957,19 @@ def test_build_anonymize_instruction_returns_text_when_anonymizing():
     text = ai_context_service.build_anonymize_instruction(True)
 
     assert "匿名化" in text
+
+
+@pytest.mark.parametrize("category", [GoalCategory.EXAM, GoalCategory.READING, GoalCategory.WORK])
+def test_build_perspective_suggestion_instruction_empty_when_above_threshold(category):
+    assert ai_context_service.build_perspective_suggestion_instruction(category, False) == ""
+
+
+@pytest.mark.parametrize("category", [GoalCategory.EXAM, GoalCategory.READING, GoalCategory.WORK])
+def test_build_perspective_suggestion_instruction_returns_category_specific_text(category):
+    text = ai_context_service.build_perspective_suggestion_instruction(category, True)
+
+    assert text != ""
+    assert "断定" in text
 
 
 def test_list_active_exam_goals_excludes_reading_goals(seeded_session):

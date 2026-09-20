@@ -2,8 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { getDailyMessage } from '../../api/records'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
-import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
-import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
 type TodayMessageProps = {
@@ -23,13 +21,13 @@ export function TodayMessage({ goalId }: TodayMessageProps) {
     queryKey: QUERY_KEYS.dailyMessage(),
     queryFn: getDailyMessage,
   })
-  const aiConfigured = useAiConfigured()
 
   if (isError) {
-    // AI未設定はエラーではなく案内として扱う（非エンジニア向けエラー表示改善、完了条件D）。
-    // それ以外の失敗（AI基盤側のエラー等）は、この一言ウィジェットの重要度が低いため
+    // 一言は補助的な表示であり、取得できないことを利用者へ伝える価値がない。AI未設定は
+    // ここでエラーにならない（バックエンドが固定文言のフォールバックを200で返すため、
+    // S-4 4-1）。ここに到達するのはAI基盤側の障害等の想定外の失敗のみのため、
     // 従来どおり静かに何も表示しない。
-    return aiConfigured ? null : <AiUnconfiguredNotice />
+    return null
   }
 
   const messages = data?.filter((message) => message.goal_id === goalId) ?? []
@@ -46,7 +44,9 @@ export function TodayMessage({ goalId }: TodayMessageProps) {
         <div className="flex flex-col gap-2">
           {messages.map((message, index) => (
             <div key={message.goal_id ?? index}>
-              <p className="text-sm text-gray-800">{message.body}</p>
+              <p className="text-sm text-gray-800">
+                {message.is_fallback ? t('dashboard.todayMessage.fallback') : message.body}
+              </p>
             </div>
           ))}
         </div>

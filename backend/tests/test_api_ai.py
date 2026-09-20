@@ -145,6 +145,7 @@ def test_get_assistants_returns_extracted_fields(client, monkeypatch):
 
 def test_get_daily_message_generates_on_first_call(client, monkeypatch):
     calls = []
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
 
     def _fake_send_message(session, *, chat_uid, message):
         calls.append(message)
@@ -164,11 +165,13 @@ def test_get_daily_message_generates_on_first_call(client, monkeypatch):
     assert len(body) == 1
     assert body[0]["body"] == "今日も一歩前進しましょう"
     assert body[0]["goal_id"] is None
+    assert body[0]["is_fallback"] is False
     assert len(calls) == 1
 
 
 def test_get_daily_message_does_not_regenerate_same_day(client, monkeypatch):
     call_count = {"n": 0}
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
 
     def _fake_send_message(session, *, chat_uid, message):
         call_count["n"] += 1
@@ -188,3 +191,17 @@ def test_get_daily_message_does_not_regenerate_same_day(client, monkeypatch):
     assert second.status_code == 200
     assert first.json()[0]["generated_at"] == second.json()[0]["generated_at"]
     assert call_count["n"] == 1
+
+
+def test_get_daily_message_returns_fallback_when_ai_unconfigured(client, monkeypatch):
+    """AI未設定時は401にせず、固定文言のフォールバックを200で返す（S-4 4-1）。"""
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+
+    response = client.get("/api/v1/daily-message")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["is_fallback"] is True
+    assert body[0]["body"] == ""
+    assert body[0]["goal_id"] is None

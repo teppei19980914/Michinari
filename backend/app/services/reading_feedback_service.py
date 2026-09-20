@@ -22,6 +22,7 @@ from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
     AI_READING_RECALL_RECENT_DAYS,
     SUMMARY_INJECT_WEEKS,
 )
@@ -128,6 +129,14 @@ def send_reading_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
+    reported_count = record_service.count_reported_records_before(
+        session, GoalCategory.READING, target_date
+    )
+    min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
+    perspective_suggestion = ai_context_service.build_perspective_suggestion_instruction(
+        GoalCategory.READING, reported_count < min_records
+    )
+
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "today": target_date.isoformat(),
@@ -135,6 +144,7 @@ def send_reading_feedback(
             "today_recall": ai_context_service.build_today_recall_text(
                 reading_log_items, books_by_id
             ),
+            "perspective_suggestion": perspective_suggestion,
         },
         stages=[
             prompt_builder.DegradableEntryStage(

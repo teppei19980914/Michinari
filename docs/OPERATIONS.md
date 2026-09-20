@@ -632,6 +632,11 @@ GitHub Releasesにzipを添付する方式で行う。
 5. 「Publish release」を押す（配布開始）
 ```
 
+初回配布時・AI連携やアシスタント選定に関わる変更を含むリリースでは、手順5（公開）の前に
+[配布前チェックリスト.md](配布前チェックリスト.md)（配布前改善S-6 6-4）で、`release.bat`が
+自動確認できない項目（AI疎通・アシスタント選定・応答品質等、実機・外部サービス依存のため）を
+確認する。文言修正のみ等の軽微なリリースでは必須としない。
+
 **手順3でバッチが行うこと**
 
 | 順 | 内容 |
@@ -711,23 +716,31 @@ Releaseが存在する場合は、自動的に `gh release edit ... --notes-file
 からは一切自動呼び出しされない（GitHub上で他者から見える公開操作のため、公開したい
 タイミングで開発者が明示的に実行する）。
 
-#### リリースノートの2層構成
+#### リリースノートの2層構成（詳細層は任意、配布前改善S-6 6-6で確定）
 
-**公開前に `docs/release-notes/v{version}.md` を作成しておくこと**（存在しないと
-`publish_release.py` はエラー終了する）。Releases一覧ページは各リリースの本文を全文
-レンダリングするため、本文が長いと配布zip（Assets）が画面下へ埋もれ、利用者が目的の
-バージョンを見つけられなくなる。そこでRelease本文は要約のみとし、全変更点は
-`docs/release-notes/` 配下のファイルへ置く。
+`docs/release-notes/v{version}.md`（詳細ノート）は**任意**であり、無くても
+`publish_release.py`はエラー終了しない。存在しなければ記入用のひな形をRelease本文に使い、
+本文はGitHubの画面で公開後に書き換える運用とする（`release.bat`の標準フロー、
+[docs/release-notes/README.md](release-notes/README.md)「A方式」）。詳細ノートを作る
+（B方式）のは、破壊的変更や移行手順などRelease本文の15行に収まらない分量を書き残したい
+場合のみでよい。v1.2.2以降の全バージョンはA方式（詳細ノート無し）で運用しており、過去分を
+遡ってB方式へ統一する作業は行わない（詳細は[docs/release-notes/README.md](release-notes/README.md)
+の運用方針を参照）。
+
+Releases一覧ページは各リリースの本文を全文レンダリングするため、本文が長いと配布zip
+（Assets）が画面下へ埋もれ、利用者が目的のバージョンを見つけられなくなる。そこでRelease
+本文は要約のみとし、全変更点を書き残したい場合は`docs/release-notes/`配下のファイルへ置く。
 
 | 層 | 置き場所 | 分量の目安 |
 |---|---|---|
 | 要約 | GitHub Release 本文（スクリプトが自動生成） | 15行以内 |
-| 詳細 | `docs/release-notes/v{version}.md` | 制限なし |
+| 詳細（任意） | `docs/release-notes/v{version}.md` | 制限なし |
 
-`publish_release.py` は詳細ノートの `<!-- summary:start -->` 〜 `<!-- summary:end -->` で
-囲まれた範囲を抽出し、ダウンロード導線（配布zip名とREADMEへのリンク）と詳細ノートへの
-リンクを前後に付けてRelease本文を組み立てる。書き方と追加手順は
-[docs/release-notes/README.md](release-notes/README.md) を参照。
+`publish_release.py`（`resolve_release_body`）は、詳細ノートが存在する場合のみ
+`<!-- summary:start -->` 〜 `<!-- summary:end -->` で囲まれた範囲を抽出し、ダウンロード導線
+（配布zip名とREADMEへのリンク）と詳細ノートへのリンクを前後に付けてRelease本文を組み立てる。
+存在しない場合は記入用のひな形（詳細ノートへのリンクは含まない）を本文に使う。書き方と
+追加手順は[docs/release-notes/README.md](release-notes/README.md)を参照。
 
 詳細ノートへのリンクは**タグではなく`main`**を指す。過去バージョンのタグには当該ファイルが
 含まれないうえ、ノートの誤記を後から直した場合にRelease本文からのリンク先へも反映させたい

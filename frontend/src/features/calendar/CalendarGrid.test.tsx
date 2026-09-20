@@ -14,7 +14,6 @@ import type { CalendarDayRead } from '../../api/calendar'
 import type { AttributedAuxiliaryMarker } from './resolveAuxiliaryMarkers'
 import { CalendarGrid } from './CalendarGrid'
 
-const MONTH = new Date(Date.UTC(2026, 8, 1))
 const TARGET_DATE = '2026-09-13'
 
 const FIRST_GOAL = { id: 1, name: '目標A' }
@@ -38,7 +37,8 @@ function renderGrid(markers: AttributedAuxiliaryMarker[]) {
   }
   return renderWithProviders(
     <CalendarGrid
-      month={MONTH}
+      dateFrom="2026-08-31"
+      dateTo="2026-10-04"
       daysByDate={new Map([[TARGET_DATE, day]])}
       auxiliaryMarkersByDate={new Map([[TARGET_DATE, markers]])}
       onSelectDate={vi.fn()}
@@ -73,5 +73,70 @@ describe('CalendarGrid の補助表示', () => {
     expect(
       screen.getByText(`${SECOND_GOAL.name}: ${EXAM_DATE_LABEL}`),
     ).toBeTruthy()
+  })
+})
+
+describe('CalendarGrid の日付範囲・編集リンク', () => {
+  it('dims days that fall outside dimOutsideMonth while keeping days inside it undimmed', () => {
+    renderWithProviders(
+      <CalendarGrid
+        dateFrom="2026-08-31"
+        dateTo="2026-10-04"
+        dimOutsideMonth={new Date(Date.UTC(2026, 8, 1))}
+        daysByDate={new Map()}
+        auxiliaryMarkersByDate={new Map()}
+        onSelectDate={vi.fn()}
+      />,
+    )
+
+    const outsideCell = screen.getByText('31').closest('div')
+    const insideCell = screen.getByText('13').closest('div')
+
+    expect(outsideCell?.className).toContain('opacity-40')
+    expect(insideCell?.className).not.toContain('opacity-40')
+  })
+
+  it('does not dim any day when dimOutsideMonth is not given (e.g. a multi-month range)', () => {
+    renderWithProviders(
+      <CalendarGrid
+        dateFrom="2026-08-31"
+        dateTo="2026-10-04"
+        daysByDate={new Map()}
+        auxiliaryMarkersByDate={new Map()}
+        onSelectDate={vi.fn()}
+      />,
+    )
+
+    const day = screen.getByText('31').closest('div')
+
+    expect(day?.className).not.toContain('opacity-40')
+  })
+
+  it('omits the day-type edit link when onEditDayType is not given', () => {
+    renderWithProviders(
+      <CalendarGrid
+        dateFrom="2026-08-31"
+        dateTo="2026-10-04"
+        daysByDate={new Map()}
+        auxiliaryMarkersByDate={new Map()}
+        onSelectDate={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByText(t('calendar.editDayTypeLink'))).toBeNull()
+  })
+
+  it('renders the date as plain text (not a button) when onSelectDate is not given', () => {
+    renderWithProviders(
+      <CalendarGrid
+        dateFrom="2026-08-31"
+        dateTo="2026-10-04"
+        daysByDate={new Map()}
+        auxiliaryMarkersByDate={new Map()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: '31' })).toBeNull()
+    expect(screen.getByText('31')).toBeDefined()
   })
 })

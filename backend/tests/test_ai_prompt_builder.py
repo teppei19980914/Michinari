@@ -73,6 +73,24 @@ def test_build_daily_feedback_substitutes_all_variables():
     assert "【AI】回答です" in result.text
 
 
+def test_build_daily_feedback_substitutes_perspective_suggestion():
+    """S-4 4-3: {{perspective_suggestion}}が空文字なら何も注入されず、
+    文面ありなら差し込まれること。"""
+    template = "観点:{{perspective_suggestion}}"
+
+    empty_result = prompt_builder.build_daily_feedback(
+        template, _context(perspective_suggestion=""), max_chars=100000
+    )
+    assert empty_result.text == "観点:"
+
+    filled_result = prompt_builder.build_daily_feedback(
+        template,
+        _context(perspective_suggestion="複数の観点から問いかけてください"),
+        max_chars=100000,
+    )
+    assert filled_result.text == "観点:複数の観点から問いかけてください"
+
+
 def test_build_daily_feedback_stage1_drops_oldest_weekly_summary_first():
     # 縮退の閾値を、週次要約2件のうち1件を除けば収まる大きさに調整する。
     weekly = ["新しい週の要約" * 50, "古い週の要約" * 50]

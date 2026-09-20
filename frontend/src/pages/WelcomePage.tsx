@@ -59,7 +59,7 @@ export function WelcomePage() {
         open={quickCreateCategory !== null}
         category={quickCreateCategory ?? 'READING'}
         onClose={() => setQuickCreateCategory(null)}
-        onCreated={() => navigate(ROUTES.dashboard, { state: { showFirstRecordBanner: true } })}
+        onCreated={() => navigate(ROUTES.dashboard)}
       />
     </div>
   )

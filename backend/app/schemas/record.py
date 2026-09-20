@@ -299,3 +299,6 @@ class DailyMessageRead(BaseModel):
     goal_name: str | None
     body: str
     generated_at: dt.datetime
+    #: AI未設定時のフォールバック（S-4 4-1）。Trueのときbodyは空文字列で、
+    #: 表示文言はフロントのロケールファイルの固定文言を使う。
+    is_fallback: bool = False

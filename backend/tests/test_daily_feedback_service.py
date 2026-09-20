@@ -13,7 +13,7 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
-from app.constants.enums import ChatRole, GoalCategory, GoalStatus, QualityMetricType
+from app.constants.enums import ChatRole, GoalCategory, GoalStatus, QualityMetricType, RecordState
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
@@ -428,3 +428,53 @@ def test_send_daily_feedback_records_failure_to_ai_log(seeded_session, monkeypat
     log = seeded_session.query(AiLog).one()
     assert log.error_type == "AiError"
     assert log.response_body is None
+
+
+# --- 観点提案の追加指示（S-4 4-3） ---
+
+
+def test_send_daily_feedback_includes_perspective_suggestion_when_records_are_few(
+    seeded_session, monkeypatch
+):
+    """確定済み記録が既定の閾値（3件）未満なら、観点提案の追加指示がプロンプトへ
+    差し込まれること。"""
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+    calls = _stub_send_message(monkeypatch)
+
+    daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[],
+        diary_entries=[],
+    )
+
+    assert "断定" in calls[0]["message"]
+
+
+def test_send_daily_feedback_omits_perspective_suggestion_once_enough_records_exist(
+    seeded_session, monkeypatch
+):
+    """確定済み記録が既定の閾値（3件）以上あれば、観点提案の追加指示は差し込まれない。"""
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+    for day in (21, 22, 23):
+        record = record_service.ensure_daily_record(seeded_session, dt.date(2026, 8, day))
+        record.exam_record_state = RecordState.REPORTED
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[],
+        diary_entries=[],
+    )
+
+    assert "断定" not in calls[0]["message"]
