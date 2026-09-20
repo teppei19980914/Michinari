@@ -1226,3 +1226,86 @@ class TestResolveRecordState:
         record.work_record_state = RecordState.PROGRESS_ONLY
 
         assert record_service.resolve_record_state(record) == RecordState.PROGRESS_ONLY
+
+
+class TestCountReportedRecordsBefore:
+    """観点提案プロンプトの閾値判定（S-4 4-3）。指定日より前の確定済み記録数を数える。"""
+
+    def test_returns_zero_when_there_are_no_records(self, db_session):
+        assert (
+            record_service.count_reported_records_before(
+                db_session, GoalCategory.EXAM, dt.date(2026, 9, 13)
+            )
+            == 0
+        )
+
+    def test_counts_only_the_given_category(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 10))
+        record.exam_record_state = RecordState.REPORTED
+        record.reading_record_state = RecordState.REPORTED
+        db_session.flush()
+
+        assert (
+            record_service.count_reported_records_before(
+                db_session, GoalCategory.WORK, dt.date(2026, 9, 13)
+            )
+            == 0
+        )
+        assert (
+            record_service.count_reported_records_before(
+                db_session, GoalCategory.EXAM, dt.date(2026, 9, 13)
+            )
+            == 1
+        )
+
+    def test_excludes_records_on_or_after_the_given_date(self, db_session):
+        earlier = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 10))
+        earlier.exam_record_state = RecordState.REPORTED
+        same_day = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        same_day.exam_record_state = RecordState.REPORTED
+        db_session.flush()
+
+        assert (
+            record_service.count_reported_records_before(
+                db_session, GoalCategory.EXAM, dt.date(2026, 9, 13)
+            )
+            == 1
+        )
+
+    def test_excludes_progress_only_records(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 10))
+        record.exam_record_state = RecordState.PROGRESS_ONLY
+        db_session.flush()
+
+        assert (
+            record_service.count_reported_records_before(
+                db_session, GoalCategory.EXAM, dt.date(2026, 9, 13)
+            )
+            == 0
+        )
+
+
+class TestHasAnyReportedRecord:
+    """初回記録バナー（S-4 4-2）の非表示条件。カテゴリを問わず1件でもREPORTEDがあればTrue。"""
+
+    def test_returns_false_when_there_are_no_records_at_all(self, db_session):
+        assert record_service.has_any_reported_record(db_session) is False
+
+    def test_returns_false_when_records_exist_but_none_are_reported(self, db_session):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        record.exam_record_state = RecordState.PROGRESS_ONLY
+        db_session.flush()
+
+        assert record_service.has_any_reported_record(db_session) is False
+
+    @pytest.mark.parametrize(
+        "column",
+        ["exam_record_state", "reading_record_state", "work_record_state"],
+        ids=["exam", "reading", "work"],
+    )
+    def test_returns_true_when_any_single_category_is_reported(self, db_session, column: str):
+        record = record_service.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+        setattr(record, column, RecordState.REPORTED)
+        db_session.flush()
+
+        assert record_service.has_any_reported_record(db_session) is True

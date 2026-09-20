@@ -18,6 +18,9 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
   const [summaryInjectWeeks, setSummaryInjectWeeks] = useState(
     String(settings.prompt_degradation.summary_inject_weeks),
   )
+  const [perspectiveSuggestionMinRecords, setPerspectiveSuggestionMinRecords] = useState(
+    String(settings.prompt_degradation.perspective_suggestion_min_records),
+  )
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -25,6 +28,7 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
         prompt_degradation: {
           max_prompt_chars: Number(maxPromptChars),
           summary_inject_weeks: Number(summaryInjectWeeks),
+          perspective_suggestion_min_records: Number(perspectiveSuggestionMinRecords),
         },
       }),
     onSuccess: () => {
@@ -54,6 +58,15 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
             min={1}
             value={summaryInjectWeeks}
             onChange={(e) => setSummaryInjectWeeks(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          {t('settings.promptDegradation.perspectiveSuggestionMinRecordsLabel')}
+          <Input
+            type="number"
+            min={0}
+            value={perspectiveSuggestionMinRecords}
+            onChange={(e) => setPerspectiveSuggestionMinRecords(e.target.value)}
           />
         </label>
       </div>

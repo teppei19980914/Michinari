@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getDashboard } from '../api/dashboard'
 import { listGoals } from '../api/goals'
@@ -12,6 +12,8 @@ import { TodayStatusSection } from '../features/dashboard/TodayStatusSection'
 import { TodayQuotaSection } from '../features/dashboard/TodayQuotaSection'
 import { GoalCardList } from '../features/dashboard/GoalCardList'
 import { StatsSummary } from '../features/dashboard/StatsSummary'
+import { WeeklyDigestSection } from '../features/dashboard/WeeklyDigestSection'
+import { RecentActivityCalendarSection } from '../features/dashboard/RecentActivityCalendarSection'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
@@ -22,16 +24,18 @@ import { QUERY_KEYS } from '../constants/queryKeys'
  *
  * GET /dashboard 1回でこの画面に必要な全情報（本日の状態を含む）を取得する
  * （データ構造編6.2「複数のリソースを個別に取得せず1回の呼び出しで返す」、
- * 初期表示2秒以内の性能要件）。今日の一言のみ例外として別クエリで非同期取得する。
+ * 初期表示2秒以内の性能要件）。今日の一言・直近4週間カレンダー（S-4 4-5）のみ
+ * 例外として別クエリで非同期取得する（前者はAI応答待ちのため、後者はGET /calendarを
+ * 月次カレンダーと共用するため）。
  *
  * 進行中の目標が2件以上の場合、日次報告・カレンダーと同じGoalTabBarで対象目標を
  * 切り替える方式に統一した（Phase25、旧仕様6.1「全目標を1画面で俯瞰」の据え置き判断
- * （1.1改8）を撤回）。goal_cards・goal_stats・today_quota・warning・今日の一言は
- * いずれもgoal_id付きの配列としてAPIから返るため、バックエンド変更なしで
+ * （1.1改8）を撤回）。goal_cards・goal_stats・today_quota・weekly_digests・warning・
+ * 今日の一言はいずれもgoal_id付きの配列としてAPIから返るため、バックエンド変更なしで
  * 選択中goal_idへの絞り込みのみで対応できる。本日の状態（record_state）・本日の
- * 日種別は目標に紐づかないアプリ全体の値のため、この目標切り替えの影響を受けない。 */
+ * 日種別・直近4週間カレンダーは目標に紐づかないアプリ全体の値のため、この目標切り替えの
+ * 影響を受けない。 */
 export function DashboardPage() {
-  const location = useLocation()
   const dashboardQuery = useQuery({ queryKey: QUERY_KEYS.dashboard(), queryFn: getDashboard })
   const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: () => listGoals() })
   const goalTabs = useGoalReportTabs(goalsQuery.data ?? [])
@@ -64,8 +68,12 @@ export function DashboardPage() {
   const goalCards = dashboard.goal_cards.filter((card) => card.goal_id === targetGoalId)
   const goalStats = dashboard.goal_stats.filter((stats) => stats.goal_id === targetGoalId)
   const todayQuota = dashboard.today_quota.filter((item) => item.goal_id === targetGoalId)
-  const state = location.state as { showFirstRecordBanner?: boolean } | null
-  const showFirstRecordBanner = state?.showFirstRecordBanner === true
+  const weeklyDigest = dashboard.weekly_digests.find((item) => item.goal_id === targetGoalId) ?? null
+  // 「進行中の目標があり、記録が一度も確定されていない」という実データ（ドメインイベント）
+  // で判定する。location.stateのような遷移1回限りの状態には依存しない（S-4 4-2）ため、
+  // リロード・ブラウザバックをまたいでも、最初の記録確定まで表示され続ける。
+  const showFirstRecordBanner =
+    !dashboard.has_ever_reported_record && dashboard.goal_cards.length > 0
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -99,6 +107,8 @@ export function DashboardPage() {
         goalCards={goalCards}
         reportRateWindowDays={dashboard.report_rate_window_days}
       />
+      <WeeklyDigestSection digest={weeklyDigest} />
+      <RecentActivityCalendarSection today={dashboard.logical_date} />
     </div>
   )
 }

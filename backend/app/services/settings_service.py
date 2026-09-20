@@ -29,6 +29,7 @@ from app.constants.app_setting_keys import (
     AI_HOST,
     AI_MAX_PROMPT_CHARS,
     AI_MIN_INTERVAL_SECONDS,
+    AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
     AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
@@ -113,6 +114,7 @@ class PromptDegradationSettings:
     max_prompt_chars: int
     summary_inject_weeks: int
     reading_recall_recent_days: int
+    perspective_suggestion_min_records: int
 
 
 @dataclass(frozen=True)
@@ -197,6 +199,9 @@ def get_app_settings(session: Session) -> AppSettings:
         max_prompt_chars=setting_reader.get_int(session, AI_MAX_PROMPT_CHARS),
         summary_inject_weeks=setting_reader.get_int(session, SUMMARY_INJECT_WEEKS),
         reading_recall_recent_days=setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS),
+        perspective_suggestion_min_records=setting_reader.get_int(
+            session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS
+        ),
     )
     display = DisplaySettings(
         locale=setting_reader.get_str(session, _DISPLAY_LOCALE),
@@ -273,6 +278,12 @@ def _update_prompt_degradation(session: Session, **fields: object) -> None:
         _set_number(session, SUMMARY_INJECT_WEEKS, fields["summary_inject_weeks"])
     if fields.get("reading_recall_recent_days") is not None:
         _set_number(session, AI_READING_RECALL_RECENT_DAYS, fields["reading_recall_recent_days"])
+    if fields.get("perspective_suggestion_min_records") is not None:
+        _set_number(
+            session,
+            AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
+            fields["perspective_suggestion_min_records"],
+        )
 
 
 def _update_display(session: Session, **fields: object) -> None:

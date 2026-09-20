@@ -36,6 +36,10 @@ def login(payload: AiLoginRequest, session: Session = Depends(get_db)) -> AiLogi
 
     Hostが指定された場合は設定画面の値（app_setting）にも反映する。認証操作で入力した値が
     設定画面の表示と食い違わないようにするため（設定画面の保存ボタンとは別経路のため）。
+
+    `authenticated`はPATがローカル的に妥当な形式かだけでなく、実際にAI基盤と通信できたか
+    まで確認した結果（S-5 5-2、`ai_auth.register_pat`参照）。誤ったPAT・Hostの形式ミスでも
+    「接続できました」と表示されていた不具合の修正。
     """
     if payload.host:
         settings_service.update_app_settings(session, ai_connection={"host": payload.host})
@@ -73,17 +77,22 @@ def get_assistants(session: Session = Depends(get_db)) -> list[AiAssistantRead]:
 
 @router.get("/daily-message", response_model=list[DailyMessageRead])
 def get_daily_message(session: Session = Depends(get_db)) -> list[DailyMessageRead]:
-    """今日の一言を目標ごとに取得する。未生成の目標があれば生成する（データ構造編6.2）。"""
+    """今日の一言を目標ごとに取得する。未生成の目標があれば生成する（データ構造編6.2）。
+
+    AI未設定時はdaily_message_serviceがフォールバック結果（is_fallback=True）を返す
+    ため、ここでは例外処理を行わない（S-4 4-1）。
+    """
     today: dt.date = goal_service.resolve_today(session)
     daily_messages = daily_message_service.get_or_generate(session, today)
     session.commit()
     return [
         DailyMessageRead(
-            target_date=message.target_date,
-            goal_id=message.goal_id,
-            goal_name=message.goal.name if message.goal is not None else None,
-            body=message.body,
-            generated_at=message.generated_at,
+            target_date=result.target_date,
+            goal_id=result.goal_id,
+            goal_name=result.goal_name,
+            body=result.body,
+            generated_at=result.generated_at,
+            is_fallback=result.is_fallback,
         )
-        for message in daily_messages
+        for result in daily_messages
     ]

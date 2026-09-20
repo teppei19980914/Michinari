@@ -20,6 +20,7 @@ import {
   makeGoalCard,
   makeGoalStats,
   makeTodayQuotaEntry,
+  makeWeeklyDigest,
 } from '../test/fixtures'
 import { DashboardPage } from './DashboardPage'
 
@@ -33,13 +34,18 @@ vi.mock('../api/goals', () => ({ listGoals }))
 const getDailyMessage = vi.hoisted(() => vi.fn())
 vi.mock('../api/records', () => ({ getDailyMessage }))
 
+// 直近4週間カレンダー（S-4 4-5）も独立した非同期クエリ。本テストの対象ではないため
+// 固定値を返す（描画自体はRecentActivityCalendarSection.test.tsxが検証する）。
+const getCalendar = vi.hoisted(() => vi.fn())
+vi.mock('../api/calendar', () => ({ getCalendar }))
+
 const OTHER_GOAL_ID = GOAL_ID + 1
 const OTHER_MATERIAL_NAME = '別目標の教材'
 const WELCOME_MARKER = 'welcome-marker'
 
-/** `/welcome`へのリダイレクト・`location.state`の初回記録バナーを検証するための
- * ルータ込みの描画（ProgressOnlyPage.test.tsxと同じ、実際のルートへ遷移したかを
- * マーカー要素の出現で確かめる方式）。 */
+/** `/welcome`へのリダイレクトを検証するためのルータ込みの描画
+ * （ProgressOnlyPage.test.tsxと同じ、実際のルートへ遷移したかをマーカー要素の
+ * 出現で確かめる方式）。 */
 function renderDashboardWithRouter(initialEntries: InitialEntry[]) {
   return renderWithProviders(
     <Routes>
@@ -74,6 +80,14 @@ function twoActiveGoals() {
           material_name: OTHER_MATERIAL_NAME,
         }),
       ],
+      weekly_digests: [
+        makeWeeklyDigest({ ai_summary_text: '目標Aの先週のまとめ' }),
+        makeWeeklyDigest({
+          goal_id: OTHER_GOAL_ID,
+          goal_name: '目標B',
+          ai_summary_text: '目標Bの先週のまとめ',
+        }),
+      ],
     }),
   )
 }
@@ -83,6 +97,7 @@ beforeEach(() => {
   getDashboard.mockResolvedValue(makeDashboard())
   listGoals.mockResolvedValue([makeGoal()])
   getDailyMessage.mockResolvedValue(null)
+  getCalendar.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -133,14 +148,18 @@ describe('DashboardPage の目標の絞り込み', () => {
     twoActiveGoals()
     renderWithProviders(<DashboardPage />)
 
-    // 初期表示は先頭の目標。別目標のノルマは混ざらない。
+    // 初期表示は先頭の目標。別目標のノルマ・先週のまとめは混ざらない。
     expect(await screen.findByText('教材A')).toBeDefined()
     expect(screen.queryByText(OTHER_MATERIAL_NAME)).toBeNull()
+    expect(screen.getByText('目標Aの先週のまとめ')).toBeDefined()
+    expect(screen.queryByText('目標Bの先週のまとめ')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: /目標B/ }))
 
     await waitFor(() => expect(screen.getByText(OTHER_MATERIAL_NAME)).toBeDefined())
     expect(screen.queryByText('教材A')).toBeNull()
+    expect(screen.getByText('目標Bの先週のまとめ')).toBeDefined()
+    expect(screen.queryByText('目標Aの先週のまとめ')).toBeNull()
   })
 
   it('keeps the goal independent state visible whichever goal is selected', async () => {
@@ -175,17 +194,63 @@ describe('DashboardPage のウェルカム画面誘導', () => {
   })
 })
 
-describe('DashboardPage の初回記録バナー', () => {
-  it('shows the banner when navigated with showFirstRecordBanner state', async () => {
-    renderDashboardWithRouter([
-      { pathname: ROUTE_PATTERNS.dashboard, state: { showFirstRecordBanner: true } },
+describe('DashboardPage のAI未設定時のフォールバック（S-4 4-6）', () => {
+  // AI未設定時にAI依存の各セクションが崩れず、非AIのフォールバック表示へ切り替わる
+  // ことを確かめる（4-1: 今日の一言、4-4: 先週のまとめ）。直近4週間カレンダー（4-5）は
+  // AIに一切依存しない機能のため、この状態でも通常どおり表示され続けることを併せて示す。
+  it('shows the fixed daily-message text and the non-AI weekly digest instead of AI content', async () => {
+    getDailyMessage.mockResolvedValue([
+      {
+        target_date: '2026-09-13',
+        goal_id: GOAL_ID,
+        goal_name: '目標A',
+        body: '',
+        generated_at: '2026-09-13T00:00:00',
+        is_fallback: true,
+      },
     ])
+    getDashboard.mockResolvedValue(
+      makeDashboard({
+        weekly_digests: [
+          makeWeeklyDigest({ ai_summary_text: null, recorded_days: 2, total_minutes: 60 }),
+        ],
+      }),
+    )
+    renderWithProviders(<DashboardPage />)
+
+    expect(await screen.findByText(t('dashboard.todayMessage.fallback'))).toBeDefined()
+    expect(
+      screen.getByText(t('dashboard.weeklyDigest.recordedDays', { days: 2 }), { exact: false }),
+    ).toBeDefined()
+    // 直近4週間カレンダーはAIに依存しないため、この状態でも通常どおり表示される。
+    expect(screen.getByText(t('dashboard.recentActivityCalendar.title'))).toBeDefined()
+  })
+})
+
+describe('DashboardPage の初回記録バナー', () => {
+  // location.stateのような遷移1回限りの状態ではなく、実データ（has_ever_reported_record、
+  // S-4 4-2）で判定するため、リロードやブラウザバックをまたいでも表示が保たれる。
+
+  it('shows the banner when a goal is active but no record has ever been reported', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ has_ever_reported_record: false }))
+    renderWithProviders(<DashboardPage />)
 
     expect(await screen.findByText(t('dashboard.firstRecordBanner'))).toBeDefined()
   })
 
-  it('hides the banner when there is no navigation state', async () => {
-    renderDashboardWithRouter([ROUTE_PATTERNS.dashboard])
+  it('hides the banner once any record has ever been reported', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ has_ever_reported_record: true }))
+    renderWithProviders(<DashboardPage />)
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(t('dashboard.firstRecordBanner'))).toBeNull()
+  })
+
+  it('hides the banner while there are no active goals yet', async () => {
+    getDashboard.mockResolvedValue(
+      makeDashboard({ has_ever_reported_record: false, goal_cards: [], goal_stats: [], today_quota: [] }),
+    )
+    renderWithProviders(<DashboardPage />)
 
     await screen.findByText(t('dashboard.title'))
     expect(screen.queryByText(t('dashboard.firstRecordBanner'))).toBeNull()

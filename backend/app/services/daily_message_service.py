@@ -6,20 +6,101 @@
 いる場合に、順調な目標の情報に引っ張られて停滞している目標の実態と乖離した一言が
 生成されることを構造的に防ぐため（未決事項L-04関連）。ACTIVEな目標が1件も無い日は
 goal_id=NULLの1件のみ生成する。
+
+AI未設定時（S-4 4-1）は、GET /daily-message が読み取り専用であるべきにもかかわらず
+AI呼び出しに失敗して401を返していた（DailyMessageが1件も作られず、固定文言としての
+「はじめの一言」を出す枠が無かった）。これを避けるため、AI呼び出し前に認証状態を確認し、
+未設定ならAI呼び出し自体をスキップしてフォールバック結果を返す（DBには保存しない。
+設定後に再取得したとき通常の生成へ自然に切り替わるようにするため）。
 """
 
 import datetime as dt
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session, joinedload
 
+from app.ai import client as ai_client
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
 from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_MESSAGE
 from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
+from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.record import DailyMessage
 from app.services import ai_context_service, calendar_service, goal_service, setting_reader
+
+
+@dataclass(frozen=True)
+class DailyMessageResult:
+    """GET /daily-message が返す1件分（API層はこの型のみを見ればよい）。
+
+    is_fallback=True のとき body は空文字列（実データを持たない）。表示文言は
+    フロント側のロケールファイルが持つ固定文言を使う（CLAUDE.md ゼロハードコーディング、
+    「コンポーネント内への文字列リテラルの直接記述」禁止のため、固定文言をここへ
+    直書きしない）。
+    """
+
+    target_date: dt.date
+    goal_id: int | None
+    goal_name: str | None
+    body: str
+    generated_at: dt.datetime
+    is_fallback: bool = False
+
+
+def _to_utc(value: dt.datetime) -> dt.datetime:
+    """generated_atをtz-aware(UTC)に揃える。
+
+    models.base.utcnowはtz-aware値を設定するが、SQLiteのDateTime列は再読込時に
+    tzinfoを失う（naiveに戻る）。同じDailyMessage行でも、flush直後（このモジュール内、
+    session.commit前）に読むか、commit後の再クエリ（同一セッションでも
+    expire_on_commitにより再読込される）で読むかでtzinfoの有無が変わってしまうため、
+    API応答へ渡す前にここで統一する（保存しているUTC値自体は変わらない）。
+    """
+    return value if value.tzinfo is not None else value.replace(tzinfo=dt.UTC)
+
+
+def _to_result(message: DailyMessage) -> DailyMessageResult:
+    return DailyMessageResult(
+        target_date=message.target_date,
+        goal_id=message.goal_id,
+        goal_name=message.goal.name if message.goal is not None else None,
+        body=message.body,
+        generated_at=_to_utc(message.generated_at),
+    )
+
+
+def _build_fallback_results(session: Session, today: dt.date) -> list[DailyMessageResult]:
+    """AI未設定時のフォールバック結果を、DBへ保存せず組み立てる。
+
+    保存すると「同日中は再生成しない」既存の判定（get_or_generate内のexisting_by_goal）
+    に引っかかり、AI設定後も本物の一言へ切り替わらなくなるため、意図的に永続化しない。
+    """
+    active_goals = ai_context_service.list_daily_message_target_goals(session)
+    now = utcnow()
+    if not active_goals:
+        return [
+            DailyMessageResult(
+                target_date=today,
+                goal_id=None,
+                goal_name=None,
+                body="",
+                generated_at=now,
+                is_fallback=True,
+            )
+        ]
+    return [
+        DailyMessageResult(
+            target_date=today,
+            goal_id=goal.id,
+            goal_name=goal.name,
+            body="",
+            generated_at=now,
+            is_fallback=True,
+        )
+        for goal in active_goals
+    ]
 
 
 def _build_variables(session: Session, today: dt.date, goal: Goal | None) -> dict[str, str]:
@@ -95,11 +176,16 @@ def _generate_for_goal(
     return daily_message
 
 
-def get_or_generate(session: Session, today: dt.date) -> list[DailyMessage]:
+def get_or_generate(session: Session, today: dt.date) -> list[DailyMessageResult]:
     """今日の一言を目標ごとに取得する。未生成の目標があれば生成する
     （データ構造編6.2 GET /daily-message）。日中に新たにACTIVEになった目標があれば、
     既存の目標のメッセージは再生成せずその目標の分だけ追加生成する。
+
+    AI未設定時はAI呼び出し自体を行わずフォールバック結果を返す（S-4 4-1）。
     """
+    if not ai_client.is_authenticated(session):
+        return _build_fallback_results(session, today)
+
     # 読書目標（category=READING）はexam_subjectを持たず、build_goal_summaryが「試験科目
     # 未登録」という誤った文脈を混入させるため対象外とする（今日の一言に読書用の変種は
     # 設けない設計。要件定義書6.10）。仕事目標（category=WORK）は要件定義書R-77により
@@ -110,9 +196,12 @@ def get_or_generate(session: Session, today: dt.date) -> list[DailyMessage]:
 
     if not active_goals:
         existing = session.query(DailyMessage).filter_by(target_date=today, goal_id=None).first()
-        if existing is not None:
-            return [existing]
-        return [_generate_for_goal(session, today, day_type.value, None)]
+        message = (
+            existing
+            if existing is not None
+            else _generate_for_goal(session, today, day_type.value, None)
+        )
+        return [_to_result(message)]
 
     existing_by_goal = {
         message.goal_id: message
@@ -127,4 +216,4 @@ def get_or_generate(session: Session, today: dt.date) -> list[DailyMessage]:
         if existing is None:
             existing = _generate_for_goal(session, today, day_type.value, goal)
         messages.append(existing)
-    return messages
+    return [_to_result(message) for message in messages]

@@ -472,3 +472,50 @@ def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_re
     assert "OLDER_WEEK_SUMMARY" in sent_message
     # 是正後: 窓と重なる週も既に要約済みなら圧縮対象となり、weekly_summariesへ注入される。
     assert "OVERLAPPING_WEEK_SUMMARY" in sent_message
+
+
+# --- 観点提案の追加指示（S-4 4-3） ---
+
+
+def test_send_reading_feedback_includes_perspective_suggestion_when_records_are_few(
+    seeded_session, monkeypatch
+):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    calls = _stub_send_message(monkeypatch)
+
+    reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        reading_log_items=[_reading_log(book.id)],
+    )
+
+    assert "断定" in calls[0]["message"]
+
+
+def test_send_reading_feedback_omits_perspective_suggestion_once_enough_records_exist(
+    seeded_session, monkeypatch
+):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    for day in (21, 22, 23):
+        record = DailyRecord(
+            record_date=dt.date(2026, 8, day), reading_record_state=RecordState.REPORTED
+        )
+        seeded_session.add(record)
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        reading_log_items=[_reading_log(book.id)],
+    )
+
+    assert "断定" not in calls[0]["message"]
