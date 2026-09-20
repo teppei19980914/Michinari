@@ -81,6 +81,23 @@ class TodayQuotaEntryRead(BaseModel):
     goal_name: str
 
 
+class WeeklyDigestRead(BaseModel):
+    """先週のまとめ（仕様書6.1「先週のまとめ」、S-4 4-4）。
+
+    AI週次要約（is_anonymized=Falseの版）が既に生成済みならその本文を、無ければ
+    （AI未設定、または生成前）非AI集計（記録日数・投下時間）へフォールバックする。
+    ai_summary_textがNoneのときのみrecorded_days・total_minutesを画面が使う。
+    """
+
+    goal_id: int
+    goal_name: str
+    week_start_date: dt.date
+    week_end_date: dt.date
+    ai_summary_text: str | None
+    recorded_days: int
+    total_minutes: int | None
+
+
 class DashboardRead(BaseModel):
     """データ構造編6.2「GET /dashboard: ダッシュボードに必要な全情報を一括取得」。
 
@@ -89,6 +106,8 @@ class DashboardRead(BaseModel):
     論理的な本日・記録状態は GET /records/today と同じ値だが、ダッシュボード画面が
     往復を増やさず取得できるようここにも含める（/records/todayは他画面からも汎用的に
     参照されるため存続する）。
+
+    has_ever_reported_record は初回記録バナー（S-4 4-2）の非表示条件に使う。
     """
 
     logical_date: dt.date
@@ -99,3 +118,5 @@ class DashboardRead(BaseModel):
     goal_stats: list[GoalStatsRead]
     today_quota: list[TodayQuotaEntryRead]
     available_slot_names: list[str]
+    has_ever_reported_record: bool
+    weekly_digests: list[WeeklyDigestRead]

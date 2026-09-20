@@ -66,6 +66,11 @@ def test_register_pat_without_host_keeps_existing_host(seeded_session, monkeypat
         lambda config_manager, snapshot: applied.update(snapshot),
     )
 
+    def _fail_get_assistants(session):
+        raise AssertionError("ローカル判定がFalseの場合は疎通確認を行わないはず")
+
+    monkeypatch.setattr(ai_client, "get_assistants", _fail_get_assistants)
+
     result = ai_auth.register_pat(seeded_session, host=None, personal_access_token="123|abc")
 
     assert result is False
@@ -73,7 +78,11 @@ def test_register_pat_without_host_keeps_existing_host(seeded_session, monkeypat
     assert applied["personal_access_token"] == "123|abc"
 
 
-def test_register_pat_applies_snapshot_and_returns_auth_state(seeded_session, monkeypatch):
+def test_register_pat_returns_true_when_local_check_and_connectivity_both_succeed(
+    seeded_session, monkeypatch
+):
+    """S-5 5-2: ローカル判定（PATの形式）だけでなく、アシスタント一覧取得（実通信）にも
+    成功した場合のみTrueを返すこと。"""
     applied = {}
 
     class _FakeConfigManager:
@@ -93,6 +102,7 @@ def test_register_pat_applies_snapshot_and_returns_auth_state(seeded_session, mo
         "apply_config_snapshot",
         lambda config_manager, snapshot: applied.update(snapshot),
     )
+    monkeypatch.setattr(ai_client, "get_assistants", lambda session: [])
 
     result = ai_auth.register_pat(
         seeded_session, host="example.newton-x.net", personal_access_token="123|abc"
@@ -101,6 +111,36 @@ def test_register_pat_applies_snapshot_and_returns_auth_state(seeded_session, mo
     assert result is True
     assert applied["host"] == "example.newton-x.net"
     assert applied["personal_access_token"] == "123|abc"
+
+
+def test_register_pat_returns_false_when_connectivity_check_fails(seeded_session, monkeypatch):
+    """S-5 5-2: ローカル判定（PATの形式）が通っても、実際の疎通確認（アシスタント一覧取得）に
+    失敗すれば「接続できました」と誤表示しないこと（誤ったPAT・Hostの形式ミスの検出）。"""
+
+    class _FakeConfigManager:
+        pass
+
+    class _FakeAuthManager:
+        def __init__(self, config_manager):
+            pass
+
+        def is_authenticated(self):
+            return True
+
+    monkeypatch.setattr(ai_auth, "ConfigManager", _FakeConfigManager)
+    monkeypatch.setattr(ai_auth, "AuthManager", _FakeAuthManager)
+    monkeypatch.setattr(ai_client, "apply_config_snapshot", lambda config_manager, snapshot: None)
+
+    def _raise(session):
+        raise RuntimeError("接続失敗")
+
+    monkeypatch.setattr(ai_client, "get_assistants", _raise)
+
+    result = ai_auth.register_pat(
+        seeded_session, host="example.newton-x.net", personal_access_token="123|abc"
+    )
+
+    assert result is False
 
 
 def test_start_fallback_login_runs_in_background_and_updates_progress_flag(

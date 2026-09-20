@@ -76,6 +76,26 @@ def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client)
     assert body["prompt_degradation"]["reading_recall_recent_days"] == 7
 
 
+def test_get_settings_includes_perspective_suggestion_min_records(client):
+    """観点提案の追加指示（S-4 4-3）を注入する閾値が設定画面から変更可能であること
+    （仕様書6.11「全ての設定項目を画面上から変更可能」）。"""
+    response = client.get("/api/v1/settings")
+    assert response.status_code == 200
+    assert response.json()["prompt_degradation"]["perspective_suggestion_min_records"] == 3
+
+
+def test_patch_settings_updates_perspective_suggestion_min_records(client):
+    response = client.patch(
+        "/api/v1/settings",
+        json={"prompt_degradation": {"perspective_suggestion_min_records": 5}},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["prompt_degradation"]["perspective_suggestion_min_records"] == 5
+
+    confirmed = client.get("/api/v1/settings").json()
+    assert confirmed["prompt_degradation"]["perspective_suggestion_min_records"] == 5
+
+
 def test_get_settings_includes_work_assistant_uids(client):
     """仕事用のアシスタント設定が設定画面（GET /settings）から参照可能であり、
     実環境での疎通確認済みの既定値が入っていること（L-09解消。今回のセッションで

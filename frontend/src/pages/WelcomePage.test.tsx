@@ -1,9 +1,10 @@
-/** ウェルカム画面の3カードからの遷移と、簡易作成完了後にダッシュボードへ初回記録
- * バナーの表示指示を持ち越すことを固定する。 */
+/** ウェルカム画面の3カードからの遷移を固定する。初回記録バナー（S-4 4-2）は
+ * ダッシュボード側が実データ（has_ever_reported_record）で判定するため、
+ * ここでは遷移先がダッシュボードであることのみを確かめる。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { t } from '../locales/t'
 import { ROUTE_PATTERNS } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
@@ -23,9 +24,7 @@ const EXAM_WIZARD_MARKER = 'exam-wizard-marker'
 const CREATED_GOAL = makeGoal({ id: 7 })
 
 function DashboardMarker() {
-  const location = useLocation()
-  const state = location.state as { showFirstRecordBanner?: boolean } | null
-  return <p>dashboard-marker{state?.showFirstRecordBanner ? ':with-banner' : ''}</p>
+  return <p>dashboard-marker</p>
 }
 
 function renderPage() {
@@ -83,7 +82,7 @@ describe('WelcomePage からの遷移', () => {
     expect(await screen.findByText('dashboard-marker')).toBeDefined()
   })
 
-  it('opens the reading quick-create form and hands off the first-record banner on success', async () => {
+  it('navigates to the dashboard when the reading quick-create form succeeds', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -92,7 +91,7 @@ describe('WelcomePage からの遷移', () => {
     await user.type(screen.getByLabelText(t('goals.new.quickCreate.reading.titleLabel')), '銀河鉄道の夜')
     await user.click(screen.getByRole('button', { name: t('goals.new.quickCreate.submitButton') }))
 
-    expect(await screen.findByText('dashboard-marker:with-banner')).toBeDefined()
+    expect(await screen.findByText('dashboard-marker')).toBeDefined()
     expect(createBook).toHaveBeenCalledOnce()
   })
 

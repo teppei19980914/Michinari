@@ -68,12 +68,15 @@ class PromptDegradationSettingsRead(BaseModel):
     max_prompt_chars: int
     summary_inject_weeks: int
     reading_recall_recent_days: int
+    #: 観点提案の追加指示（S-4 4-3）を注入する確定済み記録件数の閾値。
+    perspective_suggestion_min_records: int
 
 
 class PromptDegradationSettingsUpdate(BaseModel):
     max_prompt_chars: int | None = Field(default=None, ge=1000)
     summary_inject_weeks: int | None = Field(default=None, ge=1)
     reading_recall_recent_days: int | None = Field(default=None, ge=1)
+    perspective_suggestion_min_records: int | None = Field(default=None, ge=0)
 
 
 class DisplaySettingsRead(BaseModel):

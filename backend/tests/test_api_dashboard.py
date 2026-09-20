@@ -10,8 +10,9 @@ import datetime as dt
 from app.api.dashboard import _goal_remaining_days
 from app.constants.enums import DayType, GoalStatus, RecordState
 from app.models.goal import Goal
-from app.models.record import DailyRecord, StudyLog
+from app.models.record import DailyRecord, StudyLog, WeeklySummary
 from app.models.setting import AppSetting, CalendarDayOverride
+from app.services import metrics_service
 from tests import api_allocation_helpers
 
 TODAY = dt.date.today()
@@ -106,6 +107,8 @@ def test_dashboard_returns_empty_lists_when_no_active_goals(client, seeded_sessi
         "goal_stats": [],
         "today_quota": [],
         "available_slot_names": [],
+        "has_ever_reported_record": False,
+        "weekly_digests": [],
     }
 
 
@@ -372,6 +375,134 @@ def test_dashboard_work_goal_card_shows_work_assignment_progress(client, seeded_
     assert card["work_assignment"]["id"] == work_assignment["id"]
     assert card["work_assignment"]["client_name"] == "A社"
     assert card["work_assignment"]["elapsed_days"] == 0
+
+
+def test_dashboard_has_ever_reported_record_false_before_any_finalize(client, seeded_session):
+    """初回記録バナー（S-4 4-2）の非表示条件。確定済み記録が1件も無ければFalse。"""
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    _make_active_goal_with_material(client)
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["has_ever_reported_record"] is False
+
+
+def test_dashboard_has_ever_reported_record_true_after_finalize(client, seeded_session):
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    _goal, material = _make_active_goal_with_material(client)
+    target = TODAY.isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [{"material_id": material["id"], "amount_completed": 10}],
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["has_ever_reported_record"] is True
+
+
+def test_dashboard_weekly_digest_falls_back_to_non_ai_summary_when_no_ai_summary_exists(
+    client, seeded_session
+):
+    """先週のまとめ（S-4 4-4）。AI週次要約が無ければ、記録日数・投下時間の非AI集計を返す。"""
+    _override_day_types(seeded_session, TODAY - dt.timedelta(days=14), TODAY)
+    seeded_session.commit()
+    goal, material = _make_active_goal_with_material(client)
+    week_start, week_end = metrics_service.resolve_last_week_range(TODAY)
+    _add_study_log(seeded_session, week_start, material["id"])
+    _add_study_log(seeded_session, week_start + dt.timedelta(days=1), material["id"])
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert len(body["weekly_digests"]) == 1
+    digest = body["weekly_digests"][0]
+    assert digest["goal_id"] == goal["id"]
+    assert digest["week_start_date"] == week_start.isoformat()
+    assert digest["week_end_date"] == week_end.isoformat()
+    assert digest["ai_summary_text"] is None
+    assert digest["recorded_days"] == 2
+    assert digest["total_minutes"] == 120
+
+
+def test_dashboard_weekly_digest_uses_ai_summary_when_available(client, seeded_session):
+    """AI週次要約（is_anonymized=False）が既に生成済みならその本文をそのまま返す。"""
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    goal, _material = _make_active_goal_with_material(client)
+    week_start, week_end = metrics_service.resolve_last_week_range(TODAY)
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal["id"],
+            week_start_date=week_start,
+            week_end_date=week_end,
+            summary_body="先週はよく頑張りました。",
+            is_anonymized=False,
+        )
+    )
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    digest = body["weekly_digests"][0]
+    assert digest["ai_summary_text"] == "先週はよく頑張りました。"
+
+
+def test_dashboard_weekly_digest_falls_back_when_ai_is_unconfigured(
+    client, seeded_session, monkeypatch
+):
+    """S-4 4-6: AI未設定状態を明示的にシミュレートしても、先週のまとめが非AI集計へ
+    フォールバックし続けること。
+
+    _build_weekly_digestはai_client.is_authenticatedを一切参照せず、weekly_summary
+    テーブルに該当週の行があるかどうかだけで判定する（AI未設定なら起動時の遡及生成
+    自体が行われずweekly_summaryが作られないため、結果的に同じフォールバック経路を通る）。
+    したがって本テストの実質的な検証内容は
+    test_dashboard_weekly_digest_falls_back_to_non_ai_summary_when_no_ai_summary_exists
+    と同じ分岐だが、「AI未設定」というシナリオそのものを明示的に固定するために残す。
+    """
+    monkeypatch.setattr("app.ai.client.is_authenticated", lambda session: False)
+    _override_day_types(seeded_session, TODAY - dt.timedelta(days=14), TODAY)
+    seeded_session.commit()
+    goal, material = _make_active_goal_with_material(client)
+    week_start, _week_end = metrics_service.resolve_last_week_range(TODAY)
+    _add_study_log(seeded_session, week_start, material["id"])
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    digest = body["weekly_digests"][0]
+    assert digest["goal_id"] == goal["id"]
+    assert digest["ai_summary_text"] is None
+    assert digest["recorded_days"] == 1
+
+
+def test_dashboard_weekly_digest_ignores_anonymized_summary(client, seeded_session):
+    """匿名化版（is_anonymized=True、エクスポート専用）は先週のまとめに使わないこと。"""
+    _override_day_types(seeded_session, TODAY, TODAY)
+    seeded_session.commit()
+    goal, _material = _make_active_goal_with_material(client)
+    week_start, week_end = metrics_service.resolve_last_week_range(TODAY)
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal["id"],
+            week_start_date=week_start,
+            week_end_date=week_end,
+            summary_body="匿名化版の本文",
+            is_anonymized=True,
+        )
+    )
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["weekly_digests"][0]["ai_summary_text"] is None
 
 
 def test_goal_remaining_days_none_when_no_exam_subjects():

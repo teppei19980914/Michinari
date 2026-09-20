@@ -123,7 +123,9 @@ export function CalendarPage() {
       )}
 
       <CalendarGrid
-        month={calendarMonth.month}
+        dateFrom={calendarMonth.dateFrom}
+        dateTo={calendarMonth.dateTo}
+        dimOutsideMonth={calendarMonth.month}
         daysByDate={daysByDate}
         auxiliaryMarkersByDate={auxiliaryMarkersByDate}
         onSelectDate={handleSelectDate}

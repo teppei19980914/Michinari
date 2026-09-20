@@ -71,7 +71,7 @@ function canProceedFromCurrentStep(wizard: ReturnType<typeof useExamGoalWizard>)
   }
 }
 
-/** SC-?? 資格モードの作成ウィザード（仕様書「資格モードの作成ウィザード」）。
+/** SC-17 資格モード作成ウィザード（仕様書6.1.2）。
  * 既存の目標詳細画面（GoalDetailPage）を置き換えるものではなく、作成経路を1つ追加する
  * ものである。状態とAPI呼び出しは`useExamGoalWizard`に集約し、ここでは描画のみを行う。 */
 export function ExamGoalWizardPage() {

@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder
-from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_FEEDBACK, SUMMARY_INJECT_WEEKS
+from app.constants.app_setting_keys import (
+    AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
+    SUMMARY_INJECT_WEEKS,
+)
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
@@ -108,6 +112,14 @@ def send_daily_feedback(
 
     diary_body, diary_learned = ai_context_service.build_diary_text(diary_entries, active_goals)
 
+    reported_count = record_service.count_reported_records_before(
+        session, GoalCategory.EXAM, target_date
+    )
+    min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
+    perspective_suggestion = ai_context_service.build_perspective_suggestion_instruction(
+        GoalCategory.EXAM, reported_count < min_records
+    )
+
     context = prompt_builder.DailyFeedbackContext(
         today=target_date.isoformat(),
         day_type=day_type.value,
@@ -127,6 +139,7 @@ def send_daily_feedback(
             session, active_goals, setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
         ),
         conversation_history=history,
+        perspective_suggestion=perspective_suggestion,
     )
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK)

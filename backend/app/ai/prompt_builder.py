@@ -84,6 +84,9 @@ class DailyFeedbackContext:
     diary_learned: str
     weekly_summaries: list[str] = field(default_factory=list)  # 新しい順
     conversation_history: list[ChatTurn] = field(default_factory=list)  # 古い順
+    #: {{perspective_suggestion}}: 記録件数が閾値未満の場合の追加指示（S-4 4-3）。
+    #: 空文字なら何も注入しない（build_anonymize_instructionと同じ方式）。
+    perspective_suggestion: str = ""
 
 
 _NO_MATERIALS_TEXT = "（対象教材はありません）"
@@ -143,6 +146,7 @@ def build_daily_feedback(
             "diary_learned": context.diary_learned,
             "weekly_summaries": _format_weekly_summaries(weekly_summaries),
             "conversation_history": format_conversation_history(history),
+            "perspective_suggestion": context.perspective_suggestion,
         }
         return _substitute(template_body, variables)
 
