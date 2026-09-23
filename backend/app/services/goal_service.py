@@ -9,13 +9,13 @@ ensure_goal_editable は subject_service・material_service からも共通処�
 import datetime as dt
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
-from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus
+from app.constants.enums import BaselineReason, DayType, ExamResultType, GoalCategory, GoalStatus
 from app.constants.sentinels import UNSET
 from app.models.base import utcnow
-from app.models.goal import Goal, LoadProfile
+from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, PlanBaseline
 from app.models.record import (
     ChatMessage,
@@ -145,7 +145,14 @@ def get_goal(session: Session, goal_id: int) -> Goal:
 
 
 def list_goals(session: Session) -> list[Goal]:
-    return session.query(Goal).order_by(Goal.id).all()
+    """一覧はUI-11（目標達成アイコン）判定のため受験結果まで事前取得する
+    （selectinloadでN+1を避ける、CLAUDE.md パフォーマンスチェック）。"""
+    return (
+        session.query(Goal)
+        .options(selectinload(Goal.exam_subjects).selectinload(ExamSubject.exam_result))
+        .order_by(Goal.id)
+        .all()
+    )
 
 
 def create_goal(
@@ -488,6 +495,25 @@ def close_goal(
     goal.closed_at = utcnow()
     session.flush()
     return goal
+
+
+def compute_is_achieved(goal: Goal) -> bool:
+    """目標が達成済みかどうかを判定する（仕様書v1.1 13.6、S-12の解消）。
+
+    CLOSED_WITH_RESULTは「結果が登録済み」を意味するだけで、資格試験（EXAM）は
+    合否（ExamResultType.PASS/FAIL）を区別しない（close_goalのhas_all_results判定と同じ
+    exam_subjects/exam_resultを参照）。そのためEXAMのみ、全科目がPASSであることまで
+    確認する。読書（book_service.complete_book）・仕事（with_result=True）は
+    CLOSED_WITH_RESULTへの到達自体が達成を意味するため、追加判定を行わない。
+    """
+    if goal.status != GoalStatus.CLOSED_WITH_RESULT:
+        return False
+    if goal.category != GoalCategory.EXAM:
+        return True
+    return bool(goal.exam_subjects) and all(
+        subject.exam_result is not None and subject.exam_result.result == ExamResultType.PASS
+        for subject in goal.exam_subjects
+    )
 
 
 def get_baselines(session: Session, goal: Goal) -> list[PlanBaseline]:

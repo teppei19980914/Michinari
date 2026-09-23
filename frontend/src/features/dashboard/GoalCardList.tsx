@@ -5,6 +5,8 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { formatPercent } from '../../utils/format'
 import type { DashboardRead } from '../../api/dashboard'
+import { resolveGoalCategoryIcon } from '../goal/goalCategoryBadge'
+import { resolveScheduleStatusIcon } from '../goal/scheduleStatus'
 
 function formatProgressRate(rate: number | null): string {
   return rate === null ? t('dashboard.goalCard.notAvailable') : formatPercent(rate)
@@ -30,13 +32,28 @@ function formatForecastDeviation(days: number | null): string {
 
 type GoalCard = DashboardRead['goal_cards'][number]
 
+/** 目標カードの見出し（目標種別アイコンUI-08/09/10＋目標名）。3種別のカードで共通に使う
+ * （CLAUDE.md DRYの原則、種別ごとに書き写さない）。 */
+function GoalCardHeader({ goal }: { goal: GoalCard }) {
+  return (
+    <div className="mb-2 flex items-center gap-2">
+      <img
+        src={resolveGoalCategoryIcon(goal.category)}
+        alt=""
+        className="h-6 w-6 shrink-0 rounded-full"
+      />
+      <h3 className="font-medium text-gray-900">{goal.goal_name}</h3>
+    </div>
+  )
+}
+
 /** 読書目標のカード内容（仕様書6.1、要件定義書R-71「ノルマではなく残日数・直近記録日・
  * 連続記録日数」）。完了予測日との乖離は表示しない（EXAM専用の計画管理のため）。 */
 function ReadingGoalCard({ goal }: { goal: GoalCard }) {
   const book = goal.book
   return (
     <>
-      <h3 className="mb-2 font-medium text-gray-900">{goal.goal_name}</h3>
+      <GoalCardHeader goal={goal} />
       <dl className="space-y-1 text-sm text-gray-600">
         <div>{formatRemainingDaysReading(goal.remaining_days)}</div>
         {book && (
@@ -71,7 +88,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
   const workAssignment = goal.work_assignment
   return (
     <>
-      <h3 className="mb-2 font-medium text-gray-900">{goal.goal_name}</h3>
+      <GoalCardHeader goal={goal} />
       <dl className="space-y-1 text-sm text-gray-600">
         {workAssignment && (
           <>
@@ -119,10 +136,23 @@ function GoalCardBody({ goal }: { goal: GoalCard }): ReactElement {
   }
 }
 
+/** 資格試験目標のカード内容。完了予測日との乖離（UI-02/03/04、13.4）は資格試験目標にのみ
+ * 存在する値のため、このカードにのみアイコンで表示する（読書・仕事目標のカードには出さない）。 */
 function ExamGoalCard({ goal }: { goal: GoalCard }) {
+  const scheduleStatusIcon = resolveScheduleStatusIcon(goal.forecast_deviation_days)
   return (
     <>
-      <h3 className="mb-2 font-medium text-gray-900">{goal.goal_name}</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <img
+            src={resolveGoalCategoryIcon(goal.category)}
+            alt=""
+            className="h-6 w-6 shrink-0 rounded-full"
+          />
+          <h3 className="font-medium text-gray-900">{goal.goal_name}</h3>
+        </div>
+        {scheduleStatusIcon && <img src={scheduleStatusIcon} alt="" className="h-8 w-8 shrink-0" />}
+      </div>
       <dl className="space-y-1 text-sm text-gray-600">
         <div className="flex justify-between">
           <dt>{t('dashboard.goalCard.progressRate')}</dt>

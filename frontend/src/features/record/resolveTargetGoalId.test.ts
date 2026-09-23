@@ -14,6 +14,7 @@ function makeGoal(id: number, overrides: Partial<GoalRead> = {}): GoalRead {
     activated_at: null,
     closed_at: null,
     archived_at: null,
+    is_achieved: false,
     ...overrides,
   }
 }

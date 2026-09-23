@@ -208,6 +208,8 @@ def test_close_work_goal_with_result_true(client):
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
     assert response.json()["closed_at"] is not None
+    # 仕事はwith_result=True自体が成果を伴う終了＝達成を意味する（仕様書v1.1 13.6、S-12）。
+    assert response.json()["is_achieved"] is True
 
 
 def test_close_work_goal_without_with_result_is_without_result(client):
@@ -219,6 +221,7 @@ def test_close_work_goal_without_with_result_is_without_result(client):
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITHOUT_RESULT"
+    assert response.json()["is_achieved"] is False
 
 
 def test_close_exam_goal_with_result_true_is_rejected(client):

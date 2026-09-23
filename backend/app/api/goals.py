@@ -53,6 +53,24 @@ from app.services.exceptions import NotFoundError
 router = APIRouter(tags=["goals"])
 
 
+def serialize_goal(goal: Goal) -> GoalRead:
+    """is_achieved（都度算出、CLAUDE.md 保存禁止）を明示的に付与する
+    （serialize_subjectと同じ理由で自動のfrom_attributes変換に頼らない。is_achievedは
+    ORM上の属性ではないため、model_validateにそのまま渡すと検証エラーになる）。"""
+    return GoalRead(
+        id=goal.id,
+        category=goal.category,
+        name=goal.name,
+        start_date=goal.start_date,
+        status=goal.status,
+        memo=goal.memo,
+        activated_at=goal.activated_at,
+        closed_at=goal.closed_at,
+        archived_at=goal.archived_at,
+        is_achieved=goal_service.compute_is_achieved(goal),
+    )
+
+
 def serialize_subject(subject: ExamSubject) -> SubjectRead:
     """受験結果（1:1、任意）を明示的に付与する（materials.serialize_materialと同じ理由で
     自動のネストfrom_attributes変換に頼らない、CLAUDE.md DRYの原則で共通化）。"""
@@ -76,7 +94,7 @@ def serialize_subject(subject: ExamSubject) -> SubjectRead:
 
 def _serialize_goal_detail(session: Session, goal: Goal) -> GoalDetailRead:
     return GoalDetailRead(
-        **GoalRead.model_validate(goal).model_dump(),
+        **serialize_goal(goal).model_dump(),
         exam_subjects=[serialize_subject(s) for s in goal.exam_subjects],
         materials=[serialize_material(session, m) for m in goal.materials],
         load_profiles=[LoadProfileRead.model_validate(p) for p in goal.load_profiles],
@@ -89,14 +107,14 @@ def _serialize_goal_detail(session: Session, goal: Goal) -> GoalDetailRead:
 
 @router.get("/goals", response_model=list[GoalRead])
 def list_goals(session: Session = Depends(get_db)) -> list[GoalRead]:
-    return [GoalRead.model_validate(g) for g in goal_service.list_goals(session)]
+    return [serialize_goal(g) for g in goal_service.list_goals(session)]
 
 
 @router.post("/goals", response_model=GoalRead, status_code=status.HTTP_201_CREATED)
 def create_goal(payload: GoalCreate, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.create_goal(session, **payload.model_dump())
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.get("/goals/{goal_id}", response_model=GoalDetailRead)
@@ -110,7 +128,7 @@ def update_goal(goal_id: int, payload: GoalUpdate, session: Session = Depends(ge
     goal = goal_service.get_goal(session, goal_id)
     goal_service.update_goal(session, goal, **payload.model_dump(exclude_unset=True))
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 def _serialize_allocations(
@@ -170,7 +188,7 @@ def archive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
     goal_service.archive_goal(session, goal)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.patch("/goals/{goal_id}/unarchive", response_model=GoalRead)
@@ -178,7 +196,7 @@ def unarchive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead
     goal = goal_service.get_goal(session, goal_id)
     goal_service.unarchive_goal(session, goal)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.delete("/goals/{goal_id}/archived", status_code=status.HTTP_204_NO_CONTENT)
@@ -195,7 +213,7 @@ def activate_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
     goal_service.activate_goal(session, goal)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.post("/goals/{goal_id}/pause", response_model=GoalRead)
@@ -203,7 +221,7 @@ def pause_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
     goal_service.pause_goal(session, goal)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.post("/goals/{goal_id}/resume", response_model=GoalRead)
@@ -211,7 +229,7 @@ def resume_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
     goal_service.resume_goal(session, goal)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.post("/goals/{goal_id}/close", response_model=GoalRead)
@@ -226,7 +244,7 @@ def close_goal(
         with_result=payload.with_result,
     )
     session.commit()
-    return GoalRead.model_validate(goal)
+    return serialize_goal(goal)
 
 
 @router.get("/goals/{goal_id}/baselines", response_model=list[PlanBaselineRead])

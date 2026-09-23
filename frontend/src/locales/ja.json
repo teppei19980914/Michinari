@@ -150,6 +150,7 @@
         "CLOSED_WITH_RESULT": "クローズ（結果あり）",
         "CLOSED_WITHOUT_RESULT": "クローズ（結果なし）"
       },
+      "achievedBadge": "達成",
       "exportLink": "総括・エクスポートへ",
       "resultLink": "結果登録",
       "archiveButton": "アーカイブ",
