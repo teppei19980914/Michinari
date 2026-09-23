@@ -325,6 +325,23 @@ export interface paths {
         patch: operations["update_work_assignment_api_v1_goals__goal_id__work_assignment_patch"];
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/work-assignment/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Work Member */
+        post: operations["create_work_member_api_v1_goals__goal_id__work_assignment_members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/load-profiles": {
         parameters: {
             query?: never;
@@ -441,6 +458,41 @@ export interface paths {
         get: operations["get_cycle_progress_api_v1_materials__material_id__cycles_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/work-members/{member_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Work Member */
+        delete: operations["delete_work_member_api_v1_work_members__member_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Work Member */
+        patch: operations["update_work_member_api_v1_work_members__member_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/work-members/{member_id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate Work Member */
+        post: operations["deactivate_work_member_api_v1_work_members__member_id__deactivate_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -969,6 +1021,10 @@ export interface paths {
          *
          *     Hostが指定された場合は設定画面の値（app_setting）にも反映する。認証操作で入力した値が
          *     設定画面の表示と食い違わないようにするため（設定画面の保存ボタンとは別経路のため）。
+         *
+         *     `authenticated`はPATがローカル的に妥当な形式かだけでなく、実際にAI基盤と通信できたか
+         *     まで確認した結果（S-5 5-2、`ai_auth.register_pat`参照）。誤ったPAT・Hostの形式ミスでも
+         *     「接続できました」と表示されていた不具合の修正。
          */
         post: operations["login_api_v1_ai_login_post"];
         delete?: never;
@@ -1385,6 +1441,41 @@ export interface paths {
         patch: operations["update_semiannual_review_api_v1_goals__goal_id__semiannual_review_patch"];
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/work-assignment/evaluation-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Evaluation Reports */
+        get: operations["list_evaluation_reports_api_v1_goals__goal_id__work_assignment_evaluation_reports_get"];
+        put?: never;
+        /** Generate Evaluation Report */
+        post: operations["generate_evaluation_report_api_v1_goals__goal_id__work_assignment_evaluation_reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/work-assignment/evaluation-reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Evaluation Report */
+        patch: operations["update_evaluation_report_api_v1_goals__goal_id__work_assignment_evaluation_reports__report_id__patch"];
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/knowledge-export/preview": {
         parameters: {
             query?: never;
@@ -1604,6 +1695,8 @@ export interface components {
             assistant_uid_goal_retrospective_work_semiannual: string;
             /** Assistant Uid Weekly Summary Work */
             assistant_uid_weekly_summary_work: string;
+            /** Assistant Uid Evaluation Report Work */
+            assistant_uid_evaluation_report_work: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -1643,6 +1736,8 @@ export interface components {
             assistant_uid_goal_retrospective_work_semiannual?: string | null;
             /** Assistant Uid Weekly Summary Work */
             assistant_uid_weekly_summary_work?: string | null;
+            /** Assistant Uid Evaluation Report Work */
+            assistant_uid_evaluation_report_work?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -1672,7 +1767,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -3590,6 +3685,7 @@ export interface components {
              * Format: date
              */
             start_date: string;
+            role?: components["schemas"]["WorkEvaluationRole"] | null;
         };
         /** WorkAssignmentRead */
         WorkAssignmentRead: {
@@ -3606,6 +3702,7 @@ export interface components {
              * Format: date
              */
             start_date: string;
+            role: components["schemas"]["WorkEvaluationRole"] | null;
             /** Elapsed Days */
             elapsed_days: number;
             /** Last Work Date */
@@ -3614,6 +3711,8 @@ export interface components {
             current_streak: number;
             /** Has Recent Monthly Report */
             has_recent_monthly_report: boolean;
+            /** Members */
+            members: components["schemas"]["WorkMemberRead"][];
         };
         /** WorkAssignmentUpdate */
         WorkAssignmentUpdate: {
@@ -3623,6 +3722,7 @@ export interface components {
             expected_content?: string | null;
             /** Start Date */
             start_date?: string | null;
+            role?: components["schemas"]["WorkEvaluationRole"] | null;
         };
         /**
          * WorkChatRequest
@@ -3639,6 +3739,48 @@ export interface components {
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
         };
+        /** WorkEvaluationReportGenerateRequest */
+        WorkEvaluationReportGenerateRequest: {
+            /** Member Id */
+            member_id: number;
+            /** Considerations */
+            considerations: string;
+        };
+        /** WorkEvaluationReportRead */
+        WorkEvaluationReportRead: {
+            /** Id */
+            id: number;
+            /** Work Assignment Id */
+            work_assignment_id: number;
+            /** Member Id */
+            member_id: number;
+            /** Member Name */
+            member_name: string;
+            /** Considerations */
+            considerations: string;
+            /** Body */
+            body: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Edited At */
+            edited_at: string | null;
+        };
+        /** WorkEvaluationReportUpdate */
+        WorkEvaluationReportUpdate: {
+            /** Body */
+            body: string;
+        };
+        /**
+         * WorkEvaluationRole
+         * @description 仕事目標における利用者自身の自己申告ロール（要件定義書6.11）。マルチユーザー機能
+         *     ではなく、単独利用の利用者がその目標に対しどちらの立場かを自己申告する1フィールド
+         *     （EVALUATOR時のみ評価レポート出力UIを表示する判定に使う）。
+         * @enum {string}
+         */
+        WorkEvaluationRole: "EVALUATOR" | "EVALUATEE";
         /**
          * WorkFinalizeRequest
          * @description 仕事の報告確定リクエスト（データ構造編6.2 POST /records/{date}/work-finalize）。
@@ -3680,6 +3822,54 @@ export interface components {
             work_assignment_id: number;
             /** Body */
             body: string;
+        };
+        /** WorkMemberCreate */
+        WorkMemberCreate: {
+            /** Name */
+            name: string;
+            gender?: components["schemas"]["WorkMemberGender"] | null;
+            /** Characteristics */
+            characteristics?: string | null;
+            /**
+             * Consent Confirmed
+             * @default false
+             */
+            consent_confirmed: boolean;
+        };
+        /**
+         * WorkMemberGender
+         * @description チームメンバーの性別（任意入力、要件定義書6.11「チームメンバー管理」）。
+         * @enum {string}
+         */
+        WorkMemberGender: "MALE" | "FEMALE" | "OTHER";
+        /** WorkMemberRead */
+        WorkMemberRead: {
+            /** Id */
+            id: number;
+            /** Work Assignment Id */
+            work_assignment_id: number;
+            /** Name */
+            name: string;
+            gender: components["schemas"]["WorkMemberGender"] | null;
+            /** Characteristics */
+            characteristics: string | null;
+            /** Consent Confirmed At */
+            consent_confirmed_at: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /** WorkMemberUpdate */
+        WorkMemberUpdate: {
+            /** Name */
+            name?: string | null;
+            gender?: components["schemas"]["WorkMemberGender"] | null;
+            /** Characteristics */
+            characteristics?: string | null;
+            /**
+             * Consent Confirmed
+             * @default false
+             */
+            consent_confirmed: boolean;
         };
         /** WorkReportGenerateRequest */
         WorkReportGenerateRequest: {
@@ -4497,6 +4687,41 @@ export interface operations {
             };
         };
     };
+    create_work_member_api_v1_goals__goal_id__work_assignment_members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkMemberCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkMemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_load_profiles_api_v1_goals__goal_id__load_profiles_get: {
         parameters: {
             query?: never;
@@ -4791,6 +5016,101 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaterialCycleProgressRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_work_member_api_v1_work_members__member_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_work_member_api_v1_work_members__member_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkMemberUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkMemberRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_work_member_api_v1_work_members__member_id__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                member_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkMemberRead"];
                 };
             };
             /** @description Validation Error */
@@ -6717,6 +7037,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_evaluation_reports_api_v1_goals__goal_id__work_assignment_evaluation_reports_get: {
+        parameters: {
+            query?: {
+                member_id?: number | null;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkEvaluationReportRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_evaluation_report_api_v1_goals__goal_id__work_assignment_evaluation_reports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkEvaluationReportGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkEvaluationReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_evaluation_report_api_v1_goals__goal_id__work_assignment_evaluation_reports__report_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                report_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkEvaluationReportUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkEvaluationReportRead"];
                 };
             };
             /** @description Validation Error */

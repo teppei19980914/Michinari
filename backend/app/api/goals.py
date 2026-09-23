@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.api.books import serialize_book
 from app.api.materials import serialize_material
-from app.api.work import serialize_work_assignment
+from app.api.work import serialize_work_assignment, serialize_work_member
 from app.database import get_db
 from app.models.goal import ExamSubject, Goal
 from app.schemas.book import BookCreate, BookRead
@@ -32,13 +32,20 @@ from app.schemas.subject import (
     SubjectRead,
     SubjectUpdate,
 )
-from app.schemas.work import WorkAssignmentCreate, WorkAssignmentRead, WorkAssignmentUpdate
+from app.schemas.work import (
+    WorkAssignmentCreate,
+    WorkAssignmentRead,
+    WorkAssignmentUpdate,
+    WorkMemberCreate,
+    WorkMemberRead,
+)
 from app.services import (
     allocation_service,
     book_service,
     goal_service,
     material_service,
     subject_service,
+    work_member_service,
     work_service,
 )
 from app.services.exceptions import NotFoundError
@@ -327,6 +334,29 @@ def update_work_assignment(
     )
     session.commit()
     return serialize_work_assignment(session, work_assignment)
+
+
+# --- チームメンバー（作成のみ目標配下のネストパス。個別の更新・削除・無効化は
+# --- work_members.py。一覧取得は専用エンドポイントを設けず、上記GET /goals/{id}の
+# --- WorkAssignmentRead.membersへの埋め込みで代替する。要件定義書6.11） ---
+
+
+@router.post(
+    "/goals/{goal_id}/work-assignment/members",
+    response_model=WorkMemberRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_work_member(
+    goal_id: int, payload: WorkMemberCreate, session: Session = Depends(get_db)
+) -> WorkMemberRead:
+    goal = goal_service.get_goal(session, goal_id)
+    if goal.work_assignment is None:
+        raise NotFoundError("案件情報", goal_id)
+    member = work_member_service.create_work_member(
+        session, goal.work_assignment, **payload.model_dump()
+    )
+    session.commit()
+    return serialize_work_member(member)
 
 
 # --- 負荷プロファイル ---

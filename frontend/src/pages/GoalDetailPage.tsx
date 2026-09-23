@@ -17,6 +17,7 @@ import { LoadProfileTab } from '../features/goal/LoadProfileTab'
 import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
+import { WorkEvaluationReportTab } from '../features/goal/WorkEvaluationReportTab'
 import { CloseGoalModal } from '../features/goal/CloseGoalModal'
 import { ERROR_CODES } from '../constants/errorCodes'
 import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
@@ -96,6 +97,11 @@ const WORK_TABS = [
     key: 'semiannualReview',
     labelKey: 'goals.detail.tabs.semiannualReview',
     tooltipKey: 'goals.detail.tabTooltips.semiannualReview',
+  },
+  {
+    key: 'evaluationReport',
+    labelKey: 'goals.detail.tabs.evaluationReport',
+    tooltipKey: 'goals.detail.tabTooltips.evaluationReport',
   },
 ] as const
 
@@ -223,11 +229,14 @@ export function GoalDetailPage() {
   const isReadOnly = isClosedGoalStatus(goal.status)
   // 対応表から引くことで、種別を追加したときの記述漏れをtscに検知させる
   // （入れ子三項だと既定分岐で静かに資格試験のタブ構成へ落ちる）。
+  // 評価レポートタブは role=EVALUATOR のときのみ表示する（要件定義書6.11）。
   const tabs = resolveByGoalCategory<GoalDetailTabs>(goal.category, {
     EXAM: EXAM_TABS,
     READING: READING_TABS,
     WORK: WORK_TABS,
-  })
+  }).filter(
+    (item) => item.key !== 'evaluationReport' || goal.work_assignment?.role === 'EVALUATOR',
+  )
   // 別の目標（category違い）から遷移してきた場合、直前のタブ選択が現在のタブ構成に
   // 存在しないことがあるため、その場合のみ基本情報タブへ読み替える（stateは据え置き、
   // 同一目標内でのタブ切替の挙動には影響させない）。
@@ -297,6 +306,7 @@ export function GoalDetailPage() {
           {activeTab === 'semiannualReview' && (
             <WorkReportTab goalId={goal.id} kind="semiannual" />
           )}
+          {activeTab === 'evaluationReport' && <WorkEvaluationReportTab goal={goal} />}
         </>
       )}
       {goal.category === 'EXAM' && (

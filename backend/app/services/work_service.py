@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.constants.enums import GoalCategory, RetrospectivePeriodType
+from app.constants.enums import GoalCategory, RetrospectivePeriodType, WorkEvaluationRole
 from app.constants.sentinels import UNSET
 from app.models.goal import Goal
 from app.models.record import DailyRecord, WorkLog
@@ -35,6 +35,7 @@ def create_work_assignment(
     client_name: str | None,
     expected_content: str,
     start_date: dt.date,
+    role: WorkEvaluationRole | None = None,
 ) -> WorkAssignment:
     goal_service.ensure_goal_editable(goal)
     _ensure_work_goal(goal)
@@ -46,6 +47,7 @@ def create_work_assignment(
         client_name=client_name,
         expected_content=expected_content,
         start_date=start_date,
+        role=role,
     )
     session.add(work_assignment)
     session.flush()
@@ -59,11 +61,12 @@ def update_work_assignment(
     client_name: str | None = UNSET,
     expected_content: str | None = None,
     start_date: dt.date | None = None,
+    role: WorkEvaluationRole | None = UNSET,
 ) -> WorkAssignment:
     goal_service.ensure_goal_editable(work_assignment.goal)
 
     # expected_content・start_dateはNOT NULL列のためNone＝未指定で曖昧さがない。
-    # client_nameはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
+    # client_name・roleはNULL許容のため「未指定」と「明示的なクリア」を番兵で区別する
     # （constants/sentinels.py）。
     if client_name is not UNSET:
         work_assignment.client_name = client_name
@@ -71,6 +74,8 @@ def update_work_assignment(
         work_assignment.expected_content = expected_content
     if start_date is not None:
         work_assignment.start_date = start_date
+    if role is not UNSET:
+        work_assignment.role = role
 
     session.flush()
     return work_assignment

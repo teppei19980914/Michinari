@@ -28,6 +28,7 @@ class AiConnectionSettingsRead(BaseModel):
     assistant_uid_goal_retrospective_work_monthly: str
     assistant_uid_goal_retrospective_work_semiannual: str
     assistant_uid_weekly_summary_work: str
+    assistant_uid_evaluation_report_work: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -49,6 +50,7 @@ class AiConnectionSettingsUpdate(BaseModel):
     assistant_uid_goal_retrospective_work_monthly: str | None = None
     assistant_uid_goal_retrospective_work_semiannual: str | None = None
     assistant_uid_weekly_summary_work: str | None = None
+    assistant_uid_evaluation_report_work: str | None = None
     folder_prefix: str | None = Field(default=None, min_length=1)
     timeout_seconds: int | None = Field(default=None, ge=1)
     min_interval_seconds: int | None = Field(default=None, ge=0)

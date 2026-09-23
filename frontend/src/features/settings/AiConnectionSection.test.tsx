@@ -48,6 +48,7 @@ function makeAiConnection(
     assistant_uid_goal_retrospective_reading: '',
     assistant_uid_goal_retrospective_work_monthly: '',
     assistant_uid_goal_retrospective_work_semiannual: '',
+    assistant_uid_evaluation_report_work: '',
     folder_prefix: 'michinari',
     timeout_seconds: 60,
     min_interval_seconds: 3,
@@ -219,15 +220,15 @@ describe('AiConnectionSection のアシスタント選択', () => {
   it('offers every assistant for every purpose', async () => {
     await renderSection()
     await screen.findByText(t('settings.aiConnection.authStatus.authenticated'))
-    // 11用途 × (未設定 + アシスタント2件)。
-    expect(screen.getAllByRole('option').length).toBe(11 * 3)
+    // 12用途 × (未設定 + アシスタント2件)。
+    expect(screen.getAllByRole('option').length).toBe(12 * 3)
   })
 
   it('drops the unset placeholder once a purpose has an assistant', async () => {
     await renderSection({ assistant_uid_daily_feedback: ASSISTANT_A.uid })
     await screen.findByText(t('settings.aiConnection.authStatus.authenticated'))
     // 設定済みの1用途だけ「未設定」が消える。
-    expect(screen.getAllByText(t('common.unset')).length).toBe(10)
+    expect(screen.getAllByText(t('common.unset')).length).toBe(11)
   })
 
   it('saves the assistant against the purpose it was chosen for', async () => {

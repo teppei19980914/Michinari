@@ -15,6 +15,7 @@ import type {
   SlotAllocationRead,
   SubjectRead,
   WorkAssignmentRead,
+  WorkMemberRead,
 } from '../api/goals'
 import type { WorkReportRead } from '../api/closure'
 import type { DashboardRead } from '../api/dashboard'
@@ -130,10 +131,25 @@ export function makeWorkAssignment(
     client_name: '取引先A',
     expected_content: '期待される成果の説明',
     start_date: '2026-09-01',
+    role: null,
     elapsed_days: 12,
     last_work_date: '2026-09-12',
     current_streak: 3,
     has_recent_monthly_report: true,
+    members: [],
+    ...overrides,
+  }
+}
+
+export function makeWorkMember(overrides: Partial<WorkMemberRead> = {}): WorkMemberRead {
+  return {
+    id: 1,
+    work_assignment_id: WORK_ASSIGNMENT_ID,
+    name: 'Aさん',
+    gender: null,
+    characteristics: null,
+    consent_confirmed_at: null,
+    is_active: true,
     ...overrides,
   }
 }

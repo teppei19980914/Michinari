@@ -11,8 +11,12 @@ import {
   updateWorkAssignment,
   type GoalDetailRead,
   type WorkAssignmentRead,
+  type WorkEvaluationRole,
 } from '../../api/goals'
 import { QUERY_KEYS } from '../../constants/queryKeys'
+import { WorkMemberList } from './WorkMemberList'
+
+const ROLE_OPTIONS = ['EVALUATOR', 'EVALUATEE'] as const
 
 function WorkAssignmentForm({
   goalId,
@@ -28,11 +32,13 @@ function WorkAssignmentForm({
   const [clientName, setClientName] = useState(workAssignment?.client_name ?? '')
   const [expectedContent, setExpectedContent] = useState(workAssignment?.expected_content ?? '')
   const [startDate, setStartDate] = useState(workAssignment?.start_date ?? '')
+  const [role, setRole] = useState<WorkEvaluationRole | ''>(workAssignment?.role ?? '')
 
   const payload = {
     client_name: clientName === '' ? null : clientName,
     expected_content: expectedContent,
     start_date: startDate,
+    role: role === '' ? null : role,
   }
 
   const mutation = useMutation({
@@ -77,6 +83,21 @@ function WorkAssignmentForm({
             onChange={(e) => setStartDate(e.target.value)}
             required
           />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-gray-700">
+          {t('goals.workAssignment.roleLabel')}
+          <select
+            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            value={role}
+            onChange={(e) => setRole(e.target.value as WorkEvaluationRole | '')}
+          >
+            <option value="">{t('goals.workAssignment.role.NONE')}</option>
+            {ROLE_OPTIONS.map((value) => (
+              <option key={value} value={value}>
+                {t(`goals.workAssignment.role.${value}`)}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="flex justify-end gap-2">
           {workAssignment && (
@@ -147,23 +168,26 @@ export function WorkAssignmentTab({
   }
 
   return (
-    <Card className="flex flex-col gap-3">
-      <div>
-        {workAssignment.client_name && (
-          <p className="text-sm text-gray-500">{workAssignment.client_name}</p>
-        )}
-        <p className="whitespace-pre-wrap text-sm text-gray-900">
-          {workAssignment.expected_content}
-        </p>
-      </div>
-      <WorkAssignmentProgress workAssignment={workAssignment} />
-      {!readOnly && (
-        <div className="flex justify-end">
-          <Button variant="secondary" onClick={() => setEditing(true)}>
-            {t('common.action.edit')}
-          </Button>
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-3">
+        <div>
+          {workAssignment.client_name && (
+            <p className="text-sm text-gray-500">{workAssignment.client_name}</p>
+          )}
+          <p className="whitespace-pre-wrap text-sm text-gray-900">
+            {workAssignment.expected_content}
+          </p>
         </div>
-      )}
-    </Card>
+        <WorkAssignmentProgress workAssignment={workAssignment} />
+        {!readOnly && (
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={() => setEditing(true)}>
+              {t('common.action.edit')}
+            </Button>
+          </div>
+        )}
+      </Card>
+      <WorkMemberList goalId={goal.id} members={workAssignment.members} readOnly={readOnly} />
+    </div>
   )
 }

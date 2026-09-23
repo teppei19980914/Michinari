@@ -16,17 +16,21 @@ from sqlalchemy.orm import Session
 
 from app.ai.prompt_builder import DatedLogEntry, MaterialStatusEntry
 from app.constants.enums import (
+    AiPurpose,
     BaselineReason,
+    ChatRole,
     ExamResultType,
     GoalCategory,
     GoalStatus,
     Granularity,
     RecordState,
+    WorkMemberGender,
 )
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import (
+    ChatMessage,
     DailyGoalDiary,
     DailyRecord,
     ReadingLog,
@@ -34,7 +38,7 @@ from app.models.record import (
     WeeklySummary,
     WorkLog,
 )
-from app.models.work import WorkAssignment
+from app.models.work import WorkAssignment, WorkMember
 from app.services import (
     allocation_service,
     baseline_service,
@@ -1187,3 +1191,53 @@ def build_perspective_suggestion_instruction(
     if not is_below_threshold:
         return ""
     return _PERSPECTIVE_SUGGESTION_TEXTS[category]
+
+
+# --- AI評価レポート（EVALUATION_REPORT_WORK、要件定義書6.11） ---
+
+_GENDER_LABELS = {
+    WorkMemberGender.MALE: "男性",
+    WorkMemberGender.FEMALE: "女性",
+    WorkMemberGender.OTHER: "その他",
+}
+
+
+def build_evaluation_member_summary_text(member: WorkMember) -> str:
+    """{{member_summary}}（EVALUATION_REPORT_WORK）: 評価対象メンバーの氏名・性別
+    （あれば）・特徴/性格（あれば）。"""
+    lines = [f"氏名: {member.name}"]
+    if member.gender is not None:
+        lines.append(f"性別: {_GENDER_LABELS[member.gender]}")
+    if member.characteristics:
+        lines.append(f"特徴・性格: {member.characteristics}")
+    return "\n".join(lines)
+
+
+def build_evaluation_feedback_history_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
+    """{{feedback_history}}（EVALUATION_REPORT_WORK）: この目標（案件）の日次報告
+    フィードバック（DAILY_FEEDBACK_WORK）のうちNewtonXからの応答（role=ASSISTANT）を
+    record_dateの昇順で。
+
+    ai_log（AI通信ログ）はapp_setting.log.retention_daysで自動削除される監視用ログ
+    であり、goal_idも持たないため評価レポートの入力には使えない（要件定義書6.11の
+    技術検証で確認済み）。chat_messageはgoal_id列を持ち（Phase26）、retentionによる
+    削除の対象でもないため、こちらを参照する。
+
+    整形前のlist[DatedLogEntry]を返し、空の場合の表示・段階的縮退はprompt_builder.
+    build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則）。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, ChatMessage.content)
+        .join(ChatMessage, ChatMessage.daily_record_id == DailyRecord.id)
+        .filter(
+            ChatMessage.goal_id == goal.id,
+            ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK_WORK,
+            ChatMessage.role == ChatRole.ASSISTANT,
+        )
+        .order_by(DailyRecord.record_date, ChatMessage.sequence)
+        .all()
+    )
+    return [
+        DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{content}")
+        for record_date, content in rows
+    ]
