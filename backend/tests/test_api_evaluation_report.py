@@ -91,6 +91,17 @@ def test_generate_evaluation_report_without_work_assignment_returns_404(client):
     assert response.json()["error"]["code"] == "NOT_FOUND"
 
 
+def test_list_evaluation_reports_without_work_assignment_returns_404(client):
+    goal = client.post(
+        "/api/v1/goals", json={"category": "WORK", "name": "仕事目標A", "start_date": "2026-01-01"}
+    ).json()
+
+    response = client.get(f"/api/v1/goals/{goal['id']}/work-assignment/evaluation-reports")
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
 def test_list_evaluation_reports_orders_newest_first(client, monkeypatch):
     _stub_send_message(monkeypatch, response="1回目")
     goal, member = _create_evaluator_work_goal_with_member(client)
