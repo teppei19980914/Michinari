@@ -31,6 +31,7 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
           perspective_suggestion_min_records: Number(perspectiveSuggestionMinRecords),
         },
       }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))

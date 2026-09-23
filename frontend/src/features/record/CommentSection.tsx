@@ -21,6 +21,7 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
 
   const updateMutation = useMutation({
     mutationFn: () => updateComment(comment.id, body),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       invalidate()
       setEditing(false)
@@ -29,6 +30,7 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
   })
   const deleteMutation = useMutation({
     mutationFn: () => deleteComment(comment.id),
+    meta: { overlay: 'deleting' },
     onSuccess: invalidate,
     onError: showApiError,
   })
@@ -90,6 +92,7 @@ export function CommentSection({
 
   const createMutation = useMutation({
     mutationFn: () => createComment(targetDate, newBody),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.record(targetDate) })
       setNewBody('')

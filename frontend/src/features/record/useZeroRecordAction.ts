@@ -70,6 +70,7 @@ export function useZeroRecordAction({
       }
       return lastRecord
     },
+    meta: { overlay: 'saving' },
     onSuccess: (record) => {
       invalidateDailyRecordCaches(queryClient, targetDate)
       showToast(message)

@@ -30,12 +30,14 @@ export function DayTypeDefaultsCard() {
   const dayTypeMutation = useMutation({
     mutationFn: ({ weekday, dayType }: { weekday: number; dayType: DayType }) =>
       updateDayTypeDefaults({ [weekday]: dayType }),
+    meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dayTypeDefaults() }),
     onError: showApiError,
   })
 
   const holidayMutation = useMutation({
     mutationFn: (value: boolean) => updateHolidayTreatAsBuffer(value),
+    meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.holidayTreatAsBuffer() }),
     onError: showApiError,
   })

@@ -23,12 +23,14 @@ export function DataManagementPage() {
       const blob = await downloadExportFile()
       downloadBlob(blob, 'michinari_export.json')
     },
+    meta: { overlay: 'saving' },
     onSuccess: () => showToast(t('dataManagement.exportSucceeded')),
     onError: showApiError,
   })
 
   const importMutation = useMutation({
     mutationFn: (file: File) => importDataFile(file),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       showToast(t('dataManagement.importSucceeded'))
       window.location.reload()
@@ -38,6 +40,7 @@ export function DataManagementPage() {
 
   const backupMutation = useMutation({
     mutationFn: createBackup,
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       showToast(t('dataManagement.backupSucceeded'))
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.backups() })
@@ -47,6 +50,7 @@ export function DataManagementPage() {
 
   const restoreMutation = useMutation({
     mutationFn: (backupId: string) => restoreBackup(backupId),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       showToast(t('dataManagement.backups.restoreSucceeded'))
       window.location.reload()

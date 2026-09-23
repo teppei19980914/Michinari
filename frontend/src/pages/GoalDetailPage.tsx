@@ -131,16 +131,19 @@ function GoalStatusActions({
 
   const activateMutation = useMutation({
     mutationFn: () => activateGoal(goalId),
+    meta: { overlay: 'saving' },
     onSuccess: invalidate,
     onError: showApiError,
   })
   const pauseMutation = useMutation({
     mutationFn: () => pauseGoal(goalId),
+    meta: { overlay: 'saving' },
     onSuccess: invalidate,
     onError: showApiError,
   })
   const resumeMutation = useMutation({
     mutationFn: () => resumeGoal(goalId),
+    meta: { overlay: 'saving' },
     onSuccess: invalidate,
     onError: (error) => {
       if (error instanceof ApiError && error.code === ERROR_CODES.RESOURCE_EXCEEDED) {

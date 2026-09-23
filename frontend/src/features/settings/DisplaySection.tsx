@@ -24,6 +24,7 @@ export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
       updateSettings({
         display: { locale, theme, default_granularity: granularity },
       }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))

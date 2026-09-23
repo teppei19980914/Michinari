@@ -39,11 +39,13 @@ export function KnowledgeExportPage() {
 
   const previewMutation = useMutation({
     mutationFn: () => previewKnowledgeExport(goalId, selection, anonymize),
+    meta: { overlay: 'saving' },
     onError: showApiError,
   })
 
   const exportMutation = useMutation({
     mutationFn: () => executeKnowledgeExport(goalId, { ...selection, anonymize }),
+    meta: { overlay: 'saving' },
     onSuccess: () => showToast(t('knowledgeExport.exportSucceeded')),
     onError: showApiError,
   })

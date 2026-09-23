@@ -134,11 +134,13 @@ export function GoalsListPage() {
 
   const archiveMutation = useMutation({
     mutationFn: archiveGoal,
+    meta: { overlay: 'deleting' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
     onError: showApiError,
   })
   const unarchiveMutation = useMutation({
     mutationFn: unarchiveGoal,
+    meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
     onError: showApiError,
   })

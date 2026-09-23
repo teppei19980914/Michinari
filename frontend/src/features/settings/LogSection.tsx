@@ -20,6 +20,7 @@ export function LogSection({ settings }: { settings: AppSettingsRead }) {
       updateSettings({
         log: { ai_enabled: aiEnabled, retention_days: Number(retentionDays) },
       }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
