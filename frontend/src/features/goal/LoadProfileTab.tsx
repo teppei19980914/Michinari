@@ -41,6 +41,7 @@ function LoadProfileForm({
   const mutation = useMutation({
     mutationFn: () =>
       profile ? updateLoadProfile(profile.id, payload) : createLoadProfile(goalId, payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
@@ -113,6 +114,7 @@ export function LoadProfileTab({
 
   const deleteMutation = useMutation({
     mutationFn: (profileId: number) => deleteLoadProfile(profileId),
+    meta: { overlay: 'deleting' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) }),
     onError: showApiError,
   })

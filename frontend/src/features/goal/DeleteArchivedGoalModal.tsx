@@ -32,6 +32,7 @@ export function DeleteArchivedGoalModal({
   const mutation = useMutation({
     mutationFn: (goalId: number) =>
       deleteArchivedGoal(goalId, { cascade_study_logs: cascadeStudyLogs }),
+    meta: { overlay: 'deleting' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       onClose()
