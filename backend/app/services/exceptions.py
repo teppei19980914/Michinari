@@ -197,6 +197,25 @@ class ImmutableRecordError(DomainError):
         super().__init__(f"日付({record_date})の{category}の記録は確定済みのため更新できません")
 
 
+class ConsentRequiredError(DomainError):
+    """本人確認済みの確認を経ずにチームメンバーの特性・性格を保存しようとした場合
+    （要件定義書6.11、第三者の機微情報を扱う初のフィールドに対する同意ゲート）。"""
+
+    def __init__(self) -> None:
+        super().__init__("特性・性格を保存する前に本人確認済みの確認が必要です")
+
+
+class WorkMemberHasEvaluationReportsError(DomainError):
+    """評価レポートが存在するチームメンバーを削除しようとした場合
+    （MaterialHasStudyLogsErrorのメンバー版、要件定義書6.11）。reasonの用途は同クラス参照。"""
+
+    reason = "WORK_MEMBER_HAS_REPORTS"
+
+    def __init__(self, member_id: int) -> None:
+        self.member_id = member_id
+        super().__init__(f"メンバー(id={member_id})には評価レポートが存在するため削除できません")
+
+
 class BackdateLimitExceededError(DomainError):
     """報告確定の遡及入力可能期限（当日または前日）を超えた場合
     （データ構造編6.3 BACKDATE_LIMIT_EXCEEDED、仕様書7.2）。"""

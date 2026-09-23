@@ -71,6 +71,13 @@ export const QUERY_KEYS = {
   workReportPeriod: (kind: WorkReportKind, goalId: number, period: string) =>
     ['workReport', kind, goalId, period] as const,
 
+  // --- 仕事目標のチームメンバー・AI評価レポート ---
+  // メンバー自体はWorkAssignmentRead.membersに埋め込まれているため専用キーを持たず、
+  // goal()・activeWorkAssignments()の無効化のみで両画面（目標詳細・日次報告）へ伝播する
+  // （要件定義書6.11「同期」）。
+  workEvaluationReports: (goalId: number, memberId?: number) =>
+    ['workEvaluationReports', goalId, memberId] as const,
+
   // --- リソース設定 ---
   resourceSlots: () => ['resource-slots'] as const,
   resourceAllocation: () => ['resource-allocation'] as const,

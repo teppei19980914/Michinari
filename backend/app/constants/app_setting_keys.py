@@ -38,6 +38,9 @@ AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = (
 )
 #: 仕事用の週次要約（読書のAI_ASSISTANT_UID_WEEKLY_SUMMARY_READINGと同じ位置づけ、L-11）。
 AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK = "ai.assistant_uid.weekly_summary_work"
+#: AI評価レポート（要件定義書6.11）。月次/半期報告と同様、低頻度・高精度が求められる用途
+#: のため高精度アシスタント枠を用いる（実環境での疎通確認・選定はseed_data参照）。
+AI_ASSISTANT_UID_EVALUATION_REPORT_WORK = "ai.assistant_uid.evaluation_report_work"
 AI_WORK_RECENT_LOG_DAYS = "ai.work_recent_log_days"
 AI_FOLDER_PREFIX = "ai.folder_prefix"
 AI_TIMEOUT_SECONDS = "ai.timeout_seconds"

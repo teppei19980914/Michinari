@@ -18,10 +18,12 @@ const WORK_ASSIGNMENT: WorkAssignmentRead = {
   client_name: 'NewtonX',
   expected_content: '要件定義支援',
   start_date: '2026-01-01',
+  role: null,
   elapsed_days: 20,
   last_work_date: null,
   current_streak: 0,
   has_recent_monthly_report: false,
+  members: [],
 }
 
 describe('initWorkLogFormValues', () => {

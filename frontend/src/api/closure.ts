@@ -8,6 +8,10 @@ export type RetrospectiveRead = components['schemas']['RetrospectiveRead']
 export type WorkReportRead = components['schemas']['WorkReportRead']
 export type MonthlyReportUpdateRequest = components['schemas']['MonthlyReportUpdateRequest']
 export type SemiannualReviewUpdateRequest = components['schemas']['SemiannualReviewUpdateRequest']
+export type WorkEvaluationReportRead = components['schemas']['WorkEvaluationReportRead']
+export type WorkEvaluationReportGenerateRequest =
+  components['schemas']['WorkEvaluationReportGenerateRequest']
+export type WorkEvaluationReportUpdate = components['schemas']['WorkEvaluationReportUpdate']
 
 export function registerExamResult(
   subjectId: number,
@@ -88,6 +92,39 @@ export function updateSemiannualReview(
 ): Promise<WorkReportRead> {
   return apiClient.patch<WorkReportRead>(
     `/goals/${goalId}/semiannual-review?period=${encodeURIComponent(period)}`,
+    payload,
+  )
+}
+
+// --- AI評価レポート（role=EVALUATORの場合のみ、要件定義書6.11） ---
+
+export function generateEvaluationReport(
+  goalId: number,
+  payload: WorkEvaluationReportGenerateRequest,
+): Promise<WorkEvaluationReportRead> {
+  return apiClient.post<WorkEvaluationReportRead>(
+    `/goals/${goalId}/work-assignment/evaluation-reports`,
+    payload,
+  )
+}
+
+export function listEvaluationReports(
+  goalId: number,
+  memberId?: number,
+): Promise<WorkEvaluationReportRead[]> {
+  const query = memberId !== undefined ? `?member_id=${memberId}` : ''
+  return apiClient.get<WorkEvaluationReportRead[]>(
+    `/goals/${goalId}/work-assignment/evaluation-reports${query}`,
+  )
+}
+
+export function updateEvaluationReport(
+  goalId: number,
+  reportId: number,
+  payload: WorkEvaluationReportUpdate,
+): Promise<WorkEvaluationReportRead> {
+  return apiClient.patch<WorkEvaluationReportRead>(
+    `/goals/${goalId}/work-assignment/evaluation-reports/${reportId}`,
     payload,
   )
 }

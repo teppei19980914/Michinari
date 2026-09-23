@@ -100,10 +100,12 @@ const WORK_ASSIGNMENT: WorkAssignmentRead = {
   client_name: 'client-name',
   expected_content: '',
   start_date: LOGICAL_DATE,
+  role: null,
   elapsed_days: 1,
   last_work_date: null,
   current_streak: 0,
   has_recent_monthly_report: false,
+  members: [],
 }
 
 const SLOT_NAME = 'morning-slot'
