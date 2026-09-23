@@ -46,6 +46,7 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
       existing
         ? updateExamResult(existing.id, payload)
         : registerExamResult(subject.id, payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       setEditing(false)

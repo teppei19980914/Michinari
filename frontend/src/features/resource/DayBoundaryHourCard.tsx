@@ -17,6 +17,7 @@ export function DayBoundaryHourCard() {
 
   const mutation = useMutation({
     mutationFn: (value: number) => updateDayBoundaryHour(value),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dayBoundaryHour() })
       showToast(t('common.saveSucceeded'))

@@ -50,6 +50,7 @@ export function useCategoryChat({
 
   const mutation = useMutation({
     mutationFn: sendRequest,
+    meta: { overlay: 'saving' },
     onSuccess: (response, message) => {
       setMessages((current) =>
         appendChatExchange(current, {

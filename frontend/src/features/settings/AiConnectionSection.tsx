@@ -28,6 +28,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
 
   const saveMutation = useMutation({
     mutationFn: () => updateSettings({ ai_connection: form }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))
@@ -38,6 +39,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
   const loginMutation = useMutation({
     mutationFn: (variables: { token: string; clearToken: () => void }) =>
       loginAi({ host: form.host || null, personal_access_token: variables.token }),
+    meta: { overlay: 'saving' },
     onSuccess: (result, variables) => {
       // 個人アクセストークンは再認証にだけ使う値のため、成功したら入力欄から消す。
       variables.clearToken()

@@ -63,6 +63,7 @@ export function ProgressOnlyPage() {
 
   const registerMutation = useMutation({
     mutationFn: () => registerProgress(targetDate, input.payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       invalidateDailyRecordCaches(queryClient, targetDate)
       navigate(ROUTES.dashboard)
