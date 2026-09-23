@@ -1,4 +1,5 @@
 import type { GoalCategory } from '../../api/goals'
+import { CHARACTER_ICONS, type CharacterIconKey } from '../../constants/characterIcons'
 import { resolveByGoalCategory } from './goalCategoryVariant'
 
 /**
@@ -15,4 +16,18 @@ export function resolveGoalCategoryBadgeClass(category: GoalCategory): string {
     READING: 'bg-emerald-100 text-emerald-800',
     WORK: 'bg-amber-100 text-amber-800',
   })
+}
+
+/**
+ * 目標種別に対応するキャラクターアイコン（UI-08/09/10、仕様書v1.1 13.2）の画像URLを返す。
+ *
+ * @example resolveGoalCategoryIcon('READING') // src/assets/icons/ui-09-reading.png のURL
+ */
+export function resolveGoalCategoryIcon(category: GoalCategory): string {
+  const key = resolveByGoalCategory<CharacterIconKey>(category, {
+    EXAM: 'exam',
+    READING: 'reading',
+    WORK: 'work',
+  })
+  return CHARACTER_ICONS[key]
 }

@@ -269,6 +269,7 @@ export function makeGoal(overrides: Partial<GoalRead> = {}): GoalRead {
     activated_at: '2026-09-01T00:00:00',
     closed_at: null,
     archived_at: null,
+    is_achieved: false,
     ...overrides,
   }
 }

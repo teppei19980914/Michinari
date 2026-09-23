@@ -9,7 +9,8 @@ import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 import { archiveGoal, listGoals, unarchiveGoal, type GoalRead } from '../api/goals'
 import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
-import { resolveGoalCategoryBadgeClass } from '../features/goal/goalCategoryBadge'
+import { resolveGoalCategoryBadgeClass, resolveGoalCategoryIcon } from '../features/goal/goalCategoryBadge'
+import { CHARACTER_ICONS } from '../constants/characterIcons'
 import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
 import { QuickCreateGoalModal } from '../features/goal/QuickCreateGoalModal'
 import { QUERY_KEYS } from '../constants/queryKeys'
@@ -76,11 +77,20 @@ function GoalCard({
   return (
     <Card className="flex items-center justify-between gap-3 hover:border-blue-300">
       <Link to={resolveGoalListTarget(goal.id, goal.status)} className="flex flex-1 flex-col gap-1">
-        <span className="font-medium text-gray-900">{goal.name}</span>
+        <span className="flex items-center gap-1 font-medium text-gray-900">
+          {goal.name}
+          {goal.is_achieved && (
+            <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+              <img src={CHARACTER_ICONS.achieved} alt="" className="h-4 w-4" />
+              {t('goals.list.achievedBadge')}
+            </span>
+          )}
+        </span>
         <span className="flex items-center gap-2 text-xs text-gray-500">
           <span
-            className={`rounded-full px-2 py-0.5 font-medium ${resolveGoalCategoryBadgeClass(goal.category)}`}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${resolveGoalCategoryBadgeClass(goal.category)}`}
           >
+            <img src={resolveGoalCategoryIcon(goal.category)} alt="" className="h-4 w-4 rounded-full" />
             {t(`goals.new.category.${goal.category}`)}
           </span>
           {t(`goals.list.status.${goal.status}`)}

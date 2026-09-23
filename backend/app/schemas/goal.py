@@ -55,6 +55,9 @@ class GoalRead(BaseModel):
     activated_at: dt.datetime | None
     closed_at: dt.datetime | None
     archived_at: dt.datetime | None
+    #: UI-11（目標達成アイコン）の判定基準（仕様書v1.1 13.6）。goal_service.compute_is_achievedで
+    #: 算出する（都度算出、CLAUDE.md 保存禁止に準拠しDBへは持たない）。
+    is_achieved: bool
 
 
 class GoalDetailRead(GoalRead):

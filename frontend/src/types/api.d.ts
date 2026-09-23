@@ -525,7 +525,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Complete Book */
+        /**
+         * Complete Book
+         * @description is_achieved（都度算出）を明示的に付与する。api.goals.serialize_goalと同じ理由・同じ組立て
+         *     だが、api.goalsはapi.booksをimportしており（serialize_book）、逆方向のimportは循環参照に
+         *     なるためここでは共有しない（goal_service.compute_is_achievedのみ共有する）。
+         */
         post: operations["complete_book_api_v1_books__book_id__complete_post"];
         delete?: never;
         options?: never;
@@ -2492,6 +2497,8 @@ export interface components {
             closed_at: string | null;
             /** Archived At */
             archived_at: string | null;
+            /** Is Achieved */
+            is_achieved: boolean;
             /** Exam Subjects */
             exam_subjects: components["schemas"]["SubjectRead"][];
             /** Materials */
@@ -2522,6 +2529,8 @@ export interface components {
             closed_at: string | null;
             /** Archived At */
             archived_at: string | null;
+            /** Is Achieved */
+            is_achieved: boolean;
         };
         /**
          * GoalStatsRead

@@ -96,6 +96,18 @@ describe('GoalsListPage の一覧', () => {
     expect(link.getAttribute('href')).toBe(ROUTES.goalExport(GOAL_ID))
   })
 
+  it('shows the achieved badge (UI-11) only when is_achieved is true', async () => {
+    const { unmount } = renderWithProviders(<GoalsListPage />)
+    await screen.findByText('目標A')
+    expect(screen.queryByText(t('goals.list.achievedBadge'))).toBeNull()
+
+    unmount()
+    listGoals.mockResolvedValue([makeGoal({ status: 'CLOSED_WITH_RESULT', is_achieved: true })])
+    renderWithProviders(<GoalsListPage />)
+
+    expect(await screen.findByText(t('goals.list.achievedBadge'))).toBeDefined()
+  })
+
   it('offers registering the exam result only for an active exam goal', async () => {
     const { unmount } = renderWithProviders(<GoalsListPage />)
     expect(await screen.findByText(t('goals.list.resultLink'))).toBeDefined()
