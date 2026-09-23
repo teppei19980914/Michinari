@@ -149,6 +149,35 @@ def test_patch_settings_updates_work_assistant_uids(client):
     assert confirmed["ai_connection"]["assistant_uid_daily_feedback_work"] == "uid-daily-work"
 
 
+def test_get_settings_includes_evaluation_report_work_assistant_uid(client):
+    """AI評価レポート用のアシスタント設定が設定画面（GET /settings）から参照可能であり、
+    既定値（月次報告・半期評価と同一の疎通確認済みアシスタント）が入っていること
+    （要件定義書R-96、仕様書6.11「全ての設定項目を画面上から変更可能」、2026-09-23）。"""
+    response = client.get("/api/v1/settings")
+    assert response.status_code == 200
+    body = response.json()
+    assert (
+        body["ai_connection"]["assistant_uid_evaluation_report_work"]
+        == "d18ad1c0-c7e6-4651-9ff2-4fe86af1a73b"
+    )
+
+
+def test_patch_settings_updates_evaluation_report_work_assistant_uid(client):
+    response = client.patch(
+        "/api/v1/settings",
+        json={"ai_connection": {"assistant_uid_evaluation_report_work": "uid-evaluation-report"}},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ai_connection"]["assistant_uid_evaluation_report_work"] == "uid-evaluation-report"
+
+    confirmed = client.get("/api/v1/settings").json()
+    assert (
+        confirmed["ai_connection"]["assistant_uid_evaluation_report_work"]
+        == "uid-evaluation-report"
+    )
+
+
 def test_patch_settings_rejects_invalid_theme(client):
     response = client.patch("/api/v1/settings", json={"display": {"theme": "rainbow"}})
     assert response.status_code == 400
