@@ -4,6 +4,7 @@ import { ROUTE_PATTERNS } from './constants/routes'
 import { ToastProvider } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalNav } from './components/GlobalNav'
+import { LoadingOverlay } from './components/LoadingOverlay'
 import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
 import { WelcomePage } from './pages/WelcomePage'
@@ -70,6 +71,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <RouterProvider router={router} />
+          <LoadingOverlay />
         </ToastProvider>
       </QueryClientProvider>
     </ErrorBoundary>

@@ -51,6 +51,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
       // 有効/無効は編集でのみ送る（新規作成は常に有効なスロットとして作られる）。
       return slot ? updateSlot(slot.id, { ...shared, is_active: isActive }) : createSlot(shared)
     },
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceSlots() })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceAllocation() })
@@ -113,6 +114,7 @@ export function SlotList() {
 
   const deleteMutation = useMutation({
     mutationFn: (slotId: number) => deleteSlot(slotId),
+    meta: { overlay: 'deleting' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceSlots() })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.resourceAllocation() })

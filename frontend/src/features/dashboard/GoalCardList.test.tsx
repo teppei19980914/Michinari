@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, screen } from '@testing-library/react'
 import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
+import { CHARACTER_ICONS } from '../../constants/characterIcons'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { GOAL_ID, makeBook, makeGoalCard, makeWorkAssignment } from '../../test/fixtures'
 import { GoalCardList } from './GoalCardList'
@@ -62,6 +63,37 @@ describe('GoalCardList（資格試験）', () => {
     expect(screen.getByText(t('dashboard.goalCard.remainingDaysUnavailable'))).toBeDefined()
     expect(screen.getByText(t('dashboard.goalCard.forecastDeviationUnavailable'))).toBeDefined()
   })
+
+  it('shows the EXAM category icon (UI-08)', () => {
+    // アイコンはalt=""の装飾画像（スクリーンリーダー向けの意味を持たせない）のため、
+    // アクセシビリティツリー上は role="img" を持たない。container側からimg要素を拾う。
+    const { container } = renderWithProviders(<GoalCardList goalCards={[makeGoalCard()]} />)
+
+    const images = container.querySelectorAll('img')
+    expect(images[0].getAttribute('src')).toBe(CHARACTER_ICONS.exam)
+  })
+
+  it.each([
+    [3.4, CHARACTER_ICONS.scheduleDelayed],
+    [-1.2, CHARACTER_ICONS.scheduleAhead],
+    [0, CHARACTER_ICONS.scheduleOnTrack],
+  ])('shows the schedule status icon for a deviation of %s days', (days, expectedIcon) => {
+    const { container } = renderWithProviders(
+      <GoalCardList goalCards={[makeGoalCard({ forecast_deviation_days: days })]} />,
+    )
+
+    const images = container.querySelectorAll('img')
+    expect(images).toHaveLength(2)
+    expect(images[1].getAttribute('src')).toBe(expectedIcon)
+  })
+
+  it('hides the schedule status icon when the forecast is unavailable', () => {
+    const { container } = renderWithProviders(
+      <GoalCardList goalCards={[makeGoalCard({ forecast_deviation_days: null })]} />,
+    )
+
+    expect(container.querySelectorAll('img')).toHaveLength(1)
+  })
 })
 
 describe('GoalCardList（読書）', () => {
@@ -69,7 +101,7 @@ describe('GoalCardList（読書）', () => {
     makeGoalCard({ category: 'READING', book: makeBook(bookOverrides), ...cardOverrides })
 
   it('shows the reading figures instead of the planning ones', () => {
-    renderWithProviders(<GoalCardList goalCards={[readingCard()]} />)
+    const { container } = renderWithProviders(<GoalCardList goalCards={[readingCard()]} />)
 
     expect(
       screen.getByText(t('dashboard.goalCard.remainingDaysReading', { days: 80 })),
@@ -78,6 +110,10 @@ describe('GoalCardList（読書）', () => {
     // ノルマのない目標に完了予測を出さない。
     expect(screen.queryByText(t('dashboard.goalCard.progressRate'))).toBeNull()
     expect(screen.queryByText(new RegExp(t('dashboard.goalCard.forecastDeviation', { days: 0 })))).toBeNull()
+    // READING category icon（UI-09）。完了予測を持たないためアイコンは種別アイコンのみ1枚。
+    const images = container.querySelectorAll('img')
+    expect(images).toHaveLength(1)
+    expect(images[0].getAttribute('src')).toBe(CHARACTER_ICONS.reading)
   })
 
   it('falls back when the book has never been read', () => {
@@ -119,12 +155,14 @@ describe('GoalCardList（仕事）', () => {
     makeGoalCard({ category: 'WORK', work_assignment: makeWorkAssignment(assignmentOverrides) })
 
   it('shows the work figures instead of the planning ones', () => {
-    renderWithProviders(<GoalCardList goalCards={[workCard()]} />)
+    const { container } = renderWithProviders(<GoalCardList goalCards={[workCard()]} />)
 
     expect(screen.getByText(t('dashboard.goalCard.elapsedDays', { days: 12 }))).toBeDefined()
     expect(screen.getByText(t('dashboard.goalCard.currentStreakWork', { days: 3 }))).toBeDefined()
     expect(screen.getByText(t('dashboard.goalCard.hasRecentMonthlyReport'))).toBeDefined()
     expect(screen.queryByText(t('dashboard.goalCard.progressRate'))).toBeNull()
+    // WORK category icon（UI-10）。
+    expect(container.querySelectorAll('img')[0].getAttribute('src')).toBe(CHARACTER_ICONS.work)
   })
 
   it('points out that the monthly report is missing', () => {

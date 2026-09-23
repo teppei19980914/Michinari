@@ -48,7 +48,21 @@ def update_book(book_id: int, payload: BookUpdate, session: Session = Depends(ge
 
 @router.post("/books/{book_id}/complete", response_model=GoalRead)
 def complete_book(book_id: int, session: Session = Depends(get_db)) -> GoalRead:
+    """is_achieved（都度算出）を明示的に付与する。api.goals.serialize_goalと同じ理由・同じ組立て
+    だが、api.goalsはapi.booksをimportしており（serialize_book）、逆方向のimportは循環参照に
+    なるためここでは共有しない（goal_service.compute_is_achievedのみ共有する）。"""
     book = book_service.get_book(session, book_id)
     goal = book_service.complete_book(session, book)
     session.commit()
-    return GoalRead.model_validate(goal)
+    return GoalRead(
+        id=goal.id,
+        category=goal.category,
+        name=goal.name,
+        start_date=goal.start_date,
+        status=goal.status,
+        memo=goal.memo,
+        activated_at=goal.activated_at,
+        closed_at=goal.closed_at,
+        archived_at=goal.archived_at,
+        is_achieved=goal_service.compute_is_achieved(goal),
+    )

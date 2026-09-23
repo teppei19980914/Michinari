@@ -9,6 +9,10 @@
   },
   "common": {
     "loading": "読み込み中…",
+    "overlay": {
+      "saving": "保存しています…",
+      "deleting": "削除しています…"
+    },
     "errorDetailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）",
     "unit": {
       "minutes": "分",
@@ -146,6 +150,7 @@
         "CLOSED_WITH_RESULT": "クローズ（結果あり）",
         "CLOSED_WITHOUT_RESULT": "クローズ（結果なし）"
       },
+      "achievedBadge": "達成",
       "exportLink": "総括・エクスポートへ",
       "resultLink": "結果登録",
       "archiveButton": "アーカイブ",

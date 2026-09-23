@@ -22,6 +22,7 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
 
   const saveMutation = useMutation({
     mutationFn: () => updatePromptTemplate(template.purpose, body),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       invalidate()
       showToast(t('common.saveSucceeded'))
@@ -30,6 +31,7 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
   })
   const resetMutation = useMutation({
     mutationFn: () => resetPromptTemplate(template.purpose),
+    meta: { overlay: 'saving' },
     onSuccess: (reset) => {
       setBody(reset.body)
       invalidate()

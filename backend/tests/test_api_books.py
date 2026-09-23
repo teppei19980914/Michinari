@@ -253,6 +253,8 @@ def test_complete_book_closes_goal_with_result(client):
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
     assert response.json()["closed_at"] is not None
+    # 読書はCLOSED_WITH_RESULT到達自体が達成を意味する（仕様書v1.1 13.6、S-12）。
+    assert response.json()["is_achieved"] is True
 
 
 def test_complete_book_on_draft_goal_is_rejected(client):

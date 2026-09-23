@@ -22,6 +22,7 @@ function makeGoal(category: GoalCategory): GoalRead {
     archived_at: '2026-02-01T00:00:00',
     closed_at: '2026-01-31T00:00:00',
     activated_at: '2026-01-01T00:00:00',
+    is_achieved: false,
   } as GoalRead
 }
 

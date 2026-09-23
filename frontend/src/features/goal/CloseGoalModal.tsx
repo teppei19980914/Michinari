@@ -41,6 +41,7 @@ export function CloseGoalModal({
   const mutation = useMutation({
     mutationFn: (payload: { confirmWithoutResult?: boolean; withResult?: boolean }) =>
       closeGoal(goalId, toCloseGoalRequest(payload)),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       setAwaitingConfirmWithoutResult(false)
       onClosed()

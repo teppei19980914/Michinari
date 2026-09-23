@@ -44,6 +44,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
 
   const generateMutation = useMutation({
     mutationFn: () => config.generateReport(goalId, period || undefined),
+    meta: { overlay: 'saving' },
     onSuccess: (generated) => {
       draft.applyReport(generated)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
@@ -67,6 +68,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
       }
       return config.updateReport(goalId, report.period_key, payload)
     },
+    meta: { overlay: 'saving' },
     onSuccess: (saved) => {
       draft.applyReport(saved)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })

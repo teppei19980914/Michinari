@@ -212,6 +212,55 @@ def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(
     closed = client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
     assert closed.status_code == 200
     assert closed.json()["status"] == "CLOSED_WITHOUT_RESULT"
+    assert closed.json()["is_achieved"] is False
+
+
+def test_close_exam_goal_is_achieved_when_all_subjects_pass(client):
+    """資格試験はCLOSED_WITH_RESULT（結果登録済み）だけでなく、全科目PASSまで確認して
+    達成を判定する（仕様書v1.1 13.6、S-12の解消）。"""
+    goal = _make_activatable_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    subject = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]
+    client.post(
+        f"/api/v1/subjects/{subject['id']}/result",
+        json={"taken_date": "2026-06-05", "result": "PASS"},
+    )
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "CLOSED_WITH_RESULT"
+    assert response.json()["is_achieved"] is True
+    # 一覧（GET /goals）もselectinloadで同じ判定を返す（N+1回避、list_goalsの事前取得を検証）。
+    listed = client.get("/api/v1/goals").json()
+    assert next(g for g in listed if g["id"] == goal["id"])["is_achieved"] is True
+
+
+def test_close_exam_goal_is_not_achieved_when_a_subject_fails(client):
+    """1科目でもFAILがあれば、結果は登録済み（CLOSED_WITH_RESULT）でも達成扱いにしない。"""
+    goal = _make_activatable_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    subject = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]
+    client.post(
+        f"/api/v1/subjects/{subject['id']}/result",
+        json={"taken_date": "2026-06-05", "result": "FAIL"},
+    )
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "CLOSED_WITH_RESULT"
+    assert response.json()["is_achieved"] is False
+
+
+def test_active_exam_goal_is_not_achieved(client):
+    """クローズ前（ACTIVE）は結果が全てPASSでも達成扱いにしない（status要件が先）。"""
+    goal = _make_activatable_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    response = client.get(f"/api/v1/goals/{goal['id']}")
+
+    assert response.json()["is_achieved"] is False
 
 
 def test_close_already_closed_goal_returns_state_error_not_confirmation(client):

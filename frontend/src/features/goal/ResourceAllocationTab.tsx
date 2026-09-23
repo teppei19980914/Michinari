@@ -41,6 +41,7 @@ export function ResourceAllocationTab({
   const values: SlotAllocationFormValues = { ...initSlotAllocationValues(rows), ...edited }
   const mutation = useMutation({
     mutationFn: () => updateSlotAllocations(goal.id, buildSlotAllocationPayload(rows, values)),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       setEdited({})
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goalSlotAllocations(goal.id) })
