@@ -30,9 +30,11 @@ logger = logging.getLogger(__name__)
 TRAY_ICON_NAME = "michinari"
 
 #: アイコン画像を読み込めなかった場合に描く代替画像の大きさと色。アイコンが無くても
-#: 常駐と終了ができるようにするための保険であり、通常は使われない。
+#: 常駐と終了ができるようにするための保険であり、通常は使われない。色はキャラクター
+#: アイコン（UI-01の頭部、`scripts/generate_icon.py`）の山吹色に合わせる
+#: （2026-09-23、旧デザインの紫から刷新）。
 FALLBACK_ICON_SIZE = (64, 64)
-FALLBACK_ICON_COLOR = (134, 59, 255, 255)
+FALLBACK_ICON_COLOR = (254, 171, 25, 255)
 
 
 def load_icon_image(icon_path: Path) -> Image.Image:
