@@ -114,7 +114,28 @@ describe('WorkAssignmentTab の送信内容', () => {
       client_name: null,
       expected_content: '成果の説明',
       start_date: '2026-09-01',
+      role: null,
     })
+  })
+
+  it('sends the selected role', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<WorkAssignmentTab goal={goalWithoutAssignment()} readOnly={false} />)
+
+    await user.type(contentInput(), '成果の説明')
+    fireEvent.change(startDateInput(), { target: { value: '2026-09-01' } })
+    await user.selectOptions(
+      screen.getByLabelText(t('goals.workAssignment.roleLabel')),
+      'EVALUATOR',
+    )
+    await user.click(saveButton())
+
+    await waitFor(() =>
+      expect(createWorkAssignment).toHaveBeenCalledWith(
+        GOAL_ID,
+        expect.objectContaining({ role: 'EVALUATOR' }),
+      ),
+    )
   })
 
   it('keeps the client name when it is entered', async () => {

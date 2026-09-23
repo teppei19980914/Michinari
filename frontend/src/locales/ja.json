@@ -237,7 +237,8 @@
         "book": "書籍",
         "workAssignment": "案件情報",
         "monthlyReport": "月次報告",
-        "semiannualReview": "半期評価"
+        "semiannualReview": "半期評価",
+        "evaluationReport": "評価レポート"
       },
       "tabTooltips": {
         "basicInfo": "試験名・開始日・状態・備考など、この目標自体の基本情報を確認・編集するタブです。目標の名称を変えたい、開始日を修正したいときに使用します。",
@@ -248,9 +249,10 @@
         "resourceAllocation": "時間枠ごとに、この目標へ割り当てる時間（分）を設定するタブです。複数の目標を同時に進めている場合、同じ時間枠を奪い合わないよう配分の合計が時間枠の長さを超えないよう制御されます。",
         "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。",
         "book": "書名・著者・総ページ数・読了目標日を登録し、読書の進捗（残日数・直近記録日・連続記録日数・ページ進捗）を確認するタブです。総ページ数は必須です（ページ進捗を表示するため）。読了したときは「読了として記録する」操作もここから行います。",
-        "workAssignment": "取引先・想定業務内容・着手日を登録し、仕事の進捗（経過日数・直近記録日・連続記録日数）を確認するタブです。",
+        "workAssignment": "取引先・想定業務内容・着手日・チームメンバー・役割を登録し、仕事の進捗（経過日数・直近記録日・連続記録日数）を確認するタブです。",
         "monthlyReport": "月次報告のドラフトを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
-        "semiannualReview": "半期評価レポートを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。"
+        "semiannualReview": "半期評価レポートを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
+        "evaluationReport": "登録済みのチームメンバーを選び、日々の業務記録とAIフィードバック履歴をもとにした評価レポートのドラフトを生成し、確認・修正してダウンロードするタブです。役割を「評価者」に設定している場合のみ表示されます。"
       },
       "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
       "archivedNotice": "この目標はアーカイブ済みです。状態を変更する操作を行うには、先に目標一覧から復元してください",
@@ -290,7 +292,50 @@
       "currentStreakLabel": "連続記録日数",
       "currentStreakValue": "{{days}}日",
       "hasRecentMonthlyReportLabel": "直近の月次報告",
-      "hasRecentMonthlyReportNone": "未生成"
+      "hasRecentMonthlyReportNone": "未生成",
+      "roleLabel": "この目標でのあなたの役割（任意）",
+      "role": {
+        "NONE": "未設定",
+        "EVALUATOR": "評価者",
+        "EVALUATEE": "被評価者"
+      }
+    },
+    "workMember": {
+      "title": "チームメンバー",
+      "empty": "登録済みのメンバーはいません",
+      "addButton": "メンバーを追加",
+      "nameLabel": "氏名・イニシャル",
+      "genderLabel": "性別（任意）",
+      "gender": {
+        "NONE": "未設定",
+        "MALE": "男性",
+        "FEMALE": "女性",
+        "OTHER": "その他"
+      },
+      "characteristicsLabel": "特徴・性格（任意）",
+      "characteristicsPlaceholder": "例: 粘り強く、困難な課題にも前向きに取り組む",
+      "consentCheckbox": "本人確認済み（本人の同意を得たうえで登録しています）",
+      "consentHint": "特徴・性格を保存するには、この内容を保存する前に本人確認済みであることの確認が必要です。内容を変更した場合は再度チェックしてください。",
+      "consentConfirmedAtLabel": "本人確認済み",
+      "consentNotConfirmed": "未確認",
+      "deactivateButton": "無効化",
+      "deleteButton": "削除",
+      "inactiveBadge": "無効化済み"
+    },
+    "workEvaluationReport": {
+      "roleRequiredNotice": "このタブは、案件情報タブで役割を「評価者」に設定すると表示されます",
+      "memberRequiredNotice": "評価レポートを生成するには、先に案件情報タブでチームメンバーを登録してください",
+      "memberSelectLabel": "評価対象のメンバー",
+      "memberSelectPlaceholder": "選択してください",
+      "considerationsLabel": "考慮事項（自由記述）",
+      "considerationsPlaceholder": "例: 今期は特に納期意識について評価してほしい",
+      "generateButton": "評価レポートを生成",
+      "bodyLabel": "評価レポート（内容を確認・修正してください）",
+      "saveButton": "保存",
+      "downloadButton": "Markdownをダウンロード",
+      "historyTitle": "生成履歴",
+      "historyEmpty": "まだ生成履歴はありません",
+      "editedBadge": "編集済み"
     },
     "workReport": {
       "periodLabelMonthly": "対象月（YYYY-MM、空欄で前月）",
@@ -490,6 +535,7 @@
         "goalRetrospectiveReading": "総括レポート用アシスタント（読書）",
         "goalRetrospectiveWorkMonthly": "月次報告用アシスタント（仕事）",
         "goalRetrospectiveWorkSemiannual": "半期評価用アシスタント（仕事）",
+        "evaluationReportWork": "AI評価レポート用アシスタント（仕事）",
         "loading": "アシスタント一覧を取得しています…",
         "loadFailed": "アシスタント一覧を取得できませんでした"
       },
@@ -850,6 +896,9 @@
       "title": "AI対話（仕事）",
       "startButton": "業務内容を送信してAIフィードバックを受け取る"
     },
+    "workMember": {
+      "title": "チームメンバー（{{workName}}）"
+    },
     "confirmedBadge": "確定済み",
     "minutesOptionalNotice": "投下時間は未入力にできます（時間枠の欄をすべて空欄にする）。未入力の場合、当該日は実効速度の算出対象から除外されます"
   },
@@ -1158,6 +1207,7 @@
     "BOOK_ALREADY_EXISTS": "この目標にはすでに書籍が登録されています。登録できる書籍は1冊までです",
     "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "現在のページ数が本の総ページ数を超えています。総ページ数以下の値を入力してください",
     "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標にはすでに案件情報が登録されています。登録できる案件は1件までです",
+    "CONSENT_REQUIRED": "特徴・性格を保存する前に「本人確認済み」のチェックが必要です。本人確認が取れていることを確認してからチェックを入れてください",
     "BACKDATE_LIMIT_EXCEEDED": "その日までさかのぼって記録することはできません。記録できる期間内の日付を選んでください",
     "INVALID_STATE_TRANSITION": "今の状態ではこの操作はできません。画面を再読み込みしてから、もう一度お試しください",
     "CLOSE_CONFIRMATION_REQUIRED": "受験結果がまだ登録されていません。内容を確認し、問題なければもう一度実行してください",
@@ -1173,7 +1223,8 @@
     "reasons": {
       "MATERIAL_HAS_LOGS": "この教材には実績が記録されているため削除できません。先に実績を削除するか、教材を編集してご利用ください",
       "BOOK_HAS_LOGS": "この書籍には想起記録が残っているため削除できません。先に想起記録を削除するか、書籍情報を編集してご利用ください",
-      "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください"
+      "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください",
+      "WORK_MEMBER_HAS_REPORTS": "このメンバーには評価レポートが存在するため削除できません。無効化するか、評価レポートを踏まえたうえでご利用ください"
     }
   }
 }

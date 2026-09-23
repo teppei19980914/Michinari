@@ -27,6 +27,10 @@ export type BookUpdate = components['schemas']['BookUpdate']
 export type WorkAssignmentRead = components['schemas']['WorkAssignmentRead']
 export type WorkAssignmentCreate = components['schemas']['WorkAssignmentCreate']
 export type WorkAssignmentUpdate = components['schemas']['WorkAssignmentUpdate']
+export type WorkEvaluationRole = components['schemas']['WorkEvaluationRole']
+export type WorkMemberRead = components['schemas']['WorkMemberRead']
+export type WorkMemberCreate = components['schemas']['WorkMemberCreate']
+export type WorkMemberUpdate = components['schemas']['WorkMemberUpdate']
 
 /** 進行中の読書目標とその書籍（listActiveReadingBooksの戻り）。 */
 export type ActiveReadingBook = { goal: GoalRead; book: BookRead }
@@ -211,6 +215,25 @@ export async function listActiveWorkAssignments(): Promise<ActiveWorkAssignment[
         detail.work_assignment !== null,
     )
     .map((detail) => ({ goal: detail, workAssignment: detail.work_assignment }))
+}
+
+export function createWorkMember(goalId: number, payload: WorkMemberCreate): Promise<WorkMemberRead> {
+  return apiClient.post<WorkMemberRead>(`/goals/${goalId}/work-assignment/members`, payload)
+}
+
+export function updateWorkMember(
+  memberId: number,
+  payload: WorkMemberUpdate,
+): Promise<WorkMemberRead> {
+  return apiClient.patch<WorkMemberRead>(`/work-members/${memberId}`, payload)
+}
+
+export function deleteWorkMember(memberId: number): Promise<void> {
+  return apiClient.delete<void>(`/work-members/${memberId}`)
+}
+
+export function deactivateWorkMember(memberId: number): Promise<WorkMemberRead> {
+  return apiClient.post<WorkMemberRead>(`/work-members/${memberId}/deactivate`)
 }
 
 /** スロット別のリソース配分を取得する（仕様書6.2「リソース配分タブ」）。 */
