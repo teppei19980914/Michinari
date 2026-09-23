@@ -2,6 +2,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import type { DashboardRead } from '../../api/dashboard'
 import { groupByGoal } from '../../utils/groupByGoal'
+import { CHARACTER_ICONS } from '../../constants/characterIcons'
 
 type TodayQuotaSectionProps = {
   todayQuota: DashboardRead['today_quota']
@@ -22,7 +23,10 @@ export function TodayQuotaSection({
     <Card>
       <h2 className="mb-2 font-medium text-gray-900">{t('dashboard.todayQuota.title')}</h2>
       {isBufferDay && (
-        <p className="mb-2 text-sm text-amber-700">{t('dashboard.todayQuota.bufferDayNotice')}</p>
+        <p className="mb-2 flex items-center gap-2 text-sm text-amber-700">
+          <img src={CHARACTER_ICONS.buffer} alt="" className="h-6 w-6 shrink-0" />
+          {t('dashboard.todayQuota.bufferDayNotice')}
+        </p>
       )}
       {todayQuota.length === 0 ? (
         <p className="text-sm text-gray-500">{t('dashboard.todayQuota.empty')}</p>

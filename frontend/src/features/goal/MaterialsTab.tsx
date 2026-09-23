@@ -57,6 +57,7 @@ function MaterialForm({
       const payload = buildMaterialPayload(values)
       return material ? updateMaterial(material.id, payload) : createMaterial(goal.id, payload)
     },
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
       onDone()
@@ -133,11 +134,13 @@ export function MaterialsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
 
   const deleteMutation = useMutation({
     mutationFn: (materialId: number) => deleteMaterial(materialId),
+    meta: { overlay: 'deleting' },
     onSuccess: invalidate,
     onError: showApiError,
   })
   const deactivateMutation = useMutation({
     mutationFn: (materialId: number) => deactivateMaterial(materialId),
+    meta: { overlay: 'saving' },
     onSuccess: invalidate,
     onError: showApiError,
   })

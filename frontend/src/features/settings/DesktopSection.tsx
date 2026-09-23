@@ -37,6 +37,7 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
           notificationTime: notificationTime,
         }),
       }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))

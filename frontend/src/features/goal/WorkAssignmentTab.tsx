@@ -46,6 +46,7 @@ function WorkAssignmentForm({
       workAssignment
         ? updateWorkAssignment(goalId, payload)
         : createWorkAssignment(goalId, payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()

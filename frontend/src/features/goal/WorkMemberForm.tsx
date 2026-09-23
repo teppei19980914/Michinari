@@ -48,6 +48,7 @@ export function WorkMemberForm({
   const mutation = useMutation({
     mutationFn: () =>
       member ? updateWorkMember(member.id, payload) : createWorkMember(goalId, payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.activeWorkAssignments() })

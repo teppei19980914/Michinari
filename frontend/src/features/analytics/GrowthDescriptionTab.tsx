@@ -35,6 +35,7 @@ function UnassignedEntryAssignForm({
   const mutation = useMutation({
     mutationFn: (goalId: number) =>
       assignGrowthDescriptionGoal(entry.message_id, { goal_id: goalId }),
+    meta: { overlay: 'saving' },
     onSuccess: onAssigned,
     onError: showApiError,
   })

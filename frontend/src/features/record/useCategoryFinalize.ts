@@ -29,6 +29,7 @@ export function useCategoryFinalize({
 }: CategoryFinalizeOptions): CategoryFinalize {
   const mutation = useMutation({
     mutationFn: finalizeRequest,
+    meta: { overlay: 'saving' },
     onSuccess: onFinalized,
     onError,
   })

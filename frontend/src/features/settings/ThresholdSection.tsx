@@ -27,6 +27,7 @@ export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
           replan_overrun_days: Number(replanOverrunDays),
         },
       }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
       showToast(t('common.saveSucceeded'))

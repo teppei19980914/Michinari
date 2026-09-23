@@ -19,6 +19,7 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
 
   const mutation = useMutation({
     mutationFn: () => updateGoal(goal.id, { name, start_date: startDate, memo }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
       showToast(t('common.saveSucceeded'))

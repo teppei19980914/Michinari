@@ -55,6 +55,7 @@ function BookForm({
 
   const mutation = useMutation({
     mutationFn: () => (book ? updateBook(book.id, payload) : createBook(goalId, payload)),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
@@ -139,6 +140,7 @@ function CompleteBookModal({
 
   const mutation = useMutation({
     mutationFn: () => completeBook(bookId),
+    meta: { overlay: 'saving' },
     onSuccess: onCompleted,
     onError: showApiError,
   })
