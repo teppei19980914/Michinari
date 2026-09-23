@@ -13,6 +13,7 @@ function makeGoal(overrides: Partial<GoalDetailRead>): GoalDetailRead {
     memo: null,
     activated_at: null,
     closed_at: null,
+    is_achieved: false,
     exam_subjects: [],
     materials: [],
     load_profiles: [],
