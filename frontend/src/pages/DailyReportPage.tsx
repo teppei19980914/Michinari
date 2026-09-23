@@ -6,6 +6,7 @@ import { GoalTabBar } from '../features/record/GoalTabBar'
 import { ExamReportSection } from '../features/record/ExamReportSection'
 import { ReadingReportSection } from '../features/record/ReadingReportSection'
 import { WorkReportSection } from '../features/record/WorkReportSection'
+import { WorkMemberSection } from '../features/record/WorkMemberSection'
 import { toCategoryReportedState } from '../features/record/categoryCompletion'
 import { resolveDailyReportGuard } from '../features/record/resolveDailyReportGuard'
 import { resolveVisibleReportTargets } from '../features/record/resolveVisibleReportTargets'
@@ -133,6 +134,10 @@ export function DailyReportPage() {
           actions={actions.work}
           isReported={reported.isWorkReported}
         />
+      )}
+
+      {targets.showWorkSection && (
+        <WorkMemberSection workAssignments={queries.workAssignments.data ?? []} />
       )}
     </div>
   )

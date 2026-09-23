@@ -18,6 +18,7 @@ from app.services.exceptions import (
     BookAlreadyExistsError,
     BookHasReadingLogsError,
     CloseConfirmationRequiredError,
+    ConsentRequiredError,
     CurrentPageExceedsTotalPagesError,
     DomainError,
     ExamSubjectRequiredError,
@@ -32,6 +33,7 @@ from app.services.exceptions import (
     ValidationError,
     WorkAssignmentAlreadyExistsError,
     WorkAssignmentHasWorkLogsError,
+    WorkMemberHasEvaluationReportsError,
 )
 
 #: ドメイン例外の型 → (HTTPステータス, エラーコード)（データ構造編6.3）。
@@ -58,6 +60,8 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
         status.HTTP_400_BAD_REQUEST,
         "WORK_ASSIGNMENT_ALREADY_EXISTS",
     ),
+    ConsentRequiredError: (status.HTTP_400_BAD_REQUEST, "CONSENT_REQUIRED"),
+    WorkMemberHasEvaluationReportsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BackdateLimitExceededError: (status.HTTP_400_BAD_REQUEST, "BACKDATE_LIMIT_EXCEEDED"),
     InvalidStateTransitionError: (status.HTTP_409_CONFLICT, "INVALID_STATE_TRANSITION"),
     # 状態エラーではなく「確認待ち」（理由はexceptions.pyの同クラスのdocstring参照）。

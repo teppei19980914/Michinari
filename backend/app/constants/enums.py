@@ -94,6 +94,7 @@ class AiPurpose(enum.StrEnum):
     GOAL_RETROSPECTIVE_WORK_MONTHLY = "GOAL_RETROSPECTIVE_WORK_MONTHLY"
     GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
     WEEKLY_SUMMARY_WORK = "WEEKLY_SUMMARY_WORK"
+    EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
 
 
 class ConversationScope(enum.StrEnum):
@@ -108,6 +109,25 @@ class ConversationScope(enum.StrEnum):
     GOAL_RETROSPECTIVE_WORK_MONTHLY = "GOAL_RETROSPECTIVE_WORK_MONTHLY"
     GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
     WEEKLY_SUMMARY_WORK = "WEEKLY_SUMMARY_WORK"
+    EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
+
+
+class WorkMemberGender(enum.StrEnum):
+    """チームメンバーの性別（任意入力、要件定義書6.11「チームメンバー管理」）。"""
+
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
+
+
+class WorkEvaluationRole(enum.StrEnum):
+    """仕事目標における利用者自身の自己申告ロール（要件定義書6.11）。マルチユーザー機能
+    ではなく、単独利用の利用者がその目標に対しどちらの立場かを自己申告する1フィールド
+    （EVALUATOR時のみ評価レポート出力UIを表示する判定に使う）。
+    """
+
+    EVALUATOR = "EVALUATOR"
+    EVALUATEE = "EVALUATEE"
 
 
 class RetrospectivePeriodType(enum.StrEnum):
