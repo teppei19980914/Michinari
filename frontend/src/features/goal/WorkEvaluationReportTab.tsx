@@ -48,6 +48,7 @@ export function WorkEvaluationReportTab({ goal }: { goal: GoalDetailRead }) {
   const generateMutation = useMutation({
     mutationFn: () =>
       generateEvaluationReport(goal.id, { member_id: Number(memberId), considerations }),
+    meta: { overlay: 'saving' },
     onSuccess: (report) => {
       setCurrentReport(report)
       setBodyDraft(report.body)
@@ -63,6 +64,7 @@ export function WorkEvaluationReportTab({ goal }: { goal: GoalDetailRead }) {
       if (!currentReport) throw new Error('report not loaded')
       return updateEvaluationReport(goal.id, currentReport.id, { body: bodyDraft })
     },
+    meta: { overlay: 'saving' },
     onSuccess: (saved) => {
       setCurrentReport(saved)
       setBodyDraft(saved.body)

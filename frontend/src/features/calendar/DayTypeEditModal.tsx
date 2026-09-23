@@ -22,6 +22,7 @@ export function DayTypeEditModal({
 
   const setMutation = useMutation({
     mutationFn: (dayType: DayType) => setDayType(targetDate as string, { day_type: dayType }),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
       onClose()
@@ -30,6 +31,7 @@ export function DayTypeEditModal({
   })
   const clearMutation = useMutation({
     mutationFn: () => clearDayType(targetDate as string),
+    meta: { overlay: 'deleting' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
       onClose()

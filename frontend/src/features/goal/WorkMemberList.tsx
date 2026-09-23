@@ -28,11 +28,13 @@ function WorkMemberRow({
 
   const deactivateMutation = useMutation({
     mutationFn: () => deactivateWorkMember(member.id),
+    meta: { overlay: 'saving' },
     onSuccess: invalidate,
     onError: showApiError,
   })
   const deleteMutation = useMutation({
     mutationFn: () => deleteWorkMember(member.id),
+    meta: { overlay: 'deleting' },
     onSuccess: invalidate,
     onError: showApiError,
   })

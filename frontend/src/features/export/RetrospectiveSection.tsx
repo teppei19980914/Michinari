@@ -31,6 +31,7 @@ export function RetrospectiveSection({
 
   const mutation = useMutation({
     mutationFn: () => generateRetrospective(goalId, anonymize),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.retrospective(goalId) })
     },

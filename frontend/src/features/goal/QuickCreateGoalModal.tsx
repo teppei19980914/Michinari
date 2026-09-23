@@ -128,6 +128,7 @@ export function QuickCreateGoalModal({
       await activateGoal(goal.id)
       return goal
     },
+    meta: { overlay: 'saving' },
     onSuccess: (goal) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       setName('')

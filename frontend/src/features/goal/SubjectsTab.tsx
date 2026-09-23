@@ -64,6 +64,7 @@ function SubjectForm({
   const mutation = useMutation({
     mutationFn: () =>
       subject ? updateSubject(subject.id, payload) : createSubject(goalId, payload),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onDone()
@@ -124,6 +125,7 @@ function FixDateModal({
 
   const mutation = useMutation({
     mutationFn: () => fixSubjectDate(subject.id, examDateFixed),
+    meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
       onClose()
@@ -166,6 +168,7 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
 
   const deleteMutation = useMutation({
     mutationFn: (subjectId: number) => deleteSubject(subjectId),
+    meta: { overlay: 'deleting' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) }),
     onError: showApiError,
   })
