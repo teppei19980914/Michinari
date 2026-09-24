@@ -274,12 +274,15 @@ def test_upgrade_database_schema_restores_logging_handlers_after_alembic_filecon
 ):
     """実際の不具合の再現・再発防止テスト（2026-09-17、work-chatの500エラー調査時に発覚）。
 
-    alembic/env.pyの`fileConfig()`はルートロガーのハンドラをalembic.ini側の設定
-    （StreamHandler(sys.stderr)）へ差し替える。配布実行形態（PyInstaller `--noconsole`）は
-    `sys.stderr`をos.devnullへ差し替え済みのため、マイグレーションが実際に走った起動では
-    以降のプロセス寿命が尽きるまで全ログ（uvicornのアクセスログ・エラーログを含む）が
-    黙って消えていた。migrationが発生しない起動（既にhead）では発現しないため長らく
-    気づかれなかった。本関数はマイグレーション前後でルートロガーの状態を退避・復元する。
+    alembic/env.pyの`fileConfig()`はルートロガーのハンドラ・レベルをalembic.ini側の設定
+    （StreamHandler(sys.stderr)）へ差し替えるだけでなく、呼び出し時点で存在する非alembic
+    ロガーを標準ライブラリの仕様で全て`disabled = True`にする。配布実行形態
+    （PyInstaller `--noconsole`）は`sys.stderr`をos.devnullへ差し替え済みのため、
+    マイグレーションが実際に走った起動では以降のプロセス寿命が尽きるまで全ログ
+    （uvicornのアクセスログ・エラーログを含む）が黙って消えていた。migrationが発生しない
+    起動（既にhead）では発現しないため長らく気づかれなかった。`disabled`フラグの巻き込みは
+    Phase40（相関ID付きアクセスログ`app.access`の追加）で新たに判明した同根の別症状。
+    本関数はマイグレーション前後でルートロガーの状態・各ロガーのdisabledフラグを退避・復元する。
     """
     db_path = tmp_path / "tracked.db"
     monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
@@ -297,12 +300,18 @@ def test_upgrade_database_schema_restores_logging_handlers_after_alembic_filecon
     sentinel_handler = logging.NullHandler()
     root_logger.handlers = [sentinel_handler]
     root_logger.setLevel(logging.INFO)
+    # fileConfig()呼び出し時点で存在する非alembicロガーが巻き込まれることを再現するため、
+    # 実際のPhase40アクセスログと同じロガーを使う（import時に生成済みという条件を揃える）。
+    access_logger = logging.getLogger("app.access")
+    access_logger.disabled = False
     try:
         app_main.upgrade_database_schema()
 
         # fileConfig()に上書きされず、呼び出し前のハンドラ・レベルのまま残っていること。
         assert root_logger.handlers == [sentinel_handler]
         assert root_logger.level == logging.INFO
+        # 既存の非alembicロガーがfileConfig()によって無効化されたままになっていないこと。
+        assert access_logger.disabled is False
     finally:
         stub_engine.dispose()
         root_logger.handlers = original_handlers

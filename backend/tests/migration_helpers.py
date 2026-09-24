@@ -17,6 +17,7 @@ from pathlib import Path
 from alembic.config import Config
 
 from alembic import command
+from app.desktop.logging_setup import preserve_logging_state
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _ALEMBIC_INI_PATH = _BACKEND_DIR / "alembic.ini"
@@ -33,8 +34,14 @@ def upgrade_to(revision: str) -> None:
     呼び出し側が事前に`monkeypatch.setenv("MICHINARI_DATABASE_URL", "sqlite:///...")`で
     テスト用DBファイルへ切り替えておくこと（alembic/env.pyがapp.config.get_settings()
     経由で接続先を解決するため、切り替えを忘れると実行中の共有テストDBを書き換えてしまう）。
+
+    `preserve_logging_state()`で包むのは、alembic/env.pyのfileConfig()が呼び出し時点で
+    存在する非alembicロガーを無効化する副作用を持つため（app/desktop/logging_setup.py
+    参照）。ここを保護しないと、本関数を使う他のテストの実行順によっては後続のテスト
+    （相関ID付きアクセスログ`app.access`のテスト等）でログが一切出なくなる。
     """
-    command.upgrade(build_alembic_config(), revision)
+    with preserve_logging_state():
+        command.upgrade(build_alembic_config(), revision)
 
 
 def drop_alembic_version_table(db_path: Path) -> None:

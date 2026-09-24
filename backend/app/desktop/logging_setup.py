@@ -14,17 +14,26 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import logging.handlers
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 from app.config import LOG_DIR
 from app.constants.desktop import LOG_BACKUP_COUNT, LOG_FILE_NAME, LOG_MAX_BYTES
 
-#: ログ1行の書式。日時・レベル・出力元・本文。利用者が開いて読む前提で簡潔にする。
-LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+# app.middleware.request_context を副作用目的でimportする（Phase40）。同モジュールの
+# import時に、全LogRecordへ相関ID（%(request_id)s）を差し込むレコードファクトリが
+# インストールされる。ここでimportしておくことで、configure()より前に他の経路（例えば
+# main.pyの起動処理）が先にログを出しても request_id 属性欠落でフォーマットが落ちない。
+from app.middleware import request_context as _request_context  # noqa: F401
+
+#: ログ1行の書式。日時・レベル・相関ID・出力元・本文。利用者が開いて読む前提で簡潔にする。
+#: 相関ID（Phase40）はリクエスト外のログでは"-"になる（request_context.py参照）。
+LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
 
 
 def ensure_standard_streams() -> None:
@@ -72,6 +81,37 @@ def attach_console() -> bool:  # pragma: no cover (実コンソールの割り�
         # コンソールを出せないこと自体はアプリの動作を妨げない（ログはファイルに残る）。
         return False
     return True
+
+
+@contextlib.contextmanager
+def preserve_logging_state() -> Iterator[None]:
+    """alembicの`fileConfig()`（`disable_existing_loggers`既定True）から既存ロガーを守る。
+
+    `fileConfig()`はルートロガーのハンドラ・レベルをalembic.ini側の設定へ差し替えるだけで
+    なく、呼び出し時点で存在する非alembicロガーを標準ライブラリの仕様で全て
+    `disabled = True`にする。本アプリの各ロガー（`app.access`等、Phase40）はモジュール
+    import時点で生成済みのため、実際にマイグレーションが走った起動ではこれ以降プロセスの
+    寿命が尽きるまでログが黙って消える（2026-09-17に発覚したハンドラ差し替え問題の同根の
+    別症状。ハンドラ・レベルの退避だけでは`disabled`フラグまでは救えないことが今回判明した）。
+    マイグレーション実行の前後で状態を退避・復元する。
+    """
+    root_logger = logging.getLogger()
+    handlers_snapshot = list(root_logger.handlers)
+    level_snapshot = root_logger.level
+    disabled_snapshot = {
+        name: logger_obj.disabled
+        for name, logger_obj in root_logger.manager.loggerDict.items()
+        if isinstance(logger_obj, logging.Logger)
+    }
+    try:
+        yield
+    finally:
+        root_logger.handlers = handlers_snapshot
+        root_logger.setLevel(level_snapshot)
+        for name, was_disabled in disabled_snapshot.items():
+            logger_obj = root_logger.manager.loggerDict.get(name)
+            if isinstance(logger_obj, logging.Logger):
+                logger_obj.disabled = was_disabled
 
 
 def resolve_log_path(log_dir: Path = LOG_DIR) -> Path:
