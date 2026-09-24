@@ -76,6 +76,28 @@ def test_get_latest_retrospective_with_period_returns_matching_row(db_session):
     assert result.body == "2026年8月分"
 
 
+def test_get_latest_retrospective_breaks_generated_at_ties_by_id(db_session):
+    """generated_at が同一マイクロ秒に丸まった場合でも、より新しく生成された行（idが大きい
+    方）を返すこと。utcnow()はマイクロ秒精度だが、短時間での連続生成では実測で同一値に
+    丸まることを確認済み（work_evaluation_service.list_evaluation_reportsの回帰テストと
+    同根）。ORDER BYがgenerated_at単独だとSQLiteのタイブレークが不定になり、再生成直後でも
+    古い版を返しうる。"""
+    goal = _make_work_goal(db_session)
+    tied_timestamp = dt.datetime(2026, 8, 1, 12, 0, 0, 123456, tzinfo=dt.UTC)
+    older = GoalRetrospective(goal_id=goal.id, body="1回目の生成", generated_at=tied_timestamp)
+    db_session.add(older)
+    db_session.flush()
+    newer = GoalRetrospective(goal_id=goal.id, body="再生成後", generated_at=tied_timestamp)
+    db_session.add(newer)
+    db_session.flush()
+    assert older.id < newer.id
+
+    result = retrospective_service.get_latest_retrospective(db_session, goal)
+
+    assert result is not None
+    assert result.body == "再生成後"
+
+
 def test_get_latest_retrospective_with_period_distinguishes_semiannual_from_monthly(db_session):
     goal = _make_work_goal(db_session)
     db_session.add(
