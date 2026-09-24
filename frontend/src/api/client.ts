@@ -8,6 +8,10 @@ import { t } from '../locales/t'
 
 const BASE_URL = '/api/v1'
 
+/** バックエンドの相関IDヘッダ名（`backend/app/middleware/request_context.py`の
+ * `REQUEST_ID_HEADER`と対になる、Phase40 診断ログ出力・トレース強化）。 */
+const REQUEST_ID_HEADER = 'X-Request-Id'
+
 /** `details`から`{"reason": "..."}`形式のreasonを1件取り出す（削除不可エラー3種のみが持つ、
  * app/api/errors.py handle_domain_error・app/services/exceptions.pyのreasonクラス属性）。
  * detailsは他の形（バリデーションエラーの`{"loc", "msg"}`等）も許容する汎用構造のため、
@@ -27,11 +31,16 @@ function findReason(details: unknown[]): string | null {
 export class ApiError extends Error {
   readonly code: string
   readonly details: unknown[]
+  /** バックエンドが払い出した相関ID（Phase40）。利用者がサポートへ報告する際の
+   * 手がかりとして使う。通信自体が失敗した場合（NETWORK_ERROR）等、バックエンドまで
+   * 到達しなかった場合はundefined。 */
+  readonly requestId?: string
 
-  constructor(code: string, message: string, details: unknown[] = []) {
+  constructor(code: string, message: string, details: unknown[] = [], requestId?: string) {
     super(message)
     this.code = code
     this.details = details
+    this.requestId = requestId
   }
 
   /** エラーコードに対応するロケール文言（未登録コードは既定文言）。
@@ -62,12 +71,14 @@ export function apiErrorMessage(error: unknown): string {
   return error instanceof ApiError ? error.localizedMessage : t('errors.default')
 }
 
-/** 技術的な詳細（エラーコード＋開発者向けメッセージ）。非エンジニア向けの平易な文言
+/** 技術的な詳細（エラーコード＋開発者向けメッセージ＋相関ID）。非エンジニア向けの平易な文言
  * （apiErrorMessage）とは別に、サポートへ報告する際に伝えられる情報として折りたたみで
- * 残す（Toast.tsx、2026-09-19 非エンジニア向けエラー表示改善）。 */
+ * 残す（Toast.tsx、2026-09-19 非エンジニア向けエラー表示改善。相関IDはPhase40で追加、
+ * 利用者が伝えた値からログエクスポート内の該当行を一意に特定できるようにする）。 */
 export function apiErrorDetail(error: unknown): string | undefined {
   if (error instanceof ApiError) {
-    return `${error.code}: ${error.message}`
+    const detail = `${error.code}: ${error.message}`
+    return error.requestId ? `${detail}\n${t('common.errorId', { id: error.requestId })}` : detail
   }
   if (error instanceof Error) {
     return error.message
@@ -91,10 +102,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       error?: { code?: string; message?: string; details?: unknown[] }
     } | null
     const error = body?.error
+    // `?.`で守るのは、成功応答しか使わないテストの簡易モックがheadersを持たないことがあり
+    // （実際のfetchのResponseは必ず持つため本番では常に安全）、その場合でも例外の生成自体が
+    // 落ちないようにするため。
+    const requestId = response.headers?.get(REQUEST_ID_HEADER) ?? undefined
     throw new ApiError(
       error?.code ?? 'INTERNAL_ERROR',
       error?.message ?? t('errors.default'),
       error?.details ?? [],
+      requestId,
     )
   }
 

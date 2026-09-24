@@ -80,6 +80,9 @@ export default defineConfig({
         'src/features/resource/SlotFormFields.tsx',
         'src/features/settings/AiAssistantFields.tsx',
         'src/features/settings/AiAuthStatusCard.tsx',
+        // 診断ログのエクスポート（Phase40）。期間の決定（プリセット/手動入力）と
+        // ローディング・エラー分岐を持つため、他の確認モーダル・タブ類と同じ方針で含める。
+        'src/features/systemInfo/LogExportSection.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',
