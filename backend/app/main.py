@@ -43,6 +43,7 @@ from app.constants.app_setting_keys import SERVER_PORT
 from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
 from app.database import SessionLocal, engine
 from app.desktop import runner as desktop_runner
+from app.desktop.logging_setup import preserve_logging_state
 from app.init.seed_data import run_all
 from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
@@ -168,22 +169,14 @@ def upgrade_database_schema() -> None:
         engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
         backup_service.create_safety_copy(db_path, "pre_migration")
 
-    # alembic/env.pyのfileConfig()がルートロガーのハンドラをalembic.ini側の設定
-    # （StreamHandler(sys.stderr)）へ差し替えてしまう。コンソールを持たない配布実行形態
-    # ではsys.stderrがos.devnullへ差し替え済み（logging_setup.ensure_standard_streams）
-    # のため、以降このプロセスの寿命が尽きるまで全ログ（uvicornのアクセスログ・エラーログを
-    # 含む）が黙って消える。migration未発生時はfileConfig自体が呼ばれないため気づかれにくい
-    # （2026-09-17、work-chatの500エラー調査時に発覚）。
-    root_logger = logging.getLogger()
-    handlers_snapshot = list(root_logger.handlers)
-    level_snapshot = root_logger.level
-    try:
+    # alembic/env.pyのfileConfig()はルートロガーのハンドラ・レベルをalembic.ini側の設定へ
+    # 差し替えるだけでなく、既存の非alembicロガーを全て無効化する。migration未発生時は
+    # fileConfig自体が呼ばれないため気づかれにくい（2026-09-17、work-chatの500エラー
+    # 調査時に発覚。Phase40でdisabledフラグも巻き込まれることが判明し対策を拡張）。
+    with preserve_logging_state():
         if is_legacy_unversioned_database:
             command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
         command.upgrade(alembic_cfg, "head")
-    finally:
-        root_logger.handlers = handlers_snapshot
-        root_logger.setLevel(level_snapshot)
     _schema_confirmed_current = True
 
 
