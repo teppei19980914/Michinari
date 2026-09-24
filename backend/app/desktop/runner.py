@@ -100,6 +100,10 @@ class ServerThread:
             # 書き込みに失敗しうるため設定させず、こちらのファイル出力へ相乗りさせる
             # （None を渡すと uvicorn は dictConfig を呼ばない。uvicorn/config.py参照）。
             log_config=None,
+            # アクセスログはuvicorn標準ではなく`middleware/request_context.py`の
+            # ミドルウェアが相関ID付きで1行出力する（Phase40）。両方有効だと同じ
+            # リクエストの記録が2種類の書式で重複するため、uvicorn側は無効化する。
+            access_log=False,
             timeout_graceful_shutdown=graceful_shutdown_seconds,
         )
         self._server = uvicorn.Server(self._config)

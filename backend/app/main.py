@@ -27,6 +27,7 @@ from app.api.calendar import router as calendar_router
 from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
 from app.api.data import router as data_router
+from app.api.client_logs import router as client_logs_router
 from app.api.errors import register_exception_handlers
 from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
@@ -43,6 +44,7 @@ from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
 from app.database import SessionLocal, engine
 from app.desktop import runner as desktop_runner
 from app.init.seed_data import run_all
+from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
 from app.services import backup_service, goal_service, weekly_summary_service
 
@@ -213,6 +215,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(title="ミチナリ API", lifespan=lifespan)
     register_exception_handlers(app)
+    register_request_context_middleware(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -234,6 +237,7 @@ def create_app() -> FastAPI:
     app.include_router(export_router, prefix=API_V1_PREFIX)
     app.include_router(data_router, prefix=API_V1_PREFIX)
     app.include_router(system_info_router, prefix=API_V1_PREFIX)
+    app.include_router(client_logs_router, prefix=API_V1_PREFIX)
 
     # フロントエンドの静的配信（配布パッケージ対応）。API/healthルートを登録した後に
     # マウントすることで、それらのパスが静的配信より優先して解決される。開発時は
