@@ -24,10 +24,10 @@ from app.api.ai import router as ai_router
 from app.api.analytics import router as analytics_router
 from app.api.books import router as books_router
 from app.api.calendar import router as calendar_router
+from app.api.client_logs import router as client_logs_router
 from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
 from app.api.data import router as data_router
-from app.api.client_logs import router as client_logs_router
 from app.api.errors import register_exception_handlers
 from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router

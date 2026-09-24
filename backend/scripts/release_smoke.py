@@ -54,6 +54,7 @@ if str(BACKEND_DIR) not in sys.path:
 from build_package import APP_NAME, DIST_DIR, distribution_zip_filename  # noqa: E402
 
 from app.constants.app_setting_keys import SERVER_PORT as SERVER_PORT_KEY  # noqa: E402
+from app.desktop.logging_setup import preserve_logging_state  # noqa: E402
 from app.init.seed_data import INITIAL_APP_SETTINGS  # noqa: E402
 
 ALEMBIC_INI_PATH = BACKEND_DIR / "alembic.ini"
@@ -206,7 +207,12 @@ def verify_migration(source_db: Path, work_dir: Path) -> list[str]:
     previous_url = os.environ.get("MICHINARI_DATABASE_URL")
     os.environ["MICHINARI_DATABASE_URL"] = f"sqlite:///{copied.as_posix()}"
     try:
-        command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
+        # alembic/env.pyのfileConfig()は呼び出し時点で存在する非alembicロガーを無効化する
+        # 副作用を持つ（app/desktop/logging_setup.preserve_logging_state参照）。単体実行の
+        # スクリプトとしては通常影響しないが、テスト（test_release_smoke.py）が本関数を
+        # 同一プロセス内で直接呼ぶため、後続のテストのログが出なくなるのを防ぐ。
+        with preserve_logging_state():
+            command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
     finally:
         if previous_url is None:
             os.environ.pop("MICHINARI_DATABASE_URL", None)
@@ -292,7 +298,9 @@ def prepare_package_database(db_path: Path, port: int) -> None:
     previous_url = os.environ.get("MICHINARI_DATABASE_URL")
     os.environ["MICHINARI_DATABASE_URL"] = f"sqlite:///{db_path.as_posix()}"
     try:
-        command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
+        # preserve_logging_state()で包む理由は verify_migration と同じ（上記参照）。
+        with preserve_logging_state():
+            command.upgrade(Config(str(ALEMBIC_INI_PATH)), "head")
     finally:
         if previous_url is None:
             os.environ.pop("MICHINARI_DATABASE_URL", None)

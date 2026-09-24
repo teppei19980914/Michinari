@@ -21,6 +21,7 @@ TestClientは`raise_server_exceptions=True`のためこの再送出をテスト�
 
 import inspect
 import json
+import logging
 from pathlib import Path
 
 from fastapi import status
@@ -140,6 +141,33 @@ def test_frontend_has_no_stale_error_reason_message():
     messages = _load_frontend_error_reason_messages()
     stale = sorted(set(messages) - _domain_error_reasons())
     assert stale == [], f"バックエンドが返さないreasonの文言が残っている: {stale}"
+
+
+def test_domain_error_is_logged_as_a_warning(client, caplog):
+    """業務エラーがログに残ること（Phase40 診断ログ出力・トレース強化）。
+
+    これが無いと、利用者が実際につまずくエラー（400/404/409）の大半がログから
+    一切追えない（未分類の500系例外のみが_logger.exceptionで記録されていた）。
+    """
+    with caplog.at_level(logging.WARNING, logger="app.api.errors"):
+        response = client.get("/api/v1/goals/9999")
+
+    assert response.status_code == 404
+    messages = [r.getMessage() for r in caplog.records if r.name == "app.api.errors"]
+    assert any("NOT_FOUND" in message for message in messages)
+
+
+def test_request_validation_error_is_logged_without_the_raw_input_value(client, caplog):
+    """検証エラーもログに残るが、pydanticのerrors()が持つ`input`（利用者の入力値）は
+    絶対に含めないこと（Phase40、ログに入力値を残さない方針）。"""
+    secret_looking_value = "利用者だけが知っている秘密の値"
+    with caplog.at_level(logging.WARNING, logger="app.api.errors"):
+        response = client.post("/api/v1/goals", json={"category": secret_looking_value})
+
+    assert response.status_code == 400
+    messages = [r.getMessage() for r in caplog.records if r.name == "app.api.errors"]
+    assert any("入力検証エラー" in message for message in messages)
+    assert not any(secret_looking_value in message for message in messages)
 
 
 def test_unexpected_exception_returns_internal_error_body(client, monkeypatch):
