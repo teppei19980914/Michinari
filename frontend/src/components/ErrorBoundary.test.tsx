@@ -12,6 +12,7 @@ function Bomb(): never {
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('ErrorBoundary', () => {
@@ -28,6 +29,10 @@ describe('ErrorBoundary', () => {
   it('shows a plain-language message and a foldable technical detail when a child throws', () => {
     // Reactは描画時例外をconsole.errorへも出すため、テスト出力を汚さないよう黙らせる。
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true }) as unknown as Promise<Response>),
+    )
 
     render(
       <ErrorBoundary>
@@ -39,5 +44,27 @@ describe('ErrorBoundary', () => {
     const summary = screen.getByText(t('errorBoundary.detailsSummary'))
     expect(summary.closest('details')).not.toBe(null)
     expect(screen.getByText('boom')).toBeTruthy()
+  })
+
+  it('reports the caught error to the backend so it lands in the diagnostic log', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const fetchMock = vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve({ ok: true }) as unknown as Promise<Response>,
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <ErrorBoundary>
+        <Bomb />
+      </ErrorBoundary>,
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/client-logs',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const [, init] = fetchMock.mock.calls[0]
+    const body = JSON.parse(init?.body as string)
+    expect(body.message).toBe('boom')
   })
 })

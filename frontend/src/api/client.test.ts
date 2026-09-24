@@ -28,19 +28,23 @@ function mockResponse(options: {
   ok: boolean
   status?: number
   json?: () => Promise<unknown>
+  headers?: Record<string, string>
 }): Response {
   return {
     ok: options.ok,
     status: options.status ?? (options.ok ? 200 : 400),
     json: options.json ?? (() => Promise.resolve({})),
+    headers: new Headers(options.headers ?? {}),
   } as unknown as Response
 }
 
 /** バックエンドのエラー応答形式（`{"error": {...}}`）を返す `fetch` を仕込む。 */
-function stubErrorResponse(body: unknown): void {
+function stubErrorResponse(body: unknown, headers?: Record<string, string>): void {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => Promise.resolve(mockResponse({ ok: false, json: () => Promise.resolve(body) }))),
+    vi.fn(() =>
+      Promise.resolve(mockResponse({ ok: false, json: () => Promise.resolve(body), headers })),
+    ),
   )
 }
 
@@ -107,6 +111,14 @@ describe('ApiError', () => {
 
     expect(error.localizedMessage).toBe(t(`errors.${REGISTERED_CODE}`))
   })
+
+  it('defaults requestId to undefined when not given', () => {
+    expect(new ApiError(REGISTERED_CODE, 'message').requestId).toBeUndefined()
+  })
+
+  it('keeps the requestId when given', () => {
+    expect(new ApiError(REGISTERED_CODE, 'message', [], 'abc123').requestId).toBe('abc123')
+  })
 })
 
 describe('apiErrorMessage', () => {
@@ -136,6 +148,20 @@ describe('apiErrorDetail', () => {
   it('is undefined for anything that is not an Error', () => {
     expect(apiErrorDetail(undefined)).toBeUndefined()
     expect(apiErrorDetail('boom')).toBeUndefined()
+  })
+
+  it('appends the error id line when the ApiError carries a requestId', () => {
+    const error = new ApiError(REGISTERED_CODE, 'message', [], 'abc123')
+
+    expect(apiErrorDetail(error)).toBe(
+      `${REGISTERED_CODE}: message\n${t('common.errorId', { id: 'abc123' })}`,
+    )
+  })
+
+  it('omits the error id line when there is no requestId', () => {
+    expect(apiErrorDetail(new ApiError(REGISTERED_CODE, 'message'))).toBe(
+      `${REGISTERED_CODE}: message`,
+    )
   })
 })
 
@@ -222,6 +248,21 @@ describe('apiClient request handling', () => {
       message: t('errors.default'),
       details: [],
     })
+  })
+
+  it('captures the X-Request-Id header from an error response', async () => {
+    stubErrorResponse(
+      { error: { code: REGISTERED_CODE, message: 'サーバ側の文言' } },
+      { 'X-Request-Id': 'abc123' },
+    )
+
+    await expect(apiClient.get(PATH)).rejects.toMatchObject({ requestId: 'abc123' })
+  })
+
+  it('leaves requestId undefined when the response has no X-Request-Id header', async () => {
+    stubErrorResponse({ error: { code: REGISTERED_CODE, message: 'サーバ側の文言' } })
+
+    await expect(apiClient.get(PATH)).rejects.toMatchObject({ requestId: undefined })
   })
 })
 

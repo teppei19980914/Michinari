@@ -559,6 +559,16 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 しないのは、PyInstallerの同梱物一式がもう1組できて配布物の大きさが倍増するためである。
 ログは常に `%LOCALAPPDATA%\Michinari\data\logs\michinari.log`（1MB×4世代）へ出力される。
 
+**利用者自身によるログ取得・共有（Phase40 診断ログ出力・トレース強化）**：各リクエストへ
+相関ID（`X-Request-Id`）を発行し、アクセスログ・業務エラー・フロントの未処理エラーを
+1つのIDで紐付けている。画面上でエラーが起きると、Toastの詳細欄に「エラーID」が表示される
+ため、利用者はこのIDを添えて問い合わせできる。加えて設定画面（SC-11）→「システム情報」
+（SC-15）に診断ログのダウンロード機能があり、任意期間（プリセット: 当日／過去3日／過去7日、
+またはカレンダーでの手動指定）のログをまとめて取得できる。ログファイルを直接送ってもらう
+必要はなく、この機能で十分な範囲（エラーID付近の日付）を指定してもらえばよい。フロントの
+`ErrorBoundary`・`window`の`error`/`unhandledrejection`で捕捉した未処理エラーも
+`POST /client-logs` 経由でこの診断ログへ記録される（`ai_log`テーブルのAI通信ログとは別物）。
+
 #### 常駐時のプロセス構成（Phase37）
 
 **プロセスは1つだけである。** 通知のためにタスクスケジューラへ登録したり、常駐ヘルパーを
@@ -1164,7 +1174,7 @@ osv-scanner --version                      # 導入確認
 | 症状 | 原因 | 対処 |
 |---|---|---|
 | `Michinari.exe` をダブルクリックしても何も起きない | 起動時エラーで異常終了している | 起動失敗はダイアログで表示される（`app/desktop/runner.py` の `show_error_dialog`）。ダイアログも出ない場合は `%LOCALAPPDATA%\Michinari\data\logs\michinari.log` を確認する。詳しく追うときは同梱の `Michinari-console.bat`（`--console` 付き起動）を使う |
-| マイグレーションが走った起動以降、`michinari.log` にそのセッションの記録が一切残らない（2026-09-17 修正済み） | alembic/env.pyの`fileConfig()`がルートロガーのハンドラをalembic.ini側（`StreamHandler(sys.stderr)`）へ差し替え、配布実行形態では`sys.stderr`がos.devnullへ差し替え済みのため以降の全ログが消える | `app/main.py` の `upgrade_database_schema()` がマイグレーション前後でルートロガーの状態を退避・復元する（`test_upgrade_database_schema_restores_logging_handlers_after_alembic_fileconfig`で回帰防止）。旧バージョンの配布物ではmigrationが走った回のログが失われるため、当該セッションの障害調査は再現待ちになる |
+| マイグレーションが走った起動以降、`michinari.log` にそのセッションの記録が一切残らない（2026-09-17 修正、Phase40でdisabledフラグの巻き込みも判明し対策を拡張） | alembic/env.pyの`fileConfig()`（`disable_existing_loggers`既定True）が、ルートロガーのハンドラ・レベルをalembic.ini側の設定へ差し替えるだけでなく、呼び出し時点で存在する非alembicロガーを全て無効化する。配布実行形態では`sys.stderr`がos.devnullへ差し替え済みのため、ハンドラの差し替えだけでも以降の全ログが消えていたが、相関ID付きアクセスログ（`app.access`）追加時にdisabledフラグの巻き込みも新たに発覚した | `app/desktop/logging_setup.py` の `preserve_logging_state()` がマイグレーション前後でルートロガーの状態・各ロガーのdisabledフラグを退避・復元する（`app/main.py` の `upgrade_database_schema()` から使用。`test_upgrade_database_schema_restores_logging_handlers_after_alembic_fileconfig`で回帰防止）。旧バージョンの配布物ではmigrationが走った回のログが失われるため、当該セッションの障害調査は再現待ちになる |
 | 起動時に `Can't locate revision identified by '<リビジョンID>'` | DBに記録されたリビジョンが、exeへ同梱されたマイグレーションより新しい（＝**配布物が古い**） | 最新のソースで再ビルドして配布物を差し替える。開発端末では `git pull` / マージ漏れがないか確認したうえで `backend/build.bat` を再実行する |
 | `is not recognized as an internal or external command` でexeが起動しない | 環境変数 `NoDefaultCurrentDirectoryInExePath` が設定された端末では、cmd.exe がカレントディレクトリを探索しない | `Michinari-console.bat` はexeをフルパス（`"%~dp0Michinari.exe"`）で起動する。旧版のbatを使っている場合は再ビルドして差し替える |
 | 通知領域にアイコンが出ない | Windowsがアイコンを隠している | 通知領域の「^」を押して隠れているアイコンを確認する。アプリ自体はログの「通知領域へ常駐します」で起動を確認できる |
@@ -1172,6 +1182,7 @@ osv-scanner --version                      # 導入確認
 | 通知の送信元が「ミチナリ」にならない／アイコンが出ない | AppUserModelIDの登録が壊れている | 起動のたびに `HKCU\SOFTWARE\Classes\AppUserModelId\Michinari.DesktopApp` へ登録し直すため、アプリを再起動する。**このキーの名前は配布後に変更しない**（変えると利用者が設定した通知のオン/オフが引き継がれない） |
 | 「終了」を選んでもプロセスが残る | 停止処理が完了していない | uvicornは処理中のリクエストの完了を `app_setting` の `server.graceful_shutdown_seconds`（既定10秒）まで待つ。それを過ぎても残る場合はログを添えて起票する（`tests/test_desktop_runner.py` の `TestServerThreadLifecycle` が実起動で停止まで検証している） |
 | 自動起動を有効にしたのに起動しない | ソースからの起動で設定した | 自動起動の登録は配布パッケージ（`sys.frozen`）でのみ行う。ソース起動時はログに「自動起動の設定はソースからの起動では反映しません」と記録される。登録先は `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` の `Michinari` |
+| 利用者からエラーの問い合わせを受けたが状況が分からない（Phase40） | 障害調査に必要なログが手元にない | 画面のエラー表示に出る「エラーID」（`X-Request-Id`、`app/middleware/request_context.py`）を伝えてもらえば`michinari.log`の該当行を特定できる。エラーIDが分からない場合や複数の事象をまとめて調べたい場合は、設定画面（SC-11）→「システム情報」（SC-15）の診断ログエクスポート機能で該当期間のログをダウンロードして共有してもらう |
 
 ---
 
