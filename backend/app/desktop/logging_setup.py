@@ -24,10 +24,15 @@ from pathlib import Path
 
 from app.config import LOG_DIR
 from app.constants.desktop import LOG_BACKUP_COUNT, LOG_FILE_NAME, LOG_MAX_BYTES
-from app.middleware.request_context import RequestIdLogFilter
+
+# app.middleware.request_context を副作用目的でimportする（Phase40）。同モジュールの
+# import時に、全LogRecordへ相関ID（%(request_id)s）を差し込むレコードファクトリが
+# インストールされる。ここでimportしておくことで、configure()より前に他の経路（例えば
+# main.pyの起動処理）が先にログを出しても request_id 属性欠落でフォーマットが落ちない。
+from app.middleware import request_context as _request_context  # noqa: F401
 
 #: ログ1行の書式。日時・レベル・相関ID・出力元・本文。利用者が開いて読む前提で簡潔にする。
-#: 相関ID（Phase40）はリクエスト外のログでは"-"になる（RequestIdLogFilter参照）。
+#: 相関ID（Phase40）はリクエスト外のログでは"-"になる（request_context.py参照）。
 LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
 
 
@@ -159,9 +164,7 @@ def configure(
     # 失敗しうる。ここで組み立てたハンドラだけにする。
     for existing in list(root.handlers):
         root.removeHandler(existing)
-    request_id_filter = RequestIdLogFilter()
     for handler in handlers:
         handler.setFormatter(formatter)
-        handler.addFilter(request_id_filter)
         root.addHandler(handler)
     return log_path
