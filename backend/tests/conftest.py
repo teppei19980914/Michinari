@@ -36,6 +36,7 @@ from alembic.config import Config  # noqa: E402
 
 from alembic import command  # noqa: E402
 from app.database import SessionLocal, engine  # noqa: E402
+from app.desktop.logging_setup import preserve_logging_state  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -45,8 +46,15 @@ def alembic_config() -> Config:
 
 @pytest.fixture(scope="session", autouse=True)
 def _migrated_database(alembic_config: Config):
-    """完了条件『alembic upgrade head でデータベースが構築される』を実際に検証する。"""
-    command.upgrade(alembic_config, "head")
+    """完了条件『alembic upgrade head でデータベースが構築される』を実際に検証する。
+
+    alembic/env.pyのfileConfig()は、呼び出し時点で存在する非alembicロガー（本アプリの
+    各ロガーはテストモジュールのimport時点で生成済み）を無効化する副作用を持つ
+    （app/desktop/logging_setup.preserve_logging_state参照）。これを避けないと、
+    セッション最初のこの呼び出し以降、テスト全体でapp側のログが一切出なくなる。
+    """
+    with preserve_logging_state():
+        command.upgrade(alembic_config, "head")
     yield
     engine.dispose()
     _test_db_dir.cleanup()
