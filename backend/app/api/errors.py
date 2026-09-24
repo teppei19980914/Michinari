@@ -95,6 +95,10 @@ def register_exception_handlers(app: FastAPI) -> None:
         # 原因を画面へ伝える（2026-09-19、非エンジニア向けエラー表示改善）。
         reason = getattr(exc, "reason", None)
         details = [{"reason": reason}] if reason else None
+        # 業務エラーはこれまで一切ログに残らず、利用者が実際につまずくエラーの大半が
+        # 事後にトレースできなかった（Phase40）。メッセージはexceptions.pyの全サブクラスで
+        # ID・件数・固定文言のみで構成され自由入力文字列を含まないため、そのままログしてよい。
+        _logger.warning("業務エラー: code=%s status=%s message=%s", code, status_code, str(exc))
         return JSONResponse(status_code=status_code, content=_error_body(code, str(exc), details))
 
     @app.exception_handler(RequestValidationError)
@@ -106,6 +110,12 @@ def register_exception_handlers(app: FastAPI) -> None:
             {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
             for error in exc.errors()
         ]
+        # ログには`loc`/`type`のみを残し、pydanticのerrors()が持つ`input`（利用者の入力値
+        # そのもの）は絶対に含めない（Phase40、ログへ入力値を残さない方針）。
+        _logger.warning(
+            "入力検証エラー: status=400 fields=%s",
+            [{"loc": d["loc"], "type": d["type"]} for d in details],
+        )
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=_error_body("VALIDATION_ERROR", "入力値が不正です", details),

@@ -16,6 +16,7 @@ from sqlalchemy import inspect
 
 from alembic import command
 from app.database import engine
+from app.desktop.logging_setup import preserve_logging_state
 from tests import migration_helpers
 
 EXPECTED_TABLES = {
@@ -58,8 +59,11 @@ def test_upgrade_head_creates_all_tables():
 
 
 def test_upgrade_head_is_idempotent(alembic_config: Config):
-    # 既にheadまで適用済みの状態で再実行してもエラーにならないこと
-    command.upgrade(alembic_config, "head")
+    # 既にheadまで適用済みの状態で再実行してもエラーにならないこと。
+    # alembic/env.pyのfileConfig()の副作用（既存の非alembicロガーの無効化）から
+    # 他テストを守るためpreserve_logging_state()で包む（migration_helpers.upgrade_to参照）。
+    with preserve_logging_state():
+        command.upgrade(alembic_config, "head")
     inspector = inspect(engine)
     assert "goal" in inspector.get_table_names()
 

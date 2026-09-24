@@ -24,6 +24,7 @@ from app.api.ai import router as ai_router
 from app.api.analytics import router as analytics_router
 from app.api.books import router as books_router
 from app.api.calendar import router as calendar_router
+from app.api.client_logs import router as client_logs_router
 from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
 from app.api.data import router as data_router
@@ -42,7 +43,9 @@ from app.constants.app_setting_keys import SERVER_PORT
 from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
 from app.database import SessionLocal, engine
 from app.desktop import runner as desktop_runner
+from app.desktop.logging_setup import preserve_logging_state
 from app.init.seed_data import run_all
+from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
 from app.services import backup_service, goal_service, weekly_summary_service
 
@@ -166,22 +169,14 @@ def upgrade_database_schema() -> None:
         engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
         backup_service.create_safety_copy(db_path, "pre_migration")
 
-    # alembic/env.pyのfileConfig()がルートロガーのハンドラをalembic.ini側の設定
-    # （StreamHandler(sys.stderr)）へ差し替えてしまう。コンソールを持たない配布実行形態
-    # ではsys.stderrがos.devnullへ差し替え済み（logging_setup.ensure_standard_streams）
-    # のため、以降このプロセスの寿命が尽きるまで全ログ（uvicornのアクセスログ・エラーログを
-    # 含む）が黙って消える。migration未発生時はfileConfig自体が呼ばれないため気づかれにくい
-    # （2026-09-17、work-chatの500エラー調査時に発覚）。
-    root_logger = logging.getLogger()
-    handlers_snapshot = list(root_logger.handlers)
-    level_snapshot = root_logger.level
-    try:
+    # alembic/env.pyのfileConfig()はルートロガーのハンドラ・レベルをalembic.ini側の設定へ
+    # 差し替えるだけでなく、既存の非alembicロガーを全て無効化する。migration未発生時は
+    # fileConfig自体が呼ばれないため気づかれにくい（2026-09-17、work-chatの500エラー
+    # 調査時に発覚。Phase40でdisabledフラグも巻き込まれることが判明し対策を拡張）。
+    with preserve_logging_state():
         if is_legacy_unversioned_database:
             command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
         command.upgrade(alembic_cfg, "head")
-    finally:
-        root_logger.handlers = handlers_snapshot
-        root_logger.setLevel(level_snapshot)
     _schema_confirmed_current = True
 
 
@@ -213,6 +208,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     app = FastAPI(title="ミチナリ API", lifespan=lifespan)
     register_exception_handlers(app)
+    register_request_context_middleware(app)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -234,6 +230,7 @@ def create_app() -> FastAPI:
     app.include_router(export_router, prefix=API_V1_PREFIX)
     app.include_router(data_router, prefix=API_V1_PREFIX)
     app.include_router(system_info_router, prefix=API_V1_PREFIX)
+    app.include_router(client_logs_router, prefix=API_V1_PREFIX)
 
     # フロントエンドの静的配信（配布パッケージ対応）。API/healthルートを登録した後に
     # マウントすることで、それらのパスが静的配信より優先して解決される。開発時は
