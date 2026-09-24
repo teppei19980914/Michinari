@@ -62,6 +62,30 @@
   `test_upgrade_database_schema_migrates_legacy_unversioned_database_without_data_loss`
   を参考にする）
 
+### タイムスタンプでの並び替え（生成時刻の同時発生対策）
+
+「生成時刻順で最新を取得する」クエリ（`order_by(...generated_at.desc())`）は、
+生成時刻カラム（`created_at`/`generated_at`等、`app.models.base.utcnow`由来）**単独**を
+ソートキーにしない。必ず主キー（`id`、autoincrement）を第2キーとして加える
+（`.order_by(Model.generated_at.desc(), Model.id.desc())`）。
+
+- **理由**: `utcnow()`はマイクロ秒精度だが、短時間で連続生成すると同一マイクロ秒に
+  丸まることが実測で確認されている（Phase40、`work_evaluation_service.
+  list_evaluation_reports`で発覚。テストがタイミング依存で間欠的に失敗する形で顕在化した）。
+  生成時刻カラムが同値の行が複数あるとSQLiteの`ORDER BY`のタイブレークが不定になり、
+  再生成直後でも古い版を「最新」として返しうる
+- **判断の目安**: 「最新の1件を取得」（`.first()`）または「新しい順に並べて表示」する
+  クエリで、同一グレイン（同じ親レコードに対する再生成等）の行を複数回・短時間で
+  生成しうる場合に適用する。カレンダー日付・期間キー等、業務上の粒度が既に一意で
+  同時発生し得ないキー（例: `week_start_date`、`period_key`）は対象外
+- 既に対策済みの前例: `baseline_service.py`・`goal_service.py`の
+  `.order_by(PlanBaseline.effective_from.desc(), PlanBaseline.id.desc())`
+- **テストの書き方**: 実際のタイミングに依存させず、生成時刻を明示的に同一値へ固定した
+  複数行を直接構築して検証する（`backend/tests/test_work_evaluation_service.py`の
+  `test_list_evaluation_reports_breaks_generated_at_ties_by_id`を参考にする。
+  実時間の当たり外れに検証を委ねないという点で上記「バックエンドの実時間レースに注意する」
+  と同じ方針）
+
 ---
 
 ## 保守性（複雑度）
