@@ -4,9 +4,12 @@
 `ContextVar`はリクエストごとに新しいasyncioタスクへ乗るため、同時に複数リクエストが
 処理されていても値が混線しない（Starletteの各リクエストはタスクとして処理される）。
 
-`logging.Filter`でログレコードへ自動的に相関IDを差し込む方式を取るのは、
-`app/api/errors.py`の各例外ハンドラや`app/services/*`の奥深くのログ呼び出しにまで
-逐一IDを引き回さずに済ませるため（呼び出し側は今まで通りのログ呼び出しのままでよい）。
+相関IDをログレコードへ差し込むのに`logging.Filter`ではなく`setLogRecordFactory`を使う。
+`Logger.callHandlers`はハンドラ単位の`filter`しか呼ばないため、`logging_setup.configure`で
+組み立てたハンドラに付けたFilterは、それ以外のハンドラ（テストの`caplog`が使う専用
+ハンドラ等）には効かない。`setLogRecordFactory`はレコード生成そのものに介入するため、
+`app/api/errors.py`の各例外ハンドラや`app/services/*`の奥深くのログ呼び出しまで
+逐一IDを引き回さずに済み、かつどのハンドラで受けても`record.request_id`が必ず載る。
 """
 
 from __future__ import annotations
@@ -32,16 +35,28 @@ _access_logger = logging.getLogger("app.access")
 REQUEST_ID_HEADER = "X-Request-Id"
 
 
-class RequestIdLogFilter(logging.Filter):
-    """ログレコードへ現在の相関ID（`record.request_id`）を差し込む。
+def _install_request_id_log_record_factory() -> None:
+    """全ての`LogRecord`に`request_id`属性を持たせる（本モジュールのimport時に1回だけ実行）。
 
-    `logging_setup.LOG_FORMAT`の`%(request_id)s`に対応する。リクエスト処理外のログでは
-    `request_id_ctx`の既定値（`-`）がそのまま入る。
+    プロセス全体で単一のレコードファクトリを使うPythonの`logging`モジュールの仕組み上、
+    ここでの差し替えは以後生成される全レコード（あらゆるロガー・あらゆるハンドラ）に効く。
+    二重install（テストでの再importや複数回の`create_app`呼び出し）で多重ラップしないよう、
+    既に差し込み済みかを属性で確認する。
     """
+    current_factory = logging.getLogRecordFactory()
+    if getattr(current_factory, "_michinari_request_id_installed", False):
+        return
 
-    def filter(self, record: logging.LogRecord) -> bool:
+    def factory(*args: object, **kwargs: object) -> logging.LogRecord:
+        record = current_factory(*args, **kwargs)
         record.request_id = request_id_ctx.get()
-        return True
+        return record
+
+    factory._michinari_request_id_installed = True  # type: ignore[attr-defined]
+    logging.setLogRecordFactory(factory)
+
+
+_install_request_id_log_record_factory()
 
 
 def register_request_context_middleware(app: FastAPI) -> None:
