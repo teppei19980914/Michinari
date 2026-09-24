@@ -22,9 +22,11 @@ from pathlib import Path
 
 from app.config import LOG_DIR
 from app.constants.desktop import LOG_BACKUP_COUNT, LOG_FILE_NAME, LOG_MAX_BYTES
+from app.middleware.request_context import RequestIdLogFilter
 
-#: ログ1行の書式。日時・レベル・出力元・本文。利用者が開いて読む前提で簡潔にする。
-LOG_FORMAT = "%(asctime)s %(levelname)-8s %(name)s: %(message)s"
+#: ログ1行の書式。日時・レベル・相関ID・出力元・本文。利用者が開いて読む前提で簡潔にする。
+#: 相関ID（Phase40）はリクエスト外のログでは"-"になる（RequestIdLogFilter参照）。
+LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
 
 
 def ensure_standard_streams() -> None:
@@ -124,7 +126,9 @@ def configure(
     # 失敗しうる。ここで組み立てたハンドラだけにする。
     for existing in list(root.handlers):
         root.removeHandler(existing)
+    request_id_filter = RequestIdLogFilter()
     for handler in handlers:
         handler.setFormatter(formatter)
+        handler.addFilter(request_id_filter)
         root.addHandler(handler)
     return log_path
