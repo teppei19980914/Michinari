@@ -9,6 +9,8 @@ PyInstaller本体を対象外としているのと同じ方針）。
 """
 
 import sqlite3
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,7 @@ import release_smoke
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from release_smoke import (
+    _collect_output,
     _run_package_step,
     build_child_env,
     check_endpoints,
@@ -229,6 +232,31 @@ class TestVerifyMigration:
         import os
 
         assert os.environ["MICHINARI_DATABASE_URL"] == "sqlite:///original.db"
+
+
+class TestCollectOutput:
+    """子プロセスの標準出力を読み切ること（Windowsのパイプデッドロック対策）。"""
+
+    def test_drains_output_larger_than_a_pipe_buffer_without_blocking(self) -> None:
+        # OSのパイプバッファ既定値（数KB程度）を上回る量を書き出しても、読み取り側が
+        # いなければ子プロセスのwrite()がブロックされたままになる
+        # （2026-09-25、release.batのスモークテストが起動直後に全エンドポイントで
+        # タイムアウトする形で発覚した不具合の再発防止）。
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import sys; sys.stdout.write('A' * 200000)"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        output = _collect_output(process)
+
+        assert process.wait(timeout=10) == 0
+        assert len(output()) == 200000
+
+    def test_returns_empty_text_when_stdout_was_not_captured(self) -> None:
+        class DummyProcess:
+            stdout = None
+
+        assert _collect_output(DummyProcess())() == ""
 
 
 class TestRunStartupSmoke:
