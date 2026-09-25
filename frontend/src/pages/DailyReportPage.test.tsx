@@ -677,10 +677,34 @@ describe('DailyReportPage', () => {
     expect(screen.queryByRole('button', { name: t('dailyReport.zeroRecord.button') })).toBe(null)
   })
 
-  it('confirms the zero-record button with an empty payload for every untouched category', async () => {
-    // categoriesは['EXAM', 'READING', 'WORK']の順に確定するため、最後（WORK）の応答が
-    // 3カテゴリとも報告済みを反映する（実際のAPIも同一レコードを都度返すため、finalize
-    // するたびに他カテゴリの確定状況も含めて返る）。
+  it('confirms the zero-record button only for the currently selected goal tab', async () => {
+    // 実際に発生した不具合の再現（2026-09-26報告）。目標タブが表示されている（着手中の目標が
+    // 2件以上）状態でボタンを押すと、選択中のタブのカテゴリだけをゼロ確定し、他のタブは
+    // 未確定のまま残す（誤って全カテゴリを読み取り専用にしてしまわない）。既定の初期タブは
+    // 資格試験（useGoalReportTabsは先頭のACTIVE目標を選ぶ）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    renderPage()
+    await waitForTitle()
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      study_logs: [],
+      diary_entries: [],
+    })
+    // 選択していない読書・仕事タブは確定されない（不具合の再発防止の核）。
+    expect(recordsApi.finalizeReadingRecord).not.toHaveBeenCalled()
+    expect(recordsApi.finalizeWorkRecord).not.toHaveBeenCalled()
+    // 他カテゴリが未確定のため、まだダッシュボードへは遷移しない。
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+  })
+
+  it('finalizes every untouched category once each is confirmed from its own tab, then navigates', async () => {
+    // タブを切り替えながら3カテゴリを個別にゼロ確定した最終形（それぞれのAPIが自分の
+    // カテゴリでのみ呼ばれ、全カテゴリ確定後にダッシュボードへ遷移する）。
     const user = userEvent.setup()
     vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
     vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
@@ -698,14 +722,43 @@ describe('DailyReportPage', () => {
 
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
 
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+    await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, { reading_logs: [] })
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+
+    await user.click(getGoalTab(WORK_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
     await waitFor(() => expect(recordsApi.finalizeWorkRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, { work_logs: [] })
+
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  it('confirms every untouched category at once when no goal tab is shown (single active goal)', async () => {
+    // 着手中の目標が0〜1件のときはタブが無く、従来通り画面上の全カテゴリを一括でゼロ確定する
+    // （タブ絞り込みは着手中の目標が2件以上のときのみ働く）。
+    const user = userEvent.setup()
+    setupQueries({ goals: [EXAM_GOAL] })
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.queryByRole('button', { name: new RegExp(EXAM_GOAL_NAME) })).toBe(null)
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
     expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
       study_logs: [],
       diary_entries: [],
     })
-    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, { reading_logs: [] })
-    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, { work_logs: [] })
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })
 
