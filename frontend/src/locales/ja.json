@@ -14,6 +14,7 @@
       "deleting": "削除しています…"
     },
     "errorDetailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）",
+    "errorId": "エラーID: {{id}}",
     "unit": {
       "minutes": "分",
       "days": "日",
@@ -663,7 +664,20 @@
     "backendLibrariesTitle": "バックエンドライブラリ",
     "frontendLibrariesTitle": "フロントエンドライブラリ",
     "libraryNameLabel": "ライブラリ名",
-    "libraryVersionLabel": "バージョン"
+    "libraryVersionLabel": "バージョン",
+    "logExport": {
+      "title": "診断ログの取得",
+      "description": "エラーが起きたときの操作を追跡するためのログです。期間を選んでダウンロードし、サポートへ共有できます",
+      "presets": {
+        "today": "当日",
+        "last3Days": "過去3日",
+        "last7Days": "過去7日"
+      },
+      "fromLabel": "開始日",
+      "toLabel": "終了日",
+      "downloadButton": "ログをダウンロード",
+      "downloadSucceeded": "ログをダウンロードしました"
+    }
   },
   "dataManagement": {
     "title": "データ管理",

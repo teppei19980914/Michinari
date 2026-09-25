@@ -1652,6 +1652,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/system-info/logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Logs
+         * @description `GET /api/v1/system-info/logs/export`: 期間を指定して診断ログをダウンロードする
+         *     （SC-15、Phase40 診断ログ出力・トレース強化）。
+         */
+        get: operations["export_logs_api_v1_system_info_logs_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/client-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Report Client Log
+         * @description `POST /api/v1/client-logs`: フロントで捕捉した未処理エラーを診断ログへ記録する。
+         */
+        post: operations["report_client_log_api_v1_client_logs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1988,6 +2029,22 @@ export interface components {
          * @enum {string}
          */
         ChatRole: "USER" | "ASSISTANT";
+        /** ClientLogRequest */
+        ClientLogRequest: {
+            /**
+             * Level
+             * @constant
+             */
+            level: "error";
+            /** Message */
+            message: string;
+            /** Stack */
+            stack?: string | null;
+            /** Component Stack */
+            component_stack?: string | null;
+            /** Path */
+            path: string;
+        };
         /** CommentCreate */
         CommentCreate: {
             /** Body */
@@ -7409,6 +7466,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemInfoRead"];
+                };
+            };
+        };
+    };
+    export_logs_api_v1_system_info_logs_export_get: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_client_log_api_v1_client_logs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientLogRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

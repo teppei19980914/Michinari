@@ -4,6 +4,7 @@ import { Card } from '../components/Card'
 import { apiErrorMessage } from '../api/client'
 import { getSystemInfo, type SystemInfoRead } from '../api/systemInfo'
 import { QUERY_KEYS } from '../constants/queryKeys'
+import { LogExportSection } from '../features/systemInfo/LogExportSection'
 
 function LibraryTable({ libraries }: { libraries: SystemInfoRead['backend_libraries'] }) {
   return (
@@ -71,6 +72,8 @@ export function SystemInfoPage() {
         <h2 className="font-medium text-gray-900">{t('systemInfo.frontendLibrariesTitle')}</h2>
         <LibraryTable libraries={systemInfo.frontend_libraries} />
       </Card>
+
+      <LogExportSection />
     </div>
   )
 }

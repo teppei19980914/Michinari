@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { t } from '../locales/t'
+import { reportClientError } from '../errorReporting/reportClientError'
 
 type ErrorBoundaryState = { error: Error | null }
 
@@ -20,6 +21,13 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
   componentDidCatch(error: Error, info: ErrorInfo): void {
     // 利用者へは出さず、開発者が原因調査できるようログにのみ残す。
     console.error('Unhandled render error', error, info)
+    // ブラウザのコンソールは利用者自身が開かない限り誰にも届かない（Phase40）。
+    // バックエンドの診断ログへも残し、ログエクスポート機能で共有できるようにする。
+    reportClientError({
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    })
   }
 
   render(): ReactNode {

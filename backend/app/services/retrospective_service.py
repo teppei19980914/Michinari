@@ -63,7 +63,13 @@ def get_latest_retrospective(
             GoalRetrospective.period_type == period_type,
             GoalRetrospective.period_key == period_key,
         )
-    return query.order_by(GoalRetrospective.generated_at.desc()).first()
+    # generated_at単独のORDER BYは、短時間での再生成でマイクロ秒が同一に丸まった場合
+    # タイブレークが不定になり、再生成直後でも古い版を返しうる（work_evaluation_service.
+    # list_evaluation_reportsで実測確認済みの同根の問題）。idを第2キーにして常に新しい
+    # 行を優先する。
+    return query.order_by(
+        GoalRetrospective.generated_at.desc(), GoalRetrospective.id.desc()
+    ).first()
 
 
 def _build_exam_context(

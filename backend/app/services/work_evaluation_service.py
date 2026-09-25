@@ -132,4 +132,10 @@ def list_evaluation_reports(
     )
     if member_id is not None:
         query = query.filter(WorkEvaluationReport.member_id == member_id)
-    return query.order_by(WorkEvaluationReport.generated_at.desc()).all()
+    # generated_at（Python側のutcnow()）はマイクロ秒精度だが、短時間での連続生成では
+    # 同一マイクロ秒に丸まり得る（実測で確認済み）。その場合generated_at単独のORDER BYは
+    # 同順位となりSQLiteのタイブレークが不定になるため、idを第2キーにして常に新しい行を
+    # 先頭にする（baseline_service.list_baselinesと同じ対策パターン）。
+    return query.order_by(
+        WorkEvaluationReport.generated_at.desc(), WorkEvaluationReport.id.desc()
+    ).all()
