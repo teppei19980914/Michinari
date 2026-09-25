@@ -30,6 +30,7 @@ import socket
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -249,6 +250,35 @@ def start_app(port: int, db_path: Path) -> subprocess.Popen[bytes]:
     )
 
 
+def _collect_output(process: subprocess.Popen[bytes]) -> Callable[[], str]:
+    """子プロセスの標準出力を止めずに読み切るバックグラウンド読み取りを開始する。
+
+    `stdout=subprocess.PIPE` で起動した子プロセスの出力を誰も読まないまま放置すると、
+    OSのパイプバッファが埋まった時点で子プロセス側の書き込みがブロックされ、アプリ全体が
+    応答不能になる（Windowsのパイプデッドロック。2026-09-25、release.batのスモークテストが
+    起動直後に全エンドポイントでタイムアウトする形で発覚。空DBへの全マイグレーション
+    ログだけでバッファを埋めるのに十分な量になる）。診断用の出力は失敗時にしか使わないが、
+    バッファを埋めさせないためには起動直後から読み取りを続ける必要があるため、
+    専用スレッドで貯め続け、必要になった時点で結合して返す。
+    """
+    chunks: list[bytes] = []
+
+    def drain() -> None:
+        if process.stdout is None:
+            return
+        for chunk in iter(lambda: process.stdout.read(4096), b""):
+            chunks.append(chunk)
+
+    thread = threading.Thread(target=drain, daemon=True)
+    thread.start()
+
+    def text() -> str:
+        thread.join(timeout=5)
+        return b"".join(chunks).decode("utf-8", "replace")
+
+    return text
+
+
 def stop_app(process: subprocess.Popen[bytes]) -> None:
     """起動したプロセスを確実に終了させる。"""
     if process.poll() is not None:
@@ -356,10 +386,10 @@ def run_package_smoke(
         db_path = work_dir / "package.db"
         prepare_package_database(db_path, port)
         process = start_package(exe_path, db_path)
+        output = _collect_output(process)
         try:
             if not wait_for_health(fetch, base_url):
-                output = process.stdout.read().decode("utf-8", "replace") if process.stdout else ""
-                return [f"{zip_path.name}: 起動しませんでした\n{output}"]
+                return [f"{zip_path.name}: 起動しませんでした\n{output()}"]
             failures = check_endpoints(fetch, base_url, endpoints)
             return [f"{zip_path.name}: {failure}" for failure in failures]
         finally:
@@ -378,10 +408,10 @@ def run_startup_smoke(
     with TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
         db_path = Path(temp_dir) / "smoke.db"
         process = start_app(port, db_path)
+        output = _collect_output(process)
         try:
             if not wait_for_health(fetch, base_url):
-                output = process.stdout.read().decode("utf-8", "replace") if process.stdout else ""
-                return [f"起動しませんでした（{STARTUP_TIMEOUT_SECONDS:.0f}秒待機）\n{output}"]
+                return [f"起動しませんでした（{STARTUP_TIMEOUT_SECONDS:.0f}秒待機）\n{output()}"]
             return check_endpoints(fetch, base_url, endpoints)
         finally:
             stop_app(process)
