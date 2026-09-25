@@ -14,7 +14,7 @@ from app.constants.enums import GoalCategory, GoalStatus, WorkEvaluationRole
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
-from app.models.work import WorkAssignment
+from app.models.work import WorkAssignment, WorkEvaluationReport
 from app.services import work_evaluation_service, work_member_service
 from app.services.exceptions import ValidationError
 
@@ -224,6 +224,41 @@ def test_generate_evaluation_report_is_append_only_across_regenerations(
     assert first.id != second.id
     reports = work_evaluation_service.list_evaluation_reports(seeded_session, work_assignment)
     assert [r.id for r in reports] == [second.id, first.id]
+
+
+def test_list_evaluation_reports_breaks_generated_at_ties_by_id(seeded_session):
+    """generated_at が同一マイクロ秒に丸まった場合でも、より新しく生成された行（idが大きい
+    方）を先頭にすること。utcnow()はマイクロ秒精度だが、短時間での連続生成では実測で
+    同一値に丸まることを確認済みの回帰テスト（元は
+    test_generate_evaluation_report_is_append_only_across_regenerationsがタイミング
+    依存で間欠的に失敗する形で発覚した）。ORDER BYがgenerated_at単独だとSQLiteの
+    タイブレークが不定になり、再生成直後の一覧で新しい版が末尾に来ることがあった。"""
+    goal, work_assignment = _make_work_goal(seeded_session)
+    member = work_member_service.create_work_member(seeded_session, work_assignment, name="Aさん")
+    tied_timestamp = dt.datetime(2026, 2, 1, 12, 0, 0, 123456, tzinfo=dt.UTC)
+    older = WorkEvaluationReport(
+        work_assignment_id=work_assignment.id,
+        member_id=member.id,
+        considerations="考慮事項1",
+        body="1回目",
+        generated_at=tied_timestamp,
+    )
+    seeded_session.add(older)
+    seeded_session.flush()
+    newer = WorkEvaluationReport(
+        work_assignment_id=work_assignment.id,
+        member_id=member.id,
+        considerations="考慮事項2",
+        body="2回目",
+        generated_at=tied_timestamp,
+    )
+    seeded_session.add(newer)
+    seeded_session.flush()
+    assert older.id < newer.id
+
+    reports = work_evaluation_service.list_evaluation_reports(seeded_session, work_assignment)
+
+    assert [r.id for r in reports] == [newer.id, older.id]
 
 
 def test_get_evaluation_report_raises_not_found(seeded_session):
