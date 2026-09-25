@@ -75,7 +75,11 @@ export function DailyReportPage() {
   }
   const { record, quota } = guard
   const reported = toCategoryReportedState(record)
-  const zeroRecordCategories = resolveZeroRecordCategories(targets.presence, record)
+  const zeroRecordCategories = resolveZeroRecordCategories(targets.presence, record, {
+    showExamSection: targets.showExamSection,
+    showReadingSection: targets.showReadingSection,
+    showWorkSection: targets.showWorkSection,
+  })
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
