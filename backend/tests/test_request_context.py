@@ -6,6 +6,7 @@
 
 import logging
 
+from app.middleware import request_context
 from app.middleware.request_context import REQUEST_ID_HEADER, request_id_ctx
 
 
@@ -36,3 +37,14 @@ def test_request_id_ctx_resets_to_default_outside_a_request(client):
     client.get("/health")
 
     assert request_id_ctx.get() == "-"
+
+
+def test_installing_the_record_factory_twice_is_a_no_op():
+    """モジュールimport時に既にインストール済みのため、再呼び出しは何もしないこと
+    （多重ラップ防止。テストの再importや複数回の`create_app`呼び出しを想定）。
+    """
+    factory_before = logging.getLogRecordFactory()
+
+    request_context._install_request_id_log_record_factory()
+
+    assert logging.getLogRecordFactory() is factory_before

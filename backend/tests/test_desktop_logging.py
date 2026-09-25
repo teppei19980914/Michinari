@@ -105,3 +105,48 @@ class TestConfigure:
         logging_setup.configure(tmp_path, level=logging.WARNING)
 
         assert logging.getLogger().level == logging.WARNING
+
+
+class TestPreserveLoggingState:
+    """alembicの`fileConfig()`による副作用（ハンドラ差し替え・`disabled`化）からの復元。"""
+
+    def test_restores_handlers_and_level(self):
+        """pytest自体がルートロガーへハンドラを付けているため、`with`直前の状態
+        （既存ハンドラを含む）を基準に、追加分だけが元へ戻ることを確かめる。
+        """
+        root = logging.getLogger()
+        handlers_before = list(root.handlers)
+        level_before = root.level
+        extra_handler = logging.StreamHandler()
+        try:
+            with logging_setup.preserve_logging_state():
+                root.addHandler(extra_handler)
+                root.setLevel(logging.CRITICAL)
+
+            assert root.handlers == handlers_before
+            assert root.level == level_before
+        finally:
+            root.removeHandler(extra_handler)
+
+    def test_restores_the_disabled_flag_for_a_logger_present_at_restore(self):
+        """`fileConfig()`が既存ロガーを`disabled=True`にする副作用を模し、元へ戻ること。"""
+        logger_obj = logging.getLogger("michinari.test.preserve_logging_state.kept")
+        logger_obj.disabled = False
+
+        with logging_setup.preserve_logging_state():
+            logger_obj.disabled = True
+
+        assert logger_obj.disabled is False
+
+    def test_skips_restore_for_a_logger_removed_during_the_block(self):
+        """スナップショット後に対象ロガーが`loggerDict`から消えていても例外にしないこと
+        （復元時点で`logging.Logger`でなければ復元をスキップする分岐）。
+        """
+        logger_name = "michinari.test.preserve_logging_state.removed"
+        logging.getLogger(logger_name).disabled = False
+        root = logging.getLogger()
+
+        with logging_setup.preserve_logging_state():
+            del root.manager.loggerDict[logger_name]
+
+        assert logger_name not in root.manager.loggerDict

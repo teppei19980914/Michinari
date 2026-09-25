@@ -36,6 +36,26 @@ def test_accepts_a_request_without_stack_or_component_stack(client):
     assert response.status_code == 204
 
 
+def test_records_a_component_stack_in_the_log(client, caplog):
+    """`component_stack`はErrorBoundaryが渡すReactのコンポーネントツリー情報で、
+    `stack`と別枠で記録される（描画中の例外の発生箇所を特定するための情報のため）。
+    """
+    with caplog.at_level(logging.WARNING, logger="app.client"):
+        response = client.post(
+            _ENDPOINT,
+            json={
+                "level": "error",
+                "message": "boom",
+                "component_stack": "in Foo\n  in Bar",
+                "path": "/",
+            },
+        )
+
+    assert response.status_code == 204
+    messages = [r.getMessage() for r in caplog.records if r.name == "app.client"]
+    assert any("componentStack" in m and "in Foo" in m for m in messages)
+
+
 def test_rejects_a_message_longer_than_the_limit(client):
     response = client.post(
         _ENDPOINT,
