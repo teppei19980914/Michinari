@@ -132,4 +132,23 @@ describe('BookSpineCard', () => {
     )
     expect(onRequestDelete).toHaveBeenCalledWith(entry.goal)
   })
+
+  it('does not render an author line when the book has no author', () => {
+    const entry: CompletedReadingBook = {
+      goal: makeGoal({ status: 'CLOSED_WITH_RESULT', archived_at: null }),
+      book: makeBook({ title: '匿名の書', author: null }),
+    }
+    renderWithProviders(
+      <BookSpineCard
+        entry={entry}
+        variant="completed"
+        onArchive={vi.fn()}
+        onUnarchive={vi.fn()}
+        onRequestDelete={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('匿名の書')).toBeDefined()
+    expect(screen.queryByText('著者A')).toBeNull()
+  })
 })

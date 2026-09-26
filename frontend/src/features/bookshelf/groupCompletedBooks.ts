@@ -1,4 +1,5 @@
 import type { CompletedReadingBook } from '../../api/goals'
+import { resolveBookSpineVariant } from './bookStatusVariant'
 
 export type GroupedCompletedBooks = {
   onShelf: { completed: CompletedReadingBook[]; interrupted: CompletedReadingBook[] }
@@ -27,7 +28,7 @@ export function groupCompletedBooks(entries: CompletedReadingBook[]): GroupedCom
   }
   for (const entry of entries) {
     const bucket = entry.goal.archived_at === null ? result.onShelf : result.archived
-    const key = entry.goal.status === 'CLOSED_WITH_RESULT' ? 'completed' : 'interrupted'
+    const key = resolveBookSpineVariant(entry.goal.status)
     bucket[key].push(entry)
   }
   result.onShelf.completed.sort(byClosedAtDesc)

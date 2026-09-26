@@ -70,6 +70,8 @@ export function BookDetailPage() {
       {tab === 'log' && <ReadingLogHistoryTab goalId={goalId} />}
       {tab === 'growth' && <GrowthDescriptionTab goalId={goalId} goals={goalsQuery.data} />}
       {tab === 'retrospective' && (
+        // 本棚は個人が見返すための閲覧専用画面であり、匿名化はエクスポート（SC-13）専用の
+        // 関心事のためトグルUIを持たず常に非匿名で表示する（仕様書6.17）。
         <RetrospectiveSection goalId={goalId} anonymize={false} isReading={true} />
       )}
     </div>

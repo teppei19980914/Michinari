@@ -38,7 +38,7 @@ export function BookSpineCard({
           </span>
         </span>
       </Link>
-      {!isArchived && canArchiveGoal(goal.status, goal.archived_at) && (
+      {canArchiveGoal(goal.status, goal.archived_at) && (
         <Button
           type="button"
           variant="secondary"
