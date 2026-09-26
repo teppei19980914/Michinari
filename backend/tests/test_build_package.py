@@ -28,6 +28,7 @@ from build_package import (
     PREVIOUS_PACKAGE_PREFIX,
     PYPROJECT_PATH,
     USER_MANUAL_PATH,
+    _rename_with_retry,
     _rmtree_with_retry,
     archive_previous_distributions,
     build_commit_filename,
@@ -212,6 +213,100 @@ def test_discard_previous_package_succeeds_after_transient_failure(
     assert call_count == 3
     assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
     assert not any(dist_dir.iterdir())
+
+
+def test_discard_previous_package_retries_rename_on_transient_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """改名（`os.rename`）が一時的に失敗しても再試行して退避を完了する
+
+    （2026-09-26、`shutil.move`では改名失敗時のコピー＋削除フォールバックが
+    `__pycache__`のロックで中途半端に失敗する事象が発生したため、改名のみを
+    直接再試行する方式に変更した）。"""
+    dist_dir = tmp_path / "dist"
+    output_dir = dist_dir / "Michinari"
+    output_dir.mkdir(parents=True)
+    (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
+
+    real_rename = build_package.os.rename
+    call_count = 0
+
+    def flaky_rename(src: Path, dst: Path) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise PermissionError("プロセスはファイルにアクセスできません。")
+        real_rename(src, dst)
+
+    monkeypatch.setattr(build_package.os, "rename", flaky_rename)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    leftover = discard_previous_package(output_dir)
+
+    assert leftover is None
+    assert call_count == 3
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
+    assert not output_dir.exists()
+    assert not any(dist_dir.iterdir())
+
+
+def test_discard_previous_package_keeps_output_untouched_when_rename_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """改名が再試行しても全て失敗した場合、出力フォルダには一切手を付けず警告のみで継続する
+
+    （`shutil.move`のコピー＋削除フォールバックのように、コピー先に複製ができた状態で
+    コピー元も残るという中途半端な状態にはならないことを保証する）。
+    """
+    dist_dir = tmp_path / "dist"
+    output_dir = dist_dir / "Michinari"
+    output_dir.mkdir(parents=True)
+    (output_dir / "Michinari.exe").write_text("dummy", encoding="utf-8")
+
+    def always_fail_rename(src: Path, dst: Path) -> None:
+        raise PermissionError("プロセスはファイルにアクセスできません。")
+
+    monkeypatch.setattr(build_package.os, "rename", always_fail_rename)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+    fixed_now = dt.datetime(2026, 9, 26, 16, 46, 4)
+
+    leftover = discard_previous_package(output_dir, now=fixed_now)
+
+    assert leftover is None
+    assert output_dir.exists()
+    assert (output_dir / "Michinari.exe").read_text(encoding="utf-8") == "dummy"
+    assert list(dist_dir.iterdir()) == [output_dir]
+    assert "旧パッケージを退避できませんでした" in capsys.readouterr().out
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * (
+        build_package.RMTREE_RETRY_ATTEMPTS - 1
+    )
+
+
+def test_rename_with_retry_returns_last_error_when_all_attempts_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`discard_previous_package`が使う改名の再試行ヘルパー自体の挙動を検証する
+
+    （`_rmtree_with_retry`と対になる再試行ヘルパー、CLAUDE.md DRYの原則）。"""
+    src = tmp_path / "src"
+    src.mkdir()
+    dst = tmp_path / "dst"
+
+    def always_fail_rename(source: Path, destination: Path) -> None:
+        raise PermissionError("アクセスが拒否されました")
+
+    monkeypatch.setattr(build_package.os, "rename", always_fail_rename)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    error = _rename_with_retry(src, dst, retry_attempts=3, retry_delay_seconds=1.5)
+
+    assert isinstance(error, PermissionError)
+    assert sleep_calls == [1.5, 1.5]
+    assert src.exists()
+    assert not dst.exists()
 
 
 def test_rmtree_with_retry_returns_last_error_when_all_attempts_fail(
