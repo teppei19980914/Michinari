@@ -5,6 +5,7 @@ import { t } from '../locales/t'
 const NAV_ITEMS = [
   { to: ROUTES.dashboard, labelKey: 'nav.dashboard' },
   { to: ROUTES.goals, labelKey: 'nav.goals' },
+  { to: ROUTES.bookshelf, labelKey: 'nav.bookshelf' },
   { to: ROUTES.calendar, labelKey: 'nav.calendar' },
   { to: ROUTES.analytics, labelKey: 'nav.analytics' },
   { to: ROUTES.settings, labelKey: 'nav.settings' },

@@ -34,6 +34,8 @@ export type WorkMemberUpdate = components['schemas']['WorkMemberUpdate']
 
 /** 進行中の読書目標とその書籍（listActiveReadingBooksの戻り）。 */
 export type ActiveReadingBook = { goal: GoalRead; book: BookRead }
+/** 読了・中断した読書目標とその書籍（listCompletedReadingBooksの戻り）。本棚（SC-18）で使う。 */
+export type CompletedReadingBook = { goal: GoalRead; book: BookRead }
 /** 進行中の仕事目標とその案件（listActiveWorkAssignmentsの戻り）。 */
 export type ActiveWorkAssignment = { goal: GoalRead; workAssignment: WorkAssignmentRead }
 
@@ -182,6 +184,24 @@ export async function listActiveReadingBooks(): Promise<ActiveReadingBook[]> {
   const goals = await listGoals()
   const activeReadingGoals = goals.filter((g) => g.category === 'READING' && g.status === 'ACTIVE')
   const details = await Promise.all(activeReadingGoals.map((g) => getGoal(g.id)))
+  return details
+    .filter((detail): detail is GoalDetailRead & { book: BookRead } => detail.book !== null)
+    .map((detail) => ({ goal: detail, book: detail.book }))
+}
+
+/**
+ * 読了・中断した読書目標とその書籍を一覧する（本棚 SC-18で使用）。listActiveReadingBooksと
+ * 同じ理由でN+1構成を許容する。アーカイブ済みも除外せずに返し、「棚」「しまった本」への
+ * 振り分けは呼び出し側（groupCompletedBooks）が行う。
+ */
+export async function listCompletedReadingBooks(): Promise<CompletedReadingBook[]> {
+  const goals = await listGoals()
+  const closedReadingGoals = goals.filter(
+    (g) =>
+      g.category === 'READING' &&
+      (g.status === 'CLOSED_WITH_RESULT' || g.status === 'CLOSED_WITHOUT_RESULT'),
+  )
+  const details = await Promise.all(closedReadingGoals.map((g) => getGoal(g.id)))
   return details
     .filter((detail): detail is GoalDetailRead & { book: BookRead } => detail.book !== null)
     .map((detail) => ({ goal: detail, book: detail.book }))
