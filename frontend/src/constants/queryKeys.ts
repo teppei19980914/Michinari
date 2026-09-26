@@ -34,6 +34,7 @@ export const QUERY_KEYS = {
   dashboard: () => ['dashboard'] as const,
   dailyMessage: () => ['daily-message'] as const,
   activeReadingBooks: () => ['activeReadingBooks'] as const,
+  completedReadingBooks: () => ['completedReadingBooks'] as const,
   activeWorkAssignments: () => ['activeWorkAssignments'] as const,
   /** 「前回はこう書いていました」ヒント（記録画面改善タスク2026-09-17）。 */
   previousDiary: (targetDate: string, goalId: number) =>
