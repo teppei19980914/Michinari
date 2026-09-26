@@ -1,5 +1,8 @@
 """アプリ設定・プロンプトテンプレートAPIのテスト（データ構造編6.2、仕様書6.11）。"""
 
+import json
+from pathlib import Path
+
 from app.constants.enums import AiPurpose
 
 
@@ -267,3 +270,25 @@ class TestDesktopSettingsApi:
 
         body = client.get("/api/v1/settings").json()
         assert body["desktop"]["notification_time"] == "21:00"
+
+
+def test_every_ai_purpose_has_a_frontend_message():
+    """`AiPurpose`の全メンバーに画面文言があること（test_api_records.pyの
+    test_every_context_category_has_a_frontend_messageと同種の横断チェック）。
+    文言が無い用途は`t()`が未解決時にキー文字列をそのまま返す仕様
+    （frontend/src/locales/t.ts）のため、「settings.promptTemplate.purpose.
+    DAILY_FEEDBACK_READING」のような生のキーがプロンプトテンプレート設定画面
+    （PromptTemplateSection.tsx）にそのまま表示されてしまう
+    （読書・仕事向け用途の追加時にja.jsonへの反映漏れが実際に発生した、2026-09-26）。
+    """
+    purposes = {purpose.value for purpose in AiPurpose}
+    locale_path = Path(__file__).resolve().parents[2] / "frontend" / "src" / "locales" / "ja.json"
+    messages = json.loads(locale_path.read_text(encoding="utf-8"))["settings"]["promptTemplate"][
+        "purpose"
+    ]
+    missing = sorted(purposes - set(messages))
+    assert missing == [], (
+        f"ja.json の settings.promptTemplate.purpose.* に文言が無い用途: {missing}"
+    )
+    stale = sorted(set(messages) - purposes)
+    assert stale == [], f"AiPurposeに存在しない用途の文言が残っている: {stale}"
