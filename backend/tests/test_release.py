@@ -71,6 +71,18 @@ def test_verify_workspace_accepts_a_clean_worktree(monkeypatch, tmp_path: Path) 
     release.verify_workspace()
 
 
+def test_verify_workspace_rejects_when_the_app_is_running(monkeypatch, tmp_path: Path) -> None:
+    """配布パッケージ（`Michinari.exe`）が実行中だと、テスト実行・バージョン入力より前に
+    中止すること（`build_package.ensure_app_not_running`のdocstring参照。2026-09-26、
+    トレイ常駐のまま閉じ忘れて再実行するとファイルロックでビルドが失敗した事象への対応）。
+    """
+    _prepare(monkeypatch, tmp_path)
+    monkeypatch.setattr(build_package, "is_app_running", lambda exe_name=None: True)
+
+    with pytest.raises(SystemExit, match="実行中です"):
+        release.verify_workspace()
+
+
 def test_verify_preconditions_requires_release_notes(monkeypatch, tmp_path: Path) -> None:
     """Release本文の元になるノートが無ければ、マージ前に止めること。"""
     _prepare(monkeypatch, tmp_path)

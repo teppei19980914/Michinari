@@ -60,6 +60,9 @@ REPO_ROOT = BACKEND_DIR.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 APP_NAME = "Michinari"
+#: 配布パッケージの実行ファイル名（`ensure_app_not_running`が実行中判定に使う。
+#: `APP_NAME`から導出し書き写さない、CLAUDE.md DRYの原則）。
+APP_EXE_NAME = f"{APP_NAME}.exe"
 DIST_DIR = BACKEND_DIR / "dist"
 OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
@@ -109,6 +112,44 @@ _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: pyproject.tomlのTOML文字列・zipファイル名へ埋め込むため、`"`によるTOML破損や
 #: `/`・`\`によるパス区切り混入（意図しない書き込み先へのずれ）を防ぐ。
 _VALID_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def is_app_running(exe_name: str = APP_EXE_NAME) -> bool:
+    """`exe_name`という名前のプロセスが実行中かどうかを判定する（Windows専用）。
+
+    追加の依存ライブラリ（`psutil`等）を増やさないよう、Windows標準の`tasklist`を
+    サブプロセスで呼び出して判定する。本プロジェクトのビルドはWindows専用のため
+    （PyInstallerの`--noconsole`等、他OS向けの分岐は持たない）、`tasklist`の存在は
+    前提としてよい。
+    """
+    result = subprocess.run(
+        ["tasklist", "/FI", f"IMAGENAME eq {exe_name}", "/NH"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return exe_name.lower() in result.stdout.lower()
+
+
+def ensure_app_not_running(exe_name: str = APP_EXE_NAME) -> None:
+    """`exe_name`が実行中であればビルドを中止する（`is_app_running`参照）。
+
+    配布パッケージ（`backend/dist/Michinari/`）を起動して動作確認した後、トレイ常駐の
+    まま閉じ忘れてrelease.bat/build.batを再実行すると、実行中のプロセスが
+    `_internal/alembic/versions/__pycache__`等のファイルをロックしたままになる。
+    OneDriveの一時ロックと異なりプロセスを終了しない限り解消しないため、
+    `discard_previous_package`の再試行（最大15秒）に任せず、後続のPyInstaller自身の
+    `--noconfirm`によるクリーンアップも巻き込んで失敗する前に、ここで早期に分かりやすい
+    エラーで止める（2026-09-26、`discard_previous_package`の再試行修正後もこのケースでは
+    `build_backend`のPyInstaller実行が同じロックで失敗することが判明したため追加）。
+    """
+    if not is_app_running(exe_name):
+        return
+    raise SystemExit(
+        f"エラー: {exe_name} が実行中です。タスクトレイのアイコンから終了するか、"
+        "タスクマネージャーで終了してから再実行してください"
+        "（実行中のままだと配布パッケージのファイルがロックされビルドできません）。"
+    )
 
 
 def _rmtree_with_retry(
@@ -695,6 +736,7 @@ def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, ver
 
 
 def main() -> None:
+    ensure_app_not_running()
     run_tests()
 
     print("[2/8] 配布バージョンを確認しています…")

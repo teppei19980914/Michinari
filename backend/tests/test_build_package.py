@@ -36,9 +36,11 @@ from build_package import (
     copy_user_manual,
     create_distribution_zip,
     discard_previous_package,
+    ensure_app_not_running,
     generate_build_commit,
     generate_build_info,
     has_uncommitted_changes,
+    is_app_running,
     read_current_version,
     read_git_commit,
     resolve_version,
@@ -55,6 +57,58 @@ from app.constants.bundle import (
     LOCALES_DIR_NAME,
 )
 from app.desktop import runner as desktop_runner
+
+
+def test_is_app_running_returns_true_when_tasklist_lists_the_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`tasklist`の出力に実行ファイル名が含まれていれば実行中と判定すること。"""
+
+    def fake_run(args, **kwargs):
+        assert args[:2] == ["tasklist", "/FI"]
+        return subprocess.CompletedProcess(
+            args, 0, stdout="Michinari.exe                16732 Console  1  73,708 K\n", stderr=""
+        )
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+
+    assert is_app_running("Michinari.exe") is True
+
+
+def test_is_app_running_returns_false_when_tasklist_finds_no_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """該当プロセスが無いと`tasklist`は「一致するタスクはありません」のみ返すこと。"""
+
+    def fake_run(args, **kwargs):
+        return subprocess.CompletedProcess(
+            args, 0, stdout="INFO: 条件に指定されたタスクは実行されていません。\n", stderr=""
+        )
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+
+    assert is_app_running("Michinari.exe") is False
+
+
+def test_ensure_app_not_running_raises_when_the_app_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """配布パッケージが実行中のままだと、ロックで後続のビルド手順が失敗するため
+    早期にわかりやすいエラーで止めること（2026-09-26、`discard_previous_package`の
+    再試行修正後もPyInstaller自身のクリーンアップが同じロックで失敗した事象への対応）。
+    """
+    monkeypatch.setattr(build_package, "is_app_running", lambda exe_name=None: True)
+
+    with pytest.raises(SystemExit, match="Michinari.exe が実行中です"):
+        ensure_app_not_running("Michinari.exe")
+
+
+def test_ensure_app_not_running_passes_when_the_app_is_not_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_package, "is_app_running", lambda exe_name=None: False)
+
+    ensure_app_not_running("Michinari.exe")
 
 
 def test_archive_previous_distributions_returns_empty_when_dist_dir_is_absent(
