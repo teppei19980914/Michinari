@@ -57,16 +57,19 @@ def has_uncommitted_changes() -> bool:
 
 
 def verify_workspace() -> None:
-    """バージョンに依らない前提（作業ツリーの状態）を検証する。
+    """バージョンに依らない前提（作業ツリーの状態・配布パッケージが未実行であること）を
+    検証する。
 
-    バージョン入力より前に確認する。入力させた後で「未コミットの変更があります」と
-    言われるのは手間の無駄なため。
+    バージョン入力・テスト実行より前に確認する。入力させた後で「未コミットの変更が
+    あります」と言われたり、テスト（数分かかる）を通した後で配布パッケージの実行中に
+    気付いたりするのは手間の無駄なため（`ensure_app_not_running`のdocstring参照）。
     """
     if has_uncommitted_changes():
         raise SystemExit(
             "エラー: 未コミットの変更があります。コミットまたは退避してから実行してください"
             "（配布物と公開されるソースを一致させるため）。"
         )
+    build_package.ensure_app_not_running()
 
 
 def is_content_merged_into_base() -> bool:

@@ -60,6 +60,9 @@ REPO_ROOT = BACKEND_DIR.parent
 FRONTEND_DIR = REPO_ROOT / "frontend"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
 APP_NAME = "Michinari"
+#: 配布パッケージの実行ファイル名（`ensure_app_not_running`が実行中判定に使う。
+#: `APP_NAME`から導出し書き写さない、CLAUDE.md DRYの原則）。
+APP_EXE_NAME = f"{APP_NAME}.exe"
 DIST_DIR = BACKEND_DIR / "dist"
 OUTPUT_DIR = DIST_DIR / APP_NAME
 ARCHIVE_DIR = DIST_DIR / "_archive"
@@ -111,37 +114,42 @@ _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 _VALID_VERSION_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
-def archive_previous_distributions(dist_dir: Path, archive_dir: Path) -> list[Path]:
-    """`dist/`直下の既存配布物（zipとビルド元コミットの記録）を`_archive/`へ退避する。
+def is_app_running(exe_name: str = APP_EXE_NAME) -> bool:
+    """`exe_name`という名前のプロセスが実行中かどうかを判定する（Windows専用）。
 
-    退避対象は`ARCHIVED_DISTRIBUTION_SUFFIXES`の拡張子を持つ**ファイルのみ**で、
-    ビルド出力フォルダ（`dist/Michinari/`）は対象にしない。以前はフォルダごと
-    `_archive/`へ退避していたが、1回のビルドで数十〜100MB超になるフォルダが
-    ビルドのたびに積み上がり、`dist/`の容量が増大していたためである
-    （OPERATIONS.md「配布パッケージのビルド」参照）。zipには同じ内容が圧縮された形で
-    残るため、旧版を調べたいときはzipを展開すればよい。
-
-    退避先に同名ファイルがある場合（同一バージョンで再ビルドした場合）は上書きする。
-
-    戻り値: 退避したファイルの退避先パス一覧（ファイル名昇順）。対象が無ければ空リスト。
+    追加の依存ライブラリ（`psutil`等）を増やさないよう、Windows標準の`tasklist`を
+    サブプロセスで呼び出して判定する。本プロジェクトのビルドはWindows専用のため
+    （PyInstallerの`--noconsole`等、他OS向けの分岐は持たない）、`tasklist`の存在は
+    前提としてよい。
     """
-    if not dist_dir.exists():
-        return []
-    sources = sorted(
-        path
-        for path in dist_dir.iterdir()
-        if path.is_file() and path.suffix in ARCHIVED_DISTRIBUTION_SUFFIXES
+    result = subprocess.run(
+        ["tasklist", "/FI", f"IMAGENAME eq {exe_name}", "/NH"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    if not sources:
-        return []
-    archive_dir.mkdir(parents=True, exist_ok=True)
-    moved: list[Path] = []
-    for source in sources:
-        destination = archive_dir / source.name
-        destination.unlink(missing_ok=True)
-        shutil.move(str(source), str(destination))
-        moved.append(destination)
-    return moved
+    return exe_name.lower() in result.stdout.lower()
+
+
+def ensure_app_not_running(exe_name: str = APP_EXE_NAME) -> None:
+    """`exe_name`が実行中であればビルドを中止する（`is_app_running`参照）。
+
+    配布パッケージ（`backend/dist/Michinari/`）を起動して動作確認した後、トレイ常駐の
+    まま閉じ忘れてrelease.bat/build.batを再実行すると、実行中のプロセスが
+    `_internal/alembic/versions/__pycache__`等のファイルをロックしたままになる。
+    OneDriveの一時ロックと異なりプロセスを終了しない限り解消しないため、
+    `discard_previous_package`の再試行（最大15秒）に任せず、後続のPyInstaller自身の
+    `--noconfirm`によるクリーンアップも巻き込んで失敗する前に、ここで早期に分かりやすい
+    エラーで止める（2026-09-26、`discard_previous_package`の再試行修正後もこのケースでは
+    `build_backend`のPyInstaller実行が同じロックで失敗することが判明したため追加）。
+    """
+    if not is_app_running(exe_name):
+        return
+    raise SystemExit(
+        f"エラー: {exe_name} が実行中です。タスクトレイのアイコンから終了するか、"
+        "タスクマネージャーで終了してから再実行してください"
+        "（実行中のままだと配布パッケージのファイルがロックされビルドできません）。"
+    )
 
 
 def _rmtree_with_retry(
@@ -169,15 +177,16 @@ def _rename_with_retry(
     src: Path, dst: Path, *, retry_attempts: int, retry_delay_seconds: float
 ) -> OSError | None:
     """`src`を`dst`へ改名する。`_rmtree_with_retry`と同じ待機パターンで
-    `retry_attempts`回まで`retry_delay_seconds`秒間隔で再試行する（CLAUDE.md DRYの原則）。
+    `retry_attempts`回まで`retry_delay_seconds`秒間隔で再試行する（CLAUDE.md DRYの原則。
+    `archive_previous_distributions`・`discard_previous_package`共通処理）。
 
-    `shutil.move`ではなくこの関数（`os.rename`のみ）を`discard_previous_package`から使うのは、
-    `shutil.move`が改名の失敗を検知すると内部で「コピー→コピー元の削除」に自動フォールバック
-    するためである。フォールバック後のコピー元削除がロックで失敗すると、コピー先に複製が
-    できた状態のままコピー元も残るという中途半端な状態になる（2026-09-26、`dist/Michinari`の
-    改名がOneDriveの一時ロックで`WinError 32`になりフォールバックが発動、コピー後の削除が
-    `alembic/versions/__pycache__`で`WinError 5`になりビルドが停止した）。改名だけを再試行
-    すれば、失敗時も`src`・`dst`のどちらか一方しか存在しない状態を保てる。
+    `shutil.move`ではなくこの関数（`os.rename`のみ）を使うのは、`shutil.move`が改名の
+    失敗を検知すると内部で「コピー→コピー元の削除」に自動フォールバックするためである。
+    フォールバック後のコピー元削除がロックで失敗すると、コピー先に複製ができた状態のまま
+    コピー元も残るという中途半端な状態になる（2026-09-26、`dist/Michinari`の改名が
+    OneDriveの一時ロックで`WinError 32`になりフォールバックが発動、コピー後の削除が
+    `alembic/versions/__pycache__`で`WinError 5`になりビルドが停止した）。改名だけを
+    再試行すれば、失敗時も`src`・`dst`のどちらか一方しか存在しない状態を保てる。
 
     戻り値: 改名できた場合は`None`、全て失敗した場合は最後の`OSError`。
     """
@@ -191,6 +200,60 @@ def _rename_with_retry(
             if attempt < retry_attempts:
                 time.sleep(retry_delay_seconds)
     return last_error
+
+
+def archive_previous_distributions(
+    dist_dir: Path,
+    archive_dir: Path,
+    *,
+    retry_attempts: int = RMTREE_RETRY_ATTEMPTS,
+    retry_delay_seconds: float = RMTREE_RETRY_DELAY_SECONDS,
+) -> list[Path]:
+    """`dist/`直下の既存配布物（zipとビルド元コミットの記録）を`_archive/`へ退避する。
+
+    退避対象は`ARCHIVED_DISTRIBUTION_SUFFIXES`の拡張子を持つ**ファイルのみ**で、
+    ビルド出力フォルダ（`dist/Michinari/`）は対象にしない。以前はフォルダごと
+    `_archive/`へ退避していたが、1回のビルドで数十〜100MB超になるフォルダが
+    ビルドのたびに積み上がり、`dist/`の容量が増大していたためである
+    （OPERATIONS.md「配布パッケージのビルド」参照）。zipには同じ内容が圧縮された形で
+    残るため、旧版を調べたいときはzipを展開すればよい。
+
+    退避先に同名ファイルがある場合（同一バージョンで再ビルドした場合）は上書きする。
+
+    退避には`shutil.move`ではなく`_rename_with_retry`（`os.rename`のみを再試行）を使う。
+    `discard_previous_package`と同じ理由（`_rename_with_retry`のdocstring参照）で、
+    `shutil.move`の「改名失敗時にコピー＋コピー元削除へ自動フォールバックする」経路を
+    避けるためである。1件の退避が再試行しても失敗した場合は警告を表示してその1件を
+    スキップし、他の対象の退避は継続する（`cleanup_stale_previous_packages`と同じ方針）。
+
+    戻り値: 退避したファイルの退避先パス一覧（ファイル名昇順）。対象が無ければ空リスト。
+    """
+    if not dist_dir.exists():
+        return []
+    sources = sorted(
+        path
+        for path in dist_dir.iterdir()
+        if path.is_file() and path.suffix in ARCHIVED_DISTRIBUTION_SUFFIXES
+    )
+    if not sources:
+        return []
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    moved: list[Path] = []
+    for source in sources:
+        destination = archive_dir / source.name
+        destination.unlink(missing_ok=True)
+        rename_error = _rename_with_retry(
+            source,
+            destination,
+            retry_attempts=retry_attempts,
+            retry_delay_seconds=retry_delay_seconds,
+        )
+        if rename_error is not None:
+            print(f"  → 警告: 既存の配布物を退避できませんでした: {source} ({rename_error})")
+            print("     ビルドは継続します。不要であれば手動で `_archive/` へ移動してください")
+            continue
+        moved.append(destination)
+    return moved
 
 
 def discard_previous_package(
@@ -673,6 +736,7 @@ def create_distribution_zip(output_dir: Path, dist_dir: Path, app_name: str, ver
 
 
 def main() -> None:
+    ensure_app_not_running()
     run_tests()
 
     print("[2/8] 配布バージョンを確認しています…")

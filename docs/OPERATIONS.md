@@ -477,6 +477,18 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
 
 **処理内容**
 
+0. （`release.bat`のみ）テストスイート実行より前に、配布パッケージ
+   （`backend/dist/Michinari/Michinari.exe`）が実行中でないか確認する
+   （`verify_workspace`／`build_package.ensure_app_not_running`）。動作確認のために
+   起動した配布パッケージをトレイ常駐のまま閉じ忘れて再実行すると、実行中のプロセスが
+   `_internal/alembic/versions/__pycache__`等のファイルをロックしたままになり、
+   手順3の`discard_previous_package`の再試行（最大15秒）は元より、手順6の
+   PyInstaller自身の`--noconfirm`によるクリーンアップも同じロックで失敗する
+   （2026-09-26発生。OneDriveの一時ロックと異なりプロセスを終了しない限り解消しない）。
+   実行中であれば`エラー: Michinari.exe が実行中です`と表示してテスト実行前に中止する
+   （タスクトレイのアイコンから終了するか、タスクマネージャーで終了してから再実行する）。
+   Windows標準の`tasklist`で判定するため追加の依存ライブラリは不要（`is_app_running`）。
+   `build.bat`（`build_package.main`）から直接実行した場合もテスト実行前に同じ確認を行う
 1. テストスイート（`pytest`）を実行する。**1件でも失敗すればここでビルドを中止する**
    （配布パッケージに不具合を含んだまま出荷しないための最終防波堤。2026-08-29、
    マイグレーション不具合を検出するテストが存在したにもかかわらずビルド時に実行
@@ -517,6 +529,9 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （OneDriveロックによる`WinError 5`/`WinError 32`）で失敗した場合は`uv sync`と
    同じ3秒待って最大5回（`RMTREE_RETRY_ATTEMPTS`/`RMTREE_RETRY_DELAY_SECONDS`）
    まで自動的に再試行する（`_rename_with_retry`/`_rmtree_with_retry`）。
+   `archive_previous_distributions`の退避（zip・記録ファイルの改名）も同じ
+   `_rename_with_retry`を使う。1件が再試行しても失敗した場合はその1件を`dist/`直下に
+   残したまま警告を表示し、他の対象の退避は継続する（CLAUDE.md DRYの原則）。
 
    改名を再試行しても全て失敗した場合は`backend/dist/Michinari/`に一切手を付けず
    警告のみ表示してビルドを継続する（2026-09-26、`shutil.move`任せにしていた頃は
