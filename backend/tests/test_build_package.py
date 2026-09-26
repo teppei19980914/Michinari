@@ -36,9 +36,11 @@ from build_package import (
     copy_user_manual,
     create_distribution_zip,
     discard_previous_package,
+    ensure_app_not_running,
     generate_build_commit,
     generate_build_info,
     has_uncommitted_changes,
+    is_app_running,
     read_current_version,
     read_git_commit,
     resolve_version,
@@ -55,6 +57,58 @@ from app.constants.bundle import (
     LOCALES_DIR_NAME,
 )
 from app.desktop import runner as desktop_runner
+
+
+def test_is_app_running_returns_true_when_tasklist_lists_the_process(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`tasklist`の出力に実行ファイル名が含まれていれば実行中と判定すること。"""
+
+    def fake_run(args, **kwargs):
+        assert args[:2] == ["tasklist", "/FI"]
+        return subprocess.CompletedProcess(
+            args, 0, stdout="Michinari.exe                16732 Console  1  73,708 K\n", stderr=""
+        )
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+
+    assert is_app_running("Michinari.exe") is True
+
+
+def test_is_app_running_returns_false_when_tasklist_finds_no_match(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """該当プロセスが無いと`tasklist`は「一致するタスクはありません」のみ返すこと。"""
+
+    def fake_run(args, **kwargs):
+        return subprocess.CompletedProcess(
+            args, 0, stdout="INFO: 条件に指定されたタスクは実行されていません。\n", stderr=""
+        )
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+
+    assert is_app_running("Michinari.exe") is False
+
+
+def test_ensure_app_not_running_raises_when_the_app_is_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """配布パッケージが実行中のままだと、ロックで後続のビルド手順が失敗するため
+    早期にわかりやすいエラーで止めること（2026-09-26、`discard_previous_package`の
+    再試行修正後もPyInstaller自身のクリーンアップが同じロックで失敗した事象への対応）。
+    """
+    monkeypatch.setattr(build_package, "is_app_running", lambda exe_name=None: True)
+
+    with pytest.raises(SystemExit, match="Michinari.exe が実行中です"):
+        ensure_app_not_running("Michinari.exe")
+
+
+def test_ensure_app_not_running_passes_when_the_app_is_not_running(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(build_package, "is_app_running", lambda exe_name=None: False)
+
+    ensure_app_not_running("Michinari.exe")
 
 
 def test_archive_previous_distributions_returns_empty_when_dist_dir_is_absent(
@@ -127,6 +181,75 @@ def test_archive_previous_distributions_overwrites_same_named_archive(tmp_path: 
     archive_previous_distributions(dist_dir, archive_dir)
 
     assert (archive_dir / "Michinari-v1.2.2.zip").read_text(encoding="utf-8") == "new"
+
+
+def test_archive_previous_distributions_retries_rename_on_transient_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """改名（`os.rename`）が一時的に失敗しても再試行して退避を完了する
+
+    （`discard_previous_package`と共通の`_rename_with_retry`を使うことの確認、
+    CLAUDE.md DRYの原則）。"""
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "Michinari-v1.2.2.zip").write_text("zip", encoding="utf-8")
+
+    real_rename = build_package.os.rename
+    call_count = 0
+
+    def flaky_rename(src: Path, dst: Path) -> None:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise PermissionError("プロセスはファイルにアクセスできません。")
+        real_rename(src, dst)
+
+    monkeypatch.setattr(build_package.os, "rename", flaky_rename)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    moved = archive_previous_distributions(dist_dir, archive_dir)
+
+    assert moved == [archive_dir / "Michinari-v1.2.2.zip"]
+    assert call_count == 3
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * 2
+    assert not (dist_dir / "Michinari-v1.2.2.zip").exists()
+
+
+def test_archive_previous_distributions_warns_and_continues_when_rename_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """1件の退避が再試行しても失敗した場合、その1件は`dist/`に残したまま他の対象の
+    退避は継続し、ビルドは中断しない（`shutil.move`のコピー＋削除フォールバックのように
+    中途半端な状態にはならないことも確認する）。
+    """
+    dist_dir = tmp_path / "dist"
+    archive_dir = dist_dir / "_archive"
+    dist_dir.mkdir(parents=True)
+    (dist_dir / "Michinari-v1.2.1.zip").write_text("locked", encoding="utf-8")
+    (dist_dir / "Michinari-v1.2.1.commit.json").write_text("{}", encoding="utf-8")
+
+    real_rename = build_package.os.rename
+
+    def rename_that_locks_only_the_zip(src: Path, dst: Path) -> None:
+        if Path(src).suffix == ".zip":
+            raise PermissionError("プロセスはファイルにアクセスできません。")
+        real_rename(src, dst)
+
+    monkeypatch.setattr(build_package.os, "rename", rename_that_locks_only_the_zip)
+    sleep_calls: list[float] = []
+    monkeypatch.setattr(build_package.time, "sleep", sleep_calls.append)
+
+    moved = archive_previous_distributions(dist_dir, archive_dir)
+
+    assert moved == [archive_dir / "Michinari-v1.2.1.commit.json"]
+    assert (dist_dir / "Michinari-v1.2.1.zip").read_text(encoding="utf-8") == "locked"
+    assert not (archive_dir / "Michinari-v1.2.1.zip").exists()
+    assert "既存の配布物を退避できませんでした" in capsys.readouterr().out
+    assert sleep_calls == [build_package.RMTREE_RETRY_DELAY_SECONDS] * (
+        build_package.RMTREE_RETRY_ATTEMPTS - 1
+    )
 
 
 def test_discard_previous_package_returns_none_when_no_existing_output(tmp_path: Path) -> None:
