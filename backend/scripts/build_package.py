@@ -165,6 +165,34 @@ def _rmtree_with_retry(
     return last_error
 
 
+def _rename_with_retry(
+    src: Path, dst: Path, *, retry_attempts: int, retry_delay_seconds: float
+) -> OSError | None:
+    """`src`を`dst`へ改名する。`_rmtree_with_retry`と同じ待機パターンで
+    `retry_attempts`回まで`retry_delay_seconds`秒間隔で再試行する（CLAUDE.md DRYの原則）。
+
+    `shutil.move`ではなくこの関数（`os.rename`のみ）を`discard_previous_package`から使うのは、
+    `shutil.move`が改名の失敗を検知すると内部で「コピー→コピー元の削除」に自動フォールバック
+    するためである。フォールバック後のコピー元削除がロックで失敗すると、コピー先に複製が
+    できた状態のままコピー元も残るという中途半端な状態になる（2026-09-26、`dist/Michinari`の
+    改名がOneDriveの一時ロックで`WinError 32`になりフォールバックが発動、コピー後の削除が
+    `alembic/versions/__pycache__`で`WinError 5`になりビルドが停止した）。改名だけを再試行
+    すれば、失敗時も`src`・`dst`のどちらか一方しか存在しない状態を保てる。
+
+    戻り値: 改名できた場合は`None`、全て失敗した場合は最後の`OSError`。
+    """
+    last_error: OSError | None = None
+    for attempt in range(1, retry_attempts + 1):
+        try:
+            os.rename(src, dst)
+            return None
+        except OSError as error:
+            last_error = error
+            if attempt < retry_attempts:
+                time.sleep(retry_delay_seconds)
+    return last_error
+
+
 def discard_previous_package(
     output_dir: Path,
     *,
@@ -175,9 +203,16 @@ def discard_previous_package(
     """既存のビルド出力フォルダを削除し、同じ場所へ新しいバージョンをビルドできるようにする。
 
     削除は「同階層の一時名へリネーム → その一時フォルダを再帰削除」の2段階で行う。
-    リネームはディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、
+    リネームはディレクトリエントリの付け替えのみで完了するため通常は出力先を確実に空けられ、
     OneDriveファイルオンデマンド配下で再帰削除が`WinError 5 アクセスが拒否されました`に
     なる事象（OPERATIONS.md参照）が起きても、ビルド自体は中断せずに進められる。
+
+    リネーム自体も`_rename_with_retry`により`RMTREE_RETRY_ATTEMPTS`回まで
+    `RMTREE_RETRY_DELAY_SECONDS`秒間隔で再試行する（2026-09-26、リネームが一時的な
+    OneDriveロックで失敗する事象も観測されたため。`_rename_with_retry`のdocstring参照）。
+    再試行しても失敗した場合は出力先フォルダに手を付けず警告のみ表示してビルドを継続する
+    （この場合PyInstaller側の`--noconfirm`任せになるため、同じロックが残っていれば
+    後続のビルド手順で失敗する可能性がある）。
 
     再帰削除自体も`RMTREE_RETRY_ATTEMPTS`回まで`RMTREE_RETRY_DELAY_SECONDS`秒間隔で
     再試行する（`uv sync`・`unlink_retrying`と同じ待機パターン）。OneDriveのロックは
@@ -190,13 +225,22 @@ def discard_previous_package(
     PyInstallerの`--noconfirm`任せにせず本スクリプト側で先に空けるのも同じ理由である。
 
     戻り値: 削除に失敗して残った一時フォルダのパス。削除できた場合・既存フォルダが
-    無い場合は`None`。
+    無い場合・リネーム自体に失敗した場合は`None`。
     """
     if not output_dir.exists():
         return None
     timestamp = (now or dt.datetime.now()).strftime("%Y%m%d_%H%M%S")
     staging_dir = output_dir.parent / f"{PREVIOUS_PACKAGE_PREFIX}{output_dir.name}_{timestamp}"
-    shutil.move(str(output_dir), str(staging_dir))
+    rename_error = _rename_with_retry(
+        output_dir,
+        staging_dir,
+        retry_attempts=retry_attempts,
+        retry_delay_seconds=retry_delay_seconds,
+    )
+    if rename_error is not None:
+        print(f"  → 警告: 旧パッケージを退避できませんでした: {output_dir} ({rename_error})")
+        print("     ビルドは継続します。出力先が使用中だと後続の手順で失敗する場合があります")
+        return None
     last_error = _rmtree_with_retry(
         staging_dir, retry_attempts=retry_attempts, retry_delay_seconds=retry_delay_seconds
     )
