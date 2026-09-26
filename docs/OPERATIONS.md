@@ -517,6 +517,9 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （OneDriveロックによる`WinError 5`/`WinError 32`）で失敗した場合は`uv sync`と
    同じ3秒待って最大5回（`RMTREE_RETRY_ATTEMPTS`/`RMTREE_RETRY_DELAY_SECONDS`）
    まで自動的に再試行する（`_rename_with_retry`/`_rmtree_with_retry`）。
+   `archive_previous_distributions`の退避（zip・記録ファイルの改名）も同じ
+   `_rename_with_retry`を使う。1件が再試行しても失敗した場合はその1件を`dist/`直下に
+   残したまま警告を表示し、他の対象の退避は継続する（CLAUDE.md DRYの原則）。
 
    改名を再試行しても全て失敗した場合は`backend/dist/Michinari/`に一切手を付けず
    警告のみ表示してビルドを継続する（2026-09-26、`shutil.move`任せにしていた頃は
