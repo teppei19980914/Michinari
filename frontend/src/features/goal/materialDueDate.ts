@@ -22,12 +22,13 @@ function isoDateMinusOneDay(isoDate: string): string {
  * サーバ側（material_service.py）が引き続き唯一の実装箇所とする。
  *
  * 算出結果が開始日より前になる場合は開始日を返す（受験日を開始日以前・当日に設定した
- * 場合の例外処置。compute_due_dateと同じクランプ規則）。
+ * 場合の例外処置。ただし受験日自体は超えない。compute_due_dateと同じクランプ規則）。
  *
  * @param subjects 目標配下の全試験科目（GoalDetailRead.exam_subjects）
  * @param subjectIds 教材フォームで選択中の科目ID
  * @param startDate 教材フォームの開始日（ISO 8601）
- * @returns 選択科目の最も早い受験日の前日（ISO 8601、開始日未満にはならない）。算出不能な場合はnull
+ * @returns 選択科目の最も早い受験日の前日（ISO 8601、開始日未満・受験日超にはならない）。
+ *   算出不能な場合はnull
  */
 export function computeAutoDueDate(
   subjects: DueDateSubject[],
@@ -43,7 +44,8 @@ export function computeAutoDueDate(
   }
   const earliest = examDates.reduce((min, current) => (current < min ? current : min))
   const dueDate = isoDateMinusOneDay(earliest)
-  return startDate && startDate > dueDate ? startDate : dueDate
+  const clampedLow = startDate && startDate > dueDate ? startDate : dueDate
+  return clampedLow < earliest ? clampedLow : earliest
 }
 
 /**

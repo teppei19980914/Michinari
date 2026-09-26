@@ -27,9 +27,8 @@ vi.mock('../../api/goals', () => ({
 }))
 
 const SUBJECT_NAME = '科目A'
-/** 科目Aの受験日（fixtures の既定値）。締切の自動導出はこの前日になる。 */
-const AUTO_DUE_DATE = '2026-11-30'
-/** 自動導出の締切より前の開始日。開始日は必須項目のため、入れないと送信自体が行われない。 */
+/** 自動導出の締切（科目Aの受験日＝2026-12-01の前日）より前の開始日。
+ * 開始日は必須項目のため、入れないと送信自体が行われない。 */
 const START_DATE = '2026-09-01'
 
 // --- 要素アクセサ（同じクエリを各テストへ散らさないため先頭へ集約する） ---
@@ -351,13 +350,31 @@ describe('MaterialsTab の入力チェック', () => {
     )
 
     await openAddFormWithValidInput(user)
-    // 締切（自動導出＝科目Aの受験日の前日）より後の開始日へ入れ替える。
+    // 締切（自動導出＝科目Aの受験日の前日）よりさらに後、受験日自体も過ぎた開始日へ入れ替える。
+    // 締切は開始日未満にはならないようクランプされるが受験日より後にはならないため、
+    // 表示される締切は受験日そのもの（2026-12-01）になり、依然として開始日より前でエラーになる。
     setDate(dateInputs(container)[0], '2026-12-31')
 
     expect(
-      screen.getByText(t('goals.materials.startDateAfterDueDateError', { dueDate: AUTO_DUE_DATE })),
+      screen.getByText(t('goals.materials.startDateAfterDueDateError', { dueDate: '2026-12-01' })),
     ).toBeDefined()
     expect(saveButton().hasAttribute('disabled')).toBe(true)
+  })
+
+  it('allows saving when the start date equals the exam date (same-day cram)', async () => {
+    const user = userEvent.setup()
+    const { container } = renderWithProviders(
+      <MaterialsTab goal={makeGoalDetail()} readOnly={false} />,
+    )
+
+    await openAddFormWithValidInput(user)
+    // 受験日（2026-12-01）当日を開始日にするケース。締切は開始日にクランプされ矛盾しない。
+    setDate(dateInputs(container)[0], '2026-12-01')
+
+    expect(
+      screen.queryByText(t('goals.materials.startDateAfterDueDateError', { dueDate: '2026-12-01' })),
+    ).toBeNull()
+    expect(saveButton().hasAttribute('disabled')).toBe(false)
   })
 
   it('keeps saving disabled while no subject is selected', async () => {
