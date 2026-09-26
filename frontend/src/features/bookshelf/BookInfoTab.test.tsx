@@ -66,4 +66,11 @@ describe('BookInfoTab', () => {
 
     expect(screen.queryByText(t('bookshelf.detail.info.progressRate'))).toBeNull()
   })
+
+  it('does not render an author line when the book has no author', () => {
+    const book = makeBook({ author: null })
+    render(<BookInfoTab book={book} goal={makeGoal({ status: 'CLOSED_WITH_RESULT' })} />)
+
+    expect(screen.queryByText('著者A')).toBeNull()
+  })
 })
