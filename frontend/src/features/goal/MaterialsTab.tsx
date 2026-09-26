@@ -44,7 +44,7 @@ function MaterialForm({
   const form = useMaterialForm(material)
   const { values } = form
 
-  const autoDueDate = computeAutoDueDate(goal.exam_subjects, values.subjectIds)
+  const autoDueDate = computeAutoDueDate(goal.exam_subjects, values.subjectIds, values.startDate)
   const startDateError = resolveStartDateError({
     startDate: values.startDate,
     dueDateIsManual: values.dueDateIsManual,
