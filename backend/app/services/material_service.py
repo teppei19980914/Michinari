@@ -58,12 +58,16 @@ def effective_exam_date(subject: ExamSubject) -> dt.date:
 def compute_due_date(subjects: list[ExamSubject], start_date: dt.date) -> dt.date:
     """紐づく科目の最も早い有効受験日の前日を締切として算出する（データ構造編5.3）。
 
-    算出結果が開始日より前になる場合は開始日を締切とする。受験日を開始日以前
-    （当日を含む）に設定した場合の例外処置であり、これが無いと締切超過（NT-06、
-    threshold_service.check_deadline_overrun）が教材の作成直後に誤って成立してしまう。
+    算出結果が開始日より前になる場合は開始日を締切とする（開始日を下限とするクランプ）。
+    受験日を開始日以前（当日を含む）に設定した場合の例外処置であり、これが無いと
+    締切超過（NT-06、threshold_service.check_deadline_overrun）が教材の作成直後に
+    誤って成立してしまう。ただし締切は受験日自体を上限とする（開始日が受験日より
+    さらに後の場合にまで締切を引き上げると、受験日を過ぎてから学習を始める矛盾した
+    状態を許容してしまうため、この場合は締切<開始日のまま残し呼び出し元のバリデーション
+    （start_date > resolved_due_date）に委ねる）。
     """
     earliest = min(effective_exam_date(subject) for subject in subjects)
-    return max(earliest - dt.timedelta(days=1), start_date)
+    return min(earliest, max(earliest - dt.timedelta(days=1), start_date))
 
 
 def _resolve_subjects(session: Session, goal: Goal, subject_ids: list[int]) -> list[ExamSubject]:

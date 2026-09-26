@@ -644,7 +644,15 @@
         "DAILY_FEEDBACK": "日次報告フィードバック",
         "WEEKLY_SUMMARY": "週次要約",
         "DAILY_MESSAGE": "今日の一言",
-        "GOAL_RETROSPECTIVE": "総括レポート"
+        "GOAL_RETROSPECTIVE": "総括レポート",
+        "DAILY_FEEDBACK_READING": "日次報告フィードバック（読書）",
+        "GOAL_RETROSPECTIVE_READING": "総括レポート（読書）",
+        "WEEKLY_SUMMARY_READING": "週次要約（読書）",
+        "DAILY_FEEDBACK_WORK": "日次報告フィードバック（仕事）",
+        "GOAL_RETROSPECTIVE_WORK_MONTHLY": "月次報告（仕事）",
+        "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "半期評価（仕事）",
+        "WEEKLY_SUMMARY_WORK": "週次要約（仕事）",
+        "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）"
       }
     },
     "log": {
