@@ -83,6 +83,11 @@ export default defineConfig({
         // 診断ログのエクスポート（Phase40）。期間の決定（プリセット/手動入力）と
         // ローディング・エラー分岐を持つため、他の確認モーダル・タブ類と同じ方針で含める。
         'src/features/systemInfo/LogExportSection.tsx',
+        // 本棚（Phase41）。読了/中断の出し分け・アーカイブ操作の確認ダイアログを持つため
+        // 同じ方針で含める。
+        'src/features/bookshelf/BookSpineCard.tsx',
+        'src/features/bookshelf/BookInfoTab.tsx',
+        'src/features/bookshelf/BookShelfSection.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',
