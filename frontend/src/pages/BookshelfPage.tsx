@@ -46,7 +46,7 @@ export function BookshelfPage() {
   const archivedEntries = [...grouped.archived.completed, ...grouped.archived.interrupted]
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-gray-900">{t('bookshelf.title')}</h1>
 
       {booksQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}

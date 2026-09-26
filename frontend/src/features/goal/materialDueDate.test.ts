@@ -10,21 +10,38 @@ describe('computeAutoDueDate', () => {
   ]
 
   it('returns the day before the earliest effective exam date among selected subjects', () => {
-    expect(computeAutoDueDate(subjects, [1, 2])).toBe('2026-08-26')
+    expect(computeAutoDueDate(subjects, [1, 2], '2026-01-01')).toBe('2026-08-26')
   })
 
   it('uses exam_date_fixed for FIXED-type subjects', () => {
-    expect(computeAutoDueDate(subjects, [3])).toBe('2026-08-31')
+    expect(computeAutoDueDate(subjects, [3], '2026-01-01')).toBe('2026-08-31')
   })
 
   it('returns null when no subject is selected or no exam date resolves', () => {
-    expect(computeAutoDueDate(subjects, [])).toBeNull()
-    expect(computeAutoDueDate([{ id: 4, exam_date_type: 'RANGE', exam_date_from: null, exam_date_fixed: null }], [4])).toBeNull()
+    expect(computeAutoDueDate(subjects, [], '2026-01-01')).toBeNull()
+    expect(
+      computeAutoDueDate(
+        [{ id: 4, exam_date_type: 'RANGE', exam_date_from: null, exam_date_fixed: null }],
+        [4],
+        '2026-01-01',
+      ),
+    ).toBeNull()
   })
 
   it('keeps the earliest date when later subjects have later exam dates', () => {
     // 最も早い受験日が配列の先頭に来る順序（reduce の「更新しない」側）の検証。
-    expect(computeAutoDueDate(subjects, [2, 3])).toBe('2026-08-26')
+    expect(computeAutoDueDate(subjects, [2, 3], '2026-01-01')).toBe('2026-08-26')
+  })
+
+  it('clamps to the start date when the exam date is on or before the start date', () => {
+    // 受験日=開始日当日のケース（受験日の前日という式のままだと開始日より前になる）。
+    expect(computeAutoDueDate(subjects, [3], '2026-09-01')).toBe('2026-09-01')
+    // 受験日が開始日より前（さらに極端なケース）でも開始日を下限にする。
+    expect(computeAutoDueDate(subjects, [3], '2026-09-15')).toBe('2026-09-15')
+  })
+
+  it('does not clamp when no start date is given yet', () => {
+    expect(computeAutoDueDate(subjects, [3], '')).toBe('2026-08-31')
   })
 })
 
