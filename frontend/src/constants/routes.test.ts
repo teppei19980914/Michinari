@@ -25,6 +25,7 @@ describe('ROUTES（パラメータを取るパス）', () => {
     ['goalDetail', ROUTES.goalDetail(GOAL_ID), ROUTE_PATTERNS.goalDetail, { goalId }],
     ['goalExport', ROUTES.goalExport(GOAL_ID), ROUTE_PATTERNS.goalExport, { goalId }],
     ['goalResult', ROUTES.goalResult(GOAL_ID), ROUTE_PATTERNS.goalResult, { goalId }],
+    ['bookDetail', ROUTES.bookDetail(GOAL_ID), ROUTE_PATTERNS.bookDetail, { goalId }],
     ['dailyReport', ROUTES.dailyReport(TARGET_DATE), ROUTE_PATTERNS.dailyReport, { date: TARGET_DATE }],
     [
       'dailyReportProgress',
@@ -45,6 +46,7 @@ describe('ROUTES（パラメータを取るパス）', () => {
   it('keeps the concrete values so a pattern-wide rename cannot pass unnoticed', () => {
     expect(ROUTES.goalDetail(GOAL_ID)).toBe('/goals/1')
     expect(ROUTES.goalResult(GOAL_ID)).toBe('/goals/1/result')
+    expect(ROUTES.bookDetail(GOAL_ID)).toBe('/bookshelf/1')
     expect(ROUTES.dailyReport(TARGET_DATE)).toBe('/records/2026-09-13/report')
   })
 })
@@ -53,6 +55,7 @@ describe('ROUTES（固定パス）', () => {
   it('reuses the route patterns as they are', () => {
     expect(ROUTES.dashboard).toBe(ROUTE_PATTERNS.dashboard)
     expect(ROUTES.goals).toBe(ROUTE_PATTERNS.goals)
+    expect(ROUTES.bookshelf).toBe(ROUTE_PATTERNS.bookshelf)
     expect(ROUTES.resources).toBe(ROUTE_PATTERNS.resources)
     expect(ROUTES.calendar).toBe(ROUTE_PATTERNS.calendar)
     expect(ROUTES.analytics).toBe(ROUTE_PATTERNS.analytics)

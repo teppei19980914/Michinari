@@ -39,6 +39,11 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: 'bookshelf',
+    titleKey: 'help.sections.bookshelf.title',
+    bodyKeys: ['help.sections.bookshelf.p1', 'help.sections.bookshelf.p2'],
+  },
+  {
     id: 'resources',
     titleKey: 'help.sections.resources.title',
     bodyKeys: ['help.sections.resources.p1', 'help.sections.resources.p2'],

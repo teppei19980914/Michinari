@@ -23,6 +23,8 @@ import { ProgressOnlyPage } from './pages/ProgressOnlyPage'
 import { DailyReportViewPage } from './pages/DailyReportViewPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { HelpPage } from './pages/HelpPage'
+import { BookshelfPage } from './pages/BookshelfPage'
+import { BookDetailPage } from './pages/BookDetailPage'
 
 const queryClient = new QueryClient()
 
@@ -51,6 +53,8 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.goalDetail} element={<GoalDetailPage />} />
       <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
       <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />
+      <Route path={ROUTE_PATTERNS.bookshelf} element={<BookshelfPage />} />
+      <Route path={ROUTE_PATTERNS.bookDetail} element={<BookDetailPage />} />
       <Route path={ROUTE_PATTERNS.resources} element={<ResourceSettingsPage />} />
       <Route path={ROUTE_PATTERNS.calendar} element={<CalendarPage />} />
       <Route path={ROUTE_PATTERNS.analytics} element={<AnalyticsPage />} />
