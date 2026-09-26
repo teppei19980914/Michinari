@@ -55,10 +55,15 @@ def effective_exam_date(subject: ExamSubject) -> dt.date:
     return subject.exam_date_from
 
 
-def compute_due_date(subjects: list[ExamSubject]) -> dt.date:
-    """紐づく科目の最も早い有効受験日の前日を締切として算出する（データ構造編5.3）。"""
+def compute_due_date(subjects: list[ExamSubject], start_date: dt.date) -> dt.date:
+    """紐づく科目の最も早い有効受験日の前日を締切として算出する（データ構造編5.3）。
+
+    算出結果が開始日より前になる場合は開始日を締切とする。受験日を開始日以前
+    （当日を含む）に設定した場合の例外処置であり、これが無いと締切超過（NT-06、
+    threshold_service.check_deadline_overrun）が教材の作成直後に誤って成立してしまう。
+    """
     earliest = min(effective_exam_date(subject) for subject in subjects)
-    return earliest - dt.timedelta(days=1)
+    return max(earliest - dt.timedelta(days=1), start_date)
 
 
 def _resolve_subjects(session: Session, goal: Goal, subject_ids: list[int]) -> list[ExamSubject]:
@@ -112,7 +117,7 @@ def create_material(
             raise ValidationError("締切を手動設定する場合は締切日を指定してください")
         resolved_due_date = due_date
     else:
-        resolved_due_date = compute_due_date(subjects)
+        resolved_due_date = compute_due_date(subjects, start_date)
     if start_date > resolved_due_date:
         raise ValidationError(_MSG_START_DATE_AFTER_DUE_DATE)
 
@@ -186,10 +191,12 @@ def update_material(
         material.due_date_is_manual = due_date_is_manual
     if subject_ids is not None:
         _replace_subject_links(session, material, subject_ids)
-    _apply_due_date(material, due_date)
-
     if start_date is not None:
         material.start_date = start_date
+    # start_dateの反映後に自動導出する（compute_due_dateのクランプ〈開始日未満を禁止〉が
+    # 更新後の開始日を基準にするため、_apply_due_dateより前に反映しておく必要がある）。
+    _apply_due_date(material, due_date)
+
     if material.start_date > material.due_date:
         raise ValidationError(_MSG_START_DATE_AFTER_DUE_DATE)
     session.flush()
@@ -246,7 +253,7 @@ def _apply_due_date(material: Material, due_date: dt.date | None) -> None:
     # subjectsが空になるのは教材が科目に1件も紐付いていない状態だが、作成時・更新時とも
     # 空リストを許容しないため到達し得ない防御的分岐（異常系、CODING_RULES.md）。
     if subjects:  # pragma: no branch
-        material.due_date = compute_due_date(subjects)
+        material.due_date = compute_due_date(subjects, material.start_date)
 
 
 def _maybe_record_baseline(
@@ -281,7 +288,7 @@ def recalculate_due_dates_for_subject(
         if material.due_date_is_manual:
             continue
         subjects = [ml.subject for ml in material.subject_links]
-        new_due_date = compute_due_date(subjects)
+        new_due_date = compute_due_date(subjects, material.start_date)
         if new_due_date == material.due_date:
             continue
         material.due_date = new_due_date
