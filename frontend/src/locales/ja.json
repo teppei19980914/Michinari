@@ -180,21 +180,21 @@
         "EXAM": "資格試験",
         "READING": "読書",
         "WORK": "仕事"
+      },
+      "quickCreate": {
+        "reading": {
+          "title": "本を1冊登録する",
+          "titleLabel": "書名",
+          "authorLabel": "著者（任意）",
+          "totalPagesLabel": "総ページ数（任意）"
+        },
+        "work": {
+          "title": "案件を1件登録する",
+          "nameLabel": "案件名",
+          "summaryLabel": "概要（任意）"
+        },
+        "submitButton": "登録してはじめる"
       }
-    },
-    "quickCreate": {
-      "reading": {
-        "title": "本を1冊登録する",
-        "titleLabel": "書名",
-        "authorLabel": "著者（任意）",
-        "totalPagesLabel": "総ページ数（任意）"
-      },
-      "work": {
-        "title": "案件を1件登録する",
-        "nameLabel": "案件名",
-        "summaryLabel": "概要（任意）"
-      },
-      "submitButton": "登録してはじめる"
     },
     "examWizard": {
       "title": "資格試験の目標を作成",
