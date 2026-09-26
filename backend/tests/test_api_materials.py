@@ -48,7 +48,18 @@ def test_create_material_derives_due_date_from_subject(client):
     assert material["remaining"] == 100.0
 
 
+def test_create_material_clamps_due_date_to_start_date_when_exam_is_on_start_date(client):
+    """受験日=開始日当日でも締切は開始日にクランプされ、矛盾エラーにならない（同日集中のケース）。"""
+    goal, subject_id = _create_goal_with_subject(client)
+    material = _create_material(
+        client, goal["id"], [subject_id], start_date="2026-06-01"
+    )
+    assert material["due_date"] == "2026-06-01"
+
+
 def test_create_material_rejects_start_after_due_date(client):
+    """開始日が受験日そのものより後（受験日を過ぎてから学習を始める矛盾した入力）は、
+    締切を受験日より引き上げず、従来通り拒否する。"""
     goal, subject_id = _create_goal_with_subject(client)
     response = client.post(
         f"/api/v1/goals/{goal['id']}/materials",
@@ -58,7 +69,7 @@ def test_create_material_rejects_start_after_due_date(client):
             "total_amount": 100,
             "planned_cycles": 1,
             "subject_ids": [subject_id],
-            "start_date": "2026-06-01",
+            "start_date": "2026-06-02",
             "due_date_is_manual": False,
         },
     )
@@ -327,6 +338,18 @@ def test_update_material_rejects_start_after_due_date(client):
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_update_material_clamps_due_date_when_start_date_moved_to_exam_date(client):
+    """開始日を受験日当日まで動かしても、締切が開始日にクランプされ矛盾エラーにならない。"""
+    goal, subject_id = _create_goal_with_subject(client)
+    material = _create_material(client, goal["id"], [subject_id])
+
+    response = client.patch(
+        f"/api/v1/materials/{material['id']}", json={"start_date": "2026-06-01"}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["due_date"] == "2026-06-01"
 
 
 def test_update_material_simple_fields(client):

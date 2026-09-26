@@ -33,11 +33,15 @@ describe('computeAutoDueDate', () => {
     expect(computeAutoDueDate(subjects, [2, 3], '2026-01-01')).toBe('2026-08-26')
   })
 
-  it('clamps to the start date when the exam date is on or before the start date', () => {
+  it('clamps up to the start date when the exam date is on the start date', () => {
     // 受験日=開始日当日のケース（受験日の前日という式のままだと開始日より前になる）。
     expect(computeAutoDueDate(subjects, [3], '2026-09-01')).toBe('2026-09-01')
-    // 受験日が開始日より前（さらに極端なケース）でも開始日を下限にする。
-    expect(computeAutoDueDate(subjects, [3], '2026-09-15')).toBe('2026-09-15')
+  })
+
+  it('caps at the exam date itself when the start date is even later than the exam date', () => {
+    // 開始日が受験日より後（受験日を過ぎてから学習を始める矛盾した入力）の場合は、
+    // 締切を開始日まで引き上げず受験日で頭打ちにする（開始日側のバリデーションに委ねる）。
+    expect(computeAutoDueDate(subjects, [3], '2026-09-15')).toBe('2026-09-01')
   })
 
   it('does not clamp when no start date is given yet', () => {
