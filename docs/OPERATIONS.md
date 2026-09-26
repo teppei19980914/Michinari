@@ -512,10 +512,21 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    （`archive_previous_distributions`／`discard_previous_package`）。
    旧バージョンを調べたいときは `_archive/` のzipを展開する。
 
-   `discard_previous_package` の削除（`shutil.rmtree`）が
-   `PermissionError`/`OSError`（OneDriveロックによる`WinError 5`）で失敗した場合は、
-   `uv sync`と同じ3秒待って最大5回（`RMTREE_RETRY_ATTEMPTS`/
-   `RMTREE_RETRY_DELAY_SECONDS`）まで自動的に再試行する。全て失敗した場合のみ
+   `discard_previous_package` は「改名（`os.rename`）→ 改名先の再帰削除
+   （`shutil.rmtree`）」の2段階で行い、どちらの段階も`PermissionError`/`OSError`
+   （OneDriveロックによる`WinError 5`/`WinError 32`）で失敗した場合は`uv sync`と
+   同じ3秒待って最大5回（`RMTREE_RETRY_ATTEMPTS`/`RMTREE_RETRY_DELAY_SECONDS`）
+   まで自動的に再試行する（`_rename_with_retry`/`_rmtree_with_retry`）。
+
+   改名を再試行しても全て失敗した場合は`backend/dist/Michinari/`に一切手を付けず
+   警告のみ表示してビルドを継続する（2026-09-26、`shutil.move`任せにしていた頃は
+   改名失敗時に内部でコピー＋コピー元削除へ自動フォールバックし、コピー元の削除だけが
+   `alembic/versions/__pycache__`のロックで失敗して「コピー先に複製ができた状態で
+   コピー元も残る」中途半端な状態になりビルドが停止した。改名のみを再試行する方式に
+   変更して解消）。この場合PyInstaller側の`--noconfirm`任せになるため、同じロックが
+   残っていれば後続のビルド手順で失敗する可能性がある。
+
+   改名後の再帰削除が全て失敗した場合のみ
    `backend/dist/_previous_Michinari_YYYYMMDD_HHMMSS/` を残す（警告表示、ビルドは
    継続）。**このフォルダは意図した退避先ではなく削除に失敗した残骸であり、同じ内容は
    `_archive/`のzipに残っているため、手動削除しても問題ない**（次回ビルド開始時にも
@@ -614,11 +625,22 @@ zipが不要になれば手動で削除してよい（`backend/dist/` は `.giti
 
 削除は「同階層の一時フォルダ（`_previous_Michinari_YYYYMMDD_HHMMSS`）へリネーム →
 その一時フォルダを再帰削除」の2段階で行う（`discard_previous_package`）。リネームは
-ディレクトリエントリの付け替えのみで完了するため出力先を確実に空けられ、OneDrive
-ファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
-`shutil.rmtree`による再帰削除が`WinError 5 アクセスが拒否されました`になっても、
-警告を表示して一時フォルダを残すだけでビルドは継続できる（残った一時フォルダは
-zip化の対象外なので配布物には混入しない。不要になったら手動で削除する）。
+`os.rename`（ディレクトリエントリの付け替えのみ）を直接使い、`shutil.move`のような
+「失敗時にコピー＋コピー元削除へ自動フォールバックする」経路は使わない（詳細後述）。
+OneDriveファイルオンデマンド配下（リポジトリがOneDrive同期フォルダ内にある場合）で
+リネーム・`shutil.rmtree`による再帰削除のどちらかが`WinError 5 アクセスが拒否
+されました`/`WinError 32 プロセスはファイルにアクセスできません`になっても、
+両方とも再試行したうえで警告を表示するだけでビルドは継続できる（削除側の再試行で
+残った一時フォルダはzip化の対象外なので配布物には混入しない。不要になったら手動で
+削除する）。
+
+リネーム自体が再試行しても全て失敗した場合は、出力フォルダ`backend/dist/Michinari/`
+には一切手を付けない（2026-09-26、`shutil.move`任せにしていた頃は改名失敗時の
+コピー＋削除フォールバックがロックで中途半端に失敗し、コピー先に複製ができた状態で
+コピー元も残ってビルドが停止する事象が発生した。`os.rename`のみを再試行する方式へ
+変更して、失敗時も出力フォルダかその改名先かどちらか一方しか存在しない状態を保つ
+ようにした）。この場合はPyInstaller側の`--noconfirm`任せになるため、同じロックが
+残っていれば後続のビルド手順で失敗する可能性がある。
 `backend/dist/_archive/` は自動生成物のため不要になったら手動で削除してよい
 （`.gitignore`で`backend/dist/`ごと除外済み）。
 
