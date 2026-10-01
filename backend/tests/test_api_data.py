@@ -29,7 +29,32 @@ def _insert_minimal_goal(db_path, *, id_=1, name="マーカー"):
         connection.close()
 
 
+class _NoopConnection:
+    def __enter__(self) -> "_NoopConnection":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def exec_driver_sql(self, sql: str) -> None:
+        pass
+
+
+class _NoopDialect:
+    name = "sqlite"
+
+
 class _NoopEngine:
+    """checkpoint_and_dispose（database.py）がdialect.name・connect()も参照するため、
+    実際のEngineと同じ最小限のインターフェースをここでも提供する（test_backup_service.py
+    の_NoopEngineと同じ理由）。"""
+
+    def __init__(self) -> None:
+        self.dialect = _NoopDialect()
+
+    def connect(self) -> _NoopConnection:
+        return _NoopConnection()
+
     def dispose(self) -> None:
         pass
 

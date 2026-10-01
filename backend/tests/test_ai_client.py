@@ -171,11 +171,37 @@ def test_get_assistants_excludes_unsupported_assistants(seeded_session, monkeypa
             super().__init__(config_manager)
             self.assistants_result = [
                 {"uid": "a1", "name": "アシスタントA"},
-                {"uid": "a2", "name": "GPT-4o mini"},
-                {"uid": "a3", "name": "GPT-4o"},
+                {"uid": "13358019-9ed8-4578-8490-583804ef5c78", "name": "GPT-4o mini(高速)"},
+                {"uid": "8d0bbf4e-79c1-4f9e-9e9a-a034b784b11a", "name": "GPT-4o(高性能)"},
             ]
 
     monkeypatch.setattr(ai_client, "NewtonXClient", _ClientWithUnsupportedAssistants)
+
+    result = ai_client.get_assistants(seeded_session)
+
+    assert result == [{"uid": "a1", "name": "アシスタントA"}]
+
+
+def test_get_assistants_excludes_unsupported_assistants_even_if_name_changes(
+    seeded_session, monkeypatch
+):
+    """名称（nameフィールド）がAI基盤側の都合で変動しても、UIDが一致すれば除外され続けることを
+    確認する（2026-10-01実機確認：「GPT-4o mini」→「GPT-4o mini(高速)」のように表記が変動し、
+    旧来の名称完全一致判定では除外されなくなっていた不具合の回帰防止）。
+    """
+
+    class _ClientWithRenamedUnsupportedAssistants(FakeNewtonXClient):
+        def __init__(self, config_manager):
+            super().__init__(config_manager)
+            self.assistants_result = [
+                {"uid": "a1", "name": "アシスタントA"},
+                {
+                    "uid": "13358019-9ed8-4578-8490-583804ef5c78",
+                    "name": "GPT-4o mini(超高速・改)",
+                },
+            ]
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _ClientWithRenamedUnsupportedAssistants)
 
     result = ai_client.get_assistants(seeded_session)
 
