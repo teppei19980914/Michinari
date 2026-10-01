@@ -4,13 +4,12 @@
  * から移したものである。
  *
  * 総括レポート本文は見出しを用いた構造的な文書としてAI生成されるため（GOAL_RETROSPECTIVE /
- * GOAL_RETROSPECTIVE_READINGプロンプト）、WeeklyDigestSectionと同じくreact-markdownで
- * プレビュー表示する。rehype-rawは導入しないためXSSにはならない（詳細はWeeklyDigestSection
- * のコメント参照）。 */
+ * GOAL_RETROSPECTIVE_READINGプロンプト）、WeeklyDigestSectionと同じくMarkdownText
+ * （XSS安全設計の詳細もそちらを参照）でプレビュー表示する。 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import ReactMarkdown from 'react-markdown'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { MarkdownText } from '../../components/MarkdownText'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
@@ -56,9 +55,7 @@ export function RetrospectiveSection({
       {mutation.isPending ? (
         <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.generating')}</p>
       ) : body ? (
-        <div className="prose prose-sm prose-gray max-w-none text-gray-700">
-          <ReactMarkdown>{body}</ReactMarkdown>
-        </div>
+        <MarkdownText text={body} className="text-gray-700" />
       ) : (
         <p className="text-sm text-gray-500">
           {t(
