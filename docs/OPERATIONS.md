@@ -1220,6 +1220,7 @@ osv-scanner --version                      # 導入確認
 | 「終了」を選んでもプロセスが残る | 停止処理が完了していない | uvicornは処理中のリクエストの完了を `app_setting` の `server.graceful_shutdown_seconds`（既定10秒）まで待つ。それを過ぎても残る場合はログを添えて起票する（`tests/test_desktop_runner.py` の `TestServerThreadLifecycle` が実起動で停止まで検証している） |
 | 自動起動を有効にしたのに起動しない | ソースからの起動で設定した | 自動起動の登録は配布パッケージ（`sys.frozen`）でのみ行う。ソース起動時はログに「自動起動の設定はソースからの起動では反映しません」と記録される。登録先は `HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run` の `Michinari` |
 | 利用者からエラーの問い合わせを受けたが状況が分からない（Phase40） | 障害調査に必要なログが手元にない | 画面のエラー表示に出る「エラーID」（`X-Request-Id`、`app/middleware/request_context.py`）を伝えてもらえば`michinari.log`の該当行を特定できる。エラーIDが分からない場合や複数の事象をまとめて調べたい場合は、設定画面（SC-11）→「システム情報」（SC-15）の診断ログエクスポート機能で該当期間のログをダウンロードして共有してもらう |
+| 起動直後にブラウザコンソールへ500エラーが出る（`michinari.log`に`sqlite3.OperationalError: database is locked`、2026-10-01修正） | 起動直後、複数の目標の「今日の一言」を同時生成する`GET /api/v1/daily-message`がAI基盤への応答待ちを挟んだまま書き込みトランザクションを保持し、他リクエストの書き込みと重なるとsqlite3既定の5秒以内にロックが解放されず失敗していた | `app/database.py`の`create_db_engine`でbusy timeoutを30秒へ延長しWALモードを有効化して是正済み（データ構造編1.1改31）。それでも発生する場合は再読み込みで解消するか、頻発するようならログを添えて起票する |
 
 ---
 
