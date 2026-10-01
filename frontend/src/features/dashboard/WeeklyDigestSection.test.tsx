@@ -33,6 +33,37 @@ describe('WeeklyDigestSection', () => {
     expect(screen.getByText('先週はよく頑張りました。')).toBeDefined()
   })
 
+  it('renders the AI summary text as markdown (headings/emphasis/lists)', () => {
+    renderWithProviders(
+      <WeeklyDigestSection
+        digest={makeWeeklyDigest({
+          ai_summary_text: '## 今週の振り返り\n\n**取り組んだ業務内容:**\n\n- 単体テスト\n- 手順書統合',
+        })}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { level: 2, name: '今週の振り返り' })).toBeDefined()
+    expect(screen.getByText('取り組んだ業務内容:').tagName).toBe('STRONG')
+    expect(screen.getByText('単体テスト').closest('li')).not.toBeNull()
+    expect(screen.getByText('手順書統合').closest('li')).not.toBeNull()
+  })
+
+  it('neutralizes javascript: URIs and raw HTML in the AI summary text (XSS防止、react-markdownの既定挙動の回帰検知)', () => {
+    renderWithProviders(
+      <WeeklyDigestSection
+        digest={makeWeeklyDigest({
+          ai_summary_text:
+            '[click](javascript:alert(1))\n\n<img src=x onerror=alert(1)>',
+        })}
+      />,
+    )
+
+    const link = screen.getByText('click').closest('a')
+    expect(link?.getAttribute('href')).toBe('')
+    expect(screen.queryByRole('img')).toBeNull()
+    expect(screen.getByText(/onerror=alert\(1\)/)).toBeDefined()
+  })
+
   it('shows a "no records" notice when there is no AI summary and no records', () => {
     renderWithProviders(
       <WeeklyDigestSection
