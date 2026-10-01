@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { MarkdownText } from '../../components/MarkdownText'
 import type { DashboardRead } from '../../api/dashboard'
 import { resolveWeeklyDigestDisplay } from './resolveWeeklyDigestDisplay'
 
@@ -14,7 +15,10 @@ type WeeklyDigestSectionProps = {
  * AI週次要約が生成済みならその本文を、無ければ記録日数・投下時間の非AI集計を表示する
  * （AI未設定でも先週の振り返りが得られるようにする）。表示内容の判定は
  * resolveWeeklyDigestDisplay（.ts、CODING_RULES.md「フロントの分岐は.tsへ切り出す」）
- * に委ね、本コンポーネントは描画のみを担う。 */
+ * に委ね、本コンポーネントは描画のみを担う。
+ *
+ * AI要約本文はマークダウン形式（見出し・箇条書き・強調等）で生成されるため、MarkdownText
+ * （XSS安全設計の詳細もそちらを参照）でプレビュー表示する。 */
 export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
   if (digest === null) {
     return null
@@ -29,7 +33,7 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
         <span className="text-xs text-gray-500">{weekRange}</span>
       </div>
       {display.kind === 'ai_summary' && (
-        <p className="mt-1 text-sm text-gray-800">{display.text}</p>
+        <MarkdownText text={display.text} className="mt-1 text-gray-800" />
       )}
       {display.kind === 'no_records' && (
         <p className="mt-1 text-sm text-gray-500">{t('dashboard.weeklyDigest.noRecords')}</p>
