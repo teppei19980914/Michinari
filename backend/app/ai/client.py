@@ -41,11 +41,15 @@ from app.services import setting_reader
 #: requests/開発キットが実際に発するメッセージに合わせて判定する（timeoutは英語表記のみ）。
 _TIMEOUT_MESSAGE_MARKERS = ("timeout", "timed out")
 
-#: send_messageが常に失敗することを実機確認済みのアシスタント名（設計書 データ構造編6.2、
-#: 仕様書8.9.1、実装フェーズ分割計画書Phase5前提）。将来この一覧は変動しうるため、
-#: 本リストのみに依存せず、送信失敗時の汎用エラーハンドリング（_translate_error による
-#: AI_ERROR化）と併用する設計とする。
-_UNSUPPORTED_ASSISTANT_NAMES = frozenset({"GPT-4o mini", "GPT-4o"})
+#: send_messageが常に失敗することを実機確認済みのアシスタントUID（設計書 データ構造編6.2、
+#: 仕様書8.9.1、実装フェーズ分割計画書Phase5前提）。UIDで判定するのは、名称（nameフィールド）
+#: がAI基盤側の都合で変動する（2026-10-01実機確認：「GPT-4o mini」→「GPT-4o mini(高速)」の
+#: ように末尾へ表記が追加される等）ためで、名称一致で除外すると変動時に除外漏れが起きる。
+#: 将来この一覧は変動しうるため、本リストのみに依存せず、送信失敗時の汎用エラーハンドリング
+#: （_translate_error によるAI_ERROR化）と併用する設計とする。
+_UNSUPPORTED_ASSISTANT_UIDS = frozenset(
+    {"13358019-9ed8-4578-8490-583804ef5c78", "8d0bbf4e-79c1-4f9e-9e9a-a034b784b11a"}
+)
 
 
 @dataclass(frozen=True)
@@ -138,7 +142,7 @@ def get_model_status(session: Session) -> dict[str, bool]:
 def get_assistants(session: Session) -> list[dict]:
     """アシスタント一覧を取得する（データ構造編6.2 GET /ai/assistants）。
 
-    送信が常に失敗することを確認済みのアシスタント（GPT-4o mini・GPT-4o）は
+    送信が常に失敗することを確認済みのアシスタント（GPT-4o mini・GPT-4o、UIDで判定）は
     選択肢から除外する（データ構造編6.2、仕様書8.9.1）。
     """
     client = build_client(session)
@@ -153,7 +157,7 @@ def get_assistants(session: Session) -> list[dict]:
     return [
         assistant
         for assistant in assistants
-        if assistant.get("name") not in _UNSUPPORTED_ASSISTANT_NAMES
+        if assistant.get("uid") not in _UNSUPPORTED_ASSISTANT_UIDS
     ]
 
 

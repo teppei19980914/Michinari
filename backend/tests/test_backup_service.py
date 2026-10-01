@@ -31,15 +31,38 @@ def _make_sqlite_db(path, *, extra_tables=True):
     return path
 
 
+class _NoopConnection:
+    """_NoopEngine.connect() が返すスタブ接続（WALチェックポイント呼び出しを無害化する）。"""
+
+    def __enter__(self) -> "_NoopConnection":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def exec_driver_sql(self, sql: str) -> None:
+        pass
+
+
+class _NoopDialect:
+    name = "sqlite"
+
+
 class _NoopEngine:
     """テスト用スタブ。backup_service.engine.dispose() が本物のSQLAlchemyエンジン
     （pytestが使う共有DBに紐づく）へ波及しないようにする。dispose()呼び出し自体は
     仕様（SQLiteファイルコピー前に接続を解放する）の一部として検証したいが、
     対象を本物のengineにすると、テスト間で共有される接続プールへ影響し、
-    Windows環境でテストDBファイルのロック解放に失敗することがあるため分離する。"""
+    Windows環境でテストDBファイルのロック解放に失敗することがあるため分離する。
+    checkpoint_and_dispose（database.py）がdialect.name・connect()も参照するため、
+    実際のEngineと同じ最小限のインターフェースをここでも提供する。"""
 
     def __init__(self) -> None:
         self.disposed = False
+        self.dialect = _NoopDialect()
+
+    def connect(self) -> _NoopConnection:
+        return _NoopConnection()
 
     def dispose(self) -> None:
         self.disposed = True
