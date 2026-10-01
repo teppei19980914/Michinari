@@ -41,7 +41,7 @@ from app.api.work_members import router as work_members_router
 from app.config import BACKEND_DIR, REPO_ROOT, get_settings, resolve_bundled_path
 from app.constants.app_setting_keys import SERVER_PORT
 from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, checkpoint_and_dispose, engine
 from app.desktop import runner as desktop_runner
 from app.desktop.logging_setup import preserve_logging_state
 from app.init.seed_data import run_all
@@ -166,7 +166,9 @@ def upgrade_database_schema() -> None:
 
     db_path = backup_service.database_path()
     if db_path.exists():
-        engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
+        # SQLiteファイルのコピー前にWAL内容を本体へ統合し、接続を解放する（Windowsの
+        # ファイルロック対策を兼ねる）。
+        checkpoint_and_dispose(engine)
         backup_service.create_safety_copy(db_path, "pre_migration")
 
     # alembic/env.pyのfileConfig()はルートロガーのハンドラ・レベルをalembic.ini側の設定へ

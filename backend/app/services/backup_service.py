@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.config import BACKUP_DIR, get_settings
 from app.constants.app_setting_keys import BACKUP_RETENTION_COUNT
-from app.database import engine
+from app.database import checkpoint_and_dispose, engine
 from app.models.base import Base
 from app.services import setting_reader
 from app.services.exceptions import NotFoundError, ValidationError
@@ -92,7 +92,9 @@ def create_backup(session: Session) -> BackupInfo:
     backup_id = f"backup_{timestamp}"
     destination = BACKUP_DIR / f"{backup_id}.db"
 
-    engine.dispose()  # SQLiteファイルのコピー前に接続を解放する（Windowsのファイルロック対策）
+    # SQLiteファイルのコピー前にWAL内容を本体へ統合し、接続を解放する（Windowsのファイル
+    # ロック対策を兼ねる）。
+    checkpoint_and_dispose(engine)
     shutil.copy2(database_path(), destination)
 
     retention_count = setting_reader.get_int(session, BACKUP_RETENTION_COUNT)
@@ -121,7 +123,7 @@ def restore_backup(backup_id: str) -> None:
     if not source.exists():
         raise NotFoundError("バックアップ", backup_id)
 
-    engine.dispose()
+    checkpoint_and_dispose(engine)
     db_path = database_path()
     create_safety_copy(db_path, "pre_restore")
 
@@ -188,7 +190,7 @@ def import_all_data(data: dict) -> None:
     """
     _validate_full_data_export(data)
 
-    engine.dispose()
+    checkpoint_and_dispose(engine)
     db_path = database_path()
     create_safety_copy(db_path, "pre_import")
 
