@@ -368,6 +368,25 @@ describe('KnowledgeExportPage の総括レポート', () => {
     expect(screen.queryByText(RETROSPECTIVE_BODY)).toBe(null)
   })
 
+  it('renders the retrospective body as markdown (GOAL_RETROSPECTIVEは見出しを用いた構造的な文書として生成されるため)', async () => {
+    getRetrospective.mockResolvedValue({
+      body: '## 振り返り\n\n**よかった点:**\n\n- 計画通り進んだ',
+    })
+    await renderPage()
+
+    expect(await screen.findByRole('heading', { level: 2, name: '振り返り' })).toBeTruthy()
+    expect(screen.getByText('よかった点:').tagName).toBe('STRONG')
+    expect(screen.getByText('計画通り進んだ').closest('li')).not.toBeNull()
+  })
+
+  it('neutralizes javascript: URIs in the retrospective body (XSS防止、react-markdownの既定挙動の回帰検知)', async () => {
+    getRetrospective.mockResolvedValue({ body: '[click](javascript:alert(1))' })
+    await renderPage()
+
+    const link = await screen.findByText('click')
+    expect(link.closest('a')?.getAttribute('href')).toBe('')
+  })
+
   it('shows a notice instead of the generator for a work goal', async () => {
     // 仕事目標は総括レポート専用エンドポイントを恒久的に使えない（データ構造編6.2）。
     await renderPage({ category: 'WORK' })

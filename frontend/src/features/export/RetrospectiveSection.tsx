@@ -1,10 +1,15 @@
 /** ナレッジエクスポート（SC-13）の総括レポートの表示。
  *
  * 1関数100行の上限（CODING_RULES.md「保守性（複雑度）」）への対応で KnowledgeExportPage
- * から移したものである。中身は移設前と同じで、振る舞いは変えていない。 */
+ * から移したものである。
+ *
+ * 総括レポート本文は見出しを用いた構造的な文書としてAI生成されるため（GOAL_RETROSPECTIVE /
+ * GOAL_RETROSPECTIVE_READINGプロンプト）、WeeklyDigestSectionと同じくMarkdownText
+ * （XSS安全設計の詳細もそちらを参照）でプレビュー表示する。 */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { MarkdownText } from '../../components/MarkdownText'
 import { Button } from '../../components/Button'
 import { useToast } from '../../components/Toast'
 import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
@@ -50,7 +55,7 @@ export function RetrospectiveSection({
       {mutation.isPending ? (
         <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.generating')}</p>
       ) : body ? (
-        <p className="whitespace-pre-wrap text-sm text-gray-700">{body}</p>
+        <MarkdownText text={body} className="text-gray-700" />
       ) : (
         <p className="text-sm text-gray-500">
           {t(

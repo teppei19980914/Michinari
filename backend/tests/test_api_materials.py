@@ -51,9 +51,7 @@ def test_create_material_derives_due_date_from_subject(client):
 def test_create_material_clamps_due_date_to_start_date_when_exam_is_on_start_date(client):
     """受験日=開始日当日でも締切は開始日にクランプされ、矛盾エラーにならない（同日集中のケース）。"""
     goal, subject_id = _create_goal_with_subject(client)
-    material = _create_material(
-        client, goal["id"], [subject_id], start_date="2026-06-01"
-    )
+    material = _create_material(client, goal["id"], [subject_id], start_date="2026-06-01")
     assert material["due_date"] == "2026-06-01"
 
 
