@@ -48,6 +48,22 @@ describe('WeeklyDigestSection', () => {
     expect(screen.getByText('手順書統合').closest('li')).not.toBeNull()
   })
 
+  it('neutralizes javascript: URIs and raw HTML in the AI summary text (XSS防止、react-markdownの既定挙動の回帰検知)', () => {
+    renderWithProviders(
+      <WeeklyDigestSection
+        digest={makeWeeklyDigest({
+          ai_summary_text:
+            '[click](javascript:alert(1))\n\n<img src=x onerror=alert(1)>',
+        })}
+      />,
+    )
+
+    const link = screen.getByText('click').closest('a')
+    expect(link?.getAttribute('href')).toBe('')
+    expect(screen.queryByRole('img')).toBeNull()
+    expect(screen.getByText(/onerror=alert\(1\)/)).toBeDefined()
+  })
+
   it('shows a "no records" notice when there is no AI summary and no records', () => {
     renderWithProviders(
       <WeeklyDigestSection
