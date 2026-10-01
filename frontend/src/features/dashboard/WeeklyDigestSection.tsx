@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns'
-import ReactMarkdown from 'react-markdown'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { MarkdownText } from '../../components/MarkdownText'
 import type { DashboardRead } from '../../api/dashboard'
 import { resolveWeeklyDigestDisplay } from './resolveWeeklyDigestDisplay'
 
@@ -17,9 +17,8 @@ type WeeklyDigestSectionProps = {
  * resolveWeeklyDigestDisplay（.ts、CODING_RULES.md「フロントの分岐は.tsへ切り出す」）
  * に委ね、本コンポーネントは描画のみを担う。
  *
- * AI要約本文はマークダウン形式（見出し・箇条書き・強調等）で生成されるため、react-markdown
- * でプレビュー表示する。生のHTMLはパースせずReact要素へ変換するため、要約文中に悪意ある
- * HTML/スクリプトが含まれてもXSSにはならない（rehype-rawは導入しない）。 */
+ * AI要約本文はマークダウン形式（見出し・箇条書き・強調等）で生成されるため、MarkdownText
+ * （XSS安全設計の詳細もそちらを参照）でプレビュー表示する。 */
 export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
   if (digest === null) {
     return null
@@ -34,9 +33,7 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
         <span className="text-xs text-gray-500">{weekRange}</span>
       </div>
       {display.kind === 'ai_summary' && (
-        <div className="prose prose-sm prose-gray mt-1 max-w-none text-gray-800">
-          <ReactMarkdown>{display.text}</ReactMarkdown>
-        </div>
+        <MarkdownText text={display.text} className="mt-1 text-gray-800" />
       )}
       {display.kind === 'no_records' && (
         <p className="mt-1 text-sm text-gray-500">{t('dashboard.weeklyDigest.noRecords')}</p>
