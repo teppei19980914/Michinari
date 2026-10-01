@@ -1,4 +1,5 @@
 import { format, parseISO } from 'date-fns'
+import ReactMarkdown from 'react-markdown'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import type { DashboardRead } from '../../api/dashboard'
@@ -14,7 +15,11 @@ type WeeklyDigestSectionProps = {
  * AI週次要約が生成済みならその本文を、無ければ記録日数・投下時間の非AI集計を表示する
  * （AI未設定でも先週の振り返りが得られるようにする）。表示内容の判定は
  * resolveWeeklyDigestDisplay（.ts、CODING_RULES.md「フロントの分岐は.tsへ切り出す」）
- * に委ね、本コンポーネントは描画のみを担う。 */
+ * に委ね、本コンポーネントは描画のみを担う。
+ *
+ * AI要約本文はマークダウン形式（見出し・箇条書き・強調等）で生成されるため、react-markdown
+ * でプレビュー表示する。生のHTMLはパースせずReact要素へ変換するため、要約文中に悪意ある
+ * HTML/スクリプトが含まれてもXSSにはならない（rehype-rawは導入しない）。 */
 export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
   if (digest === null) {
     return null
@@ -29,7 +34,9 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
         <span className="text-xs text-gray-500">{weekRange}</span>
       </div>
       {display.kind === 'ai_summary' && (
-        <p className="mt-1 text-sm text-gray-800">{display.text}</p>
+        <div className="prose prose-sm prose-gray mt-1 max-w-none text-gray-800">
+          <ReactMarkdown>{display.text}</ReactMarkdown>
+        </div>
       )}
       {display.kind === 'no_records' && (
         <p className="mt-1 text-sm text-gray-500">{t('dashboard.weeklyDigest.noRecords')}</p>
