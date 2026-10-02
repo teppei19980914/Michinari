@@ -7,7 +7,8 @@
 #   3. 前日以前の dev/YYYY-MM-DD ブランチを検出
 #   4. 未コミット変更があればコミット
 #   5. PR 未作成なら作成
-#   6. PR が MERGED なら旧ブランチを削除
+#   6. PR が MERGED、かつ現在のHEAD自体が origin/$BASE_BRANCH へ到達済みなら旧ブランチを削除
+#      （PR状態だけで判定すると、マージ後に積まれた追加コミットを取りこぼす。後述）
 #   7. 当日ブランチの決定（CLAUDE.md「運用フロー」の分岐）
 #      - 未マージの前日ブランチが残っている場合: それを「作業中」と判断し、当日ブランチを
 #        作らずその前日ブランチ上で作業を継続する
@@ -17,6 +18,12 @@
 #
 # 未マージのまま当日ブランチを base から切ると、前日の成果が作業ツリーから消えて
 # 取りこぼしが起きる（2026-09-10・09-11 に実際に発生）。その再発防止のための分岐である。
+#
+# また、PRの状態（MERGED）だけを見てブランチを削除すると、PRマージ後に同じブランチへ
+# 追加コミットされた場合（Stop Hookのオートコミット等）、それらがどのPRにも含まれない
+# まま削除され失われる事故が2回発生した（2026-09-14・2026-10-02）。そのため削除前に
+# 必ず現在のHEAD自体が origin/$BASE_BRANCH へ到達済みか（git merge-base --is-ancestor）
+# を確認し、未到達なら削除せず未マージ扱いにする。
 
 set -u
 
@@ -178,13 +185,25 @@ if [ -n "$PREV_BRANCHES" ]; then
       echo "  PR 状態: $pr_state"
     fi
 
-    # MERGED なら削除
+    # MERGED なら削除。ただし削除前に、PRの状態だけでなく現在のHEAD自体が
+    # origin/$BASE_BRANCH へ到達済みかを確認する。PR状態だけを見て削除すると、
+    # PRマージ後に同じブランチへ追加コミットされた場合（Stop Hookのオートコミット等）、
+    # それらがどのPRにも含まれないまま削除され失われる（2026-09-14・2026-10-02に実際発生）。
     if [ "$pr_state" = "MERGED" ]; then
-      echo "  マージ済み → ブランチ削除"
-      git checkout "$BASE_BRANCH" 2>/dev/null || true
-      git branch -D "$prev_branch" 2>/dev/null || true
-      git push origin --delete "$prev_branch" 2>/dev/null || true
-      echo "  [OK] 削除完了"
+      git fetch origin "$BASE_BRANCH" >/dev/null 2>&1 || true
+      prev_head="$(git rev-parse "$prev_branch")"
+      if git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null \
+        && git merge-base --is-ancestor "$prev_head" "origin/$BASE_BRANCH"; then
+        echo "  マージ済み（HEAD到達確認OK） → ブランチ削除"
+        git checkout "$BASE_BRANCH" 2>/dev/null || true
+        git branch -D "$prev_branch" 2>/dev/null || true
+        git push origin --delete "$prev_branch" 2>/dev/null || true
+        echo "  [OK] 削除完了"
+      else
+        echo "  [!] PRはMERGEDですが、現在のHEAD ($prev_head) が origin/$BASE_BRANCH に未到達です"
+        echo "      PRマージ後に追加コミットされた可能性があるため削除せず、作業継続として扱います"
+        UNMERGED_PREV_BRANCH="$prev_branch"
+      fi
     else
       echo "  [!] 未マージのため削除しません (開発者のマージを待機)"
       UNMERGED_PREV_BRANCH="$prev_branch"
