@@ -1,0 +1,81 @@
+"""目標のリクエスト/レスポンススキーマ（データ構造編5.3、仕様書6.2）。"""
+
+from __future__ import annotations
+
+import datetime as dt
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.constants.enums import BaselineReason, GoalCategory, GoalStatus
+from app.schemas.book import BookRead
+from app.schemas.load_profile import LoadProfileRead
+from app.schemas.material import MaterialRead
+from app.schemas.subject import SubjectRead
+from app.schemas.work import WorkAssignmentRead
+
+
+class GoalCreate(BaseModel):
+    category: GoalCategory = GoalCategory.EXAM
+    name: str = Field(min_length=1)
+    start_date: dt.date
+    memo: str | None = None
+
+
+class GoalUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1)
+    start_date: dt.date | None = None
+    memo: str | None = None
+
+
+class GoalCloseRequest(BaseModel):
+    confirm_without_result: bool = False
+    #: 仕事目標専用（要件定義書R-72）。True=結果あり（CLOSED_WITH_RESULT）、
+    #: False（既定）=結果なし（CLOSED_WITHOUT_RESULT）。EXAM/READINGでTrue指定は拒否される。
+    with_result: bool = False
+
+
+class GoalDeleteArchivedRequest(BaseModel):
+    """アーカイブ済み目標の完全削除リクエスト（仕様書7.1.1、MD-08）。
+
+    画面上のチェックボックスは既定ONのため、cascade_study_logsの既定値もTrueとする。
+    """
+
+    cascade_study_logs: bool = True
+
+
+class GoalRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: GoalCategory
+    name: str
+    start_date: dt.date
+    status: GoalStatus
+    memo: str | None
+    activated_at: dt.datetime | None
+    closed_at: dt.datetime | None
+    archived_at: dt.datetime | None
+    #: UI-11（目標達成アイコン）の判定基準（仕様書v1.1 13.6）。goal_service.compute_is_achievedで
+    #: 算出する（都度算出、CLAUDE.md 保存禁止に準拠しDBへは持たない）。
+    is_achieved: bool
+
+
+class GoalDetailRead(GoalRead):
+    exam_subjects: list[SubjectRead]
+    materials: list[MaterialRead]
+    load_profiles: list[LoadProfileRead]
+    book: BookRead | None = None
+    work_assignment: WorkAssignmentRead | None = None
+
+
+class PlanBaselineRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    material_id: int
+    effective_from: dt.date
+    baseline_daily_quota: float
+    remaining_at_baseline: float
+    plan_days_at_baseline: int
+    planned_cycles_at_baseline: int
+    reason: BaselineReason

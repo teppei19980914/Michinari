@@ -1,0 +1,170 @@
+"""ログのファイル出力と、標準出力が無い環境への備え（Phase37）。
+
+コンソールを表示しない実行ファイル（PyInstallerの`--noconsole`）では、
+`sys.stdin`/`sys.stdout`/`sys.stderr`が`None`になる。PyInstaller公式が明記しており
+（https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html ）、この状態で
+`sys.stderr.flush`のような属性へ触れると`'NoneType' object has no attribute 'flush'`で
+落ちる。uvicornは既定のログ設定で標準出力へ書くため、**対処しないと起動した瞬間に
+クラッシュする**。
+
+ここでは公式が案内する対処（`None`なら`os.devnull`を開いて差し替える）を行ったうえで、
+ログの実際の行き先をファイルへ向ける。コンソールが無い以上、障害調査の手がかりは
+このファイルだけになる（従来は`Michinari.bat`の`pause`がその役を担っていた）。
+"""
+
+from __future__ import annotations
+
+import contextlib
+import logging
+import logging.handlers
+import os
+import sys
+from collections.abc import Iterator
+from pathlib import Path
+
+from app.config import LOG_DIR
+from app.constants.desktop import LOG_BACKUP_COUNT, LOG_FILE_NAME, LOG_MAX_BYTES
+
+# app.middleware.request_context を副作用目的でimportする（Phase40）。同モジュールの
+# import時に、全LogRecordへ相関ID（%(request_id)s）を差し込むレコードファクトリが
+# インストールされる。ここでimportしておくことで、configure()より前に他の経路（例えば
+# main.pyの起動処理）が先にログを出しても request_id 属性欠落でフォーマットが落ちない。
+from app.middleware import request_context as _request_context  # noqa: F401
+
+#: ログ1行の書式。日時・レベル・相関ID・出力元・本文。利用者が開いて読む前提で簡潔にする。
+#: 相関ID（Phase40）はリクエスト外のログでは"-"になる（request_context.py参照）。
+LOG_FORMAT = "%(asctime)s %(levelname)-8s [%(request_id)s] %(name)s: %(message)s"
+
+
+def ensure_standard_streams() -> None:
+    """`sys.stdout`/`sys.stderr`が`None`の場合に安全な捨て先へ差し替える。
+
+    PyInstaller公式が案内する対処そのもの。**ログ設定より先に、起動の一番最初に呼ぶこと**
+    （差し替える前にどこかが標準出力へ書くと、その時点で落ちるため）。
+    """
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")  # noqa: SIM115 (プロセス終了まで開いたままにする)
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")  # noqa: SIM115 (同上)
+
+
+def attach_console() -> bool:  # pragma: no cover (実コンソールの割り当てのため対象外)
+    """コンソールを開き、ログをそこへも流せるようにする（開発者向けの`--console`用）。
+
+    配布する実行ファイルはコンソールを持たない構成でビルドするため、そのままでは動作中の
+    ログを画面で追えない。別にコンソール版の実行ファイルを作ると配布物の大きさが倍増する
+    （PyInstallerの同梱物一式がもう1組できる）ため、**実行時にコンソールを割り当てる**
+    方式を採る（`AllocConsole`。Windows公式API）。
+
+    既にコンソールへ結び付いている場合（ソースからの起動・コマンドプロンプトからの起動）は
+    そのまま使う。
+
+    返り値:
+        コンソールを使える状態になったなら True。
+
+    使用例:
+        >>> attach_console()  # doctest: +SKIP
+        True
+    """
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        # 既にコンソールがあれば AllocConsole は失敗する（＝その場合は既存のものを使う）。
+        if kernel32.GetConsoleWindow() == 0 and not kernel32.AllocConsole():
+            return False
+        # AllocConsole の直後は標準ストリームが新しいコンソールへ向いていない。
+        # 擬似ファイル CONOUT$/CONIN$ を開いて結び直す（Windowsコンソールの標準的な手順）。
+        sys.stdout = open("CONOUT$", "w", encoding="utf-8", buffering=1)  # noqa: SIM115
+        sys.stderr = open("CONOUT$", "w", encoding="utf-8", buffering=1)  # noqa: SIM115
+    except (OSError, AttributeError, ValueError):
+        # コンソールを出せないこと自体はアプリの動作を妨げない（ログはファイルに残る）。
+        return False
+    return True
+
+
+@contextlib.contextmanager
+def preserve_logging_state() -> Iterator[None]:
+    """alembicの`fileConfig()`（`disable_existing_loggers`既定True）から既存ロガーを守る。
+
+    `fileConfig()`はルートロガーのハンドラ・レベルをalembic.ini側の設定へ差し替えるだけで
+    なく、呼び出し時点で存在する非alembicロガーを標準ライブラリの仕様で全て
+    `disabled = True`にする。本アプリの各ロガー（`app.access`等、Phase40）はモジュール
+    import時点で生成済みのため、実際にマイグレーションが走った起動ではこれ以降プロセスの
+    寿命が尽きるまでログが黙って消える（2026-09-17に発覚したハンドラ差し替え問題の同根の
+    別症状。ハンドラ・レベルの退避だけでは`disabled`フラグまでは救えないことが今回判明した）。
+    マイグレーション実行の前後で状態を退避・復元する。
+    """
+    root_logger = logging.getLogger()
+    handlers_snapshot = list(root_logger.handlers)
+    level_snapshot = root_logger.level
+    disabled_snapshot = {
+        name: logger_obj.disabled
+        for name, logger_obj in root_logger.manager.loggerDict.items()
+        if isinstance(logger_obj, logging.Logger)
+    }
+    try:
+        yield
+    finally:
+        root_logger.handlers = handlers_snapshot
+        root_logger.setLevel(level_snapshot)
+        for name, was_disabled in disabled_snapshot.items():
+            logger_obj = root_logger.manager.loggerDict.get(name)
+            if isinstance(logger_obj, logging.Logger):
+                logger_obj.disabled = was_disabled
+
+
+def resolve_log_path(log_dir: Path = LOG_DIR) -> Path:
+    """ログファイルのパスを返す。
+
+    引数:
+        log_dir: 出力先フォルダ。既定は`app/config.py`の`LOG_DIR`。
+
+    返り値:
+        ログファイルのパス。
+    """
+    return log_dir / LOG_FILE_NAME
+
+
+def configure(
+    log_dir: Path = LOG_DIR, *, level: int = logging.INFO, to_console: bool = False
+) -> Path:
+    """ルートロガーをファイル出力へ設定する。
+
+    世代を回す（`RotatingFileHandler`）のは、常駐して動き続けるアプリではログが際限なく
+    増えるためである。
+
+    引数:
+        log_dir: 出力先フォルダ。無ければ作成する。
+        level: 記録するレベルの下限。
+        to_console: True なら標準出力にも同じ内容を流す（開発者向けの`--console`用）。
+
+    返り値:
+        実際のログファイルのパス（利用者へ場所を案内するために返す）。
+
+    使用例:
+        >>> configure().name
+        'michinari.log'
+    """
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = resolve_log_path(log_dir)
+    formatter = logging.Formatter(LOG_FORMAT)
+
+    handlers: list[logging.Handler] = [
+        logging.handlers.RotatingFileHandler(
+            log_path, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding="utf-8"
+        )
+    ]
+    if to_console:
+        handlers.append(logging.StreamHandler(sys.stdout))
+
+    root = logging.getLogger()
+    root.setLevel(level)
+    # 既定のハンドラ（標準出力向け）が残っていると、コンソールの無い環境で書き込みに
+    # 失敗しうる。ここで組み立てたハンドラだけにする。
+    for existing in list(root.handlers):
+        root.removeHandler(existing)
+    for handler in handlers:
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+    return log_path

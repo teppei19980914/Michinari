@@ -1,0 +1,383 @@
+"""記録系モデル（設計書 データ構造編 5.4）。
+
+daily_record は日付単位で一意（目標単位ではない）。確定状態はカテゴリ（EXAM/READING/WORK）
+ごとに独立して持つ（資格勉強を確定しても読書・仕事は引き続き入力・確定できる、仕様変更
+2026-09-05）。不変性（確定後の更新拒否）はサービス層のガードとして実装し、ここでは
+データ構造のみを定義する。
+"""
+
+from datetime import date, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.constants.enums import AiPurpose, ChatRole, ExamResultType, RecordState
+from app.models.base import Base, CreatedAtMixin, TimestampMixin, utcnow
+
+if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
+    from app.models.book import Book
+    from app.models.goal import ExamSubject, Goal
+    from app.models.material import Material
+    from app.models.resource import ResourceSlot
+    from app.models.work import WorkAssignment
+
+
+class DailyRecord(CreatedAtMixin, Base):
+    """日次記録。1日1レコード（複数目標が同時進行しても分割しない）。
+
+    確定状態（*_record_state/*_reported_at）はカテゴリ別に3組持つ。NULLはそのカテゴリを
+    その日一度も操作していないことを表す（登録・確定のいずれの対象にもなっていない）。
+    3カテゴリ横断の単一状態が必要な箇所（カレンダー・ダッシュボード等）は
+    record_service.aggregate_record_state で都度算出し、列としては保持しない。
+    """
+
+    __tablename__ = "daily_record"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    record_date: Mapped[date] = mapped_column(Date, nullable=False, unique=True)
+    exam_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
+    )
+    exam_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reading_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
+    )
+    reading_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    work_record_state: Mapped[RecordState | None] = mapped_column(
+        Enum(RecordState, native_enum=False, validate_strings=True), nullable=True
+    )
+    work_reported_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    study_logs: Mapped[list["StudyLog"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    reading_logs: Mapped[list["ReadingLog"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    work_logs: Mapped[list["WorkLog"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    chat_messages: Mapped[list["ChatMessage"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    comments: Mapped[list["RecordComment"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    diary_entries: Mapped[list["DailyGoalDiary"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+
+
+class StudyLog(CreatedAtMixin, Base):
+    """学習実績。minutes_spent が NULL/0 の行は実効速度算出から除外する（サービス層）。
+
+    minutes_spent は利用者が直接入力する値ではなく、時間スロット別の入力
+    （study_log_slot_time）の合計としてサービス層が設定する（データ構造編5.4、仕様書6.5）。
+    合計を列として持つのは、実効速度（ロジック・プロンプト編8.1）・週次集計・
+    ナレッジエクスポートがいずれも教材単位の合計しか必要とせず、内訳を都度結合すると
+    同一の集約が多数の照会箇所へ分散するため。更新経路は record_service の実績登録処理
+    1箇所に限定し、内訳との不整合を防ぐ。
+    """
+
+    __tablename__ = "study_log"
+    __table_args__ = (
+        UniqueConstraint("material_id", "daily_record_id", name="uq_study_log_material_record"),
+        Index("ix_study_log_material_cycle", "material_id", "cycle_number"),
+        Index("ix_study_log_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    material_id: Mapped[int] = mapped_column(ForeignKey("material.id"), nullable=False)
+    minutes_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    amount_completed: Mapped[float] = mapped_column(Float, nullable=False)
+    cycle_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="study_logs")
+    material: Mapped["Material"] = relationship(back_populates="study_logs")
+    slot_times: Mapped[list["StudyLogSlotTime"]] = relationship(
+        back_populates="study_log", cascade="all, delete-orphan"
+    )
+
+
+class StudyLogSlotTime(Base):
+    """学習実績の時間枠別内訳（データ構造編5.4）。
+
+    slot_id を NULL 許容・ON DELETE SET NULL とするのは、スロットの削除を許容しつつ
+    実績を失わないため（要件定義書R-87、仕様書NT-09）。RESTRICT にすると過去に一度でも
+    使ったスロットを削除できなくなり「生活の変化を先に登録できる」という要件と矛盾する。
+    帰属先は失われるが、実効速度が用いる StudyLog.minutes_spent（合計）は影響を受けない。
+    NULL を「帰属不明」として残す扱いは chat_message.goal_id と同じ安全弁の考え方。
+    """
+
+    __tablename__ = "study_log_slot_time"
+    __table_args__ = (
+        UniqueConstraint("study_log_id", "slot_id", name="uq_study_log_slot_time"),
+        Index("ix_study_log_slot_time_study_log_id", "study_log_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    study_log_id: Mapped[int] = mapped_column(
+        ForeignKey("study_log.id", ondelete="CASCADE"), nullable=False
+    )
+    slot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("resource_slot.id", ondelete="SET NULL"), nullable=True
+    )
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    study_log: Mapped["StudyLog"] = relationship(back_populates="slot_times")
+    #: 時間枠名の表示に使う。削除済みの枠（slot_id=NULL）ではNoneとなる。
+    slot: Mapped["ResourceSlot | None"] = relationship()
+
+
+class ReadingLog(CreatedAtMixin, Base):
+    """読書記録。study_logの読書版（定量実績ではなく想起した内容を自由記述で保持する）。
+
+    ページの数値項目は current_page（現在ページ）のみを持つ。「読んだページ数」（旧
+    pages_read）は廃止した（仕様変更2026-09-11）。読書は記録・活用型の目標であり定量的な
+    進捗管理を行わない（要件定義書6.10・R-71）ため、投下量の指標である「その日に読んだ
+    ページ数」を保持する理由がなく、日次フィードバックのプロンプト（ロジック・プロンプト編
+    17.6）自体がページ数の評価を禁じているためである。current_page は画面上の進捗率表示
+    （ロジック・プロンプト編21.2）のためだけに持つ。
+    """
+
+    __tablename__ = "reading_log"
+    __table_args__ = (
+        UniqueConstraint("book_id", "daily_record_id", name="uq_reading_log_book_record"),
+        Index("ix_reading_log_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    book_id: Mapped[int] = mapped_column(ForeignKey("book.id"), nullable=False)
+    recall_body: Mapped[str] = mapped_column(Text, nullable=False)
+    #: 読書時間（分）。reading_log_slot_time の合計。読書はリソース配分の対象だが
+    #: 実効速度・完了予測を持たないため、集計・表示・AI文脈にのみ用いる（R-64・R-71）。
+    minutes_spent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="reading_logs")
+    book: Mapped["Book"] = relationship(back_populates="reading_logs")
+    slot_times: Mapped[list["ReadingLogSlotTime"]] = relationship(
+        back_populates="reading_log", cascade="all, delete-orphan"
+    )
+
+
+class ReadingLogSlotTime(Base):
+    """読書記録の時間枠別内訳（データ構造編5.4）。StudyLogSlotTimeと同型・同方針。"""
+
+    __tablename__ = "reading_log_slot_time"
+    __table_args__ = (
+        UniqueConstraint("reading_log_id", "slot_id", name="uq_reading_log_slot_time"),
+        Index("ix_reading_log_slot_time_reading_log_id", "reading_log_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    reading_log_id: Mapped[int] = mapped_column(
+        ForeignKey("reading_log.id", ondelete="CASCADE"), nullable=False
+    )
+    slot_id: Mapped[int | None] = mapped_column(
+        ForeignKey("resource_slot.id", ondelete="SET NULL"), nullable=True
+    )
+    minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    reading_log: Mapped["ReadingLog"] = relationship(back_populates="slot_times")
+    #: 時間枠名の表示に使う。削除済みの枠（slot_id=NULL）ではNoneとなる。
+    slot: Mapped["ResourceSlot | None"] = relationship()
+
+
+class WorkLog(CreatedAtMixin, Base):
+    """業務記録。study_logの仕事版（定量実績ではなく当日の業務内容を自由記述1本で保持する。
+    人間関係・成果・学び等をタグ分けした個別列は持たない。要件定義書6.11本文）。
+    """
+
+    __tablename__ = "work_log"
+    __table_args__ = (
+        UniqueConstraint(
+            "work_assignment_id", "daily_record_id", name="uq_work_log_assignment_record"
+        ),
+        Index("ix_work_log_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    work_assignment_id: Mapped[int] = mapped_column(
+        ForeignKey("work_assignment.id"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="work_logs")
+    work_assignment: Mapped["WorkAssignment"] = relationship(back_populates="work_logs")
+
+
+class ChatMessage(CreatedAtMixin, Base):
+    """AI対話。文脈維持は sequence 順の全文注入で行う（ロジック・プロンプト編 16.3.1）。
+
+    purpose は同一日次記録に複数のAI用途（資格試験のDAILY_FEEDBACK、読書のDAILY_FEEDBACK_
+    READING）が混在しうるようになったため追加した（Phase16）。対話履歴（{{conversation_
+    history}}）への注入時はpurposeで絞り込み、用途間の文脈混入を防ぐ。sequenceは日次記録
+    全体で共有する採番とし、表示上の時系列順序は用途を問わず一貫させる。
+
+    goal_id は日次フィードバックを目標単位の会話へ分離するために追加した（Phase26、
+    未決事項L-07の解消方針転換）。移行前の行はどの目標宛てか判別不能なためNULLのまま
+    残る（daily_message.goal_idと同じ安全弁）。NULLは分析タブ「成長記述」で「未割り当て」
+    として扱い、利用者が手動で目標を割り当てられる。
+    """
+
+    __tablename__ = "chat_message"
+    __table_args__ = (
+        Index("ix_chat_message_record_sequence", "daily_record_id", "sequence"),
+        Index("ix_chat_message_goal_id", "goal_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
+    )
+    purpose: Mapped[AiPurpose] = mapped_column(
+        Enum(AiPurpose, native_enum=False, validate_strings=True),
+        nullable=False,
+        default=AiPurpose.DAILY_FEEDBACK,
+    )
+    role: Mapped[ChatRole] = mapped_column(
+        Enum(ChatRole, native_enum=False, validate_strings=True), nullable=False
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    sequence: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="chat_messages")
+
+
+class RecordComment(TimestampMixin, Base):
+    """コメント。日次報告本体の不変性を保ちつつ後日の補足を可能にする。"""
+
+    __tablename__ = "record_comment"
+    __table_args__ = (Index("ix_record_comment_daily_record_id", "daily_record_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="comments")
+
+
+class DailyGoalDiary(CreatedAtMixin, Base):
+    """日記（目標別）。1日1レコードの daily_record に対し、目標ごとに0〜1件持つ。
+
+    goal_id は歴史データ移行時の安全弁としてNULLを許容する（複数目標にまたがり
+    帰属先を機械的に特定できなかった日記を失わずに残すため。設計書ロジック・
+    プロンプト編 未決事項L-04）。
+    """
+
+    __tablename__ = "daily_goal_diary"
+    __table_args__ = (
+        UniqueConstraint("daily_record_id", "goal_id", name="uq_daily_goal_diary_record_goal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
+    )
+    diary_body: Mapped[str | None] = mapped_column(Text, nullable=True)
+    diary_learned: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="diary_entries")
+    goal: Mapped["Goal | None"] = relationship(back_populates="diary_entries")
+
+
+class WeeklySummary(Base):
+    """週次要約。goal_id + week_start_date + is_anonymized で一意。
+
+    is_anonymized列は設計書データ構造編7.3「匿名化版の週次要約...は、それぞれ別レコードとして
+    保持する。元の版は削除しない」を満たすために追加した（同5.4の初版テーブル定義には
+    無かったが、5.4はエクスポート機能着手前の定義であり7.3の要件を反映していなかったための
+    後発追加。goal_retrospectiveは初版からis_anonymizedを持ち別レコードを許容しており、
+    本テーブルもそれに揃える。実装フェーズ分割計画書Phase10）。
+    """
+
+    __tablename__ = "weekly_summary"
+    __table_args__ = (
+        UniqueConstraint(
+            "goal_id", "week_start_date", "is_anonymized", name="uq_weekly_summary_goal_week"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    week_start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    week_end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    summary_body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_anonymized: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    goal: Mapped["Goal"] = relationship(back_populates="weekly_summaries")
+
+
+class DailyMessage(Base):
+    """今日の一言。目標ごとに独立して生成する（1日1目標につき1件、複数目標が同時進行
+    していても他目標の情報を混ぜない。未決事項L-04関連）。ACTIVEな目標が1件も無い日は
+    goal_id=NULLの1件のみ生成する。goal_id=NULLの行は、目標別生成に変更する前（過去）の
+    目標横断メッセージとしても残りうる。
+    """
+
+    __tablename__ = "daily_message"
+    __table_args__ = (
+        UniqueConstraint("target_date", "goal_id", name="uq_daily_message_date_goal"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    target_date: Mapped[date] = mapped_column(Date, nullable=False)
+    goal_id: Mapped[int | None] = mapped_column(
+        ForeignKey("goal.id", ondelete="CASCADE"), nullable=True
+    )
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
+
+    goal: Mapped["Goal | None"] = relationship(back_populates="daily_messages")
+
+
+class ExamResult(CreatedAtMixin, Base):
+    """受験結果。科目に対して1対1。"""
+
+    __tablename__ = "exam_result"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("exam_subject.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    taken_date: Mapped[date] = mapped_column(Date, nullable=False)
+    result: Mapped[ExamResultType] = mapped_column(
+        Enum(ExamResultType, native_enum=False, validate_strings=True), nullable=False
+    )
+    score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    evaluation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    subject: Mapped["ExamSubject"] = relationship(back_populates="exam_result")

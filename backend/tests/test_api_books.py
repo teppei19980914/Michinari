@@ -1,0 +1,400 @@
+"""書籍・読書目標APIのテスト（データ構造編5.3・6.2、仕様書6.2・6.10・7.1、
+実装フェーズ分割計画書Phase15）。
+
+資格試験目標のAPIテスト（test_api_goals.py）と対になる、読書目標（category=READING）の
+CRUD・状態遷移・バリデーションのテスト。
+"""
+
+from tests import api_allocation_helpers
+
+
+def _create_reading_goal(client, name="読書目標A", start_date="2026-01-01"):
+    response = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": name, "start_date": start_date},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _create_exam_goal(client, name="資格目標A", start_date="2026-01-01"):
+    response = client.post("/api/v1/goals", json={"name": name, "start_date": start_date})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _add_book(
+    client, goal_id, title="書籍A", total_pages=300, start_date="2026-01-01", due_date="2026-06-30"
+):
+    payload = {
+        "title": title,
+        "total_pages": total_pages,
+        "start_date": start_date,
+        "due_date": due_date,
+    }
+    response = client.post(f"/api/v1/goals/{goal_id}/book", json=payload)
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def _make_activatable_reading_goal(client):
+    goal = _create_reading_goal(client)
+    _add_book(client, goal["id"])
+    return goal
+
+
+# --- 目標作成のcategory対応 ---
+
+
+def test_create_goal_defaults_to_exam_category(client):
+    goal = _create_exam_goal(client)
+    assert goal["category"] == "EXAM"
+
+
+def test_create_reading_goal(client):
+    goal = _create_reading_goal(client)
+    assert goal["category"] == "READING"
+
+    detail = client.get(f"/api/v1/goals/{goal['id']}").json()
+    assert detail["exam_subjects"] == []
+    assert detail["materials"] == []
+    assert detail["book"] is None
+
+
+# --- 書籍の作成 ---
+
+
+def test_create_book_succeeds(client):
+    goal = _create_reading_goal(client)
+
+    book = _add_book(client, goal["id"], title="達人プログラマー", total_pages=350)
+
+    assert book["title"] == "達人プログラマー"
+    assert book["goal_id"] == goal["id"]
+    assert book["total_pages"] == 350
+    assert book["current_streak"] == 0
+    assert book["last_reading_date"] is None
+    assert book["progress_rate"] is None
+
+    detail = client.get(f"/api/v1/goals/{goal['id']}").json()
+    assert detail["book"]["title"] == "達人プログラマー"
+
+
+def test_create_second_book_is_rejected(client):
+    goal = _create_reading_goal(client)
+    _add_book(client, goal["id"])
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={
+            "title": "2冊目",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-06-30",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "BOOK_ALREADY_EXISTS"
+
+
+def test_create_book_on_exam_goal_is_rejected(client):
+    goal = _create_exam_goal(client)
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-01-01",
+            "due_date": "2026-06-30",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_create_book_rejects_start_date_after_due_date(client):
+    goal = _create_reading_goal(client)
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={
+            "title": "書籍A",
+            "total_pages": 300,
+            "start_date": "2026-06-30",
+            "due_date": "2026-01-01",
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+# --- 書籍の更新 ---
+
+
+def test_update_book_succeeds(client):
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"])
+
+    response = client.patch(
+        f"/api/v1/books/{book['id']}", json={"title": "改題後のタイトル", "total_pages": 400}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["title"] == "改題後のタイトル"
+    assert body["total_pages"] == 400
+
+
+def test_update_book_author_start_date_and_due_date(client):
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"])
+
+    response = client.patch(
+        f"/api/v1/books/{book['id']}",
+        json={"author": "夏目漱石", "start_date": "2026-02-01", "due_date": "2026-07-31"},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["author"] == "夏目漱石"
+    assert body["start_date"] == "2026-02-01"
+    assert body["due_date"] == "2026-07-31"
+
+
+def test_update_book_clears_author_with_explicit_null(client):
+    """NULL許容列は明示的なnullで空へ戻せる（未指定との区別、constants/sentinels.py）。
+    総ページ数は必須化（2026-09-11）によりクリアできないため、番兵の対象はauthorのみ。"""
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"])
+    client.patch(f"/api/v1/books/{book['id']}", json={"author": "夏目漱石"})
+
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"author": None})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["author"] is None
+
+
+def test_update_book_with_null_total_pages_keeps_current_value(client):
+    """総ページ数のnullは「未指定」であり、既存値を保持する（クリアという操作は無い）。"""
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"], total_pages=300)
+
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"total_pages": None})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["total_pages"] == 300
+
+
+def test_create_book_without_total_pages_is_rejected(client):
+    """総ページ数は必須（要件定義書R-70改訂、2026-09-11）。進捗率を常に算出するため。"""
+    goal = _create_reading_goal(client)
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/book",
+        json={"title": "書籍A", "start_date": "2026-01-01", "due_date": "2026-06-30"},
+    )
+
+    assert response.status_code == 400, response.text
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert [detail["loc"] for detail in body["error"]["details"]] == [["body", "total_pages"]]
+
+
+def test_update_book_rejects_start_date_after_due_date(client):
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"], start_date="2026-01-01", due_date="2026-06-30")
+
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"start_date": "2026-12-31"})
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_update_missing_book_returns_404(client):
+    response = client.patch("/api/v1/books/9999", json={"title": "存在しない"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+# --- 状態遷移 ---
+
+
+def test_activate_reading_goal_requires_book(client):
+    goal = _create_reading_goal(client)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_activate_reading_goal_succeeds(client):
+    goal = _make_activatable_reading_goal(client)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ACTIVE"
+
+
+def test_complete_book_closes_goal_with_result(client):
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    book = client.get(f"/api/v1/goals/{goal['id']}").json()["book"]
+
+    response = client.post(f"/api/v1/books/{book['id']}/complete")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "CLOSED_WITH_RESULT"
+    assert response.json()["closed_at"] is not None
+    # 読書はCLOSED_WITH_RESULT到達自体が達成を意味する（仕様書v1.1 13.6、S-12）。
+    assert response.json()["is_achieved"] is True
+
+
+def test_complete_book_on_draft_goal_is_rejected(client):
+    goal = _create_reading_goal(client)
+    book = _add_book(client, goal["id"])
+
+    response = client.post(f"/api/v1/books/{book['id']}/complete")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_close_reading_goal_without_completing_book_is_interruption(client):
+    """POST /goals/{id}/close は読了ではなく中断に相当する（仕様書7.1）。
+
+    読書目標に「受験結果」は存在しないため、確認なしの要求はCLOSE_CONFIRMATION_REQUIRED
+    （状態エラーではなく確認待ち）で返る。画面側は確認モーダルの承認をもって
+    confirm_without_result=True を送るため、利用者の確認は1回で足りる（仕様書7.1の
+    読書目標の遷移条件「確認モーダルでの承認」）。
+    """
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "CLOSE_CONFIRMATION_REQUIRED"
+
+    confirmed = client.post(
+        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "CLOSED_WITHOUT_RESULT"
+
+
+def test_close_reading_goal_with_confirmation_succeeds_in_one_call(client):
+    """画面が確認モーダルの承認を1回で送る経路（確認済みなら一度で中断クローズできる）。"""
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "CLOSED_WITHOUT_RESULT"
+
+
+def test_update_book_on_closed_goal_is_rejected(client):
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    book = client.get(f"/api/v1/goals/{goal['id']}").json()["book"]
+    client.post(f"/api/v1/books/{book['id']}/complete")
+
+    response = client.patch(f"/api/v1/books/{book['id']}", json={"title": "更新後"})
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+# --- リソース配分の対象（要件定義書R-64、2026-09-09の仕様変更で対象外から対象へ反転） ---
+
+
+def test_reading_goal_can_set_slot_allocation(client):
+    """読書も自由な時間に行う活動であるためリソース配分の対象に含める（R-64）。"""
+    goal = _create_reading_goal(client)
+    slot = api_allocation_helpers.ensure_slot(client)
+
+    response = client.put(
+        f"/api/v1/goals/{goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 30}]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert [row["minutes"] for row in response.json() if row["slot_id"] == slot["id"]] == [30]
+
+
+def test_reading_goal_activates_without_allocation(client):
+    """読書目標のリソース配分は任意。未設定でも進行中へ遷移できる（R-64）。"""
+    goal = _make_activatable_reading_goal(client)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/activate")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ACTIVE"
+
+
+def test_reading_goal_competes_with_exam_for_slot_capacity(client):
+    """読書目標の配分も資格試験目標と同じスロット容量を奪い合う（R-64）。
+
+    仕事目標（R-74）とは扱いが異なり、合計計算に算入される。
+    """
+    slot = api_allocation_helpers.ensure_slot(client)  # 120分
+    exam_goal = _create_exam_goal(client)
+    client.put(
+        f"/api/v1/goals/{exam_goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 90}]},
+    )
+    subject = client.post(
+        f"/api/v1/goals/{exam_goal['id']}/subjects",
+        json={
+            "name": "科目A",
+            "exam_date_type": "RANGE",
+            "exam_date_from": "2026-06-01",
+            "exam_date_to": "2026-06-10",
+        },
+    ).json()
+    client.post(
+        f"/api/v1/goals/{exam_goal['id']}/materials",
+        json={
+            "name": "教材A",
+            "unit_label": "ページ",
+            "total_amount": 100,
+            "planned_cycles": 1,
+            "subject_ids": [subject["id"]],
+            "start_date": "2026-01-01",
+            "due_date_is_manual": False,
+        },
+    )
+    assert client.post(f"/api/v1/goals/{exam_goal['id']}/activate").status_code == 200
+
+    reading_goal = _make_activatable_reading_goal(client)
+    client.put(
+        f"/api/v1/goals/{reading_goal['id']}/slot-allocations",
+        json={"allocations": [{"slot_id": slot["id"], "minutes": 60}]},
+    )
+
+    response = client.post(f"/api/v1/goals/{reading_goal['id']}/activate")
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "RESOURCE_EXCEEDED"
+
+
+def test_reading_goal_pause_then_resume_without_allocation(client):
+    """配分が未設定の読書目標は、復帰時にも配分の要求・空き検証を受けない（R-64）。"""
+    goal = _make_activatable_reading_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/pause")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/resume")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "ACTIVE"

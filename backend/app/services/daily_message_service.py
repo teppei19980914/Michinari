@@ -1,0 +1,219 @@
+"""今日の一言の生成判定と実行（設計書 ロジック・プロンプト編17.4、
+データ構造編5.5・6.2 GET /daily-message、実装フェーズ分割計画書Phase5）。
+
+同日中に再生成しない（Phase5完了条件、目標ごとに判定する）。目標ごとに完全に独立した
+プロンプト呼び出しで生成する（他目標の情報を一切渡さない）。複数目標が同時進行して
+いる場合に、順調な目標の情報に引っ張られて停滞している目標の実態と乖離した一言が
+生成されることを構造的に防ぐため（未決事項L-04関連）。ACTIVEな目標が1件も無い日は
+goal_id=NULLの1件のみ生成する。
+
+AI未設定時（S-4 4-1）は、GET /daily-message が読み取り専用であるべきにもかかわらず
+AI呼び出しに失敗して401を返していた（DailyMessageが1件も作られず、固定文言としての
+「はじめの一言」を出す枠が無かった）。これを避けるため、AI呼び出し前に認証状態を確認し、
+未設定ならAI呼び出し自体をスキップしてフォールバック結果を返す（DBには保存しない。
+設定後に再取得したとき通常の生成へ自然に切り替わるようにするため）。
+"""
+
+import datetime as dt
+from dataclasses import dataclass
+
+from sqlalchemy.orm import Session, joinedload
+
+from app.ai import client as ai_client
+from app.ai import conversation as ai_conversation
+from app.ai import orchestration as ai_orchestration
+from app.ai import prompt_builder
+from app.constants.app_setting_keys import AI_ASSISTANT_UID_DAILY_MESSAGE
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
+from app.models.base import utcnow
+from app.models.goal import Goal
+from app.models.record import DailyMessage
+from app.services import ai_context_service, calendar_service, goal_service, setting_reader
+
+
+@dataclass(frozen=True)
+class DailyMessageResult:
+    """GET /daily-message が返す1件分（API層はこの型のみを見ればよい）。
+
+    is_fallback=True のとき body は空文字列（実データを持たない）。表示文言は
+    フロント側のロケールファイルが持つ固定文言を使う（CLAUDE.md ゼロハードコーディング、
+    「コンポーネント内への文字列リテラルの直接記述」禁止のため、固定文言をここへ
+    直書きしない）。
+    """
+
+    target_date: dt.date
+    goal_id: int | None
+    goal_name: str | None
+    body: str
+    generated_at: dt.datetime
+    is_fallback: bool = False
+
+
+def _to_utc(value: dt.datetime) -> dt.datetime:
+    """generated_atをtz-aware(UTC)に揃える。
+
+    models.base.utcnowはtz-aware値を設定するが、SQLiteのDateTime列は再読込時に
+    tzinfoを失う（naiveに戻る）。同じDailyMessage行でも、flush直後（このモジュール内、
+    session.commit前）に読むか、commit後の再クエリ（同一セッションでも
+    expire_on_commitにより再読込される）で読むかでtzinfoの有無が変わってしまうため、
+    API応答へ渡す前にここで統一する（保存しているUTC値自体は変わらない）。
+    """
+    return value if value.tzinfo is not None else value.replace(tzinfo=dt.UTC)
+
+
+def _to_result(message: DailyMessage) -> DailyMessageResult:
+    return DailyMessageResult(
+        target_date=message.target_date,
+        goal_id=message.goal_id,
+        goal_name=message.goal.name if message.goal is not None else None,
+        body=message.body,
+        generated_at=_to_utc(message.generated_at),
+    )
+
+
+def _build_fallback_results(session: Session, today: dt.date) -> list[DailyMessageResult]:
+    """AI未設定時のフォールバック結果を、DBへ保存せず組み立てる。
+
+    保存すると「同日中は再生成しない」既存の判定（get_or_generate内のexisting_by_goal）
+    に引っかかり、AI設定後も本物の一言へ切り替わらなくなるため、意図的に永続化しない。
+    """
+    active_goals = ai_context_service.list_daily_message_target_goals(session)
+    now = utcnow()
+    if not active_goals:
+        return [
+            DailyMessageResult(
+                target_date=today,
+                goal_id=None,
+                goal_name=None,
+                body="",
+                generated_at=now,
+                is_fallback=True,
+            )
+        ]
+    return [
+        DailyMessageResult(
+            target_date=today,
+            goal_id=goal.id,
+            goal_name=goal.name,
+            body="",
+            generated_at=now,
+            is_fallback=True,
+        )
+        for goal in active_goals
+    ]
+
+
+def _build_variables(session: Session, today: dt.date, goal: Goal | None) -> dict[str, str]:
+    """goal.categoryに応じてgoal_summary/progress_summary/recent_activityを組み立てる。
+
+    goalsをこの呼び出し内で[goal]（またはgoalがNoneなら[]）に限定して各builderへ渡す
+    ことで、他目標の情報を一切含まないプロンプトを組み立てる（未決事項L-04関連）。
+    呼び出し元のget_or_generateがlist_daily_message_target_goalsでEXAM・WORKのみに
+    絞り込み済みのため、ここに渡るgoalはcategory=EXAMまたはWORKのいずれか
+    （READINGは要件定義書6.10により対象外のまま。実装フェーズ分割計画書Phase22）。
+    """
+    if goal is not None and goal.category == GoalCategory.WORK:
+        work_assignments = ai_context_service.list_active_work_assignments([goal])
+        return {
+            "goal_summary": ai_context_service.build_daily_work_summary_text(
+                work_assignments, today
+            ),
+            "progress_summary": ai_context_service.build_work_progress_summary(
+                session, work_assignments, today
+            ),
+            "recent_activity": ai_context_service.build_work_recent_activity_text(
+                session, work_assignments, today
+            ),
+        }
+    goals = [goal] if goal is not None else []
+    materials = ai_context_service.list_active_materials(goals)
+    return {
+        "goal_summary": ai_context_service.build_goal_summary(goals, today),
+        "progress_summary": ai_context_service.build_progress_summary(session, materials, today),
+        "recent_activity": ai_context_service.build_recent_activity_text(session, goals, today),
+    }
+
+
+def _generate_for_goal(
+    session: Session, today: dt.date, day_type_value: str, goal: Goal | None
+) -> DailyMessage:
+    """1件分（1目標、またはgoal=Noneで目標非依存）の今日の一言を生成する。"""
+    variables = {
+        "today": today.isoformat(),
+        "day_type": day_type_value,
+        **_build_variables(session, today, goal),
+    }
+
+    template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_MESSAGE)
+    max_chars = ai_orchestration.get_max_prompt_chars(session)
+    build_result = prompt_builder.build_simple(template_body, variables, max_chars)
+
+    assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_MESSAGE)
+    title_suffix = f" {goal.name}" if goal is not None else ""
+    conversation = ai_conversation.ensure_conversation(
+        session,
+        goal=goal,
+        scope=ConversationScope.DAILY_MESSAGE,
+        scope_key=today.isoformat(),
+        assistant_uid=assistant_uid,
+        title=f"{today.isoformat()} 今日の一言{title_suffix}",
+    )
+
+    send_result = ai_orchestration.send_and_log(
+        session,
+        purpose=AiPurpose.DAILY_MESSAGE,
+        conversation=conversation,
+        prompt_text=build_result.text,
+        prompt_chars=build_result.prompt_chars,
+        was_truncated=build_result.was_truncated,
+    )
+
+    daily_message = DailyMessage(
+        target_date=today, goal=goal, body=send_result.response_text.strip()
+    )
+    session.add(daily_message)
+    session.flush()
+    return daily_message
+
+
+def get_or_generate(session: Session, today: dt.date) -> list[DailyMessageResult]:
+    """今日の一言を目標ごとに取得する。未生成の目標があれば生成する
+    （データ構造編6.2 GET /daily-message）。日中に新たにACTIVEになった目標があれば、
+    既存の目標のメッセージは再生成せずその目標の分だけ追加生成する。
+
+    AI未設定時はAI呼び出し自体を行わずフォールバック結果を返す（S-4 4-1）。
+    """
+    if not ai_client.is_authenticated(session):
+        return _build_fallback_results(session, today)
+
+    # 読書目標（category=READING）はexam_subjectを持たず、build_goal_summaryが「試験科目
+    # 未登録」という誤った文脈を混入させるため対象外とする（今日の一言に読書用の変種は
+    # 設けない設計。要件定義書6.10）。仕事目標（category=WORK）は要件定義書R-77により
+    # 対象に含める（実装フェーズ分割計画書Phase22）。
+    active_goals = ai_context_service.list_daily_message_target_goals(session)
+    treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
+    day_type = calendar_service.resolve_day_type(session, today, treat_holiday_as_buffer)
+
+    if not active_goals:
+        existing = session.query(DailyMessage).filter_by(target_date=today, goal_id=None).first()
+        message = (
+            existing
+            if existing is not None
+            else _generate_for_goal(session, today, day_type.value, None)
+        )
+        return [_to_result(message)]
+
+    existing_by_goal = {
+        message.goal_id: message
+        for message in session.query(DailyMessage)
+        .options(joinedload(DailyMessage.goal))
+        .filter(DailyMessage.target_date == today, DailyMessage.goal_id.isnot(None))
+        .all()
+    }
+    messages = []
+    for goal in active_goals:
+        existing = existing_by_goal.get(goal.id)
+        if existing is None:
+            existing = _generate_for_goal(session, today, day_type.value, goal)
+        messages.append(existing)
+    return [_to_result(message) for message in messages]

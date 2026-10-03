@@ -1,0 +1,320 @@
+"""アプリケーション起動（設計書 データ構造編 8章）。"""
+
+import logging
+import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from pathlib import Path
+from threading import Thread
+
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect
+from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException
+from starlette.responses import Response
+from starlette.types import Scope
+
+from alembic import command
+from app.ai import logger as ai_logger
+from app.api.ai import router as ai_router
+from app.api.analytics import router as analytics_router
+from app.api.books import router as books_router
+from app.api.calendar import router as calendar_router
+from app.api.client_logs import router as client_logs_router
+from app.api.closure import router as closure_router
+from app.api.dashboard import router as dashboard_router
+from app.api.data import router as data_router
+from app.api.errors import register_exception_handlers
+from app.api.exam_templates import router as exam_templates_router
+from app.api.export import router as export_router
+from app.api.goals import router as goals_router
+from app.api.materials import router as materials_router
+from app.api.records import router as records_router
+from app.api.resources import router as resources_router
+from app.api.settings import router as settings_router
+from app.api.system_info import router as system_info_router
+from app.api.work_members import router as work_members_router
+from app.config import BACKEND_DIR, REPO_ROOT, get_settings, resolve_bundled_path
+from app.constants.app_setting_keys import SERVER_PORT
+from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
+from app.database import SessionLocal, checkpoint_and_dispose, engine
+from app.desktop import runner as desktop_runner
+from app.desktop.logging_setup import preserve_logging_state
+from app.init.seed_data import run_all
+from app.middleware.request_context import register_request_context_middleware
+from app.models.setting import AppSetting
+from app.services import backup_service, goal_service, weekly_summary_service
+
+#: データ構造編6.1「ベースパス /api/v1」。
+API_V1_PREFIX = "/api/v1"
+
+
+def resolve_frontend_dist_dir() -> Path:
+    """フロントエンドのビルド済み静的ファイルの配置先を解決する（配布パッケージ対応）。
+
+    配布パッケージでは同梱した静的ファイル（ビルドスクリプトが `frontend_dist` として
+    配置する）を、ソースから起動する開発環境では `frontend/dist`（`npm run build` の
+    既定出力先）を参照する。いずれの場合も存在しなければ create_app 側でマウントを
+    スキップし、これまで通りVite開発サーバー（`npm run dev`）経由でのアクセスを前提とする。
+    """
+    return resolve_bundled_path(FRONTEND_DIST_DIR_NAME, REPO_ROOT / "frontend" / "dist")
+
+
+def resolve_alembic_ini_path() -> Path:
+    """alembic.iniの配置先を解決する（配布パッケージ対応）。
+
+    配布パッケージでは同梱した`alembic.ini`（ビルドスクリプトbuild_backendが `.`＝バンドル
+    直下へ配置、`alembic/`本体もあわせて同梱）を、ソースから起動する開発環境では
+    `backend/alembic.ini`を参照する。
+    """
+    return resolve_bundled_path(ALEMBIC_INI_FILE_NAME, BACKEND_DIR / ALEMBIC_INI_FILE_NAME)
+
+
+class _SpaStaticFiles(StaticFiles):
+    """未一致パスを index.html へフォールバックする静的ファイル配信。
+
+    React Routerはクライアント側でルーティングするため、`/goals/3` のような
+    ビルド後の実ファイルが存在しないパスへの直接アクセスでも index.html を返し、
+    フロント側のルーティングに委ねる必要がある（配布パッケージで単一プロセス配信する
+    場合のみ関係する。開発時はVite開発サーバー側がこれを処理する）。
+
+    `index.html` はアプリ更新（再ビルド）のたびに参照先アセットのハッシュ付き
+    ファイル名（例: `index-xxxx.js`）が変わる一方、Starlette の StaticFiles は
+    デフォルトで明示的な Cache-Control を付与しない（Last-Modified/ETag 頼み）ため、
+    ブラウザのヒューリスティックキャッシュにより古い `index.html` が使われ続けると
+    存在しないアセットを要求してMIMEタイプエラーとなり画面が真っ白になる不具合が
+    あった。`index.html` の応答にのみ `Cache-Control: no-cache` を付与し毎回再検証
+    させることで回避する（ハッシュ付きアセット自体は不変なので従来通りキャッシュ可）。
+    """
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        #: ルートパス"/"は StaticFiles.get_path内の os.path.normpath("") が "." を
+        #: 返すため、path引数は "" ではなく "." になる。
+        is_index = path in (".", "", "index.html")
+        try:
+            response = await super().get_response(path, scope)
+        except HTTPException as exc:
+            if exc.status_code != 404:
+                raise
+            response = await super().get_response("index.html", scope)
+            is_index = True
+        if is_index:
+            response.headers["cache-control"] = "no-cache"
+        return response
+
+
+#: upgrade_database_schemaが同一プロセス内での再チェックを省略するためのフラグ
+#: （DBのスキーマ状態はプロセス起動後に外部から変化しない前提。テスト実行時、
+#: TestClientのlifespan経由で毎回呼ばれても2回目以降を軽量にするため）。
+_schema_confirmed_current = False
+
+#: 本関数導入前の配布パッケージは`create_all_tables()`のみでスキーマを構築しており、
+#: alembic_versionテーブル自体を持たない。それらのDBのテーブルは、導入前の最終
+#: マイグレーション（＝このリビジョンの1つ前）までと同じ実質スキーマを持つ
+#: （create_all_tables()は既存テーブルへの列追加は行わないが、テーブル自体は
+#: 作成された時点のモデル定義通りに作られるため、本プロジェクトで配布された全ビルドは
+#: 導入時点のモデル定義を反映済み）。そのためstamp先として固定するのは安全である
+#: （2026-08 exam_subject.passing_score_type欠落インシデントの根本修正時に判明）。
+_PRE_ALEMBIC_BASELINE_REVISION = "a3f9c1d7e2b4"
+
+
+def upgrade_database_schema() -> None:
+    """DBスキーマをAlembicの最新リビジョンへ更新する（データ構造編8章、本番相当の構築）。
+
+    以前は`create_all_tables()`（`Base.metadata.create_all()`）のみを実行していたが、
+    これは未作成のテーブルを新規作成するだけで、既存テーブルへのカラム追加等の
+    スキーマ変更は反映しない。配布パッケージを新バージョンに差し替えた際、既存
+    インストール先のDBに新規カラムが追加されないまま起動し、`no such column`エラーで
+    アプリ自体が起動不能になる不具合があったため、Alembicのマイグレーションチェーン
+    適用に一本化する（`alembic upgrade head`と同等の処理をAPI経由で実行）。
+
+    新規DB（テーブル未作成）はチェーンの先頭から適用されるため、`create_all_tables()`と
+    同じ最終スキーマになる（新規インストールへの挙動は変わらない）。
+
+    `create_all_tables()`のみで構築されてきた既存DB（alembic_versionテーブルが無い）は、
+    テーブルは既に存在するため、そのままchainの先頭から`upgrade`すると`create_table`が
+    「テーブルが既に存在する」エラーになる。この場合は`_PRE_ALEMBIC_BASELINE_REVISION`へ
+    `stamp`（実際にはSQLを実行せず、適用済みとして記録するだけ）してから`upgrade`する
+    ことで、未適用分（このリビジョン以降の変更）のみを反映する。
+
+    現在のリビジョンが既にhead（最新）の場合は何もしない（テスト実行時、TestClientの
+    lifespan経由で毎起動ごとに呼ばれても安全・軽量にするため）。適用が必要な場合のみ、
+    実行前にDBファイルの安全退避コピーを作成する（万一の不具合時の復旧手段を残すため、
+    backup_service.create_safety_copyを再利用。CLAUDE.md DRYの原則）。
+    """
+    global _schema_confirmed_current
+    if _schema_confirmed_current:
+        return
+
+    alembic_cfg = Config(str(resolve_alembic_ini_path()))
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head_revision = script.get_current_head()
+
+    with engine.connect() as connection:
+        current_revision = MigrationContext.configure(connection).get_current_revision()
+        is_legacy_unversioned_database = current_revision is None and inspect(connection).has_table(
+            "goal"
+        )
+
+    if current_revision == head_revision:
+        _schema_confirmed_current = True
+        return
+
+    db_path = backup_service.database_path()
+    if db_path.exists():
+        # SQLiteファイルのコピー前にWAL内容を本体へ統合し、接続を解放する（Windowsの
+        # ファイルロック対策を兼ねる）。
+        checkpoint_and_dispose(engine)
+        backup_service.create_safety_copy(db_path, "pre_migration")
+
+    # alembic/env.pyのfileConfig()はルートロガーのハンドラ・レベルをalembic.ini側の設定へ
+    # 差し替えるだけでなく、既存の非alembicロガーを全て無効化する。migration未発生時は
+    # fileConfig自体が呼ばれないため気づかれにくい（2026-09-17、work-chatの500エラー
+    # 調査時に発覚。Phase40でdisabledフラグも巻き込まれることが判明し対策を拡張）。
+    with preserve_logging_state():
+        if is_legacy_unversioned_database:
+            command.stamp(alembic_cfg, _PRE_ALEMBIC_BASELINE_REVISION)
+        command.upgrade(alembic_cfg, "head")
+    _schema_confirmed_current = True
+
+
+def bootstrap_database() -> None:
+    """スキーマ更新（Alembic）と初期データ投入をまとめて行う。
+
+    ai_logの保持期間超過分の削除（データ構造編5.5「起動時に削除する」）もここで行う。
+    AI基盤への通信を伴わないローカルなDB操作のみのため、テスト実行時（TestClientの
+    lifespan経由での毎回起動）に含めても安全（実ネットワーク呼び出しを伴う週次要約の
+    遡及生成はここに含めない。run_ai_startup_tasks・__main__ブロックを参照）。
+    """
+    upgrade_database_schema()
+    session = SessionLocal()
+    try:
+        run_all(session)
+        today = goal_service.resolve_today(session)
+        ai_logger.purge_expired(session, today)
+        session.commit()
+    finally:
+        session.close()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    bootstrap_database()
+    yield
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title="ミチナリ API", lifespan=lifespan)
+    register_exception_handlers(app)
+    register_request_context_middleware(app)
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    app.include_router(goals_router, prefix=API_V1_PREFIX)
+    app.include_router(exam_templates_router, prefix=API_V1_PREFIX)
+    app.include_router(materials_router, prefix=API_V1_PREFIX)
+    app.include_router(work_members_router, prefix=API_V1_PREFIX)
+    app.include_router(books_router, prefix=API_V1_PREFIX)
+    app.include_router(resources_router, prefix=API_V1_PREFIX)
+    app.include_router(records_router, prefix=API_V1_PREFIX)
+    app.include_router(calendar_router, prefix=API_V1_PREFIX)
+    app.include_router(ai_router, prefix=API_V1_PREFIX)
+    app.include_router(dashboard_router, prefix=API_V1_PREFIX)
+    app.include_router(settings_router, prefix=API_V1_PREFIX)
+    app.include_router(analytics_router, prefix=API_V1_PREFIX)
+    app.include_router(closure_router, prefix=API_V1_PREFIX)
+    app.include_router(export_router, prefix=API_V1_PREFIX)
+    app.include_router(data_router, prefix=API_V1_PREFIX)
+    app.include_router(system_info_router, prefix=API_V1_PREFIX)
+    app.include_router(client_logs_router, prefix=API_V1_PREFIX)
+
+    # フロントエンドの静的配信（配布パッケージ対応）。API/healthルートを登録した後に
+    # マウントすることで、それらのパスが静的配信より優先して解決される。開発時は
+    # frontend/distが存在しないため、これまで通りVite開発サーバー経由のプロキシとなる。
+    frontend_dist_dir = resolve_frontend_dist_dir()
+    if frontend_dist_dir.is_dir():
+        app.mount(
+            "/", _SpaStaticFiles(directory=str(frontend_dist_dir), html=True), name="frontend"
+        )
+
+    return app
+
+
+app = create_app()
+
+
+def port_from_app_setting(session: Session) -> int:
+    """server.port（app_setting）を返す。行が存在しない場合のみ設定ファイルの
+    フォールバック値を使う（DB未構築直後などのブートストラップ用）。"""
+    setting = session.query(AppSetting).filter_by(key=SERVER_PORT).first()
+    return int(setting.value) if setting else get_settings().fallback_server_port
+
+
+def resolve_startup_port() -> int:
+    bootstrap_database()
+    session = SessionLocal()
+    try:
+        return port_from_app_setting(session)
+    finally:
+        session.close()
+
+
+def run_ai_startup_tasks() -> None:
+    """起動時のAI連携タスク（週次要約の遡及生成、ロジック・プロンプト編15.2）。
+
+    実際にAI基盤へ通信するため、実サーバ起動時のみ呼び出す（TestClientのlifespan経由では
+    呼ばない。bootstrap_databaseとは意図的に分離している）。1件の生成失敗が起動を止めない
+    ことはweekly_summary_service.run_retroactive_generation側で保証する（16.7）。
+    """
+    session = SessionLocal()
+    try:
+        today = goal_service.resolve_today(session)
+        weekly_summary_service.run_retroactive_generation(session, today)
+    finally:
+        session.close()
+
+
+#: 起動に失敗したときのプロセスの終了コード。
+STARTUP_FAILURE_EXIT_CODE = 1
+
+
+def main() -> int:
+    """アプリを常駐起動する（配布パッケージの`Michinari.exe`の入口）。
+
+    コンソールを表示しない実行形態（PyInstallerの`--noconsole`）で動くため、**一番最初に
+    標準出力の差し替えとログのファイル出力を済ませる**（`app/desktop/logging_setup.py`）。
+    これより前に例外が出ると、利用者には何も表示されないまま終了してしまう。
+
+    起動に失敗した場合（DBマイグレーションの失敗、ポートの重複など）はダイアログで知らせる。
+    従来は`Michinari.bat`が`pause`でコンソールを残してエラーを読ませていたが、コンソール
+    自体を出さなくなったため、その役割をダイアログとログファイルへ移している。**ここで
+    黙って終了すると、利用者には「ダブルクリックしても何も起きない」としか映らない。**
+
+    返り値:
+        プロセスの終了コード（正常終了なら0）。
+    """
+    log_path = desktop_runner.bootstrap_logging()
+    logger = logging.getLogger(__name__)
+    logger.info("ミチナリを起動します")
+
+    try:
+        port = resolve_startup_port()
+        # 週次要約の遡及生成はAI基盤への通信を伴い、応答待ちで数秒〜数十秒かかることがある。
+        # 画面が開くまで待たせないよう別スレッドで走らせる（失敗が起動を止めないことは
+        # weekly_summary_service.run_retroactive_generation側が保証する）。
+        Thread(target=run_ai_startup_tasks, name="ai-startup-tasks", daemon=True).start()
+        return desktop_runner.run(app, port)
+    except Exception as error:
+        logger.exception("起動に失敗しました")
+        desktop_runner.show_error_dialog(str(error), log_path)
+        return STARTUP_FAILURE_EXIT_CODE
+
+
+if __name__ == "__main__":  # pragma: no cover (プロセスの入口のためユニットテスト対象外)
+    sys.exit(main())

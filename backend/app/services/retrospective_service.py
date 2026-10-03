@@ -1,0 +1,198 @@
+"""総括レポート（GOAL_RETROSPECTIVE）の生成（設計書 ロジック・プロンプト編17.5、
+データ構造編5.4、実装フェーズ分割計画書Phase10）。
+
+goal_service.close_goalのdocstring通り、総括レポートの生成はクローズ処理の成否に
+影響させない別責務とする（クローズはgoal_service、生成は本サービスがAPI層から別々に
+呼ばれる。仕様書6.9「クローズ実行後、総括レポートの生成を開始し」）。
+"""
+
+import datetime as dt
+
+from sqlalchemy.orm import Session
+
+from app.ai import conversation as ai_conversation
+from app.ai import orchestration as ai_orchestration
+from app.ai import prompt_builder
+from app.constants.app_setting_keys import (
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
+    AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
+)
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, RetrospectivePeriodType
+from app.models.goal import Goal
+from app.models.retrospective import GoalRetrospective
+from app.services import ai_context_service, goal_service, setting_reader
+from app.services.exceptions import ValidationError
+
+#: ai_conversation.scope_key はGOAL_RETROSPECTIVEでは固定値"main"とする
+#: （データ構造編5.5「scope_keyの値」表）。匿名化版・通常版は同一会話内の別送信として扱う
+#: （goal_retrospectiveはgoal_id単位、chat自体はconversation_uid一つで足りるため）。
+_SCOPE_KEY = "main"
+
+#: {{weekly_summaries}}／{{reading_logs}}が空の場合の表示（17.5・17.7）。
+#: ai_context_service側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
+#: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う
+#: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_entries／build_reading_logs_entriesの
+#: 前身（build_all_weekly_summaries_text／build_reading_logs_text）が元々返していた文言と
+#: 同じにし、縮退の追加以外は挙動を変えない。
+_NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
+_NO_READING_LOGS_TEXT = "（想起記録はありません）"
+
+
+def get_latest_retrospective(
+    session: Session,
+    goal: Goal,
+    *,
+    anonymized: bool = False,
+    period_type: RetrospectivePeriodType | None = None,
+    period_key: str | None = None,
+) -> GoalRetrospective | None:
+    """最新の総括レポートを取得する（5.4「最新のものを既定で表示する」）。
+
+    period_type／period_keyを指定しない場合はperiod_type IS NULLの行（EXAM総括レポート・
+    READING読了レポート）のみを対象とする（データ構造編5.4「『最新の総括レポートを取得
+    する』ロジックの拡張」、実装フェーズ分割計画書Phase22）。指定した場合はWORKの月次
+    報告・半期評価を対象とし、該当行は高々1件のため実質的に完全一致の取得となる。
+    """
+    query = session.query(GoalRetrospective).filter(
+        GoalRetrospective.goal_id == goal.id, GoalRetrospective.is_anonymized == anonymized
+    )
+    if period_type is None:
+        query = query.filter(GoalRetrospective.period_type.is_(None))
+    else:
+        query = query.filter(
+            GoalRetrospective.period_type == period_type,
+            GoalRetrospective.period_key == period_key,
+        )
+    # generated_at単独のORDER BYは、短時間での再生成でマイクロ秒が同一に丸まった場合
+    # タイブレークが不定になり、再生成直後でも古い版を返しうる（work_evaluation_service.
+    # list_evaluation_reportsで実測確認済みの同根の問題）。idを第2キーにして常に新しい
+    # 行を優先する。
+    return query.order_by(
+        GoalRetrospective.generated_at.desc(), GoalRetrospective.id.desc()
+    ).first()
+
+
+def _build_exam_context(
+    session: Session, goal: Goal, today: dt.date, anonymize: bool
+) -> prompt_builder.DegradableFeedbackContext:
+    treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
+    materials = [material for material in goal.materials if material.is_active]
+    return prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "goal_summary": ai_context_service.build_goal_summary([goal], today),
+            "material_summary": ai_context_service.build_material_summary_text(session, materials),
+            "overall_metrics": ai_context_service.build_overall_metrics_text(
+                session, goal, today, treat_holiday_as_buffer
+            ),
+            "quality_trend": ai_context_service.build_quality_trend_text(session, materials),
+            "replan_history": ai_context_service.build_replan_history_text(session, goal),
+            "exam_results": ai_context_service.build_exam_results_text(goal),
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=ai_context_service.build_all_weekly_summaries_entries(session, goal),
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+        ],
+    )
+
+
+def _build_reading_context(
+    session: Session, goal: Goal, today: dt.date, anonymize: bool
+) -> prompt_builder.DegradableFeedbackContext:
+    if goal.book is None:
+        raise ValidationError("書籍が未登録の読書目標には読了レポートを生成できません")
+    book = goal.book
+    # L-11: 週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない直近部分
+    # （週次要約バッチが未到達の場合を含む）は{{reading_logs}}のまま注入する。
+    compressed = ai_context_service.resolve_weekly_compressed_period(
+        session, goal, period_start=book.start_date, period_end=today
+    )
+    return prompt_builder.DegradableFeedbackContext(
+        fixed_variables={
+            "book_summary": ai_context_service.build_retrospective_book_summary_text(book),
+            "overall_metrics": ai_context_service.build_reading_overall_metrics_text(session, book),
+            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        },
+        stages=[
+            prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
+                key="reading_logs",
+                entries=ai_context_service.exclude_covered_dates(
+                    ai_context_service.build_reading_logs_entries(
+                        session, book, date_from=book.start_date
+                    ),
+                    compressed.covered_ranges,
+                ),
+                empty_text=_NO_READING_LOGS_TEXT,
+            ),
+        ],
+    )
+
+
+def generate_retrospective(
+    session: Session, goal: Goal, *, today: dt.date, anonymize: bool = False
+) -> GoalRetrospective:
+    """総括レポート（EXAM）／読了レポート（READING）を生成する（17.5・17.7、仕様書6.9〜6.10。
+    再生成は新規レコードとして追加し、旧レコードは削除しない＝5.4「再生成を許容するため
+    複数レコードを持てる」）。goal_retrospectiveテーブルはEXAM・READINGで共用する
+    （データ構造編5.4「読書目標での流用」）。
+
+    仕事目標（category=WORK）は対象外とする（恒久的な仕様。読書がPhase15〜16で経由した
+    暫定ガードとは異なり、月次報告・半期評価という別エンドポイント（work_report_service.py）
+    を新設するため、本関数はWORKに対して常にVALIDATION_ERRORで拒否する。データ構造編6.2）。
+    """
+    if goal.category == GoalCategory.WORK:
+        raise ValidationError(
+            "仕事目標には総括レポートを生成できません（月次報告・半期評価を使用してください）"
+        )
+    if goal.category == GoalCategory.READING:
+        purpose = AiPurpose.GOAL_RETROSPECTIVE_READING
+        scope = ConversationScope.GOAL_RETROSPECTIVE_READING
+        assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
+        title = f"{goal.name} 読了レポート"
+        context = _build_reading_context(session, goal, today, anonymize)
+    else:
+        purpose = AiPurpose.GOAL_RETROSPECTIVE
+        scope = ConversationScope.GOAL_RETROSPECTIVE
+        assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE
+        title = f"{goal.name} 総括レポート"
+        context = _build_exam_context(session, goal, today, anonymize)
+
+    template_body = ai_orchestration.load_template_body(session, purpose)
+    max_chars = ai_orchestration.get_max_prompt_chars(session)
+    build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
+
+    assistant_uid = setting_reader.get_str(session, assistant_uid_key)
+    conversation = ai_conversation.ensure_conversation(
+        session,
+        goal=goal,
+        scope=scope,
+        scope_key=_SCOPE_KEY,
+        assistant_uid=assistant_uid,
+        title=title,
+    )
+
+    send_result = ai_orchestration.send_and_log(
+        session,
+        purpose=purpose,
+        conversation=conversation,
+        prompt_text=build_result.text,
+        prompt_chars=build_result.prompt_chars,
+        was_truncated=build_result.was_truncated,
+    )
+
+    retrospective = GoalRetrospective(
+        goal_id=goal.id,
+        body=send_result.response_text.strip(),
+        is_anonymized=anonymize,
+    )
+    session.add(retrospective)
+    session.flush()
+    return retrospective

@@ -1,0 +1,33 @@
+{
+  "id": "nw",
+  "exam_name": "ネットワークスペシャリスト試験",
+  "subjects": [
+    { "name": "科目A-1", "passing_score_type": "PERCENTAGE", "passing_score": 60 },
+    { "name": "科目A-2", "passing_score_type": "PERCENTAGE", "passing_score": 60 },
+    { "name": "科目B-1", "passing_score_type": "PERCENTAGE", "passing_score": 60 },
+    { "name": "科目B-2", "passing_score_type": "PERCENTAGE", "passing_score": 60 }
+  ],
+  "materials": [
+    {
+      "name": "教科書（通読）",
+      "unit_label": "ページ",
+      "total_amount": 450,
+      "planned_cycles": 1,
+      "subject_names": ["科目A-1", "科目A-2", "科目B-1", "科目B-2"]
+    },
+    {
+      "name": "科目A過去問演習",
+      "unit_label": "問",
+      "total_amount": 500,
+      "planned_cycles": 2,
+      "subject_names": ["科目A-1", "科目A-2"]
+    },
+    {
+      "name": "科目B記述式演習",
+      "unit_label": "問",
+      "total_amount": 30,
+      "planned_cycles": 3,
+      "subject_names": ["科目B-1", "科目B-2"]
+    }
+  ]
+}

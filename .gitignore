@@ -1,0 +1,67 @@
+# ローカル限定の個人設定（環境固有パス・権限を含むため共有しない）
+.claude/settings.local.json
+
+# OS/エディタ
+.DS_Store
+Thumbs.db
+*.swp
+
+# Security (added by ClaudeCodeTemplate)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.yaml
+secrets.yml
+id_rsa
+id_rsa.pub
+.claude/.git-automation-setup-done
+# サブエージェント用の一時worktree（リポジトリの複製）。.git/info/exclude にも記載があるが、
+# osv-scanner など .gitignore しか見ないツールが複製側まで走査して結果が重複するため、
+# .gitignore にも明記する。
+.claude/worktrees/
+
+# Python (backend)
+myvenv/
+backend/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.coverage
+# Stop Hook 専用のカバレッジデータ（同時実行で .coverage を奪い合わないよう分離している）
+.coverage.*
+htmlcov/
+
+# データベース・バックアップ・エクスポート（実データを誤ってコミットしないため）。
+# data/backups/・data/exports/（app/config.py BACKUP_DIR/EXPORT_DIR）配下も含め
+# data/ 配下は.gitkeep以外すべて対象とする（*.dbのみを対象にすると、サブ
+# ディレクトリのバックアップファイル等が漏れるため。CLAUDE.md DRYの原則
+# ＝除外ルールを1箇所に集約し、生成物の種類ごとに追記しない）。
+data/*
+!data/.gitkeep
+# テスト用SQLiteは2026-09-16以降 tempfile.TemporaryDirectory（実行のたびに一意な
+# ディレクトリ、OneDrive同期対象外）に生成するため、リポジトリ配下には作られない
+# （backend/tests/conftest.py）。
+
+# Node（フロントエンド、Phase 6以降）
+node_modules/
+frontend/dist/
+# Vitest(v8) のカバレッジ出力。計測のたびに再生成されるため管理しない。
+frontend/coverage/
+
+# 配布パッケージのビルド成果物（PyInstaller、OPERATIONS.md 7.4参照。build_package.pyで再生成可能）
+backend/build/
+backend/dist/
+backend/Michinari.spec
+# built_atがビルドの都度変わるため、frontend/src/types/api.d.ts（APIスキーマ変更時のみ
+# 変わる決定論的な生成物でありコミット対象）とは異なりコミットしない
+backend/build_info.json
+
+# Office（PowerPoint/Word/Excel）がファイルを開いている間だけ生成するロックファイル。
+# 編集者の環境依存の一時ファイルであり、コミット対象ではない
+~$*

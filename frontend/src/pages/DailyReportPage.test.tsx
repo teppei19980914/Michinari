@@ -1,0 +1,802 @@
+/** SC-06 日次報告（DailyReportPage）の振る舞いを固定する回帰テスト。
+ *
+ * このファイルは「画面の構造を変えても外から見た振る舞いが変わっていないこと」を守るための
+ * 安全網である。純粋関数側（resolveDailyReportGuard等）のテストでは、フック順序・早期return
+ * の位置・タブ切り替え時の下書き保持といった「コンポーネントの組み立て方に依存する仕様」を
+ * 守れないため、描画テストとして置く。
+ *
+ * 特に次の4点は過去に実際の不具合が発生した箇所であり、必ず固定する。
+ * - 確定はカテゴリごとに独立し、1カテゴリ確定しても他は入力・確定できる（仕様書1.1（改20））
+ * - 着手中の全カテゴリが確定済みになったときだけダッシュボードへ遷移する（仕様変更2026-09-05）
+ * - 全カテゴリ確定済み／入力可能期間外の日は閲覧画面へ自動転送する（仕様書7.2）
+ * - 目標タブを切り替えても下書き入力は失われない（全目標分をローカル保持している）
+ *
+ * この画面自体はカバレッジの計測対象から外している（理由はvite.config.tsのcoverage.exclude
+ * のコメントを参照）。本ファイルの目的は振る舞いの回帰検知であり、網羅率の担保は判定ロジック
+ * を切り出した.ts側で行う。 */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  Link,
+  Outlet,
+  Route,
+  RouterProvider,
+  createMemoryRouter,
+  createRoutesFromElements,
+} from 'react-router-dom'
+import { ROUTES, ROUTE_PATTERNS } from '../constants/routes'
+import { ToastProvider } from '../components/Toast'
+import { DailyReportDraftProvider } from '../features/record/dailyReportDraftStore'
+import { t } from '../locales/t'
+import * as goalsApi from '../api/goals'
+import * as recordsApi from '../api/records'
+import * as resourcesApi from '../api/resources'
+import * as calendarApi from '../api/calendar'
+import type { BookRead, GoalRead, WorkAssignmentRead } from '../api/goals'
+import type { DailyRecordRead, QuotaItemRead } from '../api/records'
+import type { ResourceSlotRead } from '../api/resources'
+import { DailyReportPage } from './DailyReportPage'
+
+vi.mock('../api/goals')
+vi.mock('../api/records')
+vi.mock('../api/resources')
+vi.mock('../api/calendar')
+
+const LOGICAL_DATE = '2026-09-13'
+/** 当日・前日のいずれでもない日（入力可能期間外。仕様書7.2）。 */
+const OUT_OF_RANGE_DATE = '2026-09-10'
+
+const EXAM_GOAL_NAME = 'exam-goal'
+const READING_GOAL_NAME = 'reading-goal'
+const WORK_GOAL_NAME = 'work-goal'
+
+/** 遷移先の判別用マーカー。遷移先の画面そのものを描画するとその画面のデータ取得まで
+ * 面倒を見ることになり、判定したい「どこへ遷移したか」が埋もれるため差し替える。 */
+const VIEW_PAGE_MARKER = 'view-page'
+const DASHBOARD_MARKER = 'dashboard-page'
+/** アプリ内遷移（別画面への移動）を発火させるためのリンク。 */
+const NAV_LINK_LABEL = 'nav-link'
+/** ダッシュボードマーカー画面から日次報告へ戻るためのリンク（下書き復元の検証用）。 */
+const BACK_LINK_LABEL = 'back-link'
+
+function buildGoal(id: number, category: GoalRead['category'], name: string): GoalRead {
+  return {
+    id,
+    category,
+    name,
+    start_date: LOGICAL_DATE,
+    status: 'ACTIVE',
+    memo: null,
+    activated_at: null,
+    closed_at: null,
+    archived_at: null,
+    is_achieved: false,
+  }
+}
+
+const EXAM_GOAL = buildGoal(1, 'EXAM', EXAM_GOAL_NAME)
+const READING_GOAL = buildGoal(2, 'READING', READING_GOAL_NAME)
+const WORK_GOAL = buildGoal(3, 'WORK', WORK_GOAL_NAME)
+
+const BOOK: BookRead = {
+  id: 10,
+  goal_id: READING_GOAL.id,
+  title: 'book-title',
+  author: null,
+  total_pages: 200,
+  start_date: LOGICAL_DATE,
+  due_date: LOGICAL_DATE,
+  remaining_days: 5,
+  last_reading_date: null,
+  current_streak: 0,
+  current_page: null,
+  progress_rate: null,
+}
+
+const WORK_ASSIGNMENT: WorkAssignmentRead = {
+  id: 20,
+  goal_id: WORK_GOAL.id,
+  client_name: 'client-name',
+  expected_content: '',
+  start_date: LOGICAL_DATE,
+  role: null,
+  elapsed_days: 1,
+  last_work_date: null,
+  current_streak: 0,
+  has_recent_monthly_report: false,
+  members: [],
+}
+
+const SLOT_NAME = 'morning-slot'
+const SLOT = { id: 40, name: SLOT_NAME } as ResourceSlotRead
+
+const QUOTA_ITEM: QuotaItemRead = {
+  material_id: 30,
+  material_name: 'material',
+  unit_label: 'page',
+  current_cycle: 1,
+  planned_cycles: 3,
+  daily_quota: 10,
+  quality_metric_type: 'NONE',
+  goal_id: EXAM_GOAL.id,
+  goal_name: EXAM_GOAL_NAME,
+  slot_defaults: [{ slot_id: SLOT.id, slot_name: SLOT_NAME, minutes: 0 }],
+}
+
+function buildRecord(overrides: Partial<DailyRecordRead> = {}): DailyRecordRead {
+  return {
+    record_date: LOGICAL_DATE,
+    exam_record_state: null,
+    reading_record_state: null,
+    work_record_state: null,
+    exam_reported_at: null,
+    reading_reported_at: null,
+    work_reported_at: null,
+    diary_entries: [],
+    study_logs: [],
+    reading_logs: [],
+    work_logs: [],
+    comments: [],
+    chat_messages: [],
+    ...overrides,
+  }
+}
+
+type SetupOptions = {
+  /** 着手中の目標。既定は3カテゴリすべて（＝目標タブが表示される構成）。 */
+  goals?: GoalRead[]
+  record?: DailyRecordRead
+}
+
+function setupQueries({ goals = [EXAM_GOAL, READING_GOAL, WORK_GOAL], record }: SetupOptions = {}) {
+  const hasReading = goals.some((goal) => goal.category === 'READING')
+  const hasWork = goals.some((goal) => goal.category === 'WORK')
+  vi.mocked(goalsApi.listGoals).mockResolvedValue(goals)
+  vi.mocked(goalsApi.listActiveReadingBooks).mockResolvedValue(
+    hasReading ? [{ goal: READING_GOAL, book: BOOK }] : [],
+  )
+  vi.mocked(goalsApi.listActiveWorkAssignments).mockResolvedValue(
+    hasWork ? [{ goal: WORK_GOAL, workAssignment: WORK_ASSIGNMENT }] : [],
+  )
+  vi.mocked(recordsApi.getRecord).mockResolvedValue(record ?? buildRecord())
+  vi.mocked(recordsApi.getQuota).mockResolvedValue([QUOTA_ITEM])
+  vi.mocked(recordsApi.getToday).mockResolvedValue({
+    logical_date: LOGICAL_DATE,
+    record_state: null,
+  })
+  vi.mocked(resourcesApi.listSlots).mockResolvedValue([SLOT])
+  // 「前回はこう書いていました」ヒント・「今日は何もしていない」ボタンの日種別取得。
+  // 既定では前回の記録なし・PLAN日とする（記録画面改善タスク2026-09-17）。
+  vi.mocked(recordsApi.getPreviousDiary).mockResolvedValue(null)
+  vi.mocked(recordsApi.getPreviousReadingLog).mockResolvedValue(null)
+  vi.mocked(recordsApi.getPreviousWorkLog).mockResolvedValue(null)
+  vi.mocked(calendarApi.getCalendar).mockResolvedValue([
+    { target_date: LOGICAL_DATE, day_type: 'PLAN', record_state: null },
+  ])
+}
+
+/** App.tsxと同じくcreateMemoryRouter＋DailyReportDraftProviderで組み立てる。下書きは
+ * ページの外（DailyReportDraftProvider）が保持するため、別画面へ移動して戻ってきても
+ * 下書きが残ることを検証できる（BACK_LINK_LABEL、記録画面改善タスク2026-09-17）。 */
+function renderPage(targetDate: string = LOGICAL_DATE) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const router = createMemoryRouter(
+    createRoutesFromElements(
+      <Route
+        element={
+          <>
+            <Link to={ROUTES.dashboard}>{NAV_LINK_LABEL}</Link>
+            <Outlet />
+          </>
+        }
+      >
+        <Route path={ROUTE_PATTERNS.dailyReport} element={<DailyReportPage />} />
+        <Route path={ROUTE_PATTERNS.dailyReportView} element={<p>{VIEW_PAGE_MARKER}</p>} />
+        <Route
+          path={ROUTE_PATTERNS.dashboard}
+          element={
+            <>
+              <p>{DASHBOARD_MARKER}</p>
+              <Link to={ROUTES.dailyReport(targetDate)}>{BACK_LINK_LABEL}</Link>
+            </>
+          }
+        />
+      </Route>,
+    ),
+    { initialEntries: [ROUTES.dailyReport(targetDate)] },
+  )
+  render(
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <DailyReportDraftProvider>
+          <RouterProvider router={router} />
+        </DailyReportDraftProvider>
+      </ToastProvider>
+    </QueryClientProvider>,
+  )
+}
+
+/** 目標タブ（GoalTabBar）はカテゴリ名と目標名を連結したラベルを持つ。 */
+function getGoalTab(goalName: string) {
+  return screen.getByRole('button', { name: new RegExp(goalName) })
+}
+
+async function waitForTitle() {
+  await screen.findByText(t('dailyReport.title', { date: LOGICAL_DATE }))
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  setupQueries()
+})
+
+afterEach(() => {
+  cleanup()
+})
+
+describe('DailyReportPage', () => {
+  it('shows the loading label until every required query has settled', async () => {
+    vi.mocked(recordsApi.getRecord).mockReturnValue(new Promise(() => {}))
+    renderPage()
+    expect(await screen.findByText(t('common.loading'))).toBeTruthy()
+  })
+
+  it('shows an error message when a required query fails', async () => {
+    vi.mocked(recordsApi.getRecord).mockRejectedValue(new Error('boom'))
+    renderPage()
+    expect(await screen.findByText(t('errors.default'))).toBeTruthy()
+  })
+
+  it('redirects to the view screen when the target date is outside the input window', async () => {
+    renderPage(OUT_OF_RANGE_DATE)
+    expect(await screen.findByText(VIEW_PAGE_MARKER)).toBeTruthy()
+  })
+
+  it('redirects to the view screen when every started category is already reported', async () => {
+    setupQueries({
+      record: buildRecord({
+        exam_record_state: 'REPORTED',
+        reading_record_state: 'REPORTED',
+        work_record_state: 'REPORTED',
+      }),
+    })
+    renderPage()
+    expect(await screen.findByText(VIEW_PAGE_MARKER)).toBeTruthy()
+  })
+
+  it('keeps the remaining categories reportable when only one category is finalized', async () => {
+    const user = userEvent.setup()
+    setupQueries({ record: buildRecord({ exam_record_state: 'REPORTED' }) })
+    renderPage()
+    await waitForTitle()
+
+    // 確定済みの資格試験セクションは読み取り専用（確定ボタンなし）に切り替わる。
+    expect(screen.getByText(t('dailyReport.confirmedBadge'))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: t('dailyReport.studyLog.finalizeButton') })).toBe(
+      null,
+    )
+
+    // 未確定の読書・仕事は引き続き入力・確定できる（仕様書1.1（改20）の回帰）。
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    expect(screen.getByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    ).toBeTruthy()
+
+    await user.click(getGoalTab(WORK_GOAL_NAME))
+    expect(screen.getByLabelText(t('dailyReport.workLog.bodyLabel'))).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: t('dailyReport.workLog.finalizeButton') }),
+    ).toBeTruthy()
+  })
+
+  it('stays on the page when a finalize leaves another category unreported', async () => {
+    const user = userEvent.setup()
+    setupQueries({ record: buildRecord({ exam_record_state: 'REPORTED' }) })
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'REPORTED' }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.click(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    )
+
+    await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+  })
+
+  it('navigates to the dashboard when the last remaining category is finalized', async () => {
+    const user = userEvent.setup()
+    setupQueries({
+      record: buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'REPORTED' }),
+    })
+    vi.mocked(recordsApi.finalizeWorkRecord).mockResolvedValue(
+      buildRecord({
+        exam_record_state: 'REPORTED',
+        reading_record_state: 'REPORTED',
+        work_record_state: 'REPORTED',
+      }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.click(getGoalTab(WORK_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.workLog.finalizeButton') }))
+
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  /** カテゴリごとの「入力欄・送信先・積む下書き」の対応表。共通フック（useCategoryChat /
+   * useCategoryFinalize）へ集約したため、ここが取り違うと3カテゴリ同時に壊れる。 */
+  const CATEGORY_WIRING = [
+    {
+      name: 'exam',
+      goalName: EXAM_GOAL_NAME,
+      goalId: EXAM_GOAL.id,
+      inputLabel: t('dailyReport.diary.bodyLabel'),
+      chatStartLabel: t('dailyReport.chat.startButton'),
+      finalizeLabel: t('dailyReport.studyLog.finalizeButton'),
+      chatApi: recordsApi.sendChat,
+      finalizeApi: recordsApi.finalizeRecord,
+      purpose: 'DAILY_FEEDBACK',
+      expectDraft: (draft: string) => ({
+        diary_entries: [expect.objectContaining({ diary_body: draft })],
+      }),
+    },
+    {
+      name: 'reading',
+      goalName: READING_GOAL_NAME,
+      goalId: READING_GOAL.id,
+      inputLabel: t('dailyReport.readingLog.recallLabel'),
+      chatStartLabel: t('dailyReport.readingChat.startButton'),
+      finalizeLabel: t('dailyReport.readingLog.finalizeButton'),
+      chatApi: recordsApi.sendReadingChat,
+      finalizeApi: recordsApi.finalizeReadingRecord,
+      purpose: 'DAILY_FEEDBACK_READING',
+      expectDraft: (draft: string) => ({
+        reading_logs: [expect.objectContaining({ recall_body: draft })],
+      }),
+    },
+    {
+      name: 'work',
+      goalName: WORK_GOAL_NAME,
+      goalId: WORK_GOAL.id,
+      inputLabel: t('dailyReport.workLog.bodyLabel'),
+      chatStartLabel: t('dailyReport.workChat.startButton'),
+      finalizeLabel: t('dailyReport.workLog.finalizeButton'),
+      chatApi: recordsApi.sendWorkChat,
+      finalizeApi: recordsApi.finalizeWorkRecord,
+      purpose: 'DAILY_FEEDBACK_WORK',
+      expectDraft: (draft: string) => ({
+        work_logs: [expect.objectContaining({ body: draft })],
+      }),
+    },
+  ] as const
+
+  it.each(CATEGORY_WIRING)(
+    'sends the $name draft to the $name chat endpoint with its own goal',
+    async ({ goalName, goalId, chatStartLabel, chatApi, purpose }) => {
+      const user = userEvent.setup()
+      vi.mocked(chatApi).mockResolvedValue({
+        record: buildRecord(),
+        assistant_message: {
+          id: 500,
+          goal_id: goalId,
+          purpose,
+          role: 'ASSISTANT',
+          content: `${purpose}-reply`,
+          sequence: 0,
+          created_at: '2026-09-13T00:00:00Z',
+        },
+        was_truncated: false,
+        context_categories: [],
+      })
+      renderPage()
+      await waitForTitle()
+
+      await user.click(getGoalTab(goalName))
+      await user.click(screen.getByRole('button', { name: chatStartLabel }))
+
+      expect(await screen.findByText(`${purpose}-reply`)).toBeTruthy()
+      expect(chatApi).toHaveBeenCalledWith(
+        LOGICAL_DATE,
+        expect.objectContaining({ goal_id: goalId, message: null }),
+      )
+    },
+  )
+
+  it.each(CATEGORY_WIRING)(
+    'finalizes $name with the draft typed into the $name section',
+    async ({ goalName, inputLabel, finalizeLabel, finalizeApi, expectDraft }) => {
+      const user = userEvent.setup()
+      vi.mocked(finalizeApi).mockResolvedValue(buildRecord())
+      renderPage()
+      await waitForTitle()
+
+      await user.click(getGoalTab(goalName))
+      await user.type(screen.getByLabelText(inputLabel), 'draft-value')
+      await user.click(screen.getByRole('button', { name: finalizeLabel }))
+
+      await waitFor(() =>
+        expect(finalizeApi).toHaveBeenCalledWith(
+          LOGICAL_DATE,
+          expect.objectContaining(expectDraft('draft-value')),
+        ),
+      )
+    },
+  )
+
+  it('shows the truncation notice only in the category whose reply was truncated', async () => {
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.sendReadingChat).mockResolvedValue({
+      record: buildRecord(),
+      assistant_message: {
+        id: 501,
+        goal_id: READING_GOAL.id,
+        purpose: 'DAILY_FEEDBACK_READING',
+        role: 'ASSISTANT',
+        content: 'reading-reply',
+        sequence: 0,
+        created_at: '2026-09-13T00:00:00Z',
+      },
+      was_truncated: true,
+      context_categories: [],
+    })
+    renderPage()
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.readingChat.startButton') }))
+    expect(await screen.findByText(t('dailyReport.chat.truncatedNotice'))).toBeTruthy()
+
+    // 省略通知はカテゴリごとに独立して保持する。
+    await user.click(getGoalTab(WORK_GOAL_NAME))
+    expect(screen.queryByText(t('dailyReport.chat.truncatedNotice'))).toBe(null)
+  })
+
+  it('keeps the draft when the AI call fails', async () => {
+    // 仕様書16.7「AI呼び出しが失敗しても実績入力が失われない」。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.sendChat).mockRejectedValue(new Error('boom'))
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.click(screen.getByRole('button', { name: t('dailyReport.chat.startButton') }))
+
+    await waitFor(() => expect(recordsApi.sendChat).toHaveBeenCalled())
+    expect(
+      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-exam')
+  })
+
+  it('keeps drafts of goals that are not currently selected', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'draft-reading')
+
+    // 資格試験タブへ戻しても入力は保持されている（全目標分をローカル保持しているため）。
+    await user.click(getGoalTab(EXAM_GOAL_NAME))
+    expect(
+      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-exam')
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    expect(
+      (screen.getByLabelText(t('dailyReport.readingLog.recallLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-reading')
+  })
+
+  it('navigates away immediately even while an unsaved draft exists', async () => {
+    // 下書きはページの外（DailyReportDraftProvider）が保持するため、アプリ内遷移は
+    // 警告なしで通す（記録画面改善タスク2026-09-17。旧仕様のuseBlockerによる確認
+    // ダイアログは、下書きが実際には失われなくなったため撤去した）。
+    const user = userEvent.setup()
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  it('restores the draft after navigating away and back to the same date', async () => {
+    // 要件E: 確定前に別画面へ移動して戻っても入力内容が残っている。
+    const user = userEvent.setup()
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+    await screen.findByText(DASHBOARD_MARKER)
+
+    await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
+    await waitForTitle()
+
+    expect(
+      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-exam')
+  })
+
+  it('keeps the study log draft of a goal that is not currently selected', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await waitForTitle()
+
+    const amountInput = screen.getByLabelText(
+      t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
+    )
+    await user.clear(amountInput)
+    await user.type(amountInput, '12')
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.click(getGoalTab(EXAM_GOAL_NAME))
+
+    expect(
+      (
+        screen.getByLabelText(
+          t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('12')
+  })
+
+  it('keeps the slot minutes typed into the study log', async () => {
+    // 投下時間は時間枠ごとに入力し、教材の投下時間はその合計とする（仕様書6.5、要件定義書R-14）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord())
+    renderPage()
+    await waitForTitle()
+
+    // 完了分量が未入力の教材は送信対象から外れる仕様のため、あわせて入力する。
+    await user.type(
+      screen.getByLabelText(t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label })),
+      '3',
+    )
+    await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '45')
+    await user.click(screen.getByRole('button', { name: t('dailyReport.studyLog.finalizeButton') }))
+
+    await waitFor(() =>
+      expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(
+        LOGICAL_DATE,
+        expect.objectContaining({
+          study_logs: [
+            expect.objectContaining({
+              slot_minutes: [expect.objectContaining({ slot_id: SLOT.id, minutes: 45 })],
+            }),
+          ],
+        }),
+      ),
+    )
+  })
+
+  it('keeps the slot minutes typed into the reading log', async () => {
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(buildRecord())
+    renderPage()
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    // 想起本文が未入力の書籍は送信対象から外れる仕様のため、あわせて入力する。
+    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    // 読書は配分済みの既定枠を持たないため、「他の時間枠を追加」で枠を足してから入力する。
+    await user.selectOptions(
+      screen.getByLabelText(t('dailyReport.studyLog.addSlotLabel')),
+      String(SLOT.id),
+    )
+    await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '30')
+    await user.click(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    )
+
+    await waitFor(() =>
+      expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(
+        LOGICAL_DATE,
+        expect.objectContaining({
+          reading_logs: [
+            expect.objectContaining({
+              slot_minutes: [expect.objectContaining({ slot_id: SLOT.id, minutes: 30 })],
+            }),
+          ],
+        }),
+      ),
+    )
+  })
+
+  it('keeps the draft of other categories when finalizing one refetches the record', async () => {
+    // 確定するとinvalidateで記録が取り直される。取り直しのたびに下書きを初期化すると、
+    // 入力途中の他カテゴリの内容が消える（初期化は取得完了後の1回だけ）。
+    const user = userEvent.setup()
+    // 確定後の取り直しでは読書が確定済みになって返る（同値だとキャッシュが参照を維持し、
+    // 取り直しが起きたことを観測できないため、実際の状態変化を再現する）。
+    vi.mocked(recordsApi.getRecord)
+      .mockResolvedValueOnce(buildRecord())
+      .mockResolvedValue(buildRecord({ reading_record_state: 'REPORTED' }))
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ reading_record_state: 'REPORTED' }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    await user.click(
+      screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+    )
+    await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
+    // 無効化による記録の取り直しが完了するまで待つ（ここで初期化が走ると下書きが消える）。
+    await waitFor(() => expect(vi.mocked(recordsApi.getRecord).mock.calls.length).toBeGreaterThan(1))
+
+    await user.click(getGoalTab(EXAM_GOAL_NAME))
+    expect(
+      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+    ).toBe('draft-exam')
+  })
+
+  it('requests the record of the date in the url', async () => {
+    renderPage()
+    await waitForTitle()
+
+    expect(recordsApi.getRecord).toHaveBeenCalledWith(LOGICAL_DATE)
+    expect(recordsApi.getQuota).toHaveBeenCalledWith(LOGICAL_DATE)
+  })
+
+  it('shows the zero-record button when every active category is untouched', async () => {
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') })).toBeTruthy()
+  })
+
+  it('hides the zero-record button once every active category has data', async () => {
+    setupQueries({
+      record: buildRecord({
+        exam_record_state: 'PROGRESS_ONLY',
+        reading_record_state: 'PROGRESS_ONLY',
+        work_record_state: 'PROGRESS_ONLY',
+      }),
+    })
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.queryByRole('button', { name: t('dailyReport.zeroRecord.button') })).toBe(null)
+  })
+
+  it('confirms the zero-record button only for the currently selected goal tab', async () => {
+    // 実際に発生した不具合の再現（2026-09-26報告）。目標タブが表示されている（着手中の目標が
+    // 2件以上）状態でボタンを押すと、選択中のタブのカテゴリだけをゼロ確定し、他のタブは
+    // 未確定のまま残す（誤って全カテゴリを読み取り専用にしてしまわない）。既定の初期タブは
+    // 資格試験（useGoalReportTabsは先頭のACTIVE目標を選ぶ）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    renderPage()
+    await waitForTitle()
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      study_logs: [],
+      diary_entries: [],
+    })
+    // 選択していない読書・仕事タブは確定されない（不具合の再発防止の核）。
+    expect(recordsApi.finalizeReadingRecord).not.toHaveBeenCalled()
+    expect(recordsApi.finalizeWorkRecord).not.toHaveBeenCalled()
+    // 他カテゴリが未確定のため、まだダッシュボードへは遷移しない。
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+  })
+
+  it('finalizes every untouched category once each is confirmed from its own tab, then navigates', async () => {
+    // タブを切り替えながら3カテゴリを個別にゼロ確定した最終形（それぞれのAPIが自分の
+    // カテゴリでのみ呼ばれ、全カテゴリ確定後にダッシュボードへ遷移する）。
+    const user = userEvent.setup()
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ exam_record_state: 'REPORTED', reading_record_state: 'REPORTED' }),
+    )
+    vi.mocked(recordsApi.finalizeWorkRecord).mockResolvedValue(
+      buildRecord({
+        exam_record_state: 'REPORTED',
+        reading_record_state: 'REPORTED',
+        work_record_state: 'REPORTED',
+      }),
+    )
+    renderPage()
+    await waitForTitle()
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+    await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, { reading_logs: [] })
+    expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
+
+    await user.click(getGoalTab(WORK_GOAL_NAME))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+    await waitFor(() => expect(recordsApi.finalizeWorkRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, { work_logs: [] })
+
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  it('confirms every untouched category at once when no goal tab is shown (single active goal)', async () => {
+    // 着手中の目標が0〜1件のときはタブが無く、従来通り画面上の全カテゴリを一括でゼロ確定する
+    // （タブ絞り込みは着手中の目標が2件以上のときのみ働く）。
+    const user = userEvent.setup()
+    setupQueries({ goals: [EXAM_GOAL] })
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord({ exam_record_state: 'REPORTED' }))
+    renderPage()
+    await waitForTitle()
+
+    expect(screen.queryByRole('button', { name: new RegExp(EXAM_GOAL_NAME) })).toBe(null)
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      study_logs: [],
+      diary_entries: [],
+    })
+    expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
+  })
+
+  it('shows the reading log fields for a reading goal created after the page was already open', async () => {
+    // 実際に発生した不具合（2026-09-18）の再現。日次報告画面を開いた後に読書目標・書籍を
+    // 新規作成してアプリ内遷移で戻ると、下書きのhydrateは1回きりのため、新しく増えた
+    // 書籍の入力欄が空のまま表示され、そのまま確定できてしまっていた（reading_logsが空の
+    // ままREPORTEDになるデータロス）。useDailyReportDraft.test.tsxはフック単体の分岐を、
+    // 本テストは画面遷移込みの実際の再現手順を固定する。
+    const user = userEvent.setup()
+    setupQueries({ goals: [EXAM_GOAL, WORK_GOAL] })
+    renderPage()
+    await waitForTitle()
+
+    // 別画面（目標詳細・ウィザード等）で読書目標・書籍を新規作成した状況を再現する
+    // （以降のクエリは新しい読書目標を含めて返す）。
+    setupQueries({ goals: [EXAM_GOAL, READING_GOAL, WORK_GOAL] })
+
+    // DailyReportDraftProviderはLayout相当の位置にあるため、アプリ内遷移で戻ってきても
+    // hydratedフラグはリセットされない（クエリだけ最新化される）。
+    await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
+    await screen.findByText(DASHBOARD_MARKER)
+    await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
+    await waitForTitle()
+
+    await user.click(getGoalTab(READING_GOAL_NAME))
+    expect(screen.getByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
+  })
+
+  it('shows the previous entry as a hint above the free-write field', async () => {
+    vi.mocked(recordsApi.getPreviousDiary).mockResolvedValue({
+      record_date: '2026-09-12',
+      body: '前回はここまで進めた',
+    })
+    renderPage()
+    await waitForTitle()
+
+    expect(await screen.findByText('前回はここまで進めた')).toBeTruthy()
+    expect(screen.getByText(t('dailyReport.previousEntry.label'))).toBeTruthy()
+  })
+})

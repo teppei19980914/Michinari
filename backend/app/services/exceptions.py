@@ -1,0 +1,226 @@
+"""サービス層のドメイン例外。
+
+CLAUDE.md「サービス層でのHTTP例外の送出」禁止に従い、HTTPExceptionではなくここに定義する
+ドメイン例外を送出する。HTTPステータスへの変換はAPI層（Phase3以降）で行う。
+"""
+
+
+class DomainError(Exception):
+    """サービス層が送出する例外の基底クラス。"""
+
+
+class AppSettingNotFoundError(DomainError):
+    """参照した app_setting.key が存在しない場合（初期投入漏れ・キー誤りを示す）。"""
+
+    def __init__(self, key: str) -> None:
+        self.key = key
+        super().__init__(f"app_setting に key='{key}' が存在しません")
+
+
+class PlannedCyclesBelowCompletedError(DomainError):
+    """予定周回数を、既に完了した周回数未満へ変更しようとした場合（ロジック・プロンプト編 6.4）。"""
+
+    def __init__(self, current_cycle: int, new_planned_cycles: int) -> None:
+        self.current_cycle = current_cycle
+        self.new_planned_cycles = new_planned_cycles
+        super().__init__(
+            f"予定周回数({new_planned_cycles})を現在周回({current_cycle})未満にはできません"
+        )
+
+
+class NotFoundError(DomainError):
+    """指定されたIDのエンティティが存在しない場合（API層でNOT_FOUNDへ変換、データ構造編6.3）。"""
+
+    def __init__(self, entity_name: str, entity_id: object) -> None:
+        self.entity_name = entity_name
+        self.entity_id = entity_id
+        super().__init__(f"{entity_name}(id={entity_id}) が見つかりません")
+
+
+class ValidationError(DomainError):
+    """入力値・状態整合の検証エラー（データ構造編6.3 VALIDATION_ERROR、仕様書10章）。"""
+
+
+class ExamSubjectRequiredError(DomainError):
+    """目標開始に必要な試験科目が1件も登録されていない場合（仕様書7.1）。
+
+    教材未登録・リソース配分未設定と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("試験科目を1件以上登録してください")
+
+
+class MaterialRequiredError(DomainError):
+    """目標開始に必要な教材が1件も登録されていない場合（仕様書7.1）。
+
+    試験科目未登録・リソース配分未設定と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("教材を1件以上登録してください")
+
+
+class ResourceAllocationRequiredError(DomainError):
+    """資格試験目標の開始・再開時にリソース配分が未設定（どのスロットにも1分以上の配分が
+    無い）の場合（仕様書7.1）。
+
+    試験科目未登録・教材未登録と画面上で判別できるよう、VALIDATION_ERRORとは
+    別のエラーコードを持つ専用例外とする。読書目標は配分が任意のため対象外（R-64）。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("リソース配分を設定してください")
+
+
+class ResourceAllocationExceededError(DomainError):
+    """あるスロットへの配分時間の合計が、そのスロットの連続時間を超える場合
+    （データ構造編5.2、仕様書NT-04）。"""
+
+    def __init__(self, slot_name: str, total_minutes: int, capacity_minutes: int) -> None:
+        self.slot_name = slot_name
+        self.total_minutes = total_minutes
+        self.capacity_minutes = capacity_minutes
+        super().__init__(
+            f"時間枠「{slot_name}」の配分合計が確保時間を超えます"
+            f"（{total_minutes}分 / {capacity_minutes}分）"
+        )
+
+
+class InvalidStateTransitionError(DomainError):
+    """許可されない目標の状態遷移、またはクローズ済み目標への更新（仕様書7.1、6.2）。"""
+
+
+class CloseConfirmationRequiredError(DomainError):
+    """結果が未登録のまま目標をクローズしようとし、利用者の確認が必要な場合（仕様書7.1）。
+
+    「許可されない状態遷移」ではなく「確認さえ取れれば実行できる」状態であるため、
+    InvalidStateTransitionErrorとは別のエラーコードを持つ専用例外とする。両者を同じ
+    コードで返すと、画面側が本当の状態エラー（クローズ済み目標への再クローズ等）を
+    「確認が必要」と誤解し、無関係な確認文言を表示したまま本当のエラーを握り潰す
+    （2026-09-11の不具合。呼び出し側はコードだけで両者を判別する）。
+
+    資格試験目標では「受験結果が未登録の科目が残っている」場合に、読書目標では
+    「結果という概念自体が無い」ため常に送出される。種別を問わず成立する文面とするのは、
+    読書目標へ資格試験専用の文面を返すとAPIレスポンス(error.message)やログに実態と異なる
+    説明が残るためである（今回の不具合と同じ誤りの裏返しになる）。画面表示はエラーコードに
+    対応するロケール文言が担うため、ここの文面は開発者・ログ向けである。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("結果が未登録のままクローズする場合は確認が必要です")
+
+
+class MaterialHasStudyLogsError(DomainError):
+    """実績（study_log）が存在する教材を削除しようとした場合（データ構造編6.2）。
+
+    エラーコード自体はVALIDATION_ERRORのまま増やさず、原因（実績が紐づくため削除不可）を
+    画面表示できるよう`reason`をAPI層（app/api/errors.py）がdetailsへ転記する
+    （2026-09-19、非エンジニア向けエラー表示改善）。
+    """
+
+    reason = "MATERIAL_HAS_LOGS"
+
+    def __init__(self, material_id: int) -> None:
+        self.material_id = material_id
+        super().__init__(f"教材(id={material_id})には実績が存在するため削除できません")
+
+
+class BookHasReadingLogsError(DomainError):
+    """想起記録（reading_log）が存在する書籍を削除しようとした場合
+    （MaterialHasStudyLogsErrorの読書版、データ構造編6.2）。reasonの用途は同クラス参照。"""
+
+    reason = "BOOK_HAS_LOGS"
+
+    def __init__(self, book_id: int) -> None:
+        self.book_id = book_id
+        super().__init__(f"書籍(id={book_id})には想起記録が存在するため削除できません")
+
+
+class BookAlreadyExistsError(DomainError):
+    """1目標1冊の制約に反して2件目の書籍を登録しようとした場合
+    （データ構造編6.3 BOOK_ALREADY_EXISTS、要件定義書R-70）。"""
+
+    def __init__(self, goal_id: int) -> None:
+        self.goal_id = goal_id
+        super().__init__(f"目標(id={goal_id})には既に書籍が登録されています")
+
+
+class CurrentPageExceedsTotalPagesError(DomainError):
+    """現在ページが書籍の総ページ数を超える想起記録を登録しようとした場合
+    （データ構造編6.3 CURRENT_PAGE_EXCEEDS_TOTAL_PAGES、仕様変更2026-09-11）。
+
+    汎用のValidationErrorではなく専用コードとするのは、日次報告の送信がボタンのクリック
+    （ネイティブのフォーム検証を経由しない）であり、入力欄のmax属性では止められないため
+    である。利用者がどの値をどう直せばよいか画面上で分かるようにする必要がある。
+    """
+
+    def __init__(self, book_id: int, total_pages: int) -> None:
+        self.book_id = book_id
+        self.total_pages = total_pages
+        super().__init__(f"書籍(id={book_id})の総ページ数({total_pages})を超えています")
+
+
+class WorkAssignmentHasWorkLogsError(DomainError):
+    """業務記録（work_log）が存在する案件情報を削除しようとした場合
+    （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。reasonの用途はMaterialHasStudyLogsError参照。"""
+
+    reason = "WORK_ASSIGNMENT_HAS_LOGS"
+
+    def __init__(self, work_assignment_id: int) -> None:
+        self.work_assignment_id = work_assignment_id
+        super().__init__(
+            f"案件情報(id={work_assignment_id})には業務記録が存在するため削除できません"
+        )
+
+
+class WorkAssignmentAlreadyExistsError(DomainError):
+    """1目標1案件の制約に反して2件目の案件情報を登録しようとした場合
+    （データ構造編6.3 WORK_ASSIGNMENT_ALREADY_EXISTS、要件定義書R-72）。"""
+
+    def __init__(self, goal_id: int) -> None:
+        self.goal_id = goal_id
+        super().__init__(f"目標(id={goal_id})には既に案件情報が登録されています")
+
+
+class ImmutableRecordError(DomainError):
+    """確定済み(REPORTED)の日次記録カテゴリを更新しようとした場合（データ構造編6.3
+    IMMUTABLE_RECORD）。確定状態はカテゴリ（EXAM/READING/WORK）ごとに独立しているため、
+    どのカテゴリで発生したかをメッセージに含める（仕様変更2026-09-05）。
+    """
+
+    def __init__(self, record_date: object, category: object) -> None:
+        self.record_date = record_date
+        self.category = category
+        super().__init__(f"日付({record_date})の{category}の記録は確定済みのため更新できません")
+
+
+class ConsentRequiredError(DomainError):
+    """本人確認済みの確認を経ずにチームメンバーの特性・性格を保存しようとした場合
+    （要件定義書6.11、第三者の機微情報を扱う初のフィールドに対する同意ゲート）。"""
+
+    def __init__(self) -> None:
+        super().__init__("特性・性格を保存する前に本人確認済みの確認が必要です")
+
+
+class WorkMemberHasEvaluationReportsError(DomainError):
+    """評価レポートが存在するチームメンバーを削除しようとした場合
+    （MaterialHasStudyLogsErrorのメンバー版、要件定義書6.11）。reasonの用途は同クラス参照。"""
+
+    reason = "WORK_MEMBER_HAS_REPORTS"
+
+    def __init__(self, member_id: int) -> None:
+        self.member_id = member_id
+        super().__init__(f"メンバー(id={member_id})には評価レポートが存在するため削除できません")
+
+
+class BackdateLimitExceededError(DomainError):
+    """報告確定の遡及入力可能期限（当日または前日）を超えた場合
+    （データ構造編6.3 BACKDATE_LIMIT_EXCEEDED、仕様書7.2）。"""
+
+    def __init__(self, record_date: object, today: object) -> None:
+        self.record_date = record_date
+        self.today = today
+        super().__init__(f"日付({record_date})への報告確定は前日までに限られます（本日: {today}）")
