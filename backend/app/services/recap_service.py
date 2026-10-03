@@ -29,6 +29,7 @@ _THEME_SEPARATORS = re.compile(r"[、,，]")
 @dataclass(frozen=True)
 class EntryText:
     entry_id: int
+    record_date: dt.date
     text: str
 
 
@@ -139,7 +140,12 @@ def entry_texts(session: Session, entries: list[RecapEntry]) -> list[EntryText]:
         for log in session.scalars(select(ReadingLog).where(ReadingLog.id.in_(reading_ids))):
             texts[(RecapSourceKind.READING, log.id)] = log.recall_body
     return [
-        EntryText(entry_id=e.id, text=texts.get((e.source_kind, e.source_id), "")) for e in entries
+        EntryText(
+            entry_id=e.id,
+            record_date=e.record_date,
+            text=texts.get((e.source_kind, e.source_id), ""),
+        )
+        for e in entries
     ]
 
 

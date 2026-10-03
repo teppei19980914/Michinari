@@ -4,33 +4,11 @@ import datetime as dt
 
 from sqlalchemy import select
 
-from app.constants.enums import GoalCategory, GoalStatus, RecapSourceKind
-from app.models.goal import Goal
+from app.constants.enums import RecapSourceKind
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.services import recap_service, record_service
-from app.services.record_service import DiaryEntryItem
 from tests import reading_helpers
-
-
-def _make_exam_goal(session, name="資格目標"):
-    goal = Goal(
-        name=name,
-        category=GoalCategory.EXAM,
-        start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
-    )
-    session.add(goal)
-    session.flush()
-    return goal
-
-
-def _diary(goal_id, diary_body="", diary_learned=""):
-    return DiaryEntryItem(goal_id=goal_id, diary_body=diary_body, diary_learned=diary_learned)
-
-
-def _finalize_diary(session, goal, day, **texts):
-    record_service.finalize_record(session, day, [], [_diary(goal.id, **texts)], day)
-
+from tests.diary_helpers import finalize_diary, make_exam_goal
 
 # --- parse_classification ---
 
@@ -76,9 +54,9 @@ def test_parse_classification_returns_empty_for_no_matches():
 
 
 def test_collect_registers_diary_entries_with_learned_text_and_legacy_body(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SMTPの役割")
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_body="旧仕様の本文")
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SMTPの役割")
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_body="旧仕様の本文")
 
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
@@ -89,9 +67,9 @@ def test_collect_registers_diary_entries_with_learned_text_and_legacy_body(seede
 
 
 def test_collect_skips_empty_diary_and_out_of_range_dates(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="")
-    _finalize_diary(seeded_session, goal, dt.date(2026, 2, 1), diary_learned="範囲外")
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="")
+    finalize_diary(seeded_session, goal, dt.date(2026, 2, 1), diary_learned="範囲外")
 
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
@@ -101,8 +79,8 @@ def test_collect_skips_empty_diary_and_out_of_range_dates(seeded_session):
 
 
 def test_collect_is_idempotent_and_excludes_classified_entries(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="学び")
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="学び")
     start, end = dt.date(2026, 3, 9), dt.date(2026, 3, 15)
     first = recap_service.collect_pending_entries(seeded_session, goal, start, end)
     recap_service.apply_classification(seeded_session, goal, {first[0].id: ["テーマ"]})
@@ -135,11 +113,11 @@ def test_collect_registers_reading_recall_records(seeded_session):
 
 
 def test_entry_texts_prefers_learned_text_and_fetches_in_bulk(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(
         seeded_session, goal, dt.date(2026, 3, 9), diary_body="旧", diary_learned="新しい学び"
     )
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_body="旧のみ")
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_body="旧のみ")
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
     )
@@ -173,8 +151,8 @@ def test_entry_texts_is_empty_for_no_entries(seeded_session):
 
 
 def test_apply_creates_themes_and_links_entry_to_multiple_themes(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SPFとDKIM")
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SPFとDKIM")
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
     )
@@ -193,9 +171,9 @@ def test_apply_creates_themes_and_links_entry_to_multiple_themes(seeded_session)
 
 
 def test_apply_reuses_existing_theme_name(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SMTP")
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_learned="SPF")
+    goal = make_exam_goal(seeded_session)
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="SMTP")
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 10), diary_learned="SPF")
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
     )
@@ -211,9 +189,9 @@ def test_apply_reuses_existing_theme_name(seeded_session):
 
 
 def test_apply_ignores_entries_already_classified_or_of_other_goals(seeded_session):
-    goal = _make_exam_goal(seeded_session)
-    other = _make_exam_goal(seeded_session, name="別目標")
-    _finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="学び")
+    goal = make_exam_goal(seeded_session)
+    other = make_exam_goal(seeded_session, name="別目標")
+    finalize_diary(seeded_session, goal, dt.date(2026, 3, 9), diary_learned="学び")
     pending = recap_service.collect_pending_entries(
         seeded_session, goal, dt.date(2026, 3, 9), dt.date(2026, 3, 15)
     )
