@@ -35,11 +35,11 @@ DAILY_FEEDBACK = """あなたは資格試験の学習を伴走する専門コー
 {{today_logs}}
 
 # 本日の記録
-【行動・所感】
-{{diary_body}}
-
-【学んだこと】
+【今日学んだこと・理解したこと】
 {{diary_learned}}
+
+【以前の日記本文（旧仕様の入力）】
+{{diary_body}}
 
 # これまでの経過（週次要約）
 {{weekly_summaries}}

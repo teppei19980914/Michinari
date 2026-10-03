@@ -76,8 +76,10 @@ export function ExamReportSection({
             targetDate={targetDate}
             activeGoals={targets.diaryGoals}
             values={draft.diaryValues}
-            onChangeField={(goalId, field, value) =>
-              draft.setDiaryValues((current) => patchFormValue(current, goalId, field, value))
+            onChangeLearned={(goalId, value) =>
+              draft.setDiaryValues((current) =>
+                patchFormValue(current, goalId, 'diaryLearned', value),
+              )
             }
           />
         </>
