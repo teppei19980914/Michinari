@@ -959,6 +959,53 @@ def test_get_previous_diary_entry_skips_empty_body_and_falls_back_to_earlier_ent
     assert entry.record_date == dt.date(2026, 3, 8)
 
 
+def test_get_previous_diary_entry_uses_learned_text_for_new_entries(seeded_session):
+    """新規入力は学んだこと（diary_learned）だけで保存されるため、それを前回ヒントとして返す。"""
+    goal = _make_goal(seeded_session)
+    record_service.finalize_record(
+        seeded_session,
+        dt.date(2026, 3, 9),
+        [],
+        [_diary(goal.id, diary_learned="3/9に学んだこと")],
+        dt.date(2026, 3, 9),
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry.record_date == dt.date(2026, 3, 9)
+    assert entry.body == "3/9に学んだこと"
+
+
+def test_get_previous_diary_entry_prefers_learned_text_over_legacy_body(seeded_session):
+    goal = _make_goal(seeded_session)
+    record_service.finalize_record(
+        seeded_session,
+        dt.date(2026, 3, 9),
+        [],
+        [_diary(goal.id, diary_body="旧い本文", diary_learned="学んだこと")],
+        dt.date(2026, 3, 9),
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry.body == "学んだこと"
+
+
+def test_get_previous_diary_entry_falls_back_to_legacy_body_when_learned_is_empty(seeded_session):
+    goal = _make_goal(seeded_session)
+    record_service.finalize_record(
+        seeded_session,
+        dt.date(2026, 3, 9),
+        [],
+        [_diary(goal.id, diary_body="旧い本文", diary_learned="")],
+        dt.date(2026, 3, 9),
+    )
+
+    entry = record_service.get_previous_diary_entry(seeded_session, goal.id, dt.date(2026, 3, 10))
+
+    assert entry.body == "旧い本文"
+
+
 def test_get_previous_diary_entry_returns_none_when_no_record_exists(seeded_session):
     goal = _make_goal(seeded_session)
 

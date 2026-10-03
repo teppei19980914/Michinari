@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.constants.enums import DayType, GoalCategory, GoalStatus, QualityMetricType, RecordState
 from app.models.base import utcnow
@@ -851,7 +852,7 @@ def _get_previous_entry(
     model: type[DailyGoalDiary] | type[ReadingLog] | type[WorkLog],
     owner_column: InstrumentedAttribute,
     owner_id: int,
-    body_column: InstrumentedAttribute,
+    body_column: InstrumentedAttribute | ColumnElement[str],
     before_date: dt.date,
 ) -> PreviousEntry | None:
     """対象日より前で本文のある直近1件を取得する共通実装。
@@ -878,13 +879,17 @@ def _get_previous_entry(
 def get_previous_diary_entry(
     session: Session, goal_id: int, before_date: dt.date
 ) -> PreviousEntry | None:
-    """対象目標について、対象日より前で本文のある直近の日記（本日の行動・所感）を取得する。"""
+    """対象目標について、対象日より前で直近の日記を取得する。
+
+    入力欄の主役は「学んだこと」（diary_learned）のため、それを優先し、未入力の旧データだけ
+    従来の本文（diary_body）を使う。
+    """
     return _get_previous_entry(
         session,
         DailyGoalDiary,
         DailyGoalDiary.goal_id,
         goal_id,
-        DailyGoalDiary.diary_body,
+        func.coalesce(func.nullif(DailyGoalDiary.diary_learned, ""), DailyGoalDiary.diary_body),
         before_date,
     )
 
