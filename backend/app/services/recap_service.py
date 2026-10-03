@@ -17,7 +17,7 @@ from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
-from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog
+from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog, diary_text_expr
 
 #: テーマ名の最大文字数（recap_theme.name の列幅と同じ）。
 THEME_NAME_MAX_LENGTH = 100
@@ -132,10 +132,10 @@ def entry_texts(session: Session, entries: list[RecapEntry]) -> list[EntryText]:
     reading_ids = [e.source_id for e in entries if e.source_kind is RecapSourceKind.READING]
     texts: dict[tuple[RecapSourceKind, int], str] = {}
     if diary_ids:
-        for diary in session.scalars(
-            select(DailyGoalDiary).where(DailyGoalDiary.id.in_(diary_ids))
+        for diary_id, text in session.execute(
+            select(DailyGoalDiary.id, diary_text_expr()).where(DailyGoalDiary.id.in_(diary_ids))
         ):
-            texts[(RecapSourceKind.DIARY, diary.id)] = diary.diary_learned or diary.diary_body or ""
+            texts[(RecapSourceKind.DIARY, diary_id)] = text or ""
     if reading_ids:
         for log in session.scalars(select(ReadingLog).where(ReadingLog.id.in_(reading_ids))):
             texts[(RecapSourceKind.READING, log.id)] = log.recall_body
@@ -176,18 +176,20 @@ def apply_classification(
             )
         )
     }
-    touched: set[int] = set()
-    for entry_id, names in classification.items():
-        entry = entries_by_id.get(entry_id)
-        if entry is None:
-            continue
+    classified = {
+        entry_id: names for entry_id, names in classification.items() if entry_id in entries_by_id
+    }
+    for names in classified.values():
         for name in names:
-            theme = themes_by_name.get(name)
-            if theme is None:
-                theme = RecapTheme(goal_id=goal.id, name=name, body="")
-                session.add(theme)
-                session.flush()
-                themes_by_name[name] = theme
+            if name not in themes_by_name:
+                themes_by_name[name] = RecapTheme(goal_id=goal.id, name=name, body="")
+                session.add(themes_by_name[name])
+    session.flush()
+    touched: set[int] = set()
+    for entry_id, names in classified.items():
+        entry = entries_by_id[entry_id]
+        for name in names:
+            theme = themes_by_name[name]
             session.add(RecapThemeLink(theme_id=theme.id, entry_id=entry.id))
             touched.add(theme.id)
         entry.classified_at = stamp

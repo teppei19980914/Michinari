@@ -24,6 +24,11 @@ from app.constants.app_setting_keys import (
     RECAP_MIN_RETENTION_RATIO,
 )
 from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
+from app.constants.recap import (
+    RECAP_BODY_EMPTY_PLACEHOLDER,
+    RECAP_CONVERSATION_TITLE_PREFIX,
+    RECAP_NO_THEMES_PLACEHOLDER,
+)
 from app.models.goal import Goal
 from app.models.recap import RecapTheme
 from app.services import ai_context_service, recap_service, setting_reader
@@ -35,7 +40,6 @@ _ASSISTANT_KEY_BY_CATEGORY = {
     GoalCategory.READING: AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
 }
 
-_EMPTY_BODY_PLACEHOLDER = "（まだ本文はありません）"
 
 
 def run_for_goal(session: Session, goal: Goal, today: dt.date) -> int:
@@ -86,7 +90,7 @@ def _existing_theme_lines(session: Session, goal: Goal) -> str:
     names = session.scalars(
         select(RecapTheme.name).where(RecapTheme.goal_id == goal.id).order_by(RecapTheme.name)
     ).all()
-    return "\n".join(f"- {name}" for name in names) or "（まだありません）"
+    return "\n".join(f"- {name}" for name in names) or RECAP_NO_THEMES_PLACEHOLDER
 
 
 def _update_touched_themes(
@@ -114,7 +118,7 @@ def _update_touched_themes(
             AiPurpose.RECAP_THEME_BODY,
             {
                 "theme_name": theme.name,
-                "current_body": theme.body or _EMPTY_BODY_PLACEHOLDER,
+                "current_body": theme.body or RECAP_BODY_EMPTY_PLACEHOLDER,
                 "new_entries": "\n".join(f"（{t.record_date}）{t.text}" for t in new_items),
                 "body_max_chars": str(body_max),
             },
@@ -149,7 +153,7 @@ def _send(
         scope=ConversationScope.RECAP,
         scope_key=scope_key,
         assistant_uid=assistant_uid,
-        title=f"振り返り {scope_key}",
+        title=f"{RECAP_CONVERSATION_TITLE_PREFIX} {scope_key}",
     )
     result = ai_orchestration.send_and_log(
         session,

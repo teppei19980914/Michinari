@@ -29,6 +29,7 @@ from app.models.record import (
     StudyLog,
     StudyLogSlotTime,
     WorkLog,
+    diary_text_expr,
 )
 from app.models.resource import ResourceSlot
 from app.models.work import WorkAssignment
@@ -889,7 +890,7 @@ def get_previous_diary_entry(
         DailyGoalDiary,
         DailyGoalDiary.goal_id,
         goal_id,
-        func.coalesce(func.nullif(DailyGoalDiary.diary_learned, ""), DailyGoalDiary.diary_body),
+        diary_text_expr(),
         before_date,
     )
 
