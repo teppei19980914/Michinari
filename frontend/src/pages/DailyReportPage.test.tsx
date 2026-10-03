@@ -340,14 +340,14 @@ describe('DailyReportPage', () => {
       name: 'exam',
       goalName: EXAM_GOAL_NAME,
       goalId: EXAM_GOAL.id,
-      inputLabel: t('dailyReport.diary.bodyLabel'),
+      inputLabel: t('dailyReport.diary.learnedLabel'),
       chatStartLabel: t('dailyReport.chat.startButton'),
       finalizeLabel: t('dailyReport.studyLog.finalizeButton'),
       chatApi: recordsApi.sendChat,
       finalizeApi: recordsApi.finalizeRecord,
       purpose: 'DAILY_FEEDBACK',
       expectDraft: (draft: string) => ({
-        diary_entries: [expect.objectContaining({ diary_body: draft })],
+        diary_entries: [expect.objectContaining({ diary_learned: draft })],
       }),
     },
     {
@@ -468,12 +468,12 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
     await user.click(screen.getByRole('button', { name: t('dailyReport.chat.startButton') }))
 
     await waitFor(() => expect(recordsApi.sendChat).toHaveBeenCalled())
     expect(
-      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+      (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
     ).toBe('draft-exam')
   })
 
@@ -482,7 +482,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
 
     await user.click(getGoalTab(READING_GOAL_NAME))
     await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'draft-reading')
@@ -490,7 +490,7 @@ describe('DailyReportPage', () => {
     // 資格試験タブへ戻しても入力は保持されている（全目標分をローカル保持しているため）。
     await user.click(getGoalTab(EXAM_GOAL_NAME))
     expect(
-      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+      (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
     ).toBe('draft-exam')
 
     await user.click(getGoalTab(READING_GOAL_NAME))
@@ -507,7 +507,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
 
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
@@ -519,7 +519,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
     await screen.findByText(DASHBOARD_MARKER)
 
@@ -527,7 +527,7 @@ describe('DailyReportPage', () => {
     await waitForTitle()
 
     expect(
-      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+      (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
     ).toBe('draft-exam')
   })
 
@@ -631,7 +631,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.bodyLabel')), 'draft-exam')
+    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
 
     await user.click(getGoalTab(READING_GOAL_NAME))
     await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
@@ -644,7 +644,7 @@ describe('DailyReportPage', () => {
 
     await user.click(getGoalTab(EXAM_GOAL_NAME))
     expect(
-      (screen.getByLabelText(t('dailyReport.diary.bodyLabel')) as HTMLTextAreaElement).value,
+      (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
     ).toBe('draft-exam')
   })
 
