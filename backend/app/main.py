@@ -47,7 +47,12 @@ from app.desktop.logging_setup import preserve_logging_state
 from app.init.seed_data import run_all
 from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
-from app.services import backup_service, goal_service, weekly_summary_service
+from app.services import (
+    backup_service,
+    goal_service,
+    recap_generation_service,
+    weekly_summary_service,
+)
 
 #: データ構造編6.1「ベースパス /api/v1」。
 API_V1_PREFIX = "/api/v1"
@@ -276,6 +281,7 @@ def run_ai_startup_tasks() -> None:
     try:
         today = goal_service.resolve_today(session)
         weekly_summary_service.run_retroactive_generation(session, today)
+        recap_generation_service.run_all(session, today)
     finally:
         session.close()
 

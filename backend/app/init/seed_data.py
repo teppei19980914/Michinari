@@ -46,6 +46,9 @@ from app.constants.app_setting_keys import (
     HOLIDAY_TREAT_AS_BUFFER,
     LOG_AI_ENABLED,
     LOG_RETENTION_DAYS,
+    RECAP_BODY_MAX_CHARS,
+    RECAP_CLASSIFY_CHUNK_CHARS,
+    RECAP_MIN_RETENTION_RATIO,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
     SERVER_PORT,
     SUMMARY_INJECT_WEEKS,
@@ -141,6 +144,9 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
     AI_MIN_INTERVAL_SECONDS: ("2", AppSettingValueType.INTEGER),
     AI_MAX_PROMPT_CHARS: ("30000", AppSettingValueType.INTEGER),
+    RECAP_CLASSIFY_CHUNK_CHARS: ("12000", AppSettingValueType.INTEGER),
+    RECAP_BODY_MAX_CHARS: ("6000", AppSettingValueType.INTEGER),
+    RECAP_MIN_RETENTION_RATIO: ("0.8", AppSettingValueType.FLOAT),
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS: ("3", AppSettingValueType.INTEGER),
     THRESHOLD_WARNING_RATIO: ("1.20", AppSettingValueType.FLOAT),
     THRESHOLD_REPLAN_OVERRUN_DAYS: ("3", AppSettingValueType.INTEGER),
@@ -169,6 +175,8 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.DAILY_FEEDBACK: prompt_texts.DAILY_FEEDBACK,
+    AiPurpose.RECAP_CLASSIFY: prompt_texts.RECAP_CLASSIFY,
+    AiPurpose.RECAP_THEME_BODY: prompt_texts.RECAP_THEME_BODY,
     AiPurpose.WEEKLY_SUMMARY: prompt_texts.WEEKLY_SUMMARY,
     AiPurpose.DAILY_MESSAGE: prompt_texts.DAILY_MESSAGE,
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts.GOAL_RETROSPECTIVE,

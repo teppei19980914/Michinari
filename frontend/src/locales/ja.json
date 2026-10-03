@@ -652,6 +652,8 @@
         "GOAL_RETROSPECTIVE_WORK_MONTHLY": "月次報告（仕事）",
         "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "半期評価（仕事）",
         "WEEKLY_SUMMARY_WORK": "週次要約（仕事）",
+        "RECAP_CLASSIFY": "振り返り（テーマ分類）",
+        "RECAP_THEME_BODY": "振り返り（テーマ本文）",
         "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）"
       }
     },
