@@ -8,20 +8,24 @@ from app.services import record_service
 from app.services.record_service import DiaryEntryItem
 
 
-def make_exam_goal(session, name: str = "資格目標") -> Goal:
+def make_exam_goal(session, name: str = "資格目標", status: GoalStatus = GoalStatus.ACTIVE) -> Goal:
     goal = Goal(
         name=name,
         category=GoalCategory.EXAM,
         start_date=dt.date(2026, 1, 1),
-        status=GoalStatus.ACTIVE,
+        status=status,
     )
     session.add(goal)
     session.flush()
     return goal
 
 
+def diary_item(goal_id: int, diary_body: str = "", diary_learned: str = "") -> DiaryEntryItem:
+    return DiaryEntryItem(goal_id=goal_id, diary_body=diary_body, diary_learned=diary_learned)
+
+
 def finalize_diary(
     session, goal: Goal, day: dt.date, *, diary_body: str = "", diary_learned: str = ""
 ) -> None:
-    item = DiaryEntryItem(goal_id=goal.id, diary_body=diary_body, diary_learned=diary_learned)
+    item = diary_item(goal.id, diary_body, diary_learned)
     record_service.finalize_record(session, day, [], [item], day)
