@@ -5,6 +5,7 @@ from app.models.base import Base
 from app.models.book import Book
 from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
+from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import (
     ChatMessage,
     DailyGoalDiary,
@@ -58,6 +59,9 @@ __all__ = [
     "RecordComment",
     "DailyGoalDiary",
     "WeeklySummary",
+    "RecapEntry",
+    "RecapTheme",
+    "RecapThemeLink",
     "DailyMessage",
     "ExamResult",
     "GoalRetrospective",
