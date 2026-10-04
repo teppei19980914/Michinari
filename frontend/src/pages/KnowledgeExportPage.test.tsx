@@ -343,6 +343,18 @@ describe('KnowledgeExportPage の総括レポート', () => {
     ).toBe(null)
   })
 
+  it('does not offer generating the retrospective until the goal is completed', async () => {
+    await renderPage({ status: 'ACTIVE' })
+
+    expect(
+      await screen.findByText(t('knowledgeExport.retrospective.requiresCompletedHint')),
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: t('knowledgeExport.retrospective.generateButton') }),
+    ).toBe(null)
+    expect(generateRetrospective).not.toHaveBeenCalled()
+  })
+
   it('generates the retrospective with the current anonymisation flag', async () => {
     const user = userEvent.setup()
     await renderPage()
