@@ -35,6 +35,15 @@ export function goalStatusLabelKey(category: GoalCategory, status: GoalStatus): 
   return `goals.status.${category}.${status}`
 }
 
+/**
+ * 総括レポート・読了レポートを生成できるか。完了（CLOSED_WITH_RESULT）の目標のみ（利用者方針
+ * 2026-10-04。資格試験・読書で同じ扱い。サーバーの retrospective_service と揃える）。
+ * 生成は出力画面の生成ボタンを押したときのみ行う。
+ */
+export function canGenerateRetrospective(status: GoalStatus): boolean {
+  return status === 'CLOSED_WITH_RESULT'
+}
+
 /** 目標一覧の既定表示に含めるか（アーカイブ済みは「すべて表示」でのみ見える）。 */
 export function isDefaultListedGoal(goal: Pick<GoalRead, 'status' | 'archived_at'>): boolean {
   return goal.archived_at === null && DEFAULT_LISTED_STATUSES.has(goal.status)

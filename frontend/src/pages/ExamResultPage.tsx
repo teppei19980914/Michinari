@@ -8,7 +8,7 @@ import { Button } from '../components/Button'
 import { useToast } from '../components/Toast'
 import { apiErrorMessage } from '../api/client'
 import { getGoal, type SubjectRead } from '../api/goals'
-import { generateRetrospective, registerExamResult, updateExamResult } from '../api/closure'
+import { registerExamResult, updateExamResult } from '../api/closure'
 import { GoalEndModal } from '../features/goal/GoalEndModal'
 import { ExamResultFields } from '../features/goal/ExamResultFields'
 import type { ExamResultType } from '../features/goal/examResultOptions'
@@ -110,7 +110,6 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
 
 /** SC-10 受験結果登録（仕様書6.9）。 */
 export function ExamResultPage() {
-  const { showApiErrorWithTitle } = useToast()
   const { goalId: goalIdParam } = useParams<{ goalId: string }>()
   const goalId = Number(goalIdParam)
   const navigate = useNavigate()
@@ -160,12 +159,8 @@ export function ExamResultPage() {
         open={closeModalOpen}
         onClose={() => setCloseModalOpen(false)}
         onDone={() => {
-          // 総括レポートの生成はクローズ処理の成否に影響させない（仕様書6.9・実装フェーズ
-          // 分割計画書Phase10注意点「非同期で実行し、失敗しても後から再生成できるようにする」）。
-          // 失敗時もSC-13へは遷移し、同画面の生成ボタンから再試行できる。
-          generateRetrospective(goal.id, false).catch((error) =>
-            showApiErrorWithTitle(t('knowledgeExport.retrospective.autoGenerateFailedTitle'), error),
-          )
+          // 完了後は出力画面へ移る。総括レポートは自動で生成せず、出力画面の生成ボタンを
+          // 利用者が押したときのみ生成する（利用者方針2026-10-04）。
           navigate(ROUTES.goalExport(goal.id))
         }}
       />

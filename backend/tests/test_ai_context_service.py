@@ -842,6 +842,13 @@ def test_build_quality_trend_text_handles_no_records(seeded_session):
     assert "品質指標の記録はありません" in text
 
 
+def test_build_quality_trend_text_without_materials_returns_placeholder(seeded_session):
+    """対象教材が無い目標（資格の総括レポートで教材を持たない場合）の表示。"""
+    assert ai_context_service.build_quality_trend_text(seeded_session, []) == (
+        "（対象教材はありません）"
+    )
+
+
 def test_build_replan_history_text_shows_before_and_after_quota(seeded_session):
     goal = _make_goal(seeded_session)
     material = _make_material(seeded_session, goal)

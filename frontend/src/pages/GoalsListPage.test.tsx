@@ -98,6 +98,16 @@ describe('GoalsListPage の一覧', () => {
     expect(link.getAttribute('href')).toBe(ROUTES.goalExport(GOAL_ID))
   })
 
+  it('gives a closed goal a link to its detail page, where it can be resumed', async () => {
+    const user = userEvent.setup()
+    listGoals.mockResolvedValue([makeGoal({ status: 'CLOSED_WITHOUT_RESULT' })])
+    renderWithProviders(<GoalsListPage />)
+
+    await user.click(await screen.findByRole('checkbox', { name: t('goals.list.showAllToggle') }))
+    const link = screen.getByRole('link', { name: t('goals.list.detailLink') }) as HTMLAnchorElement
+    expect(link.getAttribute('href')).toBe(ROUTES.goalDetail(GOAL_ID))
+  })
+
   it('shows the achieved badge (UI-11) only when is_achieved is true', async () => {
     const user = userEvent.setup()
     const { unmount } = renderWithProviders(<GoalsListPage />)

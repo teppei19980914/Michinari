@@ -3,12 +3,26 @@ import { t } from '../../locales/t'
 import type { components } from '../../types/api.d.ts'
 import { GOAL_CATEGORIES } from '../../constants/goalCategories'
 import {
+  canGenerateRetrospective,
   goalStatusLabelKey,
   hasOperation,
   isClosedGoalStatus,
   isDefaultListedGoal,
   resolveGoalListTarget,
 } from './goalStatus'
+
+describe('canGenerateRetrospective（総括・読了レポートは完了した目標のみ）', () => {
+  it('allows generation only for a completed goal', () => {
+    expect(canGenerateRetrospective('CLOSED_WITH_RESULT')).toBe(true)
+  })
+
+  it.each(['DRAFT', 'ACTIVE', 'PAUSED', 'CLOSED_WITHOUT_RESULT'] as const)(
+    'refuses generation for %s',
+    (status) => {
+      expect(canGenerateRetrospective(status)).toBe(false)
+    },
+  )
+})
 
 type GoalOperation = components['schemas']['GoalOperation']
 

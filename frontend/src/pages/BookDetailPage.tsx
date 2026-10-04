@@ -8,6 +8,7 @@ import { getGoal, listGoals } from '../api/goals'
 import { ReadingLogHistoryTab } from '../features/analytics/ReadingLogHistoryTab'
 import { GrowthDescriptionTab } from '../features/analytics/GrowthDescriptionTab'
 import { RetrospectiveSection } from '../features/export/RetrospectiveSection'
+import { canGenerateRetrospective } from '../features/goal/goalStatus'
 import { BookInfoTab } from '../features/bookshelf/BookInfoTab'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
@@ -72,7 +73,12 @@ export function BookDetailPage() {
       {tab === 'retrospective' && (
         // 本棚は個人が見返すための閲覧専用画面であり、匿名化はエクスポート（SC-13）専用の
         // 関心事のためトグルUIを持たず常に非匿名で表示する（仕様書6.17）。
-        <RetrospectiveSection goalId={goalId} anonymize={false} isReading={true} />
+        <RetrospectiveSection
+          goalId={goalId}
+          anonymize={false}
+          isReading={true}
+          canGenerate={canGenerateRetrospective(goal.status)}
+        />
       )}
     </div>
   )
