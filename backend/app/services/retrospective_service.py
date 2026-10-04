@@ -42,6 +42,9 @@ _SCOPE_KEY = "main"
 _NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
 _NO_READING_LOGS_TEXT = "（想起記録はありません）"
 
+#: 完了していない目標に総括・読了レポートを生成しようとした場合の拒否理由（開発Todo 不具合B）。
+_MSG_REPORT_REQUIRES_COMPLETED = "完了した目標のみ総括レポート・読了レポートを生成できます"
+
 
 def get_latest_retrospective(
     session: Session,
@@ -157,11 +160,12 @@ def generate_retrospective(
         raise ValidationError(
             "仕事目標には総括レポートを生成できません（月次報告・半期評価を使用してください）"
         )
+    # 総括レポート・読了レポートは完了（読了）の状態でのみ生成する（開発Todo 不具合B・1-8、
+    # 利用者方針2026-10-04：資格試験も読書と同じ扱い）。中断・実行中の目標には作らない。
+    # 生成は利用者が出力画面の生成ボタンを押したときのみ行い、完了操作による自動生成は行わない。
+    if goal.status != GoalStatus.CLOSED_WITH_RESULT:
+        raise InvalidStateTransitionError(_MSG_REPORT_REQUIRES_COMPLETED)
     if goal.category == GoalCategory.READING:
-        # 読了レポートは読了（完了）の状態でのみ生成する（開発Todo 不具合B・1-8）。
-        # 中断・実行中の読書には、読了を前提とした読了レポートを作らない。
-        if goal.status != GoalStatus.CLOSED_WITH_RESULT:
-            raise InvalidStateTransitionError("読了した読書目標のみ読了レポートを生成できます")
         purpose = AiPurpose.GOAL_RETROSPECTIVE_READING
         scope = ConversationScope.GOAL_RETROSPECTIVE_READING
         assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING
