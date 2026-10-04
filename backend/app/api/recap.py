@@ -23,6 +23,7 @@ router = APIRouter(tags=["recap"])
 def _detail(session: Session, theme) -> RecapThemeDetailRead:
     return RecapThemeDetailRead(
         id=theme.id,
+        goal_id=theme.goal_id,
         name=theme.name,
         body=theme.body,
         updated_at=theme.updated_at,

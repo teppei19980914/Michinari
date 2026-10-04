@@ -13,6 +13,7 @@ import { TodayQuotaSection } from '../features/dashboard/TodayQuotaSection'
 import { GoalCardList } from '../features/dashboard/GoalCardList'
 import { StatsSummary } from '../features/dashboard/StatsSummary'
 import { WeeklyDigestSection } from '../features/dashboard/WeeklyDigestSection'
+import { RecapThemeSection } from '../features/dashboard/RecapThemeSection'
 import { RecentActivityCalendarSection } from '../features/dashboard/RecentActivityCalendarSection'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
@@ -69,6 +70,7 @@ export function DashboardPage() {
   const goalStats = dashboard.goal_stats.filter((stats) => stats.goal_id === targetGoalId)
   const todayQuota = dashboard.today_quota.filter((item) => item.goal_id === targetGoalId)
   const weeklyDigest = dashboard.weekly_digests.find((item) => item.goal_id === targetGoalId) ?? null
+  const targetGoalCategory = goalsQuery.data?.find((goal) => goal.id === targetGoalId)?.category
   // 「進行中の目標があり、記録が一度も確定されていない」という実データ（ドメインイベント）
   // で判定する。location.stateのような遷移1回限りの状態には依存しない（S-4 4-2）ため、
   // リロード・ブラウザバックをまたいでも、最初の記録確定まで表示され続ける。
@@ -107,7 +109,11 @@ export function DashboardPage() {
         goalCards={goalCards}
         reportRateWindowDays={dashboard.report_rate_window_days}
       />
-      <WeeklyDigestSection digest={weeklyDigest} />
+      {targetGoalId !== null && targetGoalCategory !== 'WORK' ? (
+        <RecapThemeSection goalId={targetGoalId} />
+      ) : (
+        <WeeklyDigestSection digest={weeklyDigest} />
+      )}
       <RecentActivityCalendarSection today={dashboard.logical_date} />
     </div>
   )

@@ -538,6 +538,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/recap-themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Recap Themes */
+        get: operations["list_recap_themes_api_v1_goals__goal_id__recap_themes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recap-themes/{theme_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Recap Theme */
+        get: operations["get_recap_theme_api_v1_recap_themes__theme_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Rename Recap Theme */
+        patch: operations["rename_recap_theme_api_v1_recap_themes__theme_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/recap-themes/{theme_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge Recap Theme */
+        post: operations["merge_recap_theme_api_v1_recap_themes__theme_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/recap-themes/{theme_id}/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rebuild Recap Theme */
+        post: operations["rebuild_recap_theme_api_v1_recap_themes__theme_id__rebuild_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/resources/slots": {
         parameters: {
             query?: never;
@@ -1813,7 +1882,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -3304,6 +3373,65 @@ export interface components {
             slot_minutes: components["schemas"]["SlotMinutesRead"][];
             /** Current Page */
             current_page: number | null;
+        };
+        /**
+         * RecapSourceKind
+         * @description 振り返り（テーマ累積）の元になる報告の種類（資格試験の日記・読書の想起記録）。
+         * @enum {string}
+         */
+        RecapSourceKind: "DIARY" | "READING";
+        /** RecapThemeDetailRead */
+        RecapThemeDetailRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /** Name */
+            name: string;
+            /** Body */
+            body: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Entries */
+            entries: components["schemas"]["RecapThemeEntryRead"][];
+        };
+        /** RecapThemeEntryRead */
+        RecapThemeEntryRead: {
+            source_kind: components["schemas"]["RecapSourceKind"];
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Text */
+            text: string;
+        };
+        /** RecapThemeMerge */
+        RecapThemeMerge: {
+            /** Target Theme Id */
+            target_theme_id: number;
+        };
+        /** RecapThemeRename */
+        RecapThemeRename: {
+            /** Name */
+            name: string;
+        };
+        /** RecapThemeSummaryRead */
+        RecapThemeSummaryRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Entry Count */
+            entry_count: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * RecordState
@@ -5243,6 +5371,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GoalRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recap_themes_api_v1_goals__goal_id__recap_themes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapThemeSummaryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recap_theme_api_v1_recap_themes__theme_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapThemeDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_recap_theme_api_v1_recap_themes__theme_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecapThemeRename"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapThemeDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_recap_theme_api_v1_recap_themes__theme_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecapThemeMerge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapThemeDetailRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rebuild_recap_theme_api_v1_recap_themes__theme_id__rebuild_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecapThemeDetailRead"];
                 };
             };
             /** @description Validation Error */

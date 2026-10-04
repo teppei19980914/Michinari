@@ -25,6 +25,7 @@ class RecapThemeEntryRead(BaseModel):
 
 class RecapThemeDetailRead(BaseModel):
     id: int
+    goal_id: int
     name: str
     body: str
     updated_at: dt.datetime
