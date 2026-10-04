@@ -2828,6 +2828,11 @@ export interface components {
              */
             weekly_summaries: boolean;
             /**
+             * Recap Themes
+             * @default true
+             */
+            recap_themes: boolean;
+            /**
              * Diary
              * @default false
              */
@@ -7522,6 +7527,7 @@ export interface operations {
                 quality_trend?: boolean;
                 replan_history?: boolean;
                 weekly_summaries?: boolean;
+                recap_themes?: boolean;
                 diary?: boolean;
                 ai_dialogue?: boolean;
                 exam_results?: boolean;

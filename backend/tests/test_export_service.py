@@ -263,6 +263,7 @@ def test_build_export_data_omits_unselected_sections(seeded_session):
         quality_trend=False,
         replan_history=False,
         weekly_summaries=False,
+        recap_themes=False,
         exam_results=False,
         retrospective=False,
     )
@@ -812,6 +813,7 @@ def test_render_markdown_omits_headings_for_unselected_sections(seeded_session):
         quality_trend=False,
         replan_history=False,
         weekly_summaries=False,
+        recap_themes=False,
         exam_results=False,
         retrospective=False,
     )

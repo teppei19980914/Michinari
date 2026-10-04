@@ -48,6 +48,7 @@ from app.services import (
     goal_service,
     material_service,
     metrics_service,
+    recap_service,
     retrospective_service,
     weekly_summary_service,
     work_report_service,
@@ -85,6 +86,7 @@ class ExportSelection:
     quality_trend: bool = True
     replan_history: bool = True
     weekly_summaries: bool = True
+    recap_themes: bool = True
     diary: bool = False
     ai_dialogue: bool = False
     exam_results: bool = True
@@ -581,6 +583,9 @@ def build_export_data(
         data["replan_history"] = _build_replan_history(session, goal)
     if selection.weekly_summaries:
         data["weekly_summaries"] = _build_weekly_summaries(session, goal, anonymized=anonymized)
+    # テーマ本文は日記・想起記録から作られるため、匿名化時は日記本文と同様に除外する。
+    if selection.recap_themes and not anonymized:
+        data["recap_themes"] = recap_service.goal_themes_for_export(session, goal)
     if selection.exam_results:
         data["results"] = _build_results(goal)
     if selection.retrospective:
@@ -760,6 +765,13 @@ def render_markdown(
             f"### {w['week_start']}\n\n{w['body']}" for w in data["weekly_summaries"]
         )
         sections.append("## 7. 週ごとの経過\n\n" + (lines or "（記録なし）"))
+
+    if "recap_themes" in data:
+        blocks = "\n\n".join(
+            f"### {theme['name']}\n\n{theme['body'] or '（本文なし）'}"
+            for theme in data["recap_themes"]
+        )
+        sections.append("## 8. 振り返りテーマ\n\n" + (blocks or "（記録なし）"))
 
     if "daily_records" in data:
         rows = "\n".join(

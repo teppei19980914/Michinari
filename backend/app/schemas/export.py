@@ -15,6 +15,7 @@ class KnowledgeExportSelection(BaseModel):
     quality_trend: bool = True
     replan_history: bool = True
     weekly_summaries: bool = True
+    recap_themes: bool = True
     diary: bool = False
     ai_dialogue: bool = False
     exam_results: bool = True

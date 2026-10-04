@@ -15,6 +15,7 @@ export interface ExportSelectionItem {
   readingLabelKey?: string
   workLabelKey?: string
   hiddenForReadingOrWork?: boolean
+  hiddenForWork?: boolean
 }
 
 export const SELECTION_ITEMS: ExportSelectionItem[] = [
@@ -52,6 +53,8 @@ export const SELECTION_ITEMS: ExportSelectionItem[] = [
     hiddenForReadingOrWork: true,
   },
   { field: 'diary', labelKey: 'knowledgeExport.selection.diary', hiddenForReadingOrWork: true },
+  // テーマ本文は資格試験・読書の日記・想起記録から作られるため、仕事の目標では表示しない。
+  { field: 'recap_themes', labelKey: 'knowledgeExport.selection.recapThemes', hiddenForWork: true },
   {
     field: 'ai_dialogue',
     labelKey: 'knowledgeExport.selection.aiDialogue',
@@ -79,6 +82,7 @@ export const DEFAULT_SELECTION: ExportSelection = {
   quality_trend: true,
   replan_history: true,
   weekly_summaries: true,
+  recap_themes: true,
   diary: false,
   ai_dialogue: false,
   exam_results: true,

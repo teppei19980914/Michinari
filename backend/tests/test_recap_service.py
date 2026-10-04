@@ -203,3 +203,90 @@ def test_apply_ignores_entries_already_classified_or_of_other_goals(seeded_sessi
     assert touched == set()
     assert again == set()
     assert seeded_session.query(RecapThemeLink).count() == 1
+
+
+def _seed_export_themes(session, goal):
+    from app.models.recap import RecapTheme
+
+    finalize_diary(session, goal, dt.date(2026, 3, 9), diary_learned="SMTPの役割")
+    finalize_diary(session, goal, dt.date(2026, 3, 10), diary_learned="SPFの仕組み")
+    pending = recap_service.collect_pending_entries(
+        session, goal, dt.date(2026, 3, 1), dt.date(2026, 3, 31)
+    )
+    recap_service.apply_classification(session, goal, {e.id: ["メール関連"] for e in pending})
+    theme = session.query(RecapTheme).filter_by(goal_id=goal.id).one()
+    theme.body = "・SMTP（2026-03-09）\n・SPF（2026-03-10）"
+    session.commit()
+
+
+def test_goal_themes_for_export_returns_bodies_with_entries_in_date_order(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    _seed_export_themes(seeded_session, goal)
+
+    themes = recap_service.goal_themes_for_export(seeded_session, goal)
+
+    assert len(themes) == 1
+    assert themes[0]["name"] == "メール関連"
+    assert themes[0]["body"].startswith("・SMTP")
+    assert [e["record_date"] for e in themes[0]["entries"]] == ["2026-03-09", "2026-03-10"]
+    assert themes[0]["entries"][0]["text"] == "SMTPの役割"
+    assert themes[0]["entries"][0]["source_kind"] == "DIARY"
+
+
+def test_goal_themes_for_export_is_empty_without_themes(seeded_session):
+    goal = make_exam_goal(seeded_session)
+
+    assert recap_service.goal_themes_for_export(seeded_session, goal) == []
+
+
+def test_export_includes_recap_themes_unless_anonymized(seeded_session):
+    from app.services import export_service
+
+    goal = make_exam_goal(seeded_session)
+    _seed_export_themes(seeded_session, goal)
+    selection = export_service.ExportSelection(
+        goal_overview=False,
+        materials=False,
+        summary=False,
+        daily_records=False,
+        quality_trend=False,
+        replan_history=False,
+        weekly_summaries=False,
+        recap_themes=True,
+        exam_results=False,
+        retrospective=False,
+    )
+
+    included = export_service.build_export_data(
+        seeded_session, goal, selection, today=dt.date(2026, 3, 20),
+        treat_holiday_as_buffer=True, anonymized=False,
+    )
+    anonymized = export_service.build_export_data(
+        seeded_session, goal, selection, today=dt.date(2026, 3, 20),
+        treat_holiday_as_buffer=True, anonymized=True,
+    )
+
+    assert included["recap_themes"][0]["name"] == "メール関連"
+    assert "recap_themes" not in anonymized
+
+
+def test_markdown_renders_recap_theme_bodies_or_no_record_message(seeded_session):
+    from app.services import export_service
+
+    goal = make_exam_goal(seeded_session)
+    _seed_export_themes(seeded_session, goal)
+    selection = export_service.ExportSelection(
+        goal_overview=False, materials=False, summary=False, daily_records=False,
+        quality_trend=False, replan_history=False, weekly_summaries=False,
+        recap_themes=True, exam_results=False, retrospective=False,
+    )
+    data = {"recap_themes": recap_service.goal_themes_for_export(seeded_session, goal)}
+
+    markdown = export_service.render_markdown(data, selection)
+    empty = export_service.render_markdown({"recap_themes": []}, selection)
+
+    assert "## 8. 振り返りテーマ" in markdown
+    assert "### メール関連" in markdown
+    assert "・SMTP（2026-03-09）" in markdown
+    assert "## 8. 振り返りテーマ" in empty
+    assert "（記録なし）" in empty
