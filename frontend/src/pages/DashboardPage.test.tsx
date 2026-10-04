@@ -39,6 +39,10 @@ vi.mock('../api/records', () => ({ getDailyMessage }))
 const getCalendar = vi.hoisted(() => vi.fn())
 vi.mock('../api/calendar', () => ({ getCalendar }))
 
+// 資格試験・読書の目標は「先週のまとめ」の代わりにテーマ一覧を表示する（仕様書6.1.3）。
+const listRecapThemes = vi.hoisted(() => vi.fn())
+vi.mock('../api/recap', () => ({ listRecapThemes }))
+
 const OTHER_GOAL_ID = GOAL_ID + 1
 const OTHER_MATERIAL_NAME = '別目標の教材'
 const WELCOME_MARKER = 'welcome-marker'
@@ -146,20 +150,25 @@ describe('DashboardPage の目標の絞り込み', () => {
   it('shows only the selected goal and switches everything together', async () => {
     const user = userEvent.setup()
     twoActiveGoals()
+    listRecapThemes.mockImplementation((goalId: number) =>
+      Promise.resolve([
+        { id: 1, name: goalId === GOAL_ID ? 'テーマA' : 'テーマB', entry_count: 1, updated_at: '2026-09-13T00:00:00' },
+      ]),
+    )
     renderWithProviders(<DashboardPage />)
 
     // 初期表示は先頭の目標。別目標のノルマ・先週のまとめは混ざらない。
     expect(await screen.findByText('教材A')).toBeDefined()
     expect(screen.queryByText(OTHER_MATERIAL_NAME)).toBeNull()
-    expect(screen.getByText('目標Aの先週のまとめ')).toBeDefined()
-    expect(screen.queryByText('目標Bの先週のまとめ')).toBeNull()
+    expect(await screen.findByText('テーマA')).toBeDefined()
+    expect(screen.queryByText('テーマB')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: /目標B/ }))
 
     await waitFor(() => expect(screen.getByText(OTHER_MATERIAL_NAME)).toBeDefined())
     expect(screen.queryByText('教材A')).toBeNull()
-    expect(screen.getByText('目標Bの先週のまとめ')).toBeDefined()
-    expect(screen.queryByText('目標Aの先週のまとめ')).toBeNull()
+    expect(screen.getByText('テーマB')).toBeDefined()
+    expect(screen.queryByText('テーマA')).toBeNull()
   })
 
   it('keeps the goal independent state visible whichever goal is selected', async () => {
@@ -216,12 +225,11 @@ describe('DashboardPage のAI未設定時のフォールバック（S-4 4-6）',
         ],
       }),
     )
+    listRecapThemes.mockResolvedValue([])
     renderWithProviders(<DashboardPage />)
 
     expect(await screen.findByText(t('dashboard.todayMessage.fallback'))).toBeDefined()
-    expect(
-      screen.getByText(t('dashboard.weeklyDigest.recordedDays', { days: 2 }), { exact: false }),
-    ).toBeDefined()
+    expect(await screen.findByText(t('dashboard.recapThemes.empty'))).toBeDefined()
     // 直近4週間カレンダーはAIに依存しないため、この状態でも通常どおり表示される。
     expect(screen.getByText(t('dashboard.recentActivityCalendar.title'))).toBeDefined()
   })

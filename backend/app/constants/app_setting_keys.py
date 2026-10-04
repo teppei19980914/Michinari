@@ -74,3 +74,10 @@ DESKTOP_NOTIFICATION_TIME = "desktop.notification_time"
 #: 通知時刻をまたいだかを調べる間隔。設定画面には出さない（利用者が調整する値ではない）が、
 #: 秒数をスケジューラへ直書きしないため app_setting へ置く。
 DESKTOP_NOTIFICATION_CHECK_INTERVAL_SECONDS = "desktop.notification_check_interval_seconds"
+
+#: 振り返り（テーマ累積）の分類バッチ1回分の報告本文の上限文字数（プロンプト上限の内側に収める）。
+RECAP_CLASSIFY_CHUNK_CHARS = "recap.classify_chunk_chars"
+#: テーマ本文の上限文字数。超えた場合はサブテーマへの分割を指示する（削って収めない）。
+RECAP_BODY_MAX_CHARS = "recap.body_max_chars"
+#: テーマ本文の更新で、更新前の文字数に対して下回ってはならない比率（下回る応答は採用しない）。
+RECAP_MIN_RETENTION_RATIO = "recap.min_retention_ratio"

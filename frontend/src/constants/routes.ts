@@ -24,6 +24,7 @@ export const ROUTE_PATTERNS = {
   dailyReport: '/records/:date/report',
   dailyReportProgress: '/records/:date/progress',
   dailyReportView: '/records/:date/view',
+  recapTheme: '/recap-themes/:themeId',
   help: '/help',
 } as const
 
@@ -46,5 +47,6 @@ export const ROUTES = {
   dailyReport: (date: string) => `/records/${date}/report`,
   dailyReportProgress: (date: string) => `/records/${date}/progress`,
   dailyReportView: (date: string) => `/records/${date}/view`,
+  recapTheme: (themeId: number) => `/recap-themes/${themeId}`,
   help: ROUTE_PATTERNS.help,
 } as const

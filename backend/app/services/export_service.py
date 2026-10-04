@@ -25,6 +25,65 @@ from app.constants.enums import (
     RecordState,
     RetrospectivePeriodType,
 )
+from app.constants.export_markdown import (
+    EXPORT_DEFAULT_TITLE,
+    EXPORT_HEADING_AI_DIALOGUE,
+    EXPORT_HEADING_APPENDIX_DAILY_RECORDS,
+    EXPORT_HEADING_APPENDIX_READING_RECALLS,
+    EXPORT_HEADING_APPENDIX_WORK_LOGS,
+    EXPORT_HEADING_DIARIES,
+    EXPORT_HEADING_EXAM_RESULTS,
+    EXPORT_HEADING_MATERIALS,
+    EXPORT_HEADING_OVERVIEW,
+    EXPORT_HEADING_QUALITY_TREND,
+    EXPORT_HEADING_READING_RETROSPECTIVE,
+    EXPORT_HEADING_RECAP_THEMES,
+    EXPORT_HEADING_RECORD_VOLUME,
+    EXPORT_HEADING_REPLAN_HISTORY,
+    EXPORT_HEADING_RETROSPECTIVE,
+    EXPORT_HEADING_STUDY_VOLUME,
+    EXPORT_HEADING_WEEKLY_SUMMARIES,
+    EXPORT_HEADING_WORK_REPORTS,
+    EXPORT_LABEL_ASSIGNMENT_NAME,
+    EXPORT_LABEL_AVERAGE_TIME,
+    EXPORT_LABEL_BOOK_AUTHOR,
+    EXPORT_LABEL_BOOK_DUE_DATE,
+    EXPORT_LABEL_BOOK_TITLE,
+    EXPORT_LABEL_CLIENT_NAME,
+    EXPORT_LABEL_EXAM_DATE_PREFIX,
+    EXPORT_LABEL_EXAM_NAME,
+    EXPORT_LABEL_EXPECTED_CONTENT,
+    EXPORT_LABEL_LEARNED,
+    EXPORT_LABEL_MAX_STREAK,
+    EXPORT_LABEL_PASSING_SCORE_PREFIX,
+    EXPORT_LABEL_READING_PERIOD,
+    EXPORT_LABEL_RECORD_DAYS,
+    EXPORT_LABEL_REPORT_RATE,
+    EXPORT_LABEL_START_DATE,
+    EXPORT_LABEL_STATUS,
+    EXPORT_LABEL_STUDY_DAYS,
+    EXPORT_LABEL_STUDY_PERIOD,
+    EXPORT_LABEL_TOTAL_TIME,
+    EXPORT_PLACEHOLDER_NO_BODY,
+    EXPORT_PLACEHOLDER_NO_READING_RETROSPECTIVE,
+    EXPORT_PLACEHOLDER_NO_RECORDS,
+    EXPORT_PLACEHOLDER_NO_RETROSPECTIVE,
+    EXPORT_PLACEHOLDER_NO_SUBJECTS,
+    EXPORT_PLACEHOLDER_NO_WORK_REPORTS,
+    EXPORT_PLACEHOLDER_NOT_CLOSED,
+    EXPORT_PLACEHOLDER_UNREGISTERED,
+    EXPORT_TABLE_HEAD_DAILY_RECORDS,
+    EXPORT_TABLE_HEAD_EXAM_RESULTS,
+    EXPORT_TABLE_HEAD_MATERIALS,
+    EXPORT_TABLE_HEAD_READING_RECALLS,
+    EXPORT_TABLE_HEAD_REPLAN,
+    EXPORT_TABLE_HEAD_WORK_LOGS,
+    EXPORT_UNIT_CYCLE,
+    EXPORT_UNIT_DAYS,
+    EXPORT_UNIT_HOURS,
+    EXPORT_UNIT_MINUTES_PER_DAY,
+    EXPORT_UNIT_POINTS,
+)
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
@@ -48,6 +107,7 @@ from app.services import (
     goal_service,
     material_service,
     metrics_service,
+    recap_service,
     retrospective_service,
     weekly_summary_service,
     work_report_service,
@@ -85,6 +145,7 @@ class ExportSelection:
     quality_trend: bool = True
     replan_history: bool = True
     weekly_summaries: bool = True
+    recap_themes: bool = True
     diary: bool = False
     ai_dialogue: bool = False
     exam_results: bool = True
@@ -128,7 +189,7 @@ def _format_passing_score(subject_data: dict) -> str:
         subject_data["passing_score_type"] == PassingScoreType.RAW_SCORE
         and subject_data["passing_score_max"]
     ):
-        return f"{passing_score:g}/{subject_data['passing_score_max']:g}点"
+        return f"{passing_score:g}/{subject_data['passing_score_max']:g}{EXPORT_UNIT_POINTS}"
     return f"{passing_score:g}%"
 
 
@@ -581,6 +642,9 @@ def build_export_data(
         data["replan_history"] = _build_replan_history(session, goal)
     if selection.weekly_summaries:
         data["weekly_summaries"] = _build_weekly_summaries(session, goal, anonymized=anonymized)
+    # テーマ本文は日記・想起記録から作られるため、匿名化時は日記本文と同様に除外する。
+    if selection.recap_themes and not anonymized:
+        data["recap_themes"] = recap_service.goal_themes_for_export(session, goal)
     if selection.exam_results:
         data["results"] = _build_results(goal)
     if selection.retrospective:
@@ -605,23 +669,23 @@ def _render_reading_markdown(data: dict) -> str:
     if "book" in data:
         book = data["book"]
         sections.append(
-            "## 1. 概要\n\n"
-            f"- 書名: {book['title']}\n"
-            f"- 著者: {book['author'] or '（未登録）'}\n"
-            f"- 読了目標日: {book['due_date']}\n"
-            f"- 読書期間: {book['start_date']} 〜 {book['due_date']}"
+            f"{EXPORT_HEADING_OVERVIEW}\n\n"
+            f"{EXPORT_LABEL_BOOK_TITLE}{book['title']}\n"
+            f"{EXPORT_LABEL_BOOK_AUTHOR}{book['author'] or EXPORT_PLACEHOLDER_UNREGISTERED}\n"
+            f"{EXPORT_LABEL_BOOK_DUE_DATE}{book['due_date']}\n"
+            f"{EXPORT_LABEL_READING_PERIOD}{book['start_date']} 〜 {book['due_date']}"
         )
 
     if "retrospective" in data:
-        body = data["retrospective"] or "（読了レポートは未生成です）"
-        sections.append(f"## 2. 読了レポート\n\n{body}")
+        body = data["retrospective"] or EXPORT_PLACEHOLDER_NO_READING_RETROSPECTIVE
+        sections.append(f"{EXPORT_HEADING_READING_RETROSPECTIVE}\n\n{body}")
 
     if "summary" in data:
         s = data["summary"]
         sections.append(
-            "## 3. 記録量\n\n"
-            f"- 記録日数: {s['record_days']}日\n"
-            f"- 最長連続記録日数: {s['max_streak_days']}日"
+            f"{EXPORT_HEADING_RECORD_VOLUME}\n\n"
+            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}{EXPORT_UNIT_DAYS}\n"
+            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}{EXPORT_UNIT_DAYS}"
         )
 
     if "daily_records" in data:
@@ -631,13 +695,13 @@ def _render_reading_markdown(data: dict) -> str:
             for r in data["daily_records"]
         )
         sections.append(
-            "## 4. 付録：日別の想起記録\n\n"
-            "| 日付 | 想起内容 | 現在ページ |\n"
+            f"{EXPORT_HEADING_APPENDIX_READING_RECALLS}\n\n"
+            f"{EXPORT_TABLE_HEAD_READING_RECALLS}\n"
             "| --- | --- | --- |\n"
             f"{rows}"
         )
 
-    title = data.get("book", {}).get("title", "ナレッジエクスポート")
+    title = data.get("book", {}).get("title", EXPORT_DEFAULT_TITLE)
     return f"# {title}\n\n" + "\n\n".join(sections)
 
 
@@ -648,11 +712,11 @@ def _render_work_markdown(data: dict) -> str:
     if "work_assignment" in data:
         wa = data["work_assignment"]
         sections.append(
-            "## 1. 概要\n\n"
-            f"- 案件名: {wa['name']}\n"
-            f"- 取引先・案件の呼称: {wa['client_name'] or '（未登録）'}\n"
-            f"- 想定業務内容: {wa['expected_content']}\n"
-            f"- 着手日: {wa['start_date']}"
+            f"{EXPORT_HEADING_OVERVIEW}\n\n"
+            f"{EXPORT_LABEL_ASSIGNMENT_NAME}{wa['name']}\n"
+            f"{EXPORT_LABEL_CLIENT_NAME}{wa['client_name'] or EXPORT_PLACEHOLDER_UNREGISTERED}\n"
+            f"{EXPORT_LABEL_EXPECTED_CONTENT}{wa['expected_content']}\n"
+            f"{EXPORT_LABEL_START_DATE}{wa['start_date']}"
         )
 
     if "retrospectives" in data:
@@ -663,22 +727,25 @@ def _render_work_markdown(data: dict) -> str:
                 for r in retrospectives
             )
         else:
-            lines = "（月次報告・半期評価は未生成です）"
-        sections.append(f"## 2. 月次報告・半期評価\n\n{lines}")
+            lines = EXPORT_PLACEHOLDER_NO_WORK_REPORTS
+        sections.append(f"{EXPORT_HEADING_WORK_REPORTS}\n\n{lines}")
 
     if "summary" in data:
         s = data["summary"]
         sections.append(
-            "## 3. 記録量\n\n"
-            f"- 記録日数: {s['record_days']}日\n"
-            f"- 最長連続記録日数: {s['max_streak_days']}日"
+            f"{EXPORT_HEADING_RECORD_VOLUME}\n\n"
+            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}{EXPORT_UNIT_DAYS}\n"
+            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}{EXPORT_UNIT_DAYS}"
         )
 
     if "daily_records" in data:
         rows = "\n".join(f"| {r['date']} | {r['body']} |" for r in data["daily_records"])
-        sections.append(f"## 4. 付録：日別の業務記録\n\n| 日付 | 業務内容 |\n| --- | --- |\n{rows}")
+        sections.append(
+            f"{EXPORT_HEADING_APPENDIX_WORK_LOGS}\n\n"
+            f"{EXPORT_TABLE_HEAD_WORK_LOGS}\n| --- | --- |\n{rows}"
+        )
 
-    title = data.get("work_assignment", {}).get("name") or "ナレッジエクスポート"
+    title = data.get("work_assignment", {}).get("name") or EXPORT_DEFAULT_TITLE
     return f"# {title}\n\n" + "\n\n".join(sections)
 
 
@@ -697,31 +764,32 @@ def render_markdown(
         goal_data = data["goal"]
         subjects_text = (
             "\n".join(
-                f"- {s['name']}（受験日: {s['exam_date']}、合格基準: {_format_passing_score(s)}）"
+                f"- {s['name']}{EXPORT_LABEL_EXAM_DATE_PREFIX}{s['exam_date']}"
+                f"{EXPORT_LABEL_PASSING_SCORE_PREFIX}{_format_passing_score(s)}）"
                 for s in data.get("subjects", [])
             )
-            or "（試験科目未登録）"
+            or EXPORT_PLACEHOLDER_NO_SUBJECTS
         )
-        closed_at_text = goal_data["closed_at"] or "（未クローズ）"
+        closed_at_text = goal_data["closed_at"] or EXPORT_PLACEHOLDER_NOT_CLOSED
         sections.append(
-            "## 1. 概要\n\n"
-            f"- 試験名: {goal_data['name']}\n"
-            f"- 学習期間: {goal_data['start_date']} 〜 {closed_at_text}\n"
-            f"- 状態: {goal_data['status']}\n\n{subjects_text}"
+            f"{EXPORT_HEADING_OVERVIEW}\n\n"
+            f"{EXPORT_LABEL_EXAM_NAME}{goal_data['name']}\n"
+            f"{EXPORT_LABEL_STUDY_PERIOD}{goal_data['start_date']} 〜 {closed_at_text}\n"
+            f"{EXPORT_LABEL_STATUS}{goal_data['status']}\n\n{subjects_text}"
         )
 
     if "retrospective" in data:
-        body = data["retrospective"] or "（総括レポートは未生成です）"
-        sections.append(f"## 2. 総括\n\n{body}")
+        body = data["retrospective"] or EXPORT_PLACEHOLDER_NO_RETROSPECTIVE
+        sections.append(f"{EXPORT_HEADING_RETROSPECTIVE}\n\n{body}")
 
     if "summary" in data:
         s = data["summary"]
         sections.append(
-            "## 3. 学習量\n\n"
-            f"- 総投下時間: {s['total_minutes'] / 60:.1f}時間\n"
-            f"- 学習日数: {s['study_days']}日\n"
-            f"- 報告率: {s['report_rate']:.0%}\n"
-            f"- 平均時間: {s['average_minutes_per_day']:.1f}分/日"
+            f"{EXPORT_HEADING_STUDY_VOLUME}\n\n"
+            f"{EXPORT_LABEL_TOTAL_TIME}{s['total_minutes'] / 60:.1f}{EXPORT_UNIT_HOURS}\n"
+            f"{EXPORT_LABEL_STUDY_DAYS}{s['study_days']}{EXPORT_UNIT_DAYS}\n"
+            f"{EXPORT_LABEL_REPORT_RATE}{s['report_rate']:.0%}\n"
+            f"{EXPORT_LABEL_AVERAGE_TIME}{s['average_minutes_per_day']:.1f}{EXPORT_UNIT_MINUTES_PER_DAY}"
         )
 
     if "materials" in data:
@@ -731,8 +799,8 @@ def render_markdown(
             for m in data["materials"]
         )
         sections.append(
-            "## 4. 教材構成\n\n"
-            "| 教材 | 総量 | 予定周回 | 実績周回 | 締切 |\n| --- | --- | --- | --- | --- |\n"
+            f"{EXPORT_HEADING_MATERIALS}\n\n"
+            f"{EXPORT_TABLE_HEAD_MATERIALS}\n| --- | --- | --- | --- | --- |\n"
             f"{rows}"
         )
 
@@ -740,8 +808,11 @@ def render_markdown(
         lines = []
         for entry in data["quality_trend"]:
             points = "、".join(f"{p['date']}: {p['value']:.1f}" for p in entry["series"])
-            lines.append(f"- {entry['material']} {entry['cycle']}周目: {points}")
-        sections.append("## 5. 品質の推移\n\n" + ("\n".join(lines) or "（記録なし）"))
+            lines.append(f"- {entry['material']} {entry['cycle']}{EXPORT_UNIT_CYCLE}: {points}")
+        sections.append(
+            f"{EXPORT_HEADING_QUALITY_TREND}\n\n"
+            + ("\n".join(lines) or EXPORT_PLACEHOLDER_NO_RECORDS)
+        )
 
     if "replan_history" in data:
         rows = "\n".join(
@@ -750,8 +821,8 @@ def render_markdown(
             for r in data["replan_history"]
         )
         sections.append(
-            "## 6. 計画の修正履歴\n\n"
-            "| 日時 | 教材 | 契機 | 変更前後のノルマ |\n| --- | --- | --- | --- |\n"
+            f"{EXPORT_HEADING_REPLAN_HISTORY}\n\n"
+            f"{EXPORT_TABLE_HEAD_REPLAN}\n| --- | --- | --- | --- |\n"
             f"{rows}"
         )
 
@@ -759,7 +830,18 @@ def render_markdown(
         lines = "\n\n".join(
             f"### {w['week_start']}\n\n{w['body']}" for w in data["weekly_summaries"]
         )
-        sections.append("## 7. 週ごとの経過\n\n" + (lines or "（記録なし）"))
+        sections.append(
+            f"{EXPORT_HEADING_WEEKLY_SUMMARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
+        )
+
+    if "recap_themes" in data:
+        blocks = "\n\n".join(
+            f"### {theme['name']}\n\n{theme['body'] or EXPORT_PLACEHOLDER_NO_BODY}"
+            for theme in data["recap_themes"]
+        )
+        sections.append(
+            f"{EXPORT_HEADING_RECAP_THEMES}\n\n" + (blocks or EXPORT_PLACEHOLDER_NO_RECORDS)
+        )
 
     if "daily_records" in data:
         rows = "\n".join(
@@ -768,8 +850,8 @@ def render_markdown(
             for r in data["daily_records"]
         )
         sections.append(
-            "## 8. 付録：日別実績\n\n"
-            "| 日付 | 教材 | 投下時間(分) | 完了量 | 周回 | 品質指標 |\n"
+            f"{EXPORT_HEADING_APPENDIX_DAILY_RECORDS}\n\n"
+            f"{EXPORT_TABLE_HEAD_DAILY_RECORDS}\n"
             "| --- | --- | --- | --- | --- | --- |\n"
             f"{rows}"
         )
@@ -780,21 +862,27 @@ def render_markdown(
             f"{r['score'] if r['score'] is not None else '-'} |"
             for r in data["results"]
         )
-        sections.append("## 9. 受験結果\n\n| 科目 | 合否 | 得点 |\n| --- | --- | --- |\n" + rows)
+        sections.append(
+            f"{EXPORT_HEADING_EXAM_RESULTS}\n\n"
+            f"{EXPORT_TABLE_HEAD_EXAM_RESULTS}\n| --- | --- | --- |\n" + rows
+        )
 
     if "diaries" in data:
         lines = "\n\n".join(
-            f"### {d['date']}\n\n{d['body']}\n\n学んだこと: {d['learned']}" for d in data["diaries"]
+            f"### {d['date']}\n\n{d['body']}\n\n{EXPORT_LABEL_LEARNED}{d['learned']}"
+            for d in data["diaries"]
         )
-        sections.append("## 10. 日記\n\n" + (lines or "（記録なし）"))
+        sections.append(f"{EXPORT_HEADING_DIARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS))
 
     if "ai_dialogue" in data:
         lines = "\n".join(
             f"- [{d['date']}] {d['role']}: {d['content']}" for d in data["ai_dialogue"]
         )
-        sections.append("## 11. AI対話履歴\n\n" + (lines or "（記録なし）"))
+        sections.append(
+            f"{EXPORT_HEADING_AI_DIALOGUE}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
+        )
 
-    title = data.get("goal", {}).get("name", "ナレッジエクスポート")
+    title = data.get("goal", {}).get("name", EXPORT_DEFAULT_TITLE)
     return f"# {title}\n\n" + "\n\n".join(sections)
 
 

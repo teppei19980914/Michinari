@@ -20,8 +20,10 @@ from sqlalchemy import (
     Integer,
     Text,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.constants.enums import AiPurpose, ChatRole, ExamResultType, RecordState
 from app.models.base import Base, CreatedAtMixin, TimestampMixin, utcnow
@@ -310,6 +312,15 @@ class DailyGoalDiary(CreatedAtMixin, Base):
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="diary_entries")
     goal: Mapped["Goal | None"] = relationship(back_populates="diary_entries")
+
+
+def diary_text_expr() -> ColumnElement[str]:
+    """日記の振り返り用本文（学んだこと優先、未入力の旧データだけ旧本文）をSQL式で返す。
+
+    資格試験の日記は学んだこと（diary_learned）が主で、旧仕様の本文（diary_body）は未入力の
+    旧データだけに残るため、この優先順位を前回ヒント・振り返りの両方で共通に使う。
+    """
+    return func.coalesce(func.nullif(DailyGoalDiary.diary_learned, ""), DailyGoalDiary.diary_body)
 
 
 class WeeklySummary(Base):

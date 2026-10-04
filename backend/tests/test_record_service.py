@@ -29,15 +29,10 @@ from app.services.exceptions import (
     NotFoundError,
     ValidationError,
 )
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
+from app.services.record_service import ReadingLogItem, StudyLogItem, WorkLogItem
 from tests import reading_helpers
-
-
-def _make_goal(session, status=GoalStatus.ACTIVE, name="目標A"):
-    goal = Goal(name=name, start_date=dt.date(2026, 1, 1), status=status)
-    session.add(goal)
-    session.flush()
-    return goal
+from tests.diary_helpers import diary_item as _diary
+from tests.diary_helpers import make_exam_goal as _make_goal
 
 
 def _make_material(session, goal, **overrides):
@@ -88,10 +83,6 @@ def _log(material_id, **overrides):
     )
     defaults.update(overrides)
     return StudyLogItem(**defaults)
-
-
-def _diary(goal_id, diary_body="", diary_learned=""):
-    return DiaryEntryItem(goal_id=goal_id, diary_body=diary_body, diary_learned=diary_learned)
 
 
 # --- register_progress ---

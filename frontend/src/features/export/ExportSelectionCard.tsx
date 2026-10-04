@@ -25,7 +25,8 @@ export function ExportSelectionCard({
   const isReading = category === 'READING'
   const isWork = category === 'WORK'
   const visibleItems = SELECTION_ITEMS.filter(
-    (item) => !((isReading || isWork) && item.hiddenForReadingOrWork),
+    (item) =>
+      !((isReading || isWork) && item.hiddenForReadingOrWork) && !(isWork && item.hiddenForWork),
   )
 
   return (
