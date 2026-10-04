@@ -33,20 +33,21 @@ const VARIANT_CLASSES: Record<ToastVariant, string> = {
   error: 'bg-red-600',
 }
 
-/** 情報の通知だけ自動で消す。エラーは利用者が読み終えて閉じるまで残す（非エンジニアは
- * 一瞬で消えると何が起きたか分からないまま終わるため。仕様書「非エンジニア向けエラー表示の方針」）。 */
-const AUTO_DISMISS_MS = 4000
+/** 全てのトーストは一定時間で自動的に消える（通知が積み重なって画面を塞がないため）。
+ * エラーは二文（何が起きたか・何をすればよいか）を読む時間を取り、情報より長く表示する。 */
+const AUTO_DISMISS_MS: Record<ToastVariant, number> = {
+  info: 4000,
+  error: 8000,
+}
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastEntry[]>([])
   const timeoutsRef = useRef(new Map<number, ReturnType<typeof setTimeout>>())
 
   const dismiss = useCallback((id: number) => {
-    const timeoutId = timeoutsRef.current.get(id)
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId)
-      timeoutsRef.current.delete(id)
-    }
+    // 全てのトーストは登録時に自動消去のタイマーを持つため、ここでは必ず存在する。
+    clearTimeout(timeoutsRef.current.get(id))
+    timeoutsRef.current.delete(id)
     setToasts((current) => current.filter((toast) => toast.id !== id))
   }, [])
 
@@ -54,10 +55,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (entry: Omit<ToastEntry, 'id'>) => {
       const id = Date.now()
       setToasts((current) => [...current, { ...entry, id }])
-      if (entry.variant === 'info') {
-        const timeoutId = setTimeout(() => dismiss(id), AUTO_DISMISS_MS)
-        timeoutsRef.current.set(id, timeoutId)
-      }
+      const timeoutId = setTimeout(() => dismiss(id), AUTO_DISMISS_MS[entry.variant])
+      timeoutsRef.current.set(id, timeoutId)
     },
     [dismiss],
   )
