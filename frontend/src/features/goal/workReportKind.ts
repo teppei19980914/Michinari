@@ -26,6 +26,10 @@ export interface WorkReportKindConfig {
   nextGoalTextLabelKey: string
   /** 特記事項欄を出すか。半期評価は持たない項目のため、入力欄も送信内容からも外す。 */
   showReportNotes: boolean
+  /** 生成に失敗したときの見出し（ロケールキー）。何をしようとして失敗したかを示す。 */
+  generateFailedTitleKey: string
+  /** 保存に失敗したときの見出し（ロケールキー）。 */
+  saveFailedTitleKey: string
 }
 
 export function resolveWorkReportKind(kind: WorkReportKind): WorkReportKindConfig {
@@ -38,6 +42,8 @@ export function resolveWorkReportKind(kind: WorkReportKind): WorkReportKindConfi
       periodPlaceholder: 'YYYY-MM',
       nextGoalTextLabelKey: 'goals.workReport.nextGoalTextLabelMonthly',
       showReportNotes: true,
+      generateFailedTitleKey: 'goals.workReport.generateFailedTitleMonthly',
+      saveFailedTitleKey: 'goals.workReport.saveFailedTitleMonthly',
     }
   }
   return {
@@ -48,5 +54,7 @@ export function resolveWorkReportKind(kind: WorkReportKind): WorkReportKindConfi
     periodPlaceholder: 'YYYY-H1 / YYYY-H2',
     nextGoalTextLabelKey: 'goals.workReport.nextGoalTextLabelSemiannual',
     showReportNotes: false,
+    generateFailedTitleKey: 'goals.workReport.generateFailedTitleSemiannual',
+    saveFailedTitleKey: 'goals.workReport.saveFailedTitleSemiannual',
   }
 }

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../../locales/t'
+import { ApiError } from '../../api/client'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { GOAL_ID, MONTHLY_PERIOD_KEY, makeWorkReport } from '../../test/fixtures'
 import { WorkReportTab } from './WorkReportTab'
@@ -176,6 +177,19 @@ describe('WorkReportTab の生成と保存', () => {
     await user.click(regenerateButton())
 
     await waitFor(() => expect(generateMonthlyReport).toHaveBeenCalledWith(GOAL_ID, '2026-08'))
+  })
+
+  it('explains a failed generation with a title and a retry hint instead of a silent empty screen', async () => {
+    const user = userEvent.setup()
+    getMonthlyReport.mockResolvedValue(null)
+    generateMonthlyReport.mockRejectedValue(new ApiError('DATABASE_BUSY', 'busy'))
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
+
+    await waitFor(() => expect(generateButton()).toBeDefined())
+    await user.click(generateButton())
+
+    expect(await screen.findByText(t('goals.workReport.generateFailedTitleMonthly'))).toBeTruthy()
+    expect(screen.getByText(t('errors.DATABASE_BUSY'))).toBeTruthy()
   })
 
   it('omits the period when the field is left empty so the server picks the current one', async () => {
