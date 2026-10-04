@@ -10,7 +10,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../../locales/t'
-import { ROUTES } from '../../constants/routes'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { BOOK_ID, GOAL_ID, makeBook, makeGoalDetail } from '../../test/fixtures'
 import { BookTab } from './BookTab'
@@ -31,7 +30,6 @@ vi.mock('react-router-dom', async (importOriginal) => ({
 
 const saveButton = () => screen.getByRole('button', { name: t('common.action.save') })
 const editButton = () => screen.getByRole('button', { name: t('common.action.edit') })
-const confirmButton = () => screen.getByRole('button', { name: t('common.action.confirm') })
 const cancelButton = () => screen.getByRole('button', { name: t('common.action.cancel') })
 const dateInputs = (container: HTMLElement) =>
   Array.from(container.querySelectorAll<HTMLInputElement>('input[type="date"]'))

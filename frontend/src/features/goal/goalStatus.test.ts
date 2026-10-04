@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '../../locales/t'
+import type { components } from '../../types/api.d.ts'
 import { GOAL_CATEGORIES } from '../../constants/goalCategories'
 import {
   goalStatusLabelKey,
@@ -8,6 +9,8 @@ import {
   isDefaultListedGoal,
   resolveGoalListTarget,
 } from './goalStatus'
+
+type GoalOperation = components['schemas']['GoalOperation']
 
 describe('isClosedGoalStatus', () => {
   it('returns false for DRAFT/ACTIVE/PAUSED', () => {
@@ -52,7 +55,7 @@ describe('isDefaultListedGoal（開発Todo 1-9：既定表示は下書き・実�
 
 describe('hasOperation（操作の可否はサーバーの available_operations に従う）', () => {
   it('reports whether the server offered an operation', () => {
-    const goal = { available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'] as const }
+    const goal = { available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'] as GoalOperation[] }
     expect(hasOperation(goal, 'PAUSE')).toBe(true)
     expect(hasOperation(goal, 'RESUME')).toBe(false)
   })

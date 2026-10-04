@@ -270,7 +270,7 @@ def delete_goal(session: Session, goal: Goal) -> None:
     """目標を物理削除する（開発Todo 1-4）。実行中以外のすべての状態（アーカイブ済みを含む）が対象。
 
     関連データ（実績・想起記録・業務記録・日記・評価レポート等）は常にカスケードで削除する
-    （旧「cascade_study_logs」の選択は廃止）。同日に他目標のデータが残る日次報告は残す（R-63）。
+    同日に他目標のデータが残る日次報告は残す（R-63）。
     """
     ensure_operation_allowed(goal, GoalOperation.DELETE)
     _cascade_delete_activity_logs(session, goal)
