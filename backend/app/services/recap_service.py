@@ -237,9 +237,9 @@ def get_theme(session: Session, theme_id: int) -> RecapTheme:
     return theme
 
 
-def theme_entries(session: Session, theme: RecapTheme) -> list[ThemeEntry]:
-    """テーマに紐付く報告を日付順に返す。本文は元の報告を読み直した値（複製していない）。"""
-    entries = list(
+def theme_entry_rows(session: Session, theme: RecapTheme) -> list[RecapEntry]:
+    """テーマに紐付く報告の行を日付順に返す。"""
+    return list(
         session.scalars(
             select(RecapEntry)
             .join(RecapThemeLink, RecapThemeLink.entry_id == RecapEntry.id)
@@ -247,6 +247,11 @@ def theme_entries(session: Session, theme: RecapTheme) -> list[ThemeEntry]:
             .order_by(RecapEntry.record_date, RecapEntry.id)
         ).all()
     )
+
+
+def theme_entries(session: Session, theme: RecapTheme) -> list[ThemeEntry]:
+    """テーマに紐付く報告を日付順に返す。本文は元の報告を読み直した値（複製していない）。"""
+    entries = theme_entry_rows(session, theme)
     texts = {t.entry_id: t.text for t in entry_texts(session, entries)}
     return [
         ThemeEntry(source_kind=e.source_kind, record_date=e.record_date, text=texts[e.id])
