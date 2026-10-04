@@ -4,7 +4,7 @@
  * 一覧から目標が消える操作のため確認ダイアログを経ることを、新規作成は送信内容と遷移先を固定する。
  *
  * 状態から遷移先・アーカイブ可否を決める判定（`goalStatus.ts`）は `goalStatus.test.ts` が、
- * 完全削除の確認は `DeleteArchivedGoalModal.test.tsx` が担うため、ここでは結線を確かめる。 */
+ * 完全削除の確認は `DeleteGoalModal.test.tsx` が担うため、ここでは結線を確かめる。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -22,7 +22,7 @@ const createWorkAssignment = vi.hoisted(() => vi.fn())
 const activateGoal = vi.hoisted(() => vi.fn())
 const archiveGoal = vi.hoisted(() => vi.fn())
 const unarchiveGoal = vi.hoisted(() => vi.fn())
-const deleteArchivedGoal = vi.hoisted(() => vi.fn())
+const deleteGoal = vi.hoisted(() => vi.fn())
 vi.mock('../api/goals', () => ({
   listGoals,
   createGoal,
@@ -31,7 +31,7 @@ vi.mock('../api/goals', () => ({
   activateGoal,
   archiveGoal,
   unarchiveGoal,
-  deleteArchivedGoal,
+  deleteGoal,
 }))
 
 const getToday = vi.hoisted(() => vi.fn())
@@ -50,12 +50,12 @@ const archivedGoal = () =>
     name: 'アーカイブ済みの目標',
     status: 'CLOSED_WITH_RESULT',
     archived_at: '2026-09-10T00:00:00',
+    available_operations: ['UNARCHIVE', 'DELETE'],
   })
 
 const newGoalButton = () => screen.getByRole('button', { name: t('goals.list.newGoal') })
 const archiveButton = () => screen.getByRole('button', { name: t('goals.list.archiveButton') })
-const showArchivedToggle = () =>
-  screen.getByRole('checkbox', { name: t('goals.list.showArchivedToggle') })
+const showAllToggle = () => screen.getByRole('checkbox', { name: t('goals.list.showAllToggle') })
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -89,14 +89,17 @@ describe('GoalsListPage の一覧', () => {
   })
 
   it('links a closed goal to the export screen instead', async () => {
+    const user = userEvent.setup()
     listGoals.mockResolvedValue([makeGoal({ status: 'CLOSED_WITH_RESULT' })])
     renderWithProviders(<GoalsListPage />)
 
+    await user.click(await screen.findByRole('checkbox', { name: t('goals.list.showAllToggle') }))
     const link = (await screen.findByText('目標A')).closest('a') as HTMLAnchorElement
     expect(link.getAttribute('href')).toBe(ROUTES.goalExport(GOAL_ID))
   })
 
   it('shows the achieved badge (UI-11) only when is_achieved is true', async () => {
+    const user = userEvent.setup()
     const { unmount } = renderWithProviders(<GoalsListPage />)
     await screen.findByText('目標A')
     expect(screen.queryByText(t('goals.list.achievedBadge'))).toBeNull()
@@ -105,6 +108,7 @@ describe('GoalsListPage の一覧', () => {
     listGoals.mockResolvedValue([makeGoal({ status: 'CLOSED_WITH_RESULT', is_achieved: true })])
     renderWithProviders(<GoalsListPage />)
 
+    await user.click(await screen.findByRole('checkbox', { name: t('goals.list.showAllToggle') }))
     expect(await screen.findByText(t('goals.list.achievedBadge'))).toBeDefined()
   })
 
@@ -120,24 +124,31 @@ describe('GoalsListPage の一覧', () => {
     expect(screen.queryByText(t('goals.list.resultLink'))).toBeNull()
   })
 
-  it('keeps archived goals out of the main list until the toggle is switched on', async () => {
+  it('shows only draft, active and paused goals by default (開発Todo 1-9)', async () => {
     const user = userEvent.setup()
-    listGoals.mockResolvedValue([makeGoal(), archivedGoal()])
+    listGoals.mockResolvedValue([
+      makeGoal({ id: 1, name: '実行中の目標' }),
+      makeGoal({ id: 2, name: '完了した目標', status: 'CLOSED_WITH_RESULT' }),
+      archivedGoal(),
+    ])
     renderWithProviders(<GoalsListPage />)
 
-    await screen.findByText('目標A')
+    await screen.findByText('実行中の目標')
+    expect(screen.queryByText('完了した目標')).toBeNull()
     expect(screen.queryByText('アーカイブ済みの目標')).toBeNull()
 
-    await user.click(showArchivedToggle())
+    await user.click(showAllToggle())
 
+    expect(screen.getByText('完了した目標')).toBeDefined()
     expect(screen.getByText('アーカイブ済みの目標')).toBeDefined()
-    expect(screen.getByText(t('goals.list.archivedSectionTitle'))).toBeDefined()
+    expect(screen.getByText(t('goals.list.archivedBadge'))).toBeDefined()
   })
 
-  it('hides the archive toggle when nothing is archived', async () => {
+  it('shows the toggle for showing all goals only when there is a goal to show', async () => {
+    listGoals.mockResolvedValue([])
     renderWithProviders(<GoalsListPage />)
 
-    await screen.findByText('目標A')
+    await screen.findByText(t('goals.list.empty'))
     expect(screen.queryByRole('checkbox')).toBeNull()
   })
 
@@ -154,7 +165,7 @@ describe('GoalsListPage のアーカイブ操作', () => {
   it('does not archive when the confirmation is dismissed', async () => {
     const user = userEvent.setup()
     // アーカイブ可能なのはクローズ済みなど「進行中ではない」目標（goalStatus.ts）。
-    listGoals.mockResolvedValue([makeGoal({ status: 'PAUSED' })])
+    listGoals.mockResolvedValue([makeGoal({ status: 'PAUSED', available_operations: ['ARCHIVE'] })])
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderWithProviders(<GoalsListPage />)
 
@@ -166,7 +177,7 @@ describe('GoalsListPage のアーカイブ操作', () => {
 
   it('archives only after the confirmation is accepted', async () => {
     const user = userEvent.setup()
-    listGoals.mockResolvedValue([makeGoal({ status: 'PAUSED' })])
+    listGoals.mockResolvedValue([makeGoal({ status: 'PAUSED', available_operations: ['ARCHIVE'] })])
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     renderWithProviders(<GoalsListPage />)
 
@@ -179,7 +190,7 @@ describe('GoalsListPage のアーカイブ操作', () => {
     expect(archiveGoal.mock.calls[0][0]).toBe(GOAL_ID)
   })
 
-  it('does not offer archiving an active goal', async () => {
+  it('does not offer archiving when the server does not offer it', async () => {
     renderWithProviders(<GoalsListPage />)
 
     await screen.findByText('目標A')
@@ -198,19 +209,17 @@ describe('GoalsListPage のアーカイブ操作', () => {
     expect(unarchiveGoal.mock.calls[0][0]).toBe(ARCHIVED_ID)
   })
 
-  it('asks for the goal name before deleting an archived goal for good', async () => {
+  it('asks for the goal name before deleting a goal, without deleting it at once', async () => {
     const user = userEvent.setup()
     listGoals.mockResolvedValue([archivedGoal()])
     renderWithProviders(<GoalsListPage />)
 
     await user.click(await screen.findByRole('checkbox'))
-    await user.click(
-      screen.getByRole('button', { name: t('goals.list.deleteCompletelyButton') }),
-    )
+    await user.click(screen.getByRole('button', { name: t('goals.list.deleteButton') }))
 
-    // 完全削除はこの場では実行されず、名称の入力を求める確認モーダルへ渡す。
-    expect(deleteArchivedGoal).not.toHaveBeenCalled()
-    expect(screen.getByText(t('goals.list.deleteModal.title'))).toBeDefined()
+    // 削除はこの場では実行されず、目標名の入力を求める確認モーダルへ渡す。
+    expect(deleteGoal).not.toHaveBeenCalled()
+    expect(screen.getByText(t('goals.delete.title'))).toBeDefined()
   })
 })
 

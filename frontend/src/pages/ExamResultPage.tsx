@@ -9,7 +9,7 @@ import { useToast } from '../components/Toast'
 import { apiErrorMessage } from '../api/client'
 import { getGoal, type SubjectRead } from '../api/goals'
 import { generateRetrospective, registerExamResult, updateExamResult } from '../api/closure'
-import { CloseGoalModal } from '../features/goal/CloseGoalModal'
+import { GoalEndModal } from '../features/goal/GoalEndModal'
 import { ExamResultFields } from '../features/goal/ExamResultFields'
 import type { ExamResultType } from '../features/goal/examResultOptions'
 import { isClosedGoalStatus } from '../features/goal/goalStatus'
@@ -141,7 +141,7 @@ export function ExamResultPage() {
           {t('goalResult.title', { name: goal.name })}
         </h1>
         <Button variant="secondary" onClick={() => setCloseModalOpen(true)}>
-          {t('goals.detail.action.close')}
+          {t('goals.detail.action.complete.EXAM')}
         </Button>
       </div>
 
@@ -153,12 +153,13 @@ export function ExamResultPage() {
         <ExamResultForm key={subject.id} goalId={goal.id} subject={subject} />
       ))}
 
-      <CloseGoalModal
+      <GoalEndModal
         goalId={goal.id}
         category={goal.category}
+        kind="complete"
         open={closeModalOpen}
         onClose={() => setCloseModalOpen(false)}
-        onClosed={() => {
+        onDone={() => {
           // 総括レポートの生成はクローズ処理の成否に影響させない（仕様書6.9・実装フェーズ
           // 分割計画書Phase10注意点「非同期で実行し、失敗しても後から再生成できるようにする」）。
           // 失敗時もSC-13へは遷移し、同画面の生成ボタンから再試行できる。

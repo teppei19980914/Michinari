@@ -9,6 +9,7 @@
 """
 
 import sqlite3
+from datetime import datetime
 
 import pytest
 from alembic.config import Config
@@ -1214,3 +1215,63 @@ def test_conversation_continuity_prompt_migration_preserves_customized_template(
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_goal_status_history_migration_restores_known_transitions_from_timestamps(
+    tmp_path, monkeypatch
+):
+    """目標の状態遷移履歴（5e0f3b7c2a91）の初期値が既存の時刻列から復元されること（開発Todo 3-3）。
+
+    既存の目標には遷移の記録が無いため、確実に分かる遷移だけを復元する（作成→開始→現在の状態）。
+    再開日（resumed_at）は既存行ではNULLのまま引き継がれる。
+    """
+    db_path = tmp_path / "goal_status_history_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("4d9e2a6b1c7f")  # 状態遷移履歴の追加（head）の1つ前
+
+    connection = sqlite3.connect(db_path)
+    try:
+        cursor = connection.cursor()
+        for name, status, activated_at, closed_at in [
+            ("下書き", "DRAFT", None, None),
+            ("実行中", "ACTIVE", "2026-02-01T00:00:00", None),
+            ("一時停止", "PAUSED", "2026-02-01T00:00:00", None),
+            ("中断", "CLOSED_WITHOUT_RESULT", "2026-02-01T00:00:00", "2026-03-01T00:00:00"),
+        ]:
+            cursor.execute(
+                "INSERT INTO goal (name, start_date, status, category, activated_at, closed_at, "
+                "updated_at, created_at) VALUES (?, '2026-01-01', ?, 'EXAM', ?, ?, "
+                "'2026-02-15T00:00:00', '2026-01-10T00:00:00')",
+                (name, status, activated_at, closed_at),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    migration_helpers.upgrade_to("head")
+
+    connection = sqlite3.connect(db_path)
+    try:
+        rows = connection.execute(
+            "SELECT g.name, h.from_status, h.to_status, h.changed_at "
+            "FROM goal_status_history h JOIN goal g ON g.id = h.goal_id "
+            "ORDER BY g.id, h.id"
+        ).fetchall()
+        resumed = connection.execute("SELECT resumed_at FROM goal").fetchall()
+    finally:
+        connection.close()
+
+    by_goal: dict[str, list[tuple]] = {}
+    for name, from_status, to_status, changed_at in rows:
+        by_goal.setdefault(name, []).append(
+            (from_status, to_status, datetime.fromisoformat(changed_at))
+        )
+    assert by_goal["下書き"] == [(None, "DRAFT", datetime(2026, 1, 10))]
+    assert by_goal["実行中"] == [
+        (None, "DRAFT", datetime(2026, 1, 10)),
+        ("DRAFT", "ACTIVE", datetime(2026, 2, 1)),
+    ]
+    assert by_goal["一時停止"][-1] == ("ACTIVE", "PAUSED", datetime(2026, 2, 15))
+    assert by_goal["中断"][-1] == ("ACTIVE", "CLOSED_WITHOUT_RESULT", datetime(2026, 3, 1))
+    assert all(row[0] is None for row in resumed)

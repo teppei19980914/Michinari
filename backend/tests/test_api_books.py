@@ -243,12 +243,10 @@ def test_activate_reading_goal_succeeds(client):
     assert response.json()["status"] == "ACTIVE"
 
 
-def test_complete_book_closes_goal_with_result(client):
+def test_complete_reading_goal_closes_with_result(client):
     goal = _make_activatable_reading_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    book = client.get(f"/api/v1/goals/{goal['id']}").json()["book"]
-
-    response = client.post(f"/api/v1/books/{book['id']}/complete")
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
@@ -257,47 +255,25 @@ def test_complete_book_closes_goal_with_result(client):
     assert response.json()["is_achieved"] is True
 
 
-def test_complete_book_on_draft_goal_is_rejected(client):
+def test_complete_draft_reading_goal_is_rejected(client):
     goal = _create_reading_goal(client)
-    book = _add_book(client, goal["id"])
+    _add_book(client, goal["id"])
 
-    response = client.post(f"/api/v1/books/{book['id']}/complete")
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
-def test_close_reading_goal_without_completing_book_is_interruption(client):
-    """POST /goals/{id}/close は読了ではなく中断に相当する（仕様書7.1）。
+def test_abandon_reading_goal_is_interruption(client):
+    """読書の中断は中断API（POST /goals/{id}/abandon）で行い、内部状態は CLOSED_WITHOUT_RESULT。
 
-    読書目標に「受験結果」は存在しないため、確認なしの要求はCLOSE_CONFIRMATION_REQUIRED
-    （状態エラーではなく確認待ち）で返る。画面側は確認モーダルの承認をもって
-    confirm_without_result=True を送るため、利用者の確認は1回で足りる（仕様書7.1の
-    読書目標の遷移条件「確認モーダルでの承認」）。
+    読書の完了（読了）と中断は別のAPIに分かれる（開発Todo 1-3）。
     """
     goal = _make_activatable_reading_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
-
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "CLOSE_CONFIRMATION_REQUIRED"
-
-    confirmed = client.post(
-        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
-    )
-    assert confirmed.status_code == 200
-    assert confirmed.json()["status"] == "CLOSED_WITHOUT_RESULT"
-
-
-def test_close_reading_goal_with_confirmation_succeeds_in_one_call(client):
-    """画面が確認モーダルの承認を1回で送る経路（確認済みなら一度で中断クローズできる）。"""
-    goal = _make_activatable_reading_goal(client)
-    client.post(f"/api/v1/goals/{goal['id']}/activate")
-
-    response = client.post(
-        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
-    )
+    response = client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     assert response.status_code == 200
     assert response.json()["status"] == "CLOSED_WITHOUT_RESULT"
@@ -307,7 +283,7 @@ def test_update_book_on_closed_goal_is_rejected(client):
     goal = _make_activatable_reading_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
     book = client.get(f"/api/v1/goals/{goal['id']}").json()["book"]
-    client.post(f"/api/v1/books/{book['id']}/complete")
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     response = client.patch(f"/api/v1/books/{book['id']}", json={"title": "更新後"})
 

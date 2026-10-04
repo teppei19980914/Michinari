@@ -5,8 +5,7 @@ export type GoalRead = components['schemas']['GoalRead']
 export type GoalDetailRead = components['schemas']['GoalDetailRead']
 export type GoalCreate = components['schemas']['GoalCreate']
 export type GoalUpdate = components['schemas']['GoalUpdate']
-export type GoalCloseRequest = components['schemas']['GoalCloseRequest']
-export type GoalDeleteArchivedRequest = components['schemas']['GoalDeleteArchivedRequest']
+export type GoalResumeRead = components['schemas']['GoalResumeRead']
 export type PlanBaselineRead = components['schemas']['PlanBaselineRead']
 export type SlotAllocationRead = components['schemas']['SlotAllocationRead']
 export type SlotAllocationUpdate = components['schemas']['SlotAllocationUpdate']
@@ -67,13 +66,6 @@ export function unarchiveGoal(goalId: number): Promise<GoalRead> {
   return apiClient.patch<GoalRead>(`/goals/${goalId}/unarchive`)
 }
 
-export function deleteArchivedGoal(
-  goalId: number,
-  payload: GoalDeleteArchivedRequest,
-): Promise<void> {
-  return apiClient.delete<void>(`/goals/${goalId}/archived`, payload)
-}
-
 export function activateGoal(goalId: number): Promise<GoalRead> {
   return apiClient.post<GoalRead>(`/goals/${goalId}/activate`)
 }
@@ -82,12 +74,19 @@ export function pauseGoal(goalId: number): Promise<GoalRead> {
   return apiClient.post<GoalRead>(`/goals/${goalId}/pause`)
 }
 
-export function resumeGoal(goalId: number): Promise<GoalRead> {
-  return apiClient.post<GoalRead>(`/goals/${goalId}/resume`)
+/** 一時停止・中断・完了から再開する。資格試験の再計画の警告は warnings で返る（開発Todo 1-5）。 */
+export function resumeGoal(goalId: number): Promise<GoalResumeRead> {
+  return apiClient.post<GoalResumeRead>(`/goals/${goalId}/resume`)
 }
 
-export function closeGoal(goalId: number, payload: GoalCloseRequest): Promise<GoalRead> {
-  return apiClient.post<GoalRead>(`/goals/${goalId}/close`, payload)
+/** 完了する（実行中→完了。読書では「読了」と表示する、開発Todo 1-3）。 */
+export function completeGoal(goalId: number): Promise<GoalRead> {
+  return apiClient.post<GoalRead>(`/goals/${goalId}/complete`)
+}
+
+/** 中断する（実行中・一時停止→中断。仕事では「中止・打ち切り」と表示する、開発Todo 1-3）。 */
+export function abandonGoal(goalId: number): Promise<GoalRead> {
+  return apiClient.post<GoalRead>(`/goals/${goalId}/abandon`)
 }
 
 export function getBaselines(goalId: number): Promise<PlanBaselineRead[]> {
@@ -165,11 +164,6 @@ export function createBook(goalId: number, payload: BookCreate): Promise<BookRea
 
 export function updateBook(bookId: number, payload: BookUpdate): Promise<BookRead> {
   return apiClient.patch<BookRead>(`/books/${bookId}`, payload)
-}
-
-/** 読了として記録する（仕様書6.2「読了操作」）。目標をCLOSED_WITH_RESULTへ遷移させる。 */
-export function completeBook(bookId: number): Promise<GoalRead> {
-  return apiClient.post<GoalRead>(`/books/${bookId}/complete`)
 }
 
 /**

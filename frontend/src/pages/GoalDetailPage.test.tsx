@@ -10,22 +10,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../locales/t'
+import { ROUTES } from '../constants/routes'
 import { ApiError } from '../api/client'
 import { ERROR_CODES } from '../constants/errorCodes'
 import { renderWithProviders } from '../test/renderWithProviders'
-import { GOAL_ID, makeGoalDetail } from '../test/fixtures'
+import { GOAL_ID, makeGoalDetail, makeSubject } from '../test/fixtures'
 import { GoalDetailPage } from './GoalDetailPage'
 
 const getGoal = vi.hoisted(() => vi.fn())
 const activateGoal = vi.hoisted(() => vi.fn())
 const pauseGoal = vi.hoisted(() => vi.fn())
 const resumeGoal = vi.hoisted(() => vi.fn())
+const navigate = vi.hoisted(() => vi.fn())
+const completeGoal = vi.hoisted(() => vi.fn())
+const abandonGoal = vi.hoisted(() => vi.fn())
 // 子タブが同じモジュールから取り込むため、描画されうる関数はすべて用意しておく。
 vi.mock('../api/goals', () => ({
   getGoal,
   activateGoal,
   pauseGoal,
   resumeGoal,
+  completeGoal,
+  abandonGoal,
   updateGoal: vi.fn(),
   createSubject: vi.fn(),
   updateSubject: vi.fn(),
@@ -37,7 +43,6 @@ vi.mock('../api/goals', () => ({
   deactivateMaterial: vi.fn(),
   createBook: vi.fn(),
   updateBook: vi.fn(),
-  completeBook: vi.fn(),
   createWorkAssignment: vi.fn(),
   updateWorkAssignment: vi.fn(),
   createLoadProfile: vi.fn(),
@@ -45,7 +50,6 @@ vi.mock('../api/goals', () => ({
   deleteLoadProfile: vi.fn(),
   listSlotAllocations: vi.fn(() => Promise.resolve([])),
   updateSlotAllocations: vi.fn(),
-  closeGoal: vi.fn(),
 }))
 
 vi.mock('../api/records', () => ({ getToday: vi.fn(() => Promise.resolve(null)) }))
@@ -54,16 +58,17 @@ vi.mock('../api/records', () => ({ getToday: vi.fn(() => Promise.resolve(null)) 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useParams: () => ({ goalId: String(GOAL_ID) }),
+  useNavigate: () => navigate,
 }))
 
 const tabButton = (labelKey: string) => screen.queryByRole('button', { name: t(labelKey) })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  getGoal.mockResolvedValue(makeGoalDetail())
+  getGoal.mockResolvedValue(makeGoalDetail({ available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'] }))
   activateGoal.mockResolvedValue(undefined)
   pauseGoal.mockResolvedValue(undefined)
-  resumeGoal.mockResolvedValue(undefined)
+  resumeGoal.mockResolvedValue({ warnings: [] })
 })
 
 afterEach(() => {
@@ -155,7 +160,9 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
 describe('GoalDetailPage の状態遷移', () => {
   it('offers starting a draft goal', async () => {
     const user = userEvent.setup()
-    getGoal.mockResolvedValue(makeGoalDetail({ status: 'DRAFT' }))
+    getGoal.mockResolvedValue(
+      makeGoalDetail({ status: 'DRAFT', available_operations: ['ACTIVATE', 'ARCHIVE', 'DELETE'] }),
+    )
     renderWithProviders(<GoalDetailPage />)
 
     await user.click(await screen.findByRole('button', { name: t('goals.detail.action.activate') }))
@@ -163,19 +170,87 @@ describe('GoalDetailPage の状態遷移', () => {
     await waitFor(() => expect(activateGoal).toHaveBeenCalledWith(GOAL_ID))
   })
 
-  it('offers pausing and closing an active goal', async () => {
+  it('offers pausing, completing and abandoning an active goal', async () => {
     const user = userEvent.setup()
     renderWithProviders(<GoalDetailPage />)
 
     await user.click(await screen.findByRole('button', { name: t('goals.detail.action.pause') }))
 
     await waitFor(() => expect(pauseGoal).toHaveBeenCalledWith(GOAL_ID))
-    expect(screen.getByRole('button', { name: t('goals.detail.action.close') })).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: t('goals.detail.action.complete.EXAM') }),
+    ).toBeDefined()
+    expect(
+      screen.getByRole('button', { name: t('goals.detail.action.abandon.EXAM') }),
+    ).toBeDefined()
+  })
+
+  it('offers only the operations the server allows, so a paused goal cannot be completed', async () => {
+    getGoal.mockResolvedValue(
+      makeGoalDetail({ status: 'PAUSED', available_operations: ['RESUME', 'ABANDON'] }),
+    )
+    renderWithProviders(<GoalDetailPage />)
+
+    expect(await screen.findByRole('button', { name: t('goals.detail.action.resume') })).toBeDefined()
+    expect(
+      screen.queryByRole('button', { name: t('goals.detail.action.complete.EXAM') }),
+    ).toBeNull()
+  })
+
+  it('disables completing an exam goal until every subject has its result', async () => {
+    getGoal.mockResolvedValue(
+      makeGoalDetail({
+        status: 'ACTIVE',
+        available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'],
+        exam_subjects: [makeSubject({ exam_result: null })],
+      }),
+    )
+    renderWithProviders(<GoalDetailPage />)
+
+    const completeButton = await screen.findByRole('button', {
+      name: t('goals.detail.action.complete.EXAM'),
+    })
+    expect((completeButton as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByText(t('goals.detail.completeDisabledHint'))).toBeDefined()
+  })
+
+  it('completes a reading goal and moves to the export screen', async () => {
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(
+      makeGoalDetail({
+        category: 'READING',
+        status: 'ACTIVE',
+        available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'],
+      }),
+    )
+    completeGoal.mockResolvedValue({})
+    renderWithProviders(<GoalDetailPage />)
+
+    await user.click(
+      await screen.findByRole('button', { name: t('goals.detail.action.complete.READING') }),
+    )
+    await user.click(screen.getByRole('button', { name: t('goals.end.complete.confirmButton') }))
+
+    await waitFor(() => expect(completeGoal).toHaveBeenCalledWith(GOAL_ID))
+    expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID))
+  })
+
+  it('shows the warnings the server returns when a goal is resumed', async () => {
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(
+      makeGoalDetail({ status: 'PAUSED', available_operations: ['RESUME'] }),
+    )
+    resumeGoal.mockResolvedValue({ warnings: ['QUOTA_INCREASED'] })
+    renderWithProviders(<GoalDetailPage />)
+
+    await user.click(await screen.findByRole('button', { name: t('goals.detail.action.resume') }))
+
+    expect(await screen.findByText(t('goals.resumeWarnings.QUOTA_INCREASED'))).toBeDefined()
   })
 
   it('offers resuming a paused goal', async () => {
     const user = userEvent.setup()
-    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED' }))
+    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED', available_operations: ['RESUME'] }))
     renderWithProviders(<GoalDetailPage />)
 
     await user.click(await screen.findByRole('button', { name: t('goals.detail.action.resume') }))
@@ -185,7 +260,7 @@ describe('GoalDetailPage の状態遷移', () => {
 
   it('explains that the allocation is the reason when resuming is refused', async () => {
     const user = userEvent.setup()
-    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED' }))
+    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED', available_operations: ['RESUME'] }))
     resumeGoal.mockRejectedValue(new ApiError(ERROR_CODES.RESOURCE_EXCEEDED, 'サーバ側の文言'))
     renderWithProviders(<GoalDetailPage />)
 
@@ -197,7 +272,7 @@ describe('GoalDetailPage の状態遷移', () => {
 
   it('falls back to the generic error for any other refusal', async () => {
     const user = userEvent.setup()
-    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED' }))
+    getGoal.mockResolvedValue(makeGoalDetail({ status: 'PAUSED', available_operations: ['RESUME'] }))
     resumeGoal.mockRejectedValue(new ApiError('VALIDATION_ERROR', 'サーバ側の文言'))
     renderWithProviders(<GoalDetailPage />)
 

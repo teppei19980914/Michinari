@@ -150,35 +150,15 @@
       "title": "目標一覧",
       "empty": "登録済みの目標はありません",
       "newGoal": "新規目標作成",
-      "status": {
-        "DRAFT": "下書き",
-        "ACTIVE": "進行中",
-        "PAUSED": "一時停止",
-        "CLOSED_WITH_RESULT": "クローズ（結果あり）",
-        "CLOSED_WITHOUT_RESULT": "クローズ（結果なし）"
-      },
       "achievedBadge": "達成",
       "exportLink": "総括・エクスポートへ",
       "resultLink": "結果登録",
       "archiveButton": "アーカイブ",
       "restoreButton": "復元",
-      "deleteCompletelyButton": "完全に削除",
       "archiveConfirm": "この目標をアーカイブしますか？一覧から非表示になりますが、いつでも復元できます。",
-      "showArchivedToggle": "アーカイブ済みを表示",
-      "archivedSectionTitle": "アーカイブ済み",
-      "deleteModal": {
-        "title": "目標を完全に削除",
-        "warning": "この操作は取り消せません。関連する科目・教材もすべて削除されます。",
-        "warningReading": "この操作は取り消せません。関連する書籍もすべて削除されます。",
-        "warningWork": "この操作は取り消せません。関連する案件情報もすべて削除されます。",
-        "cascadeCheckbox": "学習実績も含めて完全に削除する",
-        "cascadeCheckboxReading": "想起記録も含めて完全に削除する",
-        "cascadeCheckboxWork": "業務記録も含めて完全に削除する",
-        "cascadeHint": "チェックを外すと、実績が1件でも残る教材がある場合は削除できません。",
-        "cascadeHintReading": "チェックを外すと、想起記録が1件でも残る書籍がある場合は削除できません。",
-        "cascadeHintWork": "チェックを外すと、業務記録が1件でも残る案件情報がある場合は削除できません。",
-        "confirmButton": "完全に削除する"
-      }
+      "showAllToggle": "完了・中断・アーカイブ済みも表示",
+      "archivedBadge": "アーカイブ",
+      "deleteButton": "削除"
     },
     "new": {
       "category": {
@@ -272,7 +252,16 @@
         "activate": "開始する",
         "pause": "一時停止する",
         "resume": "再開する",
-        "close": "クローズする"
+        "complete": {
+          "EXAM": "完了にする",
+          "READING": "読了にする",
+          "WORK": "完了にする"
+        },
+        "abandon": {
+          "EXAM": "中断する",
+          "READING": "中断する",
+          "WORK": "中止する"
+        }
       },
       "closeConfirm": {
         "title": "目標のクローズ",
@@ -283,7 +272,8 @@
         "workWithResult": "結果あり（納品等）",
         "workWithoutResult": "結果なし（中止・打ち切り）"
       },
-      "resumeError": "リソースの空きが不足しているため再開できません"
+      "resumeError": "リソースの空きが不足しているため再開できません",
+      "completeDisabledHint": "結果が揃っていないため完了できません。全科目の受験結果を登録してください"
     },
     "basicInfo": {
       "nameLabel": "試験名",
@@ -479,12 +469,75 @@
       "currentStreakLabel": "連続記録日数",
       "currentStreakValue": "{{days}}日",
       "progressLabel": "ページ進捗",
-      "progressValue": "{{current}} / {{total}}（{{rate}}）",
-      "completeButton": "読了として記録する",
-      "completeConfirm": {
-        "title": "読了の記録",
-        "body": "読了として記録すると目標は読み取り専用になり、読了レポートの生成が始まります。よろしいですか？"
+      "progressValue": "{{current}} / {{total}}（{{rate}}）"
+    },
+    "status": {
+      "EXAM": {
+        "DRAFT": "下書き",
+        "ACTIVE": "実行中",
+        "PAUSED": "一時停止",
+        "CLOSED_WITH_RESULT": "完了",
+        "CLOSED_WITHOUT_RESULT": "中断"
+      },
+      "READING": {
+        "DRAFT": "下書き",
+        "ACTIVE": "実行中",
+        "PAUSED": "一時停止",
+        "CLOSED_WITH_RESULT": "読了",
+        "CLOSED_WITHOUT_RESULT": "中断"
+      },
+      "WORK": {
+        "DRAFT": "下書き",
+        "ACTIVE": "実行中",
+        "PAUSED": "一時停止",
+        "CLOSED_WITH_RESULT": "完了",
+        "CLOSED_WITHOUT_RESULT": "中止・打ち切り"
       }
+    },
+    "delete": {
+      "title": "目標を削除",
+      "warning": {
+        "EXAM": "この操作は取り消せません。教材・学習実績・日記など、この目標の関連データがすべて削除されます。",
+        "READING": "この操作は取り消せません。書籍・想起記録など、この読書目標の関連データがすべて削除されます。",
+        "WORK": "この操作は取り消せません。案件情報・業務記録・評価レポートなど、この案件の関連データがすべて削除されます。"
+      },
+      "typeNamePrompt": "確認のため、目標名「{{name}}」を入力してください",
+      "confirmButton": "削除する"
+    },
+    "end": {
+      "complete": {
+        "confirmButton": "完了にする",
+        "EXAM": {
+          "title": "完了にしますか",
+          "body": "全科目の受験結果が揃っていることを確認して完了にします。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+        },
+        "READING": {
+          "title": "読了にしますか",
+          "body": "読了として記録します。読了レポートの生成が始まり、出力画面へ移ります。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+        },
+        "WORK": {
+          "title": "完了にしますか",
+          "body": "案件を完了にします。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+        }
+      },
+      "abandon": {
+        "confirmButton": "中断する",
+        "EXAM": {
+          "title": "中断しますか",
+          "body": "この目標を中断します。ここまでの記録は残ります。再開するまで読み取り専用になります。"
+        },
+        "READING": {
+          "title": "中断しますか",
+          "body": "この読書を中断します。ここまでの記録は残ります。再開するまで読み取り専用になります。"
+        },
+        "WORK": {
+          "title": "中止・打ち切りにしますか",
+          "body": "この案件を中止・打ち切りにします。業務記録は残ります。再開するまで読み取り専用になります。"
+        }
+      }
+    },
+    "resumeWarnings": {
+      "QUOTA_INCREASED": "停止前より学習量が多くなります。計画を見直すか、無理のない範囲で進めてください"
     }
   },
   "bookshelf": {
@@ -1291,7 +1344,7 @@
     "CONSENT_REQUIRED": "特徴・性格を保存する前に「本人確認済み」のチェックが必要です。本人確認が取れていることを確認してからチェックを入れてください",
     "BACKDATE_LIMIT_EXCEEDED": "その日までさかのぼって記録することはできません。記録できる期間内の日付を選んでください",
     "INVALID_STATE_TRANSITION": "今の状態ではこの操作はできません。画面を再読み込みしてから、もう一度お試しください",
-    "CLOSE_CONFIRMATION_REQUIRED": "受験結果がまだ登録されていません。内容を確認し、問題なければもう一度実行してください",
+    "EXAM_RESULTS_INCOMPLETE": "受験結果がまだ揃っていないため完了できません。すべての科目の結果を登録してから、もう一度お試しください",
     "IMMUTABLE_RECORD": "確定済みの記録は変更できません。確定前の内容に戻す機能はありません",
     "RECAP_THEME_NAME_CONFLICT": "同じ名前のテーマが既にあります。別の名前を指定してください",
     "RECAP_BODY_REJECTED": "振り返りの本文を更新できませんでした。内容は失われていません。しばらくしてから再度お試しください",
@@ -1307,8 +1360,6 @@
     "default": "エラーが発生しました。しばらく待ってから、もう一度お試しください",
     "reasons": {
       "MATERIAL_HAS_LOGS": "この教材には実績が記録されているため削除できません。先に実績を削除するか、教材を編集してご利用ください",
-      "BOOK_HAS_LOGS": "この書籍には想起記録が残っているため削除できません。先に想起記録を削除するか、書籍情報を編集してご利用ください",
-      "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください",
       "WORK_MEMBER_HAS_REPORTS": "このメンバーには評価レポートが存在するため削除できません。無効化するか、評価レポートを踏まえたうえでご利用ください"
     }
   },

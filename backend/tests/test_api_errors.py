@@ -32,24 +32,24 @@ from app.api.errors import _DATABASE_BUSY, _STATUS_AND_CODE
 from app.main import app
 from app.services import exceptions as exceptions_module
 from app.services.exceptions import (
-    CloseConfirmationRequiredError,
     DomainError,
+    ExamResultsIncompleteError,
     InvalidStateTransitionError,
 )
 
 
-def test_close_confirmation_required_has_its_own_code():
-    """確認待ちは状態エラーと別コードで返す（2026-09-11の不具合の再発検知）。
+def test_exam_results_incomplete_has_its_own_code():
+    """結果未登録の完了拒否は状態エラーと別コードで返す（2026-09-11の不具合の再発検知）。
 
-    同じコードにすると、画面がクローズ済み目標への再クローズ等を「確認が必要」と誤解し、
-    無関係な確認文言を表示したまま本当のエラーを握り潰す。
+    同じコードにすると、画面が状態エラー（完了済みへの完了等）を「結果が揃っていない」と誤解する。
+    開発Todo 1-3（確認要求の廃止）により、旧コード CLOSE_CONFIRMATION_REQUIRED は使わない。
     """
-    assert _STATUS_AND_CODE[CloseConfirmationRequiredError] == (
+    assert _STATUS_AND_CODE[ExamResultsIncompleteError] == (
         status.HTTP_409_CONFLICT,
-        "CLOSE_CONFIRMATION_REQUIRED",
+        "EXAM_RESULTS_INCOMPLETE",
     )
     assert (
-        _STATUS_AND_CODE[CloseConfirmationRequiredError][1]
+        _STATUS_AND_CODE[ExamResultsIncompleteError][1]
         != _STATUS_AND_CODE[InvalidStateTransitionError][1]
     )
 
@@ -66,9 +66,9 @@ def test_every_registered_exception_is_a_domain_error_subclass():
         assert code == code.upper(), (exception_type, code)
 
 
-def test_domain_error_subclasses_used_by_goal_close_are_registered():
-    """クローズ処理が送出する例外が両方とも対応表にあること（フォールバック500を防ぐ）。"""
-    for exception_type in (CloseConfirmationRequiredError, InvalidStateTransitionError):
+def test_domain_error_subclasses_used_by_goal_completion_are_registered():
+    """完了処理が送出する例外が両方とも対応表にあること（フォールバック500を防ぐ）。"""
+    for exception_type in (ExamResultsIncompleteError, InvalidStateTransitionError):
         assert issubclass(exception_type, DomainError)
         assert exception_type in _STATUS_AND_CODE
 

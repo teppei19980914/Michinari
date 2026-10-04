@@ -22,7 +22,7 @@ import type { SubjectRead } from '../api/goals'
 import { ExamResultPage } from './ExamResultPage'
 
 const getGoal = vi.hoisted(() => vi.fn())
-vi.mock('../api/goals', () => ({ getGoal, closeGoal: vi.fn() }))
+vi.mock('../api/goals', () => ({ getGoal, completeGoal: vi.fn() }))
 
 const registerExamResult = vi.hoisted(() => vi.fn())
 const updateExamResult = vi.hoisted(() => vi.fn())
@@ -34,12 +34,12 @@ vi.mock('../api/closure', () => ({
 }))
 
 const navigate = vi.hoisted(() => vi.fn())
-// クローズ確認モーダルの中身は CloseGoalModal のテストが担う。ここでは「クローズが完了した」
-// 通知（onClosed）だけを発火できるよう最小限に差し替える。
-vi.mock('../features/goal/CloseGoalModal', () => ({
-  CloseGoalModal: ({ open, onClosed }: { open: boolean; onClosed: () => void }) =>
+// 完了の確認モーダルの中身は GoalEndModal のテストが担う。ここでは「完了が済んだ」
+// 通知（onDone）だけを発火できるよう最小限に差し替える。
+vi.mock('../features/goal/GoalEndModal', () => ({
+  GoalEndModal: ({ open, onDone }: { open: boolean; onDone: () => void }) =>
     open ? (
-      <button type="button" onClick={onClosed}>
+      <button type="button" onClick={onDone}>
         mock-closed
       </button>
     ) : null,
@@ -282,15 +282,17 @@ describe('ExamResultPage の受験結果フォーム', () => {
 })
 
 describe('ExamResultPage のクローズ', () => {
-  it('starts the retrospective and moves to the export screen after closing', async () => {
+  it('opens the completion confirmation for the exam goal', async () => {
     const user = userEvent.setup()
     getGoal.mockResolvedValue(makeGoalDetail({ exam_subjects: [makeSubjectWithResult()] }))
     const { container } = renderPage()
     await screen.findByText(SUBJECT_NAME)
 
-    await user.click(screen.getByRole('button', { name: t('goals.detail.action.close') }))
-    // クローズ確認モーダルが開くことだけを見る（確認の中身は CloseGoalModal のテストが担う）。
-    expect(container.textContent).toContain(t('goals.detail.action.close'))
+    await user.click(
+      screen.getByRole('button', { name: t('goals.detail.action.complete.EXAM') }),
+    )
+    // 確認モーダルが開くことだけを見る（確認の中身は GoalEndModal のテストが担う）。
+    expect(container.textContent).toContain(t('goals.detail.action.complete.EXAM'))
   })
 
   it('tells the user when the retrospective could not be generated after closing', async () => {
@@ -300,7 +302,9 @@ describe('ExamResultPage のクローズ', () => {
     renderPage()
     await screen.findByText(SUBJECT_NAME)
 
-    await user.click(screen.getByRole('button', { name: t('goals.detail.action.close') }))
+    await user.click(
+      screen.getByRole('button', { name: t('goals.detail.action.complete.EXAM') }),
+    )
     await user.click(screen.getByRole('button', { name: 'mock-closed' }))
 
     expect(

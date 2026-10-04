@@ -22,8 +22,4 @@ export const ERROR_CODES = {
 export const ERROR_REASONS = {
   /** 実績（study_log）が残る教材の削除拒否。 */
   MATERIAL_HAS_LOGS: 'MATERIAL_HAS_LOGS',
-  /** 想起記録（reading_log）が残る書籍の削除拒否。 */
-  BOOK_HAS_LOGS: 'BOOK_HAS_LOGS',
-  /** 業務記録（work_log）が残る案件情報の削除拒否。 */
-  WORK_ASSIGNMENT_HAS_LOGS: 'WORK_ASSIGNMENT_HAS_LOGS',
 } as const

@@ -7,6 +7,7 @@ import datetime as dt
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.enums import BaselineReason, GoalCategory, GoalStatus
+from app.constants.goal_transitions import GoalOperation
 from app.schemas.book import BookRead
 from app.schemas.load_profile import LoadProfileRead
 from app.schemas.material import MaterialRead
@@ -27,22 +28,6 @@ class GoalUpdate(BaseModel):
     memo: str | None = None
 
 
-class GoalCloseRequest(BaseModel):
-    confirm_without_result: bool = False
-    #: 仕事目標専用（要件定義書R-72）。True=結果あり（CLOSED_WITH_RESULT）、
-    #: False（既定）=結果なし（CLOSED_WITHOUT_RESULT）。EXAM/READINGでTrue指定は拒否される。
-    with_result: bool = False
-
-
-class GoalDeleteArchivedRequest(BaseModel):
-    """アーカイブ済み目標の完全削除リクエスト（仕様書7.1.1、MD-08）。
-
-    画面上のチェックボックスは既定ONのため、cascade_study_logsの既定値もTrueとする。
-    """
-
-    cascade_study_logs: bool = True
-
-
 class GoalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,9 +40,19 @@ class GoalRead(BaseModel):
     activated_at: dt.datetime | None
     closed_at: dt.datetime | None
     archived_at: dt.datetime | None
+    #: 再開日（開発Todo 1-5）。開始日とは別に、再開のたびに更新する。
+    resumed_at: dt.datetime | None
+    #: 画面で実行できる操作（遷移表から算出。画面の操作ボタンはこれに従う）。
+    available_operations: list[GoalOperation]
     #: UI-11（目標達成アイコン）の判定基準（仕様書v1.1 13.6）。goal_service.compute_is_achievedで
     #: 算出する（都度算出、CLAUDE.md 保存禁止に準拠しDBへは持たない）。
     is_achieved: bool
+
+
+class GoalResumeRead(GoalRead):
+    """再開の応答。warnings は警告コードの一覧（資格試験で学習量が大きく増えた場合など）。"""
+
+    warnings: list[str] = []
 
 
 class GoalDetailRead(GoalRead):

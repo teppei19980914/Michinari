@@ -717,3 +717,111 @@ class TestComputeWeeklyRecordSummary:
 
         assert result.recorded_days == 0
         assert result.total_minutes is None
+
+
+# --- 停止期間の除外（開発Todo 不具合D・1-6） ---
+
+
+def _history(session, goal, day: dt.date, to_status) -> None:
+    """状態遷移履歴の1行を、論理日 day に当たる時刻（UTC正午。どの時刻帯でも同日になる）で置く。"""
+    from app.models.goal import GoalStatusHistory
+
+    session.add(
+        GoalStatusHistory(
+            goal_id=goal.id,
+            from_status=None,
+            to_status=to_status,
+            changed_at=dt.datetime(day.year, day.month, day.day, 12, 0),
+        )
+    )
+    session.flush()
+
+
+def _paused_goal_with_history(session):
+    """2026-03-01開始、03-04〜03-06を一時停止、03-07に再開する目標（履歴付き）。"""
+    goal = Goal(
+        category=GoalCategory.EXAM,
+        name="停止期間あり",
+        start_date=dt.date(2026, 3, 1),
+        status=GoalStatus.ACTIVE,
+    )
+    session.add(goal)
+    session.flush()
+    _history(session, goal, dt.date(2026, 3, 1), GoalStatus.ACTIVE)
+    _history(session, goal, dt.date(2026, 3, 4), GoalStatus.PAUSED)
+    _history(session, goal, dt.date(2026, 3, 7), GoalStatus.ACTIVE)
+    return goal
+
+
+def _report(session, goal, day: dt.date) -> None:
+    session.add(DailyRecord(record_date=day, exam_record_state="REPORTED"))
+    session.flush()
+
+
+def test_report_rate_excludes_paused_days_from_the_denominator(seeded_session):
+    goal = _paused_goal_with_history(seeded_session)
+    for day in (1, 2, 3, 7, 8):
+        _report(seeded_session, goal, dt.date(2026, 3, day))
+
+    # 対象期間は03-01〜03-10の10日。うち停止期間の3日（03-04〜03-06）を分母から除く。
+    rate = metrics_service.compute_report_rate(seeded_session, goal, dt.date(2026, 3, 10))
+    assert rate == pytest.approx(5 / 7)
+
+
+def test_recent_report_rate_excludes_paused_days(seeded_session):
+    goal = _paused_goal_with_history(seeded_session)
+    for day in (1, 2, 3, 7, 8):
+        _report(seeded_session, goal, dt.date(2026, 3, day))
+
+    rate = metrics_service.compute_recent_report_rate(
+        seeded_session, goal, dt.date(2026, 3, 10), window_days=30
+    )
+    assert rate == pytest.approx(5 / 7)
+
+
+def test_consecutive_report_days_pass_through_paused_days(seeded_session):
+    """停止期間は連続報告を途切れさせない（報告を求めない日として飛ばす）。"""
+    goal = _paused_goal_with_history(seeded_session)
+    for day in (1, 2, 3, 7, 8, 9, 10):
+        _report(seeded_session, goal, dt.date(2026, 3, day))
+
+    count = metrics_service.compute_consecutive_report_days(
+        seeded_session, goal, dt.date(2026, 3, 10), treat_holiday_as_buffer=False
+    )
+    assert count == 7
+
+
+def test_goal_without_history_keeps_the_previous_calculation(seeded_session):
+    """履歴が無い目標（移行前の既存データ等）は停止期間を持たず、従来どおりの計算になる。"""
+    goal = Goal(
+        category=GoalCategory.EXAM,
+        name="履歴なし",
+        start_date=dt.date(2026, 3, 1),
+        status=GoalStatus.ACTIVE,
+    )
+    seeded_session.add(goal)
+    seeded_session.flush()
+    for day in (1, 2):
+        _report(seeded_session, goal, dt.date(2026, 3, day))
+
+    rate = metrics_service.compute_report_rate(seeded_session, goal, dt.date(2026, 3, 10))
+    assert rate == pytest.approx(2 / 10)
+
+
+def test_fully_stopped_period_yields_zero_rate_instead_of_dividing_by_zero(seeded_session):
+    goal = Goal(
+        category=GoalCategory.EXAM,
+        name="全期間停止",
+        start_date=dt.date(2026, 3, 1),
+        status=GoalStatus.PAUSED,
+    )
+    seeded_session.add(goal)
+    seeded_session.flush()
+    _history(seeded_session, goal, dt.date(2026, 3, 1), GoalStatus.PAUSED)
+
+    rate = metrics_service.compute_report_rate(seeded_session, goal, dt.date(2026, 3, 10))
+    assert rate == 0.0
+    recent = metrics_service.compute_recent_report_rate(
+        seeded_session, goal, dt.date(2026, 3, 10), window_days=30
+    )
+    assert recent == 0.0

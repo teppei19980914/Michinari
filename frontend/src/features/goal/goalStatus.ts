@@ -1,13 +1,18 @@
 import { ROUTES } from '../../constants/routes'
+import type { GoalCategory, GoalRead } from '../../api/goals'
 import type { components } from '../../types/api.d.ts'
 
 type GoalStatus = components['schemas']['GoalStatus']
+type GoalOperation = components['schemas']['GoalOperation']
 
+/** 完了・中断（読み取り専用）の状態（仕様書6.2「クローズの場合、全項目を読み取り専用とする」）。 */
 const CLOSED_STATUSES = new Set<GoalStatus>(['CLOSED_WITH_RESULT', 'CLOSED_WITHOUT_RESULT'])
 
+/** 目標一覧の既定表示に含める状態（開発Todo 1-9：下書き・実行中・一時停止）。 */
+const DEFAULT_LISTED_STATUSES = new Set<GoalStatus>(['DRAFT', 'ACTIVE', 'PAUSED'])
+
 /**
- * 目標がクローズ済み（読み取り専用）かどうかを判定する（仕様書6.2「クローズの場合、
- * 全項目を読み取り専用とする」）。GoalsListPage・GoalDetailPageで共用する
+ * 目標がクローズ済み（読み取り専用）かどうかを判定する。GoalsListPage・GoalDetailPageで共用する
  * （CLAUDE.md DRYの原則）。
  */
 export function isClosedGoalStatus(status: GoalStatus): boolean {
@@ -22,9 +27,26 @@ export function resolveGoalListTarget(goalId: number, status: GoalStatus): strin
 }
 
 /**
- * アーカイブ可能（進行中でない、かつ未アーカイブ）かどうかを判定する（仕様書6.15「アーカイブ
- * 操作が可能なのはACTIVE以外（下書き・一時停止・クローズ済み）の目標」）。
+ * 状態の表示名のロケールキーを、目標種別ごとに返す（開発Todo 1-2）。内部の状態は共通で、
+ * 表示名だけを種別で変える（読書の完了＝「読了」、仕事の中断＝「中止・打ち切り」）。
+ * キーを種別と状態の組で全て列挙しておくことで、文言の漏れを ja.json の検証で検知できる。
  */
-export function canArchiveGoal(status: GoalStatus, archivedAt: string | null): boolean {
-  return status !== 'ACTIVE' && archivedAt === null
+export function goalStatusLabelKey(category: GoalCategory, status: GoalStatus): string {
+  return `goals.status.${category}.${status}`
+}
+
+/** 目標一覧の既定表示に含めるか（アーカイブ済みは「すべて表示」でのみ見える）。 */
+export function isDefaultListedGoal(goal: Pick<GoalRead, 'status' | 'archived_at'>): boolean {
+  return goal.archived_at === null && DEFAULT_LISTED_STATUSES.has(goal.status)
+}
+
+/**
+ * 目標に対して、その操作が画面から実行できるかを判定する。操作の可否はサーバーが遷移表から
+ * 算出して返す（available_operations）ため、画面は同じ判定を持たない（開発Todo 5-2）。
+ */
+export function hasOperation(
+  goal: Pick<GoalRead, 'available_operations'>,
+  operation: GoalOperation,
+): boolean {
+  return goal.available_operations.includes(operation)
 }
