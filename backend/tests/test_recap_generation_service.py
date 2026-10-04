@@ -90,7 +90,9 @@ def test_shorter_body_is_rejected_and_unregistered_entries_are_retried(seeded_se
 
     theme = seeded_session.scalar(select(RecapTheme).where(RecapTheme.goal_id == goal.id))
     assert theme.body == long_body
-    assert seeded_session.query(RecapEntry).count() == 1
+    # 報告の登録（未分類の状態）はAI呼び出し前に確定しており残る。分類と本文統合は取り消される
+    assert seeded_session.query(RecapEntry).count() == 2
+    assert seeded_session.query(RecapEntry).filter(RecapEntry.classified_at.is_(None)).count() == 1
 
     _stub_ai(monkeypatch, classify=_all_ids_to("メール関連"), body=lambda m: long_body + "\n・SPF")
     assert recap_generation_service.run_for_goal(seeded_session, goal, TODAY) == 1
@@ -165,7 +167,7 @@ def test_reading_goal_recalls_are_classified_into_themes(seeded_session, monkeyp
     assert theme.name == "通信"
 
 
-def test_run_all_isolates_failures_per_goal(seeded_session, monkeypatch):
+def test_run_all_isolates_failures_per_goal(seeded_session, monkeypatch, caplog):
     failing = make_exam_goal(seeded_session, name="失敗する目標")
     working = make_exam_goal(seeded_session, name="成功する目標")
     finalize_diary(seeded_session, working, dt.date(2026, 3, 9), diary_learned="SMTP")
@@ -184,6 +186,9 @@ def test_run_all_isolates_failures_per_goal(seeded_session, monkeypatch):
 
     assert total == 1
     assert seeded_session.query(RecapTheme).count() == 1
+    # 握りつぶした失敗も、後から原因を追えるようログに残ること（画面には出ないため）。
+    assert "振り返りの更新に失敗しました" in caplog.text
+    assert str(failing.id) in caplog.text
 
 
 def test_run_all_with_no_goals_returns_zero(seeded_session):

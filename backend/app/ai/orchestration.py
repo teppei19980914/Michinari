@@ -42,9 +42,10 @@ def send_and_log(
 ) -> ai_client.SendResult:
     """呼び出し間隔を守って送信し、成否によらずai_logへ記録する（16.4・16.8）。
 
-    失敗時はここでcommitする。呼び出し元（API層）は正常時のみcommitするため、
-    commitしない限りこのエラー記録自体がロールバックで失われる（16.8「全ての呼び出しに
-    ついてai_logにレコードを追加する」）。成功時はlast_parent_orderを更新する
+    成否によらずここでcommitする。AI応答の待機中に書き込みトランザクションを保持しない
+    ため（CODING_RULES.md「AI通信とトランザクション」）、呼び出し元の後続処理が失敗しても
+    通信記録は失われない（16.8「全ての呼び出しについてai_logにレコードを追加する」）。
+    成功時はlast_parent_orderを更新する
     （v0.10.5では文脈維持に使用できないが、将来の開発キット改修に備えた記録として、
     16.3.1）。
     """
@@ -85,4 +86,5 @@ def send_and_log(
         error_type=None,
         error_message=None,
     )
+    session.commit()
     return send_result
