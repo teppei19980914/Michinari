@@ -120,14 +120,20 @@ type TabKey =
 /** 種別ごとのタブ構成。要素の形が種別で異なるため union で受ける（as constはTabKeyの導出に必要）。 */
 type GoalDetailTabs = typeof EXAM_TABS | typeof READING_TABS | typeof WORK_TABS
 
-function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
-  const queryClient = useQueryClient()
+/** 完了・中断の操作（確認は1回。開発Todo 1-3）。完了後は報告の自動生成と出力画面への移動を行う。 */
+function GoalEndActions({
+  goal,
+  resultsIncomplete,
+}: {
+  goal: GoalDetailRead
+  resultsIncomplete: boolean
+}) {
   const navigate = useNavigate()
-  const { showApiError, showApiErrorWithTitle } = useToast()
+  const { showApiErrorWithTitle } = useToast()
   const [endKind, setEndKind] = useState<GoalEndKind | null>(null)
-  const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
-  const [resumeWarnings, setResumeWarnings] = useState<string[]>([])
   const goalId = goal.id
+  const canComplete = hasOperation(goal, 'COMPLETE')
+  const canAbandon = hasOperation(goal, 'ABANDON')
 
   /** 完了の後は、報告（資格の総括・読書の読了レポート）を自動で生成し、出力画面へ移る。
    * 報告の生成は完了の成否に影響させない（失敗時も出力画面の生成ボタンから再試行できる、
@@ -145,6 +151,48 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
     }
     setEndKind(null)
   }
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2">
+        {canComplete && (
+          <Button
+            variant="secondary"
+            disabled={resultsIncomplete}
+            onClick={() => setEndKind('complete')}
+          >
+            {t(`goals.detail.action.complete.${goal.category}`)}
+          </Button>
+        )}
+        {canAbandon && (
+          <Button variant="secondary" onClick={() => setEndKind('abandon')}>
+            {t(`goals.detail.action.abandon.${goal.category}`)}
+          </Button>
+        )}
+      </div>
+      {canComplete && resultsIncomplete && (
+        <p className="text-xs text-gray-500">{t('goals.detail.completeDisabledHint')}</p>
+      )}
+      {endKind !== null && (
+        <GoalEndModal
+          goalId={goal.id}
+          category={goal.category}
+          kind={endKind}
+          open
+          onClose={() => setEndKind(null)}
+          onDone={handleEndDone}
+        />
+      )}
+    </>
+  )
+}
+
+function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
+  const queryClient = useQueryClient()
+  const { showApiError } = useToast()
+  const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
+  const [resumeWarnings, setResumeWarnings] = useState<string[]>([])
+  const goalId = goal.id
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
 
@@ -183,8 +231,6 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
   const canActivate = hasOperation(goal, 'ACTIVATE')
   const canPause = hasOperation(goal, 'PAUSE')
   const canResume = hasOperation(goal, 'RESUME')
-  const canComplete = hasOperation(goal, 'COMPLETE')
-  const canAbandon = hasOperation(goal, 'ABANDON')
 
   return (
     <div className="flex flex-col gap-2">
@@ -208,40 +254,14 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
             {t('goals.detail.action.resume')}
           </Button>
         )}
-        {canComplete && (
-          <Button
-            variant="secondary"
-            disabled={resultsIncomplete}
-            onClick={() => setEndKind('complete')}
-          >
-            {t(`goals.detail.action.complete.${goal.category}`)}
-          </Button>
-        )}
-        {canAbandon && (
-          <Button variant="secondary" onClick={() => setEndKind('abandon')}>
-            {t(`goals.detail.action.abandon.${goal.category}`)}
-          </Button>
-        )}
       </div>
-      {canComplete && resultsIncomplete && (
-        <p className="text-xs text-gray-500">{t('goals.detail.completeDisabledHint')}</p>
-      )}
+      <GoalEndActions goal={goal} resultsIncomplete={resultsIncomplete} />
       {resumeWarnings.length > 0 && (
         <ul className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           {resumeWarnings.map((code) => (
             <li key={code}>{t(`goals.resumeWarnings.${code}`)}</li>
           ))}
         </ul>
-      )}
-      {endKind !== null && (
-        <GoalEndModal
-          goalId={goalId}
-          category={goal.category}
-          kind={endKind}
-          open
-          onClose={() => setEndKind(null)}
-          onDone={handleEndDone}
-        />
       )}
       <Modal
         open={resumeErrorModalOpen}
