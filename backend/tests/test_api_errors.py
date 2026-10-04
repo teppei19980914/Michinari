@@ -28,7 +28,7 @@ from fastapi import status
 from fastapi.testclient import TestClient
 
 from app.ai import auth as ai_auth
-from app.api.errors import _STATUS_AND_CODE
+from app.api.errors import _DATABASE_BUSY, _STATUS_AND_CODE
 from app.main import app
 from app.services import exceptions as exceptions_module
 from app.services.exceptions import (
@@ -86,6 +86,11 @@ def _load_frontend_error_messages() -> dict[str, str]:
     return {key: value for key, value in errors.items() if isinstance(value, str)}
 
 
+def _backend_error_codes() -> set[str]:
+    """バックエンドが返しうるエラーコード全体（対応表＋データベース起因の専用コード）。"""
+    return {code for _, code in _STATUS_AND_CODE.values()} | {_DATABASE_BUSY[1]}
+
+
 def test_every_error_code_has_a_frontend_message():
     """バックエンドが返す全コードに画面文言があること（横断チェック）。
 
@@ -95,14 +100,14 @@ def test_every_error_code_has_a_frontend_message():
     取り残され、既定文言に落ちていた（2026-09-11に修正）。
     """
     messages = _load_frontend_error_messages()
-    missing = sorted({code for _, code in _STATUS_AND_CODE.values()} - set(messages))
+    missing = sorted(_backend_error_codes() - set(messages))
     assert missing == [], f"ja.json の errors.* に文言が無いエラーコード: {missing}"
 
 
 def test_frontend_has_no_stale_error_message():
     """使われないコードの文言が残っていないこと（旧名の取り残しを検知する）。"""
     messages = _load_frontend_error_messages()
-    backend_codes = {code for _, code in _STATUS_AND_CODE.values()}
+    backend_codes = _backend_error_codes()
     stale = sorted(set(messages) - backend_codes - _FRONTEND_ONLY_ERROR_KEYS)
     assert stale == [], f"バックエンドが返さない文言が残っている: {stale}"
 
@@ -187,3 +192,50 @@ def test_unexpected_exception_returns_internal_error_body(client, monkeypatch):
             "details": [],
         }
     }
+
+
+def _raise_database_error(monkeypatch, message: str) -> None:
+    import sqlite3
+
+    from sqlalchemy.exc import OperationalError
+
+    def _boom(_session):
+        raise OperationalError("INSERT INTO ai_conversation", {}, sqlite3.OperationalError(message))
+
+    monkeypatch.setattr(ai_auth, "get_status", _boom)
+
+
+def test_database_lock_timeout_returns_database_busy(monkeypatch):
+    """書き込みロック待ちタイムアウトは専用コード（503）で返し、再試行の案内を出せるようにする。
+
+    汎用の「予期しないエラー」では、利用者が原因も対処も判断できなかった（2026-10-04の障害）。
+    """
+    _raise_database_error(monkeypatch, "database is locked")
+
+    with TestClient(app, raise_server_exceptions=False) as non_raising_client:
+        response = non_raising_client.get("/api/v1/ai/status")
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "error": {
+            "code": "DATABASE_BUSY",
+            "message": "データベースが他の処理に使用中です",
+            "details": [],
+        }
+    }
+
+
+def test_other_database_errors_stay_internal_error(monkeypatch):
+    """ロック以外のDB例外は、原因不明の障害として従来どおりINTERNAL_ERRORで返す。"""
+    _raise_database_error(monkeypatch, "disk I/O error")
+
+    with TestClient(app, raise_server_exceptions=False) as non_raising_client:
+        response = non_raising_client.get("/api/v1/ai/status")
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
+def test_database_busy_has_a_frontend_message():
+    """DATABASE_BUSYは対応表（_STATUS_AND_CODE）に載らないため、文言の有無を個別に固定する。"""
+    assert "DATABASE_BUSY" in _load_frontend_error_messages()

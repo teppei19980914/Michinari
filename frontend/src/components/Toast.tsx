@@ -6,6 +6,8 @@ type ToastVariant = 'info' | 'error'
 
 type ToastEntry = {
   id: number
+  /** 何をしようとして失敗したかの見出し（例: 「月次報告を生成できませんでした」）。 */
+  title?: string
   message: string
   variant: ToastVariant
   /** 技術的な詳細（サポートへ報告する際に使う）。折りたたみで表示し、展開すると
@@ -16,7 +18,9 @@ type ToastEntry = {
 type ToastContextValue = {
   showToast: (message: string, variant?: ToastVariant, detail?: string) => void
   /** APIエラーをロケール文言でトースト表示する（画面ごとに同じ三項式を書かない、CLAUDE.md DRYの原則）。 */
-  showApiError: (error: unknown) => void
+  /** APIエラーをロケール文言でトースト表示する（画面ごとに同じ三項式を書かない、CLAUDE.md DRYの原則）。
+   * titleには「何をしようとして失敗したか」を渡す（省略可）。 */
+  showApiError: (error: unknown, title?: string) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
@@ -26,6 +30,8 @@ const VARIANT_CLASSES: Record<ToastVariant, string> = {
   error: 'bg-red-600',
 }
 
+/** 情報の通知だけ自動で消す。エラーは利用者が読み終えて閉じるまで残す（非エンジニアは
+ * 一瞬で消えると何が起きたか分からないまま終わるため。仕様書「非エンジニア向けエラー表示の方針」）。 */
 const AUTO_DISMISS_MS = 4000
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -41,30 +47,35 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((current) => current.filter((toast) => toast.id !== id))
   }, [])
 
-  /** 詳細を開いたら自動消滅を止める（読み終える・報告のためコピーする前に消えないように）。 */
-  const cancelAutoDismiss = useCallback((id: number) => {
-    const timeoutId = timeoutsRef.current.get(id)
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId)
-      timeoutsRef.current.delete(id)
-    }
-  }, [])
-
-  const showToast = useCallback(
-    (message: string, variant: ToastVariant = 'info', detail?: string) => {
+  const pushToast = useCallback(
+    (entry: Omit<ToastEntry, 'id'>) => {
       const id = Date.now()
-      setToasts((current) => [...current, { id, message, variant, detail }])
-      const timeoutId = setTimeout(() => dismiss(id), AUTO_DISMISS_MS)
-      timeoutsRef.current.set(id, timeoutId)
+      setToasts((current) => [...current, { ...entry, id }])
+      if (entry.variant === 'info') {
+        const timeoutId = setTimeout(() => dismiss(id), AUTO_DISMISS_MS)
+        timeoutsRef.current.set(id, timeoutId)
+      }
     },
     [dismiss],
   )
 
-  const showApiError = useCallback(
-    (error: unknown) => {
-      showToast(apiErrorMessage(error), 'error', apiErrorDetail(error))
+  const showToast = useCallback(
+    (message: string, variant: ToastVariant = 'info', detail?: string) => {
+      pushToast({ message, variant, detail })
     },
-    [showToast],
+    [pushToast],
+  )
+
+  const showApiError = useCallback(
+    (error: unknown, title?: string) => {
+      pushToast({
+        title,
+        message: apiErrorMessage(error),
+        variant: 'error',
+        detail: apiErrorDetail(error),
+      })
+    },
+    [pushToast],
   )
 
   return (
@@ -77,7 +88,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             className={`rounded-md px-4 py-2 text-sm text-white shadow-lg ${VARIANT_CLASSES[toast.variant]}`}
           >
             <div className="flex items-start gap-2">
-              <p className="flex-1">{toast.message}</p>
+              <div className="flex-1">
+                {toast.title && <p className="font-semibold">{toast.title}</p>}
+                <p>{toast.message}</p>
+              </div>
               <button
                 type="button"
                 aria-label={t('common.action.close')}
@@ -88,14 +102,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
             {toast.detail && (
-              <details
-                className="mt-1 text-xs text-white/70"
-                onToggle={(e) => {
-                  if (e.currentTarget.open) {
-                    cancelAutoDismiss(toast.id)
-                  }
-                }}
-              >
+              <details className="mt-1 text-xs text-white/70">
                 <summary className="cursor-pointer select-none">
                   {t('common.errorDetailsSummary')}
                 </summary>
