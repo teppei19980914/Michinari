@@ -114,15 +114,26 @@ describe('ToastProvider', () => {
     expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
   })
 
-  it('keeps an error toast until it is closed, even after the auto-dismiss time', () => {
+  it('dismisses an error toast automatically after its longer display time', () => {
     vi.useFakeTimers()
     const toast = renderWithProvider()
     act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
 
-    act(() => vi.advanceTimersByTime(60_000))
+    // エラーは情報より長く（8秒）表示する。7秒ではまだ残っていること。
+    act(() => vi.advanceTimersByTime(7_000))
     expect(screen.getByText(t('errors.NOT_FOUND'))).toBeTruthy()
 
+    act(() => vi.advanceTimersByTime(1_000))
+    expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
+  })
+
+  it('still lets the user close an error toast before it times out', () => {
+    vi.useFakeTimers()
+    const toast = renderWithProvider()
+    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
+
     act(() => screen.getByRole('button', { name: t('common.action.close') }).click())
+
     expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
   })
 
