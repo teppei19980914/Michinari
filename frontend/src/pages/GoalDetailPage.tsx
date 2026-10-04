@@ -8,7 +8,6 @@ import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
-import { generateRetrospective } from '../api/closure'
 import {
   activateGoal,
   getGoal,
@@ -129,24 +128,15 @@ function GoalEndActions({
   resultsIncomplete: boolean
 }) {
   const navigate = useNavigate()
-  const { showApiErrorWithTitle } = useToast()
   const [endKind, setEndKind] = useState<GoalEndKind | null>(null)
   const goalId = goal.id
   const canComplete = hasOperation(goal, 'COMPLETE')
   const canAbandon = hasOperation(goal, 'ABANDON')
 
-  /** 完了の後は、報告（資格の総括・読書の読了レポート）を自動で生成し、出力画面へ移る。
-   * 報告の生成は完了の成否に影響させない（失敗時も出力画面の生成ボタンから再試行できる、
-   * 仕様書6.9・実装フェーズ分割計画書Phase10注意点）。仕事目標は対象外。 */
+  /** 完了の後は出力画面へ移る。報告（資格の総括・読書の読了レポート）は自動で生成せず、
+   * 出力画面の生成ボタンを利用者が押したときのみ生成する（利用者方針2026-10-04）。 */
   const handleEndDone = () => {
     if (endKind === 'complete' && goal.category !== 'WORK') {
-      const titleKey =
-        goal.category === 'READING'
-          ? 'knowledgeExport.retrospective.readingAutoGenerateFailedTitle'
-          : 'knowledgeExport.retrospective.autoGenerateFailedTitle'
-      generateRetrospective(goalId, false).catch((error) =>
-        showApiErrorWithTitle(t(titleKey), error),
-      )
       navigate(ROUTES.goalExport(goalId))
     }
     setEndKind(null)
@@ -189,24 +179,26 @@ function GoalEndActions({
 
 function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiErrorWithTitle } = useToast()
   const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
   const [resumeWarnings, setResumeWarnings] = useState<string[]>([])
   const goalId = goal.id
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
 
+  // 状態変更の失敗は、操作名を見出しにして表示する（見出し付きエラーは状態変更から広げる。
+  // 利用者方針2026-10-04。以降は全画面へ順次広げる）。
   const activateMutation = useMutation({
     mutationFn: () => activateGoal(goalId),
     meta: { overlay: 'saving' },
     onSuccess: invalidate,
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('goals.detail.action.activate'), error),
   })
   const pauseMutation = useMutation({
     mutationFn: () => pauseGoal(goalId),
     meta: { overlay: 'saving' },
     onSuccess: invalidate,
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('goals.detail.action.pause'), error),
   })
   const resumeMutation = useMutation({
     mutationFn: () => resumeGoal(goalId),
@@ -220,7 +212,7 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
         setResumeErrorModalOpen(true)
         return
       }
-      showApiError(error)
+      showApiErrorWithTitle(t('goals.detail.action.resume'), error)
     },
   })
 
