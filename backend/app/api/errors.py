@@ -28,6 +28,7 @@ from app.services.exceptions import (
     MaterialRequiredError,
     NotFoundError,
     PlannedCyclesBelowCompletedError,
+    RecapThemeNameConflictError,
     ResourceAllocationExceededError,
     ResourceAllocationRequiredError,
     ValidationError,
@@ -67,6 +68,7 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     # 状態エラーではなく「確認待ち」（理由はexceptions.pyの同クラスのdocstring参照）。
     CloseConfirmationRequiredError: (status.HTTP_409_CONFLICT, "CLOSE_CONFIRMATION_REQUIRED"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
+    RecapThemeNameConflictError: (status.HTTP_409_CONFLICT, "RECAP_THEME_NAME_CONFLICT"),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
     # AI連携（ロジック・プロンプト編16.6の対応表）。

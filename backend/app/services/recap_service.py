@@ -9,18 +9,19 @@ import datetime as dt
 import re
 from dataclasses import dataclass
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.constants.enums import RecapSourceKind
+from app.constants.recap import RECAP_THEME_NAME_MAX_LENGTH
 from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog, diary_text_expr
+from app.services.exceptions import NotFoundError, RecapThemeNameConflictError
 
-#: テーマ名の最大文字数（recap_theme.name の列幅と同じ）。
-THEME_NAME_MAX_LENGTH = 100
+THEME_NAME_MAX_LENGTH = RECAP_THEME_NAME_MAX_LENGTH
 
 _CLASSIFICATION_LINE = re.compile(r"^\s*#(\d+)\s*[:：]\s*(.+?)\s*$")
 _THEME_SEPARATORS = re.compile(r"[、,，]")
@@ -195,3 +196,107 @@ def apply_classification(
         entry.classified_at = stamp
     session.flush()
     return touched
+
+
+@dataclass(frozen=True)
+class ThemeSummary:
+    id: int
+    name: str
+    entry_count: int
+    updated_at: dt.datetime
+
+
+@dataclass(frozen=True)
+class ThemeEntry:
+    source_kind: RecapSourceKind
+    record_date: dt.date
+    text: str
+
+
+def list_themes(session: Session, goal: Goal) -> list[ThemeSummary]:
+    """目標のテーマを、本文の更新日時の新しい順に返す（報告件数は件数の集計）。"""
+    rows = session.execute(
+        select(
+            RecapTheme.id,
+            RecapTheme.name,
+            func.count(RecapThemeLink.id),
+            RecapTheme.updated_at,
+        )
+        .outerjoin(RecapThemeLink, RecapThemeLink.theme_id == RecapTheme.id)
+        .where(RecapTheme.goal_id == goal.id)
+        .group_by(RecapTheme.id, RecapTheme.name, RecapTheme.updated_at)
+        .order_by(RecapTheme.updated_at.desc(), RecapTheme.id.desc())
+    ).all()
+    return [ThemeSummary(id=r[0], name=r[1], entry_count=r[2], updated_at=r[3]) for r in rows]
+
+
+def get_theme(session: Session, theme_id: int) -> RecapTheme:
+    theme = session.get(RecapTheme, theme_id)
+    if theme is None:
+        raise NotFoundError("recap_theme", theme_id)
+    return theme
+
+
+def theme_entries(session: Session, theme: RecapTheme) -> list[ThemeEntry]:
+    """テーマに紐付く報告を日付順に返す。本文は元の報告を読み直した値（複製していない）。"""
+    entries = list(
+        session.scalars(
+            select(RecapEntry)
+            .join(RecapThemeLink, RecapThemeLink.entry_id == RecapEntry.id)
+            .where(RecapThemeLink.theme_id == theme.id)
+            .order_by(RecapEntry.record_date, RecapEntry.id)
+        ).all()
+    )
+    texts = {t.entry_id: t.text for t in entry_texts(session, entries)}
+    return [
+        ThemeEntry(source_kind=e.source_kind, record_date=e.record_date, text=texts[e.id])
+        for e in entries
+    ]
+
+
+def rename_theme(session: Session, theme: RecapTheme, name: str) -> RecapTheme:
+    _ensure_name_available(session, theme, name)
+    theme.name = name
+    session.flush()
+    return theme
+
+
+def merge_themes(session: Session, source: RecapTheme, target: RecapTheme) -> RecapTheme:
+    """sourceのすべての報告をtargetへ移し、sourceを削除する。本文は内容を消さず連結する。
+
+    同じ報告が既にtargetに属する場合は重複させない。sourceの本文が空でなければ、targetの
+    本文の後ろに追記する（AIを使わないため、要点は失われない）。
+    """
+    if source.goal_id != target.goal_id:
+        raise NotFoundError("recap_theme", target.id)
+    if source.id == target.id:
+        return target
+    already = set(
+        session.scalars(
+            select(RecapThemeLink.entry_id).where(RecapThemeLink.theme_id == target.id)
+        ).all()
+    )
+    for link in session.scalars(
+        select(RecapThemeLink).where(RecapThemeLink.theme_id == source.id)
+    ).all():
+        if link.entry_id not in already:
+            link.theme_id = target.id
+    session.flush()
+    session.execute(delete(RecapThemeLink).where(RecapThemeLink.theme_id == source.id))
+    if source.body.strip():
+        target.body = f"{target.body}\n\n{source.body}" if target.body.strip() else source.body
+    session.delete(source)
+    session.flush()
+    return target
+
+
+def _ensure_name_available(session: Session, theme: RecapTheme, name: str) -> None:
+    clash = session.scalar(
+        select(RecapTheme.id).where(
+            RecapTheme.goal_id == theme.goal_id,
+            RecapTheme.name == name,
+            RecapTheme.id != theme.id,
+        )
+    )
+    if clash is not None:
+        raise RecapThemeNameConflictError(name)

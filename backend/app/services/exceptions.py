@@ -238,3 +238,7 @@ class RecapPromptTooLongError(DomainError):
 
     切り詰めると報告の一部が分類・統合されず失われるため、送信せず中止する。
     """
+
+
+class RecapThemeNameConflictError(DomainError):
+    """振り返りのテーマを、同じ目標内に既にある名前へ改名・統合しようとした場合。"""
