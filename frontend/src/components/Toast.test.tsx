@@ -97,25 +97,6 @@ describe('ToastProvider', () => {
     expect(screen.queryByText(t('common.errorDetailsSummary'))).toBeNull()
   })
 
-  it('does nothing extra when the technical detail is toggled closed', () => {
-    vi.useFakeTimers()
-    const toast = renderWithProvider()
-    act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
-
-    const details = screen.getByText(t('common.errorDetailsSummary')).closest('details')
-    if (!details) {
-      throw new Error('details要素が見つかりません')
-    }
-    // 開かずに（openのまま変化させず）toggleイベントだけ発生した場合は自動消滅を止めない。
-    act(() => {
-      details.open = false
-      details.dispatchEvent(new Event('toggle'))
-    })
-    act(() => vi.advanceTimersByTime(4000))
-
-    expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
-  })
-
   it('still dismisses via the close button after the auto-dismiss was already cancelled', () => {
     const toast = renderWithProvider()
     act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
@@ -133,22 +114,26 @@ describe('ToastProvider', () => {
     expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
   })
 
-  it('stops the auto-dismiss once the technical detail is opened', () => {
+  it('keeps an error toast until it is closed, even after the auto-dismiss time', () => {
     vi.useFakeTimers()
     const toast = renderWithProvider()
     act(() => toast.showApiError(new ApiError('NOT_FOUND', '対象がありません')))
 
-    const details = screen.getByText(t('common.errorDetailsSummary')).closest('details')
-    if (!details) {
-      throw new Error('details要素が見つかりません')
-    }
-    act(() => {
-      details.open = true
-      details.dispatchEvent(new Event('toggle'))
-    })
+    act(() => vi.advanceTimersByTime(60_000))
+    expect(screen.getByText(t('errors.NOT_FOUND'))).toBeTruthy()
 
-    act(() => vi.advanceTimersByTime(4000))
+    act(() => screen.getByRole('button', { name: t('common.action.close') }).click())
+    expect(screen.queryByText(t('errors.NOT_FOUND'))).toBeNull()
+  })
 
+  it('shows the title above the message when an api error is given one', () => {
+    const toast = renderWithProvider()
+
+    act(() =>
+      toast.showApiError(new ApiError('NOT_FOUND', '対象がありません'), '月次報告を生成できませんでした'),
+    )
+
+    expect(screen.getByText('月次報告を生成できませんでした')).toBeTruthy()
     expect(screen.getByText(t('errors.NOT_FOUND'))).toBeTruthy()
   })
 })

@@ -49,7 +49,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
       draft.applyReport(generated)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
     },
-    onError: showApiError,
+    onError: (error) => showApiError(error, t(config.generateFailedTitleKey)),
   })
 
   const saveMutation = useMutation({
@@ -74,7 +74,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
       showToast(t('common.saveSucceeded'))
     },
-    onError: showApiError,
+    onError: (error) => showApiError(error, t(config.saveFailedTitleKey)),
   })
 
   const handleDownload = () => {
