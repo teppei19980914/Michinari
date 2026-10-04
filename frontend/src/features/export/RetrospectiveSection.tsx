@@ -21,10 +21,13 @@ export function RetrospectiveSection({
   goalId,
   anonymize,
   isReading,
+  canGenerate,
 }: {
   goalId: number
   anonymize: boolean
   isReading: boolean
+  /** 完了した目標か（canGenerateRetrospective で判定した値を渡す）。 */
+  canGenerate: boolean
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
