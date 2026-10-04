@@ -22,7 +22,7 @@ import { QUERY_KEYS } from '../constants/queryKeys'
  * あれば登録ではなく更新を呼ぶ）はこの関数に残す。 */
 function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectRead }) {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiError, showApiErrorWithTitle } = useToast()
   const existing = subject.exam_result
   const [editing, setEditing] = useState(existing === null)
   const [takenDate, setTakenDate] = useState(existing?.taken_date ?? '')
@@ -161,7 +161,9 @@ export function ExamResultPage() {
           // 総括レポートの生成はクローズ処理の成否に影響させない（仕様書6.9・実装フェーズ
           // 分割計画書Phase10注意点「非同期で実行し、失敗しても後から再生成できるようにする」）。
           // 失敗時もSC-13へは遷移し、同画面の生成ボタンから再試行できる。
-          generateRetrospective(goal.id, false).catch(() => undefined)
+          generateRetrospective(goal.id, false).catch((error) =>
+            showApiErrorWithTitle(t('knowledgeExport.retrospective.autoGenerateFailedTitle'), error),
+          )
           navigate(ROUTES.goalExport(goal.id))
         }}
       />
