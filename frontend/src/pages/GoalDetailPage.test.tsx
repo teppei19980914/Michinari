@@ -282,13 +282,25 @@ describe('GoalDetailPage の状態遷移', () => {
     expect(screen.queryByText(t('goals.detail.resumeError'))).toBeNull()
   })
 
-  it('hides every status action for a closed goal and says it is read only', async () => {
-    getGoal.mockResolvedValue(makeGoalDetail({ status: 'CLOSED_WITH_RESULT' }))
+  it('says a closed goal is read only, and offers resuming it when the server allows it', async () => {
+    getGoal.mockResolvedValue(
+      makeGoalDetail({ status: 'CLOSED_WITHOUT_RESULT', available_operations: ['RESUME'] }),
+    )
     renderWithProviders(<GoalDetailPage />)
 
     expect(await screen.findByText(t('goals.detail.readOnlyNotice'))).toBeDefined()
+    expect(screen.getByRole('button', { name: t('goals.detail.action.resume') })).toBeDefined()
     expect(screen.queryByRole('button', { name: t('goals.detail.action.pause') })).toBeNull()
-    expect(screen.queryByRole('button', { name: t('goals.detail.action.activate') })).toBeNull()
+  })
+
+  it('hides every status action for a closed goal the server offers nothing for', async () => {
+    getGoal.mockResolvedValue(
+      makeGoalDetail({ status: 'CLOSED_WITH_RESULT', available_operations: [] }),
+    )
+    renderWithProviders(<GoalDetailPage />)
+
+    expect(await screen.findByText(t('goals.detail.readOnlyNotice'))).toBeDefined()
+    expect(screen.queryByRole('button', { name: t('goals.detail.action.resume') })).toBeNull()
   })
 
   it('says the goal is archived instead of read only', async () => {

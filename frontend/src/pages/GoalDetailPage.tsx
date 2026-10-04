@@ -321,9 +321,7 @@ export function GoalDetailPage() {
 
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{goal.name}</h1>
-        {!isReadOnly && !isArchived && (
-          <GoalStatusActions goal={goal} />
-        )}
+        {!isArchived && <GoalStatusActions goal={goal} />}
       </div>
 
       {isArchived ? (
