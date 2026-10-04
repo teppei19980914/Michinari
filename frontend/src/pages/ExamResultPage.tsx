@@ -22,7 +22,7 @@ import { QUERY_KEYS } from '../constants/queryKeys'
  * あれば登録ではなく更新を呼ぶ）はこの関数に残す。 */
 function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectRead }) {
   const queryClient = useQueryClient()
-  const { showApiError, showApiErrorWithTitle } = useToast()
+  const { showApiError } = useToast()
   const existing = subject.exam_result
   const [editing, setEditing] = useState(existing === null)
   const [takenDate, setTakenDate] = useState(existing?.taken_date ?? '')
@@ -110,6 +110,7 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
 
 /** SC-10 受験結果登録（仕様書6.9）。 */
 export function ExamResultPage() {
+  const { showApiErrorWithTitle } = useToast()
   const { goalId: goalIdParam } = useParams<{ goalId: string }>()
   const goalId = Number(goalIdParam)
   const navigate = useNavigate()

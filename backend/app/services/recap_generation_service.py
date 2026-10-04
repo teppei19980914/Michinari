@@ -8,6 +8,7 @@ recap_service が担い、本モジュールはそれをAI呼び出しで埋め�
 """
 
 import datetime as dt
+import logging
 from collections import defaultdict
 
 from sqlalchemy import select
@@ -33,6 +34,8 @@ from app.models.goal import Goal
 from app.models.recap import RecapTheme
 from app.services import ai_context_service, recap_service, setting_reader
 from app.services.exceptions import RecapBodyRejectedError, RecapPromptTooLongError
+
+_logger = logging.getLogger(__name__)
 
 #: 目標種別ごとの既存アシスタント（新しい設定項目は増やさない。週次要約用を流用する）。
 _ASSISTANT_KEY_BY_CATEGORY = {
@@ -241,5 +244,7 @@ def run_all(session: Session, today: dt.date) -> int:
             total += run_for_goal(session, goal, today)
             session.commit()
         except Exception:  # noqa: BLE001 - 1件の失敗で起動時処理全体を止めないため意図的に握りつぶす
+            # 画面には出ないため、原因を追えるようログに残す（次回起動で再処理される）。
+            _logger.exception("振り返りの更新に失敗しました: goal_id=%s", goal.id)
             session.rollback()
     return total
