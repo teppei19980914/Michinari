@@ -948,16 +948,23 @@ def execute_export(
             finally:
                 export_progress.finish(goal.id)
         else:
-            total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + 1
+            # 総括・読了レポートは完了した目標のみ持つ（retrospective_service）。
+            # 完了していない目標では匿名化版のAI再生成を行わず、週次要約の匿名化だけを行う
+            # （利用者方針2026-10-04）。
+            has_completed_report = retrospective_service.can_generate_retrospective(goal)
+            total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + (
+                1 if has_completed_report else 0
+            )
             export_progress.start(goal.id, total=total)
             try:
                 weekly_summary_service.regenerate_all_weekly_summaries_anonymized(
                     session, goal, on_progress=lambda: export_progress.advance(goal.id)
                 )
-                retrospective_service.generate_retrospective(
-                    session, goal, today=today, anonymize=True
-                )
-                export_progress.advance(goal.id)
+                if has_completed_report:
+                    retrospective_service.generate_retrospective(
+                        session, goal, today=today, anonymize=True
+                    )
+                    export_progress.advance(goal.id)
             finally:
                 export_progress.finish(goal.id)
 

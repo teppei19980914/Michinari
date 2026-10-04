@@ -17,6 +17,7 @@ import {
 import { ExportSelectionCard } from '../features/export/ExportSelectionCard'
 import { DEFAULT_SELECTION } from '../features/export/exportSelectionItems'
 import { ExportSummaryCard } from '../features/export/ExportSummaryCard'
+import { canGenerateRetrospective } from '../features/goal/goalStatus'
 import {
   RetrospectiveSection,
   WorkRetrospectivesNote,
@@ -82,7 +83,12 @@ export function KnowledgeExportPage() {
       {isWork ? (
         <WorkRetrospectivesNote />
       ) : (
-        <RetrospectiveSection goalId={goal.id} anonymize={anonymize} isReading={isReading} />
+        <RetrospectiveSection
+          goalId={goal.id}
+          anonymize={anonymize}
+          isReading={isReading}
+          canGenerate={canGenerateRetrospective(goal.status)}
+        />
       )}
       <ExportSummaryCard
         content={previewMutation.data ?? exportMutation.data}

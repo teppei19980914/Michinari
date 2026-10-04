@@ -20,7 +20,7 @@ export function BookshelfPage() {
   const [showArchived, setShowArchived] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiErrorWithTitle } = useToast()
 
   const booksQuery = useQuery({
     queryKey: QUERY_KEYS.completedReadingBooks(),
@@ -31,13 +31,13 @@ export function BookshelfPage() {
     mutationFn: archiveGoal,
     meta: { overlay: 'deleting' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.completedReadingBooks() }),
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('bookshelf.book.archiveButton'), error),
   })
   const unarchiveMutation = useMutation({
     mutationFn: unarchiveGoal,
     meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.completedReadingBooks() }),
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('bookshelf.book.restoreButton'), error),
   })
 
   const grouped = groupCompletedBooks(booksQuery.data ?? [])

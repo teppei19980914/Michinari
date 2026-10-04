@@ -21,10 +21,13 @@ export function RetrospectiveSection({
   goalId,
   anonymize,
   isReading,
+  canGenerate,
 }: {
   goalId: number
   anonymize: boolean
   isReading: boolean
+  /** 完了した目標か（canGenerateRetrospective で判定した値を渡す）。 */
+  canGenerate: boolean
 }) {
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
@@ -63,7 +66,12 @@ export function RetrospectiveSection({
           )}
         </p>
       )}
-      {aiConfigured ? (
+      {!canGenerate ? (
+        // 完了していない目標では生成しない（利用者方針2026-10-04。既存の本文は閲覧できる）
+        <p className="text-sm text-gray-500">
+          {t('knowledgeExport.retrospective.requiresCompletedHint')}
+        </p>
+      ) : aiConfigured ? (
         <div>
           <Button
             variant="secondary"

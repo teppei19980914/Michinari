@@ -204,8 +204,39 @@ def test_get_retrospective_returns_null_when_not_generated(client):
     assert response.json() is None
 
 
-def test_generate_retrospective_creates_and_persists(client, monkeypatch):
+def _make_completed_exam_goal(client):
+    """全科目の受験結果を登録して完了させた資格試験目標（総括レポートは完了後のみ生成できる）。"""
+    goal, subject = _make_active_goal_with_subject(client)
+    client.post(
+        f"/api/v1/subjects/{subject['id']}/result",
+        json={"taken_date": "2026-06-05", "result": "PASS"},
+    )
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
+    assert response.status_code == 200, response.text
+    return goal
+
+
+def test_generate_retrospective_on_active_exam_goal_is_rejected(client, monkeypatch):
     goal, _ = _make_active_goal_with_subject(client)
+    _stub_send_message(monkeypatch)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_completing_exam_goal_does_not_generate_retrospective_automatically(client):
+    goal = _make_completed_exam_goal(client)
+
+    response = client.get(f"/api/v1/goals/{goal['id']}/retrospective")
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+def test_generate_retrospective_creates_and_persists(client, monkeypatch):
+    goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch)
 
     response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
@@ -220,7 +251,7 @@ def test_generate_retrospective_creates_and_persists(client, monkeypatch):
 
 
 def test_regenerate_retrospective_keeps_previous_version(client, monkeypatch):
-    goal, _ = _make_active_goal_with_subject(client)
+    goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch, response="1回目")
     first = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={}).json()
 
@@ -233,7 +264,7 @@ def test_regenerate_retrospective_keeps_previous_version(client, monkeypatch):
 
 
 def test_generate_anonymized_retrospective_is_separate_from_original(client, monkeypatch):
-    goal, _ = _make_active_goal_with_subject(client)
+    goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch, response="通常版")
     client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
 
@@ -348,7 +379,7 @@ def test_generate_retrospective_on_reading_goal_does_not_affect_exam_assistant_s
     _stub_send_message(monkeypatch, response="読了レポート")
     client.post(f"/api/v1/goals/{reading_goal['id']}/retrospective", json={})
 
-    exam_goal, _subject = _make_active_goal_with_subject(client)
+    exam_goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch, response="総括レポート")
     exam_response = client.post(f"/api/v1/goals/{exam_goal['id']}/retrospective", json={})
 

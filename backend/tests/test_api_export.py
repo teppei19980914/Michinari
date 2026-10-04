@@ -62,10 +62,14 @@ def test_execute_export_writes_files_and_returns_paths(client):
     assert body["json_path"].endswith(".json")
 
 
-def test_execute_export_with_anonymize_calls_ai(client, monkeypatch):
+def test_execute_export_with_anonymize_skips_ai_for_active_goal(client, monkeypatch):
+    """実行中の目標では総括レポートを持たないため、匿名化エクスポートでもAIを呼ばない
+    （利用者方針2026-10-04：総括レポートは完了した目標のみ・生成ボタンでのみ生成）。"""
     goal = _create_goal(client)
+    calls: list[str] = []
 
     def _fake(session, *, chat_uid, message):
+        calls.append(message)
         return ai_client.SendResult(response_text="匿名化レポート", latency_ms=1)
 
     monkeypatch.setattr(ai_client, "send_message", _fake)
@@ -78,7 +82,8 @@ def test_execute_export_with_anonymize_calls_ai(client, monkeypatch):
     response = client.post(f"/api/v1/goals/{goal['id']}/knowledge-export", json={"anonymize": True})
 
     assert response.status_code == 200
-    assert response.json()["data"]["retrospective"] == "匿名化レポート"
+    assert response.json()["data"]["retrospective"] is None
+    assert calls == []
 
 
 # --- GET /goals/{goal_id}/knowledge-export/progress（Phase10注意点「進捗を表示すること」） ---

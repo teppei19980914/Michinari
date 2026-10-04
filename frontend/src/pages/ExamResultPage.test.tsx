@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../locales/t'
-import { ApiError } from '../api/client'
 import { ROUTES } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { GOAL_ID, SUBJECT_ID, makeGoalDetail, makeSubject } from '../test/fixtures'
@@ -295,10 +294,9 @@ describe('ExamResultPage のクローズ', () => {
     expect(container.textContent).toContain(t('goals.detail.action.complete.EXAM'))
   })
 
-  it('tells the user when the retrospective could not be generated after closing', async () => {
+  it('moves to the export screen after completion without generating the retrospective', async () => {
     const user = userEvent.setup()
     getGoal.mockResolvedValue(makeGoalDetail({ exam_subjects: [makeSubjectWithResult()] }))
-    generateRetrospective.mockRejectedValue(new ApiError('AI_TIMEOUT', 'timeout'))
     renderPage()
     await screen.findByText(SUBJECT_NAME)
 
@@ -307,9 +305,8 @@ describe('ExamResultPage のクローズ', () => {
     )
     await user.click(screen.getByRole('button', { name: 'mock-closed' }))
 
-    expect(
-      await screen.findByText(t('knowledgeExport.retrospective.autoGenerateFailedTitle')),
-    ).toBeTruthy()
+    // 総括レポートは出力画面の生成ボタンでのみ作る（利用者方針2026-10-04）
+    expect(generateRetrospective).not.toHaveBeenCalled()
     expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID))
   })
 })

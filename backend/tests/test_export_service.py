@@ -30,6 +30,7 @@ from app.models.record import (
     WorkLog,
 )
 from app.models.resource import ResourceSlot
+from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import export_progress, export_service
 from tests import reading_helpers
@@ -897,6 +898,7 @@ def test_execute_export_with_anonymize_regenerates_weekly_summaries_and_retrospe
 ):
     monkeypatch.setattr(export_service, "EXPORT_DIR", tmp_path)
     goal = _make_goal(seeded_session)
+    goal.status = GoalStatus.CLOSED_WITH_RESULT  # 総括レポートは完了した目標のみ持つ
     material = _make_material(seeded_session, goal)
     _add_study_log(seeded_session, material, dt.date(2026, 1, 27))  # 火曜、週2026-01-26開始
     seeded_session.add(
@@ -931,6 +933,27 @@ def test_execute_export_with_anonymize_regenerates_weekly_summaries_and_retrospe
     assert export_progress.get(goal.id) is None
 
 
+def test_execute_export_with_anonymize_does_not_generate_retrospective_for_active_goal(
+    seeded_session, monkeypatch, tmp_path
+):
+    """実行中の資格目標を匿名化エクスポートしても、総括レポートを（AIで）生成しないこと。
+    総括レポートは完了した目標のみ持ち、生成は出力画面の生成ボタンでのみ行う（利用者方針2026-10-04）。"""
+    monkeypatch.setattr(export_service, "EXPORT_DIR", tmp_path)
+    goal = _make_goal(seeded_session)  # 実行中（ACTIVE）のまま
+    material = _make_material(seeded_session, goal)
+    _add_study_log(seeded_session, material, dt.date(2026, 1, 27))
+    seeded_session.commit()
+    _stub_send_message(monkeypatch, response="生成されてはいけない")
+
+    content = export_service.execute_export(
+        seeded_session, goal, export_service.ExportSelection(), anonymize=True
+    )
+
+    assert content.data["anonymized"] is True
+    assert content.data["retrospective"] is None
+    assert seeded_session.query(GoalRetrospective).filter_by(goal_id=goal.id).count() == 0
+
+
 def test_execute_export_with_anonymize_records_progress_while_running(
     seeded_session, monkeypatch, tmp_path
 ):
@@ -938,6 +961,7 @@ def test_execute_export_with_anonymize_records_progress_while_running(
     （実装フェーズ分割計画書Phase10注意点「進捗を表示すること」）。"""
     monkeypatch.setattr(export_service, "EXPORT_DIR", tmp_path)
     goal = _make_goal(seeded_session)
+    goal.status = GoalStatus.CLOSED_WITH_RESULT
     material = _make_material(seeded_session, goal)
     _add_study_log(seeded_session, material, dt.date(2026, 1, 27))
     seeded_session.add(
