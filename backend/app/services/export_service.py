@@ -20,6 +20,7 @@ from app.constants.enums import (
     AiPurpose,
     ChatRole,
     GoalCategory,
+    GoalStatus,
     Granularity,
     PassingScoreType,
     RecordState,
