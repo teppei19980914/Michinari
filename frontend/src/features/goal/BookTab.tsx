@@ -1,25 +1,20 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { formatPercent } from '../../utils/format'
 import { t } from '../../locales/t'
-import { ROUTES } from '../../constants/routes'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
-import { Modal } from '../../components/Modal'
 import { useToast } from '../../components/Toast'
+import { QUERY_KEYS } from '../../constants/queryKeys'
 import {
-  completeBook,
   createBook,
   updateBook,
   type BookRead,
   type GoalDetailRead,
 } from '../../api/goals'
-import { generateRetrospective } from '../../api/closure'
 import { resolveInitialBookTitle } from './bookTitle'
 import { resolveInitialBookStartDate } from './bookStartDate'
-import { QUERY_KEYS } from '../../constants/queryKeys'
 
 function BookForm({
   goalId,
@@ -125,41 +120,6 @@ function BookForm({
   )
 }
 
-function CompleteBookModal({
-  bookId,
-  open,
-  onClose,
-  onCompleted,
-}: {
-  bookId: number
-  open: boolean
-  onClose: () => void
-  onCompleted: () => void
-}) {
-  const { showApiError } = useToast()
-
-  const mutation = useMutation({
-    mutationFn: () => completeBook(bookId),
-    meta: { overlay: 'saving' },
-    onSuccess: onCompleted,
-    onError: showApiError,
-  })
-
-  return (
-    <Modal open={open} onClose={onClose} title={t('goals.book.completeConfirm.title')}>
-      <p className="text-sm text-gray-700">{t('goals.book.completeConfirm.body')}</p>
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="secondary" onClick={onClose}>
-          {t('common.action.cancel')}
-        </Button>
-        <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
-          {t('common.action.confirm')}
-        </Button>
-      </div>
-    </Modal>
-  )
-}
-
 function BookProgress({ book }: { book: BookRead }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
@@ -189,11 +149,7 @@ function BookProgress({ book }: { book: BookRead }) {
  * 資格試験の試験科目・教材タブに相当する読書版で、1目標1冊のため単一のカードで
  * 登録・編集・進捗表示・読了操作を行う。 */
 export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
-  const { showApiErrorWithTitle } = useToast()
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
-  const [completeModalOpen, setCompleteModalOpen] = useState(false)
 
   if (!goal.book) {
     if (readOnly) {
@@ -236,31 +192,10 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
             <Button variant="secondary" onClick={() => setEditing(true)}>
               {t('common.action.edit')}
             </Button>
-            {goal.status === 'ACTIVE' && (
-              <Button onClick={() => setCompleteModalOpen(true)}>
-                {t('goals.book.completeButton')}
-              </Button>
-            )}
           </div>
         )}
       </Card>
 
-      <CompleteBookModal
-        bookId={book.id}
-        open={completeModalOpen}
-        onClose={() => setCompleteModalOpen(false)}
-        onCompleted={() => {
-          // 読了レポートの生成はクローズ処理の成否に影響させない（ExamResultPageのCloseGoalModal
-          // と同じ方針。仕様書6.9・実装フェーズ分割計画書Phase10注意点）。失敗時もエクスポート
-          // 画面へは遷移し、同画面の生成ボタンから再試行できる。
-          generateRetrospective(goal.id, false).catch((error) =>
-            showApiErrorWithTitle(t('knowledgeExport.retrospective.readingAutoGenerateFailedTitle'), error),
-          )
-          queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
-          setCompleteModalOpen(false)
-          navigate(ROUTES.goalExport(goal.id))
-        }}
-      />
     </div>
   )
 }

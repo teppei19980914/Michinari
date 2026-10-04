@@ -795,12 +795,14 @@ def test_quality_rejects_value_when_metric_type_is_none(seeded_session):
 
 
 def test_add_comment_requires_existing_record(seeded_session):
+    _make_goal(seeded_session, status=GoalStatus.ACTIVE)
     today = dt.date(2026, 3, 10)
     with pytest.raises(NotFoundError):
         record_service.add_comment(seeded_session, today, "コメント")
 
 
 def test_add_update_delete_comment(seeded_session):
+    _make_goal(seeded_session, status=GoalStatus.ACTIVE)
     today = dt.date(2026, 3, 10)
     seeded_session.add(DailyRecord(record_date=today, exam_record_state=RecordState.REPORTED))
     seeded_session.flush()

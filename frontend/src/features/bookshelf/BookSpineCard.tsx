@@ -3,7 +3,7 @@ import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
 import { Button } from '../../components/Button'
 import type { CompletedReadingBook, GoalRead } from '../../api/goals'
-import { canArchiveGoal } from '../goal/goalStatus'
+import { hasOperation } from '../goal/goalStatus'
 import {
   BOOK_SPINE_ACCENT_CLASS,
   BOOK_STATUS_BADGE_CLASS,
@@ -53,7 +53,7 @@ export function BookSpineCard({
         )}
       </Link>
 
-      {canArchiveGoal(goal.status, goal.archived_at) && (
+      {hasOperation(goal, 'ARCHIVE') && (
         <Button
           type="button"
           variant="secondary"

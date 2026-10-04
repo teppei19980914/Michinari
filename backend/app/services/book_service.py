@@ -11,16 +11,14 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.constants.enums import GoalCategory, GoalStatus
+from app.constants.enums import GoalCategory
 from app.constants.sentinels import UNSET
-from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.record import DailyRecord, ReadingLog
 from app.services import goal_service
 from app.services.exceptions import (
     BookAlreadyExistsError,
-    InvalidStateTransitionError,
     NotFoundError,
     ValidationError,
 )
@@ -111,22 +109,6 @@ def update_book(
 
     session.flush()
     return book
-
-
-def complete_book(session: Session, book: Book) -> Goal:
-    """読了として記録する（仕様書6.2「読了操作」、7.1のCLOSED_WITH_RESULT遷移）。
-
-    資格試験のクローズ（結果あり）が全科目の受験結果登録を契機に自動遷移するのに対し、
-    読書には登録すべき結果が無いため、本関数の呼び出し自体が読了の意思表示となる
-    （データ構造編5.3「読書目標のクローズ」）。
-    """
-    goal = book.goal
-    if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の読書目標のみ読了として記録できます")
-    goal.status = GoalStatus.CLOSED_WITH_RESULT
-    goal.closed_at = utcnow()
-    session.flush()
-    return goal
 
 
 @dataclass(frozen=True)

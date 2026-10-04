@@ -45,6 +45,8 @@ class Goal(TimestampMixin, Base):
     activated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    #: 再開日（中断・完了・一時停止からの再開のたびに更新する。開始日は変更しない、開発Todo 1-5）。
+    resumed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     exam_subjects: Mapped[list["ExamSubject"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
@@ -79,6 +81,28 @@ class Goal(TimestampMixin, Base):
     slot_allocations: Mapped[list["GoalSlotAllocation"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
     )
+
+
+class GoalStatusHistory(Base):
+    """目標の状態遷移履歴（開発Todo 1-6）。
+
+    報告率・連続報告日数から「報告を求めない期間」（一時停止・中断）を除外するために、状態が
+    変わるたびに1行追加する。changed_at は遷移の日時（UTC）、from_status は初回（作成時）のみNULL。
+    目標の削除時は履歴も一緒に消える（カスケード）。
+    """
+
+    __tablename__ = "goal_status_history"
+    __table_args__ = (Index("ix_goal_status_history_goal_id", "goal_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    from_status: Mapped[GoalStatus | None] = mapped_column(
+        Enum(GoalStatus, native_enum=False, validate_strings=True), nullable=True
+    )
+    to_status: Mapped[GoalStatus] = mapped_column(
+        Enum(GoalStatus, native_enum=False, validate_strings=True), nullable=False
+    )
+    changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class ExamSubject(TimestampMixin, Base):

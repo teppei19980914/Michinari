@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR
 from app.constants.enums import (
     BaselineReason,
     DayType,
@@ -16,10 +17,11 @@ from app.constants.enums import (
     QualityMetricType,
     RecordState,
 )
-from app.models.goal import ExamSubject, Goal
+from app.constants.goal_transitions import NON_REPORTING_STATUSES
+from app.models.goal import ExamSubject, Goal, GoalStatusHistory
 from app.models.material import Material, PlanBaseline
 from app.models.record import DailyRecord, ReadingLog, StudyLog, WorkLog
-from app.services import calendar_service, record_service
+from app.services import calendar_service, record_service, setting_reader
 from app.services.cycle_service import MaterialProgress
 
 #: SUBJECTIVE（主観的手応え5段階）の正規化テーブル（14.1）。
@@ -90,12 +92,60 @@ def compute_progress_rate(progress: MaterialProgress) -> float:
     return progress.completed / progress.total_work
 
 
+def _logical_date_of_utc(changed_at: dt.datetime, boundary_hour: int) -> dt.date:
+    """DBに保存されたUTCの日時を、端末のローカル時刻と日の境界（3.1）に従う論理日へ変換する。"""
+    local = changed_at.replace(tzinfo=dt.UTC).astimezone().replace(tzinfo=None)
+    return calendar_service.resolve_logical_today(local, boundary_hour)
+
+
+def compute_non_reporting_dates(
+    session: Session, goal: Goal, date_from: dt.date, date_to: dt.date
+) -> set[dt.date]:
+    """報告を求めない期間（一時停止・中断）に含まれる論理日の集合を返す（開発Todo 1-6）。
+
+    状態遷移履歴から、各日の終わりの状態を求める。その日の終わりの状態が報告を求めない状態なら
+    その日は停止期間とみなす（同日に停止と再開があれば、終わりの状態で判定する）。履歴が無い目標
+    （移行前の既存データ等）は停止期間を持たない扱いとし、従来の計算を変えない。
+    """
+    changes = (
+        session.query(GoalStatusHistory.changed_at, GoalStatusHistory.to_status)
+        .filter(GoalStatusHistory.goal_id == goal.id)
+        .order_by(GoalStatusHistory.changed_at, GoalStatusHistory.id)
+        .all()
+    )
+    if not changes:
+        return set()
+    boundary_hour = setting_reader.get_int(session, CALENDAR_DAY_BOUNDARY_HOUR)
+    dated = [
+        (_logical_date_of_utc(changed_at, boundary_hour), status) for changed_at, status in changes
+    ]
+
+    stopped: set[dt.date] = set()
+    status = None
+    index = 0
+    current = date_from
+    while current <= date_to:
+        while index < len(dated) and dated[index][0] <= current:
+            status = dated[index][1]
+            index += 1
+        if status in NON_REPORTING_STATUSES:
+            stopped.add(current)
+        current += dt.timedelta(days=1)
+    return stopped
+
+
 def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
     """報告率（KPI）を算出する（13.3）。goalのカテゴリに対応する確定状態列のみを見る
     （他カテゴリの確定状況が混入しないようにするため、仕様変更2026-09-05）。
+
+    一時停止・中断の期間（報告を求めない日）は分母から除く（開発Todo 不具合D・1-6）。
     """
     total_days = (today - goal.start_date).days + 1
     if total_days <= 0:
+        return 0.0
+    stopped = compute_non_reporting_dates(session, goal, goal.start_date, today)
+    report_days = total_days - len(stopped)
+    if report_days <= 0:
         return 0.0
 
     reported = (
@@ -108,7 +158,7 @@ def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
         .scalar()
         or 0
     )
-    return reported / total_days
+    return reported / report_days
 
 
 def compute_recent_report_rate(
@@ -125,6 +175,10 @@ def compute_recent_report_rate(
         return 0.0
     window_start = max(goal.start_date, today - dt.timedelta(days=window_days - 1))
     window_size = (today - window_start).days + 1
+    stopped = compute_non_reporting_dates(session, goal, window_start, today)
+    window_size -= len(stopped)
+    if window_size <= 0:
+        return 0.0
 
     reported = (
         session.query(func.count(DailyRecord.id))
@@ -158,11 +212,14 @@ def compute_consecutive_report_days(
         )
     }
 
+    stopped = compute_non_reporting_dates(session, goal, goal.start_date, today)
     count = 0
     current_date = today
     while current_date >= goal.start_date:
         if current_date in reported_dates:
             count += 1
+        elif current_date in stopped:
+            pass
         elif day_types.get(current_date) in (DayType.BUFFER, DayType.OFF):
             pass
         else:

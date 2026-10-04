@@ -6,7 +6,7 @@ import { archiveGoal, listCompletedReadingBooks, unarchiveGoal, type GoalRead } 
 import { groupCompletedBooks } from '../features/bookshelf/groupCompletedBooks'
 import { BookShelfSection } from '../features/bookshelf/BookShelfSection'
 import { resolveBookSpineVariant } from '../features/bookshelf/bookStatusVariant'
-import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
+import { DeleteGoalModal } from '../features/goal/DeleteGoalModal'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** SC-18 本棚。読了・中断した読書目標を書籍カードとして表示する（GoalsListPageのクローズ済み
@@ -95,13 +95,13 @@ export function BookshelfPage() {
         />
       )}
 
-      <DeleteArchivedGoalModal
+      <DeleteGoalModal
         goal={deleteTarget}
         onClose={() => {
           setDeleteTarget(null)
-          // DeleteArchivedGoalModalの完全削除成功時の無効化対象はQUERY_KEYS.goals()のみ
-          // （GoalsListPage向け）。本棚は別キー（completedReadingBooks）で取得しているため、
-          // モーダルを閉じるたびにこちらも無効化する（キャンセル時の無駄な再取得は許容する）。
+          // DeleteGoalModalの削除成功時の無効化対象はQUERY_KEYS.goals()のみ（目標一覧向け）。
+          // 本棚は別キー（completedReadingBooks）で取得しているため、モーダルを閉じるたびに
+          // こちらも無効化する（キャンセル時の無駄な再取得は許容する）。
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.completedReadingBooks() })
         }}
       />

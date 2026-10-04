@@ -74,6 +74,8 @@ class BaselineReason(enum.StrEnum):
     EXAM_DATE_FIXED = "EXAM_DATE_FIXED"
     MATERIAL_CHANGED = "MATERIAL_CHANGED"
     CYCLE_CHANGED = "CYCLE_CHANGED"
+    #: 中断・完了・一時停止からの再開時の再計画（開発Todo 1-5。再開日から残り期間で組み直す）。
+    RESUMED = "RESUMED"
 
 
 class ExamResultType(enum.StrEnum):

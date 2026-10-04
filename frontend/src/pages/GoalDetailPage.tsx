@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
@@ -8,7 +8,14 @@ import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
 import { useToast } from '../components/Toast'
 import { ApiError, apiErrorMessage } from '../api/client'
-import { activateGoal, getGoal, pauseGoal, resumeGoal, type GoalCategory } from '../api/goals'
+import { generateRetrospective } from '../api/closure'
+import {
+  activateGoal,
+  getGoal,
+  pauseGoal,
+  resumeGoal,
+  type GoalDetailRead,
+} from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
@@ -18,10 +25,10 @@ import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { WorkEvaluationReportTab } from '../features/goal/WorkEvaluationReportTab'
-import { CloseGoalModal } from '../features/goal/CloseGoalModal'
+import { GoalEndModal, type GoalEndKind } from '../features/goal/GoalEndModal'
 import { ERROR_CODES } from '../constants/errorCodes'
 import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
-import { isClosedGoalStatus } from '../features/goal/goalStatus'
+import { hasOperation, isClosedGoalStatus } from '../features/goal/goalStatus'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
 const EXAM_TABS = [
@@ -113,19 +120,31 @@ type TabKey =
 /** 種別ごとのタブ構成。要素の形が種別で異なるため union で受ける（as constはTabKeyの導出に必要）。 */
 type GoalDetailTabs = typeof EXAM_TABS | typeof READING_TABS | typeof WORK_TABS
 
-function GoalStatusActions({
-  goalId,
-  status,
-  category,
-}: {
-  goalId: number
-  status: string
-  category: GoalCategory
-}) {
+function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
-  const [closeModalOpen, setCloseModalOpen] = useState(false)
+  const navigate = useNavigate()
+  const { showApiError, showApiErrorWithTitle } = useToast()
+  const [endKind, setEndKind] = useState<GoalEndKind | null>(null)
   const [resumeErrorModalOpen, setResumeErrorModalOpen] = useState(false)
+  const [resumeWarnings, setResumeWarnings] = useState<string[]>([])
+  const goalId = goal.id
+
+  /** 完了の後は、報告（資格の総括・読書の読了レポート）を自動で生成し、出力画面へ移る。
+   * 報告の生成は完了の成否に影響させない（失敗時も出力画面の生成ボタンから再試行できる、
+   * 仕様書6.9・実装フェーズ分割計画書Phase10注意点）。仕事目標は対象外。 */
+  const handleEndDone = () => {
+    if (endKind === 'complete' && goal.category !== 'WORK') {
+      const titleKey =
+        goal.category === 'READING'
+          ? 'knowledgeExport.retrospective.readingAutoGenerateFailedTitle'
+          : 'knowledgeExport.retrospective.autoGenerateFailedTitle'
+      generateRetrospective(goalId, false).catch((error) =>
+        showApiErrorWithTitle(t(titleKey), error),
+      )
+      navigate(ROUTES.goalExport(goalId))
+    }
+    setEndKind(null)
+  }
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goalId) })
 
@@ -144,7 +163,10 @@ function GoalStatusActions({
   const resumeMutation = useMutation({
     mutationFn: () => resumeGoal(goalId),
     meta: { overlay: 'saving' },
-    onSuccess: invalidate,
+    onSuccess: (result) => {
+      setResumeWarnings(result.warnings)
+      invalidate()
+    },
     onError: (error) => {
       if (error instanceof ApiError && error.code === ERROR_CODES.RESOURCE_EXCEEDED) {
         setResumeErrorModalOpen(true)
@@ -154,61 +176,87 @@ function GoalStatusActions({
     },
   })
 
-  if (status === 'DRAFT') {
-    return (
-      <Button disabled={activateMutation.isPending} onClick={() => activateMutation.mutate()}>
-        {t('goals.detail.action.activate')}
-      </Button>
-    )
-  }
-  if (status === 'ACTIVE') {
-    return (
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          disabled={pauseMutation.isPending}
-          onClick={() => pauseMutation.mutate()}
-        >
-          {t('goals.detail.action.pause')}
-        </Button>
-        <Button variant="secondary" onClick={() => setCloseModalOpen(true)}>
-          {t('goals.detail.action.close')}
-        </Button>
-        <CloseGoalModal
-          goalId={goalId}
-          category={category}
-          open={closeModalOpen}
-          onClose={() => setCloseModalOpen(false)}
-          onClosed={() => {
-            invalidate()
-            setCloseModalOpen(false)
-          }}
-        />
+  // 完了の可否は画面で先に判定する（資格試験は全科目の合否登録が前提。開発Todo 1-3）。
+  const resultsIncomplete =
+    goal.category === 'EXAM' &&
+    goal.exam_subjects.some((subject) => subject.exam_result === null)
+  const canActivate = hasOperation(goal, 'ACTIVATE')
+  const canPause = hasOperation(goal, 'PAUSE')
+  const canResume = hasOperation(goal, 'RESUME')
+  const canComplete = hasOperation(goal, 'COMPLETE')
+  const canAbandon = hasOperation(goal, 'ABANDON')
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        {canActivate && (
+          <Button disabled={activateMutation.isPending} onClick={() => activateMutation.mutate()}>
+            {t('goals.detail.action.activate')}
+          </Button>
+        )}
+        {canPause && (
+          <Button
+            variant="secondary"
+            disabled={pauseMutation.isPending}
+            onClick={() => pauseMutation.mutate()}
+          >
+            {t('goals.detail.action.pause')}
+          </Button>
+        )}
+        {canResume && (
+          <Button disabled={resumeMutation.isPending} onClick={() => resumeMutation.mutate()}>
+            {t('goals.detail.action.resume')}
+          </Button>
+        )}
+        {canComplete && (
+          <Button
+            variant="secondary"
+            disabled={resultsIncomplete}
+            onClick={() => setEndKind('complete')}
+          >
+            {t(`goals.detail.action.complete.${goal.category}`)}
+          </Button>
+        )}
+        {canAbandon && (
+          <Button variant="secondary" onClick={() => setEndKind('abandon')}>
+            {t(`goals.detail.action.abandon.${goal.category}`)}
+          </Button>
+        )}
       </div>
-    )
-  }
-  if (status === 'PAUSED') {
-    return (
-      <>
-        <Button disabled={resumeMutation.isPending} onClick={() => resumeMutation.mutate()}>
-          {t('goals.detail.action.resume')}
-        </Button>
-        <Modal
-          open={resumeErrorModalOpen}
-          onClose={() => setResumeErrorModalOpen(false)}
-          title={t('goals.detail.action.resume')}
-        >
-          <p className="text-sm text-gray-700">{t('goals.detail.resumeError')}</p>
-          <div className="mt-4 flex justify-end">
-            <Button variant="secondary" onClick={() => setResumeErrorModalOpen(false)}>
-              {t('common.action.close')}
-            </Button>
-          </div>
-        </Modal>
-      </>
-    )
-  }
-  return null
+      {canComplete && resultsIncomplete && (
+        <p className="text-xs text-gray-500">{t('goals.detail.completeDisabledHint')}</p>
+      )}
+      {resumeWarnings.length > 0 && (
+        <ul className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {resumeWarnings.map((code) => (
+            <li key={code}>{t(`goals.resumeWarnings.${code}`)}</li>
+          ))}
+        </ul>
+      )}
+      {endKind !== null && (
+        <GoalEndModal
+          goalId={goalId}
+          category={goal.category}
+          kind={endKind}
+          open
+          onClose={() => setEndKind(null)}
+          onDone={handleEndDone}
+        />
+      )}
+      <Modal
+        open={resumeErrorModalOpen}
+        onClose={() => setResumeErrorModalOpen(false)}
+        title={t('goals.detail.action.resume')}
+      >
+        <p className="text-sm text-gray-700">{t('goals.detail.resumeError')}</p>
+        <div className="mt-4 flex justify-end">
+          <Button variant="secondary" onClick={() => setResumeErrorModalOpen(false)}>
+            {t('common.action.close')}
+          </Button>
+        </div>
+      </Modal>
+    </div>
+  )
 }
 
 /** SC-03 目標詳細・編集（仕様書6.2）。categoryにより資格試験（5タブ構成）・
@@ -254,7 +302,7 @@ export function GoalDetailPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">{goal.name}</h1>
         {!isReadOnly && !isArchived && (
-          <GoalStatusActions goalId={goal.id} status={goal.status} category={goal.category} />
+          <GoalStatusActions goal={goal} />
         )}
       </div>
 

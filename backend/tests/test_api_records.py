@@ -446,6 +446,8 @@ def test_quota_endpoint_excludes_material_before_start_date(client):
 
 
 def test_comment_create_update_delete_flow(client):
+    """コメントは実行中の目標が存在する間のみ操作できる（開発Todo 1-7、未決事項の既定値）。"""
+    _make_active_reading_goal_with_book(client)
     target = dt.date.today().isoformat()
     client.post(
         f"/api/v1/records/{target}/finalize",
@@ -471,6 +473,7 @@ def test_comment_create_update_delete_flow(client):
 
 
 def test_comment_create_for_unentered_date_returns_404(client):
+    _make_active_reading_goal_with_book(client)
     target = dt.date.today().isoformat()
     response = client.post(f"/api/v1/records/{target}/comments", json={"body": "コメント"})
     assert response.status_code == 404

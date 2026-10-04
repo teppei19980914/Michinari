@@ -7,15 +7,26 @@ ensure_goal_editable は subject_service・material_service からも共通処�
 """
 
 import datetime as dt
+from dataclasses import dataclass
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
+from app.constants.app_setting_keys import (
+    CALENDAR_DAY_BOUNDARY_HOUR,
+    HOLIDAY_TREAT_AS_BUFFER,
+    RESUME_QUOTA_WARNING_RATIO,
+)
 from app.constants.enums import BaselineReason, DayType, ExamResultType, GoalCategory, GoalStatus
+from app.constants.goal_transitions import (
+    RESUME_WARNING_QUOTA_INCREASED,
+    USER_FACING_OPERATIONS,
+    GoalOperation,
+    is_operation_allowed,
+)
 from app.constants.sentinels import UNSET
 from app.models.base import utcnow
-from app.models.goal import ExamSubject, Goal, LoadProfile
+from app.models.goal import ExamSubject, Goal, GoalStatusHistory, LoadProfile
 from app.models.material import Material, PlanBaseline
 from app.models.record import (
     ChatMessage,
@@ -26,6 +37,7 @@ from app.models.record import (
     StudyLog,
     WorkLog,
 )
+from app.models.work import WorkEvaluationReport
 from app.services import (
     allocation_service,
     baseline_service,
@@ -35,16 +47,13 @@ from app.services import (
     setting_reader,
 )
 from app.services.exceptions import (
-    BookHasReadingLogsError,
-    CloseConfirmationRequiredError,
+    ExamResultsIncompleteError,
     ExamSubjectRequiredError,
     InvalidStateTransitionError,
-    MaterialHasStudyLogsError,
     MaterialRequiredError,
     NotFoundError,
     ResourceAllocationRequiredError,
     ValidationError,
-    WorkAssignmentHasWorkLogsError,
 )
 
 #: クローズ済みとみなす目標状態（仕様書6.2「クローズの場合、全項目を読み取り専用とする」）。
@@ -123,6 +132,58 @@ def ensure_goal_active(goal: Goal, *, action_label: str) -> None:
         raise InvalidStateTransitionError(f"進行中の目標のみ{action_label}を実行できます")
 
 
+def ensure_operation_allowed(goal: Goal, operation: GoalOperation) -> None:
+    """遷移表（constants/goal_transitions.py）で、現在の状態に対して操作が許可されるかを検査する。"""
+    if not is_operation_allowed(operation, goal.status):
+        raise InvalidStateTransitionError(
+            f"目標(id={goal.id})の現在の状態では、この操作（{operation.value}）はできません"
+        )
+
+
+def available_operations(goal: Goal) -> list[GoalOperation]:
+    """目標の画面で実行できる操作の一覧（遷移表とアーカイブフラグから算出する）。
+
+    画面はこの一覧だけで操作ボタンを出し分ける（判定を画面に重複させない、開発Todo 5-2）。
+    アーカイブ中は状態を変えられないため、アーカイブ解除と削除だけを返す。
+    """
+    if goal.archived_at is not None:
+        return [GoalOperation.UNARCHIVE, GoalOperation.DELETE]
+    return [op for op in USER_FACING_OPERATIONS if is_operation_allowed(op, goal.status)]
+
+
+def ensure_any_goal_active(session: Session) -> None:
+    """実行中の目標が1件以上あることを検査する（コメントの登録・修正・削除の判定）。
+
+    コメントは日付単位で目標に紐づかないため、「実行中の目標のみ」を「実行中の目標が存在する
+    間のみ」と解釈する（開発Todo 7 未決事項として既定値を置く）。
+    """
+    has_active = session.query(Goal.id).filter(Goal.status == GoalStatus.ACTIVE).first() is not None
+    if not has_active:
+        raise InvalidStateTransitionError("実行中の目標がないため、コメントを操作できません")
+
+
+def _change_status(session: Session, goal: Goal, new_status: GoalStatus) -> None:
+    """目標の状態を変更し、状態遷移履歴に1行追加する（開発Todo 1-6、履歴は報告率の計算に使う）。
+
+    状態変更はこの関数に集約する。遷移の判定で拒否された場合はここに到達しないため、履歴も残らない。
+    """
+    _append_status_history(session, goal, from_status=goal.status, to_status=new_status)
+    goal.status = new_status
+
+
+def _append_status_history(
+    session: Session, goal: Goal, *, from_status: GoalStatus | None, to_status: GoalStatus
+) -> None:
+    session.add(
+        GoalStatusHistory(
+            goal_id=goal.id,
+            from_status=from_status,
+            to_status=to_status,
+            changed_at=utcnow(),
+        )
+    )
+
+
 def _validate_allocation_capacity(session: Session, goal: Goal) -> None:
     """目標の現在の配分が、各スロットの容量に収まることを検証する（データ構造編5.2）。
 
@@ -172,6 +233,7 @@ def create_goal(
     )
     session.add(goal)
     session.flush()
+    _append_status_history(session, goal, from_status=None, to_status=GoalStatus.DRAFT)
     return goal
 
 
@@ -205,23 +267,23 @@ def update_goal(
 
 
 def delete_goal(session: Session, goal: Goal) -> None:
-    if goal.status != GoalStatus.DRAFT:
-        raise InvalidStateTransitionError("下書き状態の目標のみ削除できます")
-    if goal.archived_at is not None:
-        raise InvalidStateTransitionError(
-            "アーカイブ済みの目標は削除できません。復元するか、アーカイブ済み一覧から完全削除してください"
-        )
+    """目標を物理削除する（開発Todo 1-4）。実行中以外のすべての状態（アーカイブ済みを含む）が対象。
+
+    関連データ（実績・想起記録・業務記録・日記・評価レポート等）は常にカスケードで削除する
+    （旧「cascade_study_logs」の選択は廃止）。同日に他目標のデータが残る日次報告は残す（R-63）。
+    """
+    ensure_operation_allowed(goal, GoalOperation.DELETE)
+    _cascade_delete_activity_logs(session, goal)
     session.delete(goal)
     session.flush()
 
 
 def archive_goal(session: Session, goal: Goal) -> Goal:
-    """進行中でない目標をアーカイブする（論理削除、仕様書7.1.1）。
+    """実行中以外の目標をアーカイブする（論理削除、仕様書7.1.1、開発Todo 1-1）。
 
-    下書き・一時停止・クローズ済みが対象（進行中の目標はアーカイブできない）。
+    下書き・一時停止・完了・中断が対象（実行中の目標はアーカイブできない）。
     """
-    if goal.status == GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の目標はアーカイブできません")
+    ensure_operation_allowed(goal, GoalOperation.ARCHIVE)
     if goal.archived_at is not None:
         raise InvalidStateTransitionError("既にアーカイブ済みです")
     goal.archived_at = utcnow()
@@ -249,6 +311,23 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     reading_log・chat_message・record_comment・日記本文のいずれも無い）になったものだけを
     追加で削除し、他goalのデータは保持する。
     """
+    # 仕事目標のメンバーと評価レポートは、評価レポート→メンバーの順に明示的に削除する（不具合C）。
+    # members は passive_deletes のため、ORMに任せると work_assignment_id をNULLにしようとして
+    # NOT NULL違反になる。評価レポートはメンバーに対してRESTRICTのため、先に削除する。
+    members = list(goal.work_assignment.members) if goal.work_assignment is not None else []
+    if members:
+        member_ids = [m.id for m in members]
+        for report in (
+            session.query(WorkEvaluationReport)
+            .filter(WorkEvaluationReport.member_id.in_(member_ids))
+            .all()
+        ):
+            session.delete(report)
+        session.flush()
+        for member in members:
+            session.delete(member)
+        session.flush()
+
     material_ids = [m.id for m in goal.materials]
     study_logs = session.query(StudyLog).filter(StudyLog.material_id.in_(material_ids)).all()
     book_ids = [goal.book.id] if goal.book is not None else []
@@ -328,46 +407,6 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     session.flush()
 
 
-def delete_archived_goal(session: Session, goal: Goal, *, cascade_study_logs: bool) -> None:
-    """アーカイブ済み目標を完全削除する（物理削除、仕様書7.1.1、データ構造編4.2）。
-
-    cascade_study_logs=Falseの場合、実績(study_log、読書目標はreading_log)が1件でも
-    残る教材・書籍があれば削除全体を拒否する（material→study_log・book→reading_logの
-    通常のRESTRICT挙動のまま）。
-    """
-    if goal.archived_at is None:
-        raise InvalidStateTransitionError("アーカイブ済みの目標のみ完全削除できます")
-
-    if cascade_study_logs:
-        _cascade_delete_activity_logs(session, goal)
-    else:
-        material_ids = [m.id for m in goal.materials]
-        offending = (
-            session.query(StudyLog.material_id)
-            .filter(StudyLog.material_id.in_(material_ids))
-            .first()
-        )
-        if offending is not None:
-            raise MaterialHasStudyLogsError(offending[0])
-        if goal.book is not None:
-            offending_reading_log = (
-                session.query(ReadingLog.book_id).filter(ReadingLog.book_id == goal.book.id).first()
-            )
-            if offending_reading_log is not None:
-                raise BookHasReadingLogsError(offending_reading_log[0])
-        if goal.work_assignment is not None:
-            offending_work_log = (
-                session.query(WorkLog.work_assignment_id)
-                .filter(WorkLog.work_assignment_id == goal.work_assignment.id)
-                .first()
-            )
-            if offending_work_log is not None:
-                raise WorkAssignmentHasWorkLogsError(offending_work_log[0])
-
-    session.delete(goal)
-    session.flush()
-
-
 def activate_goal(session: Session, goal: Goal) -> Goal:
     """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
 
@@ -375,8 +414,7 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。仕事目標
     （category=WORK）は案件情報の登録のみを前提とする（要件定義書R-74）。
     """
-    if goal.status != GoalStatus.DRAFT:
-        raise InvalidStateTransitionError("下書き状態の目標のみ開始できます")
+    ensure_operation_allowed(goal, GoalOperation.ACTIVATE)
     if goal.archived_at is not None:
         raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから開始してください")
 
@@ -399,7 +437,7 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     if goal.category != GoalCategory.WORK:
         _validate_allocation_capacity(session, goal)
 
-    goal.status = GoalStatus.ACTIVE
+    _change_status(session, goal, GoalStatus.ACTIVE)
     goal.activated_at = utcnow()
     session.flush()
 
@@ -416,22 +454,33 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
 
 def pause_goal(session: Session, goal: Goal) -> Goal:
     """進行中→一時停止（仕様書7.1）。リソース配分は解放される（合計計算から除外）。"""
-    if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の目標のみ一時停止できます")
-    goal.status = GoalStatus.PAUSED
+    ensure_operation_allowed(goal, GoalOperation.PAUSE)
+    _change_status(session, goal, GoalStatus.PAUSED)
     session.flush()
     return goal
 
 
-def resume_goal(session: Session, goal: Goal) -> Goal:
-    """一時停止→進行中（仕様書7.1）。リソースの空きが不足する場合はエラーとする。
+@dataclass(frozen=True)
+class ResumeResult:
+    """再開の結果。warnings は警告コードの一覧（資格試験の再計画で学習量が増えた場合など）。"""
 
-    資格試験目標のみ「配分が1分以上あること」を要求する。読書目標は配分が任意のため
-    （要件定義書R-64）、未設定でも復帰できる。ただし配分を持つ場合は、資格試験と同様に
-    スロットの空きが足りるかを検証する（仕様書7.1）。仕事目標は配分の対象外（R-74）。
+    goal: Goal
+    warnings: list[str]
+
+
+def resume_goal(session: Session, goal: Goal) -> ResumeResult:
+    """一時停止・中断・完了→進行中（仕様書7.1、開発Todo 1-5）。
+
+    リソースの空きが不足する場合はエラーとする。資格試験目標は「配分が1分以上あること」を
+    要求する。読書目標は配分が任意のため（要件定義書R-64）、未設定でも復帰できる。ただし配分を
+    持つ場合は、資格試験と同様にスロットの空きが足りるかを検証する（仕様書7.1）。仕事目標は
+    配分の対象外（R-74）。
+
+    中断・完了からの再開では、データを引き継ぐ（開始日は変更しない）。終了時刻（closed_at）は
+    再開により意味を失うため解除する（終了の履歴は状態遷移履歴に残る）。資格試験は再開日から
+    残り期間で計画（基準値）を組み直し、学習量が大きく増える場合は警告を返したうえで再開を許可する。
     """
-    if goal.status != GoalStatus.PAUSED:
-        raise InvalidStateTransitionError("一時停止中の目標のみ復帰できます")
+    ensure_operation_allowed(goal, GoalOperation.RESUME)
     if goal.archived_at is not None:
         raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから再開してください")
     if goal.category == GoalCategory.EXAM:
@@ -439,59 +488,82 @@ def resume_goal(session: Session, goal: Goal) -> Goal:
             raise ResourceAllocationRequiredError
     if goal.category != GoalCategory.WORK:
         _validate_allocation_capacity(session, goal)
-    goal.status = GoalStatus.ACTIVE
+    was_closed = goal.status in _CLOSED_STATUSES
+    _change_status(session, goal, GoalStatus.ACTIVE)
+    if was_closed:
+        goal.closed_at = None
+    goal.resumed_at = utcnow()
+    session.flush()
+
+    warnings: list[str] = []
+    if goal.category == GoalCategory.EXAM:
+        warnings = _replan_on_resume(session, goal)
+    session.flush()
+    return ResumeResult(goal=goal, warnings=warnings)
+
+
+def _replan_on_resume(session: Session, goal: Goal) -> list[str]:
+    """再開日から残り期間で、教材ごとに計画基準値を組み直す（開発Todo 1-5）。
+
+    停止前の基準値（1日あたりの必要量）より、再計画後の値が設定倍率以上に増えた場合に警告する。
+    倍率は app_setting から読む（閾値をソースに書かない）。停止前の基準値が無い教材は
+    比較できないため警告しない。
+    """
+    today = resolve_today(session)
+    treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
+    ratio = setting_reader.get_float(session, RESUME_QUOTA_WARNING_RATIO)
+    warnings: set[str] = set()
+    for material in goal.materials:
+        if not material.is_active:
+            continue
+        previous = baseline_service.get_current_baseline(session, material.id, today)
+        current = record_baseline_for_material(
+            session, material, BaselineReason.RESUMED, today, treat_holiday_as_buffer
+        )
+        if (
+            previous is not None
+            and previous.baseline_daily_quota > 0
+            and current.baseline_daily_quota / previous.baseline_daily_quota >= ratio
+        ):
+            warnings.add(RESUME_WARNING_QUOTA_INCREASED)
+    return sorted(warnings)
+
+
+def abandon_goal(session: Session, goal: Goal) -> Goal:
+    """中断する（実行中・一時停止→中断、開発Todo 1-3）。
+
+    中断の表示名は種類ごとに異なる（読書＝中断、資格試験＝中断、仕事＝中止・打ち切り。1-2）。
+    内部の状態は CLOSED_WITHOUT_RESULT に統一する。確認は画面で1回行う。
+    """
+    ensure_operation_allowed(goal, GoalOperation.ABANDON)
+    _change_status(session, goal, GoalStatus.CLOSED_WITHOUT_RESULT)
+    goal.closed_at = utcnow()
     session.flush()
     return goal
 
 
-def close_goal(
-    session: Session,
-    goal: Goal,
-    *,
-    confirm_without_result: bool = False,
-    with_result: bool = False,
-) -> Goal:
-    """進行中→クローズ（仕様書7.1）。
+def complete_goal(session: Session, goal: Goal) -> Goal:
+    """完了する（実行中→完了、開発Todo 1-3）。
 
-    全科目の受験結果が登録済みなら自動的に「結果あり」でクローズする。
-    未登録の科目が残る場合は confirm_without_result=True の明示確認を必須とする。
-    総括レポートの生成(AI連携)はPhase10の責務であり、本関数の成否には影響させない。
-
-    読書目標（category=READING）は exam_subjects が常に空のため has_all_results は
-    常にFalseとなり、本関数は confirm_without_result=True を要求したうえで
-    CLOSED_WITHOUT_RESULT（中断）へ遷移させる（仕様書7.1）。読了（CLOSED_WITH_RESULT）は
-    本関数ではなく book_service.complete_book（POST /books/{id}/complete）を用いる。
-
-    確認待ちは CloseConfirmationRequiredError、本当の状態エラーは
-    InvalidStateTransitionError と、必ず別の例外にする（理由は前者のdocstringを参照）。
-
-    仕事目標（category=WORK）は exam_subjects の概念自体を持たないため、上記の
-    自動判定・confirm_without_resultによる分岐を適用せず、with_resultの指定のみで
-    遷移先を決める（with_result=True→CLOSED_WITH_RESULT＝納品等の成果を伴う終了、
-    False（既定）→CLOSED_WITHOUT_RESULT＝中止・打ち切り。要件定義書R-72、
-    データ構造編6.2）。with_resultはWORK専用のパラメータであり、EXAM/READINGで
-    True指定された場合は拒否する。
+    完了の条件は種類ごとに異なる。資格試験は全科目の合否が登録済みであること（揃っていない場合は
+    ExamResultsIncompleteErrorで拒否し、画面は完了ボタンを無効化する）。読書は書籍の登録済み
+    （読了として記録する操作の後継）。仕事は案件情報の登録済み。完了の内部状態は
+    CLOSED_WITH_RESULT（読書では「読了」、資格試験では「完了」、仕事では「完了」と表示する）。
     """
-    if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError("進行中の目標のみクローズできます")
-
-    if goal.category == GoalCategory.WORK:
-        goal.status = (
-            GoalStatus.CLOSED_WITH_RESULT if with_result else GoalStatus.CLOSED_WITHOUT_RESULT
-        )
+    ensure_operation_allowed(goal, GoalOperation.COMPLETE)
+    if goal.category == GoalCategory.READING:
+        if goal.book is None:
+            raise ValidationError("書籍を登録してください")
+    elif goal.category == GoalCategory.WORK:
+        if goal.work_assignment is None:
+            raise ValidationError("案件情報を登録してください")
     else:
-        if with_result:
-            raise ValidationError("with_resultは仕事目標にのみ指定できます")
         has_all_results = bool(goal.exam_subjects) and all(
             subject.exam_result is not None for subject in goal.exam_subjects
         )
-        if has_all_results:
-            goal.status = GoalStatus.CLOSED_WITH_RESULT
-        else:
-            if not confirm_without_result:
-                raise CloseConfirmationRequiredError
-            goal.status = GoalStatus.CLOSED_WITHOUT_RESULT
-
+        if not has_all_results:
+            raise ExamResultsIncompleteError
+    _change_status(session, goal, GoalStatus.CLOSED_WITH_RESULT)
     goal.closed_at = utcnow()
     session.flush()
     return goal
@@ -501,9 +573,9 @@ def compute_is_achieved(goal: Goal) -> bool:
     """目標が達成済みかどうかを判定する（仕様書v1.1 13.6、S-12の解消）。
 
     CLOSED_WITH_RESULTは「結果が登録済み」を意味するだけで、資格試験（EXAM）は
-    合否（ExamResultType.PASS/FAIL）を区別しない（close_goalのhas_all_results判定と同じ
+    合否（ExamResultType.PASS/FAIL）を区別しない（complete_goalのhas_all_results判定と同じ
     exam_subjects/exam_resultを参照）。そのためEXAMのみ、全科目がPASSであることまで
-    確認する。読書（book_service.complete_book）・仕事（with_result=True）は
+    確認する。読書（complete_goal）・仕事（完了）は
     CLOSED_WITH_RESULTへの到達自体が達成を意味するため、追加判定を行わない。
     """
     if goal.status != GoalStatus.CLOSED_WITH_RESULT:
