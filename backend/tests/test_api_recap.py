@@ -54,6 +54,7 @@ def test_detail_returns_body_and_entries_in_date_order(seeded_session, client):
 
     assert response.status_code == 200, response.text
     body = response.json()
+    assert body["goal_id"] == goal.id
     assert body["name"] == "メール関連"
     assert body["body"] == "本文A"
     assert [e["record_date"] for e in body["entries"]] == ["2026-03-09", "2026-03-10"]

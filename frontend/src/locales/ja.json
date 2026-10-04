@@ -138,6 +138,11 @@
     "recentActivityCalendar": {
       "title": "直近4週間",
       "viewCalendarLink": "カレンダーを見る"
+    },
+    "recapThemes": {
+      "title": "今週の振り返り（テーマ別）",
+      "empty": "まだテーマはありません。日次報告の学んだことが分類されると、ここに表示されます",
+      "entryCount": "{{count}}件の報告"
     }
   },
   "goals": {
@@ -1297,6 +1302,24 @@
       "BOOK_HAS_LOGS": "この書籍には想起記録が残っているため削除できません。先に想起記録を削除するか、書籍情報を編集してご利用ください",
       "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください",
       "WORK_MEMBER_HAS_REPORTS": "このメンバーには評価レポートが存在するため削除できません。無効化するか、評価レポートを踏まえたうえでご利用ください"
+    }
+  },
+  "recapTheme": {
+    "backToDashboard": "ダッシュボードへ戻る",
+    "bodyEmpty": "まだ本文はありません",
+    "renameLabel": "テーマ名",
+    "renameButton": "名前を変更",
+    "mergeLabel": "別のテーマへ統合（このテーマは削除され、報告と本文は統合先へ移ります）",
+    "mergePlaceholder": "統合先のテーマを選択",
+    "mergeButton": "統合する",
+    "mergeConfirm": "このテーマを統合先へまとめ、このテーマを削除します。よろしいですか？",
+    "rebuildButton": "再構築",
+    "rebuildConfirm": "紐付く報告の原文から本文を作り直します。AIを使うため時間がかかります。よろしいですか？",
+    "entriesTitle": "紐付く報告",
+    "entriesEmpty": "紐付く報告はありません",
+    "sourceKind": {
+      "DIARY": "資格試験の日記",
+      "READING": "読書の想起記録"
     }
   }
 }
