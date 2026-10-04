@@ -813,7 +813,8 @@
       "examResults": "受験結果",
       "retrospective": "総括レポート",
       "readingRetrospective": "読了レポート",
-      "workRetrospective": "月次報告・半期評価"
+      "workRetrospective": "月次報告・半期評価",
+      "recapThemes": "振り返りテーマ（テーマ別の累積本文）"
     },
     "anonymize": {
       "label": "匿名化する",

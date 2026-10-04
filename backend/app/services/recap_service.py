@@ -7,6 +7,7 @@
 
 import datetime as dt
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 
 from sqlalchemy import delete, func, or_, select
@@ -305,3 +306,39 @@ def _ensure_name_available(session: Session, theme: RecapTheme, name: str) -> No
     )
     if clash is not None:
         raise RecapThemeNameConflictError(name)
+
+
+def goal_themes_for_export(session: Session, goal: Goal) -> list[dict]:
+    """エクスポート用に、目標の全テーマ（本文・紐付く報告）を返す。
+
+    テーマ数に比例して問い合わせが増えないよう、テーマ・リンク・報告・本文を各1回で取得する。
+    """
+    themes = list(
+        session.scalars(
+            select(RecapTheme)
+            .where(RecapTheme.goal_id == goal.id)
+            .order_by(RecapTheme.updated_at.desc(), RecapTheme.id.desc())
+        ).all()
+    )
+    if not themes:
+        return []
+    rows = session.execute(
+        select(RecapThemeLink.theme_id, RecapEntry)
+        .join(RecapEntry, RecapEntry.id == RecapThemeLink.entry_id)
+        .where(RecapThemeLink.theme_id.in_([theme.id for theme in themes]))
+        .order_by(RecapEntry.record_date, RecapEntry.id)
+    ).all()
+    texts = {t.entry_id: t.text for t in entry_texts(session, [entry for _, entry in rows])}
+    entries_by_theme: dict[int, list[dict]] = defaultdict(list)
+    for theme_id, entry in rows:
+        entries_by_theme[theme_id].append(
+            {
+                "record_date": entry.record_date.isoformat(),
+                "source_kind": entry.source_kind.value,
+                "text": texts.get(entry.id, ""),
+            }
+        )
+    return [
+        {"name": theme.name, "body": theme.body, "entries": entries_by_theme[theme.id]}
+        for theme in themes
+    ]

@@ -162,10 +162,10 @@ def _next_body(
         scope_key=f"theme-{theme.id}",
     ).strip()
     if not response:
-        raise RecapBodyRejectedError(f"テーマ「{theme.name}」の本文が空でした")
+        raise RecapBodyRejectedError(f"empty theme body: {theme.name}")
     if current_body and len(response) < len(current_body) * retention:
         raise RecapBodyRejectedError(
-            f"テーマ「{theme.name}」の本文が既存より大幅に短くなったため採用しません"
+            f"theme body shrank below retention: {theme.name}"
         )
     return response
 
@@ -182,7 +182,7 @@ def _send(
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     built = prompt_builder.build_simple(template_body, variables, max_chars)
     if built.was_truncated:
-        raise RecapPromptTooLongError(f"{purpose}のプロンプトが上限を超えました")
+        raise RecapPromptTooLongError(f"prompt exceeds the limit: {purpose}")
     assistant_uid = setting_reader.get_str(session, _ASSISTANT_KEY_BY_CATEGORY[goal.category])
     conversation = ai_conversation.ensure_conversation(
         session,
