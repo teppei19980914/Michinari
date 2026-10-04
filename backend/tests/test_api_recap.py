@@ -190,3 +190,48 @@ def test_merge_takes_source_body_when_target_body_is_empty(seeded_session, clien
 
     assert response.status_code == 200, response.text
     assert response.json()["body"] == "SMTP"
+
+
+def test_rebuild_replaces_body_from_the_source_reports(seeded_session, client, monkeypatch):
+    from tests.recap_helpers import _all_ids_to, _stub_ai
+
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール関連", "古い本文", [dt.date(2026, 3, 9)])
+    _stub_ai(monkeypatch, classify=_all_ids_to("x"), body=lambda m: "・再構築した本文")
+
+    response = client.post(f"/api/v1/recap-themes/{theme.id}/rebuild")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["body"] == "・再構築した本文"
+
+
+def test_rebuild_keeps_existing_body_when_ai_returns_nothing(seeded_session, client, monkeypatch):
+    from tests.recap_helpers import _all_ids_to, _stub_ai
+
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール関連", "古い本文", [dt.date(2026, 3, 9)])
+    _stub_ai(monkeypatch, classify=_all_ids_to("x"), body=lambda m: "  ")
+
+    response = client.post(f"/api/v1/recap-themes/{theme.id}/rebuild")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "RECAP_BODY_REJECTED"
+    assert client.get(f"/api/v1/recap-themes/{theme.id}").json()["body"] == "古い本文"
+
+
+def test_rebuild_without_reports_leaves_the_body_unchanged(seeded_session, client):
+    from app.models.recap import RecapTheme
+
+    goal = make_exam_goal(seeded_session)
+    theme = RecapTheme(goal_id=goal.id, name="空のテーマ", body="本文")
+    seeded_session.add(theme)
+    seeded_session.commit()
+
+    response = client.post(f"/api/v1/recap-themes/{theme.id}/rebuild")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["body"] == "本文"
+
+
+def test_rebuild_unknown_theme_returns_404(client):
+    assert client.post("/api/v1/recap-themes/999999/rebuild").status_code == 404

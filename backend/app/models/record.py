@@ -320,9 +320,7 @@ def diary_text_expr() -> ColumnElement[str]:
     資格試験の日記は学んだこと（diary_learned）が主で、旧仕様の本文（diary_body）は未入力の
     旧データだけに残るため、この優先順位を前回ヒント・振り返りの両方で共通に使う。
     """
-    return func.coalesce(
-        func.nullif(DailyGoalDiary.diary_learned, ""), DailyGoalDiary.diary_body
-    )
+    return func.coalesce(func.nullif(DailyGoalDiary.diary_learned, ""), DailyGoalDiary.diary_body)
 
 
 class WeeklySummary(Base):

@@ -28,6 +28,8 @@ from app.services.exceptions import (
     MaterialRequiredError,
     NotFoundError,
     PlannedCyclesBelowCompletedError,
+    RecapBodyRejectedError,
+    RecapPromptTooLongError,
     RecapThemeNameConflictError,
     ResourceAllocationExceededError,
     ResourceAllocationRequiredError,
@@ -69,6 +71,8 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     CloseConfirmationRequiredError: (status.HTTP_409_CONFLICT, "CLOSE_CONFIRMATION_REQUIRED"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
     RecapThemeNameConflictError: (status.HTTP_409_CONFLICT, "RECAP_THEME_NAME_CONFLICT"),
+    RecapBodyRejectedError: (status.HTTP_409_CONFLICT, "RECAP_BODY_REJECTED"),
+    RecapPromptTooLongError: (status.HTTP_409_CONFLICT, "RECAP_PROMPT_TOO_LONG"),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
     # AI連携（ロジック・プロンプト編16.6の対応表）。

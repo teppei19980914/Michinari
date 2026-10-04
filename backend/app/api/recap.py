@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.goal import Goal
 from app.schemas.recap import (
     RecapThemeDetailRead,
     RecapThemeEntryRead,
@@ -14,7 +15,7 @@ from app.schemas.recap import (
     RecapThemeRename,
     RecapThemeSummaryRead,
 )
-from app.services import goal_service, recap_service
+from app.services import goal_service, recap_generation_service, recap_service
 
 router = APIRouter(tags=["recap"])
 
@@ -66,3 +67,12 @@ def merge_recap_theme(theme_id: int, payload: RecapThemeMerge, session: Session 
     merged = recap_service.merge_themes(session, source, target)
     session.commit()
     return _detail(session, merged)
+
+
+@router.post("/recap-themes/{theme_id}/rebuild", response_model=RecapThemeDetailRead)
+def rebuild_recap_theme(theme_id: int, session: Session = Depends(get_db)):
+    theme = recap_service.get_theme(session, theme_id)
+    goal = session.get(Goal, theme.goal_id)
+    recap_generation_service.rebuild_theme(session, goal, theme)
+    session.commit()
+    return _detail(session, theme)

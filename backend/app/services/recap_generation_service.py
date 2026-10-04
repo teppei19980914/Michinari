@@ -41,7 +41,6 @@ _ASSISTANT_KEY_BY_CATEGORY = {
 }
 
 
-
 def run_for_goal(session: Session, goal: Goal, today: dt.date) -> int:
     """目標1件について、未分類の報告を分類し、影響を受けたテーマの本文を更新する。
 
@@ -108,29 +107,67 @@ def _update_touched_themes(
     themes = session.scalars(
         select(RecapTheme).where(RecapTheme.goal_id == goal.id, RecapTheme.name.in_(items_by_name))
     ).all()
+    for theme in themes:
+        _merge_into_body(session, goal, theme, items_by_name[theme.name])
+
+
+def rebuild_theme(session: Session, goal: Goal, theme: RecapTheme) -> None:
+    """テーマの本文を、紐付く報告の原文から作り直す（利用者の「再構築」操作）。
+
+    既存の本文は、全チャンクの統合が成功した後にだけ置き換える。途中で採用されない応答が
+    あれば例外で中止し、本文は変更されない。報告が1件も無い場合は何もしない。
+    """
+    texts = [
+        t
+        for t in recap_service.entry_texts(session, recap_service.theme_entry_rows(session, theme))
+        if t.text.strip()
+    ]
+    if not texts:
+        return
+    budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
+    body = ""
+    for chunk in _chunk_by_chars(texts, budget):
+        body = _next_body(session, goal, theme, body, chunk)
+    theme.body = body
+
+
+def _merge_into_body(
+    session: Session,
+    goal: Goal,
+    theme: RecapTheme,
+    new_items: list[recap_service.EntryText],
+) -> None:
+    theme.body = _next_body(session, goal, theme, theme.body, new_items)
+
+
+def _next_body(
+    session: Session,
+    goal: Goal,
+    theme: RecapTheme,
+    current_body: str,
+    new_items: list[recap_service.EntryText],
+) -> str:
     body_max = setting_reader.get_int(session, RECAP_BODY_MAX_CHARS)
     retention = setting_reader.get_float(session, RECAP_MIN_RETENTION_RATIO)
-    for theme in themes:
-        new_items = items_by_name[theme.name]
-        response = _send(
-            session,
-            goal,
-            AiPurpose.RECAP_THEME_BODY,
-            {
-                "theme_name": theme.name,
-                "current_body": theme.body or RECAP_BODY_EMPTY_PLACEHOLDER,
-                "new_entries": "\n".join(f"（{t.record_date}）{t.text}" for t in new_items),
-                "body_max_chars": str(body_max),
-            },
-            scope_key=f"theme-{theme.id}",
-        ).strip()
-        if not response:
-            raise RecapBodyRejectedError(f"テーマ「{theme.name}」の本文が空でした")
-        if theme.body and len(response) < len(theme.body) * retention:
-            raise RecapBodyRejectedError(
-                f"テーマ「{theme.name}」の本文が既存より大幅に短くなったため採用しません"
-            )
-        theme.body = response
+    response = _send(
+        session,
+        goal,
+        AiPurpose.RECAP_THEME_BODY,
+        {
+            "theme_name": theme.name,
+            "current_body": current_body or RECAP_BODY_EMPTY_PLACEHOLDER,
+            "new_entries": "\n".join(f"（{t.record_date}）{t.text}" for t in new_items),
+            "body_max_chars": str(body_max),
+        },
+        scope_key=f"theme-{theme.id}",
+    ).strip()
+    if not response:
+        raise RecapBodyRejectedError(f"テーマ「{theme.name}」の本文が空でした")
+    if current_body and len(response) < len(current_body) * retention:
+        raise RecapBodyRejectedError(
+            f"テーマ「{theme.name}」の本文が既存より大幅に短くなったため採用しません"
+        )
+    return response
 
 
 def _send(
