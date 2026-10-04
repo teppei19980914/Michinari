@@ -78,6 +78,11 @@ from app.constants.export_markdown import (
     EXPORT_TABLE_HEAD_READING_RECALLS,
     EXPORT_TABLE_HEAD_REPLAN,
     EXPORT_TABLE_HEAD_WORK_LOGS,
+    EXPORT_UNIT_CYCLE,
+    EXPORT_UNIT_DAYS,
+    EXPORT_UNIT_HOURS,
+    EXPORT_UNIT_MINUTES_PER_DAY,
+    EXPORT_UNIT_POINTS,
 )
 from app.models.book import Book
 from app.models.goal import Goal
@@ -184,7 +189,7 @@ def _format_passing_score(subject_data: dict) -> str:
         subject_data["passing_score_type"] == PassingScoreType.RAW_SCORE
         and subject_data["passing_score_max"]
     ):
-        return f"{passing_score:g}/{subject_data['passing_score_max']:g}点"
+        return f"{passing_score:g}/{subject_data['passing_score_max']:g}{EXPORT_UNIT_POINTS}"
     return f"{passing_score:g}%"
 
 
@@ -679,8 +684,8 @@ def _render_reading_markdown(data: dict) -> str:
         s = data["summary"]
         sections.append(
             f"{EXPORT_HEADING_RECORD_VOLUME}\n\n"
-            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}日\n"
-            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}日"
+            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}{EXPORT_UNIT_DAYS}\n"
+            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}{EXPORT_UNIT_DAYS}"
         )
 
     if "daily_records" in data:
@@ -729,8 +734,8 @@ def _render_work_markdown(data: dict) -> str:
         s = data["summary"]
         sections.append(
             f"{EXPORT_HEADING_RECORD_VOLUME}\n\n"
-            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}日\n"
-            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}日"
+            f"{EXPORT_LABEL_RECORD_DAYS}{s['record_days']}{EXPORT_UNIT_DAYS}\n"
+            f"{EXPORT_LABEL_MAX_STREAK}{s['max_streak_days']}{EXPORT_UNIT_DAYS}"
         )
 
     if "daily_records" in data:
@@ -781,10 +786,10 @@ def render_markdown(
         s = data["summary"]
         sections.append(
             f"{EXPORT_HEADING_STUDY_VOLUME}\n\n"
-            f"{EXPORT_LABEL_TOTAL_TIME}{s['total_minutes'] / 60:.1f}時間\n"
-            f"{EXPORT_LABEL_STUDY_DAYS}{s['study_days']}日\n"
+            f"{EXPORT_LABEL_TOTAL_TIME}{s['total_minutes'] / 60:.1f}{EXPORT_UNIT_HOURS}\n"
+            f"{EXPORT_LABEL_STUDY_DAYS}{s['study_days']}{EXPORT_UNIT_DAYS}\n"
             f"{EXPORT_LABEL_REPORT_RATE}{s['report_rate']:.0%}\n"
-            f"{EXPORT_LABEL_AVERAGE_TIME}{s['average_minutes_per_day']:.1f}分/日"
+            f"{EXPORT_LABEL_AVERAGE_TIME}{s['average_minutes_per_day']:.1f}{EXPORT_UNIT_MINUTES_PER_DAY}"
         )
 
     if "materials" in data:
@@ -803,7 +808,7 @@ def render_markdown(
         lines = []
         for entry in data["quality_trend"]:
             points = "、".join(f"{p['date']}: {p['value']:.1f}" for p in entry["series"])
-            lines.append(f"- {entry['material']} {entry['cycle']}周目: {points}")
+            lines.append(f"- {entry['material']} {entry['cycle']}{EXPORT_UNIT_CYCLE}: {points}")
         sections.append(
             f"{EXPORT_HEADING_QUALITY_TREND}\n\n"
             + ("\n".join(lines) or EXPORT_PLACEHOLDER_NO_RECORDS)
