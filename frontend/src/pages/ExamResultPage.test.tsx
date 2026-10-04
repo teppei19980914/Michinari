@@ -32,6 +32,17 @@ vi.mock('../api/closure', () => ({
 }))
 
 const navigate = vi.hoisted(() => vi.fn())
+// クローズ確認モーダルの中身は CloseGoalModal のテストが担う。ここでは「クローズが完了した」
+// 通知（onClosed）だけを発火できるよう最小限に差し替える。
+vi.mock('../features/goal/CloseGoalModal', () => ({
+  CloseGoalModal: ({ open, onClosed }: { open: boolean; onClosed: () => void }) =>
+    open ? (
+      <button type="button" onClick={onClosed}>
+        mock-closed
+      </button>
+    ) : null,
+}))
+
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useParams: () => ({ goalId: String(GOAL_ID) }),
@@ -278,5 +289,21 @@ describe('ExamResultPage のクローズ', () => {
     await user.click(screen.getByRole('button', { name: t('goals.detail.action.close') }))
     // クローズ確認モーダルが開くことだけを見る（確認の中身は CloseGoalModal のテストが担う）。
     expect(container.textContent).toContain(t('goals.detail.action.close'))
+  })
+
+  it('tells the user when the retrospective could not be generated after closing', async () => {
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(makeGoalDetail({ exam_subjects: [makeSubjectWithResult()] }))
+    generateRetrospective.mockRejectedValue(new ApiError('AI_TIMEOUT', 'timeout'))
+    renderPage()
+    await screen.findByText(SUBJECT_NAME)
+
+    await user.click(screen.getByRole('button', { name: t('goals.detail.action.close') }))
+    await user.click(screen.getByRole('button', { name: 'mock-closed' }))
+
+    expect(
+      await screen.findByText(t('knowledgeExport.retrospective.autoGenerateFailedTitle')),
+    ).toBeTruthy()
+    expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID))
   })
 })

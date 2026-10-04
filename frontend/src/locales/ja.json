@@ -784,7 +784,9 @@
       "readingEmpty": "読了レポートは未生成です",
       "generateButton": "生成する",
       "regenerateButton": "再生成する",
-      "generating": "生成しています…（数十秒かかる場合があります）"
+      "generating": "生成しています…（数十秒かかる場合があります）",
+      "autoGenerateFailedTitle": "総括レポートを自動で生成できませんでした",
+      "readingAutoGenerateFailedTitle": "読了レポートを自動で生成できませんでした"
     },
     "summary": {
       "title": "学習サマリ",

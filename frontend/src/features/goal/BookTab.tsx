@@ -189,6 +189,7 @@ function BookProgress({ book }: { book: BookRead }) {
  * 資格試験の試験科目・教材タブに相当する読書版で、1目標1冊のため単一のカードで
  * 登録・編集・進捗表示・読了操作を行う。 */
 export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: boolean }) {
+  const { showApiErrorWithTitle } = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
@@ -252,7 +253,9 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
           // 読了レポートの生成はクローズ処理の成否に影響させない（ExamResultPageのCloseGoalModal
           // と同じ方針。仕様書6.9・実装フェーズ分割計画書Phase10注意点）。失敗時もエクスポート
           // 画面へは遷移し、同画面の生成ボタンから再試行できる。
-          generateRetrospective(goal.id, false).catch(() => undefined)
+          generateRetrospective(goal.id, false).catch((error) =>
+            showApiErrorWithTitle(t('knowledgeExport.retrospective.readingAutoGenerateFailedTitle'), error),
+          )
           queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goal(goal.id) })
           setCompleteModalOpen(false)
           navigate(ROUTES.goalExport(goal.id))
