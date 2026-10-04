@@ -949,8 +949,9 @@ def execute_export(
             finally:
                 export_progress.finish(goal.id)
         else:
-            # 総括・読了レポートは完了した目標のみ持つ（retrospective_service）。完了していない目標では
-            # 匿名化版のAI再生成を行わず、週次要約の匿名化だけを行う（利用者方針2026-10-04）。
+            # 総括・読了レポートは完了した目標のみ持つ（retrospective_service）。
+            # 完了していない目標では匿名化版のAI再生成を行わず、週次要約の匿名化だけを行う
+            # （利用者方針2026-10-04）。
             has_completed_report = goal.status == GoalStatus.CLOSED_WITH_RESULT
             total = weekly_summary_service.count_pending_anonymization_weeks(session, goal) + (
                 1 if has_completed_report else 0
