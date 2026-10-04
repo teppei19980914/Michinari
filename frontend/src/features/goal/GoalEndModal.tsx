@@ -32,7 +32,7 @@ export function GoalEndModal({
   onDone: () => void
 }) {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiErrorWithTitle } = useToast()
 
   const mutation = useMutation({
     mutationFn: () => (kind === 'complete' ? completeGoal(goalId) : abandonGoal(goalId)),
@@ -42,7 +42,9 @@ export function GoalEndModal({
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       onDone()
     },
-    onError: showApiError,
+    // 見出しは確認画面のタイトルと同じ（状態変更の失敗は操作名を見出しにする）。
+    onError: (error) =>
+      showApiErrorWithTitle(t(`goals.end.${kind}.${category}.title`), error),
   })
 
   return (
