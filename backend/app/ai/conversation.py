@@ -49,6 +49,11 @@ def ensure_conversation(
 
     既存の場合はAI基盤への問い合わせを行わない（会話識別子の取得はローカル保存値を用いる、
     16.1「一覧取得APIを毎回呼ばない」）。
+
+    新規作成時は、AI応答を待つ前に会話行をコミットする。AI基盤との通信中に書き込み
+    トランザクションを保持すると、SQLiteの書き込みロックを他の生成処理（月次報告・起動時
+    バッチ等）が取れず「database is locked」で失敗するため（CODING_RULES.md「AI通信と
+    トランザクション」）。呼び出し元は、この時点で未確定の業務書き込みを残さないこと。
     """
     existing = _find_existing(session, goal=goal, scope=scope, scope_key=scope_key)
     if existing is not None:
@@ -72,5 +77,5 @@ def ensure_conversation(
         last_parent_order=0,
     )
     session.add(conversation)
-    session.flush()
+    session.commit()
     return conversation

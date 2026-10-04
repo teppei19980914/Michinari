@@ -90,7 +90,9 @@ def test_shorter_body_is_rejected_and_unregistered_entries_are_retried(seeded_se
 
     theme = seeded_session.scalar(select(RecapTheme).where(RecapTheme.goal_id == goal.id))
     assert theme.body == long_body
-    assert seeded_session.query(RecapEntry).count() == 1
+    # 報告の登録（未分類の状態）はAI呼び出し前に確定しており残る。分類と本文統合は取り消される
+    assert seeded_session.query(RecapEntry).count() == 2
+    assert seeded_session.query(RecapEntry).filter(RecapEntry.classified_at.is_(None)).count() == 1
 
     _stub_ai(monkeypatch, classify=_all_ids_to("メール関連"), body=lambda m: long_body + "\n・SPF")
     assert recap_generation_service.run_for_goal(seeded_session, goal, TODAY) == 1
