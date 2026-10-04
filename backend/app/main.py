@@ -33,6 +33,7 @@ from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
 from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
+from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
@@ -226,6 +227,7 @@ def create_app() -> FastAPI:
     app.include_router(materials_router, prefix=API_V1_PREFIX)
     app.include_router(work_members_router, prefix=API_V1_PREFIX)
     app.include_router(books_router, prefix=API_V1_PREFIX)
+    app.include_router(recap_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
