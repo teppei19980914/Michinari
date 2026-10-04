@@ -28,7 +28,7 @@ import { QUERY_KEYS, type WorkReportKind } from '../../constants/queryKeys'
  */
 export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkReportKind }) {
   const queryClient = useQueryClient()
-  const { showApiError, showToast } = useToast()
+  const { showApiErrorWithTitle, showToast } = useToast()
   const aiConfigured = useAiConfigured()
   const [period, setPeriod] = useState('')
 
@@ -49,7 +49,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
       draft.applyReport(generated)
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
     },
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t(config.generateFailedTitleKey), error),
   })
 
   const saveMutation = useMutation({
@@ -74,7 +74,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.workReport(kind, goalId) })
       showToast(t('common.saveSucceeded'))
     },
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t(config.saveFailedTitleKey), error),
   })
 
   const handleDownload = () => {

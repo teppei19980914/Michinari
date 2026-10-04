@@ -110,6 +110,7 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
 
 /** SC-10 受験結果登録（仕様書6.9）。 */
 export function ExamResultPage() {
+  const { showApiErrorWithTitle } = useToast()
   const { goalId: goalIdParam } = useParams<{ goalId: string }>()
   const goalId = Number(goalIdParam)
   const navigate = useNavigate()
@@ -161,7 +162,9 @@ export function ExamResultPage() {
           // 総括レポートの生成はクローズ処理の成否に影響させない（仕様書6.9・実装フェーズ
           // 分割計画書Phase10注意点「非同期で実行し、失敗しても後から再生成できるようにする」）。
           // 失敗時もSC-13へは遷移し、同画面の生成ボタンから再試行できる。
-          generateRetrospective(goal.id, false).catch(() => undefined)
+          generateRetrospective(goal.id, false).catch((error) =>
+            showApiErrorWithTitle(t('knowledgeExport.retrospective.autoGenerateFailedTitle'), error),
+          )
           navigate(ROUTES.goalExport(goal.id))
         }}
       />

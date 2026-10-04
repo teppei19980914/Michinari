@@ -278,5 +278,8 @@ describe('BookTab の読了', () => {
     await user.click(confirmButton())
 
     await waitFor(() => expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID)))
+    expect(
+      await screen.findByText(t('knowledgeExport.retrospective.readingAutoGenerateFailedTitle')),
+    ).toBeTruthy()
   })
 })

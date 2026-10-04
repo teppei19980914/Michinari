@@ -10,6 +10,7 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
 
 from app.ai.exceptions import AiAuthRequiredError, AiConfigError, AiError, AiTimeoutError
 from app.services.exceptions import (
@@ -83,11 +84,25 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
 }
 _FALLBACK = (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
 
+#: SQLiteの書き込みロック待ちタイムアウト（sqlite3.OperationalErrorのメッセージに含まれる文字列）。
+_DATABASE_LOCKED_MARKER = "database is locked"
+#: DBが他の処理に使用中の場合の（ステータス, コード）。再試行で解消しうるため503とする。
+_DATABASE_BUSY = (status.HTTP_503_SERVICE_UNAVAILABLE, "DATABASE_BUSY")
+_DATABASE_BUSY_MESSAGE = "データベースが他の処理に使用中です"
+
 _logger = logging.getLogger(__name__)
 
 
 def _error_body(code: str, message: str, details: list | None = None) -> dict:
     return {"error": {"code": code, "message": message, "details": details or []}}
+
+
+def _internal_error_response() -> JSONResponse:
+    """想定外の内部エラーの応答（未分類の例外・想定外のDB例外で共用する、CLAUDE.md DRYの原則）。"""
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content=_error_body("INTERNAL_ERROR", "予期しないエラーが発生しました"),
+    )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
@@ -127,6 +142,28 @@ def register_exception_handlers(app: FastAPI) -> None:
             content=_error_body("VALIDATION_ERROR", "入力値が不正です", details),
         )
 
+    @app.exception_handler(OperationalError)
+    async def handle_database_operational_error(
+        _request: Request, exc: OperationalError
+    ) -> JSONResponse:
+        """DBの書き込みロック待ちタイムアウト（SQLite「database is locked」）を専用コードで返す。
+
+        AI生成や起動時の自動処理が書き込みロックを握っている間に保存すると発生する。想定外の
+        バグと区別し、利用者には「少し待って再試行する」案内を出せるようにする（2026-10-04の
+        障害で、汎用の「予期しないエラー」表示では原因も対処も伝わらなかった）。
+        それ以外のDB例外は従来どおりINTERNAL_ERRORとして扱う。
+        """
+        if _DATABASE_LOCKED_MARKER not in str(exc.orig):
+            _logger.exception("未分類のデータベース例外を捕捉しました")
+            return _internal_error_response()
+        _logger.warning(
+            "データベースが他の処理に使用中のため応答できませんでした（書き込みロック待ち）"
+        )
+        status_code, code = _DATABASE_BUSY
+        return JSONResponse(
+            status_code=status_code, content=_error_body(code, _DATABASE_BUSY_MESSAGE)
+        )
+
     @app.exception_handler(Exception)
     async def handle_unexpected_error(_request: Request, exc: Exception) -> JSONResponse:
         """DomainError/RequestValidationError以外の未分類の例外を拾う最終防波堤。
@@ -137,7 +174,4 @@ def register_exception_handlers(app: FastAPI) -> None:
         表示改善の一環で発見）。スタックトレースはログにのみ残し、利用者へは返さない。
         """
         _logger.exception("未分類の例外を捕捉しました")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=_error_body("INTERNAL_ERROR", "予期しないエラーが発生しました"),
-        )
+        return _internal_error_response()

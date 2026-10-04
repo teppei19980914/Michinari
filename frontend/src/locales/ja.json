@@ -355,6 +355,10 @@
       "generateButton": "ドラフトを生成",
       "regenerateButton": "再生成",
       "empty": "まだ生成されていません",
+      "generateFailedTitleMonthly": "月次報告を生成できませんでした",
+      "generateFailedTitleSemiannual": "半期評価を生成できませんでした",
+      "saveFailedTitleMonthly": "月次報告を保存できませんでした",
+      "saveFailedTitleSemiannual": "半期評価を保存できませんでした",
       "targetGoalTextLabel": "この期間の目標",
       "businessSummaryLabel": "業務内容（案件内容）",
       "achievementScoreLabel": "目標がどの程度達成されたか",
@@ -780,7 +784,9 @@
       "readingEmpty": "読了レポートは未生成です",
       "generateButton": "生成する",
       "regenerateButton": "再生成する",
-      "generating": "生成しています…（数十秒かかる場合があります）"
+      "generating": "生成しています…（数十秒かかる場合があります）",
+      "autoGenerateFailedTitle": "総括レポートを自動で生成できませんでした",
+      "readingAutoGenerateFailedTitle": "読了レポートを自動で生成できませんでした"
     },
     "summary": {
       "title": "学習サマリ",
@@ -1295,7 +1301,8 @@
     "AI_CONFIG_ERROR": "AIの接続設定が正しくありません。設定画面を確認してください",
     "AI_TIMEOUT": "AIからの返事が時間内に届きませんでした。もう一度送ってみてください",
     "AI_ERROR": "AIとの通信でエラーが起きました。少し待ってからもう一度お試しください",
-    "INTERNAL_ERROR": "アプリ内部で予期しないエラーが起きました。しばらく待ってから、もう一度お試しください",
+    "DATABASE_BUSY": "ほかの処理がデータを使用中のため、保存・生成できませんでした。1〜2分ほど待ってから、もう一度お試しください",
+    "INTERNAL_ERROR": "想定外の問題が起きたため、処理を完了できませんでした。少し待ってからもう一度お試しください（同じ表示が続く場合は「詳細」の番号を控えて連絡してください）",
     "NETWORK_ERROR": "アプリ本体との通信ができませんでした。アプリを再起動してみてください",
     "default": "エラーが発生しました。しばらく待ってから、もう一度お試しください",
     "reasons": {

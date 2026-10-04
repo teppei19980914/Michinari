@@ -258,12 +258,20 @@ def test_export_includes_recap_themes_unless_anonymized(seeded_session):
     )
 
     included = export_service.build_export_data(
-        seeded_session, goal, selection, today=dt.date(2026, 3, 20),
-        treat_holiday_as_buffer=True, anonymized=False,
+        seeded_session,
+        goal,
+        selection,
+        today=dt.date(2026, 3, 20),
+        treat_holiday_as_buffer=True,
+        anonymized=False,
     )
     anonymized = export_service.build_export_data(
-        seeded_session, goal, selection, today=dt.date(2026, 3, 20),
-        treat_holiday_as_buffer=True, anonymized=True,
+        seeded_session,
+        goal,
+        selection,
+        today=dt.date(2026, 3, 20),
+        treat_holiday_as_buffer=True,
+        anonymized=True,
     )
 
     assert included["recap_themes"][0]["name"] == "メール関連"
@@ -276,9 +284,16 @@ def test_markdown_renders_recap_theme_bodies_or_no_record_message(seeded_session
     goal = make_exam_goal(seeded_session)
     _seed_export_themes(seeded_session, goal)
     selection = export_service.ExportSelection(
-        goal_overview=False, materials=False, summary=False, daily_records=False,
-        quality_trend=False, replan_history=False, weekly_summaries=False,
-        recap_themes=True, exam_results=False, retrospective=False,
+        goal_overview=False,
+        materials=False,
+        summary=False,
+        daily_records=False,
+        quality_trend=False,
+        replan_history=False,
+        weekly_summaries=False,
+        recap_themes=True,
+        exam_results=False,
+        retrospective=False,
     )
     data = {"recap_themes": recap_service.goal_themes_for_export(seeded_session, goal)}
 
