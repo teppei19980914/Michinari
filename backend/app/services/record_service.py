@@ -15,6 +15,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session, joinedload
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.constants.enums import DayType, GoalCategory, GoalStatus, QualityMetricType, RecordState
+from app.constants.goal_transitions import GoalOperation
 from app.models.base import utcnow
 from app.models.book import Book
 from app.models.goal import Goal
@@ -239,6 +240,8 @@ def _apply_study_logs(
     session: Session, daily_record: DailyRecord, items: list[StudyLogItem]
 ) -> None:
     materials = _load_materials(session, {item.material_id for item in items})
+    for material in materials.values():
+        goal_service.ensure_operation_allowed(material.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_study_log(session, daily_record, materials[item.material_id], item)
 
@@ -314,6 +317,8 @@ def _apply_reading_logs(
     session: Session, daily_record: DailyRecord, items: list[ReadingLogItem]
 ) -> None:
     books = _load_books(session, {item.book_id for item in items})
+    for book in books.values():
+        goal_service.ensure_operation_allowed(book.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_reading_log(session, daily_record, books[item.book_id], item)
 
@@ -363,6 +368,8 @@ def _upsert_work_log(
 
 def _apply_work_logs(session: Session, daily_record: DailyRecord, items: list[WorkLogItem]) -> None:
     work_assignments = _load_work_assignments(session, {item.work_assignment_id for item in items})
+    for work_assignment in work_assignments.values():
+        goal_service.ensure_operation_allowed(work_assignment.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_work_log(session, daily_record, work_assignments[item.work_assignment_id], item)
 
@@ -409,6 +416,8 @@ def _apply_diary_entries(
     session: Session, daily_record: DailyRecord, items: list[DiaryEntryItem]
 ) -> None:
     goals = _load_goals(session, {item.goal_id for item in items})
+    for goal in goals.values():
+        goal_service.ensure_operation_allowed(goal, GoalOperation.RECORD)
     for item in items:
         _upsert_diary_entry(session, daily_record, goals[item.goal_id], item)
 
@@ -700,6 +709,7 @@ def get_comment(session: Session, comment_id: int) -> RecordComment:
 
 def add_comment(session: Session, target_date: dt.date, body: str) -> RecordComment:
     """コメントを追加する。コメント対象の日次記録が存在しない場合はNOT_FOUNDとする。"""
+    goal_service.ensure_any_goal_active(session)
     record = get_daily_record(session, target_date)
     if record is None:
         raise NotFoundError("日次記録", target_date)
@@ -710,12 +720,14 @@ def add_comment(session: Session, target_date: dt.date, body: str) -> RecordComm
 
 
 def update_comment(session: Session, comment: RecordComment, body: str) -> RecordComment:
+    goal_service.ensure_any_goal_active(session)
     comment.body = body
     session.flush()
     return comment
 
 
 def delete_comment(session: Session, comment: RecordComment) -> None:
+    goal_service.ensure_any_goal_active(session)
     session.delete(comment)
     session.flush()
 

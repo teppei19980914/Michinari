@@ -198,69 +198,36 @@ def test_activate_work_goal_succeeds(client):
     assert response.json()["status"] == "ACTIVE"
 
 
-def test_close_work_goal_with_result_true(client):
-    """要件定義書R-72：仕事目標は with_result=True で CLOSED_WITH_RESULT（成果を伴う終了）。"""
+def test_complete_work_goal_is_completed(client):
+    """仕事目標の完了は完了API（CLOSED_WITH_RESULT、成果を伴う終了。要件定義書R-72）。"""
     goal = _make_activatable_work_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
     assert response.json()["closed_at"] is not None
-    # 仕事はwith_result=True自体が成果を伴う終了＝達成を意味する（仕様書v1.1 13.6、S-12）。
+    # 仕事は完了（成果を伴う終了）自体が達成を意味する（仕様書v1.1 13.6、S-12）。
     assert response.json()["is_achieved"] is True
 
 
-def test_close_work_goal_without_with_result_is_without_result(client):
-    """with_result省略時（既定False）は CLOSED_WITHOUT_RESULT（中止・打ち切り）。"""
+def test_abandon_work_goal_is_without_result(client):
+    """仕事目標の中止は中断API（CLOSED_WITHOUT_RESULT、表示名は中止・打ち切り。開発Todo 1-2）。"""
     goal = _make_activatable_work_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    response = client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITHOUT_RESULT"
     assert response.json()["is_achieved"] is False
 
 
-def test_close_exam_goal_with_result_true_is_rejected(client):
-    """with_resultは仕事目標専用。EXAM/READINGでTrue指定するとVALIDATION_ERROR。"""
-    goal = _create_exam_goal(client)
-    subject = client.post(
-        f"/api/v1/goals/{goal['id']}/subjects",
-        json={
-            "name": "科目A",
-            "exam_date_type": "RANGE",
-            "exam_date_from": "2026-06-01",
-            "exam_date_to": "2026-06-10",
-        },
-    ).json()
-    client.post(
-        f"/api/v1/goals/{goal['id']}/materials",
-        json={
-            "name": "教材A",
-            "unit_label": "ページ",
-            "total_amount": 100,
-            "planned_cycles": 1,
-            "subject_ids": [subject["id"]],
-            "start_date": "2026-01-01",
-            "due_date_is_manual": False,
-        },
-    )
-    api_allocation_helpers.allocate(client, goal["id"])
-    client.post(f"/api/v1/goals/{goal['id']}/activate")
-
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
-
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-
-
 def test_update_work_assignment_on_closed_goal_is_rejected(client):
     goal = _make_activatable_work_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     response = client.patch(
         f"/api/v1/goals/{goal['id']}/work-assignment", json={"expected_content": "更新後"}

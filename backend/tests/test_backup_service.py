@@ -242,6 +242,7 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
             "activated_at": None,
             "closed_at": None,
             "archived_at": None,
+            "resumed_at": None,
             "created_at": "2026-01-01T00:00:00",
             "updated_at": "2026-01-01T00:00:00",
         }
@@ -301,6 +302,22 @@ def test_import_all_data_creates_safety_backup(full_schema_db):
 def test_import_all_data_rejects_missing_tables_key(full_schema_db):
     with pytest.raises(ValidationError):
         backup_service.import_all_data({"schema_version": "0.0"})
+
+
+def test_import_accepts_previous_schema_version_1_1(full_schema_db):
+    """1.1で書き出したバックアップは取り込める（追加された列・テーブルは既定値で補われる）。"""
+    _insert_minimal_goal(full_schema_db)
+    data = backup_service.export_all_data()
+    data["schema_version"] = "1.1"
+    data["tables"].pop("goal_status_history", None)
+    for row in data["tables"]["goal"]:
+        row.pop("resumed_at", None)
+
+    backup_service.import_all_data(data)
+
+    restored = backup_service.export_all_data()
+    assert restored["tables"]["goal"][0]["name"] == "マーカー"
+    assert restored["tables"]["goal_status_history"] == []
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

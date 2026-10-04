@@ -1,9 +1,8 @@
 """総括レポート（GOAL_RETROSPECTIVE）の生成（設計書 ロジック・プロンプト編17.5、
 データ構造編5.4、実装フェーズ分割計画書Phase10）。
 
-goal_service.close_goalのdocstring通り、総括レポートの生成はクローズ処理の成否に
-影響させない別責務とする（クローズはgoal_service、生成は本サービスがAPI層から別々に
-呼ばれる。仕様書6.9「クローズ実行後、総括レポートの生成を開始し」）。
+総括レポートの生成は完了（クローズ）処理の成否に影響させない別責務とする（完了はgoal_service、
+生成は本サービスがAPI層から別々に呼ばれる。仕様書6.9「完了実行後、総括レポートの生成を開始し」）。
 """
 
 import datetime as dt
@@ -17,11 +16,17 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
 )
-from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, RetrospectivePeriodType
+from app.constants.enums import (
+    AiPurpose,
+    ConversationScope,
+    GoalCategory,
+    GoalStatus,
+    RetrospectivePeriodType,
+)
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
 from app.services import ai_context_service, goal_service, setting_reader
-from app.services.exceptions import ValidationError
+from app.services.exceptions import InvalidStateTransitionError, ValidationError
 
 #: ai_conversation.scope_key はGOAL_RETROSPECTIVEでは固定値"main"とする
 #: （データ構造編5.5「scope_keyの値」表）。匿名化版・通常版は同一会話内の別送信として扱う
@@ -153,6 +158,10 @@ def generate_retrospective(
             "仕事目標には総括レポートを生成できません（月次報告・半期評価を使用してください）"
         )
     if goal.category == GoalCategory.READING:
+        # 読了レポートは読了（完了）の状態でのみ生成する（開発Todo 不具合B・1-8）。
+        # 中断・実行中の読書には、読了を前提とした読了レポートを作らない。
+        if goal.status != GoalStatus.CLOSED_WITH_RESULT:
+            raise InvalidStateTransitionError("読了した読書目標のみ読了レポートを生成できます")
         purpose = AiPurpose.GOAL_RETROSPECTIVE_READING
         scope = ConversationScope.GOAL_RETROSPECTIVE_READING
         assistant_uid_key = AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING

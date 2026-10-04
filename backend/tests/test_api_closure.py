@@ -95,7 +95,7 @@ def test_register_exam_result_twice_is_rejected(client):
 
 def test_register_exam_result_on_closed_goal_is_rejected(client):
     goal, subject = _make_active_goal_with_subject(client)
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     response = client.post(
         f"/api/v1/subjects/{subject['id']}/result",
@@ -156,7 +156,7 @@ def test_all_results_registered_allows_close_with_result(client):
         json={"taken_date": "2026-06-05", "result": "PASS"},
     )
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 200
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
@@ -273,7 +273,8 @@ def _make_reading_goal_with_book(client):
 
 
 def test_generate_retrospective_on_reading_goal_without_book_is_rejected(client, monkeypatch):
-    """読了レポートには対象書籍が必須（データ構造編5.3、goal.book is None時のガード）。"""
+    """読了レポートは読了（完了）の状態でのみ生成できる（不具合B）。下書きの読書目標は、
+    書籍の有無より先に状態で拒否される。"""
     goal = client.post(
         "/api/v1/goals",
         json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
@@ -282,14 +283,16 @@ def test_generate_retrospective_on_reading_goal_without_book_is_rejected(client,
 
     response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
 
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
 def test_generate_retrospective_on_reading_goal_creates_reading_report(client, monkeypatch):
     """読書目標に対する総括レポート生成は、読了レポート（GOAL_RETROSPECTIVE_READING）
     として生成される（Phase16完了条件「読了時に読了レポートが生成・再生成できる」）。"""
     goal, _book = _make_reading_goal_with_book(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
     _stub_send_message(monkeypatch, response="読了レポート本文")
 
     response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
@@ -314,6 +317,8 @@ def test_generate_retrospective_on_reading_goal_includes_weekly_summary(
     from app.models.record import WeeklySummary
 
     goal, book = _make_reading_goal_with_book(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
     # resolve_weekly_compressed_periodはperiod_start（=book.start_date）から連続する週次
     # 要約のみを圧縮対象とするため、week_start_dateをbook.start_dateへ一致させる。
     book_start_date = dt.date.fromisoformat(book["start_date"])

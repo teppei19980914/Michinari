@@ -28,7 +28,7 @@ export function GoalTabBar({ goals, selectedGoalId, onSelect }: GoalTabBarProps)
           {t(`goals.new.category.${goal.category}`)}
           {' ・ '}
           {goal.name}
-          {goal.archived_at !== null && ` ・ ${t('goals.list.archivedSectionTitle')}`}
+          {goal.archived_at !== null && ` ・ ${t('goals.list.archivedBadge')}`}
         </button>
       ))}
     </div>

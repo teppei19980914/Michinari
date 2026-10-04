@@ -7,7 +7,8 @@
  */
 export const ERROR_CODES = {
   /** 受験結果が未登録のままのクローズ要求。状態エラーではなく、確認さえ取れば実行できる。 */
-  CLOSE_CONFIRMATION_REQUIRED: 'CLOSE_CONFIRMATION_REQUIRED',
+  /** 受験結果が揃っていない資格試験の完了拒否（開発Todo 1-3）。 */
+  EXAM_RESULTS_INCOMPLETE: 'EXAM_RESULTS_INCOMPLETE',
   /** 許可されない状態遷移（クローズ済み目標への再クローズ等）。確認では解消しない。 */
   INVALID_STATE_TRANSITION: 'INVALID_STATE_TRANSITION',
   /** スロットへの配分時間の合計が、そのスロットの連続時間を超過（仕様書NT-04）。 */
@@ -22,8 +23,4 @@ export const ERROR_CODES = {
 export const ERROR_REASONS = {
   /** 実績（study_log）が残る教材の削除拒否。 */
   MATERIAL_HAS_LOGS: 'MATERIAL_HAS_LOGS',
-  /** 想起記録（reading_log）が残る書籍の削除拒否。 */
-  BOOK_HAS_LOGS: 'BOOK_HAS_LOGS',
-  /** 業務記録（work_log）が残る案件情報の削除拒否。 */
-  WORK_ASSIGNMENT_HAS_LOGS: 'WORK_ASSIGNMENT_HAS_LOGS',
 } as const

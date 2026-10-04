@@ -13,6 +13,8 @@ function makeEntry(overrides: Parameters<typeof makeGoal>[0] = {}): CompletedRea
     goal: makeGoal({
       status: 'CLOSED_WITH_RESULT',
       archived_at: null,
+      resumed_at: null,
+      available_operations: ['ARCHIVE'],
       ...overrides,
     }),
     book: makeBook({ title: '銀河鉄道の夜', author: '宮沢賢治' }),
@@ -111,7 +113,11 @@ describe('BookSpineCard', () => {
     const user = userEvent.setup()
     const onUnarchive = vi.fn()
     const onRequestDelete = vi.fn()
-    const entry = makeEntry({ archived_at: '2026-09-10T00:00:00' })
+    // アーカイブ中は、サーバーが状態の変更（アーカイブを含む）を提示しない。
+    const entry = makeEntry({
+      archived_at: '2026-09-10T00:00:00',
+      available_operations: ['UNARCHIVE', 'DELETE'],
+    })
     renderWithProviders(
       <BookSpineCard
         entry={entry}

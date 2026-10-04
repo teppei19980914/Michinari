@@ -11,6 +11,8 @@ SERVER_PORT = "server.port"
 SERVER_GRACEFUL_SHUTDOWN_SECONDS = "server.graceful_shutdown_seconds"
 THRESHOLD_WARNING_RATIO = "threshold.warning_ratio"
 THRESHOLD_REPLAN_OVERRUN_DAYS = "threshold.replan_overrun_days"
+#: 再開時の再計画で、教材の基準値（1日あたりの必要量）が停止前のこの倍率以上に増えたら警告する。
+RESUME_QUOTA_WARNING_RATIO = "resume.quota_warning_ratio"
 CALENDAR_DAY_BOUNDARY_HOUR = "calendar.day_boundary_hour"
 HOLIDAY_TREAT_AS_BUFFER = "holiday.treat_as_buffer"
 

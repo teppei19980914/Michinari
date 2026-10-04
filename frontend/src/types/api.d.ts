@@ -50,7 +50,10 @@ export interface paths {
         get: operations["get_goal_api_v1_goals__goal_id__get"];
         put?: never;
         post?: never;
-        /** Delete Goal */
+        /**
+         * Delete Goal
+         * @description 目標を物理削除する（実行中以外のすべて。関連データは常にカスケード削除、開発Todo 1-4）。
+         */
         delete: operations["delete_goal_api_v1_goals__goal_id__delete"];
         options?: never;
         head?: never;
@@ -119,23 +122,6 @@ export interface paths {
         patch: operations["unarchive_goal_api_v1_goals__goal_id__unarchive_patch"];
         trace?: never;
     };
-    "/api/v1/goals/{goal_id}/archived": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete Archived Goal */
-        delete: operations["delete_archived_goal_api_v1_goals__goal_id__archived_delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/goals/{goal_id}/activate": {
         parameters: {
             query?: never;
@@ -179,7 +165,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resume Goal */
+        /**
+         * Resume Goal
+         * @description 一時停止・中断・完了から再開する（開発Todo 1-5）。再計画の警告は warnings で返す。
+         */
         post: operations["resume_goal_api_v1_goals__goal_id__resume_post"];
         delete?: never;
         options?: never;
@@ -187,7 +176,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/goals/{goal_id}/close": {
+    "/api/v1/goals/{goal_id}/complete": {
         parameters: {
             query?: never;
             header?: never;
@@ -196,8 +185,31 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Close Goal */
-        post: operations["close_goal_api_v1_goals__goal_id__close_post"];
+        /**
+         * Complete Goal
+         * @description 完了する（実行中→完了。読書では「読了」と表示する、開発Todo 1-3）。
+         */
+        post: operations["complete_goal_api_v1_goals__goal_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon Goal
+         * @description 中断する（実行中・一時停止→中断。仕事では「中止・打ち切り」と表示する、開発Todo 1-3）。
+         */
+        post: operations["abandon_goal_api_v1_goals__goal_id__abandon_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -514,28 +526,6 @@ export interface paths {
         head?: never;
         /** Update Book */
         patch: operations["update_book_api_v1_books__book_id__patch"];
-        trace?: never;
-    };
-    "/api/v1/books/{book_id}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Complete Book
-         * @description is_achieved（都度算出）を明示的に付与する。api.goals.serialize_goalと同じ理由・同じ組立て
-         *     だが、api.goalsはapi.booksをimportしており（serialize_book）、逆方向のimportは循環参照に
-         *     なるためここでは共有しない（goal_service.compute_is_achievedのみ共有する）。
-         */
-        post: operations["complete_book_api_v1_books__book_id__complete_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/goals/{goal_id}/recap-themes": {
@@ -1950,7 +1940,7 @@ export interface components {
          *     いずれかとして記録されるため（12.1「REPLANが予約値である理由」）。
          * @enum {string}
          */
-        BaselineReason: "INITIAL" | "REPLAN" | "EXAM_DATE_FIXED" | "MATERIAL_CHANGED" | "CYCLE_CHANGED";
+        BaselineReason: "INITIAL" | "REPLAN" | "EXAM_DATE_FIXED" | "MATERIAL_CHANGED" | "CYCLE_CHANGED" | "RESUMED";
         /** Body_import_data_api_v1_data_import_post */
         Body_import_data_api_v1_data_import_post: {
             /** File */
@@ -2562,19 +2552,6 @@ export interface components {
          * @enum {string}
          */
         GoalCategory: "EXAM" | "READING" | "WORK";
-        /** GoalCloseRequest */
-        GoalCloseRequest: {
-            /**
-             * Confirm Without Result
-             * @default false
-             */
-            confirm_without_result: boolean;
-            /**
-             * With Result
-             * @default false
-             */
-            with_result: boolean;
-        };
         /** GoalCreate */
         GoalCreate: {
             /** @default EXAM */
@@ -2588,19 +2565,6 @@ export interface components {
             start_date: string;
             /** Memo */
             memo?: string | null;
-        };
-        /**
-         * GoalDeleteArchivedRequest
-         * @description アーカイブ済み目標の完全削除リクエスト（仕様書7.1.1、MD-08）。
-         *
-         *     画面上のチェックボックスは既定ONのため、cascade_study_logsの既定値もTrueとする。
-         */
-        GoalDeleteArchivedRequest: {
-            /**
-             * Cascade Study Logs
-             * @default true
-             */
-            cascade_study_logs: boolean;
         };
         /** GoalDetailRead */
         GoalDetailRead: {
@@ -2623,6 +2587,10 @@ export interface components {
             closed_at: string | null;
             /** Archived At */
             archived_at: string | null;
+            /** Resumed At */
+            resumed_at: string | null;
+            /** Available Operations */
+            available_operations: components["schemas"]["GoalOperation"][];
             /** Is Achieved */
             is_achieved: boolean;
             /** Exam Subjects */
@@ -2634,6 +2602,12 @@ export interface components {
             book?: components["schemas"]["BookRead"] | null;
             work_assignment?: components["schemas"]["WorkAssignmentRead"] | null;
         };
+        /**
+         * GoalOperation
+         * @description 目標に対する状態遷移・削除の操作（画面の名称と対応する）。
+         * @enum {string}
+         */
+        GoalOperation: "ACTIVATE" | "PAUSE" | "RESUME" | "ABANDON" | "COMPLETE" | "RECORD" | "ARCHIVE" | "DELETE" | "UNARCHIVE";
         /** GoalRead */
         GoalRead: {
             /** Id */
@@ -2655,8 +2629,48 @@ export interface components {
             closed_at: string | null;
             /** Archived At */
             archived_at: string | null;
+            /** Resumed At */
+            resumed_at: string | null;
+            /** Available Operations */
+            available_operations: components["schemas"]["GoalOperation"][];
             /** Is Achieved */
             is_achieved: boolean;
+        };
+        /**
+         * GoalResumeRead
+         * @description 再開の応答。warnings は警告コードの一覧（資格試験で学習量が大きく増えた場合など）。
+         */
+        GoalResumeRead: {
+            /** Id */
+            id: number;
+            category: components["schemas"]["GoalCategory"];
+            /** Name */
+            name: string;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            status: components["schemas"]["GoalStatus"];
+            /** Memo */
+            memo: string | null;
+            /** Activated At */
+            activated_at: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /** Archived At */
+            archived_at: string | null;
+            /** Resumed At */
+            resumed_at: string | null;
+            /** Available Operations */
+            available_operations: components["schemas"]["GoalOperation"][];
+            /** Is Achieved */
+            is_achieved: boolean;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
         };
         /**
          * GoalStatsRead
@@ -4420,39 +4434,6 @@ export interface operations {
             };
         };
     };
-    delete_archived_goal_api_v1_goals__goal_id__archived_delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                goal_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoalDeleteArchivedRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     activate_goal_api_v1_goals__goal_id__activate_post: {
         parameters: {
             query?: never;
@@ -4532,6 +4513,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["GoalResumeRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_goal_api_v1_goals__goal_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["GoalRead"];
                 };
             };
@@ -4546,7 +4558,7 @@ export interface operations {
             };
         };
     };
-    close_goal_api_v1_goals__goal_id__close_post: {
+    abandon_goal_api_v1_goals__goal_id__abandon_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4555,11 +4567,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GoalCloseRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5345,37 +5353,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    complete_book_api_v1_books__book_id__complete_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                book_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GoalRead"];
                 };
             };
             /** @description Validation Error */

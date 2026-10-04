@@ -17,11 +17,10 @@ from app.services.exceptions import (
     AppSettingNotFoundError,
     BackdateLimitExceededError,
     BookAlreadyExistsError,
-    BookHasReadingLogsError,
-    CloseConfirmationRequiredError,
     ConsentRequiredError,
     CurrentPageExceedsTotalPagesError,
     DomainError,
+    ExamResultsIncompleteError,
     ExamSubjectRequiredError,
     ImmutableRecordError,
     InvalidStateTransitionError,
@@ -36,7 +35,6 @@ from app.services.exceptions import (
     ResourceAllocationRequiredError,
     ValidationError,
     WorkAssignmentAlreadyExistsError,
-    WorkAssignmentHasWorkLogsError,
     WorkMemberHasEvaluationReportsError,
 )
 
@@ -53,13 +51,11 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ResourceAllocationExceededError: (status.HTTP_400_BAD_REQUEST, "RESOURCE_EXCEEDED"),
     PlannedCyclesBelowCompletedError: (status.HTTP_400_BAD_REQUEST, "CYCLE_CONFLICT"),
     MaterialHasStudyLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
-    BookHasReadingLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     BookAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, "BOOK_ALREADY_EXISTS"),
     CurrentPageExceedsTotalPagesError: (
         status.HTTP_400_BAD_REQUEST,
         "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES",
     ),
-    WorkAssignmentHasWorkLogsError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     WorkAssignmentAlreadyExistsError: (
         status.HTTP_400_BAD_REQUEST,
         "WORK_ASSIGNMENT_ALREADY_EXISTS",
@@ -69,7 +65,7 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     BackdateLimitExceededError: (status.HTTP_400_BAD_REQUEST, "BACKDATE_LIMIT_EXCEEDED"),
     InvalidStateTransitionError: (status.HTTP_409_CONFLICT, "INVALID_STATE_TRANSITION"),
     # 状態エラーではなく「確認待ち」（理由はexceptions.pyの同クラスのdocstring参照）。
-    CloseConfirmationRequiredError: (status.HTTP_409_CONFLICT, "CLOSE_CONFIRMATION_REQUIRED"),
+    ExamResultsIncompleteError: (status.HTTP_409_CONFLICT, "EXAM_RESULTS_INCOMPLETE"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
     RecapThemeNameConflictError: (status.HTTP_409_CONFLICT, "RECAP_THEME_NAME_CONFLICT"),
     RecapBodyRejectedError: (status.HTTP_409_CONFLICT, "RECAP_BODY_REJECTED"),

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from './goalStatus'
+import { t } from '../../locales/t'
+import type { components } from '../../types/api.d.ts'
+import { GOAL_CATEGORIES } from '../../constants/goalCategories'
+import {
+  goalStatusLabelKey,
+  hasOperation,
+  isClosedGoalStatus,
+  isDefaultListedGoal,
+  resolveGoalListTarget,
+} from './goalStatus'
+
+type GoalOperation = components['schemas']['GoalOperation']
 
 describe('isClosedGoalStatus', () => {
   it('returns false for DRAFT/ACTIVE/PAUSED', () => {
@@ -25,20 +36,49 @@ describe('resolveGoalListTarget', () => {
   })
 })
 
-describe('canArchiveGoal', () => {
-  it('returns false for ACTIVE (進行中はアーカイブ不可)', () => {
-    expect(canArchiveGoal('ACTIVE', null)).toBe(false)
+describe('isDefaultListedGoal（開発Todo 1-9：既定表示は下書き・実行中・一時停止）', () => {
+  it('lists DRAFT/ACTIVE/PAUSED goals that are not archived', () => {
+    expect(isDefaultListedGoal({ status: 'DRAFT', archived_at: null })).toBe(true)
+    expect(isDefaultListedGoal({ status: 'ACTIVE', archived_at: null })).toBe(true)
+    expect(isDefaultListedGoal({ status: 'PAUSED', archived_at: null })).toBe(true)
   })
 
-  it('returns true for non-active statuses that are not yet archived', () => {
-    expect(canArchiveGoal('DRAFT', null)).toBe(true)
-    expect(canArchiveGoal('PAUSED', null)).toBe(true)
-    expect(canArchiveGoal('CLOSED_WITH_RESULT', null)).toBe(true)
-    expect(canArchiveGoal('CLOSED_WITHOUT_RESULT', null)).toBe(true)
+  it('hides completed and interrupted goals by default', () => {
+    expect(isDefaultListedGoal({ status: 'CLOSED_WITH_RESULT', archived_at: null })).toBe(false)
+    expect(isDefaultListedGoal({ status: 'CLOSED_WITHOUT_RESULT', archived_at: null })).toBe(false)
   })
 
-  it('returns false when already archived', () => {
-    expect(canArchiveGoal('CLOSED_WITH_RESULT', '2026-08-30T00:00:00')).toBe(false)
-    expect(canArchiveGoal('DRAFT', '2026-08-30T00:00:00')).toBe(false)
+  it('hides archived goals by default, whatever their status', () => {
+    expect(isDefaultListedGoal({ status: 'ACTIVE', archived_at: '2026-08-30T00:00:00' })).toBe(false)
+  })
+})
+
+describe('hasOperation（操作の可否はサーバーの available_operations に従う）', () => {
+  it('reports whether the server offered an operation', () => {
+    const goal = { available_operations: ['PAUSE', 'COMPLETE', 'ABANDON'] as GoalOperation[] }
+    expect(hasOperation(goal, 'PAUSE')).toBe(true)
+    expect(hasOperation(goal, 'RESUME')).toBe(false)
+  })
+})
+
+describe('goalStatusLabelKey（状態の表示名は種別ごとに分かれる）', () => {
+  it('resolves every category and status to an actual locale entry', () => {
+    for (const category of GOAL_CATEGORIES) {
+      for (const status of [
+        'DRAFT',
+        'ACTIVE',
+        'PAUSED',
+        'CLOSED_WITH_RESULT',
+        'CLOSED_WITHOUT_RESULT',
+      ] as const) {
+        const key = goalStatusLabelKey(category, status)
+        expect(t(key), `未登録のロケールキー: ${key}`).not.toBe(key)
+      }
+    }
+  })
+
+  it('uses the reading wording for a completed reading goal', () => {
+    expect(t(goalStatusLabelKey('READING', 'CLOSED_WITH_RESULT'))).toBe('読了')
+    expect(t(goalStatusLabelKey('WORK', 'CLOSED_WITHOUT_RESULT'))).toBe('中止・打ち切り')
   })
 })

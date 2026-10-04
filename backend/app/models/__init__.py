@@ -3,7 +3,7 @@
 from app.models.ai import AiConversation, AiLog
 from app.models.base import Base
 from app.models.book import Book
-from app.models.goal import ExamSubject, Goal, LoadProfile
+from app.models.goal import ExamSubject, Goal, GoalStatusHistory, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import (
@@ -33,6 +33,7 @@ from app.models.work import WorkAssignment
 
 __all__ = [
     "Base",
+    "GoalStatusHistory",
     "AppSetting",
     "PromptTemplate",
     "Holiday",
