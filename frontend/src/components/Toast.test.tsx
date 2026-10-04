@@ -49,7 +49,7 @@ describe('ToastProvider', () => {
     act(() => toast.showToast('保存しました'))
     expect(screen.getByText('保存しました')).toBeTruthy()
 
-    // 自動消滅（AUTO_DISMISS_MS=4000）。時間を進めないと消えないため偽タイマーを使う。
+    // 情報の自動消滅（AUTO_DISMISS_MS.info=4000）。時間を進めないと消えないため偽タイマーを使う。
     act(() => vi.advanceTimersByTime(4000))
 
     expect(screen.queryByText('保存しました')).toBeNull()
