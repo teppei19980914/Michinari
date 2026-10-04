@@ -144,6 +144,15 @@ def _build_reading_context(
     )
 
 
+def can_generate_retrospective(goal: Goal) -> bool:
+    """総括・読了レポートを生成できるか（完了（CLOSED_WITH_RESULT）の目標のみ。利用者方針2026-10-04）。
+
+    生成処理（generate_retrospective）と匿名化エクスポート（export_service）が同じ判定を使う
+    （CLAUDE.md DRYの原則）。画面側の判定（frontend の canGenerateRetrospective）と対応する。
+    """
+    return goal.status == GoalStatus.CLOSED_WITH_RESULT
+
+
 def generate_retrospective(
     session: Session, goal: Goal, *, today: dt.date, anonymize: bool = False
 ) -> GoalRetrospective:
@@ -163,7 +172,7 @@ def generate_retrospective(
     # 総括レポート・読了レポートは完了（読了）の状態でのみ生成する（開発Todo 不具合B・1-8、
     # 利用者方針2026-10-04：資格試験も読書と同じ扱い）。中断・実行中の目標には作らない。
     # 生成は利用者が出力画面の生成ボタンを押したときのみ行い、完了操作による自動生成は行わない。
-    if goal.status != GoalStatus.CLOSED_WITH_RESULT:
+    if not can_generate_retrospective(goal):
         raise InvalidStateTransitionError(_MSG_REPORT_REQUIRES_COMPLETED)
     if goal.category == GoalCategory.READING:
         purpose = AiPurpose.GOAL_RETROSPECTIVE_READING
