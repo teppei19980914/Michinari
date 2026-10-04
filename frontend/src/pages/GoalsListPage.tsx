@@ -161,20 +161,21 @@ export function GoalsListPage() {
   const [showAll, setShowAll] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiErrorWithTitle } = useToast()
   const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: listGoals })
 
+  // 状態変更の失敗は操作名を見出しにして表示する（利用者方針2026-10-04：状態変更から広げる）
   const archiveMutation = useMutation({
     mutationFn: archiveGoal,
     meta: { overlay: 'deleting' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('goals.list.archiveButton'), error),
   })
   const unarchiveMutation = useMutation({
     mutationFn: unarchiveGoal,
     meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() }),
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('goals.list.restoreButton'), error),
   })
 
   const allGoals = goalsQuery.data ?? []

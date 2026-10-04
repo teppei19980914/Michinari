@@ -23,7 +23,7 @@ export function DeleteGoalModal({ goal, onClose }: { goal: GoalRead | null; onCl
 
 function DeleteGoalDialog({ goal, onClose }: { goal: GoalRead; onClose: () => void }) {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiErrorWithTitle } = useToast()
   const [typedName, setTypedName] = useState('')
 
   const mutation = useMutation({
@@ -33,7 +33,7 @@ function DeleteGoalDialog({ goal, onClose }: { goal: GoalRead; onClose: () => vo
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goals() })
       onClose()
     },
-    onError: showApiError,
+    onError: (error) => showApiErrorWithTitle(t('goals.delete.title'), error),
   })
 
   const confirmed = typedName === goal.name
