@@ -386,7 +386,9 @@ def test_run_retroactive_generation_creates_pending_summaries(seeded_session, mo
     assert seeded_session.query(WeeklySummary).count() == 1
 
 
-def test_run_retroactive_generation_continues_after_one_failure(seeded_session, monkeypatch):
+def test_run_retroactive_generation_continues_after_one_failure(
+    seeded_session, monkeypatch, caplog
+):
     goal_a = _make_goal(seeded_session, name="目標A")
     goal_b = _make_goal(seeded_session, name="目標B")
     material_a = _make_material(seeded_session, goal_a)
@@ -406,6 +408,7 @@ def test_run_retroactive_generation_continues_after_one_failure(seeded_session, 
 
     assert generated == 1
     assert seeded_session.query(WeeklySummary).count() == 1
+    assert "週次要約の遡及生成に失敗しました" in caplog.text
     # 失敗した側のエラーもai_logへ記録されている（コミット済みの成功分とは別トランザクション）。
     error_logs = seeded_session.query(AiLog).filter(AiLog.error_type.isnot(None)).all()
     assert len(error_logs) == 1

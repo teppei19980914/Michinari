@@ -14,6 +14,7 @@ WeeklySummary）自体はカテゴリを問わず共通のため、weekly_summar
 """
 
 import datetime as dt
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -36,6 +37,8 @@ from app.models.material import Material
 from app.models.record import DailyRecord, ReadingLog, StudyLog, WeeklySummary, WorkLog
 from app.models.work import WorkAssignment
 from app.services import ai_context_service, goal_service, setting_reader
+
+_logger = logging.getLogger(__name__)
 
 #: 曜日番号（Python標準のweekday(): 月曜=0〜日曜=6）における週の終了曜日（15.1「日曜日を終了日」）。
 _WEEK_END_WEEKDAY = 6
@@ -338,5 +341,11 @@ def run_retroactive_generation(session: Session, today: dt.date) -> int:
             session.commit()
             generated += 1
         except Exception:  # noqa: BLE001 - 1件の失敗で起動処理全体を止めないため意図的に握りつぶす
+            # 画面には出ないため、原因を追えるようログに残す（次回起動で再試行される）。
+            _logger.exception(
+                "週次要約の遡及生成に失敗しました: goal_id=%s week_start=%s",
+                item.goal.id,
+                item.week_start,
+            )
             session.rollback()
     return generated
