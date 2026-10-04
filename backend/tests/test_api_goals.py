@@ -200,22 +200,25 @@ def test_resume_requires_allocation_to_be_set(client):
     assert response.json()["error"]["code"] == "RESOURCE_ALLOCATION_REQUIRED"
 
 
-def test_close_without_confirmation_is_rejected_then_succeeds_with_confirmation(client):
-    """確認待ちはCLOSE_CONFIRMATION_REQUIRED（状態エラーとは別コード）で返る（仕様書7.1）。"""
+def test_complete_without_all_results_is_rejected_then_abandon_succeeds(client):
+    """結果が揃っていない資格試験は完了できない（EXAM_RESULTS_INCOMPLETE、開発Todo 1-3）。
+
+    完了ボタンは画面で無効化し、APIでも拒否する。中断は確認1回で別のAPIとして実行できる。
+    """
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
 
-    rejected = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    rejected = client.post(f"/api/v1/goals/{goal['id']}/complete")
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "CLOSE_CONFIRMATION_REQUIRED"
+    assert rejected.json()["error"]["code"] == "EXAM_RESULTS_INCOMPLETE"
 
-    closed = client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
-    assert closed.status_code == 200
-    assert closed.json()["status"] == "CLOSED_WITHOUT_RESULT"
-    assert closed.json()["is_achieved"] is False
+    abandoned = client.post(f"/api/v1/goals/{goal['id']}/abandon")
+    assert abandoned.status_code == 200
+    assert abandoned.json()["status"] == "CLOSED_WITHOUT_RESULT"
+    assert abandoned.json()["is_achieved"] is False
 
 
-def test_close_exam_goal_is_achieved_when_all_subjects_pass(client):
+def test_complete_exam_goal_is_achieved_when_all_subjects_pass(client):
     """資格試験はCLOSED_WITH_RESULT（結果登録済み）だけでなく、全科目PASSまで確認して
     達成を判定する（仕様書v1.1 13.6、S-12の解消）。"""
     goal = _make_activatable_goal(client)
@@ -226,7 +229,7 @@ def test_close_exam_goal_is_achieved_when_all_subjects_pass(client):
         json={"taken_date": "2026-06-05", "result": "PASS"},
     )
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
@@ -236,7 +239,7 @@ def test_close_exam_goal_is_achieved_when_all_subjects_pass(client):
     assert next(g for g in listed if g["id"] == goal["id"])["is_achieved"] is True
 
 
-def test_close_exam_goal_is_not_achieved_when_a_subject_fails(client):
+def test_complete_exam_goal_is_not_achieved_when_a_subject_fails(client):
     """1科目でもFAILがあれば、結果は登録済み（CLOSED_WITH_RESULT）でも達成扱いにしない。"""
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
@@ -246,7 +249,7 @@ def test_close_exam_goal_is_not_achieved_when_a_subject_fails(client):
         json={"taken_date": "2026-06-05", "result": "FAIL"},
     )
 
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED_WITH_RESULT"
@@ -263,7 +266,7 @@ def test_active_exam_goal_is_not_achieved(client):
     assert response.json()["is_achieved"] is False
 
 
-def test_close_already_closed_goal_returns_state_error_not_confirmation(client):
+def test_abandon_already_closed_goal_returns_state_error(client):
     """クローズ済み目標への再クローズは確認待ちではなく状態エラーとして返る。
 
     両者を同じコードで返していたため、画面側が本当の状態エラーを「確認が必要」と誤解し、
@@ -271,11 +274,9 @@ def test_close_already_closed_goal_returns_state_error_not_confirmation(client):
     """
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
-    response = client.post(
-        f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True}
-    )
+    response = client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
@@ -284,7 +285,7 @@ def test_close_already_closed_goal_returns_state_error_not_confirmation(client):
 def test_update_closed_goal_is_rejected(client):
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     response = client.patch(f"/api/v1/goals/{goal['id']}", json={"memo": "更新"})
     assert response.status_code == 409
@@ -294,7 +295,7 @@ def test_update_closed_goal_is_rejected(client):
 def test_add_subject_to_closed_goal_is_rejected(client):
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     response = client.post(
         f"/api/v1/goals/{goal['id']}/subjects",
@@ -370,7 +371,7 @@ def test_fix_exam_date_on_closed_goal_is_rejected(client):
     goal = _make_activatable_goal(client)
     subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     response = client.post(
         f"/api/v1/subjects/{subject_id}/fix-date", json={"exam_date_fixed": "2026-07-01"}
@@ -494,7 +495,7 @@ def test_resume_non_paused_goal_is_rejected(client):
 
 def test_close_non_active_goal_is_rejected(client):
     goal = _create_goal(client)
-    response = client.post(f"/api/v1/goals/{goal['id']}/close", json={})
+    response = client.post(f"/api/v1/goals/{goal['id']}/complete")
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
@@ -712,7 +713,7 @@ def _close_goal(
 ):
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
     return goal
 
 
@@ -787,32 +788,32 @@ def test_resume_archived_paused_goal_is_rejected(client):
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
-def test_delete_archived_draft_goal_is_rejected(client):
-    """アーカイブ中の下書きは即時削除ではなく復元または完全削除の経路に統一する。"""
+def test_delete_archived_draft_goal_succeeds(client):
+    """アーカイブ中の下書きも直接削除できる（開発Todo 1-4：実行中以外の全状態が対象）。"""
     goal = _create_goal(client)
     client.patch(f"/api/v1/goals/{goal['id']}/archive")
+    response = client.delete(f"/api/v1/goals/{goal['id']}")
+    assert response.status_code == 204, response.text
+    assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
+
+
+def test_delete_active_goal_is_rejected(client):
+    """実行中の目標は削除できない（開発Todo 1-1の禁止遷移：実行中 → 削除）。"""
+    goal = _make_activatable_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
     response = client.delete(f"/api/v1/goals/{goal['id']}")
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
-def test_delete_archived_requires_archived_goal(client):
-    goal = _close_goal(client)
-    response = client.request(
-        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": True}
-    )
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
-
-
-def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
-    client, seeded_session
-):
+def test_delete_goal_cascades_study_logs_and_empty_daily_record(client, seeded_session):
+    """削除は常にカスケードする。実績が残っていても拒否せず、空になった日次報告も消す。"""
     goal = _close_goal(client)
     material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
     record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
     seeded_session.flush()
+    record_id = record.id
     seeded_session.add(
         StudyLog(
             daily_record_id=record.id, material_id=material_id, amount_completed=1.0, cycle_number=1
@@ -820,25 +821,15 @@ def test_delete_archived_goal_without_cascade_rejects_when_study_logs_remain(
     )
     seeded_session.commit()
 
-    client.patch(f"/api/v1/goals/{goal['id']}/archive")
-    response = client.request(
-        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
-    )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["code"] == "VALIDATION_ERROR"
-    # コード自体は増やさず、原因（実績が紐づくため削除不可）をdetailsで画面へ伝える
-    # （2026-09-19、非エンジニア向けエラー表示改善）。
-    assert body["error"]["details"] == [{"reason": "MATERIAL_HAS_LOGS"}]
+    response = client.delete(f"/api/v1/goals/{goal['id']}")
+
+    assert response.status_code == 204, response.text
+    assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
+    assert seeded_session.get(DailyRecord, record_id) is None
 
 
-def test_delete_archived_reading_goal_without_cascade_rejects_when_reading_logs_remain(
-    client, seeded_session
-):
-    """test_delete_archived_goal_without_cascade_rejects_when_study_logs_remainの読書版。
-    reasonはBOOK_HAS_LOGS（MATERIAL_HAS_LOGSと異なる値）になること、API層のdetailsまで
-    正しく届くことを固定する（サービス層の例外送出はtest_goal_service.pyが別途検証済みだが、
-    APIレスポンスのreason値はそちらでは検証できない、2026-09-19）。"""
+def test_delete_goal_cascades_reading_logs(client, seeded_session):
+    """読書目標の想起記録も、削除時にカスケードで消える（拒否されない）。"""
     goal = client.post(
         "/api/v1/goals",
         json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
@@ -853,7 +844,7 @@ def test_delete_archived_reading_goal_without_cascade_rejects_when_reading_logs_
         },
     ).json()
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"confirm_without_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/abandon")
 
     record = DailyRecord(record_date=dt.date(2026, 1, 5), reading_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
@@ -863,22 +854,14 @@ def test_delete_archived_reading_goal_without_cascade_rejects_when_reading_logs_
     )
     seeded_session.commit()
 
-    client.patch(f"/api/v1/goals/{goal['id']}/archive")
-    response = client.request(
-        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
-    )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["code"] == "VALIDATION_ERROR"
-    assert body["error"]["details"] == [{"reason": "BOOK_HAS_LOGS"}]
+    response = client.delete(f"/api/v1/goals/{goal['id']}")
+
+    assert response.status_code == 204, response.text
+    assert seeded_session.query(ReadingLog).count() == 0
 
 
-def test_delete_archived_work_goal_without_cascade_rejects_when_work_logs_remain(
-    client, seeded_session
-):
-    """test_delete_archived_goal_without_cascade_rejects_when_study_logs_remainの仕事版。
-    reasonはWORK_ASSIGNMENT_HAS_LOGSになること、API層のdetailsまで正しく届くことを固定する
-    （2026-09-19）。"""
+def test_delete_goal_cascades_work_logs(client, seeded_session):
+    """仕事目標の業務記録も、削除時にカスケードで消える（拒否されない）。"""
     goal = client.post(
         "/api/v1/goals",
         json={"category": "WORK", "name": "仕事目標A", "start_date": "2026-01-01"},
@@ -892,7 +875,7 @@ def test_delete_archived_work_goal_without_cascade_rejects_when_work_logs_remain
         },
     ).json()
     client.post(f"/api/v1/goals/{goal['id']}/activate")
-    client.post(f"/api/v1/goals/{goal['id']}/close", json={"with_result": True})
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
 
     record = DailyRecord(record_date=dt.date(2026, 1, 5), work_record_state="PROGRESS_ONLY")
     seeded_session.add(record)
@@ -906,43 +889,10 @@ def test_delete_archived_work_goal_without_cascade_rejects_when_work_logs_remain
     )
     seeded_session.commit()
 
-    client.patch(f"/api/v1/goals/{goal['id']}/archive")
-    response = client.request(
-        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": False}
-    )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"]["code"] == "VALIDATION_ERROR"
-    assert body["error"]["details"] == [{"reason": "WORK_ASSIGNMENT_HAS_LOGS"}]
+    response = client.delete(f"/api/v1/goals/{goal['id']}")
 
-
-def test_delete_archived_goal_with_cascade_removes_goal_and_related_data(client, seeded_session):
-    goal = _close_goal(client)
-    material_id = client.get(f"/api/v1/goals/{goal['id']}").json()["materials"][0]["id"]
-    record = DailyRecord(record_date=dt.date(2026, 1, 5), exam_record_state="PROGRESS_ONLY")
-    seeded_session.add(record)
-    seeded_session.flush()
-    seeded_session.add(
-        StudyLog(
-            daily_record_id=record.id, material_id=material_id, amount_completed=1.0, cycle_number=1
-        )
-    )
-    seeded_session.commit()
-
-    client.patch(f"/api/v1/goals/{goal['id']}/archive")
-    response = client.request(
-        "DELETE", f"/api/v1/goals/{goal['id']}/archived", json={"cascade_study_logs": True}
-    )
     assert response.status_code == 204, response.text
-    assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
-
-
-def test_delete_archived_goal_without_study_logs_defaults_to_cascade(client):
-    """cascade_study_logsを省略した場合は画面の既定(ON)通りTrue扱いになる（仕様書MD-08）。"""
-    goal = _close_goal(client)
-    client.patch(f"/api/v1/goals/{goal['id']}/archive")
-    response = client.request("DELETE", f"/api/v1/goals/{goal['id']}/archived", json={})
-    assert response.status_code == 204, response.text
+    assert seeded_session.query(WorkLog).count() == 0
 
 
 def test_update_load_profile_without_note_keeps_existing_note(client):

@@ -44,6 +44,8 @@ function buildGoal(id: number, category: GoalRead['category'], name: string): Go
     activated_at: null,
     closed_at: null,
     archived_at: null,
+    resumed_at: null,
+    available_operations: [],
     is_achieved: false,
   }
 }

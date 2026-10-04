@@ -20,6 +20,8 @@ function makeGoal(id: number, name: string): GoalRead {
     activated_at: null,
     closed_at: null,
     archived_at: null,
+    resumed_at: null,
+    available_operations: [],
     is_achieved: false,
   }
 }

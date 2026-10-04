@@ -10,15 +10,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { t } from '../../locales/t'
-import { ROUTES } from '../../constants/routes'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { BOOK_ID, GOAL_ID, makeBook, makeGoalDetail } from '../../test/fixtures'
 import { BookTab } from './BookTab'
 
 const createBook = vi.hoisted(() => vi.fn())
 const updateBook = vi.hoisted(() => vi.fn())
-const completeBook = vi.hoisted(() => vi.fn())
-vi.mock('../../api/goals', () => ({ createBook, updateBook, completeBook }))
+vi.mock('../../api/goals', () => ({ createBook, updateBook }))
 
 const generateRetrospective = vi.hoisted(() => vi.fn())
 vi.mock('../../api/closure', () => ({ generateRetrospective }))
@@ -32,8 +30,6 @@ vi.mock('react-router-dom', async (importOriginal) => ({
 
 const saveButton = () => screen.getByRole('button', { name: t('common.action.save') })
 const editButton = () => screen.getByRole('button', { name: t('common.action.edit') })
-const completeButton = () => screen.getByRole('button', { name: t('goals.book.completeButton') })
-const confirmButton = () => screen.getByRole('button', { name: t('common.action.confirm') })
 const cancelButton = () => screen.getByRole('button', { name: t('common.action.cancel') })
 const dateInputs = (container: HTMLElement) =>
   Array.from(container.querySelectorAll<HTMLInputElement>('input[type="date"]'))
@@ -53,7 +49,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   createBook.mockResolvedValue(makeBook())
   updateBook.mockResolvedValue(makeBook())
-  completeBook.mockResolvedValue(undefined)
   generateRetrospective.mockResolvedValue(undefined)
 })
 
@@ -115,18 +110,12 @@ describe('BookTab の表示', () => {
     renderWithProviders(<BookTab goal={goalWithBook()} readOnly />)
 
     expect(screen.queryByRole('button', { name: t('common.action.edit') })).toBeNull()
-    expect(screen.queryByRole('button', { name: t('goals.book.completeButton') })).toBeNull()
   })
 
-  it('offers finishing the book only while the goal is active', () => {
-    const { unmount } = renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
-    expect(completeButton()).toBeDefined()
+  it('does not offer finishing the book here: finishing is one operation of the goal (開発Todo 1-10)', () => {
+    renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
 
-    unmount()
-    renderWithProviders(
-      <BookTab goal={goalWithBook({}, { status: 'PAUSED' })} readOnly={false} />,
-    )
-
+    expect(screen.getByRole('button', { name: t('common.action.edit') })).toBeDefined()
     expect(screen.queryByRole('button', { name: t('goals.book.completeButton') })).toBeNull()
   })
 })
@@ -241,45 +230,5 @@ describe('BookTab の送信内容', () => {
 
     expect(updateBook).not.toHaveBeenCalled()
     expect(editButton()).toBeDefined()
-  })
-})
-
-describe('BookTab の読了', () => {
-  it('does not finish the book until the dialog is confirmed', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
-
-    await user.click(completeButton())
-    await user.click(cancelButton())
-
-    expect(completeBook).not.toHaveBeenCalled()
-    expect(navigate).not.toHaveBeenCalled()
-  })
-
-  it('finishes the book, requests the report and moves to the export screen', async () => {
-    const user = userEvent.setup()
-    renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
-
-    await user.click(completeButton())
-    await user.click(confirmButton())
-
-    await waitFor(() => expect(completeBook).toHaveBeenCalledWith(BOOK_ID))
-    expect(generateRetrospective).toHaveBeenCalledWith(GOAL_ID, false)
-    expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID))
-  })
-
-  it('still moves to the export screen when generating the report fails', async () => {
-    const user = userEvent.setup()
-    // 読了レポートの生成失敗を読了処理の失敗として扱わない（仕様書6.9）。
-    generateRetrospective.mockRejectedValue(new Error('report failed'))
-    renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
-
-    await user.click(completeButton())
-    await user.click(confirmButton())
-
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID)))
-    expect(
-      await screen.findByText(t('knowledgeExport.retrospective.readingAutoGenerateFailedTitle')),
-    ).toBeTruthy()
   })
 })

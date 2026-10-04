@@ -14,11 +14,10 @@ from app.database import get_db
 from app.models.goal import ExamSubject, Goal
 from app.schemas.book import BookCreate, BookRead
 from app.schemas.goal import (
-    GoalCloseRequest,
     GoalCreate,
-    GoalDeleteArchivedRequest,
     GoalDetailRead,
     GoalRead,
+    GoalResumeRead,
     GoalUpdate,
     PlanBaselineRead,
 )
@@ -67,6 +66,8 @@ def serialize_goal(goal: Goal) -> GoalRead:
         activated_at=goal.activated_at,
         closed_at=goal.closed_at,
         archived_at=goal.archived_at,
+        resumed_at=goal.resumed_at,
+        available_operations=goal_service.available_operations(goal),
         is_achieved=goal_service.compute_is_achieved(goal),
     )
 
@@ -178,6 +179,7 @@ def update_slot_allocations(
 
 @router.delete("/goals/{goal_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_goal(goal_id: int, session: Session = Depends(get_db)) -> None:
+    """目標を物理削除する（実行中以外のすべて。関連データは常にカスケード削除、開発Todo 1-4）。"""
     goal = goal_service.get_goal(session, goal_id)
     goal_service.delete_goal(session, goal)
     session.commit()
@@ -199,15 +201,6 @@ def unarchive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead
     return serialize_goal(goal)
 
 
-@router.delete("/goals/{goal_id}/archived", status_code=status.HTTP_204_NO_CONTENT)
-def delete_archived_goal(
-    goal_id: int, payload: GoalDeleteArchivedRequest, session: Session = Depends(get_db)
-) -> None:
-    goal = goal_service.get_goal(session, goal_id)
-    goal_service.delete_archived_goal(session, goal, cascade_study_logs=payload.cascade_study_logs)
-    session.commit()
-
-
 @router.post("/goals/{goal_id}/activate", response_model=GoalRead)
 def activate_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
@@ -224,25 +217,29 @@ def pause_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     return serialize_goal(goal)
 
 
-@router.post("/goals/{goal_id}/resume", response_model=GoalRead)
-def resume_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
+@router.post("/goals/{goal_id}/resume", response_model=GoalResumeRead)
+def resume_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalResumeRead:
+    """一時停止・中断・完了から再開する（開発Todo 1-5）。再計画の警告は warnings で返す。"""
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.resume_goal(session, goal)
+    result = goal_service.resume_goal(session, goal)
+    session.commit()
+    return GoalResumeRead(**serialize_goal(result.goal).model_dump(), warnings=result.warnings)
+
+
+@router.post("/goals/{goal_id}/complete", response_model=GoalRead)
+def complete_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
+    """完了する（実行中→完了。読書では「読了」と表示する、開発Todo 1-3）。"""
+    goal = goal_service.get_goal(session, goal_id)
+    goal_service.complete_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 
 
-@router.post("/goals/{goal_id}/close", response_model=GoalRead)
-def close_goal(
-    goal_id: int, payload: GoalCloseRequest, session: Session = Depends(get_db)
-) -> GoalRead:
+@router.post("/goals/{goal_id}/abandon", response_model=GoalRead)
+def abandon_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
+    """中断する（実行中・一時停止→中断。仕事では「中止・打ち切り」と表示する、開発Todo 1-3）。"""
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.close_goal(
-        session,
-        goal,
-        confirm_without_result=payload.confirm_without_result,
-        with_result=payload.with_result,
-    )
+    goal_service.abandon_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 

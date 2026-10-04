@@ -74,7 +74,7 @@ def test_create_load_profile_rejects_non_positive_coefficient(seeded_session):
         )
 
 
-def test_close_goal_with_all_results_registered_closes_with_result(seeded_session):
+def test_complete_goal_with_all_results_registered_closes_with_result(seeded_session):
     goal = _seed_goal(seeded_session)
     subject = subject_service.create_subject(
         seeded_session,
@@ -119,7 +119,7 @@ def test_close_goal_with_all_results_registered_closes_with_result(seeded_sessio
     )
     seeded_session.flush()
 
-    goal_service.close_goal(seeded_session, goal)
+    goal_service.complete_goal(seeded_session, goal)
     assert goal.status == GoalStatus.CLOSED_WITH_RESULT
 
 

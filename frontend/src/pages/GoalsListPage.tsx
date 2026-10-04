@@ -8,10 +8,16 @@ import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { useToast } from '../components/Toast'
 import { archiveGoal, listGoals, unarchiveGoal, type GoalRead } from '../api/goals'
-import { canArchiveGoal, isClosedGoalStatus, resolveGoalListTarget } from '../features/goal/goalStatus'
+import {
+  goalStatusLabelKey,
+  hasOperation,
+  isClosedGoalStatus,
+  isDefaultListedGoal,
+  resolveGoalListTarget,
+} from '../features/goal/goalStatus'
 import { resolveGoalCategoryBadgeClass, resolveGoalCategoryIcon } from '../features/goal/goalCategoryBadge'
 import { CHARACTER_ICONS } from '../constants/characterIcons'
-import { DeleteArchivedGoalModal } from '../features/goal/DeleteArchivedGoalModal'
+import { DeleteGoalModal } from '../features/goal/DeleteGoalModal'
 import { QuickCreateGoalModal } from '../features/goal/QuickCreateGoalModal'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
@@ -93,7 +99,14 @@ function GoalCard({
             <img src={resolveGoalCategoryIcon(goal.category)} alt="" className="h-4 w-4 rounded-full" />
             {t(`goals.new.category.${goal.category}`)}
           </span>
-          {t(`goals.list.status.${goal.status}`)}
+          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+            {t(goalStatusLabelKey(goal.category, goal.status))}
+          </span>
+          {isArchived && (
+            <span className="rounded-full bg-gray-200 px-2 py-0.5 font-medium text-gray-600">
+              {t('goals.list.archivedBadge')}
+            </span>
+          )}
         </span>
       </Link>
       {isClosed && !isArchived && (
@@ -106,7 +119,7 @@ function GoalCard({
           {t('goals.list.resultLink')}
         </Link>
       )}
-      {canArchiveGoal(goal.status, goal.archived_at) && (
+      {hasOperation(goal, 'ARCHIVE') && (
         <Button
           type="button"
           variant="secondary"
@@ -119,24 +132,28 @@ function GoalCard({
           {t('goals.list.archiveButton')}
         </Button>
       )}
-      {isArchived && (
-        <>
-          <Button type="button" variant="secondary" onClick={() => onUnarchive(goal.id)}>
-            {t('goals.list.restoreButton')}
-          </Button>
-          <Button type="button" variant="secondary" onClick={() => onRequestDelete(goal)}>
-            {t('goals.list.deleteCompletelyButton')}
-          </Button>
-        </>
+      {hasOperation(goal, 'UNARCHIVE') && (
+        <Button type="button" variant="secondary" onClick={() => onUnarchive(goal.id)}>
+          {t('goals.list.restoreButton')}
+        </Button>
+      )}
+      {hasOperation(goal, 'DELETE') && (
+        <Button type="button" variant="secondary" onClick={() => onRequestDelete(goal)}>
+          {t('goals.list.deleteButton')}
+        </Button>
       )}
     </Card>
   )
 }
 
-/** SC-02 目標一覧（仕様書4章・5.2「新規作成/目標選択/クローズ済目標選択」、6.15）。 */
+/**
+ * SC-02 目標一覧（仕様書4章・5.2「新規作成/目標選択/クローズ済目標選択」、6.15）。
+ * 既定は下書き・実行中・一時停止。「すべて表示」で完了・中断・アーカイブ済みを含むすべてを出す
+ * （開発Todo 1-9）。
+ */
 export function GoalsListPage() {
   const [newGoalModalOpen, setNewGoalModalOpen] = useState(false)
-  const [showArchived, setShowArchived] = useState(false)
+  const [showAll, setShowAll] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<GoalRead | null>(null)
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
@@ -155,8 +172,8 @@ export function GoalsListPage() {
     onError: showApiError,
   })
 
-  const visibleGoals = goalsQuery.data?.filter((goal) => goal.archived_at === null) ?? []
-  const archivedGoals = goalsQuery.data?.filter((goal) => goal.archived_at !== null) ?? []
+  const allGoals = goalsQuery.data ?? []
+  const visibleGoals = showAll ? allGoals : allGoals.filter(isDefaultListedGoal)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -167,8 +184,15 @@ export function GoalsListPage() {
 
       {goalsQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
 
-      {goalsQuery.data && goalsQuery.data.length === 0 && (
+      {goalsQuery.data && allGoals.length === 0 && (
         <p className="text-sm text-gray-500">{t('goals.list.empty')}</p>
+      )}
+
+      {allGoals.length > 0 && (
+        <label className="flex items-center gap-2 text-sm text-gray-600">
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
+          {t('goals.list.showAllToggle')}
+        </label>
       )}
 
       {visibleGoals.length > 0 && (
@@ -186,39 +210,8 @@ export function GoalsListPage() {
         </ul>
       )}
 
-      {archivedGoals.length > 0 && (
-        <label className="flex items-center gap-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          {t('goals.list.showArchivedToggle')}
-        </label>
-      )}
-
-      {showArchived && archivedGoals.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-gray-700">
-            {t('goals.list.archivedSectionTitle')}
-          </h2>
-          <ul className="flex flex-col gap-2">
-            {archivedGoals.map((goal) => (
-              <li key={goal.id}>
-                <GoalCard
-                  goal={goal}
-                  onArchive={archiveMutation.mutate}
-                  onUnarchive={unarchiveMutation.mutate}
-                  onRequestDelete={setDeleteTarget}
-                />
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <NewGoalEntryModal open={newGoalModalOpen} onClose={() => setNewGoalModalOpen(false)} />
-      <DeleteArchivedGoalModal goal={deleteTarget} onClose={() => setDeleteTarget(null)} />
+      <DeleteGoalModal goal={deleteTarget} onClose={() => setDeleteTarget(null)} />
     </div>
   )
 }

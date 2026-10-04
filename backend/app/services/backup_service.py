@@ -35,7 +35,11 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 #: インポート時に不一致なら拒否する。ナレッジエクスポート（export_service.SCHEMA_VERSION）
 #: とは別用途のため別定数とする）。
 #: 1.1: goal.resource_ratio廃止・goal_slot_allocation等の新設に伴うテーブル構成の変更。
-DATA_SCHEMA_VERSION = "1.1"
+#: 1.2: goal.resumed_at（再開日）と goal_status_history（状態遷移履歴、開発Todo 1-6）の追加。
+DATA_SCHEMA_VERSION = "1.2"
+#: インポートで受け付ける版数。1.1の書き出しは、テーブルや列が無いだけで形式は互換のため受け入れる
+#: （欠けたテーブル・列は既定値で復元される。履歴は空になり、報告率の停止期間は計算されない）。
+_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", DATA_SCHEMA_VERSION})
 
 
 def database_path() -> Path:
@@ -171,10 +175,11 @@ def _validate_full_data_export(data: dict) -> None:
     （データ構造編9章D-04と同じ考え方：想定外の形式・版数を静かに受け入れない）。"""
     if not isinstance(data, dict) or "tables" not in data:
         raise ValidationError("インポートファイルが有効なエクスポート形式ではありません")
-    if data.get("schema_version") != DATA_SCHEMA_VERSION:
+    if data.get("schema_version") not in _IMPORTABLE_SCHEMA_VERSIONS:
         raise ValidationError(
             f"インポートファイルのスキーマ版数が対応していません"
-            f"（対応: {DATA_SCHEMA_VERSION}、受領: {data.get('schema_version')}）"
+            f"（対応: {', '.join(sorted(_IMPORTABLE_SCHEMA_VERSIONS))}、"
+            f"受領: {data.get('schema_version')}）"
         )
     required_tables = {"goal", "material", "app_setting"}
     if not required_tables.issubset(data["tables"].keys()):

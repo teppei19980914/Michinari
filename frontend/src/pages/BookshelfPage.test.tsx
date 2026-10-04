@@ -12,12 +12,12 @@ import { BookshelfPage } from './BookshelfPage'
 const listCompletedReadingBooks = vi.hoisted(() => vi.fn())
 const archiveGoal = vi.hoisted(() => vi.fn())
 const unarchiveGoal = vi.hoisted(() => vi.fn())
-const deleteArchivedGoal = vi.hoisted(() => vi.fn())
+const deleteGoal = vi.hoisted(() => vi.fn())
 vi.mock('../api/goals', () => ({
   listCompletedReadingBooks,
   archiveGoal,
   unarchiveGoal,
-  deleteArchivedGoal,
+  deleteGoal,
 }))
 
 const INTERRUPTED_ID = GOAL_ID + 1
@@ -25,7 +25,12 @@ const ARCHIVED_ID = GOAL_ID + 2
 
 function completedEntry(overrides: Parameters<typeof makeGoal>[0] = {}): CompletedReadingBook {
   return {
-    goal: makeGoal({ status: 'CLOSED_WITH_RESULT', archived_at: null, ...overrides }),
+    goal: makeGoal({
+      status: 'CLOSED_WITH_RESULT',
+      archived_at: null,
+      available_operations: ['ARCHIVE'],
+      ...overrides,
+    }),
     book: makeBook({ title: '銀河鉄道の夜' }),
   }
 }
@@ -40,6 +45,7 @@ const archivedEntry = (): CompletedReadingBook => ({
     id: ARCHIVED_ID,
     status: 'CLOSED_WITH_RESULT',
     archived_at: '2026-09-10T00:00:00',
+    available_operations: ['UNARCHIVE', 'DELETE'],
   }),
   book: makeBook({ id: ARCHIVED_ID, goal_id: ARCHIVED_ID, title: '坊っちゃん' }),
 })
@@ -52,7 +58,7 @@ beforeEach(() => {
   listCompletedReadingBooks.mockResolvedValue([])
   archiveGoal.mockResolvedValue(undefined)
   unarchiveGoal.mockResolvedValue(undefined)
-  deleteArchivedGoal.mockResolvedValue(undefined)
+  deleteGoal.mockResolvedValue(undefined)
 })
 
 afterEach(() => {
@@ -156,11 +162,12 @@ describe('BookshelfPage のアーカイブ操作', () => {
       screen.getByRole('button', { name: t('bookshelf.book.deleteCompletelyButton') }),
     )
 
-    expect(await screen.findByText(t('goals.list.deleteModal.title'))).toBeDefined()
+    expect(await screen.findByText(t('goals.delete.title'))).toBeDefined()
 
-    await user.click(screen.getByRole('button', { name: t('goals.list.deleteModal.confirmButton') }))
+    await user.type(screen.getByRole('textbox'), '目標A')
+    await user.click(screen.getByRole('button', { name: t('goals.delete.confirmButton') }))
 
-    await waitFor(() => expect(deleteArchivedGoal).toHaveBeenCalledOnce())
-    expect(deleteArchivedGoal.mock.calls[0][0]).toBe(ARCHIVED_ID)
+    await waitFor(() => expect(deleteGoal).toHaveBeenCalledOnce())
+    expect(deleteGoal.mock.calls[0][0]).toBe(ARCHIVED_ID)
   })
 })

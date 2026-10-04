@@ -93,24 +93,15 @@ class InvalidStateTransitionError(DomainError):
     """許可されない目標の状態遷移、またはクローズ済み目標への更新（仕様書7.1、6.2）。"""
 
 
-class CloseConfirmationRequiredError(DomainError):
-    """結果が未登録のまま目標をクローズしようとし、利用者の確認が必要な場合（仕様書7.1）。
+class ExamResultsIncompleteError(DomainError):
+    """受験結果が揃っていない資格試験目標を完了しようとした場合（開発Todo 1-3）。
 
-    「許可されない状態遷移」ではなく「確認さえ取れれば実行できる」状態であるため、
-    InvalidStateTransitionErrorとは別のエラーコードを持つ専用例外とする。両者を同じ
-    コードで返すと、画面側が本当の状態エラー（クローズ済み目標への再クローズ等）を
-    「確認が必要」と誤解し、無関係な確認文言を表示したまま本当のエラーを握り潰す
-    （2026-09-11の不具合。呼び出し側はコードだけで両者を判別する）。
-
-    資格試験目標では「受験結果が未登録の科目が残っている」場合に、読書目標では
-    「結果という概念自体が無い」ため常に送出される。種別を問わず成立する文面とするのは、
-    読書目標へ資格試験専用の文面を返すとAPIレスポンス(error.message)やログに実態と異なる
-    説明が残るためである（今回の不具合と同じ誤りの裏返しになる）。画面表示はエラーコードに
-    対応するロケール文言が担うため、ここの文面は開発者・ログ向けである。
+    確認を取れば実行できる状態ではなく、結果の登録が前提であるため、確認要求とは別の
+    エラーとする（確認要求を廃止し、完了ボタンは結果が揃うまで無効化する）。
     """
 
     def __init__(self) -> None:
-        super().__init__("結果が未登録のままクローズする場合は確認が必要です")
+        super().__init__("受験結果が揃っていないため完了できません")
 
 
 class MaterialHasStudyLogsError(DomainError):
@@ -126,17 +117,6 @@ class MaterialHasStudyLogsError(DomainError):
     def __init__(self, material_id: int) -> None:
         self.material_id = material_id
         super().__init__(f"教材(id={material_id})には実績が存在するため削除できません")
-
-
-class BookHasReadingLogsError(DomainError):
-    """想起記録（reading_log）が存在する書籍を削除しようとした場合
-    （MaterialHasStudyLogsErrorの読書版、データ構造編6.2）。reasonの用途は同クラス参照。"""
-
-    reason = "BOOK_HAS_LOGS"
-
-    def __init__(self, book_id: int) -> None:
-        self.book_id = book_id
-        super().__init__(f"書籍(id={book_id})には想起記録が存在するため削除できません")
 
 
 class BookAlreadyExistsError(DomainError):
@@ -161,19 +141,6 @@ class CurrentPageExceedsTotalPagesError(DomainError):
         self.book_id = book_id
         self.total_pages = total_pages
         super().__init__(f"書籍(id={book_id})の総ページ数({total_pages})を超えています")
-
-
-class WorkAssignmentHasWorkLogsError(DomainError):
-    """業務記録（work_log）が存在する案件情報を削除しようとした場合
-    （BookHasReadingLogsErrorの仕事版、データ構造編6.2）。reasonの用途はMaterialHasStudyLogsError参照。"""
-
-    reason = "WORK_ASSIGNMENT_HAS_LOGS"
-
-    def __init__(self, work_assignment_id: int) -> None:
-        self.work_assignment_id = work_assignment_id
-        super().__init__(
-            f"案件情報(id={work_assignment_id})には業務記録が存在するため削除できません"
-        )
 
 
 class WorkAssignmentAlreadyExistsError(DomainError):

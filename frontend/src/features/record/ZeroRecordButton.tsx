@@ -19,7 +19,7 @@ export type ZeroRecordButtonProps = {
  * 「今日は何もしていない」ボタン（仕様書6.5改、記録画面改善タスク2026-09-17）。
  *
  * 対象カテゴリが無ければ表示しない（既に全て報告済み・進捗のみ登録済み、または着手中の
- * 目標が無い日）。誤操作防止のため確定前に確認モーダルを挟む（CloseGoalModal.tsxと同じ
+ * 目標が無い日）。誤操作防止のため確定前に確認モーダルを挟む（GoalEndModal.tsxと同じ
  * 方針。確定は取り消せないため）。
  */
 export function ZeroRecordButton({ targetDate, categories, presence }: ZeroRecordButtonProps) {
