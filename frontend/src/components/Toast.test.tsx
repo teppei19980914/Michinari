@@ -130,7 +130,7 @@ describe('ToastProvider', () => {
     const toast = renderWithProvider()
 
     act(() =>
-      toast.showApiError(new ApiError('NOT_FOUND', '対象がありません'), '月次報告を生成できませんでした'),
+      toast.showApiErrorWithTitle('月次報告を生成できませんでした', new ApiError('NOT_FOUND', '対象がありません')),
     )
 
     expect(screen.getByText('月次報告を生成できませんでした')).toBeTruthy()

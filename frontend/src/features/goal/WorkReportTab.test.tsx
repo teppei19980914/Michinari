@@ -192,6 +192,18 @@ describe('WorkReportTab の生成と保存', () => {
     expect(screen.getByText(t('errors.DATABASE_BUSY'))).toBeTruthy()
   })
 
+  it('explains a failed save with a title and a retry hint', async () => {
+    const user = userEvent.setup()
+    updateMonthlyReport.mockRejectedValue(new ApiError('DATABASE_BUSY', 'busy'))
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
+
+    await waitFor(() => expect(saveButton()).toBeDefined())
+    await user.click(saveButton())
+
+    expect(await screen.findByText(t('goals.workReport.saveFailedTitleMonthly'))).toBeTruthy()
+    expect(screen.getByText(t('errors.DATABASE_BUSY'))).toBeTruthy()
+  })
+
   it('omits the period when the field is left empty so the server picks the current one', async () => {
     const user = userEvent.setup()
     renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
