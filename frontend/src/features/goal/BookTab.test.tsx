@@ -116,7 +116,8 @@ describe('BookTab の表示', () => {
     renderWithProviders(<BookTab goal={goalWithBook()} readOnly={false} />)
 
     expect(screen.getByRole('button', { name: t('common.action.edit') })).toBeDefined()
-    expect(screen.queryByRole('button', { name: t('goals.book.completeButton') })).toBeNull()
+    // 読了（完了）は目標詳細の操作欄に一本化したため、書籍タブには完了の操作を置かない
+    expect(screen.getAllByRole('button')).toHaveLength(1)
   })
 })
 

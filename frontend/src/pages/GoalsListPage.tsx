@@ -114,6 +114,11 @@ function GoalCard({
           {t('goals.list.exportLink')}
         </Link>
       )}
+      {isClosed && !isArchived && (
+        <Link to={ROUTES.goalDetail(goal.id)} className="text-sm text-blue-600 hover:underline">
+          {t('goals.list.detailLink')}
+        </Link>
+      )}
       {goal.status === 'ACTIVE' && goal.category === 'EXAM' && (
         <Link to={ROUTES.goalResult(goal.id)} className="text-sm text-blue-600 hover:underline">
           {t('goals.list.resultLink')}
