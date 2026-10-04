@@ -30,6 +30,7 @@ from app.models.record import (
     WorkLog,
 )
 from app.models.resource import ResourceSlot
+from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment
 from app.services import export_progress, export_service
 from tests import reading_helpers
