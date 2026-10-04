@@ -96,13 +96,19 @@ def collect_pending_entries(
         )
     ).all()
 
-    known = set(
-        session.execute(
-            select(RecapEntry.source_kind, RecapEntry.source_id).where(
-                RecapEntry.goal_id == goal.id
-            )
-        ).all()
-    )
+    candidate_ids = [source_id for source_id, _ in diary_rows] + [
+        source_id for source_id, _ in reading_rows
+    ]
+    known = set()
+    if candidate_ids:
+        known = set(
+            session.execute(
+                select(RecapEntry.source_kind, RecapEntry.source_id).where(
+                    RecapEntry.goal_id == goal.id,
+                    RecapEntry.source_id.in_(candidate_ids),
+                )
+            ).all()
+        )
     for kind, rows in (
         (RecapSourceKind.DIARY, diary_rows),
         (RecapSourceKind.READING, reading_rows),
