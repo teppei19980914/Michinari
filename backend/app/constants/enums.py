@@ -95,6 +95,8 @@ class AiPurpose(enum.StrEnum):
     GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
     WEEKLY_SUMMARY_WORK = "WEEKLY_SUMMARY_WORK"
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
+    RECAP_CLASSIFY = "RECAP_CLASSIFY"
+    RECAP_THEME_BODY = "RECAP_THEME_BODY"
 
 
 class ConversationScope(enum.StrEnum):
@@ -110,6 +112,7 @@ class ConversationScope(enum.StrEnum):
     GOAL_RETROSPECTIVE_WORK_SEMIANNUAL = "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL"
     WEEKLY_SUMMARY_WORK = "WEEKLY_SUMMARY_WORK"
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
+    RECAP = "RECAP"
 
 
 class WorkMemberGender(enum.StrEnum):
@@ -162,3 +165,10 @@ class AppSettingValueType(enum.StrEnum):
     FLOAT = "FLOAT"
     BOOLEAN = "BOOLEAN"
     JSON = "JSON"
+
+
+class RecapSourceKind(enum.StrEnum):
+    """振り返り（テーマ累積）の元になる報告の種類（資格試験の日記・読書の想起記録）。"""
+
+    DIARY = "DIARY"
+    READING = "READING"

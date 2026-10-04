@@ -224,3 +224,21 @@ class BackdateLimitExceededError(DomainError):
         self.record_date = record_date
         self.today = today
         super().__init__(f"日付({record_date})への報告確定は前日までに限られます（本日: {today}）")
+
+
+class RecapBodyRejectedError(DomainError):
+    """振り返りのテーマ本文の更新結果が、既存の本文を下回る長さだったため採用しない場合。
+
+    既存の内容を失わないことを優先し、そのテーマの分類を取り消して次回のバッチで再処理する。
+    """
+
+
+class RecapPromptTooLongError(DomainError):
+    """振り返りのプロンプトが上限文字数を超え、情報を切り詰める必要が生じた場合。
+
+    切り詰めると報告の一部が分類・統合されず失われるため、送信せず中止する。
+    """
+
+
+class RecapThemeNameConflictError(DomainError):
+    """振り返りのテーマを、同じ目標内に既にある名前へ改名・統合しようとした場合。"""

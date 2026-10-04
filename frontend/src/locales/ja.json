@@ -138,6 +138,11 @@
     "recentActivityCalendar": {
       "title": "直近4週間",
       "viewCalendarLink": "カレンダーを見る"
+    },
+    "recapThemes": {
+      "title": "今週の振り返り（テーマ別）",
+      "empty": "まだテーマはありません。日次報告の学んだことが分類されると、ここに表示されます",
+      "entryCount": "{{count}}件の報告"
     }
   },
   "goals": {
@@ -652,6 +657,8 @@
         "GOAL_RETROSPECTIVE_WORK_MONTHLY": "月次報告（仕事）",
         "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "半期評価（仕事）",
         "WEEKLY_SUMMARY_WORK": "週次要約（仕事）",
+        "RECAP_CLASSIFY": "振り返り（テーマ分類）",
+        "RECAP_THEME_BODY": "振り返り（テーマ本文）",
         "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）"
       }
     },
@@ -806,7 +813,8 @@
       "examResults": "受験結果",
       "retrospective": "総括レポート",
       "readingRetrospective": "読了レポート",
-      "workRetrospective": "月次報告・半期評価"
+      "workRetrospective": "月次報告・半期評価",
+      "recapThemes": "振り返りテーマ（テーマ別の累積本文）"
     },
     "anonymize": {
       "label": "匿名化する",
@@ -1279,6 +1287,9 @@
     "INVALID_STATE_TRANSITION": "今の状態ではこの操作はできません。画面を再読み込みしてから、もう一度お試しください",
     "CLOSE_CONFIRMATION_REQUIRED": "受験結果がまだ登録されていません。内容を確認し、問題なければもう一度実行してください",
     "IMMUTABLE_RECORD": "確定済みの記録は変更できません。確定前の内容に戻す機能はありません",
+    "RECAP_THEME_NAME_CONFLICT": "同じ名前のテーマが既にあります。別の名前を指定してください",
+    "RECAP_BODY_REJECTED": "振り返りの本文を更新できませんでした。内容は失われていません。しばらくしてから再度お試しください",
+    "RECAP_PROMPT_TOO_LONG": "報告が多すぎるため、振り返りを作成できませんでした",
     "NOT_FOUND": "対象のデータが見つかりませんでした。画面を再読み込みしてから、もう一度お試しください",
     "AI_AUTH_REQUIRED": "AIとの接続が切れています。設定画面で接続を確認してください",
     "AI_CONFIG_ERROR": "AIの接続設定が正しくありません。設定画面を確認してください",
@@ -1292,6 +1303,24 @@
       "BOOK_HAS_LOGS": "この書籍には想起記録が残っているため削除できません。先に想起記録を削除するか、書籍情報を編集してご利用ください",
       "WORK_ASSIGNMENT_HAS_LOGS": "この案件情報には業務記録が残っているため削除できません。先に業務記録を削除するか、案件情報を編集してご利用ください",
       "WORK_MEMBER_HAS_REPORTS": "このメンバーには評価レポートが存在するため削除できません。無効化するか、評価レポートを踏まえたうえでご利用ください"
+    }
+  },
+  "recapTheme": {
+    "backToDashboard": "ダッシュボードへ戻る",
+    "bodyEmpty": "まだ本文はありません",
+    "renameLabel": "テーマ名",
+    "renameButton": "名前を変更",
+    "mergeLabel": "別のテーマへ統合（このテーマは削除され、報告と本文は統合先へ移ります）",
+    "mergePlaceholder": "統合先のテーマを選択",
+    "mergeButton": "統合する",
+    "mergeConfirm": "このテーマを統合先へまとめ、このテーマを削除します。よろしいですか？",
+    "rebuildButton": "再構築",
+    "rebuildConfirm": "紐付く報告の原文から本文を作り直します。AIを使うため時間がかかります。よろしいですか？",
+    "entriesTitle": "紐付く報告",
+    "entriesEmpty": "紐付く報告はありません",
+    "sourceKind": {
+      "DIARY": "資格試験の日記",
+      "READING": "読書の想起記録"
     }
   }
 }

@@ -33,6 +33,7 @@ from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
 from app.api.goals import router as goals_router
 from app.api.materials import router as materials_router
+from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
@@ -47,7 +48,12 @@ from app.desktop.logging_setup import preserve_logging_state
 from app.init.seed_data import run_all
 from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
-from app.services import backup_service, goal_service, weekly_summary_service
+from app.services import (
+    backup_service,
+    goal_service,
+    recap_generation_service,
+    weekly_summary_service,
+)
 
 #: データ構造編6.1「ベースパス /api/v1」。
 API_V1_PREFIX = "/api/v1"
@@ -221,6 +227,7 @@ def create_app() -> FastAPI:
     app.include_router(materials_router, prefix=API_V1_PREFIX)
     app.include_router(work_members_router, prefix=API_V1_PREFIX)
     app.include_router(books_router, prefix=API_V1_PREFIX)
+    app.include_router(recap_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
@@ -276,6 +283,7 @@ def run_ai_startup_tasks() -> None:
     try:
         today = goal_service.resolve_today(session)
         weekly_summary_service.run_retroactive_generation(session, today)
+        recap_generation_service.run_all(session, today)
     finally:
         session.close()
 
