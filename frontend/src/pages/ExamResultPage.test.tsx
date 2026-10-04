@@ -295,10 +295,9 @@ describe('ExamResultPage のクローズ', () => {
     expect(container.textContent).toContain(t('goals.detail.action.complete.EXAM'))
   })
 
-  it('tells the user when the retrospective could not be generated after closing', async () => {
+  it('moves to the export screen after completion without generating the retrospective', async () => {
     const user = userEvent.setup()
     getGoal.mockResolvedValue(makeGoalDetail({ exam_subjects: [makeSubjectWithResult()] }))
-    generateRetrospective.mockRejectedValue(new ApiError('AI_TIMEOUT', 'timeout'))
     renderPage()
     await screen.findByText(SUBJECT_NAME)
 
@@ -307,9 +306,8 @@ describe('ExamResultPage のクローズ', () => {
     )
     await user.click(screen.getByRole('button', { name: 'mock-closed' }))
 
-    expect(
-      await screen.findByText(t('knowledgeExport.retrospective.autoGenerateFailedTitle')),
-    ).toBeTruthy()
+    // 総括レポートは出力画面の生成ボタンでのみ作る（利用者方針2026-10-04）
+    expect(generateRetrospective).not.toHaveBeenCalled()
     expect(navigate).toHaveBeenCalledWith(ROUTES.goalExport(GOAL_ID))
   })
 })

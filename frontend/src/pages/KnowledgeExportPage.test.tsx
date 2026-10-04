@@ -69,7 +69,10 @@ const selectionCheckbox = (labelKey: string) =>
   screen.getByRole('checkbox', { name: t(labelKey) })
 
 async function renderPage(goal: Partial<GoalDetailRead> = {}) {
-  getGoal.mockResolvedValue(makeGoalDetail({ name: GOAL_NAME, ...goal }))
+  // 総括レポートは完了した目標のみ生成できるため、既定は完了の状態とする（利用者方針2026-10-04）
+  getGoal.mockResolvedValue(
+    makeGoalDetail({ name: GOAL_NAME, status: 'CLOSED_WITH_RESULT', ...goal }),
+  )
   const result = renderWithProviders(<KnowledgeExportPage />)
   await screen.findByText(t('knowledgeExport.title', { name: GOAL_NAME }))
   return result
