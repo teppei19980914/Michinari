@@ -46,9 +46,14 @@ class WorkReportRead(BaseModel):
     is_anonymized: bool
     generated_at: dt.datetime
     edited_at: dt.datetime | None
+    #: 以下3項目はDBに保存しない派生値。応答組み立て（api/closure.py の
+    #: _serialize_work_report）で入れる。
     #: 報告月（対象月の翌月、"YYYY-MM"）。月次報告のみ値を持つ（半期評価はNone）。
-    #: DBには保存しない派生値（work_report_service.reporting_period_key で導出）。
     reporting_period_key: str | None = None
+    #: 対象期間の表示名（"2026年9月"・"2026年3月〜8月"）。
+    target_period_label: str | None = None
+    #: 報告月の表示名（"2026年10月"）。月次報告のみ値を持つ（半期評価はNone）。
+    reporting_period_label: str | None = None
 
 
 class MonthlyReportUpdateRequest(BaseModel):

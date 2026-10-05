@@ -120,10 +120,10 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
         <p className="text-sm text-gray-500">{t('goals.workReport.empty')}</p>
       )}
 
-      {report?.reporting_period_key && (
+      {report?.target_period_label && (
         <WorkReportPeriodHeader
-          periodKey={report.period_key}
-          reportingPeriodKey={report.reporting_period_key}
+          targetLabel={report.target_period_label}
+          reportingLabel={report.reporting_period_label ?? null}
         />
       )}
 
