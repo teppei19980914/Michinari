@@ -55,6 +55,29 @@ fi
 BRANCH_PREFIX="${branch_prefix:-dev/}"
 BASE_BRANCH="${base_branch:-main}"
 
+# 起動時間の上限対策（2026-10-05）:
+#   このフックは SessionStart で同期実行され、VSCode拡張のCLI初期化タイムアウト(60秒)の
+#   大半を消費していた。ネットワーク呼び出しを1回ずつ上限付きで実行し、不要な通信は省く。
+NET_TIMEOUT="${NET_TIMEOUT:-10}"
+# gh の起動コマンド。テストで偽の gh を差し替えるための口（既定は gh）
+GH_CMD="${GH_BIN:-gh}"
+net() {
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$NET_TIMEOUT" "$@"
+  else
+    "$@"
+  fi
+}
+
+# base ブランチの取得は起動中に1回だけ行う（Step 6 と Step 7 で二重に通信しない）
+BASE_FETCHED=0
+fetch_base() {
+  if [ "$BASE_FETCHED" -eq 0 ]; then
+    net git fetch origin "$BASE_BRANCH" >/dev/null 2>&1 || true
+    BASE_FETCHED=1
+  fi
+}
+
 echo ""
 echo "=== Git Automation (SessionStart) ==="
 
@@ -76,11 +99,11 @@ check_prereqs() {
     missing=1
   fi
 
-  if ! command -v gh >/dev/null 2>&1; then
+  if ! command -v "${GH_CMD%% *}" >/dev/null 2>&1; then
     echo "  [x] gh CLI が未インストール (https://cli.github.com/)"
     missing=1
   else
-    if ! gh auth status >/dev/null 2>&1; then
+    if ! net $GH_CMD auth status >/dev/null 2>&1; then
       echo "  [x] gh CLI が未認証 (実行: gh auth login)"
       missing=1
     fi
@@ -159,15 +182,18 @@ if [ -n "$PREV_BRANCHES" ]; then
       git commit -m "chore: auto-commit on session start ($(date +%Y-%m-%d\ %H:%M))" >/dev/null 2>&1 || true
     fi
 
-    # リモートにプッシュ (上流未設定なら -u)
+    # リモートにプッシュ (上流未設定なら -u)。上流があり未送信コミットが無い場合は通信しない
+    # （毎回の push は起動時間の大半を占めていたため。2026-10-05 計測で約7秒）
     if git rev-parse --abbrev-ref --symbolic-full-name "@{u}" >/dev/null 2>&1; then
-      git push 2>/dev/null || echo "  [!] push 失敗"
+      if [ -n "$(git rev-list "@{u}..HEAD" 2>/dev/null)" ]; then
+        net git push 2>/dev/null || echo "  [!] push 失敗"
+      fi
     else
-      git push -u origin "$prev_branch" 2>/dev/null || echo "  [!] push 失敗"
+      net git push -u origin "$prev_branch" 2>/dev/null || echo "  [!] push 失敗"
     fi
 
     # PR の存在確認
-    pr_state="$(gh pr view "$prev_branch" --json state -q .state 2>/dev/null || echo '')"
+    pr_state="$(net $GH_CMD pr view "$prev_branch" --json state -q .state 2>/dev/null || echo '')"
 
     if [ -z "$pr_state" ]; then
       # PR 未作成 → 作成
@@ -175,7 +201,7 @@ if [ -n "$PREV_BRANCHES" ]; then
       pr_title="${prev_branch}: 日次変更"
       pr_body="$(git log "${BASE_BRANCH}..${prev_branch}" --oneline 2>/dev/null | head -50)"
       [ -z "$pr_body" ] && pr_body="自動作成された日次 PR"
-      if gh pr create --base "$BASE_BRANCH" --head "$prev_branch" --title "$pr_title" --body "$pr_body" 2>/dev/null; then
+      if net $GH_CMD pr create --base "$BASE_BRANCH" --head "$prev_branch" --title "$pr_title" --body "$pr_body" 2>/dev/null; then
         echo "  [OK] PR 作成完了"
       else
         echo "  [!] PR 作成失敗 (既に存在する可能性)"
@@ -190,7 +216,7 @@ if [ -n "$PREV_BRANCHES" ]; then
     # PRマージ後に同じブランチへ追加コミットされた場合（Stop Hookのオートコミット等）、
     # それらがどのPRにも含まれないまま削除され失われる（2026-09-14・2026-10-02に実際発生）。
     if [ "$pr_state" = "MERGED" ]; then
-      git fetch origin "$BASE_BRANCH" >/dev/null 2>&1 || true
+      fetch_base
       prev_head="$(git rev-parse "$prev_branch")"
       if git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null \
         && git merge-base --is-ancestor "$prev_head" "origin/$BASE_BRANCH"; then
@@ -238,7 +264,7 @@ fi
 # 「最新化されているか」は pull の終了コードではなく origin との差で判定する
 # （リモート未設定・オフラインでも pull は失敗しうるが、それ自体は巻き戻しの危険を意味しない）。
 git checkout "$BASE_BRANCH" 2>/dev/null || true
-git fetch origin "$BASE_BRANCH" >/dev/null 2>&1 || true
+fetch_base
 
 if git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null; then
   # origin より遅れている分だけ fast-forward で取り込む
