@@ -1176,6 +1176,7 @@ osv-scanner --version                      # 導入確認
 | PreToolUse Hook で編集ブロック | 危険API / 機密ファイル | 代替実装に変更 or テンプレートファイル編集 |
 | PR が自動作成されない | `gh` 未認証 | `gh auth login` |
 | 新規作成した未追跡ファイルが日を跨いで消失 | `session-start-git.sh`の未コミット判定が追跡済み変更のみを見ており、未追跡ファイル（`git ls-files --others --exclude-standard`）を見落としていた（2026-09-17〜18に発生、修正済み） | 修正後は未追跡ファイルも判定対象。心当たりがある場合は`git fsck --lost-found`で復旧を試みる |
+| Claude Code 起動時に「Subprocess initialization did not complete within 60000ms」が頻発 | SessionStart Hook（`session-start-git.sh`）がネットワーク・git/gh 呼び出し（1回あたり約0.5〜7秒、プロセス起動だけで約0.5秒）を直列に行い、CLI初期化の60秒制限を消費していた（2026-10-05調査）。対策として `git push` は未送信コミットがある時のみ実行、`fetch origin` は起動中1回のみ、各通信に上限（`NET_TIMEOUT`、既定10秒）を設定。起動時間の目安は修正後約22秒（修正前約34秒） | VSCode のログ（`%APPDATA%\Code\logs\...\Claude VSCode.log`）で `Spawning Claude` から `Spawn-env probe` までの時間を確認。改善しない場合は `git -C <repo> remote -v` とネットワーク（プロキシ・VPN）、`gh auth status` の応答時間を確認する。OneDrive配下に `node_modules`・`myvenv`・`.venv`・`.claude/worktrees` の大量ファイルがあると同期負荷が増えるため、不要なworktreeの削除や生成物フォルダの移動も検討する |
 | PRマージ後に積んだコミットが前日ブランチ削除で消失 | `session-start-git.sh`がPRの状態（MERGED）だけを見てブランチを削除しており、PRマージ後に同じブランチへ追加コミットされた分（Stop Hookのオートコミット等）を無条件に削除していた（2026-09-14・2026-10-02に発生、2026-10-02 PR #69で修正済み） | 修正後は削除前に`git merge-base --is-ancestor`で現在のHEADが`origin/main`へ到達済みか確認し、未到達なら削除せず未マージ扱いにする。心当たりがある場合は`git reflog`で削除直前のHEAD SHAを確認し、`git cat-file -t <SHA>`で生存していれば`git merge --no-ff <SHA>`で復旧する |
 
 ### 8.2 Git / GitHub 関連
