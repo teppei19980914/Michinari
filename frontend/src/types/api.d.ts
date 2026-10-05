@@ -4126,6 +4126,8 @@ export interface components {
             generated_at: string;
             /** Edited At */
             edited_at: string | null;
+            /** Reporting Period Key */
+            reporting_period_key?: string | null;
         };
     };
     responses: never;

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.api.work import serialize_evaluation_report
 from app.constants.enums import RetrospectivePeriodType
 from app.database import get_db
+from app.models.retrospective import GoalRetrospective
 from app.schemas.retrospective import (
     MonthlyReportUpdateRequest,
     RetrospectiveGenerateRequest,
@@ -92,6 +93,19 @@ def generate_retrospective(
 # --- 実装フェーズ分割計画書Phase22） ---
 
 
+def _serialize_work_report(retrospective: GoalRetrospective) -> WorkReportRead:
+    """月次報告・半期評価の応答を組み立てる。報告月は保存せず、対象期間から都度導出する
+    （CLAUDE.md「派生値の保存禁止」）。月次・半期の全エンドポイントがこの1箇所を通る。"""
+    report = WorkReportRead.model_validate(retrospective)
+    return report.model_copy(
+        update={
+            "reporting_period_key": work_report_service.reporting_period_key(
+                retrospective.period_type, retrospective.period_key
+            )
+        }
+    )
+
+
 @router.post("/goals/{goal_id}/monthly-report", response_model=WorkReportRead)
 def generate_monthly_report(
     goal_id: int, payload: WorkReportGenerateRequest, session: Session = Depends(get_db)
@@ -102,7 +116,7 @@ def generate_monthly_report(
         session, goal, period_key=payload.period, today=today, anonymize=payload.anonymize
     )
     session.commit()
-    return WorkReportRead.model_validate(retrospective)
+    return _serialize_work_report(retrospective)
 
 
 @router.get("/goals/{goal_id}/monthly-report", response_model=WorkReportRead | None)
@@ -122,7 +136,7 @@ def get_monthly_report(
         period_key=resolved_period,
         anonymized=anonymized,
     )
-    return WorkReportRead.model_validate(retrospective) if retrospective is not None else None
+    return _serialize_work_report(retrospective) if retrospective is not None else None
 
 
 @router.patch("/goals/{goal_id}/monthly-report", response_model=WorkReportRead)
@@ -137,7 +151,7 @@ def update_monthly_report(
         session, goal, period_key=period, **payload.model_dump(exclude_unset=True)
     )
     session.commit()
-    return WorkReportRead.model_validate(retrospective)
+    return _serialize_work_report(retrospective)
 
 
 @router.post("/goals/{goal_id}/semiannual-review", response_model=WorkReportRead)
@@ -150,7 +164,7 @@ def generate_semiannual_review(
         session, goal, period_key=payload.period, today=today, anonymize=payload.anonymize
     )
     session.commit()
-    return WorkReportRead.model_validate(retrospective)
+    return _serialize_work_report(retrospective)
 
 
 @router.get("/goals/{goal_id}/semiannual-review", response_model=WorkReportRead | None)
@@ -170,7 +184,7 @@ def get_semiannual_review(
         period_key=resolved_period,
         anonymized=anonymized,
     )
-    return WorkReportRead.model_validate(retrospective) if retrospective is not None else None
+    return _serialize_work_report(retrospective) if retrospective is not None else None
 
 
 @router.patch("/goals/{goal_id}/semiannual-review", response_model=WorkReportRead)
@@ -185,7 +199,7 @@ def update_semiannual_review(
         session, goal, period_key=period, **payload.model_dump(exclude_unset=True)
     )
     session.commit()
-    return WorkReportRead.model_validate(retrospective)
+    return _serialize_work_report(retrospective)
 
 
 # --- AI評価レポート（category=WORKかつrole=EVALUATORの場合のみ、要件定義書6.11） ---

@@ -9,6 +9,7 @@ import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
 import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { downloadBlob } from '../../utils/downloadBlob'
 import { WorkReportForm } from './WorkReportForm'
+import { WorkReportPeriodHeader } from './WorkReportPeriodHeader'
 import { resolveWorkReportKind } from './workReportKind'
 import { useWorkReportDraft } from './useWorkReportDraft'
 import { QUERY_KEYS, type WorkReportKind } from '../../constants/queryKeys'
@@ -117,6 +118,13 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
 
       {!reportQuery.isLoading && !report && (
         <p className="text-sm text-gray-500">{t('goals.workReport.empty')}</p>
+      )}
+
+      {report?.reporting_period_key && (
+        <WorkReportPeriodHeader
+          periodKey={report.period_key}
+          reportingPeriodKey={report.reporting_period_key}
+        />
       )}
 
       {report && (
