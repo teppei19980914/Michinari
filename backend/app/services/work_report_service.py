@@ -149,6 +149,13 @@ def _previous_semiannual_period_key(period_key: str) -> str:
     return f"{year - 1}-H2" if half == "H1" else f"{year}-H1"
 
 
+def period_display(period_type: RetrospectivePeriodType, period_key: str) -> str:
+    """対象期間の表示名（月次は"2026年9月"、半期は"2026年3月〜8月"）。画面と本文の見出しで共用する。"""
+    if period_type == RetrospectivePeriodType.MONTHLY:
+        return _monthly_period_display(period_key)
+    return _semiannual_period_display(period_key)
+
+
 def _semiannual_period_range(period_key: str) -> tuple[dt.date, dt.date]:
     year_text, half = period_key.split("-")
     year = int(year_text)

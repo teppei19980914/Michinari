@@ -97,11 +97,20 @@ def _serialize_work_report(retrospective: GoalRetrospective) -> WorkReportRead:
     """月次報告・半期評価の応答を組み立てる。報告月は保存せず、対象期間から都度導出する
     （CLAUDE.md「派生値の保存禁止」）。月次・半期の全エンドポイントがこの1箇所を通る。"""
     report = WorkReportRead.model_validate(retrospective)
+    reporting_key = work_report_service.reporting_period_key(
+        retrospective.period_type, retrospective.period_key
+    )
     return report.model_copy(
         update={
-            "reporting_period_key": work_report_service.reporting_period_key(
+            "reporting_period_key": reporting_key,
+            "target_period_label": work_report_service.period_display(
                 retrospective.period_type, retrospective.period_key
-            )
+            ),
+            "reporting_period_label": (
+                work_report_service.period_display(RetrospectivePeriodType.MONTHLY, reporting_key)
+                if reporting_key is not None
+                else None
+            ),
         }
     )
 

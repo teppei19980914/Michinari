@@ -335,8 +335,11 @@ def test_monthly_report_response_includes_reporting_period_key(client, monkeypat
 
     assert generated["period_key"] == "2026-09"
     assert generated["reporting_period_key"] == "2026-10"
+    assert generated["target_period_label"] == "2026年9月"
+    assert generated["reporting_period_label"] == "2026年10月"
     assert fetched["reporting_period_key"] == "2026-10"
     assert patched["reporting_period_key"] == "2026-10"
+    assert patched["reporting_period_label"] == "2026年10月"
 
 
 def test_monthly_report_reporting_period_key_rolls_over_year_end(client, monkeypatch):
@@ -357,4 +360,7 @@ def test_semiannual_review_response_has_no_reporting_period_key(client, monkeypa
     )
 
     assert response.status_code == 200, response.text
-    assert response.json()["reporting_period_key"] is None
+    body = response.json()
+    assert body["reporting_period_key"] is None
+    assert body["reporting_period_label"] is None
+    assert body["target_period_label"] == "2026年3月〜8月"
