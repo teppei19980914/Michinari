@@ -39,6 +39,7 @@ import sys
 import time
 import tomllib
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import collect_licenses
 
@@ -495,9 +496,15 @@ def run_tests() -> None:
     """
     print("[1/8] テストスイートを実行しています…")
     print("  → バックエンド (pytest + カバレッジ)")
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--cov-fail-under=100"], cwd=BACKEND_DIR
-    )
+    # カバレッジの出力先を専用の一時ディレクトリに分ける。既定の backend/.coverage* に置くと、
+    # 同時に走る別プロセス（Stop Hook の COVERAGE_FILE=.coverage.stop-hook 等）の
+    # データファイルを結合時に巻き込み、使用中のファイルの削除で PermissionError になる
+    # （2026-10-05 release.bat）。
+    with TemporaryDirectory(ignore_cleanup_errors=True) as cov_dir:
+        env = {**os.environ, "COVERAGE_FILE": str(Path(cov_dir) / ".coverage")}
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--cov-fail-under=100"], cwd=BACKEND_DIR, env=env
+        )
     if result.returncode != 0:
         print("  → バックエンドのテストが失敗しました。配布パッケージのビルドを中止します。")
         print("     上記のテスト結果を確認して修正した後、再度実行してください。")
