@@ -104,6 +104,24 @@ def _previous_monthly_period_key(period_key: str) -> str:
     return f"{year}-{month - 1:02d}"
 
 
+def _next_monthly_period_key(period_key: str) -> str:
+    year, month = (int(part) for part in period_key.split("-"))
+    if month == 12:
+        return f"{year + 1}-01"
+    return f"{year}-{month + 1:02d}"
+
+
+def reporting_period_key(period_type: RetrospectivePeriodType, period_key: str) -> str | None:
+    """報告月（報告を提出する年月）のperiod_key。対象月の翌月とし、保存はせず都度導出する。
+
+    提出対象年月は生成月の前月（要件定義書R-78）のため、対象月の翌月が報告月になる
+    （例: 対象月2026-09の報告は2026年10月に報告する）。半期評価は報告月の概念を持たないため None。
+    """
+    if period_type != RetrospectivePeriodType.MONTHLY:
+        return None
+    return _next_monthly_period_key(period_key)
+
+
 def _monthly_period_range(period_key: str) -> tuple[dt.date, dt.date]:
     year, month = (int(part) for part in period_key.split("-"))
     date_from = dt.date(year, month, 1)

@@ -46,6 +46,9 @@ class WorkReportRead(BaseModel):
     is_anonymized: bool
     generated_at: dt.datetime
     edited_at: dt.datetime | None
+    #: 報告月（対象月の翌月、"YYYY-MM"）。月次報告のみ値を持つ（半期評価はNone）。
+    #: DBには保存しない派生値（work_report_service.reporting_period_key で導出）。
+    reporting_period_key: str | None = None
 
 
 class MonthlyReportUpdateRequest(BaseModel):

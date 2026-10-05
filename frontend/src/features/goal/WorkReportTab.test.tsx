@@ -47,15 +47,20 @@ beforeEach(() => {
   vi.clearAllMocks()
   getMonthlyReport.mockResolvedValue(makeWorkReport())
   getSemiannualReview.mockResolvedValue(
-    makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1', report_notes: null }),
+    makeWorkReport({
+      period_type: 'SEMI_ANNUAL',
+      period_key: '2026-H1',
+      report_notes: null,
+      reporting_period_key: null,
+    }),
   )
   generateMonthlyReport.mockResolvedValue(makeWorkReport())
   generateSemiannualReview.mockResolvedValue(
-    makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1' }),
+    makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1', reporting_period_key: null }),
   )
   updateMonthlyReport.mockResolvedValue(makeWorkReport())
   updateSemiannualReview.mockResolvedValue(
-    makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1' }),
+    makeWorkReport({ period_type: 'SEMI_ANNUAL', period_key: '2026-H1', reporting_period_key: null }),
   )
   getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
@@ -301,5 +306,51 @@ describe('WorkReportTab の生成と保存', () => {
 
     expect(downloadBlob).toHaveBeenCalledOnce()
     expect(downloadBlob.mock.calls[0][1]).toBe(`monthly-${MONTHLY_PERIOD_KEY}.md`)
+  })
+})
+
+describe('WorkReportTab の対象月・報告月の表示', () => {
+  it('shows the target month and the reporting month of the loaded monthly report', async () => {
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
+
+    expect(
+      await screen.findByText(
+        t('goals.workReport.periodHeader', { target: '2026年9月', reporting: '2026年10月' }),
+      ),
+    ).toBeDefined()
+  })
+
+  it('does not show the reporting month for the semiannual review', async () => {
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="semiannual" />)
+
+    await screen.findByLabelText(t('goals.workReport.businessSummaryLabel'))
+    expect(
+      screen.queryByText(t('goals.workReport.periodHeader', { target: '', reporting: '' }), {
+        exact: false,
+      }),
+    ).toBeNull()
+  })
+
+  it('takes the header from the loaded report, not from the typed period', async () => {
+    const user = userEvent.setup()
+    getMonthlyReport.mockImplementation((_goalId: number, period?: string) =>
+      Promise.resolve(
+        period === '2026-08'
+          ? makeWorkReport({ period_key: '2026-08', reporting_period_key: '2026-09' })
+          : makeWorkReport(),
+      ),
+    )
+    renderWithProviders(<WorkReportTab goalId={GOAL_ID} kind="monthly" />)
+    await screen.findByText(
+      t('goals.workReport.periodHeader', { target: '2026年9月', reporting: '2026年10月' }),
+    )
+
+    await user.type(screen.getByLabelText(t('goals.workReport.periodLabelMonthly')), '2026-08')
+
+    expect(
+      await screen.findByText(
+        t('goals.workReport.periodHeader', { target: '2026年8月', reporting: '2026年9月' }),
+      ),
+    ).toBeDefined()
   })
 })
