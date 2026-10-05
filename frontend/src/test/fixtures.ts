@@ -170,6 +170,9 @@ export function makeWorkReport(overrides: Partial<WorkReportRead> = {}): WorkRep
     is_anonymized: false,
     generated_at: '2026-09-13T00:00:00',
     edited_at: null,
+    reporting_period_key: '2026-10',
+    target_period_label: '2026年9月',
+    reporting_period_label: '2026年10月',
     ...overrides,
   }
 }
