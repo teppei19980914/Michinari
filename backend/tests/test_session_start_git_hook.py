@@ -18,7 +18,21 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOK = REPO_ROOT / ".claude" / "hooks" / "session-start-git.sh"
-BASH = shutil.which("bash")
+
+
+def _find_bash() -> str | None:
+    """フックを実行する bash を返す。Windows では PATH 先頭の System32\\bash.exe（WSL の起動器）が
+    見つかることがあり、ディストリビューション未導入だと起動できないため、Git for Windows の
+    bash を git の場所から優先して探す（フックは Git Bash 前提で書かれている）。"""
+    git = shutil.which("git")
+    if git:
+        candidate = Path(git).resolve().parents[1] / "bin" / "bash.exe"
+        if candidate.exists():
+            return str(candidate)
+    return shutil.which("bash")
+
+
+BASH = _find_bash()
 PREV_BRANCH = "dev/2000-01-01"
 TODAY = datetime.date.today().isoformat()
 
