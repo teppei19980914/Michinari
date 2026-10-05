@@ -1197,3 +1197,23 @@ class TestThirdPartyLicenses:
 
         assert source_dir.is_dir()
         assert (source_dir / "__init__.py").is_file()
+
+
+def test_run_tests_writes_coverage_data_outside_backend_dir(monkeypatch) -> None:
+    """release の pytest のカバレッジ出力を backend/ の外へ分け、Stop Hook 等の並行実行と
+    データファイルを共有しないことを固定する（2026-10-05 release.bat の PermissionError）。"""
+    calls: list[dict] = []
+
+    def fake_run(args: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append({"args": args, **kwargs})
+        return subprocess.CompletedProcess(args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(build_package.subprocess, "run", fake_run)
+
+    build_package.run_tests()
+
+    pytest_call = calls[0]
+    assert "pytest" in pytest_call["args"]
+    coverage_file = Path(pytest_call["env"]["COVERAGE_FILE"])
+    assert coverage_file.name == ".coverage"
+    assert build_package.BACKEND_DIR not in coverage_file.parents
