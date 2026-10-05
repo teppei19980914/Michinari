@@ -181,6 +181,8 @@ def test_keeps_merged_branch_that_has_commits_outside_base(ws: Workspace) -> Non
 
 def test_does_not_push_when_nothing_is_ahead(ws: Workspace) -> None:
     make_branch(ws.work, PREV_BRANCH, push=True)
+    # セットアップ時の push で記録された分を消し、フック実行中の push だけを見る
+    ws.push_log.unlink(missing_ok=True)
 
     run_hook(ws, FAKE_PR_STATE="OPEN")
 
@@ -201,7 +203,8 @@ def test_network_calls_are_time_limited(ws: Workspace) -> None:
     make_branch(ws.work, PREV_BRANCH, push=True)
 
     start = time.monotonic()
-    result = run_hook(ws, FAKE_GH_SLEEP="120", NET_TIMEOUT="1")
+    # 上限は gh の起動時間（約1秒）より長くし、sleep 中の pr view だけを打ち切る
+    result = run_hook(ws, FAKE_GH_SLEEP="120", NET_TIMEOUT="5")
     elapsed = time.monotonic() - start
 
     # 上限が効かなければ gh pr view の sleep 120 秒を待つ。上限で打ち切られ PR 作成経路へ進む
