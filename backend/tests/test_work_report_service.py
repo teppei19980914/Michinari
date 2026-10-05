@@ -134,6 +134,42 @@ def test_previous_monthly_period_key():
     assert work_report_service._previous_monthly_period_key("2026-09") == "2026-08"
 
 
+def test_reporting_period_key_is_next_month_of_target():
+    assert (
+        work_report_service.reporting_period_key(RetrospectivePeriodType.MONTHLY, "2026-09")
+        == "2026-10"
+    )
+
+
+def test_reporting_period_key_rolls_over_year_end():
+    assert (
+        work_report_service.reporting_period_key(RetrospectivePeriodType.MONTHLY, "2026-12")
+        == "2027-01"
+    )
+
+
+def test_period_display_formats_monthly_and_semiannual_periods():
+    assert (
+        work_report_service.period_display(RetrospectivePeriodType.MONTHLY, "2026-09")
+        == "2026年9月"
+    )
+    assert (
+        work_report_service.period_display(RetrospectivePeriodType.SEMI_ANNUAL, "2026-H1")
+        == "2026年3月〜8月"
+    )
+    assert (
+        work_report_service.period_display(RetrospectivePeriodType.SEMI_ANNUAL, "2026-H2")
+        == "2026年9月〜2027年2月"
+    )
+
+
+def test_reporting_period_key_is_none_for_semiannual():
+    assert (
+        work_report_service.reporting_period_key(RetrospectivePeriodType.SEMI_ANNUAL, "2026-H1")
+        is None
+    )
+
+
 def test_monthly_period_range_covers_full_month():
     date_from, date_to = work_report_service._monthly_period_range("2026-02")
     assert date_from == dt.date(2026, 2, 1)

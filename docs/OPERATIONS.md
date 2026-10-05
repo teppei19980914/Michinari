@@ -441,6 +441,16 @@ uv run python scripts/build_package.py
 自動的に再試行する。コマンドラインから直接`uv run python scripts/build_package.py`を
 実行して同じ事象に遭遇した場合は、`uv sync`を単独で再実行してから改めて実行する。
 
+**`.venv`が壊れた場合（2026-10-05確認）**：`.venv`配下の削除が途中で止まると、`michinari_backend-*.dist-info`の`RECORD`だけが欠けた状態が残り、`uv run pytest`が`No module named 'app'`で失敗する（`uv run`は`Failed to uninstall package ... missing RECORD file`を出す）。この場合は`.venv`を削除してロックファイルどおりに作り直す。
+
+```
+cd backend
+rm -rf .venv
+uv sync --frozen
+```
+
+`uv sync --frozen`は`uv.lock`の版どおりに依存を入れ直すだけで、ソースコードや`uv.lock`は変えない。なお、シェルに`VIRTUAL_ENV`（テスト用に`myvenv`を指す設定など）が残っていると`uv run`が「does not match the project environment path」の警告を出すが、`.venv`は正しく使われるため無視してよい。
+
 同じ再試行は一時的なネットワーク断にも効く。`uv sync`はビルド依存（`hatchling`）の
 解決のためPyPIへ問い合わせるため、名前解決に失敗すると
 `Failed to fetch: https://pypi.org/simple/hatchling/` / `dns error` /

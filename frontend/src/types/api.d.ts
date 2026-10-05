@@ -4126,6 +4126,12 @@ export interface components {
             generated_at: string;
             /** Edited At */
             edited_at: string | null;
+            /** Reporting Period Key */
+            reporting_period_key?: string | null;
+            /** Target Period Label */
+            target_period_label?: string | null;
+            /** Reporting Period Label */
+            reporting_period_label?: string | null;
         };
     };
     responses: never;

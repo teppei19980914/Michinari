@@ -312,3 +312,55 @@ def test_generic_retrospective_endpoint_rejects_work_goal(client, monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+# --- 報告月（reporting_period_key、対象月の翌月の導出値） ---
+
+
+def test_monthly_report_response_includes_reporting_period_key(client, monkeypatch):
+    goal = _create_work_goal_with_assignment(client)
+    _stub_send_message(monkeypatch, response=_MONTHLY_RESPONSE)
+
+    generated = client.post(
+        f"/api/v1/goals/{goal['id']}/monthly-report", json={"period": "2026-09"}
+    ).json()
+    fetched = client.get(
+        f"/api/v1/goals/{goal['id']}/monthly-report", params={"period": "2026-09"}
+    ).json()
+    patched = client.patch(
+        f"/api/v1/goals/{goal['id']}/monthly-report",
+        params={"period": "2026-09"},
+        json={"next_goal_text": "修正後の目標"},
+    ).json()
+
+    assert generated["period_key"] == "2026-09"
+    assert generated["reporting_period_key"] == "2026-10"
+    assert generated["target_period_label"] == "2026年9月"
+    assert generated["reporting_period_label"] == "2026年10月"
+    assert fetched["reporting_period_key"] == "2026-10"
+    assert patched["reporting_period_key"] == "2026-10"
+    assert patched["reporting_period_label"] == "2026年10月"
+
+
+def test_monthly_report_reporting_period_key_rolls_over_year_end(client, monkeypatch):
+    goal = _create_work_goal_with_assignment(client)
+    _stub_send_message(monkeypatch, response=_MONTHLY_RESPONSE)
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/monthly-report", json={"period": "2026-12"})
+
+    assert response.json()["reporting_period_key"] == "2027-01"
+
+
+def test_semiannual_review_response_has_no_reporting_period_key(client, monkeypatch):
+    goal = _create_work_goal_with_assignment(client)
+    _stub_send_message(monkeypatch, response=_SEMIANNUAL_RESPONSE)
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/semiannual-review", json={"period": "2026-H1"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["reporting_period_key"] is None
+    assert body["reporting_period_label"] is None
+    assert body["target_period_label"] == "2026年3月〜8月"
