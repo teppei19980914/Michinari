@@ -125,7 +125,7 @@
    - **設計段階 (Skill)**: 新機能実装前に `/threat-model` で STRIDE 分析を必須化
    - **セキュリティテスト必須**: 認可境界、不正入力（SQLi/XSS payload）、認証バイパス試行のテストを追加
 4. **パフォーマンスチェック** — N+1禁止、不要な再描画、非同期並列化
-5. **デプロイチェック** — `ruff check .` → `pytest` → `docker build .` をローカル実行
+5. **デプロイチェック** — `ruff check .` → `pytest`（`backend`で実行）→ 配布物の同梱確認（`tests/test_build_package.py`）。Dockerは使わない（Dockerfileなし。配布はWindows用のPyInstallerパッケージ、`OPERATIONS.md` 7.4）
 6. **単体テスト** — テスト数の増減を確認、旧文言の残留を検索。例外処理を除きカバレッジ100%を目指す（`test-coverage-reviewer` で確認）
 7. **ドキュメント最新化** — 変更内容に応じて以下のドキュメントを必ず更新する
    - `README.md` — プロジェクト概要・セットアップ手順
