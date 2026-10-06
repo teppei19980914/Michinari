@@ -55,6 +55,10 @@ export const ASSISTANT_FIELDS = [
     field: 'assistant_uid_evaluation_report_work',
     labelKey: 'settings.aiConnection.assistant.evaluationReportWork',
   },
+  {
+    field: 'assistant_uid_help',
+    labelKey: 'settings.aiConnection.assistant.helpAssistant',
+  },
 ] as const
 
 export type AssistantUidField = Extract<keyof AiConnection, `assistant_uid_${string}`>

@@ -18,11 +18,15 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+    AI_ASSISTANT_UID_HELP,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
+    AI_HELP_ANSWER_MAX_CHARS,
+    AI_HELP_FOLDER_NAME,
+    AI_HELP_QUESTION_MAX_CHARS,
     AI_HOST,
     AI_MAX_PROMPT_CHARS,
     AI_MAX_RETRIES,
@@ -59,6 +63,7 @@ from app.constants.app_setting_keys import (
 )
 from app.constants.enums import AiPurpose, AppSettingValueType, DayType
 from app.init import prompt_texts
+from app.models.ai import AiForbiddenTerm
 from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
 
 # キー: (値, 型)。値は app_setting.value に文字列として保存する（設計書 データ構造編 5.2）。
@@ -145,6 +150,12 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
     AI_MIN_INTERVAL_SECONDS: ("2", AppSettingValueType.INTEGER),
     AI_MAX_PROMPT_CHARS: ("30000", AppSettingValueType.INTEGER),
+    # ヘルプAIアシスタント（Phase43、開発Todo U1・U6）。既存の用途と重ならない標準モデル
+    # （GPT-5 mini 高速）を既定値とする。ナレッジを持たないため、ヘルプ以外が混入しない。
+    AI_ASSISTANT_UID_HELP: ("c9e542e1-a324-46d5-a02e-fe6bfaebf85a", AppSettingValueType.STRING),
+    AI_HELP_FOLDER_NAME: ("ミチナリ_ヘルプ", AppSettingValueType.STRING),
+    AI_HELP_QUESTION_MAX_CHARS: ("300", AppSettingValueType.INTEGER),
+    AI_HELP_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     RECAP_CLASSIFY_CHUNK_CHARS: ("12000", AppSettingValueType.INTEGER),
     RECAP_BODY_MAX_CHARS: ("6000", AppSettingValueType.INTEGER),
     RECAP_MIN_RETENTION_RATIO: ("0.8", AppSettingValueType.FLOAT),
@@ -190,6 +201,7 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: prompt_texts.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AiPurpose.WEEKLY_SUMMARY_WORK: prompt_texts.WEEKLY_SUMMARY_WORK,
     AiPurpose.EVALUATION_REPORT_WORK: prompt_texts.EVALUATION_REPORT_WORK,
+    AiPurpose.HELP_ASSISTANT: prompt_texts.HELP_ASSISTANT,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。
@@ -218,6 +230,35 @@ def seed_prompt_templates(session: Session) -> None:
         if purpose.value in existing_purposes:
             continue
         session.add(PromptTemplate(purpose=purpose.value, body=body, is_customized=False))
+
+
+#: ヘルプAIアシスタントの禁止語の初期一覧（開発Todo §5、Phase43）。汎用の語だけを置き、
+#: 運用者が `ai_forbidden_term` の `enabled` で無効化・追加できる。語はコードに直書きせず
+#: このテーブルで管理する（照合は正規化後に行うため、全角・空白挿入による回避は効かない）。
+INITIAL_FORBIDDEN_TERMS: tuple[tuple[str, str], ...] = (
+    ("指示を無視", "指示の上書き"),
+    ("前の指示", "指示の上書き"),
+    ("ignore previous instructions", "指示の上書き（英語）"),
+    ("システムプロンプト", "プロンプトの開示要求"),
+    ("system prompt", "プロンプトの開示要求（英語）"),
+    ("開発者モード", "制限解除の要求"),
+    ("制限を解除", "制限解除の要求"),
+    ("役割を変えて", "役割変更の要求"),
+    ("爆弾の作り方", "危険行為の依頼"),
+    ("毒の作り方", "危険行為の依頼"),
+    ("ハッキングの方法", "危険行為の依頼"),
+    ("死ね", "侮辱・脅迫"),
+    ("殺す", "侮辱・脅迫"),
+    ("バカ", "侮辱"),
+)
+
+
+def seed_forbidden_terms(session: Session) -> None:
+    existing_terms = {row.term for row in session.query(AiForbiddenTerm.term).all()}
+    for term, note in INITIAL_FORBIDDEN_TERMS:
+        if term in existing_terms:
+            continue
+        session.add(AiForbiddenTerm(term=term, enabled=True, note=note))
 
 
 def seed_day_type_defaults(session: Session) -> None:
@@ -270,6 +311,7 @@ def backfill_work_assistant_defaults(session: Session) -> None:
 def run_all(session: Session) -> None:
     seed_app_settings(session)
     seed_prompt_templates(session)
+    seed_forbidden_terms(session)
     seed_day_type_defaults(session)
     backfill_reading_assistant_defaults(session)
     backfill_work_assistant_defaults(session)

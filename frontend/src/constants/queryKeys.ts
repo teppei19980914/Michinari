@@ -18,6 +18,9 @@ export type WorkReportKind = 'monthly' | 'semiannual'
  * この関係を壊さないため、長いキーは必ず短いキーと同じ要素から始める。
  */
 export const QUERY_KEYS = {
+  // --- ヘルプAIアシスタント（Phase43）---
+  helpAssistantLimits: () => ['help-assistant', 'limits'] as const,
+
   // --- 目標 ---
   goals: () => ['goals'] as const,
   /** goalIdがnullを取りうるのは、目標が未選択の間だけ`enabled: false`で待機する

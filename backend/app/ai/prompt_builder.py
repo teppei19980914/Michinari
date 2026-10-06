@@ -15,17 +15,27 @@
 """
 
 import datetime as dt
+import re
 from dataclasses import dataclass, field
 
 from app.constants.domain import PROMPT_DIARY_TRIM_CHUNK_CHARS
 from app.constants.enums import ChatRole
 
+#: テンプレートのプレースホルダー（`{{変数名}}`）。
+_PLACEHOLDER_PATTERN = re.compile(r"\{\{([^{}]+)\}\}")
+
 
 def _substitute(template: str, variables: dict[str, str]) -> str:
-    text = template
-    for key, value in variables.items():
-        text = text.replace("{{" + key + "}}", value)
-    return text
+    """テンプレートの `{{変数名}}` を1回のパス処理で展開する。
+
+    値の中に現れた `{{...}}` は再展開しない。変数を1つずつ `replace` すると、利用者の入力
+    （日記・目標名・ヘルプ質問など）に含まれる `{{...}}` が後続の変数として展開され、
+    プロンプトの構造を書き換えられてしまうため（テンプレート注入）。定義のない変数名は
+    そのまま残す（従来の挙動と同じ）。
+    """
+    return _PLACEHOLDER_PATTERN.sub(
+        lambda match: variables.get(match.group(1), match.group(0)), template
+    )
 
 
 @dataclass(frozen=True)

@@ -32,6 +32,7 @@ from app.api.errors import register_exception_handlers
 from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
 from app.api.goals import router as goals_router
+from app.api.help_assistant import router as help_assistant_router
 from app.api.materials import router as materials_router
 from app.api.recap import router as recap_router
 from app.api.records import router as records_router
@@ -232,6 +233,7 @@ def create_app() -> FastAPI:
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
     app.include_router(ai_router, prefix=API_V1_PREFIX)
+    app.include_router(help_assistant_router, prefix=API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=API_V1_PREFIX)
     app.include_router(settings_router, prefix=API_V1_PREFIX)
     app.include_router(analytics_router, prefix=API_V1_PREFIX)

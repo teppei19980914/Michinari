@@ -107,6 +107,10 @@ ICON_SOURCE_PATH = resolve_icon_path()
 #: 資格試験テンプレート（JSON）の同梱元ディレクトリ（`app/services/exam_template_service.py`
 #: が実行時に`resolve_bundled_path`で解決する先と対にする）。
 EXAM_TEMPLATES_SOURCE_DIR = BACKEND_DIR / "app" / "templates" / "exams"
+#: ヘルプ本文（ヘルプAIアシスタント、Phase43）の同梱元と同梱先。実行時の読み込み先
+#: `app/services/help_content.py`（`parents[1] / "content"`）と対にする。
+HELP_CONTENT_SOURCE_PATH = BACKEND_DIR / "app" / "content" / "help_content.json"
+HELP_CONTENT_DIR_NAME = os.path.join("app", "content")
 ICON_SOURCE_DIR = ICON_SOURCE_PATH.parent
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
@@ -593,6 +597,9 @@ def pyinstaller_args() -> list[str]:
         f"{ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}",
         # 資格試験テンプレート（JSON、利用者が編集・追加できる例示データ）。
         f"{EXAM_TEMPLATES_SOURCE_DIR}{os.pathsep}{EXAM_TEMPLATES_DIR_NAME}",
+        # ヘルプAIアシスタントが根拠にするヘルプ本文（ja.json から生成した JSON）。
+        # 実行時は `app/services/help_content.py` が `app/content/` から読む（Phase43）。
+        f"{HELP_CONTENT_SOURCE_PATH}{os.pathsep}{HELP_CONTENT_DIR_NAME}",
         # 差し替え可能にするため素のまま置く pystray（上記 --exclude-module と対になる）。
         f"{lgpl_module_source_dir()}{os.pathsep}{LGPL_MODULE_NAME}",
     ]

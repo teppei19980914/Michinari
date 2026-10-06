@@ -222,3 +222,41 @@ def start_browser_login(config_snapshot: dict[str, object]) -> bool:
     apply_config_snapshot(config_manager, config_snapshot)
     client = NewtonXClient(config_manager)
     return client.authenticate()
+
+
+def delete_chat(session: Session, *, chat_uid: str) -> None:
+    """チャットを削除する（ヘルプAIアシスタントの質問ごとのチャットの後始末、Phase43）。
+
+    開発キットの `delete_chat` は戻り値で成否を返すが、実機検証（2026-10-04）で削除済みでも
+    False を返す場合があったため、戻り値は使わない。削除の確認は `chat_listed_in_folder`
+    で一覧を再取得して行う（開発Todo T-03）。
+    """
+    client = build_client(session)
+    timeout_seconds = setting_reader.get_int(session, AI_TIMEOUT_SECONDS)
+    started = time.monotonic()
+    try:
+        client.delete_chat(chat_uid)
+    except Exception as exc:  # noqa: BLE001
+        raise _translate_error(
+            exc, elapsed_seconds=time.monotonic() - started, timeout_seconds=timeout_seconds
+        ) from exc
+
+
+def chat_listed_in_folder(session: Session, *, folder_name: str, chat_uid: str) -> bool:
+    """指定フォルダの一覧に、チャットが残っているかを返す（削除の確認、Phase43）。
+
+    フォルダが存在しない場合は False（残りようがない）。
+    """
+    client = build_client(session)
+    timeout_seconds = setting_reader.get_int(session, AI_TIMEOUT_SECONDS)
+    started = time.monotonic()
+    try:
+        folder = next((f for f in client.get_folders() if f.get("name") == folder_name), None)
+        if folder is None:
+            return False
+        chats = client.get_folder_chats(str(folder["id"])) or []
+    except Exception as exc:  # noqa: BLE001
+        raise _translate_error(
+            exc, elapsed_seconds=time.monotonic() - started, timeout_seconds=timeout_seconds
+        ) from exc
+    return any(str(chat.get("id")) == chat_uid for chat in chats)

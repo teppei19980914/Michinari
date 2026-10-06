@@ -44,6 +44,7 @@ def ensure_conversation(
     scope_key: str,
     assistant_uid: str,
     title: str,
+    folder_name: str | None = None,
 ) -> AiConversation:
     """会話を取得または新規作成する（16.3手順1〜3）。
 
@@ -59,8 +60,9 @@ def ensure_conversation(
     if existing is not None:
         return existing
 
-    folder_prefix = setting_reader.get_str(session, AI_FOLDER_PREFIX)
-    folder_name = f"{folder_prefix}_{goal.name}" if goal is not None else folder_prefix
+    if folder_name is None:
+        folder_prefix = setting_reader.get_str(session, AI_FOLDER_PREFIX)
+        folder_name = f"{folder_prefix}_{goal.name}" if goal is not None else folder_prefix
     chat_uid = ai_client.create_chat_in_folder_by_name(
         session, assistant_uid=assistant_uid, folder_name=folder_name, title=title
     )
