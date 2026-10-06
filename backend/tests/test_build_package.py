@@ -1186,6 +1186,21 @@ class TestThirdPartyLicenses:
             entry.endswith(f"{os.pathsep}{build_package.LGPL_MODULE_NAME}") for entry in args
         )
 
+    def test_bundles_help_content_where_the_runtime_reads_it(self) -> None:
+        """ヘルプAIアシスタントの本文（Phase43）を同梱する。実行時の読み込み先と対になること。
+
+        `help_content.py` は `app/content/help_content.json` を読む。同梱先がずれると、
+        配布版だけヘルプに答えられなくなるため、同梱の指定を固定する。
+        """
+        args = build_package.pyinstaller_args()
+
+        expected = (
+            f"{build_package.HELP_CONTENT_SOURCE_PATH}{os.pathsep}"
+            f"{build_package.HELP_CONTENT_DIR_NAME}"
+        )
+        assert expected in args
+        assert build_package.HELP_CONTENT_SOURCE_PATH.is_file()
+
     def test_keeps_the_dependency_that_only_pystray_pulls_in(self) -> None:
         """除外した pystray からしか辿られない依存を明示すること（無いと起動時に落ちる）。"""
         args = build_package.pyinstaller_args()

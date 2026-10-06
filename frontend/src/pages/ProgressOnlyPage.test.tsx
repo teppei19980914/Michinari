@@ -387,15 +387,19 @@ describe('ProgressOnlyPage（時間枠ごとの時間）', () => {
     await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '30')
     await user.click(registerButton())
 
-    await waitFor(() =>
-      expect(recordsApi.registerProgress).toHaveBeenCalledWith(
-        LOGICAL_DATE,
-        expect.objectContaining({
-          study_logs: [
-            expect.objectContaining({ slot_minutes: [{ slot_id: SLOT.id, minutes: 30 }] }),
-          ],
-        }),
-      ),
+    // 全体の並列実行では、入力から送信までが既定の待ち時間（1秒）を超えることがあるため
+    // 待ち時間を延ばす（単体では通り、負荷が高い実行でだけ不安定だった）
+    await waitFor(
+      () =>
+        expect(recordsApi.registerProgress).toHaveBeenCalledWith(
+          LOGICAL_DATE,
+          expect.objectContaining({
+            study_logs: [
+              expect.objectContaining({ slot_minutes: [{ slot_id: SLOT.id, minutes: 30 }] }),
+            ],
+          }),
+        ),
+      { timeout: 5000 },
     )
   })
 

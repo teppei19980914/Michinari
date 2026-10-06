@@ -99,6 +99,7 @@ class AiPurpose(enum.StrEnum):
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
     RECAP_CLASSIFY = "RECAP_CLASSIFY"
     RECAP_THEME_BODY = "RECAP_THEME_BODY"
+    HELP_ASSISTANT = "HELP_ASSISTANT"
 
 
 class ConversationScope(enum.StrEnum):
@@ -115,6 +116,7 @@ class ConversationScope(enum.StrEnum):
     WEEKLY_SUMMARY_WORK = "WEEKLY_SUMMARY_WORK"
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
     RECAP = "RECAP"
+    HELP_ASSISTANT = "HELP_ASSISTANT"
 
 
 class WorkMemberGender(enum.StrEnum):
@@ -174,3 +176,17 @@ class RecapSourceKind(enum.StrEnum):
 
     DIARY = "DIARY"
     READING = "READING"
+
+
+class HelpAnswerStatus(enum.StrEnum):
+    """ヘルプAIアシスタントの回答の状態（仕様書6.18、開発Todo §2）。
+
+    文言は画面側（`ja.json` の `help.assistant.*`）で解決する。バックエンドは状態だけを返す。
+    """
+
+    #: ヘルプ本文に基づく回答（出典つき）。
+    ANSWERED = "ANSWERED"
+    #: ヘルプに記載が見当たらない（出典が実在しない・該当セクションが無い）。
+    NOT_FOUND = "NOT_FOUND"
+    #: 禁止語・長すぎる回答など、回答を表示できない。
+    UNAVAILABLE = "UNAVAILABLE"
