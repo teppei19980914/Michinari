@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import {
   finalizeReadingRecord,
   finalizeRecord,

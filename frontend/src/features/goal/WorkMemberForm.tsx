@@ -3,10 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { createWorkMember, updateWorkMember, type WorkMemberRead } from '../../api/goals'
 import { QUERY_KEYS } from '../../constants/queryKeys'
-import { WorkMemberFormFields, type GenderOption } from './WorkMemberFormFields'
+import { WorkMemberFormFields } from './WorkMemberFormFields'
+import type { GenderOption } from './workMemberGender'
 
 /** チームメンバーの追加・編集フォーム（要件定義書6.11「チームメンバー管理」）。
  *

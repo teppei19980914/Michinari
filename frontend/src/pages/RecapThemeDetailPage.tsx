@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { t } from '../locales/t'
 import { Card } from '../components/Card'
 import { MarkdownText } from '../components/MarkdownText'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toastContext'
 import { apiErrorMessage } from '../api/client'
 import {
   getRecapTheme,

@@ -36,7 +36,7 @@ function buildSearchEntries(): HelpSearchEntry[] {
  * 網羅性重視）。内容は完全に静的な参照情報のため、バックエンドAPIは呼び出さない。 */
 export function HelpPage() {
   const [query, setQuery] = useState('')
-  const searchEntries = useMemo(buildSearchEntries, [])
+  const searchEntries = useMemo(() => buildSearchEntries(), [])
   const visibleIds = useMemo(() => new Set(filterHelpSections(searchEntries, query)), [searchEntries, query])
 
   return (

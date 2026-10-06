@@ -2,11 +2,8 @@ import { useEffect, type Dispatch, type SetStateAction } from 'react'
 import type { ChatMessageRead } from '../../api/records'
 import type { DailyRecordQueries } from './useDailyRecordQueries'
 import { toCategoryReportedState } from './categoryCompletion'
-import {
-  applySetStateAction,
-  useDraftStore,
-  type CategoryDraftState,
-} from './dailyReportDraftStore'
+import type { CategoryDraftState } from './dailyReportDraftState'
+import { applySetStateAction, useDraftStore } from './dailyReportDraftState'
 import {
   hasAnyStudyLogInput,
   initStudyLogFormValues,
