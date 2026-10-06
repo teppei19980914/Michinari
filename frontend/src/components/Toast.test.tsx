@@ -2,7 +2,8 @@ import { describe, expect, it, vi, afterEach } from 'vitest'
 import { act, render, screen, cleanup } from '@testing-library/react'
 import { ApiError } from '../api/client'
 import { t } from '../locales/t'
-import { ToastProvider, useToast } from './Toast'
+import { ToastProvider } from './Toast'
+import { useToast } from './toastContext'
 
 function Trigger({ onReady }: { onReady: (toast: ReturnType<typeof useToast>) => void }) {
   const toast = useToast()

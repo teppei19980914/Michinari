@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { ROUTES } from '../../constants/routes'
 import {
   finalizeReadingRecord,

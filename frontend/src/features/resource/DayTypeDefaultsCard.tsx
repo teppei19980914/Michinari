@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import {
   getDayTypeDefaults,
   getHolidayTreatAsBuffer,

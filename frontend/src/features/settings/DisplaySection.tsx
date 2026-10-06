@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 

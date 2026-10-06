@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { abandonGoal, completeGoal, type GoalCategory } from '../../api/goals'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 

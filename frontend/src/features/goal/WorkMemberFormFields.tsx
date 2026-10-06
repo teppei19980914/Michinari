@@ -4,9 +4,7 @@
 import { t } from '../../locales/t'
 import { Input } from '../../components/Input'
 import { Textarea } from '../../components/Textarea'
-
-export const GENDER_OPTIONS = ['MALE', 'FEMALE', 'OTHER'] as const
-export type GenderOption = (typeof GENDER_OPTIONS)[number]
+import { GENDER_OPTIONS, type GenderOption } from './workMemberGender'
 
 export function WorkMemberFormFields({
   name,
