@@ -76,6 +76,24 @@ LOCK_STALE_SECONDS="${LOCK_STALE_SECONDS:-600}"
 AUTH_CACHE_FILE="$GIT_DIR/git-automation-auth-ok"
 AUTH_CACHE_SECONDS="${AUTH_CACHE_SECONDS:-86400}"
 CLEANUP_LOG="$GIT_DIR/git-automation-cleanup.log"
+# マージ済みと確認できたが、今チェックアウト中のため削除できなかったブランチの印。
+# 無ければ永久に削除できない（次回もまた「作業中」として同じブランチに留まり続け、
+# 常に「今チェックアウト中」になってしまうため）。次回の前景は、ここに印のある
+# ブランチだけが残っている場合、そこに留まらず当日ブランチの作成へ進み、
+# チェックアウトが外れた状態で片付けにもう一度処理させる（詳細は Step 3 を参照）。
+MERGEABLE_DIR="$GIT_DIR/git-automation-mergeable"
+mergeable_marker_path() {
+  printf '%s/%s' "$MERGEABLE_DIR" "${1//\//_}"
+}
+mark_mergeable() {
+  mkdir -p "$MERGEABLE_DIR" 2>/dev/null && : > "$(mergeable_marker_path "$1")" 2>/dev/null || true
+}
+clear_mergeable() {
+  rm -f "$(mergeable_marker_path "$1")" 2>/dev/null || true
+}
+is_marked_mergeable() {
+  [ -f "$(mergeable_marker_path "$1")" ]
+}
 
 net() {
   if command -v timeout >/dev/null 2>&1; then
@@ -112,6 +130,7 @@ acquire_lock() {
   local pid held_at
   pid=0; held_at=0
   read -r pid held_at < "$LOCK_FILE" 2>/dev/null || true
+  held_at="${held_at%$'\r'}"  # 何らかの理由でCRLFになっていても数値として読めるようにする
   if [[ "${held_at:-}" =~ ^[0-9]+$ ]] && [ $(( EPOCHSECONDS - held_at )) -ge "$LOCK_STALE_SECONDS" ]; then
     rm -f "$LOCK_FILE" 2>/dev/null || true
     if { printf '%s %s\n' "$$" "$EPOCHSECONDS" > "$LOCK_FILE"; } 2>/dev/null; then
@@ -167,6 +186,7 @@ gh_authed() {
   checked_at=0
   if [ -f "$AUTH_CACHE_FILE" ]; then
     read -r checked_at < "$AUTH_CACHE_FILE" 2>/dev/null || checked_at=0
+    checked_at="${checked_at%$'\r'}"  # 何らかの理由でCRLFになっていても数値として読めるようにする
   fi
   if [[ "$checked_at" =~ ^[0-9]+$ ]] && [ $(( EPOCHSECONDS - checked_at )) -lt "$AUTH_CACHE_SECONDS" ]; then
     return 0
@@ -239,9 +259,11 @@ delete_branch() {
 }
 
 # 1つの前日ブランチを処理する（push・PR確認/作成・削除判定）。チェックアウトはしない。
+# 「マージ済みと確認できた」印は、この回の判定で常に最新化する（今回そうでなければ外す）。
 process_prev_branch() {
   local branch="$1" pr_state
   echo "[$branch] 処理中..."
+  clear_mergeable "$branch"
 
   push_branch "$branch"
 
@@ -268,7 +290,9 @@ process_prev_branch() {
   local cur
   cur="$(git symbolic-ref --short -q HEAD || echo '')"
   if [ "$branch" = "$cur" ]; then
-    echo "  [!] マージ済みですが、現在チェックアウト中のため削除を見送ります（次回に確認します）"
+    echo "  [!] マージ済みですが、現在チェックアウト中のため削除を見送ります"
+    echo "      （次回、このブランチから離れていれば削除します）"
+    mark_mergeable "$branch"
     return 0
   fi
 
@@ -335,6 +359,14 @@ while IFS= read -r b; do
   fi
 done <<< "$BRANCH_LIST"
 
+# 「マージ済みと確認できたが、今チェックアウト中で削除できなかった」印の付いたブランチを
+# 除いた一覧。これが空なら、残っているのはチェックアウトさえ外せば削除できるものだけ
+# ということなので、そこに留まらず当日ブランチの作成へ進む（デッドロック防止。後述）。
+EFFECTIVE_PREV_BRANCHES=()
+for b in "${PREV_BRANCHES[@]+"${PREV_BRANCHES[@]}"}"; do
+  is_marked_mergeable "$b" || EFFECTIVE_PREV_BRANCHES+=("$b")
+done
+
 # 起動時のブランチが前日ブランチの1つであれば、その未コミット変更をコミットする
 # （ネットワーク不要で軽いため、ここは同期で行う。取りこぼし防止）。
 if [ -n "$ORIG_BRANCH" ]; then
@@ -354,10 +386,14 @@ fi
 # ========================================
 # Step 3: 作業ブランチの決定（切り替えは起動につき最大1回）
 # ========================================
+# 現在のブランチは ORIG_BRANCH から追跡する（checkout のたびに git へ問い合わせ直さない）。
+CURRENT_BRANCH="$ORIG_BRANCH"
 checkout_if_needed() {
-  local target="$1" cur
-  cur="$(git symbolic-ref --short -q HEAD || echo '')"
-  [ "$cur" = "$target" ] || git checkout "$target" >/dev/null 2>&1 || true
+  local target="$1"
+  if [ "$CURRENT_BRANCH" != "$target" ]; then
+    git checkout "$target" >/dev/null 2>&1 || true
+    CURRENT_BRANCH="$target"
+  fi
 }
 
 # 既に当日ブランチがある場合は、同一日の2回目以降のセッションなのでそれを使う。
@@ -372,20 +408,20 @@ if [ "$TODAY_BRANCH_EXISTS" -eq 1 ]; then
   finish
 fi
 
-# 未マージの可能性がある前日ブランチが残っていれば、ネットワークで確認せずに
-# 作業を継続する（CLAUDE.md「運用フロー」の例外規定）。マージ済みの確認・削除・
-# 当日ブランチの作成準備は、裏の処理が次回までに行う。
-if [ "${#PREV_BRANCHES[@]}" -gt 0 ]; then
+# 未マージの可能性がある前日ブランチ（まだマージ済みと確認できていないもの）が残っていれば、
+# ネットワークで確認せずに作業を継続する（CLAUDE.md「運用フロー」の例外規定）。マージ済みの
+# 確認・削除・当日ブランチの作成準備は、裏の処理が次回までに行う。
+if [ "${#EFFECTIVE_PREV_BRANCHES[@]}" -gt 0 ]; then
   echo "前日以前のブランチを検出:"
   printf '  - %s\n' "${PREV_BRANCHES[@]}"
   echo ""
 
   target=""
-  for b in "${PREV_BRANCHES[@]}"; do
+  for b in "${EFFECTIVE_PREV_BRANCHES[@]}"; do
     [ "$b" = "$ORIG_BRANCH" ] && target="$ORIG_BRANCH"
   done
   if [ -z "$target" ]; then
-    target="${PREV_BRANCHES[${#PREV_BRANCHES[@]}-1]}"
+    target="${EFFECTIVE_PREV_BRANCHES[${#EFFECTIVE_PREV_BRANCHES[@]}-1]}"
   fi
 
   echo "マージ済みかどうかはこの場では確認せず、当日ブランチは作成しません"
@@ -396,15 +432,23 @@ if [ "${#PREV_BRANCHES[@]}" -gt 0 ]; then
   finish
 fi
 
-# 前日ブランチが全く無い → 最新の base から当日ブランチを切る（このときだけネットワークを使う）。
+# 前日ブランチが全く無い、または残っているのは「マージ済みと確認できたが前回は
+# チェックアウト中で削除できなかった」ものだけ → 最新の base から当日ブランチを切る
+# （このときだけネットワークを使う）。後者の場合、ここでチェックアウトを外れたことで
+# 削除できるようになるため、片付けをもう一度走らせる。
 checkout_if_needed "$BASE_BRANCH"
+if [ "${#PREV_BRANCHES[@]}" -gt 0 ]; then
+  echo "マージ済みと確認できていたブランチの削除を再試行します（裏で行います）:"
+  printf '  - %s\n' "${PREV_BRANCHES[@]}"
+  launch_cleanup "${PREV_BRANCHES[@]}"
+fi
 fetch_base
 
-if git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null; then
-  if [ "$(git rev-list --count "$BASE_BRANCH..origin/$BASE_BRANCH")" != "0" ]; then
-    git merge --ff-only "origin/$BASE_BRANCH" >/dev/null 2>&1 || true
-  fi
-  behind="$(git rev-list --count "$BASE_BRANCH..origin/$BASE_BRANCH")"
+behind="$(git rev-list --count "$BASE_BRANCH..origin/$BASE_BRANCH" 2>/dev/null || echo 0)"
+if [ "$behind" != "0" ]; then
+  git merge --ff-only "origin/$BASE_BRANCH" >/dev/null 2>&1 || true
+  # ff-only が失敗した場合（分岐している等）だけ、遅れが解消したかを数え直す
+  behind="$(git rev-list --count "$BASE_BRANCH..origin/$BASE_BRANCH" 2>/dev/null || echo 0)"
   if [ "$behind" != "0" ]; then
     echo "  [!] $BASE_BRANCH が origin より $behind コミット遅れており fast-forward できません"
     echo "      当日ブランチの作成を中止します（古い base から切ると差分が巻き戻るため）"
