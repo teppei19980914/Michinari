@@ -1154,6 +1154,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/help-assistant/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Question
+         * @description 質問に、ヘルプ本文に基づいて答える（質問ごとのチャットで送信し、回答後に削除する）。
+         */
+        post: operations["ask_question_api_v1_help_assistant_questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/help-assistant/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Limits
+         * @description 質問の上限文字数を返す（入力欄の文字数表示と事前チェックに使う）。
+         */
+        get: operations["get_limits_api_v1_help_assistant_limits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: {
             query?: never;
@@ -1802,6 +1842,8 @@ export interface components {
             assistant_uid_weekly_summary_work: string;
             /** Assistant Uid Evaluation Report Work */
             assistant_uid_evaluation_report_work: string;
+            /** Assistant Uid Help */
+            assistant_uid_help: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -1843,6 +1885,8 @@ export interface components {
             assistant_uid_weekly_summary_work?: string | null;
             /** Assistant Uid Evaluation Report Work */
             assistant_uid_evaluation_report_work?: string | null;
+            /** Assistant Uid Help */
+            assistant_uid_help?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -1872,7 +1916,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2753,6 +2797,51 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HelpAnswerStatus
+         * @description ヘルプAIアシスタントの回答の状態（仕様書6.18、開発Todo §2）。
+         *
+         *     文言は画面側（`ja.json` の `help.assistant.*`）で解決する。バックエンドは状態だけを返す。
+         * @enum {string}
+         */
+        HelpAnswerStatus: "ANSWERED" | "NOT_FOUND" | "UNAVAILABLE";
+        /**
+         * HelpAssistantAnswerRead
+         * @description 回答。`answer` は ANSWERED のときだけ入る。`sections` は検証済みの出典。
+         */
+        HelpAssistantAnswerRead: {
+            status: components["schemas"]["HelpAnswerStatus"];
+            /** Answer */
+            answer: string | null;
+            /** Sections */
+            sections: components["schemas"]["HelpSectionRef"][];
+        };
+        /**
+         * HelpAssistantLimitsRead
+         * @description 画面が表示・検証に使う上限（app_setting の値）。
+         */
+        HelpAssistantLimitsRead: {
+            /** Max Question Chars */
+            max_question_chars: number;
+        };
+        /**
+         * HelpAssistantQuestionRequest
+         * @description 質問。長さの上限は `ai.help_question_max_chars` で検証する（サービス層）。
+         */
+        HelpAssistantQuestionRequest: {
+            /** Question */
+            question: string;
+        };
+        /**
+         * HelpSectionRef
+         * @description 出典として示すヘルプのセクション（ID と見出し）。
+         */
+        HelpSectionRef: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
         };
         /** HolidayImportResultRead */
         HolidayImportResultRead: {
@@ -6598,6 +6687,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyMessageRead"][];
+                };
+            };
+        };
+    };
+    ask_question_api_v1_help_assistant_questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpAssistantQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpAssistantAnswerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_limits_api_v1_help_assistant_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HelpAssistantLimitsRead"];
                 };
             };
         };

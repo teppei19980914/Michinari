@@ -222,7 +222,7 @@ def generate_evaluation_report(
 ) -> WorkEvaluationReportRead:
     goal = goal_service.get_goal(session, goal_id)
     if goal.work_assignment is None:
-        raise NotFoundError("案件情報", goal_id)
+        raise NotFoundError("WorkAssignment", goal_id)
     member = work_member_service.get_member(session, payload.member_id)
     today = goal_service.resolve_today(session)
     report = work_evaluation_service.generate_evaluation_report(
@@ -245,7 +245,7 @@ def list_evaluation_reports(
 ) -> list[WorkEvaluationReportRead]:
     goal = goal_service.get_goal(session, goal_id)
     if goal.work_assignment is None:
-        raise NotFoundError("案件情報", goal_id)
+        raise NotFoundError("WorkAssignment", goal_id)
     reports = work_evaluation_service.list_evaluation_reports(
         session, goal.work_assignment, member_id=member_id
     )

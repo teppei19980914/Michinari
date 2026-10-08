@@ -57,3 +57,19 @@ class AiLog(CreatedAtMixin, Base):
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class AiForbiddenTerm(CreatedAtMixin, Base):
+    """ヘルプAIアシスタントの禁止語（Phase43、仕様書8.1 AI-14）。
+
+    質問に含まれる禁止語は、AIへ送信せず固定文言で返す。語の照合は正規化（NFKC・小文字化・
+    空白除去）後に行うため、全角・空白挿入による回避を防ぐ。運用者が `enabled` で一時的に
+    無効化できる（誤検出の対処）。語そのものはソースコードに書かず、このテーブルで管理する。
+    """
+
+    __tablename__ = "ai_forbidden_term"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    term: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)

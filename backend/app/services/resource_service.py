@@ -25,7 +25,7 @@ _MAX_DAY_BOUNDARY_HOUR = 11
 def get_slot(session: Session, slot_id: int) -> ResourceSlot:
     slot = session.get(ResourceSlot, slot_id)
     if slot is None:
-        raise NotFoundError("リソーススロット", slot_id)
+        raise NotFoundError("ResourceSlot", slot_id)
     return slot
 
 
@@ -37,13 +37,13 @@ def _validate_slot_fields(
     start_time, end_time, environment: Environment, weekdays: list[int]
 ) -> None:
     if start_time >= end_time:
-        raise ValidationError("開始時刻は終了時刻より前にしてください")
+        raise ValidationError("Start time must be before end time")
     if environment == Environment.ANY:
-        raise ValidationError("環境タグは机上のみまたは移動中でも可を指定してください")
+        raise ValidationError("Environment tag must be DESK_ONLY or MOBILE_OK")
     if not weekdays:
-        raise ValidationError("適用曜日を1件以上指定してください")
+        raise ValidationError("Specify at least one applicable weekday")
     if not set(weekdays) <= _VALID_WEEKDAYS:
-        raise ValidationError("適用曜日は0（月）〜6（日）で指定してください")
+        raise ValidationError("Applicable weekday must be between 0 (Mon) and 6 (Sun)")
 
 
 def create_slot(
@@ -123,9 +123,9 @@ def update_day_type_defaults(session: Session, values: dict[int, DayType]) -> di
     """曜日別の日種別既定値を一括更新する（仕様書6.3「曜日別の既定設定」）。OFFは指定不可。"""
     for weekday, day_type in values.items():
         if weekday not in _VALID_WEEKDAYS:
-            raise ValidationError("曜日は0（月）〜6（日）で指定してください")
+            raise ValidationError("Weekday must be between 0 (Mon) and 6 (Sun)")
         if day_type == _FORBIDDEN_DEFAULT_DAY_TYPE:
-            raise ValidationError("曜日別既定値にOFF（除外日）は設定できません")
+            raise ValidationError("OFF cannot be set as a per-weekday default")
 
     for weekday, day_type in values.items():
         row = session.get(DayTypeDefault, weekday)
@@ -149,7 +149,7 @@ def update_day_boundary_hour(session: Session, hour: int) -> int:
     論理日の算出ロジック自体はここでは変更しない。
     """
     if not (_MIN_DAY_BOUNDARY_HOUR <= hour <= _MAX_DAY_BOUNDARY_HOUR):
-        raise ValidationError("1日の境界時刻は0〜11時で指定してください")
+        raise ValidationError("Day boundary hour must be between 0 and 11")
     row = session.get(AppSetting, CALENDAR_DAY_BOUNDARY_HOUR)
     if row is None:
         raise AppSettingNotFoundError(CALENDAR_DAY_BOUNDARY_HOUR)

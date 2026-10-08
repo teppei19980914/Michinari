@@ -47,7 +47,7 @@ def database_path() -> Path:
     安全退避コピーでも使うため公開関数とする。CLAUDE.md DRYの原則）。"""
     url = get_settings().database_url
     if not url.startswith("sqlite:///"):
-        raise ValidationError("バックアップ機構はSQLite以外のデータベースには対応していません")
+        raise ValidationError("Backup is only supported for SQLite databases")
     return Path(url.removeprefix("sqlite:///"))
 
 
@@ -61,7 +61,7 @@ class BackupInfo:
 def _backup_path(backup_id: str) -> Path:
     match = _BACKUP_NAME_PATTERN.fullmatch(f"{backup_id}.db")
     if match is None:
-        raise NotFoundError("バックアップ", backup_id)
+        raise NotFoundError("Backup", backup_id)
     return BACKUP_DIR / f"{backup_id}.db"
 
 
@@ -125,7 +125,7 @@ def restore_backup(backup_id: str) -> None:
     """
     source = _backup_path(backup_id)
     if not source.exists():
-        raise NotFoundError("バックアップ", backup_id)
+        raise NotFoundError("Backup", backup_id)
 
     checkpoint_and_dispose(engine)
     db_path = database_path()
@@ -174,16 +174,16 @@ def _validate_full_data_export(data: dict) -> None:
     """アップロードされたJSONが本アプリの全データエクスポート形式として妥当かを検証する
     （データ構造編9章D-04と同じ考え方：想定外の形式・版数を静かに受け入れない）。"""
     if not isinstance(data, dict) or "tables" not in data:
-        raise ValidationError("インポートファイルが有効なエクスポート形式ではありません")
+        raise ValidationError("Import file is not a valid export format")
     if data.get("schema_version") not in _IMPORTABLE_SCHEMA_VERSIONS:
         raise ValidationError(
-            f"インポートファイルのスキーマ版数が対応していません"
-            f"（対応: {', '.join(sorted(_IMPORTABLE_SCHEMA_VERSIONS))}、"
-            f"受領: {data.get('schema_version')}）"
+            "Import file has an unsupported schema version "
+            f"(supported: {', '.join(sorted(_IMPORTABLE_SCHEMA_VERSIONS))}, "
+            f"received: {data.get('schema_version')})"
         )
     required_tables = {"goal", "material", "app_setting"}
     if not required_tables.issubset(data["tables"].keys()):
-        raise ValidationError("インポートファイルはミチナリのデータベースではありません")
+        raise ValidationError("Import file is not a Michinari database export")
 
 
 def import_all_data(data: dict) -> None:

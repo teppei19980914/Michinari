@@ -23,7 +23,7 @@ def load_template_body(session: Session, purpose: AiPurpose) -> str:
     """prompt_templateからテンプレート本文を読む（CLAUDE.md「プロンプトはデータベースから読む」）。"""
     template = session.query(PromptTemplate).filter_by(purpose=purpose.value).first()
     if template is None:
-        raise ValidationError(f"プロンプトテンプレート({purpose.value})が未初期化です")
+        raise ValidationError(f"Prompt template not initialized: purpose={purpose.value}")
     return template.body
 
 

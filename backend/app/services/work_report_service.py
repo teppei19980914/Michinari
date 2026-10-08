@@ -197,7 +197,10 @@ def get_work_report(
 
 def _ensure_work_assignment(goal: Goal) -> None:
     if goal.work_assignment is None:
-        raise ValidationError("案件情報が未登録の仕事目標には月次報告・半期評価を生成できません")
+        raise ValidationError(
+            "Cannot generate monthly/semiannual reports for a WORK goal with no work assignment "
+            "registered"
+        )
 
 
 # --- 本文の組み立て（22.6のMarkdownテンプレート） ---

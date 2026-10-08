@@ -5,7 +5,7 @@ import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toastContext'
 import { apiErrorMessage } from '../api/client'
 import { getGoal } from '../api/goals'
 import {
@@ -23,6 +23,23 @@ import {
   WorkRetrospectivesNote,
 } from '../features/export/RetrospectiveSection'
 import { QUERY_KEYS } from '../constants/queryKeys'
+
+/** 匿名化の実行中の進捗（完了件数／総数）。進行中のときだけ表示する。 */
+function ExportProgressNote({
+  progress,
+}: {
+  progress: Awaited<ReturnType<typeof getKnowledgeExportProgress>> | undefined
+}) {
+  if (!progress?.in_progress) return null
+  return (
+    <p className="text-sm text-gray-500">
+      {t('knowledgeExport.exportProgress', {
+        completed: progress.completed,
+        total: progress.total,
+      })}
+    </p>
+  )
+}
 
 /** SC-13 ナレッジエクスポート（仕様書6.10）。
  *
@@ -119,14 +136,9 @@ export function KnowledgeExportPage() {
         </Button>
       </div>
 
-      {exportMutation.isPending && anonymize && exportProgressQuery.data?.in_progress && (
-        <p className="text-sm text-gray-500">
-          {t('knowledgeExport.exportProgress', {
-            completed: exportProgressQuery.data.completed,
-            total: exportProgressQuery.data.total,
-          })}
-        </p>
-      )}
+      <ExportProgressNote
+        progress={exportMutation.isPending && anonymize ? exportProgressQuery.data : undefined}
+      />
 
       {exportMutation.data && (
         <Card className="flex flex-col gap-1 text-sm text-gray-700">

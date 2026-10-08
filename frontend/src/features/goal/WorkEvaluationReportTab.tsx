@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { downloadBlob } from '../../utils/downloadBlob'
 import {

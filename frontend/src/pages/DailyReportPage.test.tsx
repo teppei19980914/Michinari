@@ -528,9 +528,12 @@ describe('DailyReportPage', () => {
     await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
     await waitForTitle()
 
-    expect(
-      (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
-    ).toBe('draft-exam')
+    // 下書きの復元は描画後に反映されるため、値が入るまで待つ（負荷の高い並列実行で不安定だった）
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText(t('dailyReport.diary.learnedLabel')) as HTMLTextAreaElement).value,
+      ).toBe('draft-exam'),
+    )
   })
 
   it('keeps the study log draft of a goal that is not currently selected', async () => {

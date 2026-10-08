@@ -286,7 +286,7 @@ def normalize_quality_value(
     # QualityMetricTypeは4種のみ（5.1）。ここに到達する場合は残るSUBJECTIVEで確定する。
     score = int(raw_value)
     if score not in _SUBJECTIVE_NORMALIZATION_TABLE:
-        raise ValueError(f"主観的手応えは1〜5で入力してください（入力値: {raw_value}）")
+        raise ValueError(f"Subjective score must be between 1 and 5 (received: {raw_value})")
     return _SUBJECTIVE_NORMALIZATION_TABLE[score]
 
 

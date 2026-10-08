@@ -32,7 +32,7 @@ from app.services import ai_context_service, goal_service, record_service, setti
 from app.services.exceptions import ValidationError
 from app.services.record_service import WorkLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 #: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
 #: 表示（17.8）。ai_context_service.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
 #: を返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
@@ -45,7 +45,7 @@ _NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 def _ensure_active_work_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.WORK:
-        raise ValidationError(f"仕事目標（category=WORK）にのみ{_ACTION_LABEL}を実行できます")
+        raise ValidationError(f"{_ACTION_LABEL} can only be run for WORK goals")
     goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
@@ -71,7 +71,7 @@ def send_work_feedback(
     （＝1案件）のみを対象とする（未決事項L-07の解消方針転換）。
     """
     if target_date > today:
-        raise ValidationError("未来日のAI対話はできません")
+        raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_work_goal(goal)

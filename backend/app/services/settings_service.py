@@ -22,6 +22,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
+    AI_ASSISTANT_UID_HELP,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
@@ -100,6 +101,7 @@ class AiConnectionSettings:
     assistant_uid_goal_retrospective_work_semiannual: str
     assistant_uid_weekly_summary_work: str
     assistant_uid_evaluation_report_work: str
+    assistant_uid_help: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -192,6 +194,7 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_evaluation_report_work=setting_reader.get_str(
             session, AI_ASSISTANT_UID_EVALUATION_REPORT_WORK
         ),
+        assistant_uid_help=setting_reader.get_str(session, AI_ASSISTANT_UID_HELP),
         folder_prefix=setting_reader.get_str(session, AI_FOLDER_PREFIX),
         timeout_seconds=setting_reader.get_int(session, AI_TIMEOUT_SECONDS),
         min_interval_seconds=setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS),
@@ -255,6 +258,7 @@ def _update_ai_connection(session: Session, **fields: object) -> None:
         ),
         "assistant_uid_weekly_summary_work": AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
         "assistant_uid_evaluation_report_work": AI_ASSISTANT_UID_EVALUATION_REPORT_WORK,
+        "assistant_uid_help": AI_ASSISTANT_UID_HELP,
         "folder_prefix": AI_FOLDER_PREFIX,
     }
     number_key_by_field = {
@@ -296,22 +300,18 @@ def _update_display(session: Session, **fields: object) -> None:
     locale = fields.get("locale")
     if locale is not None:
         if locale not in _ALLOWED_LOCALES:
-            raise ValidationError(
-                f"表示言語は次のいずれかで指定してください: {sorted(_ALLOWED_LOCALES)}"
-            )
+            raise ValidationError(f"Locale must be one of: {sorted(_ALLOWED_LOCALES)}")
         _set_str(session, _DISPLAY_LOCALE, locale)
     theme = fields.get("theme")
     if theme is not None:
         if theme not in _ALLOWED_THEMES:
-            raise ValidationError(
-                f"テーマは次のいずれかで指定してください: {sorted(_ALLOWED_THEMES)}"
-            )
+            raise ValidationError(f"Theme must be one of: {sorted(_ALLOWED_THEMES)}")
         _set_str(session, _DISPLAY_THEME, theme)
     granularity = fields.get("default_granularity")
     if granularity is not None:
         if granularity not in _ALLOWED_GRANULARITIES:
             allowed = sorted(_ALLOWED_GRANULARITIES)
-            raise ValidationError(f"分析画面の既定粒度は次のいずれかで指定してください: {allowed}")
+            raise ValidationError(f"Default analytics granularity must be one of: {allowed}")
         _set_str(session, _DISPLAY_DEFAULT_GRANULARITY, granularity)
 
 
@@ -378,7 +378,7 @@ def list_prompt_templates(session: Session) -> list[PromptTemplate]:
 def get_prompt_template(session: Session, purpose: AiPurpose) -> PromptTemplate:
     template = session.query(PromptTemplate).filter(PromptTemplate.purpose == purpose.value).first()
     if template is None:
-        raise NotFoundError("プロンプトテンプレート", purpose.value)
+        raise NotFoundError("PromptTemplate", purpose.value)
     return template
 
 

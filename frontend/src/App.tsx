@@ -26,6 +26,7 @@ import { AnalyticsPage } from './pages/AnalyticsPage'
 import { HelpPage } from './pages/HelpPage'
 import { BookshelfPage } from './pages/BookshelfPage'
 import { BookDetailPage } from './pages/BookDetailPage'
+import { HelpAssistantLauncher } from './features/helpAssistant/HelpAssistantLauncher'
 
 const queryClient = new QueryClient()
 
@@ -40,6 +41,7 @@ function Layout() {
     <DailyReportDraftProvider>
       <GlobalNav />
       <Outlet />
+      <HelpAssistantLauncher />
     </DailyReportDraftProvider>
   )
 }

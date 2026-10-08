@@ -6,7 +6,7 @@ import { ROUTES } from '../constants/routes'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { Tooltip } from '../components/Tooltip'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toastContext'
 import { ApiError, apiErrorMessage } from '../api/client'
 import {
   activateGoal,

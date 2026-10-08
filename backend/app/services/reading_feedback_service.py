@@ -33,7 +33,7 @@ from app.services import ai_context_service, goal_service, record_service, setti
 from app.services.exceptions import ValidationError
 from app.services.record_service import ReadingLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 #: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
 #: （17.6）。ai_context_service.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
@@ -45,7 +45,7 @@ _NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 def _ensure_active_reading_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.READING:
-        raise ValidationError(f"読書目標（category=READING）にのみ{_ACTION_LABEL}を実行できます")
+        raise ValidationError(f"{_ACTION_LABEL} can only be run for READING goals")
     goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
@@ -71,7 +71,7 @@ def send_reading_feedback(
     （＝1冊）のみを対象とする（未決事項L-07の解消方針転換）。
     """
     if target_date > today:
-        raise ValidationError("未来日のAI対話はできません")
+        raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_reading_goal(goal)

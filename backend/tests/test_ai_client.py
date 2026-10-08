@@ -327,3 +327,73 @@ def test_send_message_translates_error(seeded_session, monkeypatch):
     monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
     with pytest.raises(AiAuthRequiredError):
         ai_client.send_message(seeded_session, chat_uid="chat-1", message="こんにちは")
+
+
+class _FolderChatClient(FakeNewtonXClient):
+    """フォルダとチャットの操作（削除・一覧確認）を持つ偽のクライアント（Phase43）。"""
+
+    folders = [{"id": 7, "name": "ヘルプ"}]
+    chats_in_folder = [{"id": "chat-keep", "title": "残る"}]
+    deleted: list[str] = []
+
+    def delete_chat(self, chat_uid):
+        self.deleted.append(chat_uid)
+        return False  # 実機では削除済みでも False が返る（開発Todo T-03）
+
+    def get_folders(self):
+        return self.folders
+
+    def get_folder_chats(self, folder_uid):
+        return self.chats_in_folder
+
+
+def test_delete_chat_sends_delete_and_ignores_its_return_value(seeded_session, monkeypatch):
+    """開発キットの戻り値（削除済みでも False）に頼らず、削除要求は送る（Phase43、T-03）。"""
+    _FolderChatClient.deleted = []
+    monkeypatch.setattr(ai_client, "NewtonXClient", _FolderChatClient)
+
+    ai_client.delete_chat(seeded_session, chat_uid="chat-x")
+
+    assert _FolderChatClient.deleted == ["chat-x"]
+
+
+def test_delete_chat_translates_error(seeded_session, monkeypatch):
+    class _ErrorClient(_FolderChatClient):
+        def delete_chat(self, chat_uid):
+            raise APIError("削除に失敗")
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
+    with pytest.raises(AiError):
+        ai_client.delete_chat(seeded_session, chat_uid="chat-x")
+
+
+def test_chat_listed_in_folder_reports_a_remaining_chat(seeded_session, monkeypatch):
+    monkeypatch.setattr(ai_client, "NewtonXClient", _FolderChatClient)
+
+    assert ai_client.chat_listed_in_folder(
+        seeded_session, folder_name="ヘルプ", chat_uid="chat-keep"
+    )
+    assert not ai_client.chat_listed_in_folder(
+        seeded_session, folder_name="ヘルプ", chat_uid="chat-gone"
+    )
+
+
+def test_chat_listed_in_folder_is_false_when_folder_is_missing(seeded_session, monkeypatch):
+    class _NoFolderClient(_FolderChatClient):
+        folders = []
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _NoFolderClient)
+
+    assert not ai_client.chat_listed_in_folder(
+        seeded_session, folder_name="ヘルプ", chat_uid="chat-keep"
+    )
+
+
+def test_chat_listed_in_folder_translates_error(seeded_session, monkeypatch):
+    class _ErrorClient(_FolderChatClient):
+        def get_folders(self):
+            raise APIError("一覧の取得に失敗")
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
+    with pytest.raises(AiError):
+        ai_client.chat_listed_in_folder(seeded_session, folder_name="ヘルプ", chat_uid="chat-x")
