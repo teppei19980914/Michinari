@@ -79,9 +79,9 @@ def sanitize_question(raw: str, max_chars: int) -> str:
     """
     cleaned = "".join(ch for ch in raw if ch == "\n" or unicodedata.category(ch) != "Cc").strip()
     if not cleaned:
-        raise ValidationError("質問を入力してください")
+        raise ValidationError("Question must not be empty")
     if len(cleaned) > max_chars:
-        raise ValidationError(f"質問は{max_chars}字以内で入力してください")
+        raise ValidationError(f"Question must be {max_chars} characters or fewer")
     return cleaned
 
 
@@ -242,7 +242,7 @@ def _answer_locked(session: Session, raw_question: str) -> HelpAnswer:
     if _contains_forbidden_term(session, question):
         return HelpAnswer(HelpAnswerStatus.UNAVAILABLE, "", ())
     if not ai_client.is_authenticated(session):
-        raise AiAuthRequiredError("AI機能の接続が必要です")
+        raise AiAuthRequiredError("AI connection is required")
 
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     template = ai_orchestration.load_template_body(session, AiPurpose.HELP_ASSISTANT)

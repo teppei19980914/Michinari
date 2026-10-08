@@ -25,7 +25,7 @@ from app.services.exceptions import ValidationError, WorkAssignmentAlreadyExists
 
 def _ensure_work_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.WORK:
-        raise ValidationError("仕事目標（category=WORK）にのみ案件情報を登録できます")
+        raise ValidationError("Work assignment information can only be registered for WORK goals")
 
 
 def create_work_assignment(

@@ -149,7 +149,7 @@ def clear_day_type_override(session: Session, target_date: dt.date) -> None:
     """日種別の個別指定を解除する（データ構造編6.2 DELETE /calendar/{date}/day-type）。"""
     override = session.get(CalendarDayOverride, target_date)
     if override is None:
-        raise NotFoundError("日種別個別指定", target_date)
+        raise NotFoundError("CalendarDayOverride", target_date)
     session.delete(override)
     session.flush()
 
@@ -179,22 +179,22 @@ def import_holidays(session: Session, csv_bytes: bytes) -> HolidayImportResult:
 
     rows = list(csv.reader(io.StringIO(text, newline="")))
     if len(rows) <= 1:
-        raise ValidationError("祝日CSVに有効な行がありません")
+        raise ValidationError("Holiday CSV has no valid rows")
 
     parsed: dict[dt.date, str] = {}
     for row in rows[1:]:  # 1行目はヘッダのためスキップする
         if not row or not row[0].strip():
             continue
         if len(row) < 2:
-            raise ValidationError(f"祝日CSVの列数が不正です: {row}")
+            raise ValidationError(f"Holiday CSV row has an invalid column count: {row}")
         try:
             holiday_date = dt.datetime.strptime(row[0].strip(), "%Y/%m/%d").date()
         except ValueError as exc:
-            raise ValidationError(f"祝日CSVの日付形式が不正です: {row[0]}") from exc
+            raise ValidationError(f"Holiday CSV has an invalid date format: {row[0]}") from exc
         parsed[holiday_date] = row[1].strip()
 
     if not parsed:
-        raise ValidationError("祝日CSVに有効な行がありません")
+        raise ValidationError("Holiday CSV has no valid rows")
 
     years = {holiday_date.year for holiday_date in parsed}
     year_from, year_to = min(years), max(years)

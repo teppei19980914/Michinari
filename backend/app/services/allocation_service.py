@@ -50,7 +50,7 @@ class SlotAllocationView:
 def ensure_allocatable(goal: Goal) -> None:
     """リソース配分を設定できる目標かを検証する（WORKのみ不可）。"""
     if goal.category in _UNSUPPORTED_CATEGORIES:
-        raise ValidationError("仕事目標にはリソース配分を設定できません")
+        raise ValidationError("Resource allocation cannot be set for WORK goals")
 
 
 def get_allocation_minutes(session: Session, goal_id: int) -> dict[int, int]:
@@ -134,9 +134,9 @@ def replace_allocations(
     ensure_allocatable(goal)
     for slot_id, minutes in minutes_by_slot_id.items():
         if minutes < 0:
-            raise ValidationError("配分時間は0以上で入力してください")
+            raise ValidationError("Allocated minutes must be zero or more")
         if session.get(ResourceSlot, slot_id) is None:
-            raise ValidationError("存在しない時間枠が指定されています")
+            raise ValidationError("Specified resource slot does not exist")
 
     positive = {slot_id: minutes for slot_id, minutes in minutes_by_slot_id.items() if minutes > 0}
     if goal.status in _COUNTED_STATUSES:

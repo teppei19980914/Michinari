@@ -62,7 +62,7 @@ def export_logs(date_from: dt.date, date_to: dt.date, *, log_dir: Path = LOG_DIR
         ValidationError: `date_to`が`date_from`より前の場合。
     """
     if date_to < date_from:
-        raise ValidationError("終了日は開始日以降にしてください")
+        raise ValidationError("End date must be on or after the start date")
 
     chunks: list[str] = []
     for path in _ordered_log_files(log_dir):

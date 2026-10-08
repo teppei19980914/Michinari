@@ -21,7 +21,7 @@ _PASSING_SCORE_MAX = 100.0
 def get_subject(session: Session, subject_id: int) -> ExamSubject:
     subject = session.get(ExamSubject, subject_id)
     if subject is None:
-        raise NotFoundError("試験科目", subject_id)
+        raise NotFoundError("ExamSubject", subject_id)
     return subject
 
 
@@ -33,11 +33,11 @@ def _validate_exam_dates(
 ) -> None:
     if exam_date_type == ExamDateType.RANGE:
         if exam_date_from is None or exam_date_to is None:
-            raise ValidationError("受験日タイプが期間の場合、期間開始日・終了日を指定してください")
+            raise ValidationError("When exam date type is RANGE, specify both start and end dates")
         if exam_date_from > exam_date_to:
-            raise ValidationError("期間開始日は期間終了日以前にしてください")
+            raise ValidationError("Range start date must be on or before the end date")
     elif exam_date_fixed is None:
-        raise ValidationError("受験日タイプが確定日の場合、確定日を指定してください")
+        raise ValidationError("When exam date type is FIXED, specify the fixed date")
 
 
 def _validate_passing_score(
@@ -48,20 +48,20 @@ def _validate_passing_score(
     """合格点を検証する。百分率(PERCENTAGE)は0〜100、点数(RAW_SCORE)は0〜満点の範囲とする。"""
     if passing_score is None:
         if passing_score_max is not None:
-            raise ValidationError("合格点を指定しない場合、満点は指定できません")
+            raise ValidationError("Max score cannot be set without a passing score")
         return
     if passing_score_type == PassingScoreType.RAW_SCORE:
         if passing_score_max is None:
-            raise ValidationError("点数で入力する場合、満点を指定してください")
+            raise ValidationError("Max score is required when entering a raw score")
         if passing_score_max <= 0:
-            raise ValidationError("満点は0より大きい値で入力してください")
+            raise ValidationError("Max score must be greater than 0")
         if not (0 <= passing_score <= passing_score_max):
-            raise ValidationError("合格点は0〜満点の範囲で入力してください")
+            raise ValidationError("Passing score must be between 0 and the max score")
     else:
         if passing_score_max is not None:
-            raise ValidationError("百分率で入力する場合、満点は指定できません")
+            raise ValidationError("Max score cannot be set when entering a percentage")
         if not (_PASSING_SCORE_MIN <= passing_score <= _PASSING_SCORE_MAX):
-            raise ValidationError("合格基準点は0〜100で入力してください")
+            raise ValidationError("Passing score must be between 0 and 100")
 
 
 def create_subject(
@@ -198,7 +198,7 @@ def fix_exam_date(session: Session, subject: ExamSubject, exam_date_fixed: dt.da
 def get_exam_result(session: Session, result_id: int) -> ExamResult:
     result = session.get(ExamResult, result_id)
     if result is None:
-        raise NotFoundError("受験結果", result_id)
+        raise NotFoundError("ExamResult", result_id)
     return result
 
 

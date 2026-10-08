@@ -36,13 +36,13 @@ _PROGRESS_RATE_MAX = 1.0
 def get_book(session: Session, book_id: int) -> Book:
     book = session.get(Book, book_id)
     if book is None:
-        raise NotFoundError("書籍", book_id)
+        raise NotFoundError("Book", book_id)
     return book
 
 
 def _ensure_reading_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.READING:
-        raise ValidationError("読書目標（category=READING）にのみ書籍を登録できます")
+        raise ValidationError("Books can only be registered for READING goals")
 
 
 def create_book(

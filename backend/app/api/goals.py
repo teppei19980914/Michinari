@@ -343,7 +343,7 @@ def update_work_assignment(
 ) -> WorkAssignmentRead:
     goal = goal_service.get_goal(session, goal_id)
     if goal.work_assignment is None:
-        raise NotFoundError("案件情報", goal_id)
+        raise NotFoundError("WorkAssignment", goal_id)
     work_assignment = work_service.update_work_assignment(
         session, goal.work_assignment, **payload.model_dump(exclude_unset=True)
     )
@@ -366,7 +366,7 @@ def create_work_member(
 ) -> WorkMemberRead:
     goal = goal_service.get_goal(session, goal_id)
     if goal.work_assignment is None:
-        raise NotFoundError("案件情報", goal_id)
+        raise NotFoundError("WorkAssignment", goal_id)
     member = work_member_service.create_work_member(
         session, goal.work_assignment, **payload.model_dump()
     )

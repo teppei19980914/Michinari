@@ -45,7 +45,7 @@ _NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 def _ensure_active_reading_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.READING:
-        raise ValidationError(f"読書目標（category=READING）にのみ{_ACTION_LABEL}を実行できます")
+        raise ValidationError(f"{_ACTION_LABEL} can only be run for READING goals")
     goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
@@ -71,7 +71,7 @@ def send_reading_feedback(
     （＝1冊）のみを対象とする（未決事項L-07の解消方針転換）。
     """
     if target_date > today:
-        raise ValidationError("未来日のAI対話はできません")
+        raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_reading_goal(goal)

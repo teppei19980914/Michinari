@@ -68,7 +68,7 @@ def ensure_conversation(
     )
 
     if not chat_uid:
-        raise AiError("会話の作成に失敗しました")
+        raise AiError("Failed to create conversation")
 
     conversation = AiConversation(
         goal_id=goal.id if goal else None,
