@@ -43,7 +43,7 @@ _NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
 _NO_READING_LOGS_TEXT = "（想起記録はありません）"
 
 #: 完了していない目標に総括・読了レポートを生成しようとした場合の拒否理由（開発Todo 不具合B）。
-_MSG_REPORT_REQUIRES_COMPLETED = "完了した目標のみ総括レポート・読了レポートを生成できます"
+_MSG_REPORT_REQUIRES_COMPLETED = "Only a completed goal can generate a completion report"
 
 
 def get_latest_retrospective(
@@ -169,7 +169,8 @@ def generate_retrospective(
     """
     if goal.category == GoalCategory.WORK:
         raise ValidationError(
-            "仕事目標には総括レポートを生成できません（月次報告・半期評価を使用してください）"
+            "Cannot generate a completion report for a WORK goal "
+            "(use monthly/semiannual reports instead)"
         )
     # 総括レポート・読了レポートは完了（読了）の状態でのみ生成する（開発Todo 不具合B・1-8、
     # 利用者方針2026-10-04：資格試験も読書と同じ扱い）。中断・実行中の目標には作らない。

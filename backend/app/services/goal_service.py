@@ -136,7 +136,7 @@ def ensure_operation_allowed(goal: Goal, operation: GoalOperation) -> None:
     """遷移表（constants/goal_transitions.py）で、現在の状態に対して操作が許可されるかを検査する。"""
     if not is_operation_allowed(operation, goal.status):
         raise InvalidStateTransitionError(
-            f"目標(id={goal.id})の現在の状態では、この操作（{operation.value}）はできません"
+            f"Operation {operation.value} is not allowed in the current state of goal(id={goal.id})"
         )
 
 

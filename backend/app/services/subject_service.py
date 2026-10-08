@@ -216,7 +216,8 @@ def register_exam_result(
     goal_service.ensure_goal_editable(subject.goal)
     if subject.exam_result is not None:
         raise ValidationError(
-            f"試験科目(id={subject.id})には既に受験結果が登録されています。更新はPATCHで行ってください"
+            f"ExamSubject(id={subject.id}) already has an exam result registered; "
+            "use PATCH to update"
         )
 
     exam_result = ExamResult(

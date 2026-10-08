@@ -33,7 +33,7 @@ from app.services import ai_context_service, goal_service, record_service, setti
 from app.services.exceptions import ValidationError
 from app.services.record_service import ReadingLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 #: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
 #: （17.6）。ai_context_service.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ

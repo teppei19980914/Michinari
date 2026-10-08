@@ -32,7 +32,7 @@ from app.services import ai_context_service, goal_service, record_service, setti
 from app.services.exceptions import ValidationError
 from app.services.record_service import WorkLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 #: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
 #: 表示（17.8）。ai_context_service.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
 #: を返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ

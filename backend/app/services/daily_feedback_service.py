@@ -33,7 +33,7 @@ from app.services import (
 from app.services.exceptions import ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 
 
 def _ensure_active_exam_goal(goal: Goal) -> None:
