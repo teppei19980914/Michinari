@@ -24,6 +24,15 @@
 - 検出は `label-checker` エージェントが担当（対象: ユーザー向け文字列）
 - 定数・IDの重複は `dry-reviewer` エージェントが担当（対象: コード上の名前の重複）
 
+**サービス層の例外メッセージ（`raise XxxError("...")` の文字列）は英語で書く**（2026-10-08、
+バージョン2.0.0で104+箇所を移行）。画面表示文は例外の型→`code`（`app/api/errors.py`の
+`_STATUS_AND_CODE`）→`frontend/src/locales/ja.json`の`errors.<code>`、または型に
+`reason`属性がある場合は`errors.reasons.<reason>`で解決し、例外メッセージの文字列自体は
+画面に出さない（`frontend/src/api/client.ts`の`apiErrorMessage()`）。英語メッセージは
+サーバログと、画面の「詳細」欄に出す任意の技術的補足（`apiErrorDetail`）にのみ使われる。
+新しい例外を追加する際も、画面文言が必要なら専用の`code`または`reason`を増やし、
+メッセージ文字列自体の翻訳では対応しない。
+
 ---
 
 ## テストカバレッジ
