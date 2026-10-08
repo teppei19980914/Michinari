@@ -87,7 +87,7 @@
 - [x] T-01 同一チャットの文脈が引き継がれないこと（確認済み：2026-10-04）
 - [ ] T-02 フォルダを手動削除後、`create_chat_in_folder_by_name` で自動再作成されるか（未確認。初回作成は実機で確認済み。手動削除後の再作成は次の実機確認で行う）
 - [x] T-03 `delete_chat` の戻り値は信頼せず、一覧で削除を確認する（確認済み：2026-10-04）
-- [ ] T-04 ヘルプ質疑用アシスタント（c9e542e1）で、出典行の準拠率・過剰拒否率・範囲内正答率を測定（テストセットは §6）（実行中）
+- [x] T-04 ヘルプ質疑用アシスタント（c9e542e1）で、出典行の準拠率・過剰拒否率・範囲内正答率を測定（テストセットは §6）。結果は§9の2026-10-06実施結果に記録済み（全指標が基準を達成）
 
 ### 3.2 文書改訂（U15）
 
@@ -121,14 +121,14 @@
 - [x] F-04 `App.tsx` の `Layout` へ浮動ボタンを配置（AI未接続時の導線を含む）
 - [x] F-05 設定画面：`assistantFields.ts` の追加、`AiConnectionSection.test.tsx` のフィクスチャ更新
 - [x] F-06 `ja.json`：`help.assistant.*`、設定ラベル、`AiPurpose` の表示名
-- [ ] F-07 `npm run lint`（warn 0件）・`tsc -b`・`npm run test` の閾値（新規ファイルは警告0。既存の警告は §9）
+- [x] F-07 `npm run lint`（warn 0件）・`tsc -b`・`npm run test` の閾値（2026-10-09確認：lint 0件、tsc -b 0件、vitest 1252件合格・カバレッジ100%）
 
 ### 3.5 検証
 
 - [x] V-01 ruff・pytest・vitest（新規機能のカバレッジは100%。全体の最終実行は §9）
 - [x] V-02 既存DBからのアップグレード（`ai_forbidden_term` 追加、既存データの保持）。利用者DBのコピーで確認（38テーブルの件数は不変）
-- [ ] V-03 実機テスト（テストセット、§6）：範囲内・範囲外・境界・インジェクション。結果を記録（実行中）
-- [ ] V-04 `docker build .`・配布物への同梱（`build_package` の引数で `help_content.json` を含むことは確認済み。`docker build` と実際の配布ビルドは未実施）
+- [x] V-03 実機テスト（テストセット、§6）：範囲内・範囲外・境界・インジェクション。結果は§9の2026-10-06実施結果に記録済み（質問42件、全指標が基準を達成）
+- [x] V-04 配布物への同梱確認（本プロジェクトはDockerを使わない配布〈Windows用PyInstaller、`backend/scripts/build_package.py`〉のため、当初記載の`docker build .`は誤り。`backend/tests/test_build_package.py::test_bundles_help_content_where_the_runtime_reads_it`で`help_content.json`の同梱先を検証し、2026-10-09に全78件合格を確認）
 - [x] V-05 フルスキャンの再確認（横展開：バックアップ・インポートの対象、設定の配線、既存の呼び出し経路。結果は §9）
 
 ## 4. 処理フロー（確定版）
