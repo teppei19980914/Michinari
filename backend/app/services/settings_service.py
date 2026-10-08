@@ -300,16 +300,12 @@ def _update_display(session: Session, **fields: object) -> None:
     locale = fields.get("locale")
     if locale is not None:
         if locale not in _ALLOWED_LOCALES:
-            raise ValidationError(
-                f"表示言語は次のいずれかで指定してください: {sorted(_ALLOWED_LOCALES)}"
-            )
+            raise ValidationError(f"Locale must be one of: {sorted(_ALLOWED_LOCALES)}")
         _set_str(session, _DISPLAY_LOCALE, locale)
     theme = fields.get("theme")
     if theme is not None:
         if theme not in _ALLOWED_THEMES:
-            raise ValidationError(
-                f"テーマは次のいずれかで指定してください: {sorted(_ALLOWED_THEMES)}"
-            )
+            raise ValidationError(f"Theme must be one of: {sorted(_ALLOWED_THEMES)}")
         _set_str(session, _DISPLAY_THEME, theme)
     granularity = fields.get("default_granularity")
     if granularity is not None:

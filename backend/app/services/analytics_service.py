@@ -145,7 +145,7 @@ def assign_growth_description_goal(session: Session, message: ChatMessage, goal:
         raise ValidationError("This message cannot be assigned to a goal as a growth description")
     if goal.category != expected_category:
         raise ValidationError(
-            f"このメッセージは{expected_category.value}カテゴリの目標にのみ割り当てられます"
+            f"This message can only be assigned to a goal with category {expected_category.value}"
         )
     message.goal_id = goal.id
     session.flush()

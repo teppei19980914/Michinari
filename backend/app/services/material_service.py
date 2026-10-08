@@ -27,9 +27,9 @@ from app.services import (
 from app.services.exceptions import MaterialHasStudyLogsError, NotFoundError, ValidationError
 
 #: 作成・更新の両方で使う検証メッセージ（CLAUDE.md DRYの原則: 値の重複を避ける）。
-_MSG_TOTAL_AMOUNT_NEGATIVE = "総量は0以上で入力してください"
-_MSG_PLANNED_CYCLES_BELOW_ONE = "予定周回数は1以上の整数で入力してください"
-_MSG_START_DATE_AFTER_DUE_DATE = "開始日は締切より前の日付にしてください"
+_MSG_TOTAL_AMOUNT_NEGATIVE = "Total amount must be 0 or greater"
+_MSG_PLANNED_CYCLES_BELOW_ONE = "Planned cycles must be an integer of 1 or greater"
+_MSG_START_DATE_AFTER_DUE_DATE = "Start date must be before the due date"
 
 
 def get_material(session: Session, material_id: int) -> Material:

@@ -23,7 +23,7 @@ from app.services.exceptions import (
     ValidationError,
 )
 
-_MSG_START_DATE_AFTER_DUE_DATE = "読書開始日は読了目標日より前の日付にしてください"
+_MSG_START_DATE_AFTER_DUE_DATE = "Reading start date must be before the target completion date"
 
 #: 進捗率の上限（100%）。総ページ数を後から現在ページより小さい値へ引き下げる訂正を
 #: 許容する（仕様変更2026-09-11）ため、current_page > total_pages が一時的に成立しうる。
