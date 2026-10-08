@@ -315,7 +315,7 @@ def _update_display(session: Session, **fields: object) -> None:
     if granularity is not None:
         if granularity not in _ALLOWED_GRANULARITIES:
             allowed = sorted(_ALLOWED_GRANULARITIES)
-            raise ValidationError(f"分析画面の既定粒度は次のいずれかで指定してください: {allowed}")
+            raise ValidationError(f"Default analytics granularity must be one of: {allowed}")
         _set_str(session, _DISPLAY_DEFAULT_GRANULARITY, granularity)
 
 
@@ -382,7 +382,7 @@ def list_prompt_templates(session: Session) -> list[PromptTemplate]:
 def get_prompt_template(session: Session, purpose: AiPurpose) -> PromptTemplate:
     template = session.query(PromptTemplate).filter(PromptTemplate.purpose == purpose.value).first()
     if template is None:
-        raise NotFoundError("プロンプトテンプレート", purpose.value)
+        raise NotFoundError("PromptTemplate", purpose.value)
     return template
 
 

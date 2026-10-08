@@ -45,7 +45,7 @@ _NO_OLDER_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 
 def _ensure_active_work_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.WORK:
-        raise ValidationError(f"仕事目標（category=WORK）にのみ{_ACTION_LABEL}を実行できます")
+        raise ValidationError(f"{_ACTION_LABEL} can only be run for WORK goals")
     goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
@@ -71,7 +71,7 @@ def send_work_feedback(
     （＝1案件）のみを対象とする（未決事項L-07の解消方針転換）。
     """
     if target_date > today:
-        raise ValidationError("未来日のAI対話はできません")
+        raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_work_goal(goal)

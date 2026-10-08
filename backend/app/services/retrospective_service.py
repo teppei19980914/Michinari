@@ -111,7 +111,9 @@ def _build_reading_context(
     session: Session, goal: Goal, today: dt.date, anonymize: bool
 ) -> prompt_builder.DegradableFeedbackContext:
     if goal.book is None:
-        raise ValidationError("書籍が未登録の読書目標には読了レポートを生成できません")
+        raise ValidationError(
+            "Cannot generate a completion report for a READING goal with no book registered"
+        )
     book = goal.book
     # L-11: 週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない直近部分
     # （週次要約バッチが未到達の場合を含む）は{{reading_logs}}のまま注入する。

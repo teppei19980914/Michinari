@@ -85,7 +85,9 @@ class NotificationDecision:
             ('a', 'b')
         """
         if not self.should_notify or self.title_key is None or self.body_key is None:
-            raise ValueError("通知しないと判定された結果から文面を取り出そうとしています")
+            raise ValueError(
+                "Attempted to build notification text from a result judged as not-to-notify"
+            )
         return self.title_key, self.body_key
 
 
@@ -107,7 +109,7 @@ def parse_notification_time(value: str) -> dt.time:
     """
     match = NOTIFICATION_TIME_PATTERN.fullmatch(value.strip())
     if match is None:
-        raise ValidationError("通知する時刻は 00:00 〜 23:59 の形式で指定してください")
+        raise ValidationError("Notification time must be in HH:MM format between 00:00 and 23:59")
     return dt.time(int(match.group(1)), int(match.group(2)))
 
 

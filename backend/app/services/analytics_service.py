@@ -139,10 +139,10 @@ def assign_growth_description_goal(session: Session, message: ChatMessage, goal:
     （goal_id が非NULL）のメッセージは対象外とする（誤操作による付け替え防止）。
     """
     if message.goal_id is not None:
-        raise ValidationError("既に目標が割り当て済みの成長記述です")
+        raise ValidationError("This message is already assigned to a goal as a growth description")
     expected_category = _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY_REVERSE.get(message.purpose)
     if expected_category is None:
-        raise ValidationError("成長記述として目標を割り当てられないメッセージです")
+        raise ValidationError("This message cannot be assigned to a goal as a growth description")
     if goal.category != expected_category:
         raise ValidationError(
             f"このメッセージは{expected_category.value}カテゴリの目標にのみ割り当てられます"
@@ -154,7 +154,7 @@ def assign_growth_description_goal(session: Session, message: ChatMessage, goal:
 def get_chat_message(session: Session, message_id: int) -> ChatMessage:
     message = session.get(ChatMessage, message_id)
     if message is None:
-        raise NotFoundError("AI対話メッセージ", message_id)
+        raise NotFoundError("ChatMessage", message_id)
     return message
 
 

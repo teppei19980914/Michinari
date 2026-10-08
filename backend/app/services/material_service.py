@@ -35,7 +35,7 @@ _MSG_START_DATE_AFTER_DUE_DATE = "開始日は締切より前の日付にして�
 def get_material(session: Session, material_id: int) -> Material:
     material = session.get(Material, material_id)
     if material is None:
-        raise NotFoundError("教材", material_id)
+        raise NotFoundError("Material", material_id)
     return material
 
 
@@ -72,15 +72,17 @@ def compute_due_date(subjects: list[ExamSubject], start_date: dt.date) -> dt.dat
 
 def _resolve_subjects(session: Session, goal: Goal, subject_ids: list[int]) -> list[ExamSubject]:
     if not subject_ids:
-        raise ValidationError("対策する科目を1件以上指定してください")
+        raise ValidationError("Specify at least one exam subject")
     unique_ids = set(subject_ids)
     subjects = session.query(ExamSubject).filter(ExamSubject.id.in_(unique_ids)).all()
     if len(subjects) != len(unique_ids):
         found_ids = {subject.id for subject in subjects}
-        raise NotFoundError("試験科目", sorted(unique_ids - found_ids))
+        raise NotFoundError("ExamSubject", sorted(unique_ids - found_ids))
     for subject in subjects:
         if subject.goal_id != goal.id:
-            raise ValidationError("教材と異なる目標の科目は紐付けられません")
+            raise ValidationError(
+                "Cannot link a subject that belongs to a different goal than the material"
+            )
     return subjects
 
 
@@ -118,7 +120,7 @@ def create_material(
     subjects = _resolve_subjects(session, goal, subject_ids)
     if due_date_is_manual:
         if due_date is None:
-            raise ValidationError("締切を手動設定する場合は締切日を指定してください")
+            raise ValidationError("A deadline date is required when setting the deadline manually")
         resolved_due_date = due_date
     else:
         resolved_due_date = compute_due_date(subjects, start_date)

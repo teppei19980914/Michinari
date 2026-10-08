@@ -177,7 +177,7 @@ def create_chat_in_folder_by_name(
             exc, elapsed_seconds=time.monotonic() - started, timeout_seconds=timeout_seconds
         ) from exc
     if not chat_uid:
-        raise AiError("フォルダ内チャットの作成に失敗しました")
+        raise AiError("Failed to create chat in folder")
     return chat_uid
 
 
@@ -199,7 +199,7 @@ def send_message(session: Session, *, chat_uid: str, message: str) -> SendResult
         ) from exc
     latency_ms = int((time.monotonic() - started) * 1000)
     if response_text is None:
-        raise AiError("AI基盤からの応答が空でした")
+        raise AiError("AI platform returned an empty response")
     return SendResult(response_text=response_text, latency_ms=latency_ms)
 
 

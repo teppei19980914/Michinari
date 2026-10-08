@@ -37,7 +37,7 @@ async def import_data(file: UploadFile) -> None:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ValidationError("インポートファイルが有効なJSONではありません") from exc
+        raise ValidationError("Import file is not valid JSON") from exc
     backup_service.import_all_data(data)
 
 

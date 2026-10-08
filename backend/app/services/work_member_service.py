@@ -24,7 +24,7 @@ from app.services.exceptions import (
 def get_member(session: Session, member_id: int) -> WorkMember:
     member = session.get(WorkMember, member_id)
     if member is None:
-        raise NotFoundError("メンバー", member_id)
+        raise NotFoundError("WorkMember", member_id)
     return member
 
 
