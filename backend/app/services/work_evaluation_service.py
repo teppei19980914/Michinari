@@ -31,12 +31,14 @@ _NO_WORK_LOGS_TEXT = "（業務記録はありません）"
 
 def _ensure_evaluator_role(work_assignment: WorkAssignment) -> None:
     if work_assignment.role != WorkEvaluationRole.EVALUATOR:
-        raise ValidationError("評価者ロールの案件にのみ評価レポートを生成できます")
+        raise ValidationError(
+            "Evaluation reports can only be generated for EVALUATOR-role assignments"
+        )
 
 
 def _ensure_member_belongs(work_assignment: WorkAssignment, member: WorkMember) -> None:
     if member.work_assignment_id != work_assignment.id:
-        raise ValidationError("指定されたメンバーはこの案件に所属していません")
+        raise ValidationError("Specified member does not belong to this work assignment")
 
 
 def generate_evaluation_report(
@@ -110,7 +112,7 @@ def generate_evaluation_report(
 def get_evaluation_report(session: Session, report_id: int) -> WorkEvaluationReport:
     report = session.get(WorkEvaluationReport, report_id)
     if report is None:
-        raise NotFoundError("評価レポート", report_id)
+        raise NotFoundError("WorkEvaluationReport", report_id)
     return report
 
 

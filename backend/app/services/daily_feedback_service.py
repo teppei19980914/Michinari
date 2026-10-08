@@ -33,12 +33,12 @@ from app.services import (
 from app.services.exceptions import ValidationError
 from app.services.record_service import DiaryEntryItem, StudyLogItem
 
-_ACTION_LABEL = "日次報告フィードバック"
+_ACTION_LABEL = "daily report feedback"
 
 
 def _ensure_active_exam_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.EXAM:
-        raise ValidationError(f"資格試験目標（category=EXAM）にのみ{_ACTION_LABEL}を実行できます")
+        raise ValidationError(f"{_ACTION_LABEL} can only be run for EXAM goals")
     goal_service.ensure_goal_active(goal, action_label=_ACTION_LABEL)
 
 
@@ -65,7 +65,7 @@ def send_daily_feedback(
     対象とし、他目標の下書き入力・状況はプロンプトに混入させない（未決事項L-07の解消方針転換）。
     """
     if target_date > today:
-        raise ValidationError("未来日のAI対話はできません")
+        raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_exam_goal(goal)

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { apiErrorMessage } from '../../api/client'
 import {
   assignGrowthDescriptionGoal,

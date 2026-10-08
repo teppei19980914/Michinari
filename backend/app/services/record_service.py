@@ -105,14 +105,16 @@ def _normalize_quality(material: Material, raw: float | None) -> float | None:
     if raw is None:
         return None
     if material.quality_metric_type == QualityMetricType.NONE:
-        raise ValidationError("品質指標を設定していない教材には品質値を入力できません")
+        raise ValidationError(
+            "Cannot enter a quality value for a material with no quality metric configured"
+        )
     if material.quality_metric_type == QualityMetricType.SUBJECTIVE:
         if raw != int(raw) or int(raw) not in _SUBJECTIVE_QUALITY_MAP:
-            raise ValidationError("主観的手応えは1〜5の整数で入力してください")
+            raise ValidationError("Subjective score must be an integer between 1 and 5")
         return _SUBJECTIVE_QUALITY_MAP[int(raw)]
     # OBJECTIVE / SELF_SCORED（仕様書10章: 品質指標は0〜100）
     if not (0 <= raw <= 100):
-        raise ValidationError("品質指標は0〜100の範囲で入力してください")
+        raise ValidationError("Quality value must be between 0 and 100")
     return float(raw)
 
 
@@ -123,7 +125,7 @@ def _load_materials(session: Session, material_ids: set[int]) -> dict[int, Mater
     found = {m.id: m for m in materials}
     missing = material_ids - set(found)
     if missing:
-        raise NotFoundError("教材", sorted(missing))
+        raise NotFoundError("Material", sorted(missing))
     return found
 
 
@@ -134,7 +136,7 @@ def _load_goals(session: Session, goal_ids: set[int]) -> dict[int, Goal]:
     found = {g.id: g for g in goals}
     missing = goal_ids - set(found)
     if missing:
-        raise NotFoundError("目標", sorted(missing))
+        raise NotFoundError("Goal", sorted(missing))
     return found
 
 
@@ -164,11 +166,11 @@ def _validate_slot_minutes(session: Session, slot_minutes: SlotMinutes) -> SlotM
     positive: SlotMinutes = {}
     for slot_id, minutes in slot_minutes.items():
         if minutes < 0:
-            raise ValidationError("投下時間は0以上で入力してください")
+            raise ValidationError("Minutes spent must be zero or more")
         if minutes == 0:
             continue
         if session.get(ResourceSlot, slot_id) is None:
-            raise ValidationError("存在しない時間枠が指定されています")
+            raise ValidationError("Specified resource slot does not exist")
         positive[slot_id] = minutes
     return positive
 
@@ -271,7 +273,7 @@ def _load_books(session: Session, book_ids: set[int]) -> dict[int, Book]:
     found = {b.id: b for b in books}
     missing = book_ids - set(found)
     if missing:
-        raise NotFoundError("書籍", sorted(missing))
+        raise NotFoundError("Book", sorted(missing))
     return found
 
 
@@ -343,7 +345,7 @@ def _load_work_assignments(
     found = {w.id: w for w in work_assignments}
     missing = work_assignment_ids - set(found)
     if missing:
-        raise NotFoundError("案件情報", sorted(missing))
+        raise NotFoundError("WorkAssignment", sorted(missing))
     return found
 
 
@@ -581,7 +583,7 @@ def _ensure_finalizable_date(target_date: dt.date, today: dt.date) -> None:
     基準とする。finalize_record/finalize_reading_record/finalize_work_record共通。
     """
     if target_date > today:
-        raise ValidationError("未来日の報告確定はできません")
+        raise ValidationError("Cannot finalize a report for a future date")
     if target_date < today - dt.timedelta(days=1):
         raise BackdateLimitExceededError(target_date, today)
 
@@ -605,9 +607,9 @@ def register_progress(
     reading_items = reading_items or []
     work_items = work_items or []
     if target_date > today:
-        raise ValidationError("未来日への実績登録はできません")
+        raise ValidationError("Cannot register progress for a future date")
     if not items and not reading_items and not work_items:
-        raise ValidationError("実績を1件以上入力してください")
+        raise ValidationError("Enter at least one progress record")
 
     record = get_daily_record(session, target_date)
     if items:
@@ -703,7 +705,7 @@ def finalize_work_record(
 def get_comment(session: Session, comment_id: int) -> RecordComment:
     comment = session.get(RecordComment, comment_id)
     if comment is None:
-        raise NotFoundError("コメント", comment_id)
+        raise NotFoundError("RecordComment", comment_id)
     return comment
 
 
@@ -712,7 +714,7 @@ def add_comment(session: Session, target_date: dt.date, body: str) -> RecordComm
     goal_service.ensure_any_goal_active(session)
     record = get_daily_record(session, target_date)
     if record is None:
-        raise NotFoundError("日次記録", target_date)
+        raise NotFoundError("DailyRecord", target_date)
     comment = RecordComment(daily_record_id=record.id, body=body)
     session.add(comment)
     session.flush()

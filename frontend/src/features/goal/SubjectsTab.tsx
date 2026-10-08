@@ -6,7 +6,7 @@ import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import { isSubjectRangeStartInPast } from './subjectWarnings'
 import {
   buildPassingScorePayload,

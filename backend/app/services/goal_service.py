@@ -118,7 +118,7 @@ def record_baseline_for_material(
 def ensure_goal_editable(goal: Goal) -> None:
     """クローズ済み目標への更新を拒否する（仕様書6.2「クローズの場合、全項目を読み取り専用」）。"""
     if goal.status in _CLOSED_STATUSES:
-        raise InvalidStateTransitionError(f"クローズ済みの目標(id={goal.id})は更新できません")
+        raise InvalidStateTransitionError(f"Closed goal (id={goal.id}) cannot be updated")
 
 
 def ensure_goal_active(goal: Goal, *, action_label: str) -> None:
@@ -129,14 +129,14 @@ def ensure_goal_active(goal: Goal, *, action_label: str) -> None:
     action_labelはエラーメッセージに埋め込む操作名（例:「日次報告フィードバック」）。
     """
     if goal.status != GoalStatus.ACTIVE:
-        raise InvalidStateTransitionError(f"進行中の目標のみ{action_label}を実行できます")
+        raise InvalidStateTransitionError(f"Only an ACTIVE goal can run {action_label}")
 
 
 def ensure_operation_allowed(goal: Goal, operation: GoalOperation) -> None:
     """遷移表（constants/goal_transitions.py）で、現在の状態に対して操作が許可されるかを検査する。"""
     if not is_operation_allowed(operation, goal.status):
         raise InvalidStateTransitionError(
-            f"目標(id={goal.id})の現在の状態では、この操作（{operation.value}）はできません"
+            f"Operation {operation.value} is not allowed in the current state of goal(id={goal.id})"
         )
 
 
@@ -159,7 +159,7 @@ def ensure_any_goal_active(session: Session) -> None:
     """
     has_active = session.query(Goal.id).filter(Goal.status == GoalStatus.ACTIVE).first() is not None
     if not has_active:
-        raise InvalidStateTransitionError("実行中の目標がないため、コメントを操作できません")
+        raise InvalidStateTransitionError("No ACTIVE goal; cannot operate on comments")
 
 
 def _change_status(session: Session, goal: Goal, new_status: GoalStatus) -> None:
@@ -201,7 +201,7 @@ def _validate_allocation_capacity(session: Session, goal: Goal) -> None:
 def get_goal(session: Session, goal_id: int) -> Goal:
     goal = session.get(Goal, goal_id)
     if goal is None:
-        raise NotFoundError("目標", goal_id)
+        raise NotFoundError("Goal", goal_id)
     return goal
 
 
@@ -285,7 +285,7 @@ def archive_goal(session: Session, goal: Goal) -> Goal:
     """
     ensure_operation_allowed(goal, GoalOperation.ARCHIVE)
     if goal.archived_at is not None:
-        raise InvalidStateTransitionError("既にアーカイブ済みです")
+        raise InvalidStateTransitionError("Already archived")
     goal.archived_at = utcnow()
     session.flush()
     return goal
@@ -294,7 +294,7 @@ def archive_goal(session: Session, goal: Goal) -> Goal:
 def unarchive_goal(session: Session, goal: Goal) -> Goal:
     """アーカイブを解除し、通常の一覧表示へ戻す（仕様書7.1.1）。statusは変更しない。"""
     if goal.archived_at is None:
-        raise InvalidStateTransitionError("アーカイブされていません")
+        raise InvalidStateTransitionError("Not archived")
     goal.archived_at = None
     session.flush()
     return goal
@@ -416,14 +416,14 @@ def activate_goal(session: Session, goal: Goal) -> Goal:
     """
     ensure_operation_allowed(goal, GoalOperation.ACTIVATE)
     if goal.archived_at is not None:
-        raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから開始してください")
+        raise InvalidStateTransitionError("Goal is archived; restore it before starting")
 
     if goal.category == GoalCategory.READING:
         if goal.book is None:
-            raise ValidationError("書籍を登録してください")
+            raise ValidationError("Register a book first")
     elif goal.category == GoalCategory.WORK:
         if goal.work_assignment is None:
-            raise ValidationError("案件情報を登録してください")
+            raise ValidationError("Register work assignment information first")
     else:
         if not goal.exam_subjects:
             raise ExamSubjectRequiredError
@@ -482,7 +482,7 @@ def resume_goal(session: Session, goal: Goal) -> ResumeResult:
     """
     ensure_operation_allowed(goal, GoalOperation.RESUME)
     if goal.archived_at is not None:
-        raise InvalidStateTransitionError("アーカイブ済みの目標です。復元してから再開してください")
+        raise InvalidStateTransitionError("Goal is archived; restore it before resuming")
     if goal.category == GoalCategory.EXAM:
         if allocation_service.sum_allocated_minutes(session, goal.id) <= 0:
             raise ResourceAllocationRequiredError
@@ -553,10 +553,10 @@ def complete_goal(session: Session, goal: Goal) -> Goal:
     ensure_operation_allowed(goal, GoalOperation.COMPLETE)
     if goal.category == GoalCategory.READING:
         if goal.book is None:
-            raise ValidationError("書籍を登録してください")
+            raise ValidationError("Register a book first")
     elif goal.category == GoalCategory.WORK:
         if goal.work_assignment is None:
-            raise ValidationError("案件情報を登録してください")
+            raise ValidationError("Register work assignment information first")
     else:
         has_all_results = bool(goal.exam_subjects) and all(
             subject.exam_result is not None for subject in goal.exam_subjects
@@ -602,7 +602,7 @@ def get_baselines(session: Session, goal: Goal) -> list[PlanBaseline]:
 def get_load_profile(session: Session, load_profile_id: int) -> LoadProfile:
     profile = session.get(LoadProfile, load_profile_id)
     if profile is None:
-        raise NotFoundError("負荷プロファイル", load_profile_id)
+        raise NotFoundError("LoadProfile", load_profile_id)
     return profile
 
 
@@ -624,9 +624,9 @@ def _validate_load_profile_period(
     exclude_id: int | None,
 ) -> None:
     if date_from > date_to:
-        raise ValidationError("適用開始日は適用終了日以前にしてください")
+        raise ValidationError("Effective start date must be on or before the end date")
     if coefficient <= 0:
-        raise ValidationError("負荷係数は正の数で入力してください")
+        raise ValidationError("Load coefficient must be a positive number")
 
     query = session.query(LoadProfile).filter(
         LoadProfile.goal_id == goal.id,
@@ -636,7 +636,7 @@ def _validate_load_profile_period(
     if exclude_id is not None:
         query = query.filter(LoadProfile.id != exclude_id)
     if query.first() is not None:
-        raise ValidationError("既存の負荷プロファイルと期間が重複しています")
+        raise ValidationError("Period overlaps with an existing load profile")
 
 
 def create_load_profile(

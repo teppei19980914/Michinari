@@ -49,7 +49,7 @@ def _resolve_purpose(purpose: str) -> AiPurpose:
     try:
         return AiPurpose(purpose)
     except ValueError as exc:
-        raise NotFoundError("プロンプトテンプレート", purpose) from exc
+        raise NotFoundError("PromptTemplate", purpose) from exc
 
 
 @router.get("/settings", response_model=AppSettingsRead)

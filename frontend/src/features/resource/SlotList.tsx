@@ -4,7 +4,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/toastContext'
 import {
   createSlot,
   deleteSlot,

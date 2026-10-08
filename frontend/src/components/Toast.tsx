@@ -1,8 +1,7 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 import { apiErrorDetail, apiErrorMessage } from '../api/client'
 import { t } from '../locales/t'
-
-type ToastVariant = 'info' | 'error'
+import { ToastContext, type ToastVariant } from './toastContext'
 
 type ToastEntry = {
   id: number
@@ -14,19 +13,6 @@ type ToastEntry = {
    * 自動消滅を止める（開いた直後に消えると読めないため）。 */
   detail?: string
 }
-
-type ToastContextValue = {
-  showToast: (message: string, variant?: ToastVariant, detail?: string) => void
-  /** APIエラーをロケール文言でトースト表示する（画面ごとに同じ三項式を書かない、CLAUDE.md DRYの原則）。 */
-  /** APIエラーをロケール文言でトースト表示する（画面ごとに同じ三項式を書かない、CLAUDE.md DRYの原則）。 */
-  showApiError: (error: unknown) => void
-  /** 「何をしようとして失敗したか」の見出し付きでAPIエラーを表示する。ミューテーションの
-   * onErrorへ直接渡すと第2引数（変数）が見出しとして解釈されるため、onErrorには使わず
-   * 明示的な無名関数の中から呼ぶ。 */
-  showApiErrorWithTitle: (title: string, error: unknown) => void
-}
-
-const ToastContext = createContext<ToastContextValue | null>(null)
 
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
   info: 'bg-gray-800',
@@ -123,12 +109,4 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       </div>
     </ToastContext.Provider>
   )
-}
-
-export function useToast(): ToastContextValue {
-  const context = useContext(ToastContext)
-  if (!context) {
-    throw new Error('useToast must be used within a ToastProvider')
-  }
-  return context
 }

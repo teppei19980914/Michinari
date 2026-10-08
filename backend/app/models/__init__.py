@@ -1,6 +1,6 @@
 """全モデルをここでインポートし、Base.metadata と relationship の文字列解決を保証する。"""
 
-from app.models.ai import AiConversation, AiLog
+from app.models.ai import AiConversation, AiForbiddenTerm, AiLog
 from app.models.base import Base
 from app.models.book import Book
 from app.models.goal import ExamSubject, Goal, GoalStatusHistory, LoadProfile
@@ -67,5 +67,6 @@ __all__ = [
     "ExamResult",
     "GoalRetrospective",
     "AiConversation",
+    "AiForbiddenTerm",
     "AiLog",
 ]

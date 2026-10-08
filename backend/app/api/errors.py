@@ -84,7 +84,7 @@ _FALLBACK = (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
 _DATABASE_LOCKED_MARKER = "database is locked"
 #: DBが他の処理に使用中の場合の（ステータス, コード）。再試行で解消しうるため503とする。
 _DATABASE_BUSY = (status.HTTP_503_SERVICE_UNAVAILABLE, "DATABASE_BUSY")
-_DATABASE_BUSY_MESSAGE = "データベースが他の処理に使用中です"
+_DATABASE_BUSY_MESSAGE = "Database is busy with another operation"
 
 _logger = logging.getLogger(__name__)
 
@@ -97,7 +97,7 @@ def _internal_error_response() -> JSONResponse:
     """想定外の内部エラーの応答（未分類の例外・想定外のDB例外で共用する、CLAUDE.md DRYの原則）。"""
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=_error_body("INTERNAL_ERROR", "予期しないエラーが発生しました"),
+        content=_error_body("INTERNAL_ERROR", "An unexpected error occurred"),
     )
 
 
@@ -135,7 +135,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content=_error_body("VALIDATION_ERROR", "入力値が不正です", details),
+            content=_error_body("VALIDATION_ERROR", "Invalid input", details),
         )
 
     @app.exception_handler(OperationalError)

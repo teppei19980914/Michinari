@@ -81,6 +81,8 @@ def test_export_data_returns_json_with_table_rows(client, _stub_db):
     body = response.json()
     assert body["schema_version"] == backup_service.DATA_SCHEMA_VERSION
     assert body["tables"]["goal"][0]["name"] == "マーカー"
+    # 禁止語（Phase43）もバックアップ対象（Base.metadata の全テーブル）に含まれる
+    assert "ai_forbidden_term" in body["tables"]
     assert "attachment" in response.headers["content-disposition"]
 
 

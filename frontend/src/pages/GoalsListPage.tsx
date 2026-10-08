@@ -6,7 +6,7 @@ import { ROUTES } from '../constants/routes'
 import { Card } from '../components/Card'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/toastContext'
 import { archiveGoal, listGoals, unarchiveGoal, type GoalRead } from '../api/goals'
 import {
   goalStatusLabelKey,

@@ -188,7 +188,7 @@ def test_unexpected_exception_returns_internal_error_body(client, monkeypatch):
     assert response.json() == {
         "error": {
             "code": "INTERNAL_ERROR",
-            "message": "予期しないエラーが発生しました",
+            "message": "An unexpected error occurred",
             "details": [],
         }
     }
@@ -219,7 +219,7 @@ def test_database_lock_timeout_returns_database_busy(monkeypatch):
     assert response.json() == {
         "error": {
             "code": "DATABASE_BUSY",
-            "message": "データベースが他の処理に使用中です",
+            "message": "Database is busy with another operation",
             "details": [],
         }
     }

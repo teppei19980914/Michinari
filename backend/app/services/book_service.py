@@ -23,7 +23,7 @@ from app.services.exceptions import (
     ValidationError,
 )
 
-_MSG_START_DATE_AFTER_DUE_DATE = "読書開始日は読了目標日より前の日付にしてください"
+_MSG_START_DATE_AFTER_DUE_DATE = "Reading start date must be before the target completion date"
 
 #: 進捗率の上限（100%）。総ページ数を後から現在ページより小さい値へ引き下げる訂正を
 #: 許容する（仕様変更2026-09-11）ため、current_page > total_pages が一時的に成立しうる。
@@ -36,13 +36,13 @@ _PROGRESS_RATE_MAX = 1.0
 def get_book(session: Session, book_id: int) -> Book:
     book = session.get(Book, book_id)
     if book is None:
-        raise NotFoundError("書籍", book_id)
+        raise NotFoundError("Book", book_id)
     return book
 
 
 def _ensure_reading_goal(goal: Goal) -> None:
     if goal.category != GoalCategory.READING:
-        raise ValidationError("読書目標（category=READING）にのみ書籍を登録できます")
+        raise ValidationError("Books can only be registered for READING goals")
 
 
 def create_book(

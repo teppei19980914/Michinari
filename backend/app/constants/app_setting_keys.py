@@ -49,6 +49,11 @@ AI_TIMEOUT_SECONDS = "ai.timeout_seconds"
 AI_MAX_RETRIES = "ai.max_retries"
 AI_MIN_INTERVAL_SECONDS = "ai.min_interval_seconds"
 AI_MAX_PROMPT_CHARS = "ai.max_prompt_chars"
+#: ヘルプAIアシスタント（Phase43、仕様書8.1 AI-14）。用途専用の設定値は app_setting に置く。
+AI_ASSISTANT_UID_HELP = "ai.assistant_uid.help"
+AI_HELP_FOLDER_NAME = "ai.help_folder_name"
+AI_HELP_QUESTION_MAX_CHARS = "ai.help_question_max_chars"
+AI_HELP_ANSWER_MAX_CHARS = "ai.help_answer_max_chars"
 #: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
 #: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
 AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"
