@@ -14,7 +14,7 @@ class AppSettingNotFoundError(DomainError):
 
     def __init__(self, key: str) -> None:
         self.key = key
-        super().__init__(f"app_setting に key='{key}' が存在しません")
+        super().__init__(f"app_setting has no key='{key}'")
 
 
 class PlannedCyclesBelowCompletedError(DomainError):
@@ -24,7 +24,8 @@ class PlannedCyclesBelowCompletedError(DomainError):
         self.current_cycle = current_cycle
         self.new_planned_cycles = new_planned_cycles
         super().__init__(
-            f"予定周回数({new_planned_cycles})を現在周回({current_cycle})未満にはできません"
+            f"Planned cycles ({new_planned_cycles}) cannot be less than "
+            f"the current cycle ({current_cycle})"
         )
 
 
@@ -34,7 +35,7 @@ class NotFoundError(DomainError):
     def __init__(self, entity_name: str, entity_id: object) -> None:
         self.entity_name = entity_name
         self.entity_id = entity_id
-        super().__init__(f"{entity_name}(id={entity_id}) が見つかりません")
+        super().__init__(f"{entity_name}(id={entity_id}) not found")
 
 
 class ValidationError(DomainError):
@@ -49,7 +50,7 @@ class ExamSubjectRequiredError(DomainError):
     """
 
     def __init__(self) -> None:
-        super().__init__("試験科目を1件以上登録してください")
+        super().__init__("At least one exam subject must be registered")
 
 
 class MaterialRequiredError(DomainError):
@@ -60,7 +61,7 @@ class MaterialRequiredError(DomainError):
     """
 
     def __init__(self) -> None:
-        super().__init__("教材を1件以上登録してください")
+        super().__init__("At least one material must be registered")
 
 
 class ResourceAllocationRequiredError(DomainError):
@@ -72,7 +73,7 @@ class ResourceAllocationRequiredError(DomainError):
     """
 
     def __init__(self) -> None:
-        super().__init__("リソース配分を設定してください")
+        super().__init__("Resource allocation must be configured")
 
 
 class ResourceAllocationExceededError(DomainError):
@@ -84,8 +85,8 @@ class ResourceAllocationExceededError(DomainError):
         self.total_minutes = total_minutes
         self.capacity_minutes = capacity_minutes
         super().__init__(
-            f"時間枠「{slot_name}」の配分合計が確保時間を超えます"
-            f"（{total_minutes}分 / {capacity_minutes}分）"
+            f'Total allocation for time slot "{slot_name}" exceeds its capacity'
+            f" ({total_minutes} min / {capacity_minutes} min)"
         )
 
 
@@ -101,7 +102,7 @@ class ExamResultsIncompleteError(DomainError):
     """
 
     def __init__(self) -> None:
-        super().__init__("受験結果が揃っていないため完了できません")
+        super().__init__("Cannot complete because exam results are incomplete")
 
 
 class MaterialHasStudyLogsError(DomainError):
