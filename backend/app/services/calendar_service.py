@@ -174,7 +174,7 @@ def import_holidays(session: Session, csv_bytes: bytes) -> HolidayImportResult:
         text = csv_bytes.decode("cp932")
     except UnicodeDecodeError as exc:
         raise ValidationError(
-            "祝日CSVの文字コードが不正です（Shift-JIS/cp932で保存してください）"
+            "Holiday CSV has an invalid encoding (save as Shift-JIS/cp932)"
         ) from exc
 
     rows = list(csv.reader(io.StringIO(text, newline="")))

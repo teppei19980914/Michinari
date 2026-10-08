@@ -177,9 +177,9 @@ def _validate_full_data_export(data: dict) -> None:
         raise ValidationError("Import file is not a valid export format")
     if data.get("schema_version") not in _IMPORTABLE_SCHEMA_VERSIONS:
         raise ValidationError(
-            f"インポートファイルのスキーマ版数が対応していません"
-            f"（対応: {', '.join(sorted(_IMPORTABLE_SCHEMA_VERSIONS))}、"
-            f"受領: {data.get('schema_version')}）"
+            "Import file has an unsupported schema version "
+            f"(supported: {', '.join(sorted(_IMPORTABLE_SCHEMA_VERSIONS))}, "
+            f"received: {data.get('schema_version')})"
         )
     required_tables = {"goal", "material", "app_setting"}
     if not required_tables.issubset(data["tables"].keys()):

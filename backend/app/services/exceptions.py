@@ -117,7 +117,7 @@ class MaterialHasStudyLogsError(DomainError):
 
     def __init__(self, material_id: int) -> None:
         self.material_id = material_id
-        super().__init__(f"教材(id={material_id})には実績が存在するため削除できません")
+        super().__init__(f"Material(id={material_id}) cannot be deleted because study logs exist")
 
 
 class BookAlreadyExistsError(DomainError):
@@ -126,7 +126,7 @@ class BookAlreadyExistsError(DomainError):
 
     def __init__(self, goal_id: int) -> None:
         self.goal_id = goal_id
-        super().__init__(f"目標(id={goal_id})には既に書籍が登録されています")
+        super().__init__(f"Goal(id={goal_id}) already has a book registered")
 
 
 class CurrentPageExceedsTotalPagesError(DomainError):
@@ -141,7 +141,7 @@ class CurrentPageExceedsTotalPagesError(DomainError):
     def __init__(self, book_id: int, total_pages: int) -> None:
         self.book_id = book_id
         self.total_pages = total_pages
-        super().__init__(f"書籍(id={book_id})の総ページ数({total_pages})を超えています")
+        super().__init__(f"Exceeds total pages ({total_pages}) of book(id={book_id})")
 
 
 class WorkAssignmentAlreadyExistsError(DomainError):
@@ -150,7 +150,7 @@ class WorkAssignmentAlreadyExistsError(DomainError):
 
     def __init__(self, goal_id: int) -> None:
         self.goal_id = goal_id
-        super().__init__(f"目標(id={goal_id})には既に案件情報が登録されています")
+        super().__init__(f"Goal(id={goal_id}) already has a work assignment registered")
 
 
 class ImmutableRecordError(DomainError):
@@ -162,7 +162,9 @@ class ImmutableRecordError(DomainError):
     def __init__(self, record_date: object, category: object) -> None:
         self.record_date = record_date
         self.category = category
-        super().__init__(f"日付({record_date})の{category}の記録は確定済みのため更新できません")
+        super().__init__(
+            f"Record for {category} on {record_date} is already finalized and cannot be updated"
+        )
 
 
 class ConsentRequiredError(DomainError):
@@ -170,7 +172,7 @@ class ConsentRequiredError(DomainError):
     （要件定義書6.11、第三者の機微情報を扱う初のフィールドに対する同意ゲート）。"""
 
     def __init__(self) -> None:
-        super().__init__("特性・性格を保存する前に本人確認済みの確認が必要です")
+        super().__init__("Consent confirmation is required before saving traits/personality")
 
 
 class WorkMemberHasEvaluationReportsError(DomainError):
@@ -181,7 +183,9 @@ class WorkMemberHasEvaluationReportsError(DomainError):
 
     def __init__(self, member_id: int) -> None:
         self.member_id = member_id
-        super().__init__(f"メンバー(id={member_id})には評価レポートが存在するため削除できません")
+        super().__init__(
+            f"Member(id={member_id}) cannot be deleted because evaluation reports exist"
+        )
 
 
 class BackdateLimitExceededError(DomainError):
@@ -191,7 +195,10 @@ class BackdateLimitExceededError(DomainError):
     def __init__(self, record_date: object, today: object) -> None:
         self.record_date = record_date
         self.today = today
-        super().__init__(f"日付({record_date})への報告確定は前日までに限られます（本日: {today}）")
+        super().__init__(
+            f"Report finalization for {record_date} is only allowed up to "
+            f"the previous day (today: {today})"
+        )
 
 
 class RecapBodyRejectedError(DomainError):
