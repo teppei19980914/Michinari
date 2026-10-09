@@ -69,6 +69,11 @@ DASHBOARD_REPORT_RATE_WINDOW_DAYS = "dashboard.report_rate_window_days"
 DISPLAY_LOCALE = "display.locale"
 DISPLAY_THEME = "display.theme"
 DISPLAY_DEFAULT_GRANULARITY = "display.default_granularity"
+#: 装飾的な配色バリエーション（UIリッチ化）。目標種別バッジ等の意味を持つ固定色とは別軸で、
+#: ボタン・リンク等の強調色のみに作用する（2026-10 利用者方針）。
+DISPLAY_ACCENT_COLOR = "display.accent_color"
+#: 画面全体のフォントサイズ倍率（UIリッチ化）。
+DISPLAY_FONT_SCALE = "display.font_scale"
 
 # データ管理（仕様書6.12、データ構造編9章D-02、実装フェーズ分割計画書Phase10）。
 BACKUP_RETENTION_COUNT = "backup.retention_count"

@@ -13,6 +13,8 @@ def test_get_settings_returns_grouped_defaults(client):
     assert body["ai_connection"]["folder_prefix"] == "ミチナリ"
     assert body["threshold"]["warning_ratio"] == 1.20
     assert body["display"]["default_granularity"] == "WEEK"
+    assert body["display"]["accent_color"] == "blue"
+    assert body["display"]["font_scale"] == "standard"
     assert body["log"]["retention_days"] == 90
 
 
@@ -183,6 +185,33 @@ def test_patch_settings_updates_evaluation_report_work_assistant_uid(client):
 
 def test_patch_settings_rejects_invalid_theme(client):
     response = client.patch("/api/v1/settings", json={"display": {"theme": "rainbow"}})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_patch_settings_updates_accent_color_and_font_scale(client):
+    response = client.patch(
+        "/api/v1/settings",
+        json={"display": {"accent_color": "purple", "font_scale": "large"}},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["display"]["accent_color"] == "purple"
+    assert body["display"]["font_scale"] == "large"
+
+    confirmed = client.get("/api/v1/settings").json()
+    assert confirmed["display"]["accent_color"] == "purple"
+    assert confirmed["display"]["font_scale"] == "large"
+
+
+def test_patch_settings_rejects_invalid_accent_color(client):
+    response = client.patch("/api/v1/settings", json={"display": {"accent_color": "rainbow"}})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_patch_settings_rejects_invalid_font_scale(client):
+    response = client.patch("/api/v1/settings", json={"display": {"font_scale": "huge"}})
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 

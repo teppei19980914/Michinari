@@ -166,6 +166,26 @@ describe('HelpAssistantDrawer', () => {
     expect(await screen.findByText(t('helpAssistant.unavailable'))).toBeTruthy()
   })
 
+  it('新しい回答が積まれたら最新が見えるようスクロールする', async () => {
+    askHelpQuestion.mockResolvedValue({
+      status: 'ANSWERED',
+      answer: '資格試験・読書・仕事の3種類です。',
+      sections: [{ id: 'goals', title: '目標' }],
+    })
+    renderWithProviders(<HelpAssistantDrawer onClose={() => {}} />)
+
+    await ask('目標は何種類ありますか')
+    const container = (await screen.findByText('資格試験・読書・仕事の3種類です。')).closest(
+      '.overflow-y-auto',
+    ) as HTMLDivElement
+    Object.defineProperty(container, 'scrollHeight', { value: 999, configurable: true })
+    container.scrollTop = 0
+
+    await ask('もう一つ質問')
+
+    await waitFor(() => expect(container.scrollTop).toBe(999))
+  })
+
   it('送信できない状態でフォームを送信しても、質問は送られない', async () => {
     renderWithProviders(<HelpAssistantDrawer onClose={() => {}} />)
     await waitFor(() => expect(getHelpAssistantLimits).toHaveBeenCalled())

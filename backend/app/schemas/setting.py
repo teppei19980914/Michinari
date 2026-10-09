@@ -87,12 +87,16 @@ class DisplaySettingsRead(BaseModel):
     locale: str
     theme: str
     default_granularity: str
+    accent_color: str
+    font_scale: str
 
 
 class DisplaySettingsUpdate(BaseModel):
     locale: str | None = None
     theme: str | None = None
     default_granularity: str | None = None
+    accent_color: str | None = None
+    font_scale: str | None = None
 
 
 class DesktopSettingsRead(BaseModel):
