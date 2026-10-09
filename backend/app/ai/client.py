@@ -115,7 +115,7 @@ def _translate_error(exc: Exception, *, elapsed_seconds: float, timeout_seconds:
             marker in message for marker in _TIMEOUT_MESSAGE_MARKERS
         ):
             return AiTimeoutError(str(exc))
-        return AiError(f"{exc}（時間をおいて再試行してください）")
+        return AiError(f"{exc} (retry after a short wait)")
     return AiError(str(exc))
 
 

@@ -359,6 +359,25 @@ def test_ask_keeps_answer_when_chat_deletion_fails_and_logs_warning(
     assert seeded_session.query(AiConversation).count() == 0
 
 
+def test_ask_keeps_answer_when_discard_cleanup_raises_unexpected_error(
+    seeded_session, monkeypatch, caplog
+):
+    """後始末（会話行の削除）がSQLiteロック競合等の予期しない例外で失敗しても、
+    `finally`内の例外で回答そのものを失わない（2026-10-09の実機不具合の回帰）。"""
+    FakeAi(monkeypatch)
+
+    def failing_delete(conversation):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(seeded_session, "delete", failing_delete)
+
+    with caplog.at_level("ERROR"):
+        answer = service.ask(seeded_session, raw_question="目標は何種類ありますか")
+
+    assert answer.status is HelpAnswerStatus.ANSWERED
+    assert "後始末に失敗しました" in caplog.text
+
+
 def test_ask_warns_when_chat_still_listed_after_delete(seeded_session, monkeypatch, caplog):
     fake = FakeAi(monkeypatch)
     fake.listed_after_delete = True
