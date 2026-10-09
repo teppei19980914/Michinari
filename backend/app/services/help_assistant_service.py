@@ -40,6 +40,7 @@ from app.constants.help_assistant import (
     NONCE_BYTES,
     WHITESPACE_PATTERN,
 )
+from app.database import serialize_writes
 from app.models.ai import AiConversation, AiForbiddenTerm
 from app.services import setting_reader
 from app.services.exceptions import ValidationError
@@ -200,7 +201,8 @@ def _discard_conversation(session: Session, conversation: AiConversation, folder
         if remains:
             logger.warning("ヘルプ質問のチャットが削除されませんでした（chat_uid=%s）", chat_uid)
         session.delete(conversation)
-        session.commit()
+        with serialize_writes():
+            session.commit()
     except Exception:  # noqa: BLE001
         session.rollback()
         logger.exception("ヘルプ質問のチャットの後始末に失敗しました（会話行が残存の可能性）")
