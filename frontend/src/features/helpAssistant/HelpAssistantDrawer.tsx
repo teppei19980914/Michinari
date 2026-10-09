@@ -2,7 +2,7 @@
  *
  * 質問ごとに独立した1往復として送る（文脈は引き継がない、開発Todo U16）。画面に出す履歴は、
  * ドロワーを開いている間だけ保持する。閉じると消える（履歴は端末に保存しない）。 */
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ApiError } from '../../api/client'
 import type { HelpAssistantAnswer } from '../../api/helpAssistant'
 import { Button } from '../../components/Button'
@@ -57,8 +57,16 @@ export function HelpAssistantDrawer({ onClose }: HelpAssistantDrawerProps) {
   const [draft, setDraft] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
   const nextId = useRef(0)
+  const historyRef = useRef<HTMLDivElement>(null)
   const limits = useHelpAssistantLimits()
   const ask = useAskHelpQuestion()
+
+  // 新しい質問・回答が積まれたら最新を見せる（積み重なると見切れてスクロールが必要になるため）。
+  useEffect(() => {
+    const container = historyRef.current
+    /* v8 ignore next -- 履歴欄は常に描画されるためrefは常にアタッチ済みで、nullには到達しない */
+    if (container) container.scrollTop = container.scrollHeight
+  }, [history, ask.isPending])
 
   const maxChars = limits.data?.max_question_chars
   const warning = validationMessage(draft, maxChars)
@@ -98,7 +106,7 @@ export function HelpAssistantDrawer({ onClose }: HelpAssistantDrawerProps) {
         </Button>
       </div>
       <p className="text-xs text-gray-500">{t('helpAssistant.disclaimer')}</p>
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+      <div ref={historyRef} className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {history.map((entry) => (
           <HistoryItem key={entry.id} entry={entry} />
         ))}
