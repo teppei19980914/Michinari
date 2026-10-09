@@ -4,10 +4,14 @@ SQLite は外部キー制約が既定で無効なため、接続ごとに
 `PRAGMA foreign_keys = ON` を実行する（設計書 データ構造編 2章）。
 """
 
+import sqlite3
+import threading
 from collections.abc import Generator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import get_settings
@@ -19,6 +23,35 @@ from app.models.base import Base
 #: app_settingには置けない（CLAUDE.mdゼロハードコーディングの対象外。起動間隔の
 #: FALLBACK_CHECK_INTERVAL_SECONDS、app/desktop/scheduler.pyと同種の例外）。
 _SQLITE_BUSY_TIMEOUT_SECONDS = 30
+
+#: AI系サービス（今日の一言・ヘルプAIアシスタント等）の短い書き込み区間
+#: （会話行の作成・送信後の記帳・後始末）を直列化するロック（データ構造編・
+#: CODING_RULES.md「AI通信とトランザクション」）。SQLiteは同時に1接続しか書き込めない。
+#: 複数のAI呼び出しが並行すると、それぞれの書き込み区間自体は短くても、重なる
+#: タイミング次第でSQLite自身のbusy_timeout（上記30秒）を使い切り「database is
+#: locked」で失敗しうる（2026-10-01・2026-10-09に実機で確認）。アプリ内でこのロックを
+#: 使って先に待たせることで、通常はSQLite側の競合が起きる前に解消する。
+write_lock = threading.Lock()
+
+
+@contextmanager
+def serialize_writes() -> Generator[None, None, None]:
+    """AI系の短い書き込み区間を直列化する（上記`write_lock`参照）。
+
+    アプリ内ロックの待ちも`_SQLITE_BUSY_TIMEOUT_SECONDS`を超えた場合は、SQLite自身が
+    出す例外と同じ型・同じ目印文字列（`database is locked`）で送出する。これにより、
+    既存のDATABASE_BUSYハンドラ（`app/api/errors.py`）がそのまま処理し、利用者には
+    通常のロック競合と同じ分かりやすい案内（「時間をおいて再試行してください」）が出る
+    （CLAUDE.md DRYの原則、新しいエラーコード・画面文言を増やさない）。
+    """
+    if not write_lock.acquire(timeout=_SQLITE_BUSY_TIMEOUT_SECONDS):
+        raise OperationalError(
+            "<app write_lock>", {}, sqlite3.OperationalError("database is locked")
+        )
+    try:
+        yield
+    finally:
+        write_lock.release()
 
 
 def create_db_engine(database_url: str | None = None) -> Engine:

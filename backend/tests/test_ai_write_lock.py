@@ -7,13 +7,19 @@ AIを連続呼び出ししている間、月次報告の生成がロックを取
 
 import datetime as dt
 import sqlite3
+import threading
 
+import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
+from app import database
 from app.ai import client as ai_client
+from app.ai import orchestration as ai_orchestration
 from app.ai import rate_limiter
+from app.ai.exceptions import AiError
 from app.constants.app_setting_keys import RECAP_CLASSIFY_CHUNK_CHARS
-from app.constants.enums import ConversationScope, GoalCategory, GoalStatus, RecordState
+from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, GoalStatus, RecordState
 from app.database import SessionLocal, engine
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
@@ -304,3 +310,154 @@ def test_send_and_log_and_conversation_are_committed_before_returning(seeded_ses
         assert check.query(AiConversation).count() == 1
     finally:
         check.close()
+
+
+def test_serialize_writes_blocks_until_released():
+    """`database.serialize_writes`はAI系の短い書き込み区間を直列化する
+    （2026-10-09の不具合対策。全AI呼び出しサービスが経由する共通基盤への横展開）。"""
+    started = threading.Event()
+    release = threading.Event()
+
+    def _hold():
+        with database.serialize_writes():
+            started.set()
+            release.wait(timeout=5)
+
+    thread = threading.Thread(target=_hold)
+    thread.start()
+    try:
+        assert started.wait(timeout=5)
+        # 保持中は、別のacquireがすぐには成立しない（直列化されている）。
+        assert database.write_lock.acquire(timeout=0.1) is False
+    finally:
+        release.set()
+        thread.join(timeout=5)
+
+    # 解放後はすぐ取得できる。
+    assert database.write_lock.acquire(timeout=1) is True
+    database.write_lock.release()
+
+
+def test_serialize_writes_raises_database_locked_when_wait_exceeds_timeout(monkeypatch):
+    """アプリ内ロックの待ちも上限を超えたら、SQLite自身の例外と同じ型・目印文字列で
+    送出する（既存のDATABASE_BUSYハンドラがそのまま処理できるようにするため）。"""
+    monkeypatch.setattr(database, "_SQLITE_BUSY_TIMEOUT_SECONDS", 0.05)
+    database.write_lock.acquire()
+    try:
+        with pytest.raises(OperationalError, match="database is locked"):
+            with database.serialize_writes():
+                pass  # pragma: no cover - 到達しない
+    finally:
+        database.write_lock.release()
+
+
+def _make_conversation(session, *, scope_key="probe"):
+    conversation = AiConversation(
+        goal_id=None,
+        scope=ConversationScope.DAILY_MESSAGE,
+        scope_key=scope_key,
+        conversation_uid="chat-probe",
+        folder_uid=None,
+        last_parent_order=0,
+    )
+    session.add(conversation)
+    session.commit()
+    return conversation
+
+
+def _raise_once_then_delegate(bound_method):
+    """最初の呼び出しだけ`database is locked`相当のOperationalErrorを送出するラッパー。"""
+    state = {"called": False}
+
+    def _wrapped(*args, **kwargs):
+        if not state["called"]:
+            state["called"] = True
+            raise OperationalError(
+                "<test>", {}, sqlite3.OperationalError("database is locked")
+            )
+        return bound_method(*args, **kwargs)
+
+    return _wrapped
+
+
+def test_send_and_log_keeps_answer_when_bookkeeping_flush_hits_lock(
+    seeded_session, monkeypatch
+):
+    """last_parent_order更新のflushがロック競合で失敗しても、既に得られたAI応答を
+    失わず返す（2026-10-09の不具合の回帰。send_and_log自身の単体テスト）。"""
+    monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
+    conversation = _make_conversation(seeded_session)
+    monkeypatch.setattr(
+        ai_client,
+        "send_message",
+        lambda session, *, chat_uid, message: ai_client.SendResult(
+            response_text="応答本文", latency_ms=1
+        ),
+    )
+    monkeypatch.setattr(seeded_session, "flush", _raise_once_then_delegate(seeded_session.flush))
+
+    result = ai_orchestration.send_and_log(
+        seeded_session,
+        purpose=AiPurpose.DAILY_MESSAGE,
+        conversation=conversation,
+        prompt_text="プロンプト",
+        prompt_chars=5,
+        was_truncated=False,
+    )
+
+    assert result.response_text == "応答本文"
+    assert seeded_session.query(AiLog).count() == 1
+
+
+def test_send_and_log_keeps_answer_when_final_commit_hits_lock(seeded_session, monkeypatch):
+    """送信ログの最終commitがロック競合で失敗しても、既に得られたAI応答を失わず返す。"""
+    monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
+    conversation = _make_conversation(seeded_session)
+    monkeypatch.setattr(
+        ai_client,
+        "send_message",
+        lambda session, *, chat_uid, message: ai_client.SendResult(
+            response_text="応答本文", latency_ms=1
+        ),
+    )
+    monkeypatch.setattr(
+        seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit)
+    )
+
+    result = ai_orchestration.send_and_log(
+        seeded_session,
+        purpose=AiPurpose.DAILY_MESSAGE,
+        conversation=conversation,
+        prompt_text="プロンプト",
+        prompt_chars=5,
+        was_truncated=False,
+    )
+
+    assert result.response_text == "応答本文"
+
+
+def test_send_and_log_reraises_original_domain_error_when_error_log_commit_hits_lock(
+    seeded_session, monkeypatch
+):
+    """送信自体が失敗した場合、失敗ログの記録がロック競合で失敗しても、元のドメイン例外
+    （画面に表示される種類）をそのまま送出する（別の例外にすり替えない）。"""
+    monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
+    conversation = _make_conversation(seeded_session)
+
+    def _failing_send(session, *, chat_uid, message):
+        raise AiError("送信に失敗")
+
+    monkeypatch.setattr(ai_client, "send_message", _failing_send)
+    monkeypatch.setattr(
+        seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit)
+    )
+
+    with pytest.raises(AiError):
+        ai_orchestration.send_and_log(
+            seeded_session,
+            purpose=AiPurpose.DAILY_MESSAGE,
+            conversation=conversation,
+            prompt_text="プロンプト",
+            prompt_chars=5,
+            was_truncated=False,
+        )

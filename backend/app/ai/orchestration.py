@@ -14,6 +14,7 @@ from app.ai import logger as ai_logger
 from app.ai import rate_limiter
 from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS, AI_MIN_INTERVAL_SECONDS
 from app.constants.enums import AiPurpose
+from app.database import serialize_writes
 from app.models.ai import AiConversation
 from app.models.setting import PromptTemplate
 from app.services import setting_reader
@@ -51,6 +52,8 @@ def send_and_log(
     16.3.1）。この更新とログ記録は付随的な記帳であり、SQLiteの書き込みロック競合
     （他のAI生成処理と重なった場合の「database is locked」、2026-10-09の不具合）で
     失敗しても、既に得られたAI応答を失わないよう、個別にロールバックして続行する。
+    `database.serialize_writes()`で先に直列化することで、この競合自体が起きる頻度を
+    減らす（SQLite自身のbusy_timeoutに委ねるより先に、アプリ内で待たせる）。
     """
     rate_limiter.wait_for_interval(setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS))
 
@@ -73,14 +76,16 @@ def send_and_log(
                 error_type=type(exc).__name__,
                 error_message=str(exc),
             )
-            session.commit()
+            with serialize_writes():
+                session.commit()
         except OperationalError:
             session.rollback()
         raise
 
     try:
         conversation.last_parent_order += 1
-        session.flush()
+        with serialize_writes():
+            session.flush()
     except OperationalError:
         session.rollback()
 
@@ -97,7 +102,8 @@ def send_and_log(
             error_type=None,
             error_message=None,
         )
-        session.commit()
+        with serialize_writes():
+            session.commit()
     except OperationalError:
         session.rollback()
     return send_result
