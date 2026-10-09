@@ -10,21 +10,21 @@ from app.services.exceptions import DomainError
 class AiAuthRequiredError(DomainError):
     """認証関連の例外（AuthenticationError）→ AI_AUTH_REQUIRED（16.6）。"""
 
-    def __init__(self, message: str = "AI基盤の認証が必要です") -> None:
+    def __init__(self, message: str = "AI platform authentication is required") -> None:
         super().__init__(message)
 
 
 class AiConfigError(DomainError):
     """設定関連の例外（ConfigurationError）→ AI_CONFIG_ERROR（16.6）。"""
 
-    def __init__(self, message: str = "AI連携の設定が不正です") -> None:
+    def __init__(self, message: str = "AI integration configuration is invalid") -> None:
         super().__init__(message)
 
 
 class AiTimeoutError(DomainError):
     """タイムアウト（型による判定不可のため経過時間・メッセージで判定、16.6）→ AI_TIMEOUT。"""
 
-    def __init__(self, message: str = "AI基盤の応答がタイムアウトしました") -> None:
+    def __init__(self, message: str = "AI platform response timed out") -> None:
         super().__init__(message)
 
 
@@ -34,5 +34,5 @@ class AiError(DomainError):
     「時間をおいて再試行してください」を含める（16.6）。
     """
 
-    def __init__(self, message: str = "AI基盤との通信に失敗しました") -> None:
+    def __init__(self, message: str = "Failed to communicate with the AI platform") -> None:
         super().__init__(message)

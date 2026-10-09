@@ -40,6 +40,7 @@ from app.constants.help_assistant import (
     NONCE_BYTES,
     WHITESPACE_PATTERN,
 )
+from app.database import serialize_writes
 from app.models.ai import AiConversation, AiForbiddenTerm
 from app.services import setting_reader
 from app.services.exceptions import ValidationError
@@ -182,20 +183,29 @@ def _discard_conversation(session: Session, conversation: AiConversation, folder
     """質問ごとのチャットを削除し、一覧で削除を確認する。失敗しても回答は失わない。
 
     開発キットの削除の戻り値は信頼しない（開発Todo T-03）。残っていた場合はログに残し、
-    会話行は削除する（利用者の画面には影響させない）。
+    会話行は削除する（利用者の画面には影響させない）。この関数は`_send_question`の
+    `finally`から呼ばれるため、ここで例外を外へ出すと、既に得られた回答そのものが
+    失われる（`finally`内の例外が呼び出し元の正常な戻り値を上書きするため）。
+    SQLiteの書き込みロック競合（2026-10-09の不具合）等の後始末自体の失敗でこれが
+    起きないよう、ここでは例外を外へ出さない。
     """
-    chat_uid = conversation.conversation_uid
     try:
-        ai_client.delete_chat(session, chat_uid=chat_uid)
-        remains = ai_client.chat_listed_in_folder(
-            session, folder_name=folder_name, chat_uid=chat_uid
-        )
-    except AiError:
-        remains = True
-    if remains:
-        logger.warning("ヘルプ質問のチャットが削除されませんでした（chat_uid=%s）", chat_uid)
-    session.delete(conversation)
-    session.commit()
+        chat_uid = conversation.conversation_uid
+        try:
+            ai_client.delete_chat(session, chat_uid=chat_uid)
+            remains = ai_client.chat_listed_in_folder(
+                session, folder_name=folder_name, chat_uid=chat_uid
+            )
+        except AiError:
+            remains = True
+        if remains:
+            logger.warning("ヘルプ質問のチャットが削除されませんでした（chat_uid=%s）", chat_uid)
+        session.delete(conversation)
+        with serialize_writes():
+            session.commit()
+    except Exception:  # noqa: BLE001
+        session.rollback()
+        logger.exception("ヘルプ質問のチャットの後始末に失敗しました（会話行が残存の可能性）")
 
 
 def _send_question(session: Session, *, prompt_text: str, prompt_chars: int) -> str:
