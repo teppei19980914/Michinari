@@ -19,6 +19,8 @@ def test_get_app_settings_returns_seeded_defaults(seeded_session):
     assert settings.display.locale == "ja"
     assert settings.display.theme == "system"
     assert settings.display.default_granularity == "WEEK"
+    assert settings.display.accent_color == "blue"
+    assert settings.display.font_scale == "standard"
     assert settings.log.ai_enabled is True
     assert settings.log.retention_days == 90
 
@@ -52,6 +54,16 @@ def test_update_app_settings_rejects_invalid_locale(seeded_session):
         settings_service.update_app_settings(seeded_session, display={"locale": "en"})
 
 
+def test_update_app_settings_rejects_invalid_accent_color(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(seeded_session, display={"accent_color": "rainbow"})
+
+
+def test_update_app_settings_rejects_invalid_font_scale(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(seeded_session, display={"font_scale": "huge"})
+
+
 def test_update_app_settings_log_and_prompt_degradation(seeded_session):
     updated = settings_service.update_app_settings(
         seeded_session,
@@ -82,11 +94,20 @@ def test_update_app_settings_accepts_each_field_independently(seeded_session):
 
 def test_update_app_settings_updates_display_theme_and_granularity(seeded_session):
     updated = settings_service.update_app_settings(
-        seeded_session, display={"locale": "ja", "theme": "dark", "default_granularity": "MONTH"}
+        seeded_session,
+        display={
+            "locale": "ja",
+            "theme": "dark",
+            "default_granularity": "MONTH",
+            "accent_color": "green",
+            "font_scale": "large",
+        },
     )
     assert updated.display.locale == "ja"
     assert updated.display.theme == "dark"
     assert updated.display.default_granularity == "MONTH"
+    assert updated.display.accent_color == "green"
+    assert updated.display.font_scale == "large"
 
 
 def test_update_app_settings_ignores_explicit_none_field(seeded_session):
@@ -110,6 +131,8 @@ def test_update_app_settings_accepts_only_first_field_of_each_group(seeded_sessi
     assert updated.prompt_degradation.summary_inject_weeks == 4
     assert updated.display.theme == "light"
     assert updated.display.default_granularity == "WEEK"
+    assert updated.display.accent_color == "blue"
+    assert updated.display.font_scale == "standard"
     assert updated.log.ai_enabled is False
     assert updated.log.retention_days == 90
 

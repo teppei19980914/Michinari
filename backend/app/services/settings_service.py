@@ -46,7 +46,13 @@ from app.constants.app_setting_keys import (
     THRESHOLD_WARNING_RATIO,
 )
 from app.constants.app_setting_keys import (
+    DISPLAY_ACCENT_COLOR as _DISPLAY_ACCENT_COLOR,
+)
+from app.constants.app_setting_keys import (
     DISPLAY_DEFAULT_GRANULARITY as _DISPLAY_DEFAULT_GRANULARITY,
+)
+from app.constants.app_setting_keys import (
+    DISPLAY_FONT_SCALE as _DISPLAY_FONT_SCALE,
 )
 from app.constants.app_setting_keys import (
     DISPLAY_LOCALE as _DISPLAY_LOCALE,
@@ -63,6 +69,10 @@ from app.services.exceptions import AppSettingNotFoundError, NotFoundError, Vali
 #: 表示言語は技術選定書の対象が日本語のみのため、現時点ではこの1件のみを許容する。
 _ALLOWED_LOCALES = frozenset({"ja"})
 _ALLOWED_THEMES = frozenset({"system", "light", "dark"})
+#: 装飾的な配色バリエーション（UIリッチ化、2026-10利用者方針）。目標種別バッジ等の
+#: 意味を持つ固定色とは独立した強調色のみに作用するため、値追加は配色の見た目のみに影響する。
+_ALLOWED_ACCENT_COLORS = frozenset({"blue", "green", "purple", "orange"})
+_ALLOWED_FONT_SCALES = frozenset({"small", "standard", "large"})
 #: 分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。Phase9のGranularity Enumと
 #: 同じ値を許容する（CLAUDE.md DRYの原則、値の重複を避けるためEnumの値をそのまま使う）。
 _ALLOWED_GRANULARITIES = frozenset(g.value for g in Granularity)
@@ -126,6 +136,8 @@ class DisplaySettings:
     locale: str
     theme: str
     default_granularity: str
+    accent_color: str
+    font_scale: str
 
 
 @dataclass(frozen=True)
@@ -215,6 +227,8 @@ def get_app_settings(session: Session) -> AppSettings:
         locale=setting_reader.get_str(session, _DISPLAY_LOCALE),
         theme=setting_reader.get_str(session, _DISPLAY_THEME),
         default_granularity=setting_reader.get_str(session, _DISPLAY_DEFAULT_GRANULARITY),
+        accent_color=setting_reader.get_str(session, _DISPLAY_ACCENT_COLOR),
+        font_scale=setting_reader.get_str(session, _DISPLAY_FONT_SCALE),
     )
     desktop = DesktopSettings(
         open_browser_on_startup=setting_reader.get_bool(session, DESKTOP_OPEN_BROWSER_ON_STARTUP),
@@ -313,6 +327,16 @@ def _update_display(session: Session, **fields: object) -> None:
             allowed = sorted(_ALLOWED_GRANULARITIES)
             raise ValidationError(f"Default analytics granularity must be one of: {allowed}")
         _set_str(session, _DISPLAY_DEFAULT_GRANULARITY, granularity)
+    accent_color = fields.get("accent_color")
+    if accent_color is not None:
+        if accent_color not in _ALLOWED_ACCENT_COLORS:
+            raise ValidationError(f"Accent color must be one of: {sorted(_ALLOWED_ACCENT_COLORS)}")
+        _set_str(session, _DISPLAY_ACCENT_COLOR, accent_color)
+    font_scale = fields.get("font_scale")
+    if font_scale is not None:
+        if font_scale not in _ALLOWED_FONT_SCALES:
+            raise ValidationError(f"Font scale must be one of: {sorted(_ALLOWED_FONT_SCALES)}")
+        _set_str(session, _DISPLAY_FONT_SCALE, font_scale)
 
 
 def _update_desktop(session: Session, **fields: object) -> None:
