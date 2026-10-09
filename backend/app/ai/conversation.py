@@ -16,6 +16,7 @@ from app.ai import client as ai_client
 from app.ai.exceptions import AiError
 from app.constants.app_setting_keys import AI_FOLDER_PREFIX
 from app.constants.enums import ConversationScope
+from app.database import serialize_writes
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.services import setting_reader
@@ -79,5 +80,6 @@ def ensure_conversation(
         last_parent_order=0,
     )
     session.add(conversation)
-    session.commit()
+    with serialize_writes():
+        session.commit()
     return conversation

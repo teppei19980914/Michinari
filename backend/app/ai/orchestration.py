@@ -6,6 +6,7 @@ daily_feedback_service・daily_message_service・weekly_summary_serviceの3系�
 業務判断を含まないため、ai/パッケージに置く（データ構造編8.1）。
 """
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.ai import client as ai_client
@@ -13,6 +14,7 @@ from app.ai import logger as ai_logger
 from app.ai import rate_limiter
 from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS, AI_MIN_INTERVAL_SECONDS
 from app.constants.enums import AiPurpose
+from app.database import serialize_writes
 from app.models.ai import AiConversation
 from app.models.setting import PromptTemplate
 from app.services import setting_reader
@@ -47,44 +49,61 @@ def send_and_log(
     通信記録は失われない（16.8「全ての呼び出しについてai_logにレコードを追加する」）。
     成功時はlast_parent_orderを更新する
     （v0.10.5では文脈維持に使用できないが、将来の開発キット改修に備えた記録として、
-    16.3.1）。
+    16.3.1）。この更新とログ記録は付随的な記帳であり、SQLiteの書き込みロック競合
+    （他のAI生成処理と重なった場合の「database is locked」、2026-10-09の不具合）で
+    失敗しても、既に得られたAI応答を失わないよう、個別にロールバックして続行する。
+    `database.serialize_writes()`で先に直列化することで、この競合自体が起きる頻度を
+    減らす（SQLite自身のbusy_timeoutに委ねるより先に、アプリ内で待たせる）。
     """
     rate_limiter.wait_for_interval(setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS))
 
+    conversation_uid = conversation.conversation_uid
     try:
         send_result = ai_client.send_message(
-            session, chat_uid=conversation.conversation_uid, message=prompt_text
+            session, chat_uid=conversation_uid, message=prompt_text
         )
     except DomainError as exc:
+        try:
+            ai_logger.record_call(
+                session,
+                purpose=purpose,
+                conversation_uid=conversation_uid,
+                request_body=prompt_text,
+                response_body=None,
+                prompt_chars=prompt_chars,
+                was_truncated=was_truncated,
+                latency_ms=None,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            with serialize_writes():
+                session.commit()
+        except OperationalError:
+            session.rollback()
+        raise
+
+    try:
+        conversation.last_parent_order += 1
+        with serialize_writes():
+            session.flush()
+    except OperationalError:
+        session.rollback()
+
+    try:
         ai_logger.record_call(
             session,
             purpose=purpose,
-            conversation_uid=conversation.conversation_uid,
+            conversation_uid=conversation_uid,
             request_body=prompt_text,
-            response_body=None,
+            response_body=send_result.response_text,
             prompt_chars=prompt_chars,
             was_truncated=was_truncated,
-            latency_ms=None,
-            error_type=type(exc).__name__,
-            error_message=str(exc),
+            latency_ms=send_result.latency_ms,
+            error_type=None,
+            error_message=None,
         )
-        session.commit()
-        raise
-
-    conversation.last_parent_order += 1
-    session.flush()
-
-    ai_logger.record_call(
-        session,
-        purpose=purpose,
-        conversation_uid=conversation.conversation_uid,
-        request_body=prompt_text,
-        response_body=send_result.response_text,
-        prompt_chars=prompt_chars,
-        was_truncated=was_truncated,
-        latency_ms=send_result.latency_ms,
-        error_type=None,
-        error_message=None,
-    )
-    session.commit()
+        with serialize_writes():
+            session.commit()
+    except OperationalError:
+        session.rollback()
     return send_result
