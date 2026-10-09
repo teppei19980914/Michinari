@@ -6,6 +6,7 @@ daily_feedback_service・daily_message_service・weekly_summary_serviceの3系�
 業務判断を含まないため、ai/パッケージに置く（データ構造編8.1）。
 """
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.ai import client as ai_client
@@ -47,44 +48,56 @@ def send_and_log(
     通信記録は失われない（16.8「全ての呼び出しについてai_logにレコードを追加する」）。
     成功時はlast_parent_orderを更新する
     （v0.10.5では文脈維持に使用できないが、将来の開発キット改修に備えた記録として、
-    16.3.1）。
+    16.3.1）。この更新とログ記録は付随的な記帳であり、SQLiteの書き込みロック競合
+    （他のAI生成処理と重なった場合の「database is locked」、2026-10-09の不具合）で
+    失敗しても、既に得られたAI応答を失わないよう、個別にロールバックして続行する。
     """
     rate_limiter.wait_for_interval(setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS))
 
+    conversation_uid = conversation.conversation_uid
     try:
         send_result = ai_client.send_message(
-            session, chat_uid=conversation.conversation_uid, message=prompt_text
+            session, chat_uid=conversation_uid, message=prompt_text
         )
     except DomainError as exc:
+        try:
+            ai_logger.record_call(
+                session,
+                purpose=purpose,
+                conversation_uid=conversation_uid,
+                request_body=prompt_text,
+                response_body=None,
+                prompt_chars=prompt_chars,
+                was_truncated=was_truncated,
+                latency_ms=None,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
+            session.commit()
+        except OperationalError:
+            session.rollback()
+        raise
+
+    try:
+        conversation.last_parent_order += 1
+        session.flush()
+    except OperationalError:
+        session.rollback()
+
+    try:
         ai_logger.record_call(
             session,
             purpose=purpose,
-            conversation_uid=conversation.conversation_uid,
+            conversation_uid=conversation_uid,
             request_body=prompt_text,
-            response_body=None,
+            response_body=send_result.response_text,
             prompt_chars=prompt_chars,
             was_truncated=was_truncated,
-            latency_ms=None,
-            error_type=type(exc).__name__,
-            error_message=str(exc),
+            latency_ms=send_result.latency_ms,
+            error_type=None,
+            error_message=None,
         )
         session.commit()
-        raise
-
-    conversation.last_parent_order += 1
-    session.flush()
-
-    ai_logger.record_call(
-        session,
-        purpose=purpose,
-        conversation_uid=conversation.conversation_uid,
-        request_body=prompt_text,
-        response_body=send_result.response_text,
-        prompt_chars=prompt_chars,
-        was_truncated=was_truncated,
-        latency_ms=send_result.latency_ms,
-        error_type=None,
-        error_message=None,
-    )
-    session.commit()
+    except OperationalError:
+        session.rollback()
     return send_result

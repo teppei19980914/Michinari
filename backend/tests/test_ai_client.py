@@ -128,7 +128,7 @@ def test_translate_error_maps_chat_error_to_ai_error_with_retry_hint():
         ChatError("チャット失敗"), elapsed_seconds=1.0, timeout_seconds=60
     )
     assert isinstance(result, AiError)
-    assert "再試行" in str(result)
+    assert "retry" in str(result)
 
 
 def test_translate_error_maps_unknown_exception_to_ai_error():
