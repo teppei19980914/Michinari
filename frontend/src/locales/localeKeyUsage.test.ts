@@ -58,7 +58,7 @@ function isResolvable(messages: unknown, key: string): boolean {
 }
 
 describe('t()のリテラルキー呼び出しが全ロケールで解決できること', () => {
-  it.each(Object.entries(LOCALES))('本番コード中の全 t(\'...\') 呼び出しが%sで解決できる', (locale, messages) => {
+  it.each(Object.entries(LOCALES))('本番コード中の全 t(\'...\') 呼び出しが%sで解決できる', (_locale, messages) => {
     const unresolved: string[] = []
     for (const file of collectSourceFiles(SRC_DIR)) {
       if (relative(SRC_DIR, file).startsWith(join('locales'))) continue
