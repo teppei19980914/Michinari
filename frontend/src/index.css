@@ -1,6 +1,134 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
+/* ダークモードを[data-theme]属性で手動切替にする（Tailwind v4公式:
+   https://tailwindcss.com/docs/dark-mode）。themeの実際の値(system/light/dark)の
+   解決はThemeProvider（frontend/src/components/ThemeProvider.tsx）が行う。 */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* セマンティックカラートークン（UIリッチ化）。
+ * 生値は:root/[data-theme="dark"]で持ち、@theme inlineでユーティリティ化する
+ * （var()は宣言要素で解決されるため、@themeに生値を直接書くと子要素での
+ * [data-theme="dark"]上書きが効かない。Tailwind公式ドキュメントの
+ * 「テーマ変数が他の変数を参照する場合はinlineを使う」という指示に従う）。
+ * light側の値は、既存コードが使っていたTailwind標準パレット
+ * （gray-50/100/200/300/400/500/600/700/900、blue-50/300/600/700）と
+ * 完全に一致させている（トークン導入そのものでは見た目を変えないため）。 */
+:root {
+  --surface: #ffffff;
+  --surface-muted: #f9fafb; /* gray-50 */
+  --border: #e5e7eb; /* gray-200 */
+  --border-strong: #d1d5db; /* gray-300 */
+  --text-primary: #111827; /* gray-900 */
+  --text-secondary: #374151; /* gray-700 */
+  --text-muted: #4b5563; /* gray-600 */
+  --text-faint: #6b7280; /* gray-500 */
+  --text-disabled: #9ca3af; /* gray-400 */
+
+  /* アクセントカラー（装飾的な配色バリエーション、既定=blue）。目標種別バッジ等の
+     意味を持つ固定色とは独立しており、ボタン・リンク・選択状態の強調色にのみ使う。 */
+  --accent: #2563eb; /* blue-600 */
+  --accent-hover: #1d4ed8; /* blue-700 */
+  --accent-disabled: #93c5fd; /* blue-300 */
+  --accent-muted-bg: #eff6ff; /* blue-50 */
+  --accent-muted-text: #1d4ed8; /* blue-700 */
+}
+
+[data-theme='dark'] {
+  --surface: #111827; /* gray-900 */
+  --surface-muted: #1f2937; /* gray-800 */
+  --border: #374151; /* gray-700 */
+  --border-strong: #4b5563; /* gray-600 */
+  --text-primary: #f9fafb; /* gray-50 */
+  --text-secondary: #d1d5db; /* gray-300 */
+  --text-muted: #9ca3af; /* gray-400 */
+  --text-faint: #9ca3af; /* gray-400 */
+  --text-disabled: #4b5563; /* gray-600 */
+
+  /* アクセントの淡色(muted)は、ライトモード用の-50相当パステルだと暗い背景に
+     浮いてしまうため、現在のアクセント色から導出する（4色×2モード分を個別に
+     持たずに済ませるため、CODING_RULES.md DRYの原則）。 */
+  --accent-muted-bg: color-mix(in oklab, var(--accent) 24%, var(--surface));
+  --accent-muted-text: color-mix(in oklab, var(--accent) 55%, white);
+}
+
+[data-accent='green'] {
+  --accent: #16a34a; /* green-600 */
+  --accent-hover: #15803d; /* green-700 */
+  --accent-disabled: #86efac; /* green-300 */
+  --accent-muted-bg: #f0fdf4; /* green-50 */
+  --accent-muted-text: #15803d; /* green-700 */
+}
+
+[data-accent='purple'] {
+  --accent: #9333ea; /* purple-600 */
+  --accent-hover: #7e22ce; /* purple-700 */
+  --accent-disabled: #d8b4fe; /* purple-300 */
+  --accent-muted-bg: #faf5ff; /* purple-50 */
+  --accent-muted-text: #7e22ce; /* purple-700 */
+}
+
+[data-accent='orange'] {
+  --accent: #ea580c; /* orange-600 */
+  --accent-hover: #c2410c; /* orange-700 */
+  --accent-disabled: #fdba74; /* orange-300 */
+  --accent-muted-bg: #fff7ed; /* orange-50 */
+  --accent-muted-text: #c2410c; /* orange-700 */
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-text-disabled: var(--text-disabled);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-disabled: var(--accent-disabled);
+  --color-accent-muted-bg: var(--accent-muted-bg);
+  --color-accent-muted-text: var(--accent-muted-text);
+}
+
+/* フォントサイズ切替（UIリッチ化）。Tailwindの既定ユーティリティはrem基準のため、
+   htmlのfont-sizeを可変にするだけで大半のテキスト・余白が比例追従する。 */
+:root {
+  --font-scale: 1;
+}
+[data-font-scale='small'] {
+  --font-scale: 0.9375;
+}
+[data-font-scale='large'] {
+  --font-scale: 1.125;
+}
+html {
+  font-size: calc(16px * var(--font-scale));
+}
+
+/* 固定ヘッダー（UIリッチ化、GlobalNav）の高さを1箇所で管理する（CODING_RULES.md
+   DRYの原則、ナビ自身の高さとLayout側のpadding-topの二重管理を避ける）。 */
+:root {
+  --global-nav-height: 56px;
+}
+
+/* z-index一覧（新規コンポーネント追加時の重なり順の衝突を避けるための一覧）。
+   GoalTabBar 10 / Tooltip 10 / GlobalNav 20 / HelpAssistantLauncher 30 /
+   HelpAssistantDrawer 40 / Modal・Toast 50 / LoadingOverlay 60 */
+
+/* OSのアニメーション抑制設定を尊重する（UIリッチ化、アプリ内トグルは設けない）。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 body {
   margin: 0;
 }

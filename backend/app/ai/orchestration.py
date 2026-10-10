@@ -64,19 +64,19 @@ def send_and_log(
         )
     except DomainError as exc:
         try:
-            ai_logger.record_call(
-                session,
-                purpose=purpose,
-                conversation_uid=conversation_uid,
-                request_body=prompt_text,
-                response_body=None,
-                prompt_chars=prompt_chars,
-                was_truncated=was_truncated,
-                latency_ms=None,
-                error_type=type(exc).__name__,
-                error_message=str(exc),
-            )
             with serialize_writes():
+                ai_logger.record_call(
+                    session,
+                    purpose=purpose,
+                    conversation_uid=conversation_uid,
+                    request_body=prompt_text,
+                    response_body=None,
+                    prompt_chars=prompt_chars,
+                    was_truncated=was_truncated,
+                    latency_ms=None,
+                    error_type=type(exc).__name__,
+                    error_message=str(exc),
+                )
                 session.commit()
         except OperationalError:
             session.rollback()
@@ -90,19 +90,19 @@ def send_and_log(
         session.rollback()
 
     try:
-        ai_logger.record_call(
-            session,
-            purpose=purpose,
-            conversation_uid=conversation_uid,
-            request_body=prompt_text,
-            response_body=send_result.response_text,
-            prompt_chars=prompt_chars,
-            was_truncated=was_truncated,
-            latency_ms=send_result.latency_ms,
-            error_type=None,
-            error_message=None,
-        )
         with serialize_writes():
+            ai_logger.record_call(
+                session,
+                purpose=purpose,
+                conversation_uid=conversation_uid,
+                request_body=prompt_text,
+                response_body=send_result.response_text,
+                prompt_chars=prompt_chars,
+                was_truncated=was_truncated,
+                latency_ms=send_result.latency_ms,
+                error_type=None,
+                error_message=None,
+            )
             session.commit()
     except OperationalError:
         session.rollback()
