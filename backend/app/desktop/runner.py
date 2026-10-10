@@ -34,13 +34,14 @@ from app.constants import locale_keys
 from app.constants.app_setting_keys import (
     DESKTOP_LAUNCH_AT_LOGIN,
     DESKTOP_OPEN_BROWSER_ON_STARTUP,
+    DISPLAY_LOCALE,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
 )
 from app.constants.desktop import BIND_HOST
 from app.database import SessionLocal
 from app.desktop import assets, autostart, browser, logging_setup, scheduler, tray
 from app.desktop.notifier import ToastNotifier
-from app.locales import t
+from app.locales import DEFAULT_LOCALE, t
 from app.services import notification_service, setting_reader
 
 logger = logging.getLogger(__name__)
@@ -161,7 +162,24 @@ def _read_graceful_shutdown_seconds() -> int:
         session.close()
 
 
-def build_notify_callback(notifier: ToastNotifier, port: int):
+def _read_locale() -> str:
+    """表示言語（日英i18n対応、2026-10）を`app_setting`から読み出す。
+
+    トレイ・デスクトップ通知はPythonプロセスが直接画面へ出すためUI（フロントエンド）を
+    経由しない別経路（`app/locales.py`参照）。読めない場合も常駐自体は止めない
+    （`_read_bool_setting`と同じ方針）。
+    """
+    session = SessionLocal()
+    try:
+        return setting_reader.get_str(session, DISPLAY_LOCALE)
+    except Exception:
+        logger.exception("表示言語を読み出せませんでした。既定値(ja)で継続します")
+        return DEFAULT_LOCALE
+    finally:
+        session.close()
+
+
+def build_notify_callback(notifier: ToastNotifier, port: int, locale: str = DEFAULT_LOCALE):
     """判定結果を受け取ってトーストを出す処理を組み立てる。
 
     文面はロケールキーから解決し、クリックされたらその日の記録画面を開く。ここは
@@ -173,8 +191,8 @@ def build_notify_callback(notifier: ToastNotifier, port: int):
     def notify(decision: notification_service.NotificationDecision) -> None:
         title_key, body_key = decision.message_keys()
         notifier.show(
-            t(title_key),
-            t(body_key),
+            t(title_key, locale),
+            t(body_key, locale),
             on_click=lambda: browser.open_daily_report(port, decision.logical_date),
         )
 
@@ -201,9 +219,10 @@ def run(app: object, port: int) -> int:  # pragma: no cover (常駐起動のた�
     if _read_bool_setting(DESKTOP_OPEN_BROWSER_ON_STARTUP, default=True):
         browser.open_app(port)
 
+    locale = _read_locale()
     icon_path = assets.resolve_icon_path()
-    notifier = ToastNotifier(t(locale_keys.NOTIFICATION_SOURCE_NAME), icon_path)
-    reminder = scheduler.ReminderScheduler(build_notify_callback(notifier, port))
+    notifier = ToastNotifier(t(locale_keys.NOTIFICATION_SOURCE_NAME, locale), icon_path)
+    reminder = scheduler.ReminderScheduler(build_notify_callback(notifier, port, locale))
     reminder.start()
 
     def quit_app() -> None:
@@ -212,7 +231,10 @@ def run(app: object, port: int) -> int:  # pragma: no cover (常駐起動のた�
         icon.stop()
 
     icon = tray.build_icon(
-        on_open=lambda: browser.open_app(port), on_quit=quit_app, icon_path=icon_path
+        on_open=lambda: browser.open_app(port),
+        on_quit=quit_app,
+        icon_path=icon_path,
+        locale=locale,
     )
     logger.info("通知領域へ常駐します")
     icon.run()  # 「終了」でicon.stop()が呼ばれるまでここで待機する。

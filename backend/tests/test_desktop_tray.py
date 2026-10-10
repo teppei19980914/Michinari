@@ -44,6 +44,19 @@ class TestBuildIcon:
 
         assert labels == [t(locale_keys.TRAY_OPEN), t(locale_keys.TRAY_QUIT)]
 
+    def test_uses_the_given_locale_for_the_tooltip_and_menu(self):
+        """`display.locale`に応じて表示言語を切り替える（日英i18n対応、2026-10）。"""
+        icon = tray.build_icon(
+            on_open=lambda: None,
+            on_quit=lambda: None,
+            icon_path=resolve_icon_path(),
+            locale="en",
+        )
+
+        assert icon.title == t(locale_keys.TRAY_TOOLTIP, "en")
+        labels = [str(item.text) for item in icon.menu]
+        assert labels == [t(locale_keys.TRAY_OPEN, "en"), t(locale_keys.TRAY_QUIT, "en")]
+
     def test_open_is_the_default_action(self, icon: pystray.Icon):
         """Windowsではアイコンの左クリックで既定の項目が呼ばれる（＝画面が開く）。"""
         items = list(icon.menu)
