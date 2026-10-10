@@ -53,6 +53,7 @@ export function ResourceAllocationTab({
   })
 
   const total = totalMinutes(values)
+  const avgPerDay = Math.floor(total / DAYS_PER_WEEK)
 
   return (
     <Card className="flex flex-col gap-3">
@@ -85,7 +86,8 @@ export function ResourceAllocationTab({
             {t('common.unit.minutes')}{' '}
             <span className="text-text-faint">
               {t('goals.resourceAllocation.averagePerDay', {
-                minutes: Math.floor(total / DAYS_PER_WEEK),
+                minutes: avgPerDay,
+                count: avgPerDay,
               })}
             </span>
           </p>

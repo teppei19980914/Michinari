@@ -63,7 +63,10 @@ export function SlotMinutesFields({
         </div>
       )}
       <p className="text-xs text-text-faint">
-        {t('dailyReport.studyLog.slotMinutesTotal', { minutes: sumSlotMinutes(values) })}
+        {(() => {
+          const total = sumSlotMinutes(values)
+          return t('dailyReport.studyLog.slotMinutesTotal', { minutes: total, count: total })
+        })()}
       </p>
       {addable.length > 0 && (
         <label className="flex items-center gap-1 text-xs text-text-muted">

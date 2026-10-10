@@ -1,13 +1,18 @@
 import { format, parseISO } from 'date-fns'
+import { getLocale } from '../../locales/t'
 
-/** グラフの横軸ラベルを粒度に応じて整形する（14.2の3粒度: 日別・週別・月別）。 */
+/** グラフの横軸ラベルを粒度に応じて整形する（14.2の3粒度: 日別・週別・月別）。
+ *
+ * 日英i18n対応（2026-10）: 月表記と範囲区切り記号のみロケール分岐する。`M/d`形式の
+ * 日付自体は数字のみで言語依存しないため分岐不要。 */
 export function formatPeriodLabel(periodStart: string, granularity: 'DAY' | 'WEEK' | 'MONTH'): string {
   const date = parseISO(periodStart)
   if (granularity === 'MONTH') {
-    return format(date, 'yyyy年M月')
+    return getLocale() === 'en' ? format(date, 'MMM yyyy') : format(date, 'yyyy年M月')
   }
   if (granularity === 'WEEK') {
-    return `${format(date, 'M/d')}〜`
+    const rangeMarker = getLocale() === 'en' ? '–' : '〜'
+    return `${format(date, 'M/d')}${rangeMarker}`
   }
   return format(date, 'M/d')
 }
