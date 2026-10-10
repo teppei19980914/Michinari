@@ -63,11 +63,11 @@ function WorkAssignmentForm({
           mutation.mutate()
         }}
       >
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.workAssignment.clientNameLabel')}
           <Input value={clientName} onChange={(e) => setClientName(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.workAssignment.expectedContentLabel')}
           <Textarea
             value={expectedContent}
@@ -76,7 +76,7 @@ function WorkAssignmentForm({
             required
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.workAssignment.startDateLabel')}
           <Input
             type="date"
@@ -85,10 +85,10 @@ function WorkAssignmentForm({
             required
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.workAssignment.roleLabel')}
           <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-md border border-border-strong px-3 py-2 text-sm"
             value={role}
             onChange={(e) => setRole(e.target.value as WorkEvaluationRole | '')}
           >
@@ -117,16 +117,16 @@ function WorkAssignmentForm({
 
 function WorkAssignmentProgress({ workAssignment }: { workAssignment: WorkAssignmentRead }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
-      <dt className="text-gray-400">{t('goals.workAssignment.elapsedDaysLabel')}</dt>
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted">
+      <dt className="text-text-disabled">{t('goals.workAssignment.elapsedDaysLabel')}</dt>
       <dd>{t('goals.workAssignment.elapsedDaysValue', { days: workAssignment.elapsed_days })}</dd>
-      <dt className="text-gray-400">{t('goals.workAssignment.lastWorkDateLabel')}</dt>
+      <dt className="text-text-disabled">{t('goals.workAssignment.lastWorkDateLabel')}</dt>
       <dd>{workAssignment.last_work_date ?? t('goals.workAssignment.lastWorkDateUnavailable')}</dd>
-      <dt className="text-gray-400">{t('goals.workAssignment.currentStreakLabel')}</dt>
+      <dt className="text-text-disabled">{t('goals.workAssignment.currentStreakLabel')}</dt>
       <dd>
         {t('goals.workAssignment.currentStreakValue', { days: workAssignment.current_streak })}
       </dd>
-      <dt className="text-gray-400">{t('goals.workAssignment.hasRecentMonthlyReportLabel')}</dt>
+      <dt className="text-text-disabled">{t('goals.workAssignment.hasRecentMonthlyReportLabel')}</dt>
       <dd>
         {workAssignment.has_recent_monthly_report
           ? t('common.yes')
@@ -151,7 +151,7 @@ export function WorkAssignmentTab({
 
   if (!goal.work_assignment) {
     if (readOnly) {
-      return <p className="text-sm text-gray-500">{t('goals.workAssignment.empty')}</p>
+      return <p className="text-sm text-text-faint">{t('goals.workAssignment.empty')}</p>
     }
     return <WorkAssignmentForm goalId={goal.id} onDone={() => undefined} />
   }
@@ -173,9 +173,9 @@ export function WorkAssignmentTab({
       <Card className="flex flex-col gap-3">
         <div>
           {workAssignment.client_name && (
-            <p className="text-sm text-gray-500">{workAssignment.client_name}</p>
+            <p className="text-sm text-text-faint">{workAssignment.client_name}</p>
           )}
-          <p className="whitespace-pre-wrap text-sm text-gray-900">
+          <p className="whitespace-pre-wrap text-sm text-text-primary">
             {workAssignment.expected_content}
           </p>
         </div>

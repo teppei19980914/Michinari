@@ -47,10 +47,10 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.desktop.title')}</h2>
-      <p className="text-sm text-gray-500">{t('settings.desktop.description')}</p>
+      <h2 className="font-medium text-text-primary">{t('settings.desktop.title')}</h2>
+      <p className="text-sm text-text-faint">{t('settings.desktop.description')}</p>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-text-secondary">
         <input
           type="checkbox"
           checked={openBrowser}
@@ -58,9 +58,9 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
         />
         {t('settings.desktop.openBrowserLabel')}
       </label>
-      <p className="text-xs text-gray-500">{t('settings.desktop.openBrowserHelp')}</p>
+      <p className="text-xs text-text-faint">{t('settings.desktop.openBrowserHelp')}</p>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-text-secondary">
         <input
           type="checkbox"
           checked={launchAtLogin}
@@ -68,9 +68,9 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
         />
         {t('settings.desktop.launchAtLoginLabel')}
       </label>
-      <p className="text-xs text-gray-500">{t('settings.desktop.launchAtLoginHelp')}</p>
+      <p className="text-xs text-text-faint">{t('settings.desktop.launchAtLoginHelp')}</p>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-text-secondary">
         <input
           type="checkbox"
           checked={notificationEnabled}
@@ -78,7 +78,7 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
         />
         {t('settings.desktop.notificationEnabledLabel')}
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('settings.desktop.notificationTimeLabel')}
         <Input
           type="time"
@@ -87,7 +87,7 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
           onChange={(e) => setNotificationTime(e.target.value)}
         />
       </label>
-      <p className="text-xs text-gray-500">{t('settings.desktop.notificationHelp')}</p>
+      <p className="text-xs text-text-faint">{t('settings.desktop.notificationHelp')}</p>
       {guard.errorKey !== null && <p className="text-sm text-red-600">{t(guard.errorKey)}</p>}
 
       <div className="flex justify-end">

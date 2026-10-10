@@ -36,11 +36,11 @@ export function MaterialAmountFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('goals.materials.unitLabel')}
         <Input value={unitLabel} onChange={(e) => onChangeUnitLabel(e.target.value)} required />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('goals.materials.totalAmountLabel')}
         <Input
           type="number"
@@ -50,7 +50,7 @@ export function MaterialAmountFields({
           required
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('goals.materials.plannedCyclesLabel')}
         <Input
           type="number"
@@ -75,7 +75,7 @@ export function MaterialSubjectsField({
   onToggle: (subjectId: number) => void
 }) {
   return (
-    <fieldset className="flex flex-col gap-1 text-sm text-gray-700">
+    <fieldset className="flex flex-col gap-1 text-sm text-text-secondary">
       <legend>{t('goals.materials.subjectsLabel')}</legend>
       <div className="flex flex-wrap gap-3">
         {subjects.map((subject) => (
@@ -116,7 +116,7 @@ export function MaterialScheduleFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('goals.materials.startDateLabel')}
         <Input
           type="date"
@@ -125,7 +125,7 @@ export function MaterialScheduleFields({
           required
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         <span className="flex items-center gap-1">
           <input
             type="checkbox"
@@ -141,7 +141,7 @@ export function MaterialScheduleFields({
           disabled={!dueDateIsManual}
         />
         {!dueDateIsManual && autoDueDate && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-text-faint">
             {t('goals.materials.autoDueDatePreview', { dueDate: autoDueDate })}
           </p>
         )}
@@ -172,7 +172,7 @@ export function MaterialConditionFields({
       hiddenTitle={t('common.action.hideAdvanced')}
     >
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.requiredBlockMinutesLabel')}
           <Input
             type="number"
@@ -181,10 +181,10 @@ export function MaterialConditionFields({
             onChange={(e) => onChangeRequiredBlockMinutes(e.target.value)}
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.requiredEnvironmentLabel')}
           <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-md border border-border-strong px-3 py-2 text-sm"
             value={requiredEnvironment}
             onChange={(e) => onChangeRequiredEnvironment(e.target.value as MaterialEnvironment)}
           >
@@ -195,12 +195,12 @@ export function MaterialConditionFields({
             ))}
           </select>
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           <Tooltip label={t('goals.materials.qualityMetricTypeTooltip')}>
             <span>{t('goals.materials.qualityMetricTypeLabel')}</span>
           </Tooltip>
           <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-md border border-border-strong px-3 py-2 text-sm"
             value={qualityMetricType}
             onChange={(e) =>
               onChangeQualityMetricType(e.target.value as MaterialQualityMetricType)

@@ -41,10 +41,10 @@ function UnassignedEntryAssignForm({
   })
 
   return (
-    <div className="mt-2 flex items-center gap-2 border-t border-gray-100 pt-2">
-      <span className="text-xs text-amber-700">{t('analytics.growthDescription.unassignedLabel')}</span>
+    <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
+      <span className="text-xs text-warning-text-subtle">{t('analytics.growthDescription.unassignedLabel')}</span>
       <select
-        className="rounded border border-gray-300 px-2 py-1 text-sm"
+        className="rounded border border-border-strong px-2 py-1 text-sm"
         value={targetGoalId}
         onChange={(event) => setTargetGoalId(event.target.value)}
       >
@@ -80,13 +80,13 @@ export function GrowthDescriptionTab({ goalId, goals }: GrowthDescriptionTabProp
   })
 
   if (query.isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (query.isError || !query.data) {
     return <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>
   }
   if (query.data.length === 0) {
-    return <p className="text-sm text-gray-500">{t('analytics.growthDescription.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('analytics.growthDescription.empty')}</p>
   }
 
   const category = goals.find((goal) => goal.id === goalId)?.category
@@ -98,8 +98,8 @@ export function GrowthDescriptionTab({ goalId, goals }: GrowthDescriptionTabProp
     <div className="flex flex-col gap-3">
       {query.data.map((entry) => (
         <Card key={entry.message_id}>
-          <p className="mb-1 text-xs text-gray-400">{entry.record_date}</p>
-          <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.content}</p>
+          <p className="mb-1 text-xs text-text-disabled">{entry.record_date}</p>
+          <p className="whitespace-pre-wrap text-sm text-text-primary">{entry.content}</p>
           {entry.goal_id === null && (
             <UnassignedEntryAssignForm
               entry={entry}

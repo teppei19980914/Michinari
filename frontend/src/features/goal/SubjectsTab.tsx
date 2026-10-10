@@ -80,7 +80,7 @@ function SubjectForm({
         mutation.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.subjects.nameLabel')}
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
@@ -135,8 +135,8 @@ function FixDateModal({
 
   return (
     <Modal open onClose={onClose} title={t('goals.subjects.fixDateConfirm.title')}>
-      <p className="mb-3 text-sm text-gray-700">{t('goals.subjects.fixDateConfirm.body')}</p>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <p className="mb-3 text-sm text-text-secondary">{t('goals.subjects.fixDateConfirm.body')}</p>
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.subjects.examDateFixedLabel')}
         <Input
           type="date"
@@ -176,7 +176,7 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
   return (
     <div className="flex flex-col gap-3">
       {goal.exam_subjects.length === 0 && !addOpen && (
-        <p className="text-sm text-gray-500">{t('goals.subjects.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goals.subjects.empty')}</p>
       )}
 
       {goal.exam_subjects.map((subject) =>
@@ -187,21 +187,21 @@ export function SubjectsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly
         ) : (
           <Card key={subject.id} className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">{subject.name}</p>
-              <p className="text-sm text-gray-500">
+              <p className="font-medium text-text-primary">{subject.name}</p>
+              <p className="text-sm text-text-faint">
                 {t(`goals.subjects.examDateType.${subject.exam_date_type}`)}:{' '}
                 {subject.exam_date_type === 'RANGE'
                   ? `${subject.exam_date_from ?? '-'} 〜 ${subject.exam_date_to ?? '-'}`
                   : (subject.exam_date_fixed ?? '-')}
               </p>
               {formatPassingScoreDisplay(subject) && (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-faint">
                   {t('goals.subjects.passingScoreResultLabel')}:{' '}
                   {formatPassingScoreDisplay(subject)}
                 </p>
               )}
               {isSubjectRangeStartInPast(subject, todayQuery.data?.logical_date) && (
-                <p className="text-xs text-amber-700">{t('goals.subjects.pastRangeWarning')}</p>
+                <p className="text-xs text-warning-text-subtle">{t('goals.subjects.pastRangeWarning')}</p>
               )}
             </div>
             {!readOnly && (

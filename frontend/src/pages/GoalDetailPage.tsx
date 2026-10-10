@@ -161,7 +161,7 @@ function GoalEndActions({
         )}
       </div>
       {canComplete && resultsIncomplete && (
-        <p className="text-xs text-gray-500">{t('goals.detail.completeDisabledHint')}</p>
+        <p className="text-xs text-text-faint">{t('goals.detail.completeDisabledHint')}</p>
       )}
       {endKind !== null && (
         <GoalEndModal
@@ -249,7 +249,7 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
       </div>
       <GoalEndActions goal={goal} resultsIncomplete={resultsIncomplete} />
       {resumeWarnings.length > 0 && (
-        <ul className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <ul className="flex flex-col gap-1 rounded-md border border-warning-border bg-warning-bg p-3 text-sm text-warning-text">
           {resumeWarnings.map((code) => (
             <li key={code}>{t(`goals.resumeWarnings.${code}`)}</li>
           ))}
@@ -260,7 +260,7 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
         onClose={() => setResumeErrorModalOpen(false)}
         title={t('goals.detail.action.resume')}
       >
-        <p className="text-sm text-gray-700">{t('goals.detail.resumeError')}</p>
+        <p className="text-sm text-text-secondary">{t('goals.detail.resumeError')}</p>
         <div className="mt-4 flex justify-end">
           <Button variant="secondary" onClick={() => setResumeErrorModalOpen(false)}>
             {t('common.action.close')}
@@ -281,7 +281,7 @@ export function GoalDetailPage() {
   const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 
   if (goalQuery.isLoading) {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
@@ -307,22 +307,22 @@ export function GoalDetailPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to={ROUTES.goals} className="text-sm text-blue-600 hover:underline">
+      <Link to={ROUTES.goals} className="text-sm text-accent hover:underline">
         {t('goals.detail.backToList')}
       </Link>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">{goal.name}</h1>
+        <h1 className="text-xl font-semibold text-text-primary">{goal.name}</h1>
         {!isArchived && <GoalStatusActions goal={goal} />}
       </div>
 
       {isArchived ? (
-        <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-600">
+        <p className="rounded-md bg-surface-muted px-3 py-2 text-sm text-text-muted">
           {t('goals.detail.archivedNotice')}
         </p>
       ) : (
         isReadOnly && (
-          <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-600">
+          <p className="rounded-md bg-surface-muted px-3 py-2 text-sm text-text-muted">
             {t('goals.detail.readOnlyNotice')}
           </p>
         )
@@ -330,7 +330,7 @@ export function GoalDetailPage() {
 
       {/* GoalTabBar（目標切替用、UIリッチ化でスクロール連動開閉の対象）とは別の、
           画面内コンテンツ切替用タブ。スクロール連動開閉の対象外（2026-10利用者方針）。 */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-border">
         {tabs.map((item) => (
           <Tooltip key={item.key} label={t(item.tooltipKey)}>
             <button
@@ -338,8 +338,8 @@ export function GoalDetailPage() {
               onClick={() => setTab(item.key)}
               className={`px-3 py-2 text-sm font-medium ${
                 activeTab === item.key
-                  ? 'border-b-2 border-blue-600 text-blue-700'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'border-b-2 border-accent text-accent-muted-text'
+                  : 'text-text-faint hover:text-text-secondary'
               }`}
             >
               {t(item.labelKey)}

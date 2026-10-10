@@ -17,8 +17,8 @@ export function PreviousEntryHint({ entry }: { entry: PreviousEntryRead | null |
   const { preview, isTruncated } = buildPreviousEntryPreview(entry.body)
 
   return (
-    <div className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-500">
-      <p className="font-medium text-gray-400">{t('dailyReport.previousEntry.label')}</p>
+    <div className="rounded-md bg-surface-muted px-3 py-2 text-xs text-text-faint">
+      <p className="font-medium text-text-disabled">{t('dailyReport.previousEntry.label')}</p>
       <p className="mt-1 whitespace-pre-wrap">
         {expanded ? entry.body : preview}
         {!expanded && isTruncated ? '…' : ''}
@@ -26,7 +26,7 @@ export function PreviousEntryHint({ entry }: { entry: PreviousEntryRead | null |
       {isTruncated && (
         <button
           type="button"
-          className="mt-1 text-blue-600 underline"
+          className="mt-1 text-accent underline"
           onClick={() => setExpanded((current) => !current)}
         >
           {expanded ? t('dailyReport.previousEntry.collapse') : t('dailyReport.previousEntry.expand')}

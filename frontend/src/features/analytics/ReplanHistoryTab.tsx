@@ -18,7 +18,7 @@ export function ReplanHistoryTab({ goalId }: ReplanHistoryTabProps) {
   })
 
   if (goalQuery.isLoading || baselinesQuery.isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
     return <p className="text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
@@ -31,14 +31,14 @@ export function ReplanHistoryTab({ goalId }: ReplanHistoryTabProps) {
   const rows = buildReplanHistoryRows(baselinesQuery.data, materialNameById)
 
   if (rows.length === 0) {
-    return <p className="text-sm text-gray-500">{t('analytics.replanHistory.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('analytics.replanHistory.empty')}</p>
   }
 
   return (
     <Card className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 text-gray-500">
+          <tr className="border-b border-border text-text-faint">
             <th className="py-2 pr-4">{t('analytics.replanHistory.dateHeader')}</th>
             <th className="py-2 pr-4">{t('analytics.replanHistory.materialHeader')}</th>
             <th className="py-2 pr-4">{t('analytics.replanHistory.reasonHeader')}</th>
@@ -48,7 +48,7 @@ export function ReplanHistoryTab({ goalId }: ReplanHistoryTabProps) {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-b border-gray-100 text-gray-900">
+            <tr key={row.id} className="border-b border-border text-text-primary">
               <td className="py-2 pr-4">{row.effectiveFrom}</td>
               <td className="py-2 pr-4">{row.materialName}</td>
               <td className="py-2 pr-4">{t(`analytics.replanHistory.reason.${row.reason}`)}</td>

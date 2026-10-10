@@ -23,13 +23,13 @@ export function Step1SelectTemplate({
   onChangeExamName: (value: string) => void
 }) {
   if (isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step1.description')}</p>
-      <p className="text-xs text-amber-700">{t('goals.examWizard.step1.dataDisclaimer')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step1.description')}</p>
+      <p className="text-xs text-warning-text-subtle">{t('goals.examWizard.step1.dataDisclaimer')}</p>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {templates.map((template) => (
@@ -42,24 +42,24 @@ export function Step1SelectTemplate({
             <Card
               className={
                 selection === template.id
-                  ? 'border-blue-500 ring-1 ring-blue-500'
-                  : 'hover:border-blue-300'
+                  ? 'border-accent ring-1 ring-accent'
+                  : 'hover:border-accent-disabled'
               }
             >
-              <span className="font-medium text-gray-900">{template.exam_name}</span>
+              <span className="font-medium text-text-primary">{template.exam_name}</span>
             </Card>
           </button>
         ))}
 
         <button type="button" className="text-left" onClick={onSelectOther}>
-          <Card className={selection === 'OTHER' ? 'border-blue-500 ring-1 ring-blue-500' : 'hover:border-blue-300'}>
-            <span className="font-medium text-gray-900">{t('goals.examWizard.step1.otherOption')}</span>
+          <Card className={selection === 'OTHER' ? 'border-accent ring-1 ring-accent' : 'hover:border-accent-disabled'}>
+            <span className="font-medium text-text-primary">{t('goals.examWizard.step1.otherOption')}</span>
           </Card>
         </button>
       </div>
 
       {selection === 'OTHER' && (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.examWizard.step1.examNameLabel')}
           <Input value={examName} onChange={(e) => onChangeExamName(e.target.value)} required />
         </label>

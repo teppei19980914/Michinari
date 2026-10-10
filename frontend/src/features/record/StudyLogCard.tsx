@@ -38,15 +38,15 @@ export function StudyLogCard({
   return (
     <Card>
       <div className="flex items-center justify-between">
-        <p className="font-medium text-gray-900">{item.material_name}</p>
-        <p className="text-sm text-gray-500">
+        <p className="font-medium text-text-primary">{item.material_name}</p>
+        <p className="text-sm text-text-faint">
           {t('dailyReport.studyLog.cycleLabel', {
             current: item.current_cycle,
             planned: item.planned_cycles,
           })}
         </p>
       </div>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-text-faint">
         {t('dailyReport.studyLog.quotaLabel', {
           quota: Math.round(item.daily_quota * 10) / 10,
           unit: item.unit_label,
@@ -66,7 +66,7 @@ export function StudyLogCard({
         }
       />
       <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <label className="flex flex-col gap-1 text-xs text-gray-600">
+        <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('dailyReport.studyLog.amountLabel', { unit: item.unit_label })}
           <Input
             type="number"
@@ -75,7 +75,7 @@ export function StudyLogCard({
             onChange={(e) => onChangeField(item.material_id, 'amountCompleted', e.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-gray-600">
+        <label className="flex flex-col gap-1 text-xs text-text-muted">
           {t('dailyReport.studyLog.cycleNumberLabel')}
           <Input
             type="number"
@@ -85,7 +85,7 @@ export function StudyLogCard({
           />
         </label>
         {qualityKind !== 'HIDDEN' && (
-          <label className="flex flex-col gap-1 text-xs text-gray-600">
+          <label className="flex flex-col gap-1 text-xs text-text-muted">
             {t(resolveQualityLabelKey(item.quality_metric_type))}
             {qualityKind === 'PERCENT' ? (
               <Input
@@ -97,7 +97,7 @@ export function StudyLogCard({
               />
             ) : (
               <select
-                className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+                className="rounded-md border border-border-strong px-3 py-2 text-sm"
                 value={value.qualityValue}
                 onChange={(e) => onChangeField(item.material_id, 'qualityValue', e.target.value)}
               >

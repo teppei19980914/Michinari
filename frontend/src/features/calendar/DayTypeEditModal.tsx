@@ -41,7 +41,7 @@ export function DayTypeEditModal({
 
   return (
     <Modal open={targetDate !== null} onClose={onClose} title={t('calendar.dayTypeModal.title')}>
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-text-muted">
         {t('calendar.dayTypeModal.targetDateLabel')}: {targetDate}
       </p>
       <div className="mt-4 flex flex-col gap-2">

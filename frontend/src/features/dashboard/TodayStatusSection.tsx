@@ -32,7 +32,7 @@ export function TodayStatusSection({ logicalDate, recordState }: TodayStatusSect
 
   return (
     <div className="flex items-center justify-between">
-      <span className="text-sm text-gray-600">
+      <span className="text-sm text-text-muted">
         {t('dashboard.todayStatus.label')}：{t(STATUS_LABEL_KEY[statusKey])}
       </span>
       <Link to={dailyReportPath}>

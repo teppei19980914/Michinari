@@ -28,7 +28,7 @@ export function RecapThemeDetailPage() {
   })
 
   if (detailQuery.isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (detailQuery.isError || !detailQuery.data) {
     return <p className="text-sm text-red-600">{apiErrorMessage(detailQuery.error)}</p>
@@ -84,15 +84,15 @@ function RecapThemeDetailContent({ theme }: { theme: RecapThemeDetail }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <Link className="text-sm text-blue-700 underline" to={ROUTE_PATTERNS.dashboard}>
+      <Link className="text-sm text-accent-muted-text underline" to={ROUTE_PATTERNS.dashboard}>
         {t('recapTheme.backToDashboard')}
       </Link>
       <Card className="flex flex-col gap-2">
-        <h1 className="text-lg font-semibold text-gray-900">{theme.name}</h1>
+        <h1 className="text-lg font-semibold text-text-primary">{theme.name}</h1>
         {theme.body.trim() === '' ? (
-          <p className="text-sm text-gray-500">{t('recapTheme.bodyEmpty')}</p>
+          <p className="text-sm text-text-faint">{t('recapTheme.bodyEmpty')}</p>
         ) : (
-          <MarkdownText text={theme.body} className="text-gray-800" />
+          <MarkdownText text={theme.body} className="text-text-primary" />
         )}
       </Card>
       <RecapThemeEditCard

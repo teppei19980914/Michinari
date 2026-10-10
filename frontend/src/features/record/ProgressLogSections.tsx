@@ -38,7 +38,7 @@ export function ProgressLogSections({
     <>
       {input.showExamSection && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium text-gray-900">{t('progressOnly.studyLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('progressOnly.studyLog.title')}</h2>
           <StudyLogFields
             quotaItems={quotaItems}
             values={draft.studyLogValues}
@@ -58,7 +58,7 @@ export function ProgressLogSections({
 
       {input.showReadingSection && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium text-gray-900">{t('progressOnly.readingLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('progressOnly.readingLog.title')}</h2>
           <ReadingLogFields
             targetDate={targetDate}
             books={targets.books}
@@ -78,7 +78,7 @@ export function ProgressLogSections({
 
       {input.showWorkSection && (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium text-gray-900">{t('progressOnly.workLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('progressOnly.workLog.title')}</h2>
           <WorkLogFields
             targetDate={targetDate}
             workAssignments={targets.workAssignments}

@@ -18,7 +18,7 @@ export function SettingsPage() {
   const settingsQuery = useQuery({ queryKey: QUERY_KEYS.settings(), queryFn: getSettings })
 
   if (settingsQuery.isLoading) {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (settingsQuery.isError || !settingsQuery.data) {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(settingsQuery.error)}</p>
@@ -29,15 +29,15 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">{t('settings.title')}</h1>
+        <h1 className="text-xl font-semibold text-text-primary">{t('settings.title')}</h1>
         <div className="flex gap-4">
-          <Link to={ROUTES.resources} className="text-sm text-blue-600 hover:underline">
+          <Link to={ROUTES.resources} className="text-sm text-accent hover:underline">
             {t('settings.resourcesLink')}
           </Link>
-          <Link to={ROUTES.settingsSystemInfo} className="text-sm text-blue-600 hover:underline">
+          <Link to={ROUTES.settingsSystemInfo} className="text-sm text-accent hover:underline">
             {t('settings.systemInfoLink')}
           </Link>
-          <Link to={ROUTES.settingsData} className="text-sm text-blue-600 hover:underline">
+          <Link to={ROUTES.settingsData} className="text-sm text-accent hover:underline">
             {t('settings.dataManagementLink')}
           </Link>
         </div>

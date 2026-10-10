@@ -34,17 +34,17 @@ export function ExportSummaryCard({
     const summary = content.data.summary as ReadingExportSummary | WorkExportSummary
     return (
       <Card className="flex flex-col gap-2">
-        <h2 className="font-medium text-gray-900">
+        <h2 className="font-medium text-text-primary">
           {t(
             isWork
               ? 'knowledgeExport.summary.workTitle'
               : 'knowledgeExport.summary.readingTitle',
           )}
         </h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
-          <dt className="text-gray-500">{t('knowledgeExport.summary.recordDays')}</dt>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-secondary">
+          <dt className="text-text-faint">{t('knowledgeExport.summary.recordDays')}</dt>
           <dd>{summary.record_days}</dd>
-          <dt className="text-gray-500">{t('knowledgeExport.summary.maxStreakDays')}</dt>
+          <dt className="text-text-faint">{t('knowledgeExport.summary.maxStreakDays')}</dt>
           <dd>{summary.max_streak_days}</dd>
         </dl>
       </Card>
@@ -56,17 +56,17 @@ export function ExportSummaryCard({
 
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('knowledgeExport.summary.title')}</h2>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700">
-        <dt className="text-gray-500">{t('knowledgeExport.summary.totalHours')}</dt>
+      <h2 className="font-medium text-text-primary">{t('knowledgeExport.summary.title')}</h2>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-secondary">
+        <dt className="text-text-faint">{t('knowledgeExport.summary.totalHours')}</dt>
         <dd>{(summary.total_minutes / 60).toFixed(1)}</dd>
-        <dt className="text-gray-500">{t('knowledgeExport.summary.studyDays')}</dt>
+        <dt className="text-text-faint">{t('knowledgeExport.summary.studyDays')}</dt>
         <dd>{summary.study_days}</dd>
-        <dt className="text-gray-500">{t('knowledgeExport.summary.reportRate')}</dt>
+        <dt className="text-text-faint">{t('knowledgeExport.summary.reportRate')}</dt>
         <dd>{(summary.report_rate * 100).toFixed(0)}%</dd>
-        <dt className="text-gray-500">{t('knowledgeExport.summary.replanCount')}</dt>
+        <dt className="text-text-faint">{t('knowledgeExport.summary.replanCount')}</dt>
         <dd>{summary.replan_count}</dd>
-        <dt className="text-gray-500">{t('knowledgeExport.summary.latestQuality')}</dt>
+        <dt className="text-text-faint">{t('knowledgeExport.summary.latestQuality')}</dt>
         <dd>{latestQuality === null ? t('knowledgeExport.summary.unavailable') : latestQuality}</dd>
       </dl>
     </Card>

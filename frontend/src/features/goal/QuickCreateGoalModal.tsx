@@ -42,7 +42,7 @@ function QuickCreateFields({
 }) {
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {category === 'READING'
           ? t('goals.new.quickCreate.reading.titleLabel')
           : t('goals.new.quickCreate.work.nameLabel')}
@@ -51,11 +51,11 @@ function QuickCreateFields({
 
       {category === 'READING' ? (
         <>
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             {t('goals.new.quickCreate.reading.authorLabel')}
             <Input value={author} onChange={(e) => onChangeAuthor(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-col gap-1 text-sm text-text-secondary">
             {t('goals.new.quickCreate.reading.totalPagesLabel')}
             <Input
               type="number"
@@ -66,7 +66,7 @@ function QuickCreateFields({
           </label>
         </>
       ) : (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.new.quickCreate.work.summaryLabel')}
           <Input value={summary} onChange={(e) => onChangeSummary(e.target.value)} />
         </label>

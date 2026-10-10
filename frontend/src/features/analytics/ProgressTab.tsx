@@ -14,7 +14,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getProgressAnalytics } from '../../api/analytics'
-import { GRID_LINE_COLOR, PLAN_LINE_COLOR, cycleSeriesColor } from './chartColors'
+import { cycleSeriesColor, resolveGridLineColor, resolvePlanLineColor } from './chartColors'
 import { mergeProgressSeries } from './mergeProgressSeries'
 import { formatAxisNumber, formatDateTick } from './formatPeriod'
 import { QUERY_KEYS } from '../../constants/queryKeys'
@@ -31,11 +31,11 @@ export function ProgressTab({ goalId }: ProgressTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {query.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {query.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
       {query.isError && <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
 
       {query.data && query.data.materials.length === 0 && (
-        <p className="text-sm text-gray-500">{t('analytics.materialEmpty')}</p>
+        <p className="text-sm text-text-faint">{t('analytics.materialEmpty')}</p>
       )}
 
       {query.data?.materials.map((material) => {
@@ -43,8 +43,8 @@ export function ProgressTab({ goalId }: ProgressTabProps) {
         return (
           <Card key={material.material_id}>
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-medium text-gray-900">{material.material_name}</h3>
-              <span className="text-xs text-gray-500">
+              <h3 className="font-medium text-text-primary">{material.material_name}</h3>
+              <span className="text-xs text-text-faint">
                 {t('analytics.progress.unitTotalWork', {
                   total: material.total_work,
                   unit: material.unit_label,
@@ -52,11 +52,11 @@ export function ProgressTab({ goalId }: ProgressTabProps) {
               </span>
             </div>
             {rows.length === 0 ? (
-              <p className="text-sm text-gray-500">{t('analytics.quality.noData')}</p>
+              <p className="text-sm text-text-faint">{t('analytics.quality.noData')}</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={rows}>
-                  <CartesianGrid stroke={GRID_LINE_COLOR} vertical={false} />
+                  <CartesianGrid stroke={resolveGridLineColor()} vertical={false} />
                   <XAxis dataKey="date" tickFormatter={formatDateTick} tick={{ fontSize: 12 }} />
                   <YAxis domain={[0, 'dataMax']} tick={{ fontSize: 12 }} tickFormatter={formatAxisNumber} />
                   <Tooltip labelFormatter={(value) => formatDateTick(String(value))} />
@@ -80,7 +80,7 @@ export function ProgressTab({ goalId }: ProgressTabProps) {
                     type="monotone"
                     dataKey="plan"
                     name={t('analytics.progress.planLegend')}
-                    stroke={PLAN_LINE_COLOR}
+                    stroke={resolvePlanLineColor()}
                     strokeWidth={2}
                     strokeDasharray="4 4"
                     dot={false}

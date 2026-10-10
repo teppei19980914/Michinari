@@ -23,7 +23,7 @@ export function WarningBanner({ goalCards }: WarningBannerProps) {
         <Link
           key={goal.goal_id}
           to={ROUTES.goalDetail(goal.goal_id)}
-          className="block rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100"
+          className="block rounded-md border border-warning-border bg-warning-bg px-4 py-3 text-sm text-warning-text hover:bg-warning-hover-bg"
         >
           <span className="font-medium">{goal.goal_name}</span>：
           {goal.has_forced_replan ? t('dashboard.warningBanner.forcedReplan') : t('dashboard.warningBanner.warning')}

@@ -38,12 +38,12 @@ export function SubjectExamDateFields({
 }) {
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         <Tooltip label={t('goals.subjects.examDateTypeTooltip')}>
           <span>{t('goals.subjects.examDateTypeLabel')}</span>
         </Tooltip>
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={examDateType}
           onChange={(e) => onChangeExamDateType(e.target.value as ExamDateType)}
         >
@@ -56,7 +56,7 @@ export function SubjectExamDateFields({
       </label>
       {examDateType === 'RANGE' ? (
         <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.subjects.examDateFromLabel')}
             <Input
               type="date"
@@ -65,7 +65,7 @@ export function SubjectExamDateFields({
               required
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.subjects.examDateToLabel')}
             <Input
               type="date"
@@ -76,7 +76,7 @@ export function SubjectExamDateFields({
           </label>
         </div>
       ) : (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.subjects.examDateFixedLabel')}
           <Input
             type="date"
@@ -100,10 +100,10 @@ export function SubjectPassingScoreFields({
 }) {
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.subjects.passingScoreTypeLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={value.type}
           onChange={(e) => onChange({ type: e.target.value as PassingScoreType })}
         >
@@ -116,7 +116,7 @@ export function SubjectPassingScoreFields({
       </label>
       {value.type === 'RAW_SCORE' ? (
         <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.subjects.passingScoreRawLabel')}
             <Input
               type="number"
@@ -125,7 +125,7 @@ export function SubjectPassingScoreFields({
               onChange={(e) => onChange({ rawScoreValue: e.target.value })}
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.subjects.passingScoreMaxLabel')}
             <Input
               type="number"
@@ -136,7 +136,7 @@ export function SubjectPassingScoreFields({
           </label>
         </div>
       ) : (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.subjects.passingScoreLabel')}
           <Input
             type="number"

@@ -58,7 +58,7 @@ function LoadProfileForm({
       }}
     >
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.loadProfile.dateFromLabel')}
           <Input
             type="date"
@@ -67,11 +67,11 @@ function LoadProfileForm({
             required
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.loadProfile.dateToLabel')}
           <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} required />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.loadProfile.coefficientLabel')}
           <Input
             type="number"
@@ -83,7 +83,7 @@ function LoadProfileForm({
           />
         </label>
       </div>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.loadProfile.noteLabel')}
         <Input value={note} onChange={(e) => setNote(e.target.value)} />
       </label>
@@ -126,7 +126,7 @@ export function LoadProfileTab({
     >
       <div className="flex flex-col gap-3">
         {goal.load_profiles.length === 0 && !addOpen && (
-          <p className="text-sm text-gray-500">{t('goals.loadProfile.empty')}</p>
+          <p className="text-sm text-text-faint">{t('goals.loadProfile.empty')}</p>
         )}
 
         {goal.load_profiles.map((profile) =>
@@ -141,10 +141,10 @@ export function LoadProfileTab({
           ) : (
             <Card key={profile.id} className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-900">
+                <p className="text-sm text-text-primary">
                   {profile.date_from} 〜 {profile.date_to}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-faint">
                   {t('goals.loadProfile.coefficientLabel')}: {profile.coefficient}
                   {profile.note ? ` (${profile.note})` : ''}
                 </p>

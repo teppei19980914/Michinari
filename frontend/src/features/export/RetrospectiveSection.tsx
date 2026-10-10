@@ -50,17 +50,17 @@ export function RetrospectiveSection({
 
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">
+      <h2 className="font-medium text-text-primary">
         {t(
           isReading ? 'knowledgeExport.retrospective.readingTitle' : 'knowledgeExport.retrospective.title',
         )}
       </h2>
       {mutation.isPending ? (
-        <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.generating')}</p>
+        <p className="text-sm text-text-faint">{t('knowledgeExport.retrospective.generating')}</p>
       ) : body ? (
-        <MarkdownText text={body} className="text-gray-700" />
+        <MarkdownText text={body} className="text-text-secondary" />
       ) : (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-text-faint">
           {t(
             isReading ? 'knowledgeExport.retrospective.readingEmpty' : 'knowledgeExport.retrospective.empty',
           )}
@@ -68,7 +68,7 @@ export function RetrospectiveSection({
       )}
       {!canGenerate ? (
         // 完了していない目標では生成しない（利用者方針2026-10-04。既存の本文は閲覧できる）
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-text-faint">
           {t('knowledgeExport.retrospective.requiresCompletedHint')}
         </p>
       ) : aiConfigured ? (
@@ -98,10 +98,10 @@ export function RetrospectiveSection({
 export function WorkRetrospectivesNote() {
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">
+      <h2 className="font-medium text-text-primary">
         {t('knowledgeExport.retrospective.workTitle')}
       </h2>
-      <p className="text-sm text-gray-500">{t('knowledgeExport.retrospective.workNotice')}</p>
+      <p className="text-sm text-text-faint">{t('knowledgeExport.retrospective.workNotice')}</p>
     </Card>
   )
 }
