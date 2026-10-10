@@ -54,7 +54,9 @@ def generate_evaluation_report(
 
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "member_summary": ai_context_service.build_evaluation_member_summary_text(member),
+            "member_summary": ai_context_service.build_evaluation_member_summary_text(
+                session, member
+            ),
             "considerations": considerations,
         },
         stages=[
