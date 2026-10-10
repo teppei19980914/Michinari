@@ -32,7 +32,7 @@ export function ProgressTab({ goalId }: ProgressTabProps) {
   return (
     <div className="flex flex-col gap-4">
       {query.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
-      {query.isError && <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
+      {query.isError && <p className="text-sm text-danger-text">{apiErrorMessage(query.error)}</p>}
 
       {query.data && query.data.materials.length === 0 && (
         <p className="text-sm text-text-faint">{t('analytics.materialEmpty')}</p>

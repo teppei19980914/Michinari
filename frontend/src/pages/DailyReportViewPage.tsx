@@ -57,7 +57,7 @@ export function DailyReportViewPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (guard.kind === 'ERROR') {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(guard.error)}</p>
   }
 
   const record = guard.record

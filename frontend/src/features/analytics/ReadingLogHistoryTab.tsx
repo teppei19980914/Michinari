@@ -20,7 +20,7 @@ export function ReadingLogHistoryTab({ goalId }: ReadingLogHistoryTabProps) {
     return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (query.isError || !query.data) {
-    return <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>
+    return <p className="text-sm text-danger-text">{apiErrorMessage(query.error)}</p>
   }
   if (query.data.length === 0) {
     return <p className="text-sm text-text-faint">{t('analytics.readingLog.empty')}</p>

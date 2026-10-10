@@ -18,7 +18,7 @@ export function ForecastTab({ goalId }: ForecastTabProps) {
     return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (query.isError || !query.data) {
-    return <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>
+    return <p className="text-sm text-danger-text">{apiErrorMessage(query.error)}</p>
   }
 
   if (query.data.materials.length === 0) {
@@ -50,7 +50,7 @@ export function ForecastTab({ goalId }: ForecastTabProps) {
               <td
                 className={`py-2 ${
                   entry.overrun_days !== null && entry.overrun_days > 0
-                    ? 'text-red-600'
+                    ? 'text-danger-text'
                     : 'text-text-primary'
                 }`}
               >

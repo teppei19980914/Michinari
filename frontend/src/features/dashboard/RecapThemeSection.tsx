@@ -19,7 +19,7 @@ export function RecapThemeSection({ goalId }: { goalId: number }) {
     <Card>
       <h2 className="font-medium text-text-primary">{t('dashboard.recapThemes.title')}</h2>
       {query.isLoading && <p className="mt-1 text-sm text-text-faint">{t('common.loading')}</p>}
-      {query.isError && <p className="mt-1 text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
+      {query.isError && <p className="mt-1 text-sm text-danger-text">{apiErrorMessage(query.error)}</p>}
       {query.data && query.data.length === 0 && (
         <p className="mt-1 text-sm text-text-faint">{t('dashboard.recapThemes.empty')}</p>
       )}

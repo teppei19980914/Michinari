@@ -53,6 +53,11 @@
   --warning-border: #fcd34d; /* amber-300 */
   --warning-text: #78350f; /* amber-900 */
   --warning-text-subtle: #b45309; /* amber-700、枠なしで本文に直接置く注意文言用 */
+
+  /* エラー文言。text-red-600はWCAG AA(4.5:1)をライトモードでは満たす(4.83:1)が、
+     ダーク背景(#111827)では3.67:1まで下がり基準を割るため明暗ペアにする
+     （2026-10、実際にコントラスト比を計算して判明）。 */
+  --danger-text: #dc2626; /* red-600、ライトで4.83:1 */
 }
 
 [data-accent='green'] {
@@ -108,6 +113,8 @@
   --warning-border: #92400e; /* amber-800 */
   --warning-text: #fde68a; /* amber-200 */
   --warning-text-subtle: #fbbf24; /* amber-400 */
+
+  --danger-text: #f87171; /* red-400、ダーク背景(#111827)で6.41:1 */
 }
 
 @theme inline {
@@ -132,6 +139,7 @@
   --color-warning-border: var(--warning-border);
   --color-warning-text: var(--warning-text);
   --color-warning-text-subtle: var(--warning-text-subtle);
+  --color-danger-text: var(--danger-text);
 }
 
 /* フォントサイズ切替（UIリッチ化）。Tailwindの既定ユーティリティはrem基準のため、
