@@ -61,7 +61,7 @@ export function LogExportSection() {
   if (todayQuery.isError || !todayQuery.data) {
     return (
       <Card>
-        <p className="text-sm text-red-600">{apiErrorMessage(todayQuery.error)}</p>
+        <p className="text-sm text-danger-text">{apiErrorMessage(todayQuery.error)}</p>
       </Card>
     )
   }

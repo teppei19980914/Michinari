@@ -31,7 +31,7 @@ export function RecapThemeDetailPage() {
     return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (detailQuery.isError || !detailQuery.data) {
-    return <p className="text-sm text-red-600">{apiErrorMessage(detailQuery.error)}</p>
+    return <p className="text-sm text-danger-text">{apiErrorMessage(detailQuery.error)}</p>
   }
   return <RecapThemeDetailContent theme={detailQuery.data} />
 }
