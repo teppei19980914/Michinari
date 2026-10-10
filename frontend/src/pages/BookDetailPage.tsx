@@ -35,7 +35,7 @@ export function BookDetailPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data || goalsQuery.isError || !goalsQuery.data) {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(goalQuery.error)}</p>
   }
 
   const goal = goalQuery.data

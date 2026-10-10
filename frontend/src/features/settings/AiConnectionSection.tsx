@@ -102,7 +102,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
         <p className="text-xs text-text-faint">{t('settings.aiConnection.assistant.loading')}</p>
       )}
       {assistantsQuery.isError && (
-        <p className="text-xs text-red-600">{t('settings.aiConnection.assistant.loadFailed')}</p>
+        <p className="text-xs text-danger-text">{t('settings.aiConnection.assistant.loadFailed')}</p>
       )}
       <AiAssistantFields
         values={form}

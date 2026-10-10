@@ -55,7 +55,7 @@ export function DashboardPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (guard.kind === 'ERROR') {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(guard.error)}</p>
   }
 
   // 目標が0件の初回起動時はウェルカム画面へ誘導する（仕様書「初回起動時のウェルカム画面」）。

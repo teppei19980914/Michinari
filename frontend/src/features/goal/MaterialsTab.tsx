@@ -99,7 +99,7 @@ function MaterialForm({
         onChangeDueDate={form.setDueDate}
         autoDueDate={autoDueDate}
       />
-      {startDateError && <p className="text-xs text-red-700">{startDateError}</p>}
+      {startDateError && <p className="text-xs text-danger-text">{startDateError}</p>}
       <MaterialConditionFields
         requiredBlockMinutes={values.requiredBlockMinutes}
         onChangeRequiredBlockMinutes={form.setRequiredBlockMinutes}

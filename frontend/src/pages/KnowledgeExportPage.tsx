@@ -81,7 +81,7 @@ export function KnowledgeExportPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(goalQuery.error)}</p>
   }
   const goal = goalQuery.data
   const isReading = goal.category === 'READING'

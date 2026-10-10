@@ -45,7 +45,7 @@ export function SlotAllocationTable({
                   {t('common.unit.minutes')}
                 </p>
                 {row.is_over_capacity && (
-                  <p className="text-xs text-red-600">
+                  <p className="text-xs text-danger-text">
                     {t('goals.resourceAllocation.overCapacity')}
                   </p>
                 )}
@@ -68,7 +68,7 @@ export function SlotAllocationTable({
                   onChange={(e) => onChangeMinutes(row.slot_id, e.target.value)}
                 />
                 {exceedsFreeMinutes(row, values[row.slot_id]) && (
-                  <p className="mt-1 text-xs text-red-600">
+                  <p className="mt-1 text-xs text-danger-text">
                     {t('goals.resourceAllocation.exceeded')}
                   </p>
                 )}

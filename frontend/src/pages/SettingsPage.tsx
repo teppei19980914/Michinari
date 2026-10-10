@@ -21,7 +21,7 @@ export function SettingsPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (settingsQuery.isError || !settingsQuery.data) {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(settingsQuery.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(settingsQuery.error)}</p>
   }
 
   const settings = settingsQuery.data
