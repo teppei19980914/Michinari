@@ -18,6 +18,12 @@ export function getLocale(): Locale {
   return currentLocale
 }
 
+/** APIから受け取った`locale`文字列が対応言語かを判定する（`settings_service._ALLOWED_LOCALES`
+ * と同じ値のみ許容。未知の値が来た場合は呼び出し側で既定のjaへフォールバックさせる）。 */
+export function isLocale(value: string): value is Locale {
+  return value === 'ja' || value === 'en'
+}
+
 /** 単数/複数で語形が変わる言語（英語）向けの値。日本語は語形変化が無いため文字列のまま。 */
 type PluralValue = { one?: string; other: string }
 

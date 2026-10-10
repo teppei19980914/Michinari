@@ -53,6 +53,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.unstubAllGlobals()
 })
 
 describe('DisplaySection の初期表示', () => {
@@ -131,8 +132,6 @@ describe('DisplaySection の保存', () => {
   })
 
   it('sends the locale selected in the dropdown', async () => {
-    // LOCALESは現状"ja"の1択だが（技術選定書の対象が日本語のみのため）、onChangeの
-    // 配線自体はlocale以外のセレクトと同じ形で担保する。
     renderSection()
 
     fireEvent.change(localeSelect(), { target: { value: 'ja' } })
@@ -180,5 +179,34 @@ describe('DisplaySection の保存', () => {
 
     await waitFor(() => expect(updateSettings).toHaveBeenCalled())
     expect(screen.queryByText(t('common.saveSucceeded'))).toBe(null)
+  })
+})
+
+describe('DisplaySection の言語切替', () => {
+  // main.tsxの起動時ブートストラップで言語を確定させる方式のため（本体コード845箇所超の
+  // t()呼び出しをContext化する代わりに採用）、言語が実際に変わった時だけ全体リロードで
+  // 反映する。他の項目だけの変更ではリロードしない。
+  it('reloads the page when the locale actually changes', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    const user = userEvent.setup()
+    renderSection()
+
+    await user.selectOptions(localeSelect(), 'en')
+    await user.click(saveButton())
+
+    await waitFor(() => expect(reload).toHaveBeenCalled())
+  })
+
+  it('does not reload when the locale is unchanged', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    const user = userEvent.setup()
+    renderSection()
+
+    await user.click(saveButton())
+
+    await waitFor(() => expect(updateSettings).toHaveBeenCalled())
+    expect(reload).not.toHaveBeenCalled()
   })
 })
