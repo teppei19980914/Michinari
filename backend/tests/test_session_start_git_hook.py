@@ -325,21 +325,30 @@ def test_cleanup_runs_in_the_background_without_blocking_startup(ws: Workspace) 
     make_branch(ws.work, PREV_BRANCH, push=True)
 
     start = time.monotonic()
-    result = run_hook(ws, FAKE_GH_SLEEP="8", NET_TIMEOUT="5", GIT_AUTOMATION_SYNC="")
+    result = run_hook(ws, FAKE_GH_SLEEP="14", NET_TIMEOUT="10", GIT_AUTOMATION_SYNC="")
     elapsed = time.monotonic() - start
 
-    # 起動自体は、gh の sleep(8秒)やNET_TIMEOUT(5秒)を待たずに終わる
-    assert elapsed < 4
+    # 起動自体は、gh の sleep(14秒)やNET_TIMEOUT(10秒)を待たずに終わる。
+    # 上限は「待たずに終わる」ことを検出できるよう sleep より十分小さく保ちつつ、
+    # このマシンでの外部コマンド起動オーバーヘッド（実測で最大7秒程度）に余裕を持たせる
+    # （環境が遅いだけで本当にブロッキングしているわけではないことは、FAKE_GH_SLEEPを
+    # 2/4/8/16秒と変えても elapsed が追従しないことで確認済み）。
+    assert elapsed < 10
     assert current_branch(ws.work) == PREV_BRANCH
     # この時点ではまだ裏の処理中のため、PR作成の結果は起動の出力には出ていない
     assert "PR 作成" not in result.stdout
 
+    # 裏の sleep(14秒)が終わるまで待てるよう、wait_for の既定20秒より長めに取る
     cleanup_log = lock_path(ws.work) / "git-automation-cleanup.log"
     assert wait_for(
-        lambda: cleanup_log.exists() and "PR 作成" in cleanup_log.read_text(encoding="utf-8")
+        lambda: cleanup_log.exists() and "PR 作成" in cleanup_log.read_text(encoding="utf-8"),
+        timeout_seconds=30.0,
     )
     # 裏の処理が終わればロックは解放される
-    assert wait_for(lambda: not (lock_path(ws.work) / "git-automation.lock").exists())
+    assert wait_for(
+        lambda: not (lock_path(ws.work) / "git-automation.lock").exists(),
+        timeout_seconds=30.0,
+    )
 
 
 def test_concurrent_run_is_skipped_while_lock_is_held(ws: Workspace) -> None:
