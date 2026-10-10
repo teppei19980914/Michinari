@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 /** グローバルナビゲーション（仕様書5.1）。 */
 export function GlobalNav() {
   return (
-    <nav className="flex gap-1 border-b border-gray-200 bg-white px-4 py-2">
+    <nav className="flex gap-1 border-b border-border bg-surface px-4 py-2">
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.to}
@@ -23,7 +23,9 @@ export function GlobalNav() {
           end={item.to === ROUTES.dashboard}
           className={({ isActive }) =>
             `rounded-md px-3 py-1.5 text-sm font-medium ${
-              isActive ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'
+              isActive
+                ? 'bg-accent-muted-bg text-accent-muted-text'
+                : 'text-text-muted hover:bg-surface-muted'
             }`
           }
         >

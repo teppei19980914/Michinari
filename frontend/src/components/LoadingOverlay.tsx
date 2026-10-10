@@ -47,7 +47,7 @@ export function LoadingOverlay() {
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-4 bg-black/40"
     >
       <img src={CHARACTER_ICONS[OVERLAY_ICON[kind]]} alt="" className="h-32 w-32" />
-      <p className="rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg">
+      <p className="rounded-md bg-surface px-4 py-2 text-sm font-medium text-text-primary shadow-lg">
         {t(OVERLAY_LOCALE_KEY[kind])}
       </p>
     </div>

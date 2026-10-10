@@ -32,6 +32,12 @@
   --accent-disabled: #93c5fd; /* blue-300 */
   --accent-muted-bg: #eff6ff; /* blue-50 */
   --accent-muted-text: #1d4ed8; /* blue-700 */
+
+  /* Tooltip/Toastのような浮遊チップ用の固定色（明暗で変えない）。ページ表面と同じ
+     --surfaceを使うと、ダークモードでページ背景(gray-900)と同化して見えなくなるため、
+     意図的にテーマへ追従させない（gray-800、ライトモードでも違和感のない濃さ）。 */
+  --overlay-strong-bg: #1f2937; /* gray-800 */
+  --overlay-strong-text: #ffffff;
 }
 
 [data-theme='dark'] {
@@ -91,6 +97,8 @@
   --color-accent-disabled: var(--accent-disabled);
   --color-accent-muted-bg: var(--accent-muted-bg);
   --color-accent-muted-text: var(--accent-muted-text);
+  --color-overlay-strong: var(--overlay-strong-bg);
+  --color-overlay-strong-text: var(--overlay-strong-text);
 }
 
 /* フォントサイズ切替（UIリッチ化）。Tailwindの既定ユーティリティはrem基準のため、

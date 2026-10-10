@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalNav } from './components/GlobalNav'
 import { LoadingOverlay } from './components/LoadingOverlay'
+import { ThemeProvider } from './components/ThemeProvider'
 import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
 import { WelcomePage } from './pages/WelcomePage'
@@ -77,10 +78,12 @@ export function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <RouterProvider router={router} />
-          <LoadingOverlay />
-        </ToastProvider>
+        <ThemeProvider>
+          <ToastProvider>
+            <RouterProvider router={router} />
+            <LoadingOverlay />
+          </ToastProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   )
