@@ -39,6 +39,7 @@ export function SlotMinutesFields({
   const rows = buildSlotRows(defaults, existing, addedSlotIds, slotNames)
   const shownSlotIds = new Set(rows.map((row) => row.slotId))
   const addable = [...slotNames.entries()].filter(([slotId]) => !shownSlotIds.has(slotId))
+  const totalSlotMinutes = sumSlotMinutes(values)
 
   return (
     <div className="mt-2 flex flex-col gap-1">
@@ -63,10 +64,10 @@ export function SlotMinutesFields({
         </div>
       )}
       <p className="text-xs text-text-faint">
-        {(() => {
-          const total = sumSlotMinutes(values)
-          return t('dailyReport.studyLog.slotMinutesTotal', { minutes: total, count: total })
-        })()}
+        {t('dailyReport.studyLog.slotMinutesTotal', {
+          minutes: totalSlotMinutes,
+          count: totalSlotMinutes,
+        })}
       </p>
       {addable.length > 0 && (
         <label className="flex items-center gap-1 text-xs text-text-muted">

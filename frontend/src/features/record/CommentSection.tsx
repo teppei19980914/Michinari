@@ -56,7 +56,7 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
       <div>
         <p className="text-sm text-text-primary whitespace-pre-wrap">{comment.body}</p>
         <p className="mt-1 text-xs text-text-disabled">
-          {new Date(comment.created_at).toLocaleString('ja-JP')}
+          {new Date(comment.created_at).toLocaleString(getLocale() === 'en' ? 'en-US' : 'ja-JP')}
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
