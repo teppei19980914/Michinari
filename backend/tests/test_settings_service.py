@@ -51,7 +51,12 @@ def test_update_app_settings_rejects_invalid_granularity(seeded_session):
 
 def test_update_app_settings_rejects_invalid_locale(seeded_session):
     with pytest.raises(ValidationError):
-        settings_service.update_app_settings(seeded_session, display={"locale": "en"})
+        settings_service.update_app_settings(seeded_session, display={"locale": "fr"})
+
+
+def test_update_app_settings_accepts_english_locale(seeded_session):
+    updated = settings_service.update_app_settings(seeded_session, display={"locale": "en"})
+    assert updated.display.locale == "en"
 
 
 def test_update_app_settings_rejects_invalid_accent_color(seeded_session):

@@ -44,3 +44,15 @@ def test_get_raises_when_key_missing(db_session):
         setting_reader.get_str(db_session, "does.not.exist")
 
     assert excinfo.value.key == "does.not.exist"
+
+
+def test_is_english_locale_returns_false_for_japanese_default(seeded_session):
+    assert setting_reader.is_english_locale(seeded_session) is False
+
+
+def test_is_english_locale_returns_true_when_set_to_english(seeded_session):
+    row = seeded_session.get(AppSetting, "display.locale")
+    row.value = "en"
+    seeded_session.flush()
+
+    assert setting_reader.is_english_locale(seeded_session) is True

@@ -8,7 +8,7 @@
  * 依存させると、文言を直書きすることになり（CODING_RULES.md ②ゼロハードコーディング）、
  * 文言を変えるたびにテストが落ちるため。実ロケールを読めていること自体は別途確認する。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { t } from './t'
+import { dateTimeLocaleTag, getLocale, rangeSeparator, setLocale, t } from './t'
 
 /** 差し替えロケールを読み込ませた `t` を得る。
  *
@@ -20,12 +20,30 @@ async function loadWithLocale(locale: unknown): Promise<typeof t> {
   return loaded.t
 }
 
+/** `ja`/`en` 両方を差し替え、`setLocale`で切り替えて解決できることを確認するための`t`を得る。 */
+async function loadWithLocales(messages: {
+  ja: unknown
+  en: unknown
+}): Promise<{ t: typeof t; setLocale: typeof setLocale }> {
+  vi.resetModules()
+  vi.doMock('./ja.json', () => ({ default: messages.ja }))
+  vi.doMock('./en.json', () => ({ default: messages.en }))
+  const loaded = await import('./t')
+  return { t: loaded.t, setLocale: loaded.setLocale }
+}
+
 afterEach(() => {
   vi.doUnmock('./ja.json')
+  vi.doUnmock('./en.json')
   vi.resetModules()
+  setLocale('ja')
 })
 
 describe('t（実ロケール）', () => {
+  it('defaults to ja', () => {
+    expect(getLocale()).toBe('ja')
+  })
+
   it('resolves a dot separated key against ja.json', () => {
     // 文言そのものではなく「解決できて空でない文字列が返る」ことだけを見る。
     const resolved = t('errors.default')
@@ -96,5 +114,117 @@ describe('t（差し替えロケール）', () => {
     const scoped = await loadWithLocale({ a: '{{name}}' })
 
     expect(scoped('a', {})).toBe('{{name}}')
+  })
+})
+
+describe('t（ロケール切替）', () => {
+  it('resolves against ja by default and switches after setLocale', async () => {
+    const { t: scoped, setLocale: setScopedLocale } = await loadWithLocales({
+      ja: { a: 'こんにちは' },
+      en: { a: 'hello' },
+    })
+
+    expect(scoped('a')).toBe('こんにちは')
+
+    setScopedLocale('en')
+    expect(scoped('a')).toBe('hello')
+  })
+})
+
+describe('t（単数/複数形）', () => {
+  it('selects "other" when count is not given', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 3 })).toBe('3 days')
+  })
+
+  it('selects "one" when count is exactly 1', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1, count: 1 })).toBe('1 day')
+  })
+
+  it('selects "other" when count is not 1', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 5, count: 5 })).toBe('5 days')
+  })
+
+  it('falls back to "other" when "one" is not defined', async () => {
+    const scoped = await loadWithLocale({ a: { other: '{{days}}日' } })
+
+    expect(scoped('a', { days: 1, count: 1 })).toBe('1日')
+  })
+
+  it('returns the key when the object has neither a usable "other" string', async () => {
+    const scoped = await loadWithLocale({ a: { one: 'value' } })
+
+    expect(scoped('a')).toBe('a')
+  })
+
+  it('selects "other" when no variables object is given at all', async () => {
+    const scoped = await loadWithLocale({ a: { one: 'one day', other: 'some days' } })
+
+    expect(scoped('a')).toBe('some days')
+  })
+
+  it('infers count from the single variable when "count" is not given explicitly', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1 })).toBe('1 day')
+    expect(scoped('a', { days: 5 })).toBe('5 days')
+  })
+
+  it('treats a numeric string count the same as a number (count as "1")', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: '1' })).toBe('1 day')
+  })
+
+  it('selects "other" for zero or negative counts', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 0 })).toBe('0 days')
+    expect(scoped('a', { days: -1 })).toBe('-1 days')
+  })
+
+  it('falls back to "other" when multiple variables make the implicit count ambiguous', async () => {
+    // countを明示しない場合、varsが1個だけなら暗黙のcountとして使うが、2個以上あると
+    // どれを基準にすべきか決められないため、安全側のotherへ落とす（t.ts resolveCount参照）。
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1, other: 'ignored' })).toBe('1 days')
+  })
+})
+
+describe('rangeSeparator', () => {
+  afterEach(() => {
+    setLocale('ja')
+  })
+
+  it('uses the Japanese wave dash by default', () => {
+    expect(rangeSeparator()).toBe('〜')
+  })
+
+  it('uses an en dash in English', () => {
+    setLocale('en')
+
+    expect(rangeSeparator()).toBe('–')
+  })
+})
+
+describe('dateTimeLocaleTag', () => {
+  afterEach(() => {
+    setLocale('ja')
+  })
+
+  it('returns the Japanese BCP47 tag by default', () => {
+    expect(dateTimeLocaleTag()).toBe('ja-JP')
+  })
+
+  it('returns the English BCP47 tag in English', () => {
+    setLocale('en')
+
+    expect(dateTimeLocaleTag()).toBe('en-US')
   })
 })

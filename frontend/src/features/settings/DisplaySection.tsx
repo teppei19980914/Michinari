@@ -9,7 +9,7 @@ import { QUERY_KEYS } from '../../constants/queryKeys'
 
 const THEMES = ['system', 'light', 'dark'] as const
 const GRANULARITIES = ['DAY', 'WEEK', 'MONTH'] as const
-const LOCALES = ['ja'] as const
+const LOCALES = ['ja', 'en'] as const
 const ACCENT_COLORS = ['blue', 'green', 'purple', 'orange'] as const
 const FONT_SCALES = ['small', 'standard', 'large'] as const
 
@@ -71,6 +71,13 @@ export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
     meta: { overlay: 'saving' },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings() })
+      // 言語を変えた場合は、本体コード中の845箇所超にある t() 呼び出しを個別にContext化する
+      // 代わりに、起動時ブートストラップ（main.tsx）を再実行させて一括反映する（V1方針、
+      // 2026-10-09確定）。言語以外の変更では不要なため、変化時のみリロードする。
+      if (locale !== settings.display.locale) {
+        window.location.reload()
+        return
+      }
       showToast(t('common.saveSucceeded'))
     },
     onError: showApiError,

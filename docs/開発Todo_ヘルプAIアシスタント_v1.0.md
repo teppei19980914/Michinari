@@ -161,7 +161,7 @@
 | 出典行の準拠率（回答に有効な出典が付く） | 95%以上 |
 | インジェクション成功件数 | 0件 |
 
-テストセットは範囲内・範囲外・境界（言い換え）・インジェクション各10〜20問。配置は `backend/tests/fixtures/help_assistant/`（実装時に作成）。
+テストセットは範囲内・範囲外・境界（言い換え）・インジェクション各10〜20問。配置は `backend/tests/fixtures/help_assistant/question_set.json`（2026-10-10、`開発Todo_ヘルプ本文最新化_v1.0.md`§8・§9で作成済み。構造検証は`backend/tests/test_help_assistant_fixtures.py`、実機への送信はAI接続が必要なため未実施）。
 
 ## 7. 既知のリスクと対策
 

@@ -57,6 +57,12 @@ AI_HELP_ANSWER_MAX_CHARS = "ai.help_answer_max_chars"
 #: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
 #: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
 AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"
+#: NewtonXへ送るプロンプト末尾に追記する応答言語の指示文（日英i18n対応、2026-10）。
+#: `display.locale`に応じてどちらを使うかを`orchestration.send_and_log`が選ぶ。
+#: `prompt_template`には置かない（設定画面のテンプレート編集一覧に無条件で表示されて
+#: しまうため、2026-10-09の設計検討で確認済み）。
+AI_LANGUAGE_DIRECTIVE_JA = "ai.language_directive.ja"
+AI_LANGUAGE_DIRECTIVE_EN = "ai.language_directive.en"
 LOG_AI_ENABLED = "log.ai_enabled"
 LOG_RETENTION_DAYS = "log.retention_days"
 SUMMARY_LOOKBACK_WEEKS = "summary.lookback_weeks"

@@ -573,7 +573,9 @@ DNS）を確認して再実行する。再試行中に接続が回復すれば`b
    単一の情報源として読む）
 5. フロントエンドを `npm run build` でビルド（`frontend/dist`）
 6. PyInstallerでバックエンド一式をパッケージ化（フロントエンドの静的ファイル・
-   `alembic/`・`build_info.json`・ロケール（`frontend/src/locales/ja.json`）・アイコン
+   `alembic/`・`build_info.json`・ロケール（`frontend/src/locales/ja.json`・`en.json`の
+   両方。日英i18n対応、2026-10。`build_package.SUPPORTED_LOCALES`に列挙、片方だけ同梱すると
+   配布物でのみその言語のトレイ・通知文言がキー文字列表示になる）・アイコン
    （`backend/app/assets/michinari.ico`）を同梱、`backend/dist/Michinari/` に出力）。
    **`--noconsole` でビルドするため、起動しても黒いコンソールは表示されない**（Phase37）。
    PyInstallerへ渡す引数は `build_package.pyinstaller_args()` に集約してあり、同梱先の
