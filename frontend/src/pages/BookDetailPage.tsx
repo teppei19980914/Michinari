@@ -50,6 +50,8 @@ export function BookDetailPage() {
         {t('bookshelf.detail.backLink')}
       </Link>
 
+      {/* GoalTabBar（目標切替用、UIリッチ化でスクロール連動開閉の対象）とは別の、
+          画面内コンテンツ切替用タブ。スクロール連動開閉の対象外（2026-10利用者方針）。 */}
       <div className="flex flex-wrap gap-1 border-b border-gray-200">
         {TABS.map((item) => (
           <button
