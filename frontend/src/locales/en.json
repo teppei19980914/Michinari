@@ -1,1412 +1,1553 @@
 {
   "nav": {
-    "dashboard": "ダッシュボード",
-    "goals": "目標一覧",
-    "bookshelf": "本棚",
-    "calendar": "カレンダー",
-    "analytics": "分析",
-    "settings": "設定",
-    "help": "ヘルプ"
+    "dashboard": "Dashboard",
+    "goals": "Goals",
+    "bookshelf": "Bookshelf",
+    "calendar": "Calendar",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "help": "Help"
   },
   "common": {
-    "loading": "読み込み中…",
+    "loading": "Loading…",
     "overlay": {
-      "saving": "保存しています…",
-      "deleting": "削除しています…"
+      "saving": "Saving…",
+      "deleting": "Deleting…"
     },
-    "errorDetailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）",
-    "errorId": "エラーID: {{id}}",
+    "errorDetailsSummary": "Details (please include this if something goes wrong)",
+    "errorId": "Error ID: {{id}}",
     "unit": {
-      "minutes": "分",
-      "days": "日",
-      "hours": "時間"
+      "minutes": "min",
+      "days": "d",
+      "hours": "hr"
     },
     "action": {
-      "save": "保存",
-      "cancel": "キャンセル",
-      "edit": "編集",
-      "delete": "削除",
-      "add": "追加",
-      "close": "閉じる",
-      "confirm": "確定",
-      "back": "戻る",
-      "next": "次へ",
-      "reset": "初期値に戻す",
-      "showAdvanced": "詳細設定を表示",
-      "hideAdvanced": "詳細設定を隠す"
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "add": "Add",
+      "close": "Close",
+      "confirm": "Confirm",
+      "back": "Back",
+      "next": "Next",
+      "reset": "Reset to default",
+      "showAdvanced": "Show advanced settings",
+      "hideAdvanced": "Hide advanced settings"
     },
-    "confirmDelete": "削除しますか？この操作は取り消せません。",
-    "saveSucceeded": "保存しました",
-    "saveFailed": "保存に失敗しました",
-    "yes": "はい",
-    "no": "いいえ",
-    "unset": "未設定"
+    "confirmDelete": "Delete this? This action cannot be undone.",
+    "saveSucceeded": "Saved",
+    "saveFailed": "Failed to save",
+    "yes": "Yes",
+    "no": "No",
+    "unset": "Not set"
   },
   "welcome": {
-    "appIntro": "資格の勉強・読書・仕事。日々の取り組みを記録すると、AIが振り返りとつぎの一歩を返してくれるWindows向けアプリです。",
-    "heading": "何から始めますか",
+    "appIntro": "A Windows app for studying toward a certification exam, reading, and work. Record your daily progress and AI will give you feedback and suggest your next step.",
+    "heading": "Where would you like to start?",
     "reading": {
-      "title": "読書",
-      "description": "本を1冊登録して、読んだ内容を書き留める",
-      "recommended": "おすすめ"
+      "title": "Reading",
+      "description": "Register a book and jot down what you read",
+      "recommended": "Recommended"
     },
     "work": {
-      "title": "仕事",
-      "description": "案件を1件登録して、日々の業務を書き留める"
+      "title": "Work",
+      "description": "Register a project and jot down your daily work"
     },
     "exam": {
-      "title": "資格",
-      "description": "試験を登録して、計画を自動で作る",
-      "note": "設定に5分かかります"
+      "title": "Certification exam",
+      "description": "Register an exam and let the app build your plan automatically",
+      "note": "Setup takes about 5 minutes"
     },
-    "later": "あとで",
-    "reopenLink": "ウェルカム画面をもう一度見る"
+    "later": "Later",
+    "reopenLink": "View the welcome screen again"
   },
   "errorBoundary": {
-    "message": "予期しないエラーが発生しました。画面を再読み込みしてください",
-    "detailsSummary": "詳しい情報（うまくいかない場合はこの内容を添えてご連絡ください）"
+    "message": "An unexpected error occurred. Please reload the page",
+    "detailsSummary": "Details (please include this if something goes wrong)"
   },
   "aiUnconfigured": {
-    "message": "この機能を使うには、AIの接続設定が必要です",
-    "recordingStillWorks": "設定しなくても、記録や閲覧はそのまま使えます",
-    "settingsButton": "設定画面へ"
+    "message": "AI connection settings are required to use this feature",
+    "recordingStillWorks": "You can still record and view data without setting this up",
+    "settingsButton": "Go to Settings"
   },
   "dashboard": {
-    "title": "ダッシュボード",
-    "firstRecordBanner": "最初の記録を書いてみましょう",
+    "title": "Dashboard",
+    "firstRecordBanner": "Let's write your first record",
     "reportButton": {
-      "label": "本日の報告"
+      "label": "Today's report"
     },
     "todayStatus": {
-      "label": "本日の状態",
-      "unreported": "未入力",
-      "progressOnly": "進捗のみ登録済",
-      "reported": "報告済"
+      "label": "Today's status",
+      "unreported": "Not entered",
+      "progressOnly": "Progress only",
+      "reported": "Reported"
     },
     "todayMessage": {
-      "loading": "今日の一言を準備しています…",
-      "fallback": "今日も無理のない範囲で進めていきましょう。AI連携を設定すると、目標に合わせた一言がここに表示されます。"
+      "loading": "Preparing today's message…",
+      "fallback": "Let's keep going today at a comfortable pace. Once you set up the AI connection, a message tailored to your goal will appear here."
     },
     "warningBanner": {
-      "warning": "ノルマが計画基準を上回っています。目標の見直しをご検討ください。",
-      "forcedReplan": "計画との乖離が大きくなっています。目標の見直しが必要です。"
+      "warning": "Your quota exceeds the plan baseline. Consider reviewing your goal.",
+      "forcedReplan": "The gap with your plan has grown large. Your goal needs to be reviewed."
     },
     "todayQuota": {
-      "title": "本日のノルマ",
-      "empty": "本日予定されている教材はありません",
-      "bufferDayNotice": "本日は予備日です。ノルマは0として扱われますが、実績登録は可能です",
-      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
-      "targetMinutesUnavailable": "目標時間: 算出不可",
-      "availableSlots": "本日利用可能な時間枠"
+      "title": "Today's quota",
+      "empty": "No materials are scheduled for today",
+      "bufferDayNotice": "Today is a buffer day. Your quota is treated as 0, but you can still record progress",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "targetMinutesUnavailable": "Target time: unavailable",
+      "availableSlots": "Time slots available today"
     },
     "goalCard": {
-      "progressRate": "全体進捗率",
-      "remainingDays": "受験日まで残り{{days}}日",
-      "remainingDaysUnavailable": "受験日未設定",
-      "forecastDeviation": "完了予測日との乖離: {{days}}日",
-      "forecastDeviationUnavailable": "完了予測日との乖離: 算出不可",
-      "notAvailable": "算出不可",
-      "remainingDaysReading": "読了目標まで残り{{days}}日",
-      "lastReadingDate": "直近記録日: {{date}}",
-      "lastReadingDateUnavailable": "直近記録日: 記録なし",
-      "currentStreak": "連続記録日数: {{days}}日",
-      "pageProgress": "ページ進捗",
-      "elapsedDays": "経過日数: {{days}}日",
-      "lastWorkDate": "直近記録日: {{date}}",
-      "lastWorkDateUnavailable": "直近記録日: 記録なし",
-      "currentStreakWork": "連続記録日数: {{days}}日",
-      "hasRecentMonthlyReport": "直近の月次報告: 生成済み",
-      "hasRecentMonthlyReportNone": "直近の月次報告: 未生成"
+      "progressRate": "Overall progress",
+      "remainingDays": {
+        "one": "{{days}} day until the exam",
+        "other": "{{days}} days until the exam"
+      },
+      "remainingDaysUnavailable": "Exam date not set",
+      "forecastDeviation": {
+        "one": "Deviation from forecast completion date: {{days}} day",
+        "other": "Deviation from forecast completion date: {{days}} days"
+      },
+      "forecastDeviationUnavailable": "Deviation from forecast completion date: unavailable",
+      "notAvailable": "Unavailable",
+      "remainingDaysReading": {
+        "one": "{{days}} day until your reading goal",
+        "other": "{{days}} days until your reading goal"
+      },
+      "lastReadingDate": "Last recorded: {{date}}",
+      "lastReadingDateUnavailable": "Last recorded: no records yet",
+      "currentStreak": {
+        "one": "Current streak: {{days}} day",
+        "other": "Current streak: {{days}} days"
+      },
+      "pageProgress": "Page progress",
+      "elapsedDays": {
+        "one": "Elapsed: {{days}} day",
+        "other": "Elapsed: {{days}} days"
+      },
+      "lastWorkDate": "Last recorded: {{date}}",
+      "lastWorkDateUnavailable": "Last recorded: no records yet",
+      "currentStreakWork": {
+        "one": "Current streak: {{days}} day",
+        "other": "Current streak: {{days}} days"
+      },
+      "hasRecentMonthlyReport": "Latest monthly report: generated",
+      "hasRecentMonthlyReportNone": "Latest monthly report: not yet generated"
     },
     "stats": {
-      "title": "統計サマリ",
-      "consecutiveReportDays": "連続報告日数",
-      "recentReportRate": "直近{{windowDays}}日の報告率",
-      "bufferUsageRate": "予備日消費率",
-      "bufferUsageRateUnavailable": "算出不可（経過した予備日なし）",
-      "effectiveSpeed": "実効速度",
-      "effectiveSpeedUnavailable": "算出不可",
-      "perHour": "/時間",
-      "analyticsLink": "分析を見る"
+      "title": "Summary stats",
+      "consecutiveReportDays": "Consecutive days reported",
+      "recentReportRate": {
+        "one": "Report rate over the last {{windowDays}} day",
+        "other": "Report rate over the last {{windowDays}} days"
+      },
+      "bufferUsageRate": "Buffer day usage rate",
+      "bufferUsageRateUnavailable": "Unavailable (no buffer days elapsed yet)",
+      "effectiveSpeed": "Effective speed",
+      "effectiveSpeedUnavailable": "Unavailable",
+      "perHour": "/hour",
+      "analyticsLink": "View analytics"
     },
     "weeklyDigest": {
-      "title": "先週のまとめ",
-      "noRecords": "先週の記録はありませんでした",
-      "recordedDays": "記録日数: {{days}}日",
-      "totalMinutes": "投下時間: {{minutes}}分"
+      "title": "Last week's summary",
+      "noRecords": "No records last week",
+      "recordedDays": {
+        "one": "Days recorded: {{days}} day",
+        "other": "Days recorded: {{days}} days"
+      },
+      "totalMinutes": {
+        "one": "Time spent: {{minutes}} minute",
+        "other": "Time spent: {{minutes}} minutes"
+      }
     },
     "recentActivityCalendar": {
-      "title": "直近4週間",
-      "viewCalendarLink": "カレンダーを見る"
+      "title": "Last 4 weeks",
+      "viewCalendarLink": "View calendar"
     },
     "recapThemes": {
-      "title": "今週の振り返り（テーマ別）",
-      "empty": "まだテーマはありません。日次報告の学んだことが分類されると、ここに表示されます",
-      "entryCount": "{{count}}件の報告"
+      "title": "This week's recap (by theme)",
+      "empty": "No themes yet. Once your daily report's learnings are classified, they'll appear here",
+      "entryCount": {
+        "one": "{{count}} entry",
+        "other": "{{count}} entries"
+      }
     }
   },
   "goals": {
     "list": {
-      "title": "目標一覧",
-      "empty": "登録済みの目標はありません",
-      "newGoal": "新規目標作成",
-      "achievedBadge": "達成",
-      "exportLink": "総括・エクスポートへ",
-      "resultLink": "結果登録",
-      "archiveButton": "アーカイブ",
-      "restoreButton": "復元",
-      "archiveConfirm": "この目標をアーカイブしますか？一覧から非表示になりますが、いつでも復元できます。",
-      "showAllToggle": "完了・中断・アーカイブ済みも表示",
-      "archivedBadge": "アーカイブ",
-      "deleteButton": "削除",
-      "detailLink": "詳細・再開へ"
+      "title": "Goals",
+      "empty": "No goals registered yet",
+      "newGoal": "Create new goal",
+      "achievedBadge": "Achieved",
+      "exportLink": "Go to summary & export",
+      "resultLink": "Register result",
+      "archiveButton": "Archive",
+      "restoreButton": "Restore",
+      "archiveConfirm": "Archive this goal? It will be hidden from the list, but you can restore it anytime.",
+      "showAllToggle": "Also show completed/abandoned/archived",
+      "archivedBadge": "Archived",
+      "deleteButton": "Delete",
+      "detailLink": "Go to details / resume"
     },
     "new": {
       "category": {
-        "EXAM": "資格試験",
-        "READING": "読書",
-        "WORK": "仕事"
+        "EXAM": "Certification exam",
+        "READING": "Reading",
+        "WORK": "Work"
       },
       "quickCreate": {
         "reading": {
-          "title": "本を1冊登録する",
-          "titleLabel": "書名",
-          "authorLabel": "著者（任意）",
-          "totalPagesLabel": "総ページ数（任意）"
+          "title": "Register a book",
+          "titleLabel": "Title",
+          "authorLabel": "Author (optional)",
+          "totalPagesLabel": "Total pages (optional)"
         },
         "work": {
-          "title": "案件を1件登録する",
-          "nameLabel": "案件名",
-          "summaryLabel": "概要（任意）"
+          "title": "Register a project",
+          "nameLabel": "Project name",
+          "summaryLabel": "Summary (optional)"
         },
-        "submitButton": "登録してはじめる"
+        "submitButton": "Register and start"
       }
     },
     "examWizard": {
-      "title": "資格試験の目標を作成",
-      "stepIndicator": "ステップ {{current}} / {{total}}",
-      "startButton": "開始する",
-      "templateAmountDisclaimer": "教材の分量は目安です。お使いの教材に合わせて変更してください",
+      "title": "Create a certification exam goal",
+      "stepIndicator": "Step {{current}} of {{total}}",
+      "startButton": "Start",
+      "templateAmountDisclaimer": "Material amounts are approximate. Adjust them to match your own materials",
       "step1": {
-        "description": "試験を選んでください。テンプレートを選ぶと科目・教材例が自動で入ります。",
-        "dataDisclaimer": "テンプレートの内容は例示であり、後から編集できます。令和8年度の試験制度改定に伴う暫定値のため、正式な配点はIPA公式の試験要綱でご確認ください。",
-        "otherOption": "その他（手入力）",
-        "examNameLabel": "試験名"
+        "description": "Choose an exam. Selecting a template will automatically fill in example subjects and materials.",
+        "dataDisclaimer": "Template content is illustrative and can be edited later. Figures are provisional values pending the FY2026 exam system revision; please check the official IPA exam guidelines for the official scoring.",
+        "otherOption": "Other (enter manually)",
+        "examNameLabel": "Exam name"
       },
       "step2": {
-        "description": "科目ごとに受験日を入れてください。",
-        "addSubject": "科目を追加"
+        "description": "Enter the exam date for each subject.",
+        "addSubject": "Add subject"
       },
       "step3": {
-        "description": "教材を確認してください。追加・削除・編集ができます。",
-        "unnamedSubject": "（科目名未入力）",
-        "addMaterial": "教材を追加"
+        "description": "Review your materials. You can add, remove, or edit them.",
+        "unnamedSubject": "(Subject name not entered)",
+        "addMaterial": "Add material"
       },
       "step4": {
-        "description": "学習時間を設定してください。曜日ごとの時間枠は後から細かく設定できます。",
-        "existingSlotsDescription": "登録済みの時間枠に、この目標への配分時間を設定してください。",
-        "weekdayHoursLabel": "平日は何時間",
-        "weekendHoursLabel": "休日は何時間",
-        "weekdayPreview": "平日の学習時間: {{start}} 〜 {{end}}",
-        "weekendPreview": "休日の学習時間: {{start}} 〜 {{end}}",
-        "timeDisclaimer": "時刻は目安です",
-        "laterNotice": "時間枠の詳細設定はあとで細かく設定できます",
-        "weekdaySlotName": "平日の学習時間",
-        "weekendSlotName": "休日の学習時間"
+        "description": "Set your study hours. You can fine-tune time slots for each day of the week later.",
+        "existingSlotsDescription": "Set the time to allocate to this goal within your registered time slots.",
+        "weekdayHoursLabel": "Hours on weekdays",
+        "weekendHoursLabel": "Hours on weekends",
+        "weekdayPreview": "Weekday study time: {{start}} – {{end}}",
+        "weekendPreview": "Weekend study time: {{start}} – {{end}}",
+        "timeDisclaimer": "Times are approximate",
+        "laterNotice": "You can fine-tune time slot details later",
+        "weekdaySlotName": "Weekday study time",
+        "weekendSlotName": "Weekend study time"
       },
       "step5": {
-        "cyclesUnit": "周",
-        "advancedSettingsNotice": "負荷係数・必要連続時間・環境タグ・品質指標の方式は既定値のまま作成します。目標詳細画面から後で変更できます。"
+        "cyclesUnit": "cycle(s)",
+        "advancedSettingsNotice": "The load coefficient, required continuous time, environment tags, and quality metric method are created with their defaults. You can change them later from the goal details screen."
       }
     },
     "detail": {
-      "backToList": "目標一覧へ戻る",
+      "backToList": "Back to goal list",
       "tabs": {
-        "basicInfo": "基本情報",
-        "subjects": "試験科目",
-        "materials": "教材",
-        "resourceAllocation": "リソース配分",
-        "loadProfile": "負荷プロファイル",
-        "book": "書籍",
-        "workAssignment": "案件情報",
-        "monthlyReport": "月次報告",
-        "semiannualReview": "半期評価",
-        "evaluationReport": "評価レポート"
+        "basicInfo": "Basic info",
+        "subjects": "Subjects",
+        "materials": "Materials",
+        "resourceAllocation": "Resource allocation",
+        "loadProfile": "Load profile",
+        "book": "Book",
+        "workAssignment": "Project info",
+        "monthlyReport": "Monthly report",
+        "semiannualReview": "Semiannual review",
+        "evaluationReport": "Evaluation report"
       },
       "tabTooltips": {
-        "basicInfo": "試験名・開始日・状態・備考など、この目標自体の基本情報を確認・編集するタブです。目標の名称を変えたい、開始日を修正したいときに使用します。",
-        "basicInfoReading": "書名・開始日・状態・備考など、この読書目標自体の基本情報を確認・編集するタブです。",
-        "basicInfoWork": "案件名・開始日・状態・備考など、この仕事目標自体の基本情報を確認・編集するタブです。",
-        "subjects": "1つの試験の中で科目が複数に分かれる場合（科目ごとに受験日や合格点が異なる資格など）に、科目ごとの受験日・合格点を設定するタブです。科目を追加・編集し、それぞれの合格基準を管理したいときに使用します。",
-        "materials": "学習に使う教材（テキスト・問題集など）を登録し、対策する科目との紐付けや周回数・分量を管理するタブです。新しい教材を追加したい、日々のノルマ計算のもとになる情報を設定したいときに使用します。",
-        "resourceAllocation": "時間枠ごとに、この目標へ割り当てる時間（分）を設定するタブです。複数の目標を同時に進めている場合、同じ時間枠を奪い合わないよう配分の合計が時間枠の長さを超えないよう制御されます。",
-        "loadProfile": "特定の期間だけ1日あたりの学習量を増減させたい場合に、期間ごとの負荷係数（基準は1.0）を設定するタブです。繁忙期で減らしたい、追い込み期で増やしたいときに使用します。",
-        "book": "書名・著者・総ページ数・読了目標日を登録し、読書の進捗（残日数・直近記録日・連続記録日数・ページ進捗）を確認するタブです。総ページ数は必須です（ページ進捗を表示するため）。読み終えたときは、目標詳細の操作欄から「完了にする」を選びます（読書の完了は「読了」と表示されます）。",
-        "workAssignment": "取引先・想定業務内容・着手日・チームメンバー・役割を登録し、仕事の進捗（経過日数・直近記録日・連続記録日数）を確認するタブです。",
-        "monthlyReport": "月次報告のドラフトを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
-        "semiannualReview": "半期評価レポートを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
-        "evaluationReport": "登録済みのチームメンバーを選び、日々の業務記録とAIフィードバック履歴をもとにした評価レポートのドラフトを生成し、確認・修正してダウンロードするタブです。役割を「評価者」に設定している場合のみ表示されます。"
+        "basicInfo": "A tab to view and edit this goal's basic information, such as the exam name, start date, status, and notes. Use it to rename the goal or correct its start date.",
+        "basicInfoReading": "A tab to view and edit this reading goal's basic information, such as the title, start date, status, and notes.",
+        "basicInfoWork": "A tab to view and edit this work goal's basic information, such as the project name, start date, status, and notes.",
+        "subjects": "A tab to set the exam date and passing score for each subject, for exams split into multiple subjects (such as certifications where each subject has its own exam date or passing score). Use it to add and edit subjects and manage each one's passing criteria.",
+        "materials": "A tab to register the materials you use to study (textbooks, workbooks, etc.) and manage their links to subjects, planned cycles, and amounts. Use it to add new materials or set the information used to calculate your daily quota.",
+        "resourceAllocation": "A tab to set the time (in minutes) allocated to this goal within each time slot. When you're working on multiple goals at once, allocations are controlled so their total never exceeds the time slot's length, preventing goals from competing for the same slot.",
+        "loadProfile": "A tab to set a load coefficient (baseline 1.0) for a specific period, when you want to increase or decrease your daily study volume for that period only. Use it to reduce load during busy periods or increase it during a final push.",
+        "book": "A tab to register the title, author, total pages, and target completion date, and check your reading progress (days remaining, last recorded date, current streak, page progress). Total pages is required (to display page progress). When you finish reading, choose \"Mark as complete\" from the goal detail actions (a finished reading goal is shown as \"Finished\").",
+        "workAssignment": "A tab to register the client, expected work content, start date, team members, and roles, and check your work progress (elapsed days, last recorded date, current streak).",
+        "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
+        "semiannualReview": "A tab to generate a semiannual review report, review and edit it on the spot, and download it as Markdown.",
+        "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\""
       },
-      "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
-      "archivedNotice": "この目標はアーカイブ済みです。状態を変更する操作を行うには、先に目標一覧から復元してください",
+      "readOnlyNotice": "This goal is closed, so it is read-only",
+      "archivedNotice": "This goal is archived. To change its status, restore it from the goal list first",
       "action": {
-        "activate": "開始する",
-        "pause": "一時停止する",
-        "resume": "再開する",
+        "activate": "Start",
+        "pause": "Pause",
+        "resume": "Resume",
         "complete": {
-          "EXAM": "完了にする",
-          "READING": "読了にする",
-          "WORK": "完了にする"
+          "EXAM": "Mark as complete",
+          "READING": "Mark as finished",
+          "WORK": "Mark as complete"
         },
         "abandon": {
-          "EXAM": "中断する",
-          "READING": "中断する",
-          "WORK": "中止する"
+          "EXAM": "Abandon",
+          "READING": "Abandon",
+          "WORK": "Discontinue"
         }
       },
-      "resumeError": "リソースの空きが不足しているため再開できません",
-      "completeDisabledHint": "結果が揃っていないため完了できません。全科目の受験結果を登録してください"
+      "resumeError": "Cannot resume because there is not enough free resource capacity",
+      "completeDisabledHint": "Cannot complete because results are not all in. Please register exam results for every subject"
     },
     "basicInfo": {
-      "nameLabel": "試験名",
-      "nameLabelReading": "目標名",
-      "nameLabelWork": "案件名",
-      "startDateLabel": "開始日",
-      "memoLabel": "備考"
+      "nameLabel": "Exam name",
+      "nameLabelReading": "Goal name",
+      "nameLabelWork": "Project name",
+      "startDateLabel": "Start date",
+      "memoLabel": "Notes"
     },
     "workAssignment": {
-      "empty": "案件情報が未登録です",
-      "clientNameLabel": "取引先・案件の呼称（任意）",
-      "expectedContentLabel": "想定業務内容",
-      "startDateLabel": "着手日",
-      "elapsedDaysLabel": "経過日数",
-      "elapsedDaysValue": "{{days}}日",
-      "lastWorkDateLabel": "直近記録日",
-      "lastWorkDateUnavailable": "記録なし",
-      "currentStreakLabel": "連続記録日数",
-      "currentStreakValue": "{{days}}日",
-      "hasRecentMonthlyReportLabel": "直近の月次報告",
-      "hasRecentMonthlyReportNone": "未生成",
-      "roleLabel": "この目標でのあなたの役割（任意）",
+      "empty": "No project information registered yet",
+      "clientNameLabel": "Client / project name (optional)",
+      "expectedContentLabel": "Expected work content",
+      "startDateLabel": "Start date",
+      "elapsedDaysLabel": "Elapsed days",
+      "elapsedDaysValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "lastWorkDateLabel": "Last recorded",
+      "lastWorkDateUnavailable": "No records yet",
+      "currentStreakLabel": "Current streak",
+      "currentStreakValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "hasRecentMonthlyReportLabel": "Latest monthly report",
+      "hasRecentMonthlyReportNone": "Not yet generated",
+      "roleLabel": "Your role in this goal (optional)",
       "role": {
-        "NONE": "未設定",
-        "EVALUATOR": "評価者",
-        "EVALUATEE": "被評価者"
+        "NONE": "Not set",
+        "EVALUATOR": "Evaluator",
+        "EVALUATEE": "Evaluatee"
       }
     },
     "workMember": {
-      "title": "チームメンバー",
-      "empty": "登録済みのメンバーはいません",
-      "addButton": "メンバーを追加",
-      "nameLabel": "氏名・イニシャル",
-      "genderLabel": "性別（任意）",
+      "title": "Team members",
+      "empty": "No members registered yet",
+      "addButton": "Add member",
+      "nameLabel": "Name / initials",
+      "genderLabel": "Gender (optional)",
       "gender": {
-        "NONE": "未設定",
-        "MALE": "男性",
-        "FEMALE": "女性",
-        "OTHER": "その他"
+        "NONE": "Not set",
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
       },
-      "characteristicsLabel": "特徴・性格（任意）",
-      "characteristicsPlaceholder": "例: 粘り強く、困難な課題にも前向きに取り組む",
-      "consentCheckbox": "本人確認済み（本人の同意を得たうえで登録しています）",
-      "consentHint": "特徴・性格を保存するには、この内容を保存する前に本人確認済みであることの確認が必要です。内容を変更した場合は再度チェックしてください。",
-      "consentConfirmedAtLabel": "本人確認済み",
-      "consentNotConfirmed": "未確認",
-      "deactivateButton": "無効化",
-      "deleteButton": "削除",
-      "inactiveBadge": "無効化済み"
+      "characteristicsLabel": "Traits / personality (optional)",
+      "characteristicsPlaceholder": "e.g. Persistent, stays positive even with difficult tasks",
+      "consentCheckbox": "Identity confirmed (registered with the member's consent)",
+      "consentHint": "Saving traits/personality requires confirming that the member's identity has been verified before saving this content. Please re-check this if you change the content.",
+      "consentConfirmedAtLabel": "Identity confirmed",
+      "consentNotConfirmed": "Not confirmed",
+      "deactivateButton": "Deactivate",
+      "deleteButton": "Delete",
+      "inactiveBadge": "Deactivated"
     },
     "workEvaluationReport": {
-      "roleRequiredNotice": "このタブは、案件情報タブで役割を「評価者」に設定すると表示されます",
-      "memberRequiredNotice": "評価レポートを生成するには、先に案件情報タブでチームメンバーを登録してください",
-      "memberSelectLabel": "評価対象のメンバー",
-      "memberSelectPlaceholder": "選択してください",
-      "considerationsLabel": "考慮事項（自由記述）",
-      "considerationsPlaceholder": "例: 今期は特に納期意識について評価してほしい",
-      "generateButton": "評価レポートを生成",
-      "bodyLabel": "評価レポート（内容を確認・修正してください）",
-      "saveButton": "保存",
-      "downloadButton": "Markdownをダウンロード",
-      "historyTitle": "生成履歴",
-      "historyEmpty": "まだ生成履歴はありません",
-      "editedBadge": "編集済み"
+      "roleRequiredNotice": "This tab appears once you set your role to \"Evaluator\" on the project info tab",
+      "memberRequiredNotice": "To generate an evaluation report, first register a team member on the project info tab",
+      "memberSelectLabel": "Member to evaluate",
+      "memberSelectPlaceholder": "Please select",
+      "considerationsLabel": "Considerations (free text)",
+      "considerationsPlaceholder": "e.g. Please focus especially on deadline awareness this period",
+      "generateButton": "Generate evaluation report",
+      "bodyLabel": "Evaluation report (review and edit the content)",
+      "saveButton": "Save",
+      "downloadButton": "Download as Markdown",
+      "historyTitle": "Generation history",
+      "historyEmpty": "No generation history yet",
+      "editedBadge": "Edited"
     },
     "workReport": {
-      "periodLabelMonthly": "対象月（YYYY-MM、空欄で前月）",
-      "periodLabelSemiannual": "対象半期（YYYY-H1／YYYY-H2、空欄で当該半期）",
-      "generateButton": "ドラフトを生成",
-      "regenerateButton": "再生成",
-      "empty": "まだ生成されていません",
-      "generateFailedTitleMonthly": "月次報告を生成できませんでした",
-      "generateFailedTitleSemiannual": "半期評価を生成できませんでした",
-      "saveFailedTitleMonthly": "月次報告を保存できませんでした",
-      "saveFailedTitleSemiannual": "半期評価を保存できませんでした",
-      "periodHeaderMonthly": "対象月：{{target}}／報告月：{{reporting}}",
-      "periodHeaderSemiannual": "対象半期：{{target}}",
-      "targetGoalTextLabel": "この期間の目標",
-      "businessSummaryLabel": "業務内容（案件内容）",
-      "achievementScoreLabel": "目標がどの程度達成されたか",
+      "periodLabelMonthly": "Target month (YYYY-MM, blank = last month)",
+      "periodLabelSemiannual": "Target half (YYYY-H1 / YYYY-H2, blank = current half)",
+      "generateButton": "Generate draft",
+      "regenerateButton": "Regenerate",
+      "empty": "Not generated yet",
+      "generateFailedTitleMonthly": "Could not generate the monthly report",
+      "generateFailedTitleSemiannual": "Could not generate the semiannual review",
+      "saveFailedTitleMonthly": "Could not save the monthly report",
+      "saveFailedTitleSemiannual": "Could not save the semiannual review",
+      "periodHeaderMonthly": "Target month: {{target}} / Reporting month: {{reporting}}",
+      "periodHeaderSemiannual": "Target half: {{target}}",
+      "targetGoalTextLabel": "Goal for this period",
+      "businessSummaryLabel": "Work content (project details)",
+      "achievementScoreLabel": "How much of the goal was achieved",
       "achievementScore": {
-        "1": "1（達成度121%以上）",
-        "2": "2（達成度101〜120%）",
-        "3": "3（達成度85〜100%）",
-        "4": "4（達成度60〜84%）",
-        "5": "5（達成度0〜59%）"
+        "1": "1 (121% or more achieved)",
+        "2": "2 (101–120% achieved)",
+        "3": "3 (85–100% achieved)",
+        "4": "4 (60–84% achieved)",
+        "5": "5 (0–59% achieved)"
       },
-      "achievementReflectionLabel": "目標の達成状況と進捗に関する振り返り",
-      "nextGoalTextLabelMonthly": "来月の目標",
-      "nextGoalTextLabelSemiannual": "次半期の目標",
-      "reportNotesLabel": "報告・連絡事項",
-      "downloadButton": "Markdownをダウンロード"
+      "achievementReflectionLabel": "Reflection on goal achievement and progress",
+      "nextGoalTextLabelMonthly": "Goal for next month",
+      "nextGoalTextLabelSemiannual": "Goal for next half",
+      "reportNotesLabel": "Notes / remarks",
+      "downloadButton": "Download as Markdown"
     },
     "subjects": {
-      "empty": "登録済みの試験科目はありません",
-      "addTitle": "試験科目を追加",
-      "nameLabel": "科目名",
-      "examDateTypeLabel": "受験日タイプ",
-      "examDateTypeTooltip": "受験日がまだ決まっていない場合は「期間」を選択し、期間開始日・終了日を入力します（最も早い日を基準に計画を算出します）。受験日が確定している場合は「確定日」を選択します。",
+      "empty": "No exam subjects registered yet",
+      "addTitle": "Add exam subject",
+      "nameLabel": "Subject name",
+      "examDateTypeLabel": "Exam date type",
+      "examDateTypeTooltip": "If the exam date isn't decided yet, choose \"Range\" and enter a start and end date (the plan is calculated based on the earliest date). If the exam date is confirmed, choose \"Fixed date.\"",
       "examDateType": {
-        "RANGE": "期間",
-        "FIXED": "確定日"
+        "RANGE": "Range",
+        "FIXED": "Fixed date"
       },
-      "examDateFromLabel": "期間開始日",
-      "examDateToLabel": "期間終了日",
-      "examDateFixedLabel": "確定日",
-      "passingScoreTypeLabel": "合格点の入力方式",
+      "examDateFromLabel": "Range start date",
+      "examDateToLabel": "Range end date",
+      "examDateFixedLabel": "Fixed date",
+      "passingScoreTypeLabel": "Passing score input method",
       "passingScoreType": {
-        "PERCENTAGE": "百分率（%）",
-        "RAW_SCORE": "点数（何点中何点）"
+        "PERCENTAGE": "Percentage (%)",
+        "RAW_SCORE": "Score (points out of total)"
       },
-      "passingScoreLabel": "合格基準点",
-      "passingScoreRawLabel": "合格点",
-      "passingScoreMaxLabel": "満点",
-      "passingScoreResultLabel": "合格基準",
+      "passingScoreLabel": "Passing criteria",
+      "passingScoreRawLabel": "Passing score",
+      "passingScoreMaxLabel": "Max score",
+      "passingScoreResultLabel": "Passing criteria",
       "passingScoreDisplay": {
         "percentage": "{{score}}%",
-        "raw": "{{score}}/{{max}}点"
+        "raw": "{{score}}/{{max}} pts"
       },
-      "fixDate": "受験日を確定する",
+      "fixDate": "Fix exam date",
       "fixDateConfirm": {
-        "title": "受験日の確定",
-        "body": "確定すると計画基準値が再計算されます。よろしいですか？"
+        "title": "Fix exam date",
+        "body": "Fixing it will recalculate the plan baseline. Are you sure?"
       },
-      "pastRangeWarning": "期間開始日が本日より過去です"
+      "pastRangeWarning": "The range start date is in the past"
     },
     "materials": {
-      "empty": "登録済みの教材はありません",
-      "addTitle": "教材を追加",
-      "nameLabel": "教材名",
-      "unitLabel": "分量の単位",
-      "totalAmountLabel": "総量（1周分）",
-      "plannedCyclesLabel": "予定周回数",
-      "subjectsLabel": "対策する科目",
-      "startDateLabel": "開始日",
-      "dueDateLabel": "締切",
-      "dueDateManualLabel": "締切を手動で指定する",
-      "autoDueDatePreview": "自動算出される締切: {{dueDate}}",
-      "startDateAfterDueDateError": "開始日は締切（{{dueDate}}）より前の日付にしてください",
-      "requiredBlockMinutesLabel": "必要連続時間（分）",
-      "requiredEnvironmentLabel": "必要環境",
+      "empty": "No materials registered yet",
+      "addTitle": "Add material",
+      "nameLabel": "Material name",
+      "unitLabel": "Amount unit",
+      "totalAmountLabel": "Total amount (per cycle)",
+      "plannedCyclesLabel": "Planned cycles",
+      "subjectsLabel": "Subjects covered",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Due date",
+      "dueDateManualLabel": "Set due date manually",
+      "autoDueDatePreview": "Automatically calculated due date: {{dueDate}}",
+      "startDateAfterDueDateError": "The start date must be before the due date ({{dueDate}})",
+      "requiredBlockMinutesLabel": "Required continuous time (minutes)",
+      "requiredEnvironmentLabel": "Required environment",
       "environment": {
-        "ANY": "制約なし",
-        "PC": "机上のみ",
-        "MOBILE": "移動中でも可"
+        "ANY": "No restriction",
+        "PC": "Desk only",
+        "MOBILE": "On the go is fine"
       },
-      "qualityMetricTypeLabel": "品質指標の方式",
-      "qualityMetricTypeTooltip": "学習の正誤をどう記録するかを選びます。四択問題など正誤が明確に決まる場合は「客観正答率」、記述式など解答内容からある程度正誤を判断できる場合は「自己採点得点率」、論文など正誤の判断が難しい場合は「主観的手応え」を選択します。品質を記録しない場合は「記録しない」のままにします。",
+      "qualityMetricTypeLabel": "Quality metric method",
+      "qualityMetricTypeTooltip": "Choose how to record whether your answers were correct. Choose \"Objective accuracy rate\" if correctness is clear-cut (e.g. multiple choice), \"Self-scored accuracy rate\" if you can judge correctness to some extent from your answer content (e.g. written answers), or \"Subjective confidence\" if judging correctness is difficult (e.g. essays). Leave it as \"Do not record\" if you don't want to record quality.",
       "qualityMetricType": {
-        "NONE": "記録しない",
-        "OBJECTIVE": "客観正答率",
-        "SELF_SCORED": "自己採点得点率",
-        "SUBJECTIVE": "主観的手応え"
+        "NONE": "Do not record",
+        "OBJECTIVE": "Objective accuracy rate",
+        "SELF_SCORED": "Self-scored accuracy rate",
+        "SUBJECTIVE": "Subjective confidence"
       },
-      "totalWork": "総作業量",
-      "currentCycle": "現在周回",
-      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
-      "cycleProgress": "周回進捗",
-      "overallProgress": "全体進捗",
-      "slotInsufficientWarning": "この教材の必要連続時間・必要環境を満たす時間枠が不足しています",
-      "deactivate": "この教材を無効化する"
+      "totalWork": "Total work",
+      "currentCycle": "Current cycle",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "cycleProgress": "Cycle progress",
+      "overallProgress": "Overall progress",
+      "slotInsufficientWarning": "No time slot satisfies this material's required continuous time and environment",
+      "deactivate": "Deactivate this material"
     },
     "resourceAllocation": {
-      "title": "本目標へのリソース配分",
-      "description": "時間枠ごとに、この目標へ割り当てる時間（分）を入力します。空欄は0分として扱います。",
-      "slotColumn": "時間枠",
-      "freeColumn": "空き時間",
-      "minutesColumn": "配分時間（分）",
-      "totalLabel": "配分時間の合計",
-      "averagePerDay": "（1日あたり平均 {{minutes}}分）",
-      "noSlots": "時間枠が登録されていません。先に学習環境の設定で時間枠を登録してください。",
-      "exceeded": "空き時間を超えています",
-      "overCapacity": "この時間枠は配分が確保時間を超えています。時間枠の短縮・削除が原因です。配分を見直してください。",
-      "optionalForReading": "読書目標のリソース配分は任意です。未設定でも開始できます。"
+      "title": "Resource allocation for this goal",
+      "description": "Enter the time (in minutes) to allocate to this goal for each time slot. Blank is treated as 0 minutes.",
+      "slotColumn": "Time slot",
+      "freeColumn": "Free time",
+      "minutesColumn": "Allocated minutes",
+      "totalLabel": "Total allocated time",
+      "averagePerDay": {
+        "one": "(avg. {{minutes}} minute/day)",
+        "other": "(avg. {{minutes}} minutes/day)"
+      },
+      "noSlots": "No time slots are registered. Please register time slots in the study environment settings first.",
+      "exceeded": "Exceeds the free time",
+      "overCapacity": "This time slot's allocation exceeds its capacity. This is caused by shortening or deleting the slot. Please review the allocation.",
+      "optionalForReading": "Resource allocation is optional for reading goals. You can start without setting it."
     },
     "loadProfile": {
-      "empty": "登録済みの負荷プロファイルはありません",
-      "addTitle": "負荷プロファイルを追加",
-      "dateFromLabel": "適用開始日",
-      "dateToLabel": "適用終了日",
-      "coefficientLabel": "負荷係数",
-      "noteLabel": "メモ"
+      "empty": "No load profiles registered yet",
+      "addTitle": "Add load profile",
+      "dateFromLabel": "Effective from",
+      "dateToLabel": "Effective until",
+      "coefficientLabel": "Load coefficient",
+      "noteLabel": "Note"
     },
     "book": {
-      "empty": "書籍が未登録です",
-      "titleLabel": "書名",
-      "authorLabel": "著者",
-      "totalPagesLabel": "総ページ数",
-      "startDateLabel": "読書開始日",
-      "dueDateLabel": "読了目標日",
-      "remainingDaysLabel": "残日数",
-      "remainingDaysValue": "{{days}}日",
-      "lastReadingDateLabel": "直近記録日",
-      "lastReadingDateUnavailable": "記録なし",
-      "currentStreakLabel": "連続記録日数",
-      "currentStreakValue": "{{days}}日",
-      "progressLabel": "ページ進捗",
-      "progressValue": "{{current}} / {{total}}（{{rate}}）"
+      "empty": "No book registered yet",
+      "titleLabel": "Title",
+      "authorLabel": "Author",
+      "totalPagesLabel": "Total pages",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Target completion date",
+      "remainingDaysLabel": "Days remaining",
+      "remainingDaysValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "lastReadingDateLabel": "Last recorded",
+      "lastReadingDateUnavailable": "No records yet",
+      "currentStreakLabel": "Current streak",
+      "currentStreakValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "progressLabel": "Page progress",
+      "progressValue": "{{current}} / {{total}} ({{rate}})"
     },
     "status": {
       "EXAM": {
-        "DRAFT": "下書き",
-        "ACTIVE": "実行中",
-        "PAUSED": "一時停止",
-        "CLOSED_WITH_RESULT": "完了",
-        "CLOSED_WITHOUT_RESULT": "中断"
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Completed",
+        "CLOSED_WITHOUT_RESULT": "Abandoned"
       },
       "READING": {
-        "DRAFT": "下書き",
-        "ACTIVE": "実行中",
-        "PAUSED": "一時停止",
-        "CLOSED_WITH_RESULT": "読了",
-        "CLOSED_WITHOUT_RESULT": "中断"
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Finished",
+        "CLOSED_WITHOUT_RESULT": "Abandoned"
       },
       "WORK": {
-        "DRAFT": "下書き",
-        "ACTIVE": "実行中",
-        "PAUSED": "一時停止",
-        "CLOSED_WITH_RESULT": "完了",
-        "CLOSED_WITHOUT_RESULT": "中止・打ち切り"
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Completed",
+        "CLOSED_WITHOUT_RESULT": "Discontinued"
       }
     },
     "delete": {
-      "title": "目標を削除",
+      "title": "Delete goal",
       "warning": {
-        "EXAM": "この操作は取り消せません。教材・学習実績・日記など、この目標の関連データがすべて削除されます。",
-        "READING": "この操作は取り消せません。書籍・想起記録など、この読書目標の関連データがすべて削除されます。",
-        "WORK": "この操作は取り消せません。案件情報・業務記録・評価レポートなど、この案件の関連データがすべて削除されます。"
+        "EXAM": "This action cannot be undone. All related data for this goal — materials, study records, diary entries, and more — will be deleted.",
+        "READING": "This action cannot be undone. All related data for this reading goal — the book, recall records, and more — will be deleted.",
+        "WORK": "This action cannot be undone. All related data for this project — project info, work records, evaluation reports, and more — will be deleted."
       },
-      "typeNamePrompt": "確認のため、目標名「{{name}}」を入力してください",
-      "confirmButton": "削除する"
+      "typeNamePrompt": "To confirm, please type the goal name \"{{name}}\"",
+      "confirmButton": "Delete"
     },
     "end": {
       "complete": {
-        "confirmButton": "完了にする",
+        "confirmButton": "Mark as complete",
         "EXAM": {
-          "title": "完了にしますか",
-          "body": "全科目の受験結果が揃っていることを確認して完了にします。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+          "title": "Mark as complete?",
+          "body": "This marks the goal as complete, confirming that results are in for every subject. After completion it becomes read-only (you can resume to fix any mistakes)."
         },
         "READING": {
-          "title": "読了にしますか",
-          "body": "読了として記録します。出力画面へ移ります。読了レポートは出力画面の「生成する」を押したときに作られます。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+          "title": "Mark as finished?",
+          "body": "This records the book as finished and takes you to the export screen. The completion report is created when you press \"Generate\" on that screen. After completion it becomes read-only (you can resume to fix any mistakes)."
         },
         "WORK": {
-          "title": "完了にしますか",
-          "body": "案件を完了にします。完了後は読み取り専用になります（誤りは再開して修正できます）。"
+          "title": "Mark as complete?",
+          "body": "This marks the project as complete. After completion it becomes read-only (you can resume to fix any mistakes)."
         }
       },
       "abandon": {
-        "confirmButton": "中断する",
+        "confirmButton": "Abandon",
         "EXAM": {
-          "title": "中断しますか",
-          "body": "この目標を中断します。ここまでの記録は残ります。再開するまで読み取り専用になります。"
+          "title": "Abandon this goal?",
+          "body": "This abandons the goal. Your records so far are kept. It becomes read-only until you resume it."
         },
         "READING": {
-          "title": "中断しますか",
-          "body": "この読書を中断します。ここまでの記録は残ります。再開するまで読み取り専用になります。"
+          "title": "Abandon this book?",
+          "body": "This abandons this reading goal. Your records so far are kept. It becomes read-only until you resume it."
         },
         "WORK": {
-          "title": "中止・打ち切りにしますか",
-          "body": "この案件を中止・打ち切りにします。業務記録は残ります。再開するまで読み取り専用になります。"
+          "title": "Discontinue this project?",
+          "body": "This discontinues the project. Work records are kept. It becomes read-only until you resume it."
         }
       }
     },
     "resumeWarnings": {
-      "QUOTA_INCREASED": "停止前より学習量が多くなります。計画を見直すか、無理のない範囲で進めてください"
+      "QUOTA_INCREASED": "Your study volume will increase compared to before pausing. Please review your plan, or proceed at a comfortable pace"
     }
   },
   "bookshelf": {
-    "title": "本棚",
-    "empty": "読了・中断した読書目標はまだありません",
+    "title": "Bookshelf",
+    "empty": "No finished or abandoned reading goals yet",
     "shelf": {
-      "completedTitle": "読了した本",
-      "interruptedTitle": "中断した本"
+      "completedTitle": "Finished books",
+      "interruptedTitle": "Abandoned books"
     },
-    "showArchivedToggle": "しまった本を見る",
-    "archivedSectionTitle": "しまった本",
+    "showArchivedToggle": "View put-away books",
+    "archivedSectionTitle": "Put-away books",
     "book": {
       "status": {
-        "completed": "読了",
-        "interrupted": "中断"
+        "completed": "Finished",
+        "interrupted": "Abandoned"
       },
-      "archiveButton": "棚にしまう",
-      "restoreButton": "棚に戻す",
-      "deleteCompletelyButton": "完全に削除",
-      "archiveConfirm": "この本を棚からしまいますか？「しまった本を見る」からいつでも戻せます。"
+      "archiveButton": "Put away",
+      "restoreButton": "Return to shelf",
+      "deleteCompletelyButton": "Delete permanently",
+      "archiveConfirm": "Put this book away from the shelf? You can bring it back anytime from \"View put-away books.\""
     },
     "detail": {
-      "backLink": "本棚へ戻る",
-      "notReadingGoal": "この書籍情報は見つかりませんでした。",
+      "backLink": "Back to bookshelf",
+      "notReadingGoal": "This book's information could not be found.",
       "tabs": {
-        "info": "書誌情報",
-        "log": "記録",
-        "growth": "成長記述",
-        "retrospective": "振り返りレポート"
+        "info": "Bibliographic info",
+        "log": "Records",
+        "growth": "Growth notes",
+        "retrospective": "Retrospective report"
       },
       "info": {
-        "period": "読書期間",
-        "totalPages": "総ページ数",
-        "progressRate": "到達度",
-        "interruptedNote": "この本は途中で読書を中断しました。ここまでの記録も大切な積み上げです。"
+        "period": "Reading period",
+        "totalPages": "Total pages",
+        "progressRate": "Progress",
+        "interruptedNote": "You stopped reading this book partway through. What you recorded so far is still a meaningful achievement."
       }
     }
   },
   "resources": {
-    "title": "学習環境の設定",
+    "title": "Study environment settings",
     "slots": {
-      "title": "学習時間枠",
-      "empty": "登録済みの学習時間枠はありません",
-      "addTitle": "学習時間枠を追加",
-      "nameLabel": "学習時間枠名",
-      "startTimeLabel": "開始時刻",
-      "endTimeLabel": "終了時刻",
-      "environmentLabel": "環境タグ",
-      "weekdaysLabel": "適用曜日",
-      "isActiveLabel": "有効",
-      "duration": "連続時間: {{minutes}}{{minutesUnit}}（{{hours}}{{hoursUnit}}）"
+      "title": "Study time slots",
+      "empty": "No study time slots registered yet",
+      "addTitle": "Add study time slot",
+      "nameLabel": "Time slot name",
+      "startTimeLabel": "Start time",
+      "endTimeLabel": "End time",
+      "environmentLabel": "Environment tags",
+      "weekdaysLabel": "Days applied",
+      "isActiveLabel": "Enabled",
+      "duration": "Duration: {{minutes}} {{minutesUnit}} ({{hours}} {{hoursUnit}})"
     },
     "weekdays": {
-      "0": "月",
-      "1": "火",
-      "2": "水",
-      "3": "木",
-      "4": "金",
-      "5": "土",
-      "6": "日"
+      "0": "Mon",
+      "1": "Tue",
+      "2": "Wed",
+      "3": "Thu",
+      "4": "Fri",
+      "5": "Sat",
+      "6": "Sun"
     },
     "dayTypeDefaults": {
-      "title": "日種別の既定設定",
-      "plan": "計画日",
-      "buffer": "予備日",
-      "holidayTreatAsBuffer": "祝日を一律で予備日として扱う"
+      "title": "Default day type settings",
+      "plan": "Plan day",
+      "buffer": "Buffer day",
+      "holidayTreatAsBuffer": "Treat public holidays as buffer days by default"
     },
     "dayBoundaryHour": {
-      "title": "1日の境界時刻",
-      "label": "境界時刻（0〜11時）",
-      "description": "深夜まで学習する習慣がある場合、遅い時刻に設定すると深夜の学習が翌日に計上されなくなります"
+      "title": "Day boundary time",
+      "label": "Boundary hour (0–11)",
+      "description": "If you tend to study late into the night, setting a later hour prevents late-night study from being counted toward the next day"
     },
     "allocation": {
-      "title": "配分状況",
-      "byWeekday": "曜日別の総確保時間",
-      "byEnvironment": "環境タグ別の時間内訳",
-      "bySlot": "時間枠ごとの配分状況",
-      "unallocated": "未配分の残り",
-      "overCapacity": "確保時間を超過",
-      "noGoals": "配分している目標はありません"
+      "title": "Allocation status",
+      "byWeekday": "Total time secured by day of week",
+      "byEnvironment": "Time breakdown by environment tag",
+      "bySlot": "Allocation status by time slot",
+      "unallocated": "Unallocated remainder",
+      "overCapacity": "Exceeds capacity",
+      "noGoals": "No goals are allocated"
     }
   },
   "settings": {
-    "title": "設定",
+    "title": "Settings",
     "aiConnection": {
-      "title": "AI接続",
-      "hostLabel": "接続先URL（テナントホスト）",
-      "folderPrefixLabel": "フォルダ名の接頭辞",
-      "timeoutSecondsLabel": "タイムアウト（秒）",
-      "minIntervalSecondsLabel": "呼び出し間隔の下限（秒）",
+      "title": "AI connection",
+      "hostLabel": "Connection URL (tenant host)",
+      "folderPrefixLabel": "Folder name prefix",
+      "timeoutSecondsLabel": "Timeout (seconds)",
+      "minIntervalSecondsLabel": "Minimum call interval (seconds)",
       "assistant": {
-        "dailyFeedback": "日次報告フィードバック用アシスタント",
-        "dailyFeedbackReading": "日次報告フィードバック用アシスタント（読書）",
-        "dailyFeedbackWork": "日次報告フィードバック用アシスタント（仕事）",
-        "weeklySummary": "週次要約用アシスタント",
-        "weeklySummaryReading": "週次要約用アシスタント（読書）",
-        "weeklySummaryWork": "週次要約用アシスタント（仕事）",
-        "dailyMessage": "今日の一言用アシスタント",
-        "goalRetrospective": "総括レポート用アシスタント",
-        "goalRetrospectiveReading": "総括レポート用アシスタント（読書）",
-        "goalRetrospectiveWorkMonthly": "月次報告用アシスタント（仕事）",
-        "goalRetrospectiveWorkSemiannual": "半期評価用アシスタント（仕事）",
-        "evaluationReportWork": "AI評価レポート用アシスタント（仕事）",
-        "helpAssistant": "ヘルプ質問用アシスタント",
-        "loading": "アシスタント一覧を取得しています…",
-        "loadFailed": "アシスタント一覧を取得できませんでした"
+        "dailyFeedback": "Daily report feedback assistant",
+        "dailyFeedbackReading": "Daily report feedback assistant (reading)",
+        "dailyFeedbackWork": "Daily report feedback assistant (work)",
+        "weeklySummary": "Weekly summary assistant",
+        "weeklySummaryReading": "Weekly summary assistant (reading)",
+        "weeklySummaryWork": "Weekly summary assistant (work)",
+        "dailyMessage": "Today's message assistant",
+        "goalRetrospective": "Retrospective report assistant",
+        "goalRetrospectiveReading": "Retrospective report assistant (reading)",
+        "goalRetrospectiveWorkMonthly": "Monthly report assistant (work)",
+        "goalRetrospectiveWorkSemiannual": "Semiannual review assistant (work)",
+        "evaluationReportWork": "AI evaluation report assistant (work)",
+        "helpAssistant": "Help question assistant",
+        "loading": "Fetching assistant list…",
+        "loadFailed": "Could not fetch the assistant list"
       },
       "authStatus": {
-        "title": "認証状態",
-        "authenticated": "認証済み",
-        "notAuthenticated": "未認証",
-        "reauth": "接続を確認する",
-        "reauthSucceeded": "接続できました",
-        "reauthFailed": "接続できませんでした。接続先URLとアクセストークンを確認してください",
+        "title": "Authentication status",
+        "authenticated": "Authenticated",
+        "notAuthenticated": "Not authenticated",
+        "reauth": "Check connection",
+        "reauthSucceeded": "Connected successfully",
+        "reauthFailed": "Could not connect. Please check the connection URL and access token",
         "patLabel": "Personal Access Token",
-        "loginInProgress": "確認しています…"
+        "loginInProgress": "Checking…"
       },
-      "modelStatusTitle": "稼働状況",
+      "modelStatusTitle": "Status",
       "guide": {
-        "step1Title": "① NewtonX のWeb版を開く",
-        "step1LinkLabel": "NewtonX のWeb版を開く",
-        "step1HostMissing": "下の「接続先URL」を入力すると、ここにリンクが表示されます",
-        "step2Title": "② アクセストークンを発行する",
-        "step2Description": "NewtonX のWeb版にサインインし、画面右上のアカウントメニューから「アクセストークン」の発行画面を開いて、新しいトークンを発行してください。",
-        "step2ScreenshotAlt": "アクセストークン発行画面の例",
-        "step3Title": "③ 発行されたトークンを下に貼り付ける",
-        "step4Title": "④ 接続を確認する",
-        "whatIsPatTitle": "アクセストークンとは",
-        "whatIsPatDescription": "あなたの代わりにアプリがAIへ接続するための合言葉です。他の人に教えないでください"
+        "step1Title": "① Open NewtonX's web app",
+        "step1LinkLabel": "Open NewtonX's web app",
+        "step1HostMissing": "A link will appear here once you enter the \"Connection URL\" below",
+        "step2Title": "② Issue an access token",
+        "step2Description": "Sign in to NewtonX's web app, open the access token issuance screen from the account menu in the top right, and issue a new token.",
+        "step2ScreenshotAlt": "Example of the access token issuance screen",
+        "step3Title": "③ Paste the issued token below",
+        "step4Title": "④ Check the connection",
+        "whatIsPatTitle": "What is an access token?",
+        "whatIsPatDescription": "It's a passphrase that lets the app connect to the AI on your behalf. Do not share it with anyone else"
       }
     },
     "threshold": {
-      "title": "閾値",
-      "warningRatioLabel": "警告倍率（%）",
-      "replanOverrunDaysLabel": "強制リプラン超過日数"
+      "title": "Thresholds",
+      "warningRatioLabel": "Warning ratio (%)",
+      "replanOverrunDaysLabel": "Forced replan overrun days"
     },
     "promptDegradation": {
-      "title": "プロンプト縮退",
-      "maxPromptCharsLabel": "入力上限（文字数）",
-      "summaryInjectWeeksLabel": "週次要約の注入週数",
-      "perspectiveSuggestionMinRecordsLabel": "観点提案を促す確定済み記録数の閾値"
+      "title": "Prompt degradation",
+      "maxPromptCharsLabel": "Input limit (characters)",
+      "summaryInjectWeeksLabel": "Weeks of weekly summaries to inject",
+      "perspectiveSuggestionMinRecordsLabel": "Confirmed record count threshold for prompting multiple perspectives"
     },
     "display": {
-      "title": "表示",
-      "localeLabel": "言語",
+      "title": "Display",
+      "localeLabel": "Language",
       "locale": {
         "ja": "Japanese",
         "en": "English"
       },
-      "themeLabel": "テーマ",
+      "themeLabel": "Theme",
       "theme": {
-        "system": "システム設定に追随",
-        "light": "ライト",
-        "dark": "ダーク"
+        "system": "Follow system setting",
+        "light": "Light",
+        "dark": "Dark"
       },
-      "defaultGranularityLabel": "分析画面の既定粒度",
+      "defaultGranularityLabel": "Default analytics granularity",
       "granularity": {
-        "DAY": "日別",
-        "WEEK": "週別",
-        "MONTH": "月別"
+        "DAY": "Daily",
+        "WEEK": "Weekly",
+        "MONTH": "Monthly"
       },
-      "accentColorLabel": "アクセントカラー",
+      "accentColorLabel": "Accent color",
       "accentColor": {
-        "blue": "ブルー",
-        "green": "グリーン",
-        "purple": "パープル",
-        "orange": "オレンジ"
+        "blue": "Blue",
+        "green": "Green",
+        "purple": "Purple",
+        "orange": "Orange"
       },
-      "fontScaleLabel": "フォントサイズ",
+      "fontScaleLabel": "Font size",
       "fontScale": {
-        "small": "小",
-        "standard": "標準",
-        "large": "大"
+        "small": "Small",
+        "standard": "Standard",
+        "large": "Large"
       }
     },
     "promptTemplate": {
-      "title": "プロンプトテンプレート",
-      "customizedBadge": "編集済み",
-      "resetConfirm": "初期値に戻しますか？編集内容は失われます。",
+      "title": "Prompt templates",
+      "customizedBadge": "Edited",
+      "resetConfirm": "Reset to default? Your edits will be lost.",
       "purpose": {
-        "DAILY_FEEDBACK": "日次報告フィードバック",
-        "WEEKLY_SUMMARY": "週次要約",
-        "DAILY_MESSAGE": "今日の一言",
-        "GOAL_RETROSPECTIVE": "総括レポート",
-        "DAILY_FEEDBACK_READING": "日次報告フィードバック（読書）",
-        "GOAL_RETROSPECTIVE_READING": "総括レポート（読書）",
-        "WEEKLY_SUMMARY_READING": "週次要約（読書）",
-        "DAILY_FEEDBACK_WORK": "日次報告フィードバック（仕事）",
-        "GOAL_RETROSPECTIVE_WORK_MONTHLY": "月次報告（仕事）",
-        "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "半期評価（仕事）",
-        "WEEKLY_SUMMARY_WORK": "週次要約（仕事）",
-        "RECAP_CLASSIFY": "振り返り（テーマ分類）",
-        "RECAP_THEME_BODY": "振り返り（テーマ本文）",
-        "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）",
-        "HELP_ASSISTANT": "ヘルプ質問"
+        "DAILY_FEEDBACK": "Daily report feedback",
+        "WEEKLY_SUMMARY": "Weekly summary",
+        "DAILY_MESSAGE": "Today's message",
+        "GOAL_RETROSPECTIVE": "Retrospective report",
+        "DAILY_FEEDBACK_READING": "Daily report feedback (reading)",
+        "GOAL_RETROSPECTIVE_READING": "Retrospective report (reading)",
+        "WEEKLY_SUMMARY_READING": "Weekly summary (reading)",
+        "DAILY_FEEDBACK_WORK": "Daily report feedback (work)",
+        "GOAL_RETROSPECTIVE_WORK_MONTHLY": "Monthly report (work)",
+        "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "Semiannual review (work)",
+        "WEEKLY_SUMMARY_WORK": "Weekly summary (work)",
+        "RECAP_CLASSIFY": "Recap (theme classification)",
+        "RECAP_THEME_BODY": "Recap (theme body)",
+        "EVALUATION_REPORT_WORK": "AI evaluation report (work)",
+        "HELP_ASSISTANT": "Help question"
       }
     },
     "log": {
-      "title": "ログ",
-      "aiEnabledLabel": "AI通信ログの保存",
-      "retentionDaysLabel": "ログ保持期間（日）"
+      "title": "Logs",
+      "aiEnabledLabel": "Save AI communication logs",
+      "retentionDaysLabel": "Log retention period (days)"
     },
-    "resourcesLink": "学習環境の設定へ",
-    "dataManagementLink": "データ管理へ",
-    "systemInfoLink": "システム情報へ",
+    "resourcesLink": "Go to study environment settings",
+    "dataManagementLink": "Go to data management",
+    "systemInfoLink": "Go to system info",
     "desktop": {
-      "title": "デスクトップ・通知",
-      "description": "画面の開き方と、記録のリマインドを設定します。",
-      "openBrowserLabel": "起動時にブラウザで画面を開く",
-      "openBrowserHelp": "オフにすると、通知領域のアイコンから手動で開きます。",
-      "launchAtLoginLabel": "Windows 起動時に自動で起動する",
-      "launchAtLoginHelp": "オンにすると、サインインしたときにミチナリが通知領域で待機します。",
-      "notificationEnabledLabel": "記録リマインドの通知を出す",
-      "notificationTimeLabel": "通知する時刻",
-      "notificationHelp": "その日の記録がまだのときだけ通知します。記録済みの日と、カレンダーで除外日にした日は通知しません。",
-      "notificationTimeInvalid": "通知する時刻は 00:00 〜 23:59 の形式で入力してください。"
+      "title": "Desktop & notifications",
+      "description": "Set how the window opens and how recording reminders work.",
+      "openBrowserLabel": "Open the browser window on startup",
+      "openBrowserHelp": "If off, open it manually from the tray icon.",
+      "launchAtLoginLabel": "Launch automatically at Windows startup",
+      "launchAtLoginHelp": "If on, Michinari waits in the tray when you sign in.",
+      "notificationEnabledLabel": "Send recording reminder notifications",
+      "notificationTimeLabel": "Notification time",
+      "notificationHelp": "Notifies you only if that day's record isn't done yet. No notification on days already recorded or marked as excluded on the calendar.",
+      "notificationTimeInvalid": "Please enter the notification time in the format 00:00–23:59."
     }
   },
   "desktop": {
     "tray": {
-      "tooltip": "ミチナリ",
-      "open": "ミチナリを開く",
-      "quit": "終了"
+      "tooltip": "Michinari",
+      "open": "Open Michinari",
+      "quit": "Quit"
     },
     "notification": {
-      "sourceName": "ミチナリ",
+      "sourceName": "Michinari",
       "plan": {
-        "title": "今日の記録はまだです",
-        "body": "3分で終わります"
+        "title": "You haven't recorded today yet",
+        "body": "It only takes 3 minutes"
       },
       "buffer": {
-        "title": "今日はお休みの日です",
-        "body": "記録するなら短くて大丈夫です"
+        "title": "Today is a rest day",
+        "body": "A short note is fine if you'd like to record anything"
       }
     },
     "startupError": {
-      "title": "ミチナリを起動できませんでした",
-      "body": "起動中に問題が発生しました。\n\n{{detail}}\n\n詳しい記録は次の場所にあります。\n{{logPath}}",
-      "serverStartFailed": "アプリを起動できませんでした。すでにミチナリが起動している可能性があります。通知領域のアイコンを確認してください。",
-      "serverNotResponding": "アプリの準備が時間内に終わりませんでした。パソコンを再起動してから、もう一度お試しください。"
+      "title": "Michinari could not start",
+      "body": "A problem occurred during startup.\n\n{{detail}}\n\nDetailed logs are located at:\n{{logPath}}",
+      "serverStartFailed": "The app could not start. Michinari may already be running. Please check the tray icon.",
+      "serverNotResponding": "The app did not finish starting in time. Please restart your computer and try again."
     }
   },
   "systemInfo": {
-    "title": "システム情報",
-    "appVersionLabel": "アプリバージョン",
-    "pythonVersionLabel": "Pythonバージョン",
-    "builtAtLabel": "ビルド日時",
-    "builtAtDev": "開発環境で実行中",
-    "backendLibrariesTitle": "バックエンドライブラリ",
-    "frontendLibrariesTitle": "フロントエンドライブラリ",
-    "libraryNameLabel": "ライブラリ名",
-    "libraryVersionLabel": "バージョン",
+    "title": "System info",
+    "appVersionLabel": "App version",
+    "pythonVersionLabel": "Python version",
+    "builtAtLabel": "Build date",
+    "builtAtDev": "Running in development environment",
+    "backendLibrariesTitle": "Backend libraries",
+    "frontendLibrariesTitle": "Frontend libraries",
+    "libraryNameLabel": "Library name",
+    "libraryVersionLabel": "Version",
     "logExport": {
-      "title": "診断ログの取得",
-      "description": "エラーが起きたときの操作を追跡するためのログです。期間を選んでダウンロードし、サポートへ共有できます",
+      "title": "Get diagnostic logs",
+      "description": "Logs for tracing what happened when an error occurred. Choose a period, download it, and share it with support",
       "presets": {
-        "today": "当日",
-        "last3Days": "過去3日",
-        "last7Days": "過去7日"
+        "today": "Today",
+        "last3Days": "Last 3 days",
+        "last7Days": "Last 7 days"
       },
-      "fromLabel": "開始日",
-      "toLabel": "終了日",
-      "downloadButton": "ログをダウンロード",
-      "downloadSucceeded": "ログをダウンロードしました"
+      "fromLabel": "Start date",
+      "toLabel": "End date",
+      "downloadButton": "Download logs",
+      "downloadSucceeded": "Logs downloaded"
     }
   },
   "dataManagement": {
-    "title": "データ管理",
-    "export": "エクスポート",
-    "exportSucceeded": "データベースファイルをダウンロードしました",
-    "import": "インポート",
-    "importConfirm": "既存のデータを上書きしてインポートします。よろしいですか？",
-    "importSucceeded": "インポートしました。画面を再読み込みします",
-    "backup": "バックアップを作成",
-    "backupSucceeded": "バックアップを作成しました",
+    "title": "Data management",
+    "export": "Export",
+    "exportSucceeded": "Downloaded the database file",
+    "import": "Import",
+    "importConfirm": "This will overwrite existing data on import. Are you sure?",
+    "importSucceeded": "Imported. Reloading the page",
+    "backup": "Create backup",
+    "backupSucceeded": "Backup created",
     "backups": {
-      "title": "バックアップ一覧",
-      "empty": "バックアップはありません",
-      "createdAtLabel": "作成日時",
-      "sizeLabel": "サイズ",
-      "restore": "復元",
-      "restoreConfirm": "このバックアップの内容で現在のデータを上書きします。よろしいですか？",
-      "restoreSucceeded": "復元しました。画面を再読み込みします"
+      "title": "Backups",
+      "empty": "No backups yet",
+      "createdAtLabel": "Created at",
+      "sizeLabel": "Size",
+      "restore": "Restore",
+      "restoreConfirm": "This will overwrite your current data with this backup's content. Are you sure?",
+      "restoreSucceeded": "Restored. Reloading the page"
     }
   },
   "goalResult": {
-    "title": "受験結果登録（{{name}}）",
-    "backToGoal": "目標詳細へ戻る",
-    "empty": "登録済みの試験科目はありません",
-    "resultLabel": "合否",
+    "title": "Register exam results ({{name}})",
+    "backToGoal": "Back to goal details",
+    "empty": "No exam subjects registered yet",
+    "resultLabel": "Result",
     "result": {
-      "PASS": "合格",
-      "FAIL": "不合格",
-      "PENDING": "未判定"
+      "PASS": "Pass",
+      "FAIL": "Fail",
+      "PENDING": "Pending"
     },
-    "takenDateLabel": "受験日",
-    "scoreLabel": "得点",
-    "evaluationLabel": "評価",
-    "noteLabel": "所感",
-    "registerButton": "登録する",
-    "editButton": "編集する",
-    "registeredBadge": "登録済み"
+    "takenDateLabel": "Exam date",
+    "scoreLabel": "Score",
+    "evaluationLabel": "Evaluation",
+    "noteLabel": "Notes",
+    "registerButton": "Register",
+    "editButton": "Edit",
+    "registeredBadge": "Registered"
   },
   "knowledgeExport": {
-    "title": "ナレッジエクスポート（{{name}}）",
-    "backToGoal": "目標一覧へ戻る",
+    "title": "Knowledge export ({{name}})",
+    "backToGoal": "Back to goal list",
     "retrospective": {
-      "title": "総括レポート",
-      "readingTitle": "読了レポート",
-      "workTitle": "月次報告・半期評価",
-      "workNotice": "月次報告・半期評価の生成・確認・修正は、目標詳細画面の「月次報告」「半期評価」タブから行ってください。この画面ではプレビュー・エクスポートの内容に含まれます。",
-      "empty": "総括レポートは未生成です",
-      "readingEmpty": "読了レポートは未生成です",
-      "generateButton": "生成する",
-      "regenerateButton": "再生成する",
-      "generating": "生成しています…（数十秒かかる場合があります）",
-      "requiresCompletedHint": "完了した目標のみ生成できます。完了した後、この画面の「生成する」から作成してください"
+      "title": "Retrospective report",
+      "readingTitle": "Completion report",
+      "workTitle": "Monthly report / semiannual review",
+      "workNotice": "Please generate, review, and edit the monthly report / semiannual review from the \"Monthly report\" / \"Semiannual review\" tabs on the goal details screen. This screen only includes them in the preview/export content.",
+      "empty": "The retrospective report has not been generated yet",
+      "readingEmpty": "The completion report has not been generated yet",
+      "generateButton": "Generate",
+      "regenerateButton": "Regenerate",
+      "generating": "Generating… (this may take tens of seconds)",
+      "requiresCompletedHint": "Only completed goals can generate this. Once completed, create it using \"Generate\" on this screen"
     },
     "summary": {
-      "title": "学習サマリ",
-      "totalHours": "総投下時間",
-      "studyDays": "学習日数",
-      "reportRate": "報告率",
-      "replanCount": "リプラン回数",
-      "latestQuality": "最終到達品質",
-      "unavailable": "算出不可",
-      "readingTitle": "読書サマリ",
-      "workTitle": "業務記録サマリ",
-      "recordDays": "記録日数",
-      "maxStreakDays": "最長連続記録日数"
+      "title": "Study summary",
+      "totalHours": "Total time spent",
+      "studyDays": "Days studied",
+      "reportRate": "Report rate",
+      "replanCount": "Replan count",
+      "latestQuality": "Latest quality achieved",
+      "unavailable": "Unavailable",
+      "readingTitle": "Reading summary",
+      "workTitle": "Work record summary",
+      "recordDays": "Days recorded",
+      "maxStreakDays": "Longest streak (days)"
     },
     "selection": {
-      "title": "出力項目選択",
-      "goalOverview": "目標概要",
-      "materials": "教材構成",
-      "summary": "学習量サマリ",
-      "readingSummary": "読書サマリ",
-      "workSummary": "業務記録サマリ",
-      "dailyRecords": "実績推移",
-      "readingDailyRecords": "日別の想起記録",
-      "workDailyRecords": "日別の業務記録",
-      "qualityTrend": "品質指標推移",
-      "replanHistory": "リプラン履歴",
-      "weeklySummaries": "週次要約",
-      "diary": "日記本文",
-      "aiDialogue": "AI対話履歴",
-      "examResults": "受験結果",
-      "retrospective": "総括レポート",
-      "readingRetrospective": "読了レポート",
-      "workRetrospective": "月次報告・半期評価",
-      "recapThemes": "振り返りテーマ（テーマ別の累積本文）"
+      "title": "Select export items",
+      "goalOverview": "Goal overview",
+      "materials": "Material composition",
+      "summary": "Study volume summary",
+      "readingSummary": "Reading summary",
+      "workSummary": "Work record summary",
+      "dailyRecords": "Progress history",
+      "readingDailyRecords": "Daily recall records",
+      "workDailyRecords": "Daily work records",
+      "qualityTrend": "Quality metric trend",
+      "replanHistory": "Replan history",
+      "weeklySummaries": "Weekly summaries",
+      "diary": "Diary entries",
+      "aiDialogue": "AI dialogue history",
+      "examResults": "Exam results",
+      "retrospective": "Retrospective report",
+      "readingRetrospective": "Completion report",
+      "workRetrospective": "Monthly report / semiannual review",
+      "recapThemes": "Recap themes (cumulative body text by theme)"
     },
     "anonymize": {
-      "label": "匿名化する",
-      "description": "有効にすると日記本文を除外し、週次要約・総括レポートを匿名化版として再生成します",
-      "readingDescription": "有効にすると想起記録を除外し、読了レポートを匿名化版として再生成します",
-      "workDescription": "有効にすると業務記録を除外し、月次報告・半期評価を匿名化版として再生成します"
+      "label": "Anonymize",
+      "description": "When enabled, diary entries are excluded and the weekly summaries / retrospective report are regenerated as an anonymized version",
+      "readingDescription": "When enabled, recall records are excluded and the completion report is regenerated as an anonymized version",
+      "workDescription": "When enabled, work records are excluded and the monthly report / semiannual review are regenerated as an anonymized version"
     },
-    "previewButton": "プレビュー",
-    "previewTitle": "プレビュー",
-    "exportButton": "ファイルを出力する",
-    "exportSucceeded": "エクスポートしました",
-    "exportProgress": "匿名化した週次要約・総括レポートを生成しています（{{completed}} / {{total}}）…",
+    "previewButton": "Preview",
+    "previewTitle": "Preview",
+    "exportButton": "Export file",
+    "exportSucceeded": "Exported",
+    "exportProgress": "Generating anonymized weekly summaries / retrospective report ({{completed}} / {{total}})…",
     "exportedPaths": {
       "markdown": "Markdown: {{path}}",
       "json": "JSON: {{path}}"
     }
   },
   "calendar": {
-    "title": "カレンダー",
-    "prevMonth": "前月",
-    "nextMonth": "翌月",
+    "title": "Calendar",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
     "weekday": {
-      "0": "日",
-      "1": "月",
-      "2": "火",
-      "3": "水",
-      "4": "木",
-      "5": "金",
-      "6": "土"
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
     },
     "marker": {
-      "unreported": "未入力",
-      "progressOnly": "進捗のみ登録済",
-      "reported": "報告済"
+      "unreported": "Not entered",
+      "progressOnly": "Progress only",
+      "reported": "Reported"
     },
     "auxiliaryMarker": {
-      "EXAM_DATE": "受験日",
-      "EXAM_PERIOD": "受験期間",
-      "LOAD_ADJUSTED": "負荷調整中"
+      "EXAM_DATE": "Exam date",
+      "EXAM_PERIOD": "Exam period",
+      "LOAD_ADJUSTED": "Load adjusted"
     },
-    "editDayTypeLink": "日種別変更",
+    "editDayTypeLink": "Change day type",
     "dayType": {
-      "PLAN": "計画日",
-      "BUFFER": "予備日",
-      "OFF": "除外日"
+      "PLAN": "Plan day",
+      "BUFFER": "Buffer day",
+      "OFF": "Excluded day"
     },
     "dayTypeModal": {
-      "title": "日種別の変更",
-      "targetDateLabel": "対象日",
-      "clearOverride": "個別指定を解除（既定値に戻す）"
+      "title": "Change day type",
+      "targetDateLabel": "Target date",
+      "clearOverride": "Clear override (revert to default)"
     },
     "choiceModal": {
-      "title": "登録方法の選択",
-      "report": "日次報告",
-      "progressOnly": "進捗のみ登録"
+      "title": "Choose how to register",
+      "report": "Daily report",
+      "progressOnly": "Progress only"
     }
   },
   "dailyReport": {
-    "title": "日次報告（{{date}}）",
-    "estimatedDuration": "3分で終わります",
-    "voiceInputHint": "Windowsキー + H で音声入力できます",
-    "questionAnswerPlaceholder": "（任意）",
+    "title": "Daily report ({{date}})",
+    "estimatedDuration": "Takes 3 minutes",
+    "voiceInputHint": "You can use voice input with Windows key + H",
+    "questionAnswerPlaceholder": "(optional)",
     "zeroRecord": {
-      "button": "今日は何もしていない",
-      "confirmTitle": "今日を「何もしていない日」として記録しますか？",
-      "confirmBody": "実績や記述は空のまま、その日を記録済みとして確定します。この操作は取り消せません。",
-      "confirmSubmit": "記録する",
-      "confirmCancel": "キャンセル",
-      "planDayMessage": "記録しました。明日また開いてください",
-      "restDayMessage": "今日はお休みの日です。休むことも計画のうちです"
+      "button": "I didn't do anything today",
+      "confirmTitle": "Record today as a \"did nothing\" day?",
+      "confirmBody": "This finalizes the day as recorded, leaving results and notes empty. This action cannot be undone.",
+      "confirmSubmit": "Record",
+      "confirmCancel": "Cancel",
+      "planDayMessage": "Recorded. See you again tomorrow",
+      "restDayMessage": "Today is a rest day. Resting is part of the plan too"
     },
     "previousEntry": {
-      "label": "前回はこう書いていました",
-      "expand": "全文を表示",
-      "collapse": "閉じる"
+      "label": "Here's what you wrote last time",
+      "expand": "Show full text",
+      "collapse": "Collapse"
     },
     "studyLog": {
-      "title": "実績入力",
-      "empty": "本日対象の教材はありません",
-      "cycleLabel": "{{current}}周目 / 全{{planned}}周",
-      "quotaLabel": "本日の目標: {{quota}}{{unit}}",
-      "amountLabel": "完了分量（{{unit}}）",
-      "cycleNumberLabel": "周回",
+      "title": "Enter results",
+      "empty": "No materials are scheduled for today",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "quotaLabel": "Today's target: {{quota}} {{unit}}",
+      "amountLabel": "Amount completed ({{unit}})",
+      "cycleNumberLabel": "Cycle",
       "qualityShortLabel": {
-        "PERCENT": "正答率",
-        "SUBJECTIVE_SCALE": "手応え"
+        "PERCENT": "Accuracy",
+        "SUBJECTIVE_SCALE": "Confidence"
       },
-      "qualityUnselected": "選択してください",
+      "qualityUnselected": "Please select",
       "subjectiveScale": {
-        "1": "1: とても悪い",
-        "2": "2: 悪い",
-        "3": "3: 普通",
-        "4": "4: 良い",
-        "5": "5: とても良い"
+        "1": "1: Very poor",
+        "2": "2: Poor",
+        "3": "3: Average",
+        "4": "4: Good",
+        "5": "5: Very good"
       },
-      "finalizeButton": "資格勉強の報告を確定する",
-      "slotMinutesLabel": "時間枠ごとの投下時間",
-      "slotMinutesTotal": "投下時間の合計: {{minutes}}分",
-      "noAllocatedSlots": "本日に該当する配分済みの時間枠はありません",
-      "addSlotLabel": "他の時間枠を追加",
-      "addSlotPlaceholder": "選択してください"
+      "finalizeButton": "Finalize study report",
+      "slotMinutesLabel": "Time spent by time slot",
+      "slotMinutesTotal": {
+        "one": "Total time: {{minutes}} minute",
+        "other": "Total time: {{minutes}} minutes"
+      },
+      "noAllocatedSlots": "No allocated time slots apply to today",
+      "addSlotLabel": "Add another time slot",
+      "addSlotPlaceholder": "Please select"
     },
     "diary": {
-      "bodyLabel": "以前の日記本文",
-      "learnedLabel": "今日学んだこと・理解したこと",
-      "learnedPlaceholder": "例: 印象に残った問題や概念、詰まったところ、理解できたことをそのまま書いてください。振り返りでテーマごとにまとめて表示されます"
+      "bodyLabel": "Previous diary entry",
+      "learnedLabel": "What you learned / understood today",
+      "learnedPlaceholder": "e.g. Write down any problems or concepts that stood out, where you got stuck, or what you came to understand. These will be summarized by theme in your recap"
     },
     "chat": {
-      "title": "AI対話",
-      "empty": "まだ対話はありません",
-      "startButton": "実績・日記を送信してAIフィードバックを受け取る",
-      "inputPlaceholder": "AIへのメッセージを入力",
-      "sendButton": "送信",
-      "truncatedNotice": "プロンプトが長すぎたため、一部の情報を省略して送信しました",
-      "contextCategoriesSummary": "AIが参照した情報",
+      "title": "AI dialogue",
+      "empty": "No dialogue yet",
+      "startButton": "Send your results and diary to get AI feedback",
+      "inputPlaceholder": "Type a message to the AI",
+      "sendButton": "Send",
+      "truncatedNotice": "The prompt was too long, so some information was omitted before sending",
+      "contextCategoriesSummary": "Information the AI referenced",
       "contextCategories": {
-        "GOAL_INFO": "目標情報",
-        "TODAY_RECORD": "本日の記録",
-        "WEEKLY_SUMMARY": "週次要約",
-        "MATERIAL_PROGRESS": "教材の進捗"
+        "GOAL_INFO": "Goal info",
+        "TODAY_RECORD": "Today's record",
+        "WEEKLY_SUMMARY": "Weekly summary",
+        "MATERIAL_PROGRESS": "Material progress"
       },
-      "privacyNotice": "送信されるのはこのPCの中の記録だけです。外部に保存されることはありません"
+      "privacyNotice": "Only records on this PC are sent. Nothing is stored externally"
     },
     "readingLog": {
-      "title": "想起の記録",
-      "remainingDays": "読了目標まで残り{{days}}日",
-      "recallLabel": "自由に書く",
-      "recallPlaceholder": "例: 今日はどこまで読みましたか。印象に残ったことは何ですか",
-      "currentPageLabel": "現在ページ（全{{total}}ページ）",
-      "finalizeButton": "読書の報告を確定する",
-      "slotMinutesLabel": "時間枠ごとの読書時間",
-      "question1": "今日読んだ中で心に残った箇所は？",
-      "question2": "自分の仕事や生活とつながると感じたことは？"
+      "title": "Recall record",
+      "remainingDays": {
+        "one": "{{days}} day until your reading goal",
+        "other": "{{days}} days until your reading goal"
+      },
+      "recallLabel": "Write freely",
+      "recallPlaceholder": "e.g. How far did you read today? What stood out to you?",
+      "currentPageLabel": "Current page (of {{total}} pages)",
+      "finalizeButton": "Finalize reading report",
+      "slotMinutesLabel": "Reading time by time slot",
+      "question1": "What part of today's reading stuck with you?",
+      "question2": "What felt connected to your work or life?"
     },
     "readingChat": {
-      "title": "AI対話（読書）",
-      "startButton": "想起を送信してAIフィードバックを受け取る"
+      "title": "AI dialogue (reading)",
+      "startButton": "Send your recall notes to get AI feedback"
     },
     "workLog": {
-      "title": "業務内容の記録",
-      "noClientName": "取引先未登録",
-      "bodyLabel": "自由に書く",
-      "bodyPlaceholder": "例: 今日はどのような業務に取り組みましたか",
-      "finalizeButton": "仕事の報告を確定する",
-      "question1": "今日いちばん時間を使ったことは？",
-      "question2": "気になっているが手をつけていないことは？"
+      "title": "Work content record",
+      "noClientName": "No client registered",
+      "bodyLabel": "Write freely",
+      "bodyPlaceholder": "e.g. What kind of work did you do today?",
+      "finalizeButton": "Finalize work report",
+      "question1": "What took up most of your time today?",
+      "question2": "What's on your mind but you haven't gotten to yet?"
     },
     "workChat": {
-      "title": "AI対話（仕事）",
-      "startButton": "業務内容を送信してAIフィードバックを受け取る"
+      "title": "AI dialogue (work)",
+      "startButton": "Send your work content to get AI feedback"
     },
     "workMember": {
-      "title": "チームメンバー（{{workName}}）"
+      "title": "Team members ({{workName}})"
     },
-    "confirmedBadge": "確定済み",
-    "minutesOptionalNotice": "投下時間は未入力にできます（時間枠の欄をすべて空欄にする）。未入力の場合、当該日は実効速度の算出対象から除外されます"
+    "confirmedBadge": "Finalized",
+    "minutesOptionalNotice": "You can leave time spent blank (leave every time slot field empty). If left blank, that day is excluded from effective speed calculations"
   },
   "progressOnly": {
-    "title": "進捗のみ登録（{{date}}）",
+    "title": "Progress only ({{date}})",
     "studyLog": {
-      "title": "実績入力"
+      "title": "Enter results"
     },
     "readingLog": {
-      "title": "想起の記録"
+      "title": "Recall record"
     },
     "workLog": {
-      "title": "業務内容の記録"
+      "title": "Work content record"
     },
-    "minutesOptionalNotice": "投下時間は未入力にできます。未入力の場合、当該日は実効速度の算出対象から除外されます",
-    "registerButton": "登録する"
+    "minutesOptionalNotice": "You can leave time spent blank. If left blank, that day is excluded from effective speed calculations",
+    "registerButton": "Register"
   },
   "dailyReportView": {
-    "title": "日次報告閲覧（{{date}}）",
+    "title": "View daily report ({{date}})",
     "studyLog": {
-      "title": "実績",
-      "empty": "実績の登録はありません",
-      "unknownMaterial": "教材ID: {{id}}",
-      "minutes": "投下時間",
-      "minutesUnavailable": "未入力",
-      "amount": "完了分量",
-      "cycle": "周回",
-      "qualityLabel": "品質指標",
-      "slotMinutes": "時間枠別内訳",
-      "slotUnknown": "削除済みの時間枠"
+      "title": "Results",
+      "empty": "No results registered",
+      "unknownMaterial": "Material ID: {{id}}",
+      "minutes": "Time spent",
+      "minutesUnavailable": "Not entered",
+      "amount": "Amount completed",
+      "cycle": "Cycle",
+      "qualityLabel": "Quality metric",
+      "slotMinutes": "Breakdown by time slot",
+      "slotUnknown": "Deleted time slot"
     },
     "diary": {
-      "title": "日記"
+      "title": "Diary"
     },
     "chatHistory": {
-      "title": "AI対話履歴"
+      "title": "AI dialogue history"
     },
     "readingLog": {
-      "title": "想起の記録",
-      "unknownBook": "書籍ID: {{id}}",
-      "currentPage": "現在ページ"
+      "title": "Recall record",
+      "unknownBook": "Book ID: {{id}}",
+      "currentPage": "Current page"
     },
     "readingChatHistory": {
-      "title": "AI対話履歴（読書）"
+      "title": "AI dialogue history (reading)"
     },
     "workLog": {
-      "title": "業務内容の記録",
-      "unknownAssignment": "案件ID: {{id}}"
+      "title": "Work content record",
+      "unknownAssignment": "Project ID: {{id}}"
     },
     "workChatHistory": {
-      "title": "AI対話履歴（仕事）"
+      "title": "AI dialogue history (work)"
     },
     "comments": {
-      "title": "コメント",
-      "empty": "コメントはありません",
-      "newPlaceholder": "コメントを入力",
-      "addButton": "追加"
+      "title": "Comments",
+      "empty": "No comments",
+      "newPlaceholder": "Enter a comment",
+      "addButton": "Add"
     }
   },
   "analytics": {
-    "title": "分析",
-    "showArchivedToggle": "アーカイブ済みを表示",
+    "title": "Analytics",
+    "showArchivedToggle": "Show archived",
     "goalSelector": {
-      "empty": "登録済みの目標がありません"
+      "empty": "No goals registered"
     },
     "tabs": {
-      "quality": "品質推移",
-      "progress": "進捗",
-      "forecast": "完了予測",
-      "speed": "実効速度",
-      "gantt": "ガントチャート",
-      "replanHistory": "リプラン履歴",
-      "growthDescription": "成長記述",
-      "readingLog": "読書記録",
-      "workLog": "業務記録"
+      "quality": "Quality trend",
+      "progress": "Progress",
+      "forecast": "Forecast",
+      "speed": "Effective speed",
+      "gantt": "Gantt chart",
+      "replanHistory": "Replan history",
+      "growthDescription": "Growth notes",
+      "readingLog": "Reading log",
+      "workLog": "Work log"
     },
-    "materialEmpty": "この目標には有効な教材がありません",
+    "materialEmpty": "This goal has no active materials",
     "quality": {
-      "granularityLabel": "粒度",
-      "passingScoreLegend": "合格基準線",
-      "cycleLegend": "{{cycle}}周目",
-      "noData": "品質指標の記録がありません"
+      "granularityLabel": "Granularity",
+      "passingScoreLegend": "Passing criteria line",
+      "cycleLegend": "Cycle {{cycle}}",
+      "noData": "No quality metric records"
     },
     "progress": {
-      "actualLegend": "実績",
-      "planLegend": "計画線",
-      "cycleBoundaryLabel": "{{cycle}}周目完了",
-      "unitTotalWork": "総作業量: {{total}}{{unit}}"
+      "actualLegend": "Actual",
+      "planLegend": "Plan line",
+      "cycleBoundaryLabel": "Cycle {{cycle}} complete",
+      "unitTotalWork": "Total work: {{total}} {{unit}}"
     },
     "forecast": {
-      "materialHeader": "教材",
-      "dueDateHeader": "締切",
-      "forecastDateHeader": "完了予測日",
-      "deviationHeader": "乖離",
-      "deviationDays": "{{days}}日",
-      "onTrack": "順調",
+      "materialHeader": "Material",
+      "dueDateHeader": "Due date",
+      "forecastDateHeader": "Forecast completion date",
+      "deviationHeader": "Deviation",
+      "deviationDays": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "onTrack": "On track",
       "unavailable": {
-        "NO_SPEED_DATA": "実績不足のため算出不可",
-        "ITERATION_LIMIT_EXCEEDED": "大幅超過（算出打ち切り）"
+        "NO_SPEED_DATA": "Unavailable due to insufficient records",
+        "ITERATION_LIMIT_EXCEEDED": "Significantly overrun (calculation aborted)"
       }
     },
     "speed": {
-      "cycleLegend": "{{cycle}}周目",
-      "unitPerHour": "/時間",
-      "noData": "実効速度の記録がありません"
+      "cycleLegend": "Cycle {{cycle}}",
+      "unitPerHour": "/hour",
+      "noData": "No effective speed records"
     },
     "gantt": {
-      "todayLabel": "本日",
-      "empty": "有効な教材がありません"
+      "todayLabel": "Today",
+      "empty": "No active materials"
     },
     "replanHistory": {
-      "empty": "リプラン履歴はありません",
-      "materialHeader": "教材",
-      "dateHeader": "日時",
-      "reasonHeader": "契機",
-      "quotaBeforeHeader": "変更前ノルマ",
-      "quotaAfterHeader": "変更後ノルマ",
+      "empty": "No replan history",
+      "materialHeader": "Material",
+      "dateHeader": "Date",
+      "reasonHeader": "Reason",
+      "quotaBeforeHeader": "Quota before",
+      "quotaAfterHeader": "Quota after",
       "reason": {
-        "INITIAL": "初回設定",
-        "REPLAN": "リプラン",
-        "EXAM_DATE_FIXED": "受験日確定",
-        "MATERIAL_CHANGED": "教材変更",
-        "CYCLE_CHANGED": "周回数変更"
+        "INITIAL": "Initial setup",
+        "REPLAN": "Replan",
+        "EXAM_DATE_FIXED": "Exam date fixed",
+        "MATERIAL_CHANGED": "Material changed",
+        "CYCLE_CHANGED": "Cycle count changed"
       }
     },
     "growthDescription": {
-      "empty": "AIによる日次報告フィードバックの履歴はまだありません",
-      "unassignedLabel": "未割り当て（移行前の記録）",
-      "assignPlaceholder": "目標を選択",
-      "assignButton": "この目標に割り当てる"
+      "empty": "No AI daily report feedback history yet",
+      "unassignedLabel": "Unassigned (records from before migration)",
+      "assignPlaceholder": "Select a goal",
+      "assignButton": "Assign to this goal"
     },
     "readingLog": {
-      "empty": "想起記録はまだありません",
-      "currentPageLabel": "現在ページ: {{page}}"
+      "empty": "No recall records yet",
+      "currentPageLabel": "Current page: {{page}}"
     },
     "workLog": {
-      "empty": "業務記録はまだありません"
+      "empty": "No work records yet"
     }
   },
   "helpAssistant": {
-    "launcherLabel": "ヘルプに質問する",
-    "title": "ヘルプに質問する",
-    "placeholder": "アプリの使い方を質問してください（例：目標は何種類ありますか？）",
-    "send": "送信",
-    "sending": "回答を作成しています…",
-    "close": "閉じる",
-    "disclaimer": "AIの回答は誤る場合があります。詳細はヘルプ画面で確認してください。",
-    "helpLink": "ヘルプ画面を開く",
-    "sectionsLabel": "出典",
-    "empty": "質問を入力してください",
-    "tooLong": "質問は{{max}}字以内で入力してください",
-    "notFound": "ヘルプには記載が見当たりませんでした。質問の言い換えや、ヘルプ画面の目次・キーワード検索もご利用ください。",
-    "unavailable": "この質問には回答できません。別の表現でお試しください。",
-    "authRequired": "AI機能の接続が必要です。設定画面でAI接続を行うと、ヘルプへの質問が使えます。",
-    "error": "回答を取得できませんでした。時間をおいて再試行してください。",
-    "userLabel": "あなた",
-    "assistantLabel": "アシスタント"
+    "launcherLabel": "Ask a help question",
+    "title": "Ask a help question",
+    "placeholder": "Ask how to use the app (e.g. How many goal types are there?)",
+    "send": "Send",
+    "sending": "Composing an answer…",
+    "close": "Close",
+    "disclaimer": "The AI's answer may be incorrect. See the Help screen for details.",
+    "helpLink": "Open the Help screen",
+    "sectionsLabel": "Sources",
+    "empty": "Please enter a question",
+    "tooLong": {
+      "one": "Please limit your question to {{max}} character or fewer",
+      "other": "Please limit your question to {{max}} characters or fewer"
+    },
+    "notFound": "Nothing relevant was found in the help content. Try rephrasing your question, or use the Help screen's table of contents or keyword search.",
+    "unavailable": "This question can't be answered. Please try a different phrasing.",
+    "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to ask help questions.",
+    "error": "Could not get an answer. Please try again later.",
+    "userLabel": "You",
+    "assistantLabel": "Assistant"
   },
   "help": {
-    "title": "ヘルプ",
-    "subtitle": "画面の使い方をここに集約しています。目次または検索でお探しの項目へ移動してください。",
-    "tocTitle": "目次",
-    "searchLabel": "キーワード検索",
-    "searchPlaceholder": "例: プレースホルダー、Host、バックアップ",
-    "searchNoResults": "該当する項目が見つかりませんでした",
+    "title": "Help",
+    "subtitle": "Instructions for using each screen are gathered here. Use the table of contents or search to jump to what you need.",
+    "tocTitle": "Table of contents",
+    "searchLabel": "Keyword search",
+    "searchPlaceholder": "e.g. placeholder, Host, backup",
+    "searchNoResults": "No matching items found",
     "sections": {
       "intro": {
-        "title": "はじめに：ミチナリの使い方の流れ",
-        "p1": "ミチナリは、資格試験合格までの学習計画を立て、日々の実績を記録しながら計画を継続的に見直していくためのアプリです。",
-        "p2": "基本的な使い方の流れは次の通りです。①「目標一覧」で試験目標を作成する ②学習環境の設定で学習可能な時間枠を登録する ③目標詳細画面で試験科目・教材・負荷プロファイル・リソース配分（時間枠ごとの配分時間）を設定する ④毎日、ダッシュボードから「本日の報告」を行う ⑤カレンダーや分析画面で進捗を確認する ⑥受験結果を登録し、目標をクローズしてナレッジエクスポート（総括レポート）を出力する。リソース配分は時間枠の登録が前提となるため、先に学習環境を設定してください。",
-        "p3": "各画面の詳しい操作方法は、下の目次または検索から該当セクションを開いてください。"
+        "title": "Getting started: how Michinari works",
+        "p1": "Michinari is an app for planning your study toward a certification exam, recording your daily results, and continuously revising your plan.",
+        "p2": "The basic flow is as follows: ① Create a goal from \"Goals\" (type: certification exam, reading, or work) ② Register available study time slots in the study environment settings (used for certification exam and reading resource allocation) ③ Set up the fields for your goal's type on the goal details screen ④ Submit \"Today's report\" from the dashboard every day ⑤ Check your progress on the calendar or analytics screen ⑥ For certification exams, register your exam results, complete the goal, and export your knowledge; for reading, mark it as finished and export the completion report; for work, mark it as complete.",
+        "p3": "For detailed instructions on each screen, open the relevant section from the table of contents or search below."
       },
       "dashboard": {
-        "title": "ダッシュボード（起動時の画面）",
-        "p1": "アプリを開くと最初に表示される画面です。「今日の一言」（AIが生成する短いメッセージ）、本日の状態（未入力／進捗のみ登録済／報告済）、本日のノルマ、警告バナー、目標カード、統計サマリ（連続報告日数・直近の報告率・予備日消費率・実効速度）が表示されます。",
-        "p2": "「本日の報告」ボタンから日次報告画面に進めます。警告バナーや目標カードをクリックすると、該当する目標の詳細・編集画面に移動します。統計カードから分析画面へも遷移できます。",
-        "p3": "着手中の目標が2件以上ある場合、画面上部に目標タブが表示され、対象目標を1件選択して切り替えられます（日次報告と同じ方式）。今日の一言・警告バナー・本日のノルマ・目標カード・統計サマリは選択中の目標分のみを表示します。本日の状態は目標に紐づかないため、目標タブの切り替えに関わらず共通です。"
+        "title": "Dashboard (the screen shown at startup)",
+        "p1": "This is the first screen shown when you open the app. It shows \"Today's message\" (a short AI-generated message), today's status (not entered / progress only / reported), today's quota, warning banners, goal cards, and summary stats (consecutive days reported, recent report rate, buffer day usage rate, effective speed).",
+        "p2": "The \"Today's report\" button takes you to the daily report screen. Clicking a warning banner or goal card takes you to that goal's details/edit screen. You can also go to the analytics screen from the stats cards.",
+        "p3": "If you have 2 or more active goals, a goal tab appears at the top of the screen, letting you select one goal at a time (the same approach as the daily report screen). Today's message, warning banners, today's quota, goal cards, and summary stats show only the selected goal's data. Today's status isn't tied to a goal, so it's shared regardless of which goal tab is selected.",
+        "p4": "If you have an active certification exam or reading goal, \"This week's recap (by theme)\" is also shown. The AI classifies your diary and recall records into multiple themes and automatically builds up each theme's body over time (not available for work). Clicking a theme name takes you to its detail screen, where you can rename the theme, merge it into another theme, or have the AI rebuild its body."
       },
       "goals": {
-        "title": "目標一覧・目標詳細編集",
-        "p1": "「目標一覧」画面では、登録済みの全目標が一覧表示されます。「新規目標作成」から種別（資格試験・読書・仕事）を選ぶと、読書・仕事はその場で簡単に作成でき、資格試験はウィザード形式で試験・受験日・教材・学習時間を順に設定します。目標を選択すると詳細・編集画面に移動します。初回起動時や使い方を忘れたときは、このページの案内リンクからウェルカム画面を再表示できます。",
-        "p2": "資格試験目標の詳細画面は5つのタブで構成されます。「基本情報」（試験名・開始日・備考）、「試験科目」（科目名・受験日・合格基準点）、「教材」（総量・予定周回数・対策科目・締切・必要連続時間・必要環境・品質指標の方式）、「負荷プロファイル」（期間ごとの負荷係数）、「リソース配分」（時間枠ごとに本目標へ割り当てる時間（分））です。負荷プロファイルと教材の詳細設定（必要連続時間・必要環境・品質指標の方式）は既定で折りたたまれており、「詳細設定を表示」で展開できます。",
-        "p3": "目標の操作欄には、状態に応じて「開始する」「一時停止する」「再開する」「完了にする」「中断する」が並びます。完了・中断の後は読み取り専用になり、中断・完了した目標は「再開する」で元に戻して続けられます。資格試験は全科目の受験結果が揃うまで完了できません。",
-        "p4": "完了・中断・一時停止した目標は「アーカイブ」で一覧から隠せます（「すべて表示」で見られます）。アーカイブ済みの目標、または実行中以外の目標は「削除」で完全に消せます。削除は取り消せず、関連する実績・記録もすべて消えるため、確認のため目標名の入力が必要です。",
-        "p5": "読書目標の詳細画面は「基本情報」「書籍」「リソース配分」の3タブで、日次ノルマ・実効速度は扱いません。読書も自由な時間に行う活動であるため、資格試験と同じ時間枠を奪い合うリソース配分の対象に含めます（設定は任意で、未設定でも開始できます）。「書籍」タブに書名・著者・総ページ数・読了目標日を登録すると開始でき、読了するときは目標詳細の操作欄から「完了にする」を選びます。読了レポートは完了と同時に生成されます。",
-        "p6": "仕事目標の詳細画面は「基本情報」「案件情報」「月次報告」「半期評価」の4タブで、日次ノルマ・実効速度・リソース配分は扱いません（仕事は自由な時間に行う活動ではないため配分の対象外です）。「案件情報」タブに案件名・想定業務内容・着手日を登録すると開始でき、月次報告・半期評価タブでは対象期間のドラフトをAIが生成し、その場で編集してMarkdownをダウンロードできます。"
+        "title": "Goal list / goal detail editing",
+        "p1": "The \"Goals\" screen lists every registered goal. Choosing a type (certification exam, reading, or work) from \"Create new goal\" lets you create reading and work goals instantly, while certification exam goals use a wizard: pick a preset exam template or enter the exam name directly, then set the exam date, materials, and study hours in order (templates cannot be added or edited). Selecting a goal takes you to its details/edit screen. If you forget how to use the app, or on first launch, you can reopen the welcome screen from the link on the Help screen.",
+        "p2": "A certification exam goal's detail screen has 5 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), and \"Load profile\" (load coefficient per period). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
+        "p3": "The goal's action area shows \"Start,\" \"Pause,\" \"Resume,\" \"Mark as complete,\" or \"Abandon,\" depending on its status. After completing or abandoning, the goal becomes read-only; a completed or abandoned goal can be reverted with \"Resume\" to continue it. A certification exam goal cannot be completed until results are in for every subject.",
+        "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
+        "p5": "A reading goal's detail screen has 3 tabs — \"Basic info,\" \"Book,\" and \"Resource allocation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
+        "p6": "A work goal's detail screen has 4 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" and \"Semiannual review\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
       },
       "bookshelf": {
-        "title": "本棚",
-        "p1": "読了・中断した読書目標は、目標一覧とは別に「本棚」画面へ書籍として並びます。読了した本と中断した本は別々の棚に分かれ、見た目でも区別できます。本を選ぶと、書誌情報・記録（想起記録の一覧）・成長記述・振り返りレポートを1画面のタブでまとめて見返せます。",
-        "p2": "棚の本は、目標一覧の「アーカイブ」と同じく、棚から隠すだけです。「棚に戻す」ですぐ戻せます。本そのものを削除する場合は、目標一覧と同じ確認の画面が出ます。"
+        "title": "Bookshelf",
+        "p1": "Finished or abandoned reading goals appear as books on the \"Bookshelf\" screen, separate from the goal list. Finished and abandoned books sit on separate shelves so you can tell them apart at a glance. Selecting a book lets you review its bibliographic info, records (list of recall entries), growth notes, and retrospective report together on a single tabbed screen.",
+        "p2": "Putting a book away just hides it, the same as \"Archive\" on the goal list. \"Return to shelf\" brings it back right away. Deleting the book itself shows the same confirmation screen as the goal list."
       },
       "resources": {
-        "title": "学習環境の設定",
-        "p1": "学習に使える「学習時間枠」（名称・開始/終了時刻・環境タグ・適用曜日）を登録します。連続時間は開始・終了時刻から自動算出します。教材ごとに必要な連続時間・必要環境を満たす時間枠が自動的に割り当てられます。「配分状況」では時間枠ごとに各目標への配分時間と残り時間を確認でき、時間枠を短縮・削除して配分が超過した場合は警告が表示されます（保存自体は拒否しません）。",
-        "p2": "「日種別の既定設定」で曜日ごとの既定（計画日／予備日）を、「1日の境界時刻」で日付が切り替わる時刻（深夜学習を前日扱いにする等）を設定できます。「配分状況」で曜日別・環境別・目標別の時間配分と未配分の残りを確認できます。"
+        "title": "Study environment settings",
+        "p1": "Register the \"study time slots\" available for studying (name, start/end time, environment tags, days applied). Continuous time is calculated automatically from the start and end times. Time slots that satisfy each material's required continuous time and environment are assigned automatically. \"Allocation status\" lets you check the allocated and remaining time for each goal within each time slot, and shows a warning if shortening or deleting a time slot causes an allocation to exceed capacity (saving itself is not blocked).",
+        "p2": "\"Default day type settings\" lets you set the default (plan day / buffer day) for each day of the week and whether to treat public holidays as buffer days. \"Day boundary time\" lets you set when the date changes over (e.g. treating late-night study as the previous day). \"Allocation status\" lets you check time allocation and unallocated remainder by day of week, environment, and goal."
       },
       "calendar": {
-        "title": "カレンダー",
-        "p1": "月次カレンダーで各日の状態（未入力／進捗のみ登録済／報告済）と受験日・受験期間・負荷調整中などの補助マーカーを確認できます。日付をクリックすると、その日の状態に応じて日次報告・進捗のみ登録・閲覧のいずれかの画面に移動します（未入力の前日は登録方法の選択、2日以上前は進捗のみ登録、報告済日は閲覧画面）。",
-        "p2": "「日種別変更」から、その日の日種別（計画日／予備日／除外日）を個別に上書きできます。「個別指定を解除」で既定値に戻せます。",
-        "p3": "着手中の目標が2件以上ある場合、画面上部に目標タブが表示され、対象目標を1件選択して切り替えられます（日次報告と同じ方式）。補助マーカー（受験日・読書締切等）は選択中の目標分のみを表示します。背景色・記録状態は目標に紐づかないため、目標タブの切り替えに関わらず共通です。"
+        "title": "Calendar",
+        "p1": "The monthly calendar shows each day's status (not entered / progress only / reported) along with auxiliary markers such as exam dates, exam periods, and load adjustments. Clicking a date takes you to the daily report, progress-only, or view screen depending on that day's status (an unreported previous day shows a choice of how to register, 2+ days ago is progress-only, and an already-reported day opens the view screen).",
+        "p2": "\"Change day type\" lets you override that day's type (plan day / buffer day / excluded day) individually. \"Clear override\" reverts it to the default.",
+        "p3": "If you have 2 or more active goals, a goal tab appears at the top of the screen, letting you select one goal at a time (the same approach as the daily report screen). Auxiliary markers (exam dates, reading due dates, etc.) show only the selected goal's data. Background colors and recorded status aren't tied to a goal, so they're shared regardless of which goal tab is selected."
       },
       "dailyReport": {
-        "title": "日次報告 / 進捗のみ登録 / 日次報告閲覧",
-        "p1": "「日次報告」画面では、本日対象の教材ごとに時間枠ごとの投下時間・完了分量・周回・品質指標を入力し、日記（今日学んだこと・理解したこと）を記述したうえで、AI対話を通じてフィードバックを受け取り、最後に「報告を確定する」で確定します。投下時間はリソース配分の設定値が初期値として入っており、実績が異なる場合のみ変更します（変更はその日限りで、リソース配分の設定は変わりません）。配分していない時間枠で学習した場合は「他の時間枠を追加」で記録できます。確定前にこの画面を離れると入力内容は破棄されるため注意してください。",
-        "p2": "「進捗のみ登録」は実績のみを入力する簡易版です。着手中の目標があるカテゴリ（資格試験・読書・仕事）の入力欄が並び、1回の「登録する」でまとめて記録できます（既に報告済みのカテゴリは変更できないため表示されません）。投下時間は未入力（時間枠の欄をすべて空欄）にできますが、その場合は実効速度の算出対象から除外されます。日記やAI対話はありません。",
-        "p3": "「日次報告閲覧」は確定済みの過去の報告を読み取り専用で表示する画面で、実績・日記・AI対話履歴を確認できるほか、コメントのみ追加できます。",
-        "p4": "進行中の読書目標がある場合、同じ画面に「今日読んだ内容の想起」欄とAI対話が資格試験用とは別枠で表示されます（想起本文のみ必須、数値実績は任意）。ページの入力欄は「現在ページ」だけで、その日に読んだページ数を入力する必要はありません。現在ページは画面上の進捗表示に使うだけで、AIの評価対象にはなりません。読書のAI対話は資格試験の対話とは別の会話として保存されます。"
+        "title": "Daily report / Progress only / View daily report",
+        "p1": "On the \"Daily report\" screen, for each material scheduled today, you enter the time spent per time slot, amount completed, cycle, and quality metric, and write a diary entry (what you learned/understood today). After getting feedback through AI dialogue, finalize with \"Finalize report.\" Time spent starts out pre-filled from your resource allocation settings; change it only if your actual time differs (the change applies only for that day and doesn't affect your resource allocation settings). If you studied in a time slot you haven't allocated, you can record it with \"Add another time slot.\" Note that leaving this screen before finalizing discards your input.",
+        "p2": "\"Progress only\" is a simplified version that enters only your results. Input fields appear for each active category (certification exam, reading, work), and a single \"Register\" records them all at once (a category that's already been reported won't show, since it can't be changed). Time spent can be left blank (leave every time slot field empty), in which case that day is excluded from effective speed calculations. There is no diary or AI dialogue.",
+        "p3": "\"View daily report\" shows a finalized past report read-only, letting you check your results, diary, and AI dialogue history, and add comments only.",
+        "p4": "If you have an active reading goal, the same screen shows a separate \"Today's reading recall\" field and AI dialogue, apart from the certification exam ones (only the recall text is required; numeric results are optional). The only page field is \"Current page\" — you don't need to enter how many pages you read that day. Current page is used only for the on-screen progress display and isn't evaluated by the AI. Reading's AI dialogue is saved as a separate conversation from the certification exam's.",
+        "p5": "If you have an active work goal, the same screen shows separate work record fields and AI dialogue, apart from certification exam and reading. Enter today's work record text per project (there are no fields for time spent or daily quota), then finalize after the AI dialogue. The list of registered team members is also shown on the same screen (view only; add/edit from the \"Project info\" tab on the goal details screen)."
       },
       "analytics": {
-        "title": "分析",
-        "p1": "画面上部の目標タブで対象目標を選ぶと、目標の種類（資格試験／読書／仕事）に応じたタブでさまざまな切り口の分析を確認できます。クローズ済みの目標も振り返りのため選べます。アーカイブ済みの目標は既定では表示されませんが、「アーカイブ済みを表示」にチェックを入れると目標タブに追加されます。",
-        "p2": "資格試験目標では7つのタブがあります。「品質推移」（周回別・粒度別の品質指標の推移と合格基準線）、「進捗」（実績と計画線の比較）、「完了予測」（教材ごとの完了予測日と締切との乖離）、「実効速度」（周回別の実効速度の推移）、「ガントチャート」（教材ごとの計画期間）、「リプラン履歴」（ノルマ変更の履歴）、「成長記述」（AIによる日次報告フィードバックの履歴）です。",
-        "p3": "読書目標では「読書記録」（日々の想起記録の一覧）と「成長記述」の2タブ、仕事目標では「業務記録」（日々の業務記録の一覧）と「成長記述」の2タブになります（ノルマ・実効速度等の計算を持たないため）。「成長記述」は選択中の目標宛てのAI日次報告フィードバックの履歴を表示します。目標ごとに機能を分離する前（移行前）に生成された履歴は「未割り当て」として表示され、プルダウンから目標を手動で割り当てられます。"
+        "title": "Analytics",
+        "p1": "Select a goal from the goal tab at the top of the screen to view various analyses in tabs that depend on the goal's type (certification exam / reading / work). Closed goals can also be selected for retrospection. Archived goals are hidden by default; check \"Show archived\" to add them to the goal tab.",
+        "p2": "A certification exam goal has 7 tabs: \"Quality trend\" (quality metric trend by cycle and granularity, with a passing criteria line), \"Progress\" (comparison of actual vs. plan line), \"Forecast\" (forecast completion date and deviation from due date, per material), \"Effective speed\" (effective speed trend by cycle), \"Gantt chart\" (planned period per material), \"Replan history\" (history of quota changes), and \"Growth notes\" (history of AI daily report feedback).",
+        "p3": "A reading goal has 2 tabs, \"Reading log\" (list of daily recall records) and \"Growth notes\"; a work goal also has 2 tabs, \"Work log\" (list of daily work records) and \"Growth notes\" (since they don't use quota, effective speed, or similar calculations). \"Growth notes\" shows the history of AI daily report feedback addressed to the selected goal. History generated before goals were separated by feature (pre-migration) is shown as \"Unassigned,\" and can be manually assigned to a goal from the dropdown."
       },
       "examAndExport": {
-        "title": "受験結果登録 / ナレッジエクスポート",
-        "p1": "目標を完了にする前に、科目ごとの合否・点数・評価・所見を登録します（結果が揃うまで完了はできません）。完了の操作を行うと、ナレッジエクスポート画面に移ります。総括レポートは、その画面の「生成する」を押したときに作られます。",
-        "p2": "ナレッジエクスポート画面では総括レポートの確認・再生成、学習サマリ（総投下時間・学習日数・報告率・リプラン回数・最終到達品質）の確認、出力項目（目標概要・教材構成・学習量サマリ・実績推移・品質指標推移・リプラン履歴・週次要約・日記本文・AI対話履歴・受験結果・総括レポート）を選んでのMarkdown/JSON出力ができます。実績推移には投下時間の時間枠別内訳も含まれます。「匿名化する」を有効にすると、日記本文を除外し、週次要約・総括レポートを匿名化版として再生成した上で出力します。",
-        "p3": "読書の目標には、受験結果の代わりに読了の操作があります（目標の操作欄の「読了にする」）。完了すると、ナレッジエクスポート画面に移ります。読了レポートは、その画面の「生成する」を押したときに作られます。中断した読書は、再開して読み終えてから完了にできます。"
+        "title": "Register exam results / Knowledge export",
+        "p1": "Before marking a goal as complete, register the pass/fail result, score, evaluation, and notes for each subject (you cannot complete it until results are in). Completing the goal takes you to the knowledge export screen. The retrospective report is created when you press \"Generate\" on that screen.",
+        "p2": "On the knowledge export screen, you can review and regenerate the retrospective report, check your study summary (total time spent, days studied, report rate, replan count, latest quality achieved), and choose export items (goal overview, material composition, study volume summary, progress history, quality metric trend, replan history, weekly summaries, recap themes, diary entries, AI dialogue history, exam results, retrospective report) to export as Markdown/JSON. Progress history also includes the time breakdown by time slot. Enabling \"Anonymize\" excludes diary entries and regenerates the weekly summaries / retrospective report as an anonymized version before exporting.",
+        "p3": "For reading goals, there's a \"Mark as finished\" action instead of exam results (in the goal's action area). Completing it takes you to the knowledge export screen. The completion report is created when you press \"Generate\" on that screen. An abandoned reading goal can be completed after resuming and finishing it."
       },
       "aiConnection": {
-        "title": "設定 — AI接続",
-        "p1": "AI連携には、NewtonXの「接続先URL（テナントホスト）」と「Personal Access Token（PAT）」が必要です。Hostは`xxx.newton-x.net`のように、ドメインを含む完全な形式で入力してください（会社名や略称の部分だけでは接続先を解決できません）。ご所属によって`xxx`の部分が異なります（セラク内勤者は`seraku.newton-x.net`、セラク常駐者は`seraku-ex.newton-x.net`、セラクビジネスソリューションズは`bs-seraku.newton-x.net`、AND Thinkは`andthink.newton-x.net`）。一覧にない場合は、普段NewtonXにログインするURL`https://xxx.newton-x.net/login`の`xxx`の部分を使ってください。PATはNewtonXのWeb版アカウント画面でご自身で発行してください（本アプリからは発行できません）。",
-        "p2": "HostとPATを入力し「接続を確認する」を押すと、開発キット（NewtonX ADK）側の設定に反映したうえで、実際にAI基盤との通信（アシスタント一覧の取得）を試し、その結果に基づいて「接続できました」または失敗理由と「認証済み／未認証」が画面に表示されます。Hostの形式やPATの誤りは、この時点で気づけます。確認後にネットワーク状況が変わった場合等は、日次報告のAI対話等で改めてエラーになることがあります。",
-        "p3": "認証後、日次報告フィードバック用・週次要約用・今日の一言用・総括レポート用に加え、読書目標用の日次報告フィードバック・総括レポート用も含めた6つの用途それぞれに、使用するアシスタントを一覧から選んで割り当てます（識別子の手入力は不要です）。各用途にはあらかじめタスク特性に合ったアシスタントが既定値として選択済みのため、通常はそのままで利用できます。別のアシスタントを使いたい場合のみ、一覧から選び直してください。"
+        "title": "Settings — AI connection",
+        "p1": "AI integration requires NewtonX's \"Connection URL (tenant host)\" and \"Personal Access Token (PAT).\" Enter the Host in its full form including the domain, like `xxx.newton-x.net` (a company name or abbreviation alone cannot resolve the connection). The `xxx` part differs by affiliation (Seraku in-house staff: `seraku.newton-x.net`; Seraku on-site staff: `seraku-ex.newton-x.net`; Seraku Business Solutions: `bs-seraku.newton-x.net`; AND Think: `andthink.newton-x.net`). If yours isn't listed, use the `xxx` part of the URL you normally use to sign in to NewtonX, `https://xxx.newton-x.net/login`. Please issue your own PAT from NewtonX's web app account screen (this app cannot issue one for you).",
+        "p2": "After entering the Host and PAT and pressing \"Check connection,\" the app applies them to the development kit (NewtonX ADK) settings, actually tries communicating with the AI platform (fetching the assistant list), and shows either \"Connected successfully\" or a failure reason, along with \"Authenticated\"/\"Not authenticated,\" based on the result. This is where you'll notice any mistakes in the Host format or PAT. If network conditions change afterward, you may still see errors again later, for example during daily report AI dialogue.",
+        "p3": "After authenticating, you assign the assistant to use — from a list, no need to type an identifier by hand — for each of 13 purposes: daily report feedback, weekly summary, today's message, retrospective report, each of their reading and work variants, the work AI evaluation report, and the help question assistant. Each purpose already has a default assistant preselected to match its task characteristics, so in most cases you can leave it as-is. Only change it from the list if you want to use a different assistant."
       },
       "settingsOther": {
-        "title": "設定 — 閾値・プロンプト縮退・表示・ログ・プロンプトテンプレート",
-        "p1": "「閾値」：警告倍率（ノルマが計画に対してこの倍率を超えると警告バナーを表示）、強制リプラン超過日数（乖離がこの日数を超えると強制的にリプランを促す）を設定します。",
-        "p2": "「プロンプト縮退」：AIへ送るプロンプトの入力上限文字数と、週次要約をプロンプトに注入する週数を設定します。上限を超えるプロンプトは、週次要約→教材情報の集約→対話履歴→日記本文の順に段階的に縮退（省略）されます。",
-        "p3": "「表示」：表示言語（現在は日本語のみ）、テーマ（システム設定に追随／ライト／ダーク）、分析画面の既定粒度（日別／週別／月別）を設定します。",
-        "p4": "「ログ」：AI通信ログを保存するかどうか、保存する場合の保持期間（日数）を設定します。",
-        "p5": "「プロンプトテンプレート」：AIに送るプロンプトの文面そのものを、用途（日次報告フィードバック・週次要約・今日の一言・総括レポート）ごとに編集・初期値へのリセットができます。編集の際に使う`{{変数名}}`の一覧は次の「プロンプトテンプレートのプレースホルダー」セクションを参照してください。"
+        "title": "Settings — Thresholds, prompt degradation, display, logs, prompt templates",
+        "p1": "\"Thresholds\": sets the warning ratio (shows a warning banner when your quota exceeds the plan by this ratio) and the forced replan overrun days (forces a replan prompt once the deviation exceeds this many days).",
+        "p2": "\"Prompt degradation\": sets the character limit for prompts sent to the AI, how many weeks of weekly summaries to inject into the prompt, and the threshold (number of finalized records) below which the AI is prompted to ask from multiple perspectives for users with few records. Prompts exceeding the limit are degraded (shortened) in stages, in this order: weekly summaries → aggregated material info → dialogue history → diary entries.",
+        "p3": "\"Display\": sets the display language, theme (follow system setting / light / dark), accent color, font size, and the default analytics granularity (daily / weekly / monthly).",
+        "p4": "\"Logs\": sets whether to save AI communication logs, and if so, how long to retain them (in days).",
+        "p5": "\"Prompt templates\": lets you edit, and reset to default, the actual prompt text sent to the AI, for each of 15 purposes (daily report feedback, weekly summary, today's message, retrospective report, each reading and work variant, the work AI evaluation report, recap classification/body generation, and the help question assistant). See the \"Prompt template placeholders\" section below for the list of `{{variable_name}}` placeholders available when editing (only the main purposes are listed).",
+        "p6": "\"System info\": from the \"Go to system info\" link in the top right, you can check the app version, the list of libraries used, and export diagnostic logs."
       },
       "desktop": {
-        "title": "アプリの起動と終了・記録リマインド通知",
-        "p1": "ミチナリを起動すると、画面がブラウザで開き、アプリ本体は画面右下の通知領域（時計の左側にアイコンが並ぶ場所）に常駐します。黒い画面（コンソール）は表示されません。アイコンが見当たらない場合は、通知領域の「^」ボタンを押すと隠れているアイコンが表示されます。",
-        "p2": "通知領域のミチナリのアイコンをクリックすると画面が開きます。アイコンを右クリックすると「ミチナリを開く」「終了」のメニューが表示されます。ブラウザのタブを閉じてもアプリは終了しません。終了するときは、このメニューから「終了」を選んでください。「終了」を選ぶと、保存中の処理が終わるのを待ってから安全に停止します。",
-        "p3": "設定画面の「デスクトップ・通知」で、起動時にブラウザで画面を開くかどうかを切り替えられます。オフにした場合は、通知領域のアイコンから手動で開いてください。同じ場所の「Windows 起動時に自動で起動する」をオンにすると、サインインしたときにミチナリが通知領域で待機するようになります（既定はオフ）。",
-        "p4": "「記録リマインドの通知を出す」をオンにすると、設定した時刻（既定は21:00）に、その日の記録がまだのときだけ通知が表示されます。通知をクリックすると、その日の日次報告画面がブラウザで開きます。すでに記録済みの日（進捗のみ登録済み・報告済みのいずれも）と、カレンダーで除外日にした日には通知しません。予備日には、休みの日向けの軽い文面で通知します。",
-        "p5": "通知はミチナリが起動しているあいだだけ動作します（パソコンに常駐する別のプログラムは追加されません）。設定した時刻にミチナリを起動していなかった場合、その日の通知は行われません。通知が表示されない場合は、Windowsの「設定」→「システム」→「通知」で、ミチナリからの通知が許可されているかをご確認ください。"
+        "title": "App startup and shutdown, recording reminder notifications",
+        "p1": "When you start Michinari, the window opens in your browser, and the app itself stays running in the notification area in the bottom right of your screen (where icons sit to the left of the clock). No black console window is shown. If you can't find the icon, click the \"^\" button in the notification area to reveal hidden icons.",
+        "p2": "Clicking Michinari's icon in the notification area opens the window. Right-clicking the icon shows an \"Open Michinari\" / \"Quit\" menu. Closing the browser tab doesn't quit the app. To quit, choose \"Quit\" from this menu. Choosing \"Quit\" waits for any in-progress save to finish before stopping safely.",
+        "p3": "In \"Desktop & notifications\" on the Settings screen, you can toggle whether the browser window opens on startup. If off, open it manually from the tray icon. Turning on \"Launch automatically at Windows startup\" (in the same place) makes Michinari wait in the tray when you sign in (off by default).",
+        "p4": "Turning on \"Send recording reminder notifications\" shows a notification at the time you set (default 21:00), but only if that day's record isn't done yet. Clicking the notification opens that day's daily report screen in your browser. No notification is sent for a day already recorded (whether progress-only or fully reported), or a day marked as excluded on the calendar. On buffer days, the notification uses a lighter message for rest days.",
+        "p5": "Notifications only work while Michinari is running (no separate background program is installed on your PC). If Michinari wasn't running at the set time, that day's notification won't fire. If notifications don't appear, check that Michinari is allowed to notify you under Windows Settings → System → Notifications."
       },
       "promptVariables": {
-        "title": "プロンプトテンプレートのプレースホルダー一覧",
-        "p1": "プロンプトテンプレートの文面中に`{{変数名}}`の形式で記述すると、実際にAIへ送信される際にシステムが自動的に実際の値へ置き換えます。用途ごとに使用できる変数は次の通りです（テンプレート編集画面で使えるのはこの一覧に載っている変数のみです）。",
+        "title": "Prompt template placeholder list",
+        "p1": "Writing `{{variable_name}}` in a prompt template's text causes the system to automatically substitute the actual value when sending it to the AI. The variables available for each purpose are as follows (only the variables in this list can be used in the template editor).",
         "purposes": {
           "dailyFeedback": {
-            "title": "日次報告フィードバック",
+            "title": "Daily report feedback",
             "variables": {
-              "today": "論理的な本日の日付",
-              "day_type": "本日の日種別",
-              "load_coefficient": "本日の負荷係数",
-              "goal_summary": "目標名、科目構成、各科目の受験日、残日数",
-              "material_status": "教材ごとの総量、予定周回、現在周回、残量、締切、日次ノルマ、必要速度、実効速度、完了予測日、乖離日数",
-              "slot_summary": "本日利用可能な時間枠と教材への割当",
-              "buffer_usage_rate": "予備日消費率",
-              "today_logs": "本日の教材別実績（投下時間、完了分量、周回、品質指標）",
-              "diary_body": "以前の日記本文（旧仕様の入力。新規入力では空）",
-              "diary_learned": "今日学んだこと・理解したこと",
-              "weekly_summaries": "直近の週次要約",
-              "conversation_history": "本日の対話における過去の往復"
+              "today": "The current logical date",
+              "day_type": "Today's day type",
+              "load_coefficient": "Today's load coefficient",
+              "goal_summary": "Goal name, subject composition, exam date per subject, days remaining",
+              "material_status": "Per material: total amount, planned cycles, current cycle, remaining amount, due date, daily quota, required speed, effective speed, forecast completion date, deviation days",
+              "slot_summary": "Today's available time slots and their material assignments",
+              "buffer_usage_rate": "Buffer day usage rate",
+              "today_logs": "Today's results by material (time spent, amount completed, cycle, quality metric)",
+              "diary_body": "Previous diary entry (legacy input; empty for new entries)",
+              "diary_learned": "What you learned / understood today",
+              "weekly_summaries": "Recent weekly summaries",
+              "conversation_history": "Earlier turns in today's dialogue",
+              "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
             }
           },
           "weeklySummary": {
-            "title": "週次要約",
+            "title": "Weekly summary",
             "variables": {
-              "week_range": "対象週の期間",
-              "goal_name": "目標名",
-              "week_logs": "週内の日別実績（周回を含む）",
-              "week_diaries": "週内の日記（行動・所感、学んだこと）",
-              "week_metrics": "週の集計値（総投下時間、総完了量、品質指標の平均、報告日数、予備日消費）",
-              "anonymize": "匿名化の指示（匿名化版生成時のみ差し込まれます）"
+              "week_range": "The target week's date range",
+              "goal_name": "Goal name",
+              "week_logs": "Daily results within the week (including cycle)",
+              "week_diaries": "Diary entries within the week (actions/thoughts, what was learned)",
+              "week_metrics": "Weekly aggregates (total time spent, total amount completed, average quality metric, days reported, buffer day usage)",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
             }
           },
           "dailyMessage": {
-            "title": "今日の一言",
+            "title": "Today's message",
             "variables": {
-              "today": "論理的な本日の日付",
-              "day_type": "本日の日種別",
-              "goal_summary": "目標名と残日数",
-              "progress_summary": "教材ごとの進捗率と現在周回",
-              "recent_activity": "直近7日間の報告状況と実績"
+              "today": "The current logical date",
+              "day_type": "Today's day type",
+              "goal_summary": "Goal name and days remaining",
+              "progress_summary": "Progress rate and current cycle per material",
+              "recent_activity": "Report status and results over the last 7 days"
             }
           },
           "goalRetrospective": {
-            "title": "総括レポート",
+            "title": "Retrospective report",
             "variables": {
-              "goal_summary": "試験名、学習期間、科目構成",
-              "material_summary": "教材ごとの総量、予定周回、実績周回、投下時間",
-              "overall_metrics": "総投下時間、学習日数、報告率、予備日消費率、リプラン回数",
-              "quality_trend": "品質指標の推移（周回別、月次集約）",
-              "replan_history": "リプラン履歴（日付、契機、変更前後のノルマ、その時点の残量と残日数）",
-              "weekly_summaries": "全週の要約",
-              "exam_results": "科目ごとの合否と得点",
-              "anonymize": "匿名化の指示（匿名化版生成時のみ差し込まれます）"
+              "goal_summary": "Exam name, study period, subject composition",
+              "material_summary": "Per material: total amount, planned cycles, actual cycles, time spent",
+              "overall_metrics": "Total time spent, days studied, report rate, buffer day usage rate, replan count",
+              "quality_trend": "Quality metric trend (by cycle, aggregated monthly)",
+              "replan_history": "Replan history (date, reason, quota before/after, remaining amount and days at that time)",
+              "weekly_summaries": "All weekly summaries",
+              "exam_results": "Pass/fail and score per subject",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "dailyFeedbackReading": {
+            "title": "Daily report feedback (reading)",
+            "variables": {
+              "today": "The current logical date",
+              "book_summary": "Title, author, target completion date, days remaining",
+              "today_recall": "Today's recall text",
+              "recent_recalls": "Recall records from the last several days",
+              "perspective_suggestion": "Extra instruction prompting readers with few records to be asked from multiple perspectives (inserted only when below the threshold)"
+            }
+          },
+          "dailyFeedbackWork": {
+            "title": "Daily report feedback (work)",
+            "variables": {
+              "today": "The current logical date",
+              "work_summary": "Project name, client/project name, expected work content, days elapsed since start",
+              "today_work": "Today's work record text",
+              "recent_work_logs": "Work records from the last several days",
+              "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
+            }
+          },
+          "weeklySummaryReadingWork": {
+            "title": "Weekly summary (reading / work)",
+            "variables": {
+              "week_range": "The target week's date range",
+              "book_title": "Title (reading)",
+              "week_recalls": "Recall records within the week (reading)",
+              "work_name": "Project name = goal name (work)",
+              "week_logs": "Work records within the week (work)",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "goalRetrospectiveReading": {
+            "title": "Completion report",
+            "variables": {
+              "book_summary": "Title, author, reading period",
+              "overall_metrics": "Days recorded, longest streak",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "reading_logs": "Recall records (raw logs) for periods without a weekly summary yet",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "goalRetrospectiveWork": {
+            "title": "Monthly report / semiannual review (work)",
+            "variables": {
+              "work_summary": "Project name, client/project name, expected work content, start date",
+              "target_month_or_period": "Target month (monthly report) / target half (semiannual review)",
+              "target_goal_text": "The \"goal for next period\" set last time",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "month_or_period_logs": "Work records (raw logs) for periods without a weekly summary yet",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "evaluationReportWork": {
+            "title": "AI evaluation report (work)",
+            "variables": {
+              "member_summary": "The evaluated member's name, gender, and traits/personality (if registered)",
+              "considerations": "Considerations entered by the user",
+              "feedback_history": "This project's daily report feedback history (the AI's responses)",
+              "work_logs": "Work records for the target period"
+            }
+          },
+          "recapThemes": {
+            "title": "Recap (theme classification / theme body generation)",
+            "variables": {
+              "existing_themes": "List of existing theme names (for classification)",
+              "entries": "Report text to classify (diary / recall records, for classification)",
+              "theme_name": "Theme name (for body generation)",
+              "current_body": "Current theme body (for body generation)",
+              "new_entries": "New report text to merge in this time (for body generation)",
+              "body_max_chars": "Character limit for the theme body (for body generation)"
+            }
+          },
+          "helpAssistant": {
+            "title": "Help question",
+            "variables": {
+              "help_body": "Help text relevant to the question",
+              "question": "The user's question text",
+              "nonce": "A random value to prevent delimiter spoofing (used to verify output)"
             }
           }
         }
       },
       "dataManagement": {
-        "title": "データ管理",
-        "p1": "「データ管理」画面（設定画面から遷移）では、データベースファイル全体のエクスポート・インポート、バックアップの作成・一覧表示・復元ができます。インポート・復元はいずれも既存データを上書きするため、実行前に確認ダイアログが表示されます。"
+        "title": "Data management",
+        "p1": "The \"Data management\" screen (reached from Settings) lets you export/import the entire database file, and create, list, and restore backups. Both import and restore overwrite existing data, so a confirmation dialog appears before running them."
       },
       "faq": {
-        "title": "よくある質問・トラブルシューティング",
-        "q1": "Personal Access Token（PAT）はどこで取得しますか？",
-        "a1": "NewtonXのWeb版アカウント画面で、利用者ご自身が発行してください。本アプリからPATを発行することはできません。",
-        "q2": "設定画面で「認証済み」と表示されているのに、アシスタント一覧が取得できません。",
-        "a2": "「接続先URL（テナントホスト）」の入力形式をご確認ください。認証状態の「認証済み」表示はPATが設定されていることのみを確認したもので、実際にAI基盤へ接続できるかどうかとは別です。Hostは`xxx.newton-x.net`のように完全なドメイン形式で入力する必要があります。組織名や略称だけでは接続先を解決できず、アシスタント一覧の取得などの通信が失敗します。`xxx`はご所属によって異なります（セラク内勤者は`seraku.newton-x.net`、セラク常駐者は`seraku-ex.newton-x.net`、セラクビジネスソリューションズは`bs-seraku.newton-x.net`、AND Thinkは`andthink.newton-x.net`）。",
-        "q3": "AI関連の操作で「AI連携でエラーが発生しました」「AI連携がタイムアウトしました」と表示されます。",
-        "a3": "AI基盤との通信中に問題が発生しています。しばらく時間をおいて再試行してください。繰り返し発生する場合は、設定画面のHost・PAT・タイムアウト秒数の設定値をご確認ください。",
-        "q4": "誤ってデータを壊してしまいました。元に戻せますか？",
-        "a4": "設定画面の「データ管理」から、作成済みのバックアップを選んで「復元」を実行してください。バックアップを作成していなかった場合、直前の状態には戻せません。日頃から定期的にバックアップを作成しておくことをお勧めします。",
-        "q5": "日次報告の入力を確定せずに画面を離れるとどうなりますか？",
-        "a5": "他の画面へ移動しても、確定前の入力内容（実績・日記・AI対話）はアプリ内に保持され、日次報告画面に戻れば復元されます。ただし、ブラウザのタブを閉じたり再読み込みしたりすると内容は失われます（その操作の直前にはブラウザ標準の確認ダイアログが表示されます）。アプリを長時間放置した場合も、意図せずタブを閉じてしまうことがないよう、確定を先延ばしにしすぎないことをお勧めします。",
-        "q6": "以前のバージョンで開いていた黒い画面が出てきません。",
-        "a6": "黒い画面（コンソール）は表示しない方式に変わりました。アプリは通知領域のアイコンとして常駐しています。終了するときは、そのアイコンを右クリックして「終了」を選んでください。"
+        "title": "FAQ / troubleshooting",
+        "q1": "Where do I get a Personal Access Token (PAT)?",
+        "a1": "Please issue it yourself from NewtonX's web app account screen. This app cannot issue a PAT for you.",
+        "q2": "The Settings screen shows \"Authenticated,\" but I can't fetch the assistant list.",
+        "a2": "Please check the format of the \"Connection URL (tenant host).\" The \"Authenticated\" status in the authentication state only confirms that a PAT is set — it's separate from whether you can actually connect to the AI platform. The Host must be entered in full domain form, like `xxx.newton-x.net`. An organization name or abbreviation alone cannot resolve the connection, causing communication such as fetching the assistant list to fail. The `xxx` part differs by affiliation (Seraku in-house staff: `seraku.newton-x.net`; Seraku on-site staff: `seraku-ex.newton-x.net`; Seraku Business Solutions: `bs-seraku.newton-x.net`; AND Think: `andthink.newton-x.net`).",
+        "q3": "AI-related actions show \"An error occurred with the AI connection\" or \"The AI connection timed out.\"",
+        "a3": "There's a problem communicating with the AI platform. Please wait a while and try again. If it keeps happening, check the Host, PAT, and timeout settings on the Settings screen.",
+        "q4": "I accidentally broke my data. Can I undo it?",
+        "a4": "Go to \"Data management\" on the Settings screen, select an existing backup, and run \"Restore.\" If you hadn't created a backup, you can't return to the previous state. We recommend creating backups regularly.",
+        "q5": "What happens if I leave the screen without finalizing a daily report?",
+        "a5": "Your unfinalized input (results, diary, AI dialogue) is kept within the app even if you move to another screen, and is restored when you return to the daily report screen. However, closing or reloading the browser tab discards the content (a standard browser confirmation dialog appears right before that action). If you leave the app open for a long time, we recommend not postponing finalizing for too long, in case the tab gets closed unintentionally.",
+        "q6": "The black console window I used to see in an older version doesn't appear anymore.",
+        "a6": "The app no longer shows a black console window. It now runs in the notification area as a tray icon. To quit, right-click that icon and choose \"Quit.\""
       }
     }
   },
   "errors": {
-    "VALIDATION_ERROR": "入力内容に誤りがあります。エラーが表示されている項目を確認し、入力し直してください",
-    "EXAM_SUBJECT_REQUIRED": "この目標を始めるには試験科目の登録が必要です。「試験科目」タブで1件以上登録してください",
-    "MATERIAL_REQUIRED": "この目標を始めるには教材の登録が必要です。「教材」タブで1件以上登録してください",
-    "RESOURCE_ALLOCATION_REQUIRED": "この目標を始めるには学習時間の割り当てが必要です。「リソース配分」タブで時間を設定してください",
-    "RESOURCE_EXCEEDED": "選んだ時間帯に、確保されている時間より多くの予定を入れています。配分する時間を減らすか、他の時間帯に移してください",
-    "CYCLE_CONFLICT": "予定の周回数を、すでに終えた周回数より少なくすることはできません。周回数を見直してください",
-    "BOOK_ALREADY_EXISTS": "この目標にはすでに書籍が登録されています。登録できる書籍は1冊までです",
-    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "現在のページ数が本の総ページ数を超えています。総ページ数以下の値を入力してください",
-    "WORK_ASSIGNMENT_ALREADY_EXISTS": "この目標にはすでに案件情報が登録されています。登録できる案件は1件までです",
-    "CONSENT_REQUIRED": "特徴・性格を保存する前に「本人確認済み」のチェックが必要です。本人確認が取れていることを確認してからチェックを入れてください",
-    "BACKDATE_LIMIT_EXCEEDED": "その日までさかのぼって記録することはできません。記録できる期間内の日付を選んでください",
-    "INVALID_STATE_TRANSITION": "今の状態ではこの操作はできません。画面を再読み込みしてから、もう一度お試しください",
-    "EXAM_RESULTS_INCOMPLETE": "受験結果がまだ揃っていないため完了できません。すべての科目の結果を登録してから、もう一度お試しください",
-    "IMMUTABLE_RECORD": "確定済みの記録は変更できません。確定前の内容に戻す機能はありません",
-    "RECAP_THEME_NAME_CONFLICT": "同じ名前のテーマが既にあります。別の名前を指定してください",
-    "RECAP_BODY_REJECTED": "振り返りの本文を更新できませんでした。内容は失われていません。しばらくしてから再度お試しください",
-    "RECAP_PROMPT_TOO_LONG": "報告が多すぎるため、振り返りを作成できませんでした",
-    "NOT_FOUND": "対象のデータが見つかりませんでした。画面を再読み込みしてから、もう一度お試しください",
-    "AI_AUTH_REQUIRED": "AIとの接続が切れています。設定画面で接続を確認してください",
-    "AI_CONFIG_ERROR": "AIの接続設定が正しくありません。設定画面を確認してください",
-    "AI_TIMEOUT": "AIからの返事が時間内に届きませんでした。もう一度送ってみてください",
-    "AI_ERROR": "AIとの通信でエラーが起きました。少し待ってからもう一度お試しください",
-    "DATABASE_BUSY": "ほかの処理がデータを使用中のため、保存・生成できませんでした。1〜2分ほど待ってから、もう一度お試しください",
-    "INTERNAL_ERROR": "想定外の問題が起きたため、処理を完了できませんでした。少し待ってからもう一度お試しください（同じ表示が続く場合は「詳細」の番号を控えて連絡してください）",
-    "NETWORK_ERROR": "アプリ本体との通信ができませんでした。アプリを再起動してみてください",
-    "default": "エラーが発生しました。しばらく待ってから、もう一度お試しください",
+    "VALIDATION_ERROR": "There's an error in your input. Please check the fields showing an error and try again",
+    "EXAM_SUBJECT_REQUIRED": "You need to register an exam subject to start this goal. Please register at least one on the \"Subjects\" tab",
+    "MATERIAL_REQUIRED": "You need to register a material to start this goal. Please register at least one on the \"Materials\" tab",
+    "RESOURCE_ALLOCATION_REQUIRED": "You need to allocate study time to start this goal. Please set it on the \"Resource allocation\" tab",
+    "RESOURCE_EXCEEDED": "You've scheduled more than the secured time in the selected time range. Please reduce the allocated time or move it to a different time range",
+    "CYCLE_CONFLICT": "The planned cycle count can't be set below the number of cycles already completed. Please review the cycle count",
+    "BOOK_ALREADY_EXISTS": "A book is already registered for this goal. Only 1 book can be registered",
+    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "The current page exceeds the book's total pages. Please enter a value at or below the total pages",
+    "WORK_ASSIGNMENT_ALREADY_EXISTS": "Project information is already registered for this goal. Only 1 project can be registered",
+    "CONSENT_REQUIRED": "You must check \"Identity confirmed\" before saving traits/personality. Please check it only after confirming the member's identity",
+    "BACKDATE_LIMIT_EXCEEDED": "You can't record as far back as that date. Please choose a date within the allowed recording period",
+    "INVALID_STATE_TRANSITION": "This action isn't available in the current state. Please reload the page and try again",
+    "EXAM_RESULTS_INCOMPLETE": "Results aren't all in yet, so this can't be completed. Please register results for every subject, then try again",
+    "IMMUTABLE_RECORD": "A finalized record can't be changed. There's no way to revert to the content before it was finalized",
+    "RECAP_THEME_NAME_CONFLICT": "A theme with that name already exists. Please choose a different name",
+    "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
+    "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
+    "NOT_FOUND": "The requested data could not be found. Please reload the page and try again",
+    "AI_AUTH_REQUIRED": "The AI connection has been lost. Please check the connection on the Settings screen",
+    "AI_CONFIG_ERROR": "The AI connection settings are incorrect. Please check the Settings screen",
+    "AI_TIMEOUT": "The AI's response didn't arrive in time. Please try sending it again",
+    "AI_ERROR": "An error occurred communicating with the AI. Please wait a moment and try again",
+    "DATABASE_BUSY": "Could not save/generate because another process is using the data. Please wait 1–2 minutes and try again",
+    "INTERNAL_ERROR": "An unexpected problem occurred, so the process could not be completed. Please wait a moment and try again (if this keeps happening, please note the number in \"Details\" and contact support)",
+    "NETWORK_ERROR": "Could not communicate with the app itself. Please try restarting the app",
+    "default": "An error occurred. Please wait a moment and try again",
     "reasons": {
-      "MATERIAL_HAS_LOGS": "この教材には実績が記録されているため削除できません。先に実績を削除するか、教材を編集してご利用ください",
-      "WORK_MEMBER_HAS_REPORTS": "このメンバーには評価レポートが存在するため削除できません。無効化するか、評価レポートを踏まえたうえでご利用ください"
+      "MATERIAL_HAS_LOGS": "This material can't be deleted because it has recorded results. Delete the results first, or edit the material instead",
+      "WORK_MEMBER_HAS_REPORTS": "This member can't be deleted because evaluation reports exist. Deactivate them instead, or proceed after reviewing the evaluation reports"
     }
   },
   "recapTheme": {
-    "backToDashboard": "ダッシュボードへ戻る",
-    "bodyEmpty": "まだ本文はありません",
-    "renameLabel": "テーマ名",
-    "renameButton": "名前を変更",
-    "mergeLabel": "別のテーマへ統合（このテーマは削除され、報告と本文は統合先へ移ります）",
-    "mergePlaceholder": "統合先のテーマを選択",
-    "mergeButton": "統合する",
-    "mergeConfirm": "このテーマを統合先へまとめ、このテーマを削除します。よろしいですか？",
-    "rebuildButton": "再構築",
-    "rebuildConfirm": "紐付く報告の原文から本文を作り直します。AIを使うため時間がかかります。よろしいですか？",
-    "entriesTitle": "紐付く報告",
-    "entriesEmpty": "紐付く報告はありません",
+    "backToDashboard": "Back to dashboard",
+    "bodyEmpty": "No body text yet",
+    "renameLabel": "Theme name",
+    "renameButton": "Rename",
+    "mergeLabel": "Merge into another theme (this theme will be deleted and its reports and body moved to the destination)",
+    "mergePlaceholder": "Select the destination theme",
+    "mergeButton": "Merge",
+    "mergeConfirm": "This will consolidate this theme into the destination and delete this theme. Are you sure?",
+    "rebuildButton": "Rebuild",
+    "rebuildConfirm": "This rebuilds the body from the original text of linked reports. It uses AI, so it may take a while. Are you sure?",
+    "entriesTitle": "Linked reports",
+    "entriesEmpty": "No linked reports",
     "sourceKind": {
-      "DIARY": "資格試験の日記",
-      "READING": "読書の想起記録"
+      "DIARY": "Certification exam diary",
+      "READING": "Reading recall record"
     }
   }
 }
