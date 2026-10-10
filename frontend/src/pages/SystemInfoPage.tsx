@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { t } from '../locales/t'
+import { getLocale, t } from '../locales/t'
 import { Card } from '../components/Card'
 import { apiErrorMessage } from '../api/client'
 import { getSystemInfo, type SystemInfoRead } from '../api/systemInfo'
@@ -57,7 +57,7 @@ export function SystemInfoPage() {
           <span className="text-text-faint">{t('systemInfo.builtAtLabel')}: </span>
           <span className="text-text-primary">
             {systemInfo.built_at
-              ? new Date(systemInfo.built_at).toLocaleString()
+              ? new Date(systemInfo.built_at).toLocaleString(getLocale() === 'en' ? 'en-US' : 'ja-JP')
               : t('systemInfo.builtAtDev')}
           </span>
         </p>

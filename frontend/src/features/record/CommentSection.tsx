@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { t } from '../../locales/t'
+import { getLocale, t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Textarea } from '../../components/Textarea'

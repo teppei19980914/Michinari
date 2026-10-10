@@ -3,12 +3,16 @@
  * 表示内容の判定自体（AI要約優先・非AI集計へのフォールバック）は
  * resolveWeeklyDigestDisplay.test.tsで検証済みのため、ここでは各判定結果が
  * 正しく画面へ反映されることのみを確認する。 */
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
-import { t } from '../../locales/t'
+import { setLocale, t } from '../../locales/t'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { makeWeeklyDigest } from '../../test/fixtures'
 import { WeeklyDigestSection } from './WeeklyDigestSection'
+
+afterEach(() => {
+  setLocale('ja')
+})
 
 describe('WeeklyDigestSection', () => {
   it('renders nothing when there is no digest for the selected goal', () => {
@@ -102,5 +106,31 @@ describe('WeeklyDigestSection', () => {
       screen.getByText(t('dashboard.weeklyDigest.recordedDays', { days: 2 }), { exact: false }),
     ).toBeDefined()
     expect(screen.queryByText(/投下時間/)).toBeNull()
+  })
+
+  it('shows the week range with an en dash when the locale is English', () => {
+    setLocale('en')
+    renderWithProviders(
+      <WeeklyDigestSection
+        digest={makeWeeklyDigest({
+          week_start_date: '2026-09-01',
+          week_end_date: '2026-09-07',
+          ai_summary_text: 'Good work last week.',
+        })}
+      />,
+    )
+
+    expect(screen.getByText('9/1–9/7')).toBeDefined()
+  })
+
+  it('separates recorded days and total minutes with a plain space in English', () => {
+    setLocale('en')
+    const { container } = renderWithProviders(
+      <WeeklyDigestSection
+        digest={makeWeeklyDigest({ ai_summary_text: null, recorded_days: 3, total_minutes: 120 })}
+      />,
+    )
+
+    expect(container.textContent).toContain('Days recorded: 3 days  Time spent: 120 minutes')
   })
 })
