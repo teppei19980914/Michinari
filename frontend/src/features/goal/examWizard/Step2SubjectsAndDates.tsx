@@ -17,7 +17,7 @@ function SubjectDraftRow({
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.subjects.nameLabel')}
           <Input
             value={draft.name}
@@ -29,7 +29,7 @@ function SubjectDraftRow({
           {t('common.action.delete')}
         </Button>
       </div>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.subjects.passingScoreLabel')}
         <Input
           type="number"
@@ -65,7 +65,7 @@ export function Step2SubjectsAndDates({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step2.description')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step2.description')}</p>
 
       {subjects.map((draft, index) => (
         // eslint-disable-next-line react/no-array-index-key -- 科目名は編集途中で重複しうるため

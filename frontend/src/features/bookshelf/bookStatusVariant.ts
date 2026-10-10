@@ -21,7 +21,7 @@ export const BOOK_SPINE_ACCENT_CLASS: Record<BookSpineVariant, string> = {
 
 export const BOOK_STATUS_BADGE_CLASS: Record<BookSpineVariant, string> = {
   completed: 'bg-emerald-100 text-emerald-800',
-  interrupted: 'bg-gray-100 text-gray-600',
+  interrupted: 'bg-surface-muted text-text-muted',
 }
 
 const SPINE_HUE_CLASSES = [

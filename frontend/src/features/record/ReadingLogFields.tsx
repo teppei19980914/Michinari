@@ -85,8 +85,8 @@ function ReadingLogFieldsCard({
   return (
     <Card>
       <div className="flex items-center justify-between">
-        <p className="font-medium text-gray-900">{book.title}</p>
-        <p className="text-sm text-gray-500">
+        <p className="font-medium text-text-primary">{book.title}</p>
+        <p className="text-sm text-text-faint">
           {t('dailyReport.readingLog.remainingDays', { days: book.remaining_days })}
         </p>
       </div>
@@ -94,7 +94,7 @@ function ReadingLogFieldsCard({
         <PreviousEntryHint entry={previousEntry.data} />
       </div>
       {questions.map((question, index) => (
-        <label key={index} className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+        <label key={index} className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
           {question}
           <Textarea
             rows={2}
@@ -108,8 +108,8 @@ function ReadingLogFieldsCard({
           />
         </label>
       ))}
-      <p className="mt-2 text-xs text-gray-400">{t('dailyReport.voiceInputHint')}</p>
-      <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+      <p className="mt-2 text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
+      <label className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
         {t('dailyReport.readingLog.recallLabel')}
         <Textarea
           rows={4}
@@ -129,7 +129,7 @@ function ReadingLogFieldsCard({
         }
         onAddSlot={(slotId) => onChangeSlotMinutes(book.id, { ...value.slotMinutes, [slotId]: '' })}
       />
-      <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+      <label className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
         {t('dailyReport.readingLog.currentPageLabel', { total: book.total_pages })}
         <Input
           type="number"

@@ -40,7 +40,7 @@ function DeleteGoalDialog({ goal, onClose }: { goal: GoalRead; onClose: () => vo
 
   return (
     <Modal open onClose={onClose} title={t('goals.delete.title')}>
-      <div className="flex flex-col gap-3 text-sm text-gray-700">
+      <div className="flex flex-col gap-3 text-sm text-text-secondary">
         <p>{t(resolveDeleteGoalWarningKey(goal.category))}</p>
         <label className="flex flex-col gap-1">
           {t('goals.delete.typeNamePrompt', { name: goal.name })}

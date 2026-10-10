@@ -27,7 +27,7 @@ export function SlotAllocationTable({
     <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-gray-500">
+          <tr className="text-left text-xs text-text-faint">
             <th className="py-1 pr-3">{t('goals.resourceAllocation.slotColumn')}</th>
             <th className="py-1 pr-3">{t('goals.resourceAllocation.freeColumn')}</th>
             <th className="py-1">{t('goals.resourceAllocation.minutesColumn')}</th>
@@ -35,10 +35,10 @@ export function SlotAllocationTable({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.slot_id} className="border-t border-gray-100">
+            <tr key={row.slot_id} className="border-t border-border">
               <td className="py-2 pr-3 align-top">
-                <p className="text-gray-900">{row.slot_name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-text-primary">{row.slot_name}</p>
+                <p className="text-xs text-text-faint">
                   {t(`goals.materials.environment.${row.environment}`)} ·{' '}
                   {row.weekdays.map((w) => t(`resources.weekdays.${w}`)).join('')} ·{' '}
                   {row.duration_minutes}
@@ -50,7 +50,7 @@ export function SlotAllocationTable({
                   </p>
                 )}
               </td>
-              <td className="py-2 pr-3 align-top text-gray-700">
+              <td className="py-2 pr-3 align-top text-text-secondary">
                 {freeMinutes(row)}
                 {t('common.unit.minutes')}
               </td>

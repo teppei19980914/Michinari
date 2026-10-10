@@ -58,8 +58,8 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
     return (
       <Card className="flex items-center justify-between">
         <div>
-          <p className="font-medium text-gray-900">{subject.name}</p>
-          <p className="text-sm text-gray-500">
+          <p className="font-medium text-text-primary">{subject.name}</p>
+          <p className="text-sm text-text-faint">
             {t('goalResult.registeredBadge')}: {t(`goalResult.result.${existing.result}`)}
             {existing.score !== null && ` (${existing.score})`}
           </p>
@@ -73,7 +73,7 @@ function ExamResultForm({ goalId, subject }: { goalId: number; subject: SubjectR
 
   return (
     <Card>
-      <p className="mb-3 font-medium text-gray-900">{subject.name}</p>
+      <p className="mb-3 font-medium text-text-primary">{subject.name}</p>
       <form
         className="flex flex-col gap-3"
         onSubmit={(event) => {
@@ -118,7 +118,7 @@ export function ExamResultPage() {
   const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 
   if (goalQuery.isLoading) {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
@@ -131,12 +131,12 @@ export function ExamResultPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to={ROUTES.goalDetail(goal.id)} className="text-sm text-blue-600 hover:underline">
+      <Link to={ROUTES.goalDetail(goal.id)} className="text-sm text-accent hover:underline">
         {t('goalResult.backToGoal')}
       </Link>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">
+        <h1 className="text-xl font-semibold text-text-primary">
           {t('goalResult.title', { name: goal.name })}
         </h1>
         <Button variant="secondary" onClick={() => setCloseModalOpen(true)}>
@@ -145,7 +145,7 @@ export function ExamResultPage() {
       </div>
 
       {goal.exam_subjects.length === 0 && (
-        <p className="text-sm text-gray-500">{t('goalResult.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goalResult.empty')}</p>
       )}
 
       {goal.exam_subjects.map((subject) => (

@@ -73,7 +73,7 @@ function MaterialForm({
         mutation.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.materials.nameLabel')}
         <Input value={values.name} onChange={(e) => form.setName(e.target.value)} required />
       </label>
@@ -148,7 +148,7 @@ export function MaterialsTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
   return (
     <div className="flex flex-col gap-3">
       {goal.materials.length === 0 && !addOpen && (
-        <p className="text-sm text-gray-500">{t('goals.materials.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goals.materials.empty')}</p>
       )}
 
       {goal.materials.map((material) =>

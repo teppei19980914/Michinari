@@ -68,7 +68,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
         mutation.mutate()
       }}
     >
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('resources.slots.nameLabel')}
         <Input value={name} onChange={(e) => setName(e.target.value)} required />
       </label>
@@ -82,7 +82,7 @@ function SlotForm({ slot, onDone }: { slot?: ResourceSlotRead; onDone: () => voi
       />
       <SlotWeekdaysField weekdays={weekdays} onToggle={toggleWeekday} />
       {slot && (
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
             checked={isActive}
@@ -124,28 +124,28 @@ export function SlotList() {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('resources.slots.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('resources.slots.title')}</h2>
       {slotsQuery.data?.length === 0 && !addOpen && (
-        <p className="text-sm text-gray-500">{t('resources.slots.empty')}</p>
+        <p className="text-sm text-text-faint">{t('resources.slots.empty')}</p>
       )}
       {slotsQuery.data?.map((slot) =>
         editingId === slot.id ? (
-          <div key={slot.id} className="rounded-md border border-gray-200 p-3">
+          <div key={slot.id} className="rounded-md border border-border p-3">
             <SlotForm slot={slot} onDone={() => setEditingId(null)} />
           </div>
         ) : (
           <div
             key={slot.id}
-            className={`flex items-center justify-between rounded-md border border-gray-200 p-3 ${
+            className={`flex items-center justify-between rounded-md border border-border p-3 ${
               slot.is_active ? '' : 'opacity-50'
             }`}
           >
             <div>
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-sm font-medium text-text-primary">
                 {slot.name} ({slot.start_time}〜{slot.end_time})
                 {!slot.is_active && ` (${t('resources.slots.isActiveLabel')}: ${t('common.no')})`}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-text-faint">
                 {t(`goals.materials.environment.${slot.environment}`)} ·{' '}
                 {slot.weekdays.map((w) => t(`resources.weekdays.${w}`)).join('')} ·{' '}
                 {t('resources.slots.duration', {
@@ -175,7 +175,7 @@ export function SlotList() {
         ),
       )}
       {addOpen ? (
-        <div className="rounded-md border border-gray-200 p-3">
+        <div className="rounded-md border border-border p-3">
           <SlotForm onDone={() => setAddOpen(false)} />
         </div>
       ) : (

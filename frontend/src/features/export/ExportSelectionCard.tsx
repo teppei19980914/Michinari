@@ -31,7 +31,7 @@ export function ExportSelectionCard({
 
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('knowledgeExport.selection.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('knowledgeExport.selection.title')}</h2>
       <div className="grid grid-cols-2 gap-1">
         {visibleItems.map((item) => {
           const labelKey = isWork
@@ -40,7 +40,7 @@ export function ExportSelectionCard({
               ? (item.readingLabelKey ?? item.labelKey)
               : item.labelKey
           return (
-            <label key={item.field} className="flex items-center gap-2 text-sm text-gray-700">
+            <label key={item.field} className="flex items-center gap-2 text-sm text-text-secondary">
               <input
                 type="checkbox"
                 checked={selection[item.field]}
@@ -51,7 +51,7 @@ export function ExportSelectionCard({
           )
         })}
       </div>
-      <label className="mt-2 flex items-center gap-2 text-sm text-gray-700">
+      <label className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
         <input
           type="checkbox"
           checked={anonymize}
@@ -59,7 +59,7 @@ export function ExportSelectionCard({
         />
         {t('knowledgeExport.anonymize.label')}
       </label>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-text-faint">
         {t(
           isWork
             ? 'knowledgeExport.anonymize.workDescription'

@@ -17,7 +17,7 @@ export function GanttTab({ goalId }: GanttTabProps) {
   })
 
   if (query.isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (query.isError || !query.data) {
     return <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>
@@ -25,7 +25,7 @@ export function GanttTab({ goalId }: GanttTabProps) {
 
   const { materials, today } = query.data
   if (materials.length === 0) {
-    return <p className="text-sm text-gray-500">{t('analytics.gantt.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('analytics.gantt.empty')}</p>
   }
 
   const { entries, todayPercent } = computeGanttLayout(materials, today)
@@ -48,19 +48,19 @@ export function GanttTab({ goalId }: GanttTabProps) {
           }
           return (
             <div key={material.material_id} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between text-xs text-gray-600">
+              <div className="flex items-center justify-between text-xs text-text-muted">
                 <span>{material.material_name}</span>
                 <span>
                   {material.start_date} 〜 {material.due_date}
                 </span>
               </div>
-              <div className="relative h-4 w-full rounded bg-gray-100">
+              <div className="relative h-4 w-full rounded bg-surface-muted">
                 <div
-                  className="absolute top-0 h-full rounded bg-blue-200"
+                  className="absolute top-0 h-full rounded bg-accent-disabled"
                   style={{ left: `${layout.leftPercent}%`, width: `${layout.widthPercent}%` }}
                 >
                   <div
-                    className="h-full rounded bg-blue-500"
+                    className="h-full rounded bg-accent"
                     style={{
                       width:
                         layout.widthPercent > 0

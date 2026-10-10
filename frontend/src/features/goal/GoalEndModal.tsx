@@ -49,7 +49,7 @@ export function GoalEndModal({
 
   return (
     <Modal open={open} onClose={onClose} title={t(`goals.end.${kind}.${category}.title`)}>
-      <div className="flex flex-col gap-3 text-sm text-gray-700">
+      <div className="flex flex-col gap-3 text-sm text-text-secondary">
         <p>{t(`goals.end.${kind}.${category}.body`)}</p>
         <div className="mt-2 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>

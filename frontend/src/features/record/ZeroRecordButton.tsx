@@ -44,7 +44,7 @@ export function ZeroRecordButton({ targetDate, categories, presence }: ZeroRecor
         onClose={() => setOpen(false)}
         title={t('dailyReport.zeroRecord.confirmTitle')}
       >
-        <p className="text-sm text-gray-700">{t('dailyReport.zeroRecord.confirmBody')}</p>
+        <p className="text-sm text-text-secondary">{t('dailyReport.zeroRecord.confirmBody')}</p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setOpen(false)}>
             {t('dailyReport.zeroRecord.confirmCancel')}

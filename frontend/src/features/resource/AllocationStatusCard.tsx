@@ -16,11 +16,11 @@ export function AllocationStatusCard() {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('resources.allocation.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('resources.allocation.title')}</h2>
 
       <div>
-        <p className="text-sm text-gray-500">{t('resources.allocation.byWeekday')}</p>
-        <div className="mt-1 flex flex-wrap gap-3 text-sm text-gray-700">
+        <p className="text-sm text-text-faint">{t('resources.allocation.byWeekday')}</p>
+        <div className="mt-1 flex flex-wrap gap-3 text-sm text-text-secondary">
           {Object.entries(allocation.total_hours_by_weekday).map(([weekday, hours]) => (
             <span key={weekday}>
               {t(`resources.weekdays.${weekday}`)}: {hours}
@@ -31,8 +31,8 @@ export function AllocationStatusCard() {
       </div>
 
       <div>
-        <p className="text-sm text-gray-500">{t('resources.allocation.byEnvironment')}</p>
-        <div className="mt-1 flex flex-wrap gap-3 text-sm text-gray-700">
+        <p className="text-sm text-text-faint">{t('resources.allocation.byEnvironment')}</p>
+        <div className="mt-1 flex flex-wrap gap-3 text-sm text-text-secondary">
           {Object.entries(allocation.total_hours_by_environment).map(([env, hours]) => (
             <span key={env}>
               {t(`goals.materials.environment.${env}`)}: {hours}
@@ -43,8 +43,8 @@ export function AllocationStatusCard() {
       </div>
 
       <div>
-        <p className="text-sm text-gray-500">{t('resources.allocation.bySlot')}</p>
-        <ul className="mt-1 flex flex-col gap-2 text-sm text-gray-700">
+        <p className="text-sm text-text-faint">{t('resources.allocation.bySlot')}</p>
+        <ul className="mt-1 flex flex-col gap-2 text-sm text-text-secondary">
           {allocation.slots.map((slot) => (
             <li key={slot.slot_id}>
               <p className={slot.is_over_capacity ? 'text-red-600' : ''}>
@@ -55,7 +55,7 @@ export function AllocationStatusCard() {
                   ? ` (${t('resources.allocation.overCapacity')})`
                   : ` (${t('resources.allocation.unallocated')}: ${slot.unallocated_minutes}${t('common.unit.minutes')})`}
               </p>
-              <ul className="ml-4 text-xs text-gray-500">
+              <ul className="ml-4 text-xs text-text-faint">
                 {slot.goal_allocations.length === 0 ? (
                   <li>{t('resources.allocation.noGoals')}</li>
                 ) : (

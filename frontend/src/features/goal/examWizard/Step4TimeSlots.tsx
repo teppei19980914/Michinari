@@ -21,9 +21,9 @@ function SimpleTimeInputs({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step4.description')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step4.description')}</p>
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.examWizard.step4.weekdayHoursLabel')}
           <Input
             type="number"
@@ -33,7 +33,7 @@ function SimpleTimeInputs({
             onChange={(e) => onChangeWeekdayHours(e.target.value)}
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.examWizard.step4.weekendHoursLabel')}
           <Input
             type="number"
@@ -45,7 +45,7 @@ function SimpleTimeInputs({
         </label>
       </div>
       {Number(weekdayHours) > 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-text-faint">
           {t('goals.examWizard.step4.weekdayPreview', {
             start: weekdayTimes.startTime,
             end: weekdayTimes.endTime,
@@ -53,15 +53,15 @@ function SimpleTimeInputs({
         </p>
       )}
       {Number(weekendHours) > 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-text-faint">
           {t('goals.examWizard.step4.weekendPreview', {
             start: weekendTimes.startTime,
             end: weekendTimes.endTime,
           })}
         </p>
       )}
-      <p className="text-xs text-amber-700">{t('goals.examWizard.step4.timeDisclaimer')}</p>
-      <p className="text-xs text-gray-500">{t('goals.examWizard.step4.laterNotice')}</p>
+      <p className="text-xs text-warning-text-subtle">{t('goals.examWizard.step4.timeDisclaimer')}</p>
+      <p className="text-xs text-text-faint">{t('goals.examWizard.step4.laterNotice')}</p>
     </div>
   )
 }
@@ -101,9 +101,9 @@ export function Step4TimeSlots({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step4.existingSlotsDescription')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step4.existingSlotsDescription')}</p>
       <SlotAllocationTable rows={rows} values={values} readOnly={false} onChangeMinutes={onChangeMinutes} />
-      <p className="text-sm text-gray-700">
+      <p className="text-sm text-text-secondary">
         {t('goals.resourceAllocation.totalLabel')}: {totalMinutes(values)}
         {t('common.unit.minutes')}
       </p>

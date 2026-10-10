@@ -35,8 +35,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBound
     if (error) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
-          <p className="text-sm text-gray-700">{t('errorBoundary.message')}</p>
-          <details className="text-xs text-gray-400">
+          <p className="text-sm text-text-secondary">{t('errorBoundary.message')}</p>
+          <details className="text-xs text-text-disabled">
             <summary className="cursor-pointer select-none">
               {t('errorBoundary.detailsSummary')}
             </summary>

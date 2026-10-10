@@ -89,7 +89,7 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
   return (
     <div className="flex flex-col gap-3">
       <Card className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t(config.periodLabelKey)}
           <Input
             value={period}
@@ -114,10 +114,10 @@ export function WorkReportTab({ goalId, kind }: { goalId: number; kind: WorkRepo
         )}
       </Card>
 
-      {reportQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {reportQuery.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
 
       {!reportQuery.isLoading && !report && (
-        <p className="text-sm text-gray-500">{t('goals.workReport.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goals.workReport.empty')}</p>
       )}
 
       {report?.target_period_label && (

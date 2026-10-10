@@ -13,7 +13,7 @@ export function WorkReportPeriodHeader({
   reportingLabel: string | null
 }) {
   return (
-    <p className="text-sm font-medium text-gray-800">
+    <p className="text-sm font-medium text-text-primary">
       {reportingLabel
         ? t('goals.workReport.periodHeaderMonthly', { target: targetLabel, reporting: reportingLabel })
         : t('goals.workReport.periodHeaderSemiannual', { target: targetLabel })}

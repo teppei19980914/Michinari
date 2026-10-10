@@ -29,17 +29,17 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
   return (
     <Card>
       <div className="flex items-baseline justify-between">
-        <h2 className="font-medium text-gray-900">{t('dashboard.weeklyDigest.title')}</h2>
-        <span className="text-xs text-gray-500">{weekRange}</span>
+        <h2 className="font-medium text-text-primary">{t('dashboard.weeklyDigest.title')}</h2>
+        <span className="text-xs text-text-faint">{weekRange}</span>
       </div>
       {display.kind === 'ai_summary' && (
-        <MarkdownText text={display.text} className="mt-1 text-gray-800" />
+        <MarkdownText text={display.text} className="mt-1 text-text-primary" />
       )}
       {display.kind === 'no_records' && (
-        <p className="mt-1 text-sm text-gray-500">{t('dashboard.weeklyDigest.noRecords')}</p>
+        <p className="mt-1 text-sm text-text-faint">{t('dashboard.weeklyDigest.noRecords')}</p>
       )}
       {display.kind === 'record_summary' && (
-        <p className="mt-1 text-sm text-gray-800">
+        <p className="mt-1 text-sm text-text-primary">
           {t('dashboard.weeklyDigest.recordedDays', { days: display.recordedDays })}
           {display.totalMinutes !== null &&
             `　${t('dashboard.weeklyDigest.totalMinutes', { minutes: display.totalMinutes })}`}

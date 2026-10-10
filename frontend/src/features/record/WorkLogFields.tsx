@@ -68,14 +68,14 @@ function WorkLogFieldsCard({
 
   return (
     <Card>
-      <p className="font-medium text-gray-900">
+      <p className="font-medium text-text-primary">
         {workAssignment.client_name ?? t('dailyReport.workLog.noClientName')}
       </p>
       <div className="mt-2">
         <PreviousEntryHint entry={previousEntry.data} />
       </div>
       {questions.map((question, index) => (
-        <label key={index} className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+        <label key={index} className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
           {question}
           <Textarea
             rows={2}
@@ -89,8 +89,8 @@ function WorkLogFieldsCard({
           />
         </label>
       ))}
-      <p className="mt-2 text-xs text-gray-400">{t('dailyReport.voiceInputHint')}</p>
-      <label className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+      <p className="mt-2 text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
+      <label className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
         {t('dailyReport.workLog.bodyLabel')}
         <Textarea
           rows={4}

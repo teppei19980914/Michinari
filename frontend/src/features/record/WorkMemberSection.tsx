@@ -25,7 +25,7 @@ export function WorkMemberSection({
     <div className="flex flex-col gap-3">
       {workAssignments.map(({ goal, workAssignment }) => (
         <div key={workAssignment.id} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-gray-900">
+          <h2 className="text-sm font-semibold text-text-primary">
             {t('dailyReport.workMember.title', { workName: goal.name })}
           </h2>
           <WorkMemberList goalId={goal.id} members={workAssignment.members} readOnly={false} />

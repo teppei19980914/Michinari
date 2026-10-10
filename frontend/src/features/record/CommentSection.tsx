@@ -54,8 +54,8 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
   return (
     <Card className="flex items-start justify-between gap-2">
       <div>
-        <p className="text-sm text-gray-900 whitespace-pre-wrap">{comment.body}</p>
-        <p className="mt-1 text-xs text-gray-400">
+        <p className="text-sm text-text-primary whitespace-pre-wrap">{comment.body}</p>
+        <p className="mt-1 text-xs text-text-disabled">
           {new Date(comment.created_at).toLocaleString('ja-JP')}
         </p>
       </div>
@@ -102,9 +102,9 @@ export function CommentSection({
 
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('dailyReportView.comments.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('dailyReportView.comments.title')}</h2>
       {comments.length === 0 && (
-        <p className="text-sm text-gray-500">{t('dailyReportView.comments.empty')}</p>
+        <p className="text-sm text-text-faint">{t('dailyReportView.comments.empty')}</p>
       )}
       {comments.map((comment) => (
         <CommentItem key={comment.id} targetDate={targetDate} comment={comment} />

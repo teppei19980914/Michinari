@@ -44,24 +44,24 @@ function WorkMemberRow({
   }
 
   return (
-    <li className="flex flex-col gap-1 rounded-md border border-gray-200 p-3 text-sm">
+    <li className="flex flex-col gap-1 rounded-md border border-border p-3 text-sm">
       <div className="flex items-center justify-between">
-        <span className="font-medium text-gray-900">
+        <span className="font-medium text-text-primary">
           {member.name}
           {!member.is_active && (
-            <span className="ml-2 text-xs text-gray-400">
+            <span className="ml-2 text-xs text-text-disabled">
               {t('goals.workMember.inactiveBadge')}
             </span>
           )}
         </span>
         {member.gender && (
-          <span className="text-xs text-gray-500">{t(`goals.workMember.gender.${member.gender}`)}</span>
+          <span className="text-xs text-text-faint">{t(`goals.workMember.gender.${member.gender}`)}</span>
         )}
       </div>
       {member.characteristics && (
-        <p className="whitespace-pre-wrap text-gray-700">{member.characteristics}</p>
+        <p className="whitespace-pre-wrap text-text-secondary">{member.characteristics}</p>
       )}
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-text-disabled">
         {t('goals.workMember.consentConfirmedAtLabel')}:{' '}
         {member.consent_confirmed_at ?? t('goals.workMember.consentNotConfirmed')}
       </p>
@@ -109,9 +109,9 @@ export function WorkMemberList({
 
   return (
     <Card className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold text-gray-900">{t('goals.workMember.title')}</h3>
+      <h3 className="text-sm font-semibold text-text-primary">{t('goals.workMember.title')}</h3>
       {members.length === 0 && !adding && (
-        <p className="text-sm text-gray-500">{t('goals.workMember.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goals.workMember.empty')}</p>
       )}
       {members.length > 0 && (
         <ul className="flex flex-col gap-2">

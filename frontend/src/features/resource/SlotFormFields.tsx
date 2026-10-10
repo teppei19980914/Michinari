@@ -25,7 +25,7 @@ export function SlotTimeFields({
 }) {
   return (
     <div className="flex gap-2">
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('resources.slots.startTimeLabel')}
         <Input
           type="time"
@@ -34,7 +34,7 @@ export function SlotTimeFields({
           required
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('resources.slots.endTimeLabel')}
         <Input
           type="time"
@@ -43,10 +43,10 @@ export function SlotTimeFields({
           required
         />
       </label>
-      <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
         {t('resources.slots.environmentLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={environment}
           onChange={(e) => onChangeEnvironment(e.target.value as SlotEnvironment)}
         >
@@ -70,7 +70,7 @@ export function SlotWeekdaysField({
   onToggle: (weekday: number) => void
 }) {
   return (
-    <fieldset className="flex flex-col gap-1 text-sm text-gray-700">
+    <fieldset className="flex flex-col gap-1 text-sm text-text-secondary">
       <legend>{t('resources.slots.weekdaysLabel')}</legend>
       <div className="flex flex-wrap gap-3">
         {WEEKDAYS.map((weekday) => (

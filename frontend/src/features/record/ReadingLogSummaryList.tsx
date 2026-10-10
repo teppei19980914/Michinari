@@ -23,13 +23,13 @@ export function ReadingLogSummaryList({
         const label = bookLabels.get(log.book_id)
         return (
           <Card key={log.id}>
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-text-primary">
               {label?.title ?? t('dailyReportView.readingLog.unknownBook', { id: log.book_id })}
             </p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{log.recall_body}</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{log.recall_body}</p>
             {log.current_page !== null && (
-              <dl className="mt-2 text-sm text-gray-600">
-                <dt className="text-gray-400">{t('dailyReportView.readingLog.currentPage')}</dt>
+              <dl className="mt-2 text-sm text-text-muted">
+                <dt className="text-text-disabled">{t('dailyReportView.readingLog.currentPage')}</dt>
                 <dd>{log.current_page}</dd>
               </dl>
             )}

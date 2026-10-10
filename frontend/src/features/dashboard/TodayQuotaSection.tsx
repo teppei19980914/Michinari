@@ -21,20 +21,20 @@ export function TodayQuotaSection({
 
   return (
     <Card>
-      <h2 className="mb-2 font-medium text-gray-900">{t('dashboard.todayQuota.title')}</h2>
+      <h2 className="mb-2 font-medium text-text-primary">{t('dashboard.todayQuota.title')}</h2>
       {isBufferDay && (
-        <p className="mb-2 flex items-center gap-2 text-sm text-amber-700">
+        <p className="mb-2 flex items-center gap-2 text-sm text-warning-text-subtle">
           <img src={CHARACTER_ICONS.buffer} alt="" className="h-6 w-6 shrink-0" />
           {t('dashboard.todayQuota.bufferDayNotice')}
         </p>
       )}
       {todayQuota.length === 0 ? (
-        <p className="text-sm text-gray-500">{t('dashboard.todayQuota.empty')}</p>
+        <p className="text-sm text-text-faint">{t('dashboard.todayQuota.empty')}</p>
       ) : (
         goalGroups.map((group) => (
           <div key={group.goalId} className="mb-3 last:mb-0">
             {goalGroups.length > 1 && (
-              <h3 className="mb-1 font-medium text-gray-900">{group.goalName}</h3>
+              <h3 className="mb-1 font-medium text-text-primary">{group.goalName}</h3>
             )}
             <ul className="divide-y divide-gray-100">
               {group.items.map((item) => (
@@ -43,20 +43,20 @@ export function TodayQuotaSection({
                   className="flex items-center justify-between py-2 text-sm"
                 >
                   <div>
-                    <p className="text-gray-900">{item.material_name}</p>
-                    <p className="text-gray-500">
+                    <p className="text-text-primary">{item.material_name}</p>
+                    <p className="text-text-faint">
                       {t('dashboard.todayQuota.cycleLabel', {
                         current: item.current_cycle,
                         planned: item.planned_cycles,
                       })}
                     </p>
                   </div>
-                  <div className="text-right text-gray-700">
+                  <div className="text-right text-text-secondary">
                     <p>
                       {isBufferDay ? 0 : Math.round(item.daily_quota * 10) / 10}
                       {item.unit_label}
                     </p>
-                    <p className="text-gray-500">
+                    <p className="text-text-faint">
                       {item.target_minutes === null || isBufferDay
                         ? t('dashboard.todayQuota.targetMinutesUnavailable')
                         : `${Math.round(item.target_minutes)}${t('common.unit.minutes')}`}
@@ -69,7 +69,7 @@ export function TodayQuotaSection({
         ))
       )}
       {availableSlotNames.length > 0 && (
-        <p className="mt-3 text-xs text-gray-500">
+        <p className="mt-3 text-xs text-text-faint">
           {t('dashboard.todayQuota.availableSlots')}: {availableSlotNames.join('、')}
         </p>
       )}
