@@ -37,9 +37,9 @@ export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.threshold.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('settings.threshold.title')}</h2>
       <div className="flex gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('settings.threshold.warningRatioLabel')}
           <Input
             type="number"
@@ -48,7 +48,7 @@ export function ThresholdSection({ settings }: { settings: AppSettingsRead }) {
             onChange={(e) => setWarningRatioPercent(e.target.value)}
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('settings.threshold.replanOverrunDaysLabel')}
           <Input
             type="number"

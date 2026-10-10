@@ -35,19 +35,19 @@ function validationMessage(draft: string, maxChars: number | undefined): string 
 function HistoryItem({ entry }: { entry: HistoryEntry }) {
   if (entry.kind === 'question') {
     return (
-      <div className="ml-auto max-w-[85%] rounded-md bg-blue-50 p-2 text-sm text-gray-800">
-        <p className="mb-1 text-xs text-gray-500">{t('helpAssistant.userLabel')}</p>
+      <div className="ml-auto max-w-[85%] rounded-md bg-accent-muted-bg p-2 text-sm text-text-primary">
+        <p className="mb-1 text-xs text-text-faint">{t('helpAssistant.userLabel')}</p>
         <p className="whitespace-pre-wrap">{entry.text}</p>
       </div>
     )
   }
   return (
-    <div className="max-w-[85%] rounded-md bg-gray-50 p-2">
-      <p className="mb-1 text-xs text-gray-500">{t('helpAssistant.assistantLabel')}</p>
+    <div className="max-w-[85%] rounded-md bg-surface-muted p-2">
+      <p className="mb-1 text-xs text-text-faint">{t('helpAssistant.assistantLabel')}</p>
       {entry.kind === 'answer' ? (
         <HelpAssistantAnswerBody answer={entry.answer} />
       ) : (
-        <p className="text-sm text-gray-700">{t(entry.messageKey)}</p>
+        <p className="text-sm text-text-secondary">{t(entry.messageKey)}</p>
       )}
     </div>
   )
@@ -97,20 +97,20 @@ export function HelpAssistantDrawer({ onClose }: HelpAssistantDrawerProps) {
     <aside
       role="dialog"
       aria-label={t('helpAssistant.title')}
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col gap-3 border-l border-gray-200 bg-white p-4 shadow-lg"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-md flex-col gap-3 border-l border-border bg-surface p-4 shadow-lg"
     >
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-800">{t('helpAssistant.title')}</h2>
+        <h2 className="text-base font-semibold text-text-primary">{t('helpAssistant.title')}</h2>
         <Button variant="secondary" onClick={onClose}>
           {t('helpAssistant.close')}
         </Button>
       </div>
-      <p className="text-xs text-gray-500">{t('helpAssistant.disclaimer')}</p>
+      <p className="text-xs text-text-faint">{t('helpAssistant.disclaimer')}</p>
       <div ref={historyRef} className="flex flex-1 flex-col gap-2 overflow-y-auto">
         {history.map((entry) => (
           <HistoryItem key={entry.id} entry={entry} />
         ))}
-        {ask.isPending && <p className="text-sm text-gray-500">{t('helpAssistant.sending')}</p>}
+        {ask.isPending && <p className="text-sm text-text-faint">{t('helpAssistant.sending')}</p>}
       </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Textarea

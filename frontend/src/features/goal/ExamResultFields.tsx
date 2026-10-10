@@ -33,7 +33,7 @@ export function ExamResultFields({
 }) {
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goalResult.takenDateLabel')}
         <Input
           type="date"
@@ -42,10 +42,10 @@ export function ExamResultFields({
           required
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goalResult.resultLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={result}
           onChange={(e) => onChangeResult(e.target.value as ExamResultType)}
         >
@@ -56,15 +56,15 @@ export function ExamResultFields({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goalResult.scoreLabel')}
         <Input type="number" value={score} onChange={(e) => onChangeScore(e.target.value)} />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goalResult.evaluationLabel')}
         <Input value={evaluation} onChange={(e) => onChangeEvaluation(e.target.value)} />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goalResult.noteLabel')}
         <Textarea rows={3} value={note} onChange={(e) => onChangeNote(e.target.value)} />
       </label>

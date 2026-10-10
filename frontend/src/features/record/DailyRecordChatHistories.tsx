@@ -14,7 +14,7 @@ export function DailyRecordChatHistories({ histories }: { histories: ChatHistory
     <>
       {histories.map((history) => (
         <Card key={history.key} className="flex flex-col gap-2">
-          <h2 className="font-medium text-gray-900">{t(history.titleKey)}</h2>
+          <h2 className="font-medium text-text-primary">{t(history.titleKey)}</h2>
           <ChatPanel messages={history.messages} readOnly />
         </Card>
       ))}

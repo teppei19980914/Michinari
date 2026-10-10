@@ -38,6 +38,16 @@
      意図的にテーマへ追従させない（gray-800、ライトモードでも違和感のない濃さ）。 */
   --overlay-strong-bg: #1f2937; /* gray-800 */
   --overlay-strong-text: #ffffff;
+
+  /* 警告（注意喚起の帯・文言）。目標種別バッジのような小さく自己完結したチップとは違い、
+     面積の大きいボックスやページ本文に直接置く文字のため、背景がダークモードでも
+     読めるよう明暗ペアを持つ（2026-10利用者検証で、amber-700の文字がダーク背景に
+     同化して見えない不具合が見つかったため）。 */
+  --warning-bg: #fffbeb; /* amber-50 */
+  --warning-hover-bg: #fef3c7; /* amber-100 */
+  --warning-border: #fcd34d; /* amber-300 */
+  --warning-text: #78350f; /* amber-900 */
+  --warning-text-subtle: #b45309; /* amber-700、枠なしで本文に直接置く注意文言用 */
 }
 
 [data-theme='dark'] {
@@ -56,6 +66,12 @@
      持たずに済ませるため、CODING_RULES.md DRYの原則）。 */
   --accent-muted-bg: color-mix(in oklab, var(--accent) 24%, var(--surface));
   --accent-muted-text: color-mix(in oklab, var(--accent) 55%, white);
+
+  --warning-bg: color-mix(in oklab, #fbbf24 16%, var(--surface));
+  --warning-hover-bg: color-mix(in oklab, #fbbf24 26%, var(--surface));
+  --warning-border: #92400e; /* amber-800 */
+  --warning-text: #fde68a; /* amber-200 */
+  --warning-text-subtle: #fbbf24; /* amber-400 */
 }
 
 [data-accent='green'] {
@@ -99,6 +115,11 @@
   --color-accent-muted-text: var(--accent-muted-text);
   --color-overlay-strong: var(--overlay-strong-bg);
   --color-overlay-strong-text: var(--overlay-strong-text);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-hover-bg: var(--warning-hover-bg);
+  --color-warning-border: var(--warning-border);
+  --color-warning-text: var(--warning-text);
+  --color-warning-text-subtle: var(--warning-text-subtle);
 }
 
 /* フォントサイズ切替（UIリッチ化）。Tailwindの既定ユーティリティはrem基準のため、
@@ -142,4 +163,9 @@ html {
 
 body {
   margin: 0;
+  /* ページの地の色・既定文字色（UIリッチ化）。共通部品(Card等)だけでなく、画面本体の
+     背景（body）自体もトークン化しないと、ダークモードでも地の色が白いまま残る
+     （2026-10利用者検証で発覚）。 */
+  background-color: var(--surface);
+  color: var(--text-primary);
 }

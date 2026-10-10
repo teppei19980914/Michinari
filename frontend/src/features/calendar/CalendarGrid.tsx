@@ -55,7 +55,7 @@ export function CalendarGrid({
   return (
     <div className="grid grid-cols-7 gap-1">
       {WEEKDAY_KEYS.map((weekday) => (
-        <div key={weekday} className="px-1 text-center text-xs font-medium text-gray-500">
+        <div key={weekday} className="px-1 text-center text-xs font-medium text-text-faint">
           {t(`calendar.weekday.${weekday}`)}
         </div>
       ))}
@@ -68,23 +68,23 @@ export function CalendarGrid({
         return (
           <div
             key={dateKey}
-            className={`flex min-h-16 flex-col justify-between rounded-md border border-gray-200 p-1 text-xs ${
-              dayInfo ? resolveCalendarCellBackgroundClass(dayInfo.day_type) : 'bg-white'
+            className={`flex min-h-16 flex-col justify-between rounded-md border border-border p-1 text-xs ${
+              dayInfo ? resolveCalendarCellBackgroundClass(dayInfo.day_type) : 'bg-surface'
             } ${isDimmed ? 'opacity-40' : ''}`}
           >
             {onSelectDate ? (
               <button
                 type="button"
-                className="text-left font-medium text-gray-900 hover:underline"
+                className="text-left font-medium text-text-primary hover:underline"
                 onClick={() => onSelectDate(dateKey)}
               >
                 {format(day, 'd')}
               </button>
             ) : (
-              <span className="font-medium text-gray-900">{format(day, 'd')}</span>
+              <span className="font-medium text-text-primary">{format(day, 'd')}</span>
             )}
             {dayInfo && (
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[10px] text-text-faint">
                 {t(resolveCalendarCellMarkerKey(dayInfo.record_state))}
               </span>
             )}
@@ -93,7 +93,7 @@ export function CalendarGrid({
                 const groups = groupByGoal(markers)
                 const showGoalName = groups.length > 1
                 return (
-                  <span className="flex flex-col text-[10px] text-blue-700">
+                  <span className="flex flex-col text-[10px] text-accent-muted-text">
                     {groups.map((group) => (
                       <span key={group.goalId}>
                         {showGoalName && `${group.goalName}: `}
@@ -106,7 +106,7 @@ export function CalendarGrid({
             {onEditDayType && (
               <button
                 type="button"
-                className="self-end text-[10px] text-gray-400 hover:text-gray-600"
+                className="self-end text-[10px] text-text-disabled hover:text-text-muted"
                 onClick={() => onEditDayType(dateKey)}
               >
                 {t('calendar.editDayTypeLink')}

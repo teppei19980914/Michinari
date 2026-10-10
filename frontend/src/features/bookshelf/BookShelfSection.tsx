@@ -30,8 +30,11 @@ export function BookShelfSection({
 
   return (
     <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold text-gray-700">{t(titleKey)}</h2>
-      <div className="rounded-lg border border-amber-900/40 bg-gradient-to-b from-amber-100/70 to-amber-200/70 p-3 shadow-inner">
+      <h2 className="text-sm font-semibold text-text-secondary">{t(titleKey)}</h2>
+      {/* 木目調の棚板（装飾）。暗い部屋でも棚板が見えるように、ダークモードでは濃い木目に
+          切り替える（意味色トークンではなく一度しか使わない装飾のため、Tailwindのdark:
+          バリアントで直接指定する）。 */}
+      <div className="rounded-lg border border-amber-900/40 bg-gradient-to-b from-amber-100/70 to-amber-200/70 p-3 shadow-inner dark:border-amber-200/20 dark:from-amber-950/70 dark:to-amber-900/60">
         <ul className="flex items-end gap-2 overflow-x-auto pb-3">
           {entries.map((entry) => (
             <li key={entry.goal.id} className="shrink-0">
@@ -45,7 +48,7 @@ export function BookShelfSection({
             </li>
           ))}
         </ul>
-        <div className="h-3 rounded-b-md bg-gradient-to-b from-amber-800 to-amber-950 shadow-md" />
+        <div className="h-3 rounded-b-md bg-gradient-to-b from-amber-800 to-amber-950 shadow-md dark:from-amber-950 dark:to-black" />
       </div>
     </section>
   )

@@ -9,9 +9,9 @@ type RecordState = components['schemas']['RecordState']
  * 組み合わせが多く目視確認では漏れるためテスト対象とする。
  */
 const DAY_TYPE_BACKGROUND_CLASS: Record<DayType, string> = {
-  PLAN: 'bg-white',
-  BUFFER: 'bg-amber-50',
-  OFF: 'bg-gray-100',
+  PLAN: 'bg-surface',
+  BUFFER: 'bg-warning-bg',
+  OFF: 'bg-surface-muted',
 }
 
 export function resolveCalendarCellBackgroundClass(dayType: DayType): string {

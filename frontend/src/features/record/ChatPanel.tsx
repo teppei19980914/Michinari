@@ -32,7 +32,7 @@ export function ChatPanel({
   return (
     <div className="flex flex-col gap-2">
       {messages.length === 0 ? (
-        <p className="text-sm text-gray-500">{t('dailyReport.chat.empty')}</p>
+        <p className="text-sm text-text-faint">{t('dailyReport.chat.empty')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {messages.map((message) => (
@@ -40,8 +40,8 @@ export function ChatPanel({
               key={message.id}
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                 message.role === 'USER'
-                  ? 'ml-auto bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-900'
+                  ? 'ml-auto bg-accent text-white'
+                  : 'bg-surface-muted text-text-primary'
               }`}
             >
               <p className="whitespace-pre-wrap">{message.content}</p>
@@ -51,11 +51,11 @@ export function ChatPanel({
       )}
 
       {wasTruncated && (
-        <p className="text-xs text-amber-700">{t('dailyReport.chat.truncatedNotice')}</p>
+        <p className="text-xs text-warning-text-subtle">{t('dailyReport.chat.truncatedNotice')}</p>
       )}
 
       {contextCategories.length > 0 && (
-        <details className="text-xs text-gray-500">
+        <details className="text-xs text-text-faint">
           <summary className="cursor-pointer select-none">
             {t('dailyReport.chat.contextCategoriesSummary')}
           </summary>

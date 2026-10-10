@@ -58,7 +58,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.aiConnection.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('settings.aiConnection.title')}</h2>
 
       <AiConnectionGuide host={form.host} />
 
@@ -71,14 +71,14 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
       />
 
       <div className="flex flex-wrap gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('settings.aiConnection.folderPrefixLabel')}
           <Input
             value={form.folder_prefix}
             onChange={(e) => setForm({ ...form, folder_prefix: e.target.value })}
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('settings.aiConnection.timeoutSecondsLabel')}
           <Input
             type="number"
@@ -87,7 +87,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
             onChange={(e) => setForm({ ...form, timeout_seconds: Number(e.target.value) })}
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('settings.aiConnection.minIntervalSecondsLabel')}
           <Input
             type="number"
@@ -99,7 +99,7 @@ export function AiConnectionSection({ settings }: { settings: AppSettingsRead })
       </div>
 
       {assistantsQuery.isLoading && (
-        <p className="text-xs text-gray-500">{t('settings.aiConnection.assistant.loading')}</p>
+        <p className="text-xs text-text-faint">{t('settings.aiConnection.assistant.loading')}</p>
       )}
       {assistantsQuery.isError && (
         <p className="text-xs text-red-600">{t('settings.aiConnection.assistant.loadFailed')}</p>

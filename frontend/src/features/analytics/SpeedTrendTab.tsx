@@ -13,7 +13,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getSpeedAnalytics } from '../../api/analytics'
-import { GRID_LINE_COLOR, cycleSeriesColor } from './chartColors'
+import { cycleSeriesColor, resolveGridLineColor } from './chartColors'
 import { cycleSeriesKey, mergeCycleSeries } from './mergeCycleSeries'
 import { formatAxisNumber, formatDateTick } from './formatPeriod'
 import { QUERY_KEYS } from '../../constants/queryKeys'
@@ -30,11 +30,11 @@ export function SpeedTrendTab({ goalId }: SpeedTrendTabProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      {query.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {query.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
       {query.isError && <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
 
       {query.data && query.data.materials.length === 0 && (
-        <p className="text-sm text-gray-500">{t('analytics.materialEmpty')}</p>
+        <p className="text-sm text-text-faint">{t('analytics.materialEmpty')}</p>
       )}
 
       {query.data?.materials.map((material) => {
@@ -46,13 +46,13 @@ export function SpeedTrendTab({ goalId }: SpeedTrendTabProps) {
         )
         return (
           <Card key={material.material_id}>
-            <h3 className="mb-2 font-medium text-gray-900">{material.material_name}</h3>
+            <h3 className="mb-2 font-medium text-text-primary">{material.material_name}</h3>
             {rows.length === 0 ? (
-              <p className="text-sm text-gray-500">{t('analytics.speed.noData')}</p>
+              <p className="text-sm text-text-faint">{t('analytics.speed.noData')}</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={rows}>
-                  <CartesianGrid stroke={GRID_LINE_COLOR} vertical={false} />
+                  <CartesianGrid stroke={resolveGridLineColor()} vertical={false} />
                   <XAxis dataKey="x" tickFormatter={formatDateTick} tick={{ fontSize: 12 }} />
                   <YAxis
                     tick={{ fontSize: 12 }}

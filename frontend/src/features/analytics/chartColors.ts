@@ -1,9 +1,16 @@
 /**
  * 分析画面（SC-09）のグラフ配色。dataviz skillの検証済み既定パレット（references/palette.md）
  * をそのまま採用する（カテゴリカル順序は固定、CVD安全性が検証済みのため独自配色にしない）。
- * 本アプリはダークモード切替を持たない（既存の全画面がライト固定のTailwindクラスのため、
- * この画面のみダークモード対応を追加すると一貫性が崩れる）。
+ *
+ * Rechartsの`stroke`はSVG属性として描画されCSS変数(`var(--...)`)を安定して解決できないため、
+ * グリッド線・計画線のような「地味な中立色」は`resolve*Color()`関数で現在のテーマ
+ * （`document.documentElement.dataset.theme`、UIリッチ化）を見て明暗の値を切り替える
+ * （`CYCLE_SERIES_COLORS`等の系列色はCVD安全性の検証済みパレットのため明暗を問わず維持する）。
  */
+
+function isDarkTheme(): boolean {
+  return document.documentElement.dataset.theme === 'dark'
+}
 
 /** 周回別系列の色（cycle_numberの昇順で固定順に割り当てる。カテゴリカルなので循環割当はしない）。 */
 export const CYCLE_SERIES_COLORS = [
@@ -25,7 +32,14 @@ export function cycleSeriesColor(index: number): string {
 export const THRESHOLD_LINE_COLOR = '#d03b3b'
 
 /** 計画線など「目標ペース」を示す参照線の色（実績と混同しないよう中立色のグレー）。 */
-export const PLAN_LINE_COLOR = '#898781'
+export function resolvePlanLineColor(): string {
+  return isDarkTheme() ? '#9ca3af' : '#898781'
+}
 
-export const GRID_LINE_COLOR = '#e1e0d9'
-export const AXIS_LINE_COLOR = '#c3c2b7'
+export function resolveGridLineColor(): string {
+  return isDarkTheme() ? '#374151' : '#e1e0d9'
+}
+
+export function resolveAxisLineColor(): string {
+  return isDarkTheme() ? '#4b5563' : '#c3c2b7'
+}

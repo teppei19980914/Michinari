@@ -83,7 +83,7 @@ export function WorkEvaluationReportTab({ goal }: { goal: GoalDetailRead }) {
 
   if (workAssignment?.role !== 'EVALUATOR') {
     return (
-      <p className="text-sm text-gray-500">{t('goals.workEvaluationReport.roleRequiredNotice')}</p>
+      <p className="text-sm text-text-faint">{t('goals.workEvaluationReport.roleRequiredNotice')}</p>
     )
   }
 
@@ -91,7 +91,7 @@ export function WorkEvaluationReportTab({ goal }: { goal: GoalDetailRead }) {
 
   if (activeMembers.length === 0) {
     return (
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-text-faint">
         {t('goals.workEvaluationReport.memberRequiredNotice')}
       </p>
     )

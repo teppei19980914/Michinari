@@ -30,10 +30,10 @@ function DisplaySelect({
   translateOption: (value: string) => string
 }) {
   return (
-    <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+    <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
       {label}
       <select
-        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+        className="rounded-md border border-border-strong px-3 py-2 text-sm"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -78,7 +78,7 @@ export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.display.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('settings.display.title')}</h2>
       <div className="flex gap-3">
         <DisplaySelect
           label={t('settings.display.localeLabel')}

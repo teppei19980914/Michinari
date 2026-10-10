@@ -17,30 +17,30 @@ export function WelcomePage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <p className="text-sm text-gray-700">{t('welcome.appIntro')}</p>
-      <h1 className="text-xl font-semibold text-gray-900">{t('welcome.heading')}</h1>
+      <p className="text-sm text-text-secondary">{t('welcome.appIntro')}</p>
+      <h1 className="text-xl font-semibold text-text-primary">{t('welcome.heading')}</h1>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <button type="button" className="text-left" onClick={() => setQuickCreateCategory('READING')}>
-          <Card className="flex h-full flex-col gap-1 hover:border-blue-300">
-            <span className="text-xs font-medium text-blue-600">{t('welcome.reading.recommended')}</span>
-            <span className="font-medium text-gray-900">{t('welcome.reading.title')}</span>
-            <span className="text-sm text-gray-600">{t('welcome.reading.description')}</span>
+          <Card className="flex h-full flex-col gap-1 hover:border-accent-disabled">
+            <span className="text-xs font-medium text-accent">{t('welcome.reading.recommended')}</span>
+            <span className="font-medium text-text-primary">{t('welcome.reading.title')}</span>
+            <span className="text-sm text-text-muted">{t('welcome.reading.description')}</span>
           </Card>
         </button>
 
         <button type="button" className="text-left" onClick={() => setQuickCreateCategory('WORK')}>
-          <Card className="flex h-full flex-col gap-1 hover:border-blue-300">
-            <span className="font-medium text-gray-900">{t('welcome.work.title')}</span>
-            <span className="text-sm text-gray-600">{t('welcome.work.description')}</span>
+          <Card className="flex h-full flex-col gap-1 hover:border-accent-disabled">
+            <span className="font-medium text-text-primary">{t('welcome.work.title')}</span>
+            <span className="text-sm text-text-muted">{t('welcome.work.description')}</span>
           </Card>
         </button>
 
         <button type="button" className="text-left" onClick={() => navigate(ROUTES.goalNewExam)}>
-          <Card className="flex h-full flex-col gap-1 hover:border-blue-300">
-            <span className="font-medium text-gray-900">{t('welcome.exam.title')}</span>
-            <span className="text-sm text-gray-600">{t('welcome.exam.description')}</span>
-            <span className="text-xs text-gray-400">{t('welcome.exam.note')}</span>
+          <Card className="flex h-full flex-col gap-1 hover:border-accent-disabled">
+            <span className="font-medium text-text-primary">{t('welcome.exam.title')}</span>
+            <span className="text-sm text-text-muted">{t('welcome.exam.description')}</span>
+            <span className="text-xs text-text-disabled">{t('welcome.exam.note')}</span>
           </Card>
         </button>
       </div>

@@ -54,7 +54,7 @@ export function DailyReportViewPage() {
     goals: goalsQuery,
   })
   if (guard.kind === 'LOADING') {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (guard.kind === 'ERROR') {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
@@ -73,7 +73,7 @@ export function DailyReportViewPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">
+      <h1 className="text-xl font-semibold text-text-primary">
         {t('dailyReportView.title', { date: targetDate })}
       </h1>
 
@@ -87,21 +87,21 @@ export function DailyReportViewPage() {
 
       {sections.showExamSection && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-medium text-gray-900">{t('dailyReportView.studyLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('dailyReportView.studyLog.title')}</h2>
           <StudyLogSummaryList studyLogs={record.study_logs} materialLabels={materialLabels} />
         </section>
       )}
 
       {sections.showReadingSection && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-medium text-gray-900">{t('dailyReportView.readingLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('dailyReportView.readingLog.title')}</h2>
           <ReadingLogSummaryList readingLogs={record.reading_logs} bookLabels={bookLabels} />
         </section>
       )}
 
       {sections.showWorkSection && (
         <section className="flex flex-col gap-2">
-          <h2 className="font-medium text-gray-900">{t('dailyReportView.workLog.title')}</h2>
+          <h2 className="font-medium text-text-primary">{t('dailyReportView.workLog.title')}</h2>
           <WorkLogSummaryList
             workLogs={record.work_logs}
             workAssignmentLabels={workAssignmentLabels}

@@ -32,7 +32,7 @@ function ExportProgressNote({
 }) {
   if (!progress?.in_progress) return null
   return (
-    <p className="text-sm text-gray-500">
+    <p className="text-sm text-text-faint">
       {t('knowledgeExport.exportProgress', {
         completed: progress.completed,
         total: progress.total,
@@ -78,7 +78,7 @@ export function KnowledgeExportPage() {
   })
 
   if (goalQuery.isLoading) {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
@@ -89,11 +89,11 @@ export function KnowledgeExportPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to={ROUTES.goals} className="text-sm text-blue-600 hover:underline">
+      <Link to={ROUTES.goals} className="text-sm text-accent hover:underline">
         {t('knowledgeExport.backToGoal')}
       </Link>
 
-      <h1 className="text-xl font-semibold text-gray-900">
+      <h1 className="text-xl font-semibold text-text-primary">
         {t('knowledgeExport.title', { name: goal.name })}
       </h1>
 
@@ -141,7 +141,7 @@ export function KnowledgeExportPage() {
       />
 
       {exportMutation.data && (
-        <Card className="flex flex-col gap-1 text-sm text-gray-700">
+        <Card className="flex flex-col gap-1 text-sm text-text-secondary">
           <p>{t('knowledgeExport.exportedPaths.markdown', { path: exportMutation.data.markdown_path })}</p>
           <p>{t('knowledgeExport.exportedPaths.json', { path: exportMutation.data.json_path })}</p>
         </Card>
@@ -149,8 +149,8 @@ export function KnowledgeExportPage() {
 
       {previewMutation.data && (
         <Card>
-          <h2 className="mb-2 font-medium text-gray-900">{t('knowledgeExport.previewTitle')}</h2>
-          <pre className="max-h-96 overflow-auto whitespace-pre-wrap text-xs text-gray-700">
+          <h2 className="mb-2 font-medium text-text-primary">{t('knowledgeExport.previewTitle')}</h2>
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap text-xs text-text-secondary">
             {previewMutation.data.markdown}
           </pre>
         </Card>

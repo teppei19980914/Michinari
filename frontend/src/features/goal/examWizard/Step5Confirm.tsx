@@ -17,8 +17,8 @@ export function Step5Confirm({
   return (
     <div className="flex flex-col gap-3">
       <Card className="flex flex-col gap-2">
-        <p className="font-medium text-gray-900">{examName}</p>
-        <ul className="flex flex-col gap-1 text-sm text-gray-700">
+        <p className="font-medium text-text-primary">{examName}</p>
+        <ul className="flex flex-col gap-1 text-sm text-text-secondary">
           {subjects.map((subject) => (
             <li key={subject.name}>
               {subject.name} ―{' '}
@@ -28,7 +28,7 @@ export function Step5Confirm({
             </li>
           ))}
         </ul>
-        <ul className="flex flex-col gap-1 text-sm text-gray-700">
+        <ul className="flex flex-col gap-1 text-sm text-text-secondary">
           {materials.map((material) => (
             <li key={material.name}>
               {material.name}（{material.totalAmount}
@@ -38,7 +38,7 @@ export function Step5Confirm({
           ))}
         </ul>
       </Card>
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step5.advancedSettingsNotice')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step5.advancedSettingsNotice')}</p>
     </div>
   )
 }

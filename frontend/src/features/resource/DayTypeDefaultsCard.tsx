@@ -44,13 +44,13 @@ export function DayTypeDefaultsCard() {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('resources.dayTypeDefaults.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('resources.dayTypeDefaults.title')}</h2>
       <div className="flex flex-wrap gap-3">
         {WEEKDAYS.map((weekday) => (
-          <label key={weekday} className="flex flex-col items-center gap-1 text-sm text-gray-700">
+          <label key={weekday} className="flex flex-col items-center gap-1 text-sm text-text-secondary">
             {t(`resources.weekdays.${weekday}`)}
             <select
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className="rounded-md border border-border-strong px-2 py-1 text-sm"
               value={defaults[weekday] ?? 'PLAN'}
               onChange={(e) =>
                 dayTypeMutation.mutate({ weekday, dayType: e.target.value as DayType })
@@ -63,7 +63,7 @@ export function DayTypeDefaultsCard() {
         ))}
       </div>
       {holidayQuery.data && (
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
             checked={holidayQuery.data.treat_as_buffer}

@@ -40,19 +40,19 @@ function TemplateEditor({ template }: { template: PromptTemplateRead }) {
   })
 
   return (
-    <div className="rounded-md border border-gray-200 p-3">
+    <div className="rounded-md border border-border p-3">
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-900">
+        <h3 className="text-sm font-medium text-text-primary">
           {t(`settings.promptTemplate.purpose.${template.purpose}`)}
         </h3>
         {template.is_customized && (
-          <span className="rounded bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+          <span className="rounded bg-accent-muted-bg px-2 py-0.5 text-xs text-accent-muted-text">
             {t('settings.promptTemplate.customizedBadge')}
           </span>
         )}
       </div>
       <textarea
-        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+        className="w-full rounded-md border border-border-strong px-3 py-2 text-sm focus:border-accent focus:outline-none"
         rows={6}
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -84,7 +84,7 @@ export function PromptTemplateSection() {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.promptTemplate.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('settings.promptTemplate.title')}</h2>
       {query.data?.map((template: PromptTemplateRead) => (
         <TemplateEditor key={template.purpose as AiPurpose} template={template} />
       ))}

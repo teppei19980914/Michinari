@@ -25,10 +25,10 @@ export function AiAssistantFields({
   return (
     <div className="flex flex-wrap gap-3">
       {ASSISTANT_FIELDS.map(({ field, labelKey }) => (
-        <label key={field} className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label key={field} className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t(labelKey)}
           <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+            className="rounded-md border border-border-strong px-3 py-2 text-sm"
             value={values[field]}
             onChange={(e) => onChange(field, e.target.value)}
           >

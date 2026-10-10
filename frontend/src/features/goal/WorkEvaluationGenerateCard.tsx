@@ -28,10 +28,10 @@ export function WorkEvaluationGenerateCard({
 }) {
   return (
     <Card className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workEvaluationReport.memberSelectLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={memberId}
           onChange={(e) => onChangeMemberId(e.target.value === '' ? '' : Number(e.target.value))}
         >
@@ -43,7 +43,7 @@ export function WorkEvaluationGenerateCard({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workEvaluationReport.considerationsLabel')}
         <Textarea
           value={considerations}

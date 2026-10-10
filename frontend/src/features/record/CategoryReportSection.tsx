@@ -62,9 +62,9 @@ export function CategoryReportSection({
     <>
       {isReported ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium text-gray-900">
+          <h2 className="font-medium text-text-primary">
             {labels.title}
-            <span className="ml-2 text-xs font-normal text-gray-400">
+            <span className="ml-2 text-xs font-normal text-text-disabled">
               {t('dailyReport.confirmedBadge')}
             </span>
           </h2>
@@ -72,20 +72,20 @@ export function CategoryReportSection({
         </section>
       ) : (
         <section className="flex flex-col gap-3">
-          <h2 className="font-medium text-gray-900">{labels.title}</h2>
+          <h2 className="font-medium text-text-primary">{labels.title}</h2>
           {editor}
         </section>
       )}
 
       <Card className="flex flex-col gap-3">
-        <h2 className="font-medium text-gray-900">{labels.chatTitle}</h2>
+        <h2 className="font-medium text-text-primary">{labels.chatTitle}</h2>
         {isReported ? (
           <ChatPanel messages={messages} readOnly />
         ) : !aiConfigured ? (
           <AiUnconfiguredNotice />
         ) : (
           <>
-            <p className="text-xs text-gray-400">{t('dailyReport.chat.privacyNotice')}</p>
+            <p className="text-xs text-text-disabled">{t('dailyReport.chat.privacyNotice')}</p>
             {messages.length === 0 && (
               <Button disabled={chat.isPending} onClick={() => chat.send(null)}>
                 {labels.chatStartLabel}

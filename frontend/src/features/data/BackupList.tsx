@@ -22,24 +22,24 @@ export function BackupList({
 }) {
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('dataManagement.backups.title')}</h2>
-      {isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      <h2 className="font-medium text-text-primary">{t('dataManagement.backups.title')}</h2>
+      {isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
       {backups && backups.length === 0 && (
-        <p className="text-sm text-gray-500">{t('dataManagement.backups.empty')}</p>
+        <p className="text-sm text-text-faint">{t('dataManagement.backups.empty')}</p>
       )}
       {backups && backups.length > 0 && (
         <ul className="flex flex-col gap-2">
           {backups.map((backup) => (
             <li
               key={backup.id}
-              className="flex items-center justify-between rounded-md border border-gray-200 px-3 py-2 text-sm"
+              className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm"
             >
               <div>
-                <p className="text-gray-900">
+                <p className="text-text-primary">
                   {t('dataManagement.backups.createdAtLabel')}:{' '}
                   {new Date(backup.created_at).toLocaleString()}
                 </p>
-                <p className="text-gray-500">
+                <p className="text-text-faint">
                   {t('dataManagement.backups.sizeLabel')}: {formatBytes(backup.size_bytes)}
                 </p>
               </div>
