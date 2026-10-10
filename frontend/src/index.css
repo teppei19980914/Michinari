@@ -117,9 +117,12 @@ html {
 }
 
 /* 固定ヘッダー（UIリッチ化、GlobalNav）の高さを1箇所で管理する（CODING_RULES.md
-   DRYの原則、ナビ自身の高さとLayout側のpadding-topの二重管理を避ける）。 */
+   DRYの原則、ナビ自身の高さとLayout側のpadding-topの二重管理を避ける）。
+   remで持つのはpx固定だとフォントサイズ設定（--font-scale）でナビの実際の高さが
+   変わったときに追従できなくなるため（htmlのfont-sizeを可変にしている以上、
+   rem基準のGlobalNav自身のpadding・文字サイズも比例して変わる）。 */
 :root {
-  --global-nav-height: 56px;
+  --global-nav-height: 3.25rem;
 }
 
 /* z-index一覧（新規コンポーネント追加時の重なり順の衝突を避けるための一覧）。
