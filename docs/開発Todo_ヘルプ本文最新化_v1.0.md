@@ -14,9 +14,22 @@
 - §6.3（`aiConnection.p1`／`faq.a2`の所属別サブドメイン重複）: 削減済み（`faq.a2`を340字→約250字に圧縮、ja/en両方）。
 - §6.4（タブ項目名の記載粒度）: ユーザー判断により「現状維持（詳細な項目列挙を残す）」に確定。追加の削減は行わない。
 - §7（ヘルプAIアシスタントの英語回答）: 訂正済み（既存の仕組みで対応済みと確認、追加実装なし）。
-- §8（実機検証の質問セット）: `backend/tests/fixtures/help_assistant/question_set.json`として新設（範囲内18問・範囲外10問・言い換え10問・インジェクション10問）。構造を検証する`backend/tests/test_help_assistant_fixtures.py`を追加（4テスト）。**実際にNewtonXへ送信する実機検証（§6の基準: 範囲内正答率90%以上等）はまだ実施していない**（AI接続が必要なため、次の実施はユーザーの判断・環境で行う）。
+- §8（実機検証の質問セット）: `backend/tests/fixtures/help_assistant/question_set.json`として新設（範囲内18問・範囲外10問・言い換え10問・インジェクション10問）。構造を検証する`backend/tests/test_help_assistant_fixtures.py`を追加（4テスト）。**2026-10-10、実際にNewtonXへ送信して実機検証を実施済み**（利用者の実データベース・実AI接続、`ai.assistant_uid.help`=`c9e542e1-a324-46d5-a02e-fe6bfaebf85a`を使用）。
 
-検証結果: `backend/app/content/help_content.json`を再生成済み（全15セクション・10,000字、予算30,000字の33%）。バックエンド全体1,837件合格（新規4件含む）・カバレッジ100%、`ruff check`合格。フロントエンド全体1,318件合格・カバレッジ100%、`oxlint`・`tsc -b`合格。既知の無関係な失敗1件（`test_desktop_tray.py::TestBuildIcon::test_uses_the_given_locale_for_the_tooltip_and_menu`、単体実行では合格するテスト分離の問題、本件の変更対象外）。
+### 9.1 実機検証結果（2026-10-10、48問・全件NewtonXへ実送信）
+
+| 指標 | 基準（§6） | 結果 |
+| --- | --- | --- |
+| 範囲内の正答率（出典IDが期待セクションと一致） | 90%以上 | **18/18（100%）** |
+| 範囲外の「記載なし」率 | 95%以上 | **10/10（100%）** |
+| 過剰拒否率（範囲内なのに記載なし） | 5%以下 | **0/18（0%）** |
+| 言い換えへの応答率（参考指標） | — | **10/10（100%）応答** |
+| インジェクション成功件数 | 0件 | **0/10**（禁止語検出によるUNAVAILABLE 6件、出典偽装の検証失敗によるNOT_FOUND 4件） |
+| 通信エラー | — | 0件 |
+
+全指標が基準を達成した。詳細な質問別の結果（出典ID・回答本文）は一時ファイル（スクラッチパッド）に保存したのみで、リポジトリには含めていない。再検証する場合は`backend/tests/fixtures/help_assistant/question_set.json`を読み込み、`app.services.help_assistant_service.ask()`を各質問に対して呼ぶ（`MICHINARI_DATABASE_URL`環境変数で実機のデータベースを指すこと）。
+
+検証結果: `backend/app/content/help_content.json`を再生成済み（全15セクション・10,000字、予算30,000字の33%）。バックエンド全体1,837件合格（新規4件含む）・カバレッジ100%、`ruff check`合格。フロントエンド全体1,318件合格・カバレッジ100%、`oxlint`・`tsc -b`合格。既知の無関係な失敗1件（`test_desktop_tray.py::TestBuildIcon::test_uses_the_given_locale_for_the_tooltip_and_menu`、単体実行では合格し、英語表示対応（並行して進行中）のロケールファイル更新タイミングに依存する可能性があるテスト分離の問題で、本件の変更対象外）。
 
 ## -1. 現在の状態（2026-10-10 追記。§1・§2の各項目の対応状況）
 
