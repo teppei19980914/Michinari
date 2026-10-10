@@ -14,8 +14,10 @@ type ToastEntry = {
   detail?: string
 }
 
+// infoはoverlay-strong（Tooltipと同じ、明暗で変えない固定色のチップ）を使う。ダークモードの
+// ページ背景（gray-900）と同化しないよう、index.cssでテーマに追従しない値にしている。
 const VARIANT_CLASSES: Record<ToastVariant, string> = {
-  info: 'bg-gray-800',
+  info: 'bg-overlay-strong',
   error: 'bg-red-600',
 }
 

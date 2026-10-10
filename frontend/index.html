@@ -5,6 +5,34 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ミチナリ</title>
+    <script>
+      // 表示設定の初回描画フラッシュ(FOUC)対策。Reactの起動前に、localStorageの
+      // キャッシュから<html>へdata属性を同期的に反映する。キー名・JSON形状・system解決
+      // ロジックは frontend/src/hooks/useDisplayPreferenceStorage.ts と意図的に重複させている
+      // （このファイルはプレーンJSのため同ファイルをimportできない。変更時は両方を確認する）。
+      (function () {
+        try {
+          var raw = window.localStorage.getItem('michinari.displayPreference')
+          var pref = raw ? JSON.parse(raw) : null
+          var themePreference =
+            pref && typeof pref.themePreference === 'string' ? pref.themePreference : 'system'
+          var accentColor = pref && typeof pref.accentColor === 'string' ? pref.accentColor : 'blue'
+          var fontScale = pref && typeof pref.fontScale === 'string' ? pref.fontScale : 'standard'
+          var resolvedTheme =
+            themePreference === 'light' || themePreference === 'dark'
+              ? themePreference
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+          var root = document.documentElement
+          root.setAttribute('data-theme', resolvedTheme)
+          root.setAttribute('data-accent', accentColor)
+          root.setAttribute('data-font-scale', fontScale)
+        } catch (e) {
+          // localStorageが使えない環境でも既定(light/blue/standard)のまま描画を続ける。
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
