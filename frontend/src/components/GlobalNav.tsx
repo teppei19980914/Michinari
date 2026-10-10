@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { ROUTES } from '../constants/routes'
 import { t } from '../locales/t'
+import { useHeaderVisibility } from './headerVisibilityContext'
 
 const NAV_ITEMS = [
   { to: ROUTES.dashboard, labelKey: 'nav.dashboard' },
@@ -12,10 +13,17 @@ const NAV_ITEMS = [
   { to: ROUTES.help, labelKey: 'nav.help' },
 ] as const
 
-/** グローバルナビゲーション（仕様書5.1）。 */
+/** グローバルナビゲーション（仕様書5.1）。下スクロールで隠れ、上スクロールで即座に現れる
+ * （UIリッチ化）。固定高さは`--global-nav-height`（index.css）で一元管理し、
+ * `App.tsx`のLayoutのpadding-topと二重管理にならないようにしている。 */
 export function GlobalNav() {
+  const visible = useHeaderVisibility()
   return (
-    <nav className="flex gap-1 border-b border-border bg-surface px-4 py-2">
+    <nav
+      className={`fixed inset-x-0 top-0 z-20 flex gap-1 border-b border-border bg-surface px-4 py-2 transition-transform duration-200 ease-in-out ${
+        visible ? 'translate-y-0' : '-translate-y-full'
+      }`}
+    >
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.to}
