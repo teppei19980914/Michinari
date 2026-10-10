@@ -129,7 +129,8 @@ DRY違反（重複）とは別に、単一のファイル/関数が肥大化・�
 
 | 何を置くか | 置き場所 |
 |---|---|
-| 画面のラベル・ボタン文言 | `frontend/src/locales/ja.json` |
+| 画面のラベル・ボタン文言 | `frontend/src/locales/ja.json`。英語は同じキー構造で`en.json`に追加する（キーの片方だけ追加するとテスト`localeKeyUsage.test.ts`が落ちる）。数値により語形が変わる文言（単数/複数）は値を`{ "one": "...", "other": "..." }`の形にし、呼び出し側は`vars.count`に対象の数値を渡す（`t.ts`参照） |
+| NewtonXへ送る応答言語の指示文（日英i18n対応） | `app_setting`（`ai.language_directive.ja`/`.en`）。`prompt_template`には置かない（設定画面のプロンプトテンプレート一覧が全行を無条件に編集可能として表示するため、意図せず露出する） |
 | 画面ID・APIパス等「コード上の名前」 | `backend/app/constants/`、`frontend/src/constants/` |
 | キャッシュキー（TanStack Query） | `frontend/src/constants/queryKeys.ts`（取得と無効化が必ず同じキーを指すよう1箇所へ集約。前方一致に依存する組み合わせも同ファイルに明記） |
 | 複数画面で使う共通処理 | `backend/app/services/`（業務ロジック）、`frontend/src/hooks/`（フロント共通処理） |
