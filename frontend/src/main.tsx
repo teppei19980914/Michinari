@@ -4,7 +4,7 @@ import './index.css'
 import { App } from './App.tsx'
 import { registerGlobalErrorHandlers } from './errorReporting/registerGlobalErrorHandlers'
 import { getSettings } from './api/settings'
-import { isLocale, setLocale } from './locales/t'
+import { applyBootstrapLocale } from './locales/bootstrapLocale'
 
 // ErrorBoundaryは描画中の例外しか捕捉できないため、イベントハンドラ・非同期処理内の
 // 未処理例外も診断ログへ残す（Phase40）。レンダリング開始前に登録すること。
@@ -20,11 +20,7 @@ registerGlobalErrorHandlers()
 async function bootstrapLocale(): Promise<void> {
   try {
     const settings = await getSettings()
-    const locale = settings.display.locale
-    if (isLocale(locale)) {
-      setLocale(locale)
-      document.documentElement.lang = locale
-    }
+    applyBootstrapLocale(settings.display.locale)
   } catch {
     // 既定のja・<html lang>の初期値のまま描画を続ける。
   }
