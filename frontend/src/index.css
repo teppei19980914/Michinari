@@ -50,30 +50,6 @@
   --warning-text-subtle: #b45309; /* amber-700、枠なしで本文に直接置く注意文言用 */
 }
 
-[data-theme='dark'] {
-  --surface: #111827; /* gray-900 */
-  --surface-muted: #1f2937; /* gray-800 */
-  --border: #374151; /* gray-700 */
-  --border-strong: #4b5563; /* gray-600 */
-  --text-primary: #f9fafb; /* gray-50 */
-  --text-secondary: #d1d5db; /* gray-300 */
-  --text-muted: #9ca3af; /* gray-400 */
-  --text-faint: #9ca3af; /* gray-400 */
-  --text-disabled: #4b5563; /* gray-600 */
-
-  /* アクセントの淡色(muted)は、ライトモード用の-50相当パステルだと暗い背景に
-     浮いてしまうため、現在のアクセント色から導出する（4色×2モード分を個別に
-     持たずに済ませるため、CODING_RULES.md DRYの原則）。 */
-  --accent-muted-bg: color-mix(in oklab, var(--accent) 24%, var(--surface));
-  --accent-muted-text: color-mix(in oklab, var(--accent) 55%, white);
-
-  --warning-bg: color-mix(in oklab, #fbbf24 16%, var(--surface));
-  --warning-hover-bg: color-mix(in oklab, #fbbf24 26%, var(--surface));
-  --warning-border: #92400e; /* amber-800 */
-  --warning-text: #fde68a; /* amber-200 */
-  --warning-text-subtle: #fbbf24; /* amber-400 */
-}
-
 [data-accent='green'] {
   --accent: #16a34a; /* green-600 */
   --accent-hover: #15803d; /* green-700 */
@@ -96,6 +72,36 @@
   --accent-disabled: #fdba74; /* orange-300 */
   --accent-muted-bg: #fff7ed; /* orange-50 */
   --accent-muted-text: #c2410c; /* orange-700 */
+}
+
+/* [data-theme='dark']は必ずここ（[data-accent='*']より後）に置く。<html>には
+   data-theme・data-accentの両属性が同時に付くため、同じ詳細度（属性セレクタ1つ）の
+   ルールはCSSの仕様上「後に書かれた方が勝つ」。ここより前に置くと、既定色(blue)以外の
+   アクセントを選んだ際にダーク側の調整値が[data-accent='orange']等のライト用固定値で
+   上書きされてしまう（2026-10利用者検証：オレンジ/パープル選択時にAI接続カードの背景が
+   ライトのまま残る不具合として発覚）。 */
+[data-theme='dark'] {
+  --surface: #111827; /* gray-900 */
+  --surface-muted: #1f2937; /* gray-800 */
+  --border: #374151; /* gray-700 */
+  --border-strong: #4b5563; /* gray-600 */
+  --text-primary: #f9fafb; /* gray-50 */
+  --text-secondary: #d1d5db; /* gray-300 */
+  --text-muted: #9ca3af; /* gray-400 */
+  --text-faint: #9ca3af; /* gray-400 */
+  --text-disabled: #4b5563; /* gray-600 */
+
+  /* アクセントの淡色(muted)は、ライトモード用の-50相当パステルだと暗い背景に
+     浮いてしまうため、現在のアクセント色から導出する（4色×2モード分を個別に
+     持たずに済ませるため、CODING_RULES.md DRYの原則）。 */
+  --accent-muted-bg: color-mix(in oklab, var(--accent) 24%, var(--surface));
+  --accent-muted-text: color-mix(in oklab, var(--accent) 55%, white);
+
+  --warning-bg: color-mix(in oklab, #fbbf24 16%, var(--surface));
+  --warning-hover-bg: color-mix(in oklab, #fbbf24 26%, var(--surface));
+  --warning-border: #92400e; /* amber-800 */
+  --warning-text: #fde68a; /* amber-200 */
+  --warning-text-subtle: #fbbf24; /* amber-400 */
 }
 
 @theme inline {
