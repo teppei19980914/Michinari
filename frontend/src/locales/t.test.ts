@@ -8,7 +8,7 @@
  * 依存させると、文言を直書きすることになり（CODING_RULES.md ②ゼロハードコーディング）、
  * 文言を変えるたびにテストが落ちるため。実ロケールを読めていること自体は別途確認する。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { t } from './t'
+import { getLocale, setLocale, t } from './t'
 
 /** 差し替えロケールを読み込ませた `t` を得る。
  *
@@ -20,12 +20,30 @@ async function loadWithLocale(locale: unknown): Promise<typeof t> {
   return loaded.t
 }
 
+/** `ja`/`en` 両方を差し替え、`setLocale`で切り替えて解決できることを確認するための`t`を得る。 */
+async function loadWithLocales(messages: {
+  ja: unknown
+  en: unknown
+}): Promise<{ t: typeof t; setLocale: typeof setLocale }> {
+  vi.resetModules()
+  vi.doMock('./ja.json', () => ({ default: messages.ja }))
+  vi.doMock('./en.json', () => ({ default: messages.en }))
+  const loaded = await import('./t')
+  return { t: loaded.t, setLocale: loaded.setLocale }
+}
+
 afterEach(() => {
   vi.doUnmock('./ja.json')
+  vi.doUnmock('./en.json')
   vi.resetModules()
+  setLocale('ja')
 })
 
 describe('t（実ロケール）', () => {
+  it('defaults to ja', () => {
+    expect(getLocale()).toBe('ja')
+  })
+
   it('resolves a dot separated key against ja.json', () => {
     // 文言そのものではなく「解決できて空でない文字列が返る」ことだけを見る。
     const resolved = t('errors.default')
