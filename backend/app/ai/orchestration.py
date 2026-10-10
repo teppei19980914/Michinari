@@ -12,7 +12,13 @@ from sqlalchemy.orm import Session
 from app.ai import client as ai_client
 from app.ai import logger as ai_logger
 from app.ai import rate_limiter
-from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS, AI_MIN_INTERVAL_SECONDS
+from app.constants.app_setting_keys import (
+    AI_LANGUAGE_DIRECTIVE_EN,
+    AI_LANGUAGE_DIRECTIVE_JA,
+    AI_MAX_PROMPT_CHARS,
+    AI_MIN_INTERVAL_SECONDS,
+    DISPLAY_LOCALE,
+)
 from app.constants.enums import AiPurpose
 from app.database import serialize_writes
 from app.models.ai import AiConversation
@@ -31,6 +37,23 @@ def load_template_body(session: Session, purpose: AiPurpose) -> str:
 
 def get_max_prompt_chars(session: Session) -> int:
     return setting_reader.get_int(session, AI_MAX_PROMPT_CHARS)
+
+
+def _append_language_directive(session: Session, prompt_text: str) -> str:
+    """表示言語に応じた応答言語の指示をプロンプト末尾へ追記する（日英i18n対応、2026-10）。
+
+    `prompt_template`の本文自体は言語別に複製せず1つのまま、末尾にこの指示を追記する方式
+    とした（`DAILY_FEEDBACK`等のテンプレートは出力を厳密に構造化させる指示を持たないため、
+    自然文の指示追記で足りると判断。2026-10-09の設計検討）。指示文自体は`prompt_template`
+    ではなく`app_setting`に置く（`PromptTemplateSection`の設定画面が`prompt_template`の
+    全行を無条件に編集可能なテンプレート一覧として表示するため、そちらに置くと意図せず
+    露出してしまう）。切り詰め後の`prompt_text`（`AI_MAX_PROMPT_CHARS`適用後）に追記する
+    ため、追記分が上限から溢れることはない。
+    """
+    locale = setting_reader.get_str(session, DISPLAY_LOCALE)
+    directive_key = AI_LANGUAGE_DIRECTIVE_EN if locale == "en" else AI_LANGUAGE_DIRECTIVE_JA
+    directive = setting_reader.get_str(session, directive_key)
+    return f"{prompt_text}\n\n{directive}"
 
 
 def send_and_log(
@@ -57,10 +80,11 @@ def send_and_log(
     """
     rate_limiter.wait_for_interval(setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS))
 
+    final_prompt_text = _append_language_directive(session, prompt_text)
     conversation_uid = conversation.conversation_uid
     try:
         send_result = ai_client.send_message(
-            session, chat_uid=conversation_uid, message=prompt_text
+            session, chat_uid=conversation_uid, message=final_prompt_text
         )
     except DomainError as exc:
         try:
@@ -69,7 +93,7 @@ def send_and_log(
                     session,
                     purpose=purpose,
                     conversation_uid=conversation_uid,
-                    request_body=prompt_text,
+                    request_body=final_prompt_text,
                     response_body=None,
                     prompt_chars=prompt_chars,
                     was_truncated=was_truncated,
@@ -95,7 +119,7 @@ def send_and_log(
                 session,
                 purpose=purpose,
                 conversation_uid=conversation_uid,
-                request_body=prompt_text,
+                request_body=final_prompt_text,
                 response_body=send_result.response_text,
                 prompt_chars=prompt_chars,
                 was_truncated=was_truncated,
