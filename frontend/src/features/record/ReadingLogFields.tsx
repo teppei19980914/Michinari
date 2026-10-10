@@ -87,10 +87,7 @@ function ReadingLogFieldsCard({
       <div className="flex items-center justify-between">
         <p className="font-medium text-text-primary">{book.title}</p>
         <p className="text-sm text-text-faint">
-          {t('dailyReport.readingLog.remainingDays', {
-            days: book.remaining_days,
-            count: book.remaining_days,
-          })}
+          {t('dailyReport.readingLog.remainingDays', { days: book.remaining_days })}
         </p>
       </div>
       <div className="mt-2">

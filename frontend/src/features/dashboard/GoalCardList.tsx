@@ -15,21 +15,20 @@ function formatProgressRate(rate: number | null): string {
 function formatRemainingDays(days: number | null): string {
   return days === null
     ? t('dashboard.goalCard.remainingDaysUnavailable')
-    : t('dashboard.goalCard.remainingDays', { days, count: days })
+    : t('dashboard.goalCard.remainingDays', { days })
 }
 
 function formatRemainingDaysReading(days: number | null): string {
   return days === null
     ? t('dashboard.goalCard.remainingDaysUnavailable')
-    : t('dashboard.goalCard.remainingDaysReading', { days, count: days })
+    : t('dashboard.goalCard.remainingDaysReading', { days })
 }
 
 function formatForecastDeviation(days: number | null): string {
   if (days === null) {
     return t('dashboard.goalCard.forecastDeviationUnavailable')
   }
-  const rounded = Math.round(days)
-  return t('dashboard.goalCard.forecastDeviation', { days: rounded, count: rounded })
+  return t('dashboard.goalCard.forecastDeviation', { days: Math.round(days) })
 }
 
 type GoalCard = DashboardRead['goal_cards'][number]
@@ -66,10 +65,7 @@ function ReadingGoalCard({ goal }: { goal: GoalCard }) {
                 : t('dashboard.goalCard.lastReadingDateUnavailable')}
             </div>
             <div>
-              {t('dashboard.goalCard.currentStreak', {
-                days: book.current_streak,
-                count: book.current_streak,
-              })}
+              {t('dashboard.goalCard.currentStreak', { days: book.current_streak })}
             </div>
             {book.progress_rate !== null && (
               <div className="flex justify-between">
@@ -98,10 +94,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
         {workAssignment && (
           <>
             <div>
-              {t('dashboard.goalCard.elapsedDays', {
-                days: workAssignment.elapsed_days,
-                count: workAssignment.elapsed_days,
-              })}
+              {t('dashboard.goalCard.elapsedDays', { days: workAssignment.elapsed_days })}
             </div>
             <div>
               {workAssignment.last_work_date
@@ -109,10 +102,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
                 : t('dashboard.goalCard.lastWorkDateUnavailable')}
             </div>
             <div>
-              {t('dashboard.goalCard.currentStreakWork', {
-                days: workAssignment.current_streak,
-                count: workAssignment.current_streak,
-              })}
+              {t('dashboard.goalCard.currentStreakWork', { days: workAssignment.current_streak })}
             </div>
             <div>
               {workAssignment.has_recent_monthly_report

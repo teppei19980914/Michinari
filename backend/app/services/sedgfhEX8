@@ -731,7 +731,7 @@ def build_replan_history_text(session: Session, goal: Goal) -> str:
         return "（計画基準値の記録はありません）"
     material_names = {material.id: material.name for material in goal.materials}
     reason_labels = (
-        _BASELINE_REASON_LABELS_EN if _is_english(session) else _BASELINE_REASON_LABELS_JA
+        _BASELINE_REASON_LABELS_EN if setting_reader.is_english_locale(session) else _BASELINE_REASON_LABELS_JA
     )
     lines = []
     for change in changes:
@@ -753,7 +753,7 @@ def build_exam_results_text(session: Session, goal: Goal) -> str:
     """{{exam_results}}: 科目ごとの合否と得点（17.5）。"""
     if not goal.exam_subjects:
         return "（試験科目未登録）"
-    result_labels = _EXAM_RESULT_LABELS_EN if _is_english(session) else _EXAM_RESULT_LABELS_JA
+    result_labels = _EXAM_RESULT_LABELS_EN if setting_reader.is_english_locale(session) else _EXAM_RESULT_LABELS_JA
     lines = []
     for subject in sorted(goal.exam_subjects, key=lambda s: s.display_order):
         result = subject.exam_result
@@ -1231,7 +1231,7 @@ _GENDER_LABELS_EN = {
 def build_evaluation_member_summary_text(session: Session, member: WorkMember) -> str:
     """{{member_summary}}（EVALUATION_REPORT_WORK）: 評価対象メンバーの氏名・性別
     （あれば）・特徴/性格（あれば）。"""
-    gender_labels = _GENDER_LABELS_EN if _is_english(session) else _GENDER_LABELS_JA
+    gender_labels = _GENDER_LABELS_EN if setting_reader.is_english_locale(session) else _GENDER_LABELS_JA
     lines = [f"氏名: {member.name}"]
     if member.gender is not None:
         lines.append(f"性別: {gender_labels[member.gender]}")

@@ -27,7 +27,7 @@ function validationMessage(draft: string, maxChars: number | undefined): string 
   if (maxChars === undefined) return null
   const error = validateQuestion(draft, maxChars)
   if (error === 'empty') return null
-  if (error === 'tooLong') return t('helpAssistant.tooLong', { max: maxChars, count: maxChars })
+  if (error === 'tooLong') return t('helpAssistant.tooLong', { max: maxChars })
   return null
 }
 

@@ -58,10 +58,7 @@ export function ForecastTab({ goalId }: ForecastTabProps) {
                   ? '—'
                   : entry.overrun_days <= 0
                     ? t('analytics.forecast.onTrack')
-                    : t('analytics.forecast.deviationDays', {
-                        days: entry.overrun_days,
-                        count: entry.overrun_days,
-                      })}
+                    : t('analytics.forecast.deviationDays', { days: entry.overrun_days })}
               </td>
             </tr>
           ))}

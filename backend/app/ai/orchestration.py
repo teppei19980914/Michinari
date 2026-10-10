@@ -17,7 +17,6 @@ from app.constants.app_setting_keys import (
     AI_LANGUAGE_DIRECTIVE_JA,
     AI_MAX_PROMPT_CHARS,
     AI_MIN_INTERVAL_SECONDS,
-    DISPLAY_LOCALE,
 )
 from app.constants.enums import AiPurpose
 from app.database import serialize_writes
@@ -50,8 +49,11 @@ def _append_language_directive(session: Session, prompt_text: str) -> str:
     露出してしまう）。切り詰め後の`prompt_text`（`AI_MAX_PROMPT_CHARS`適用後）に追記する
     ため、追記分が上限から溢れることはない。
     """
-    locale = setting_reader.get_str(session, DISPLAY_LOCALE)
-    directive_key = AI_LANGUAGE_DIRECTIVE_EN if locale == "en" else AI_LANGUAGE_DIRECTIVE_JA
+    directive_key = (
+        AI_LANGUAGE_DIRECTIVE_EN
+        if setting_reader.is_english_locale(session)
+        else AI_LANGUAGE_DIRECTIVE_JA
+    )
     directive = setting_reader.get_str(session, directive_key)
     return f"{prompt_text}\n\n{directive}"
 

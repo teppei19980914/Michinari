@@ -8,7 +8,7 @@
  * 依存させると、文言を直書きすることになり（CODING_RULES.md ②ゼロハードコーディング）、
  * 文言を変えるたびにテストが落ちるため。実ロケールを読めていること自体は別途確認する。 */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getLocale, setLocale, t } from './t'
+import { dateTimeLocaleTag, getLocale, rangeSeparator, setLocale, t } from './t'
 
 /** 差し替えロケールを読み込ませた `t` を得る。
  *
@@ -160,5 +160,65 @@ describe('t（単数/複数形）', () => {
     const scoped = await loadWithLocale({ a: { one: 'value' } })
 
     expect(scoped('a')).toBe('a')
+  })
+
+  it('infers count from the single variable when "count" is not given explicitly', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1 })).toBe('1 day')
+    expect(scoped('a', { days: 5 })).toBe('5 days')
+  })
+
+  it('treats a numeric string count the same as a number (count as "1")', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: '1' })).toBe('1 day')
+  })
+
+  it('selects "other" for zero or negative counts', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 0 })).toBe('0 days')
+    expect(scoped('a', { days: -1 })).toBe('-1 days')
+  })
+
+  it('falls back to "other" when multiple variables make the implicit count ambiguous', async () => {
+    // countを明示しない場合、varsが1個だけなら暗黙のcountとして使うが、2個以上あると
+    // どれを基準にすべきか決められないため、安全側のotherへ落とす（t.ts resolveCount参照）。
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1, other: 'ignored' })).toBe('1 days')
+  })
+})
+
+describe('rangeSeparator', () => {
+  afterEach(() => {
+    setLocale('ja')
+  })
+
+  it('uses the Japanese wave dash by default', () => {
+    expect(rangeSeparator()).toBe('〜')
+  })
+
+  it('uses an en dash in English', () => {
+    setLocale('en')
+
+    expect(rangeSeparator()).toBe('–')
+  })
+})
+
+describe('dateTimeLocaleTag', () => {
+  afterEach(() => {
+    setLocale('ja')
+  })
+
+  it('returns the Japanese BCP47 tag by default', () => {
+    expect(dateTimeLocaleTag()).toBe('ja-JP')
+  })
+
+  it('returns the English BCP47 tag in English', () => {
+    setLocale('en')
+
+    expect(dateTimeLocaleTag()).toBe('en-US')
   })
 })
