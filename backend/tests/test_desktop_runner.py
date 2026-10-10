@@ -108,8 +108,10 @@ class TestReadSettings:
 
         assert runner._read_locale() == "en"
 
-    def test_falls_back_to_japanese_when_the_locale_cannot_be_read(self, app_session):
-        """設定が読めないだけで起動を止めないこと（既定のjaで継続）。"""
+    def test_falls_back_to_japanese_when_the_locale_setting_is_missing(self, app_session):
+        """設定行が無いだけで起動を止めないこと（既定のjaで継続）。`_read_bool_setting`と
+        同じ「キー欠落」系の異常系であり、DB接続自体の障害（ファイルロック等）は
+        別種の異常系のため、このテストでは再現していない。"""
         app_session.query(AppSetting).filter_by(key=DISPLAY_LOCALE).delete()
         app_session.flush()
 

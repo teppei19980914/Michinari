@@ -39,5 +39,11 @@ def is_english_locale(session: Session) -> bool:
 
     AI応答言語の指示追記（`app/ai/orchestration.py`）とAIプロンプトのデータ部分の
     語彙切替（`app/services/ai_context_service.py`）の両方から使う判定で、
-    DRYの原則により1箇所へ集約する。"""
+    DRYの原則により1箇所へ集約する。
+
+    `en`以外は全てja扱いにする除外リスト方式であり、フロントエンドの`t.ts`の`isLocale`
+    （ja/en以外を明示的に弾く許可リスト方式）とは判定の組み方が非対称である。ただし
+    `display.locale`は`settings_service._ALLOWED_LOCALES`の書き込み時検証により
+    ja/en以外の値がDBへ入ることは正規の経路では起きないため、挙動上の差異は生じない
+    （test-coverage-reviewerレビュー、2026-10確認）。"""
     return get_str(session, DISPLAY_LOCALE) == "en"
