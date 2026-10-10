@@ -46,7 +46,12 @@ export function StatsSummary({ goalStats, goalCards, reportRateWindowDays }: Sta
                 <dd>{stats.consecutive_report_days}</dd>
               </div>
               <div className="flex justify-between">
-                <dt>{t('dashboard.stats.recentReportRate', { windowDays: reportRateWindowDays })}</dt>
+                <dt>
+                  {t('dashboard.stats.recentReportRate', {
+                    windowDays: reportRateWindowDays,
+                    count: reportRateWindowDays,
+                  })}
+                </dt>
                 <dd>{formatPercent(stats.recent_report_rate)}</dd>
               </div>
               {showsBufferUsageRate(categoryByGoalId[stats.goal_id]) && (

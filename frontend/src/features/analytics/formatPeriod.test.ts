@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { formatAxisNumber, formatDateTick, formatPeriodLabel } from './formatPeriod'
+import { setLocale } from '../../locales/t'
+
+afterEach(() => {
+  setLocale('ja')
+})
 
 describe('formatPeriodLabel', () => {
   it('formats a DAY period as month/day', () => {
@@ -12,6 +17,21 @@ describe('formatPeriodLabel', () => {
 
   it('formats a MONTH period as year + month', () => {
     expect(formatPeriodLabel('2026-03-01', 'MONTH')).toBe('2026年3月')
+  })
+
+  it('formats a DAY period as month/day in English too (digits only, locale independent)', () => {
+    setLocale('en')
+    expect(formatPeriodLabel('2026-03-05', 'DAY')).toBe('3/5')
+  })
+
+  it('formats a WEEK period with an en dash range marker in English', () => {
+    setLocale('en')
+    expect(formatPeriodLabel('2026-03-02', 'WEEK')).toBe('3/2–')
+  })
+
+  it('formats a MONTH period as abbreviated month + year in English', () => {
+    setLocale('en')
+    expect(formatPeriodLabel('2026-03-01', 'MONTH')).toBe('Mar 2026')
   })
 })
 
