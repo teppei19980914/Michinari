@@ -6,6 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { GlobalNav } from './components/GlobalNav'
 import { LoadingOverlay } from './components/LoadingOverlay'
 import { ThemeProvider } from './components/ThemeProvider'
+import { HeaderVisibilityProvider } from './components/HeaderVisibilityProvider'
 import { DailyReportDraftProvider } from './features/record/dailyReportDraftStore'
 import { DashboardPage } from './pages/DashboardPage'
 import { WelcomePage } from './pages/WelcomePage'
@@ -36,14 +37,22 @@ const queryClient = new QueryClient()
  * DailyReportDraftProviderをルータより上位（各ページの外側）に置くのは、SC-06/SC-07の
  * 下書きをページのマウント状態に関わらず保持するため（記録画面改善タスク2026-09-17）。
  * 別画面へ移動して戻っても、Providerがアンマウントされない限り下書きが残る。詳細は
- * features/record/dailyReportDraftStore.tsx を参照。 */
+ * features/record/dailyReportDraftStore.tsx を参照。
+ *
+ * GlobalNavをfixed化した分（UIリッチ化、スクロール連動開閉）、Outletをpadding-topで
+ * 追従させる。GlobalNavのfixed化とこのpaddingは必ず同時に変更すること（片方だけ先行させると
+ * 全画面でコンテンツの先頭がヘッダーに隠れる）。 */
 function Layout() {
   return (
-    <DailyReportDraftProvider>
-      <GlobalNav />
-      <Outlet />
-      <HelpAssistantLauncher />
-    </DailyReportDraftProvider>
+    <HeaderVisibilityProvider>
+      <DailyReportDraftProvider>
+        <GlobalNav />
+        <div className="pt-[var(--global-nav-height)]">
+          <Outlet />
+        </div>
+        <HelpAssistantLauncher />
+      </DailyReportDraftProvider>
+    </HeaderVisibilityProvider>
   )
 }
 
