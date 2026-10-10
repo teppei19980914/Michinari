@@ -116,3 +116,49 @@ describe('t（差し替えロケール）', () => {
     expect(scoped('a', {})).toBe('{{name}}')
   })
 })
+
+describe('t（ロケール切替）', () => {
+  it('resolves against ja by default and switches after setLocale', async () => {
+    const { t: scoped, setLocale: setScopedLocale } = await loadWithLocales({
+      ja: { a: 'こんにちは' },
+      en: { a: 'hello' },
+    })
+
+    expect(scoped('a')).toBe('こんにちは')
+
+    setScopedLocale('en')
+    expect(scoped('a')).toBe('hello')
+  })
+})
+
+describe('t（単数/複数形）', () => {
+  it('selects "other" when count is not given', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 3 })).toBe('3 days')
+  })
+
+  it('selects "one" when count is exactly 1', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 1, count: 1 })).toBe('1 day')
+  })
+
+  it('selects "other" when count is not 1', async () => {
+    const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
+
+    expect(scoped('a', { days: 5, count: 5 })).toBe('5 days')
+  })
+
+  it('falls back to "other" when "one" is not defined', async () => {
+    const scoped = await loadWithLocale({ a: { other: '{{days}}日' } })
+
+    expect(scoped('a', { days: 1, count: 1 })).toBe('1日')
+  })
+
+  it('returns the key when the object has neither a usable "other" string', async () => {
+    const scoped = await loadWithLocale({ a: { one: 'value' } })
+
+    expect(scoped('a')).toBe('a')
+  })
+})

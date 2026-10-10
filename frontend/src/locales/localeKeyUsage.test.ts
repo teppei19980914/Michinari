@@ -12,10 +12,15 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import en from './en.json'
 import ja from './ja.json'
 
 const SRC_DIR = join(__dirname, '..')
 const LITERAL_KEY_CALL = /\bt\(\s*(['"])([a-zA-Z0-9_.]+)\1/g
+
+/** 対応言語ごとのロケール辞書（`t.ts`の`MESSAGES`と同じ組）。日英で翻訳キーの抜け漏れが
+ * 片方だけ起きないよう、両方に対して解決可能性を検証する。 */
+const LOCALES: Record<string, unknown> = { ja, en }
 
 function collectSourceFiles(dir: string): string[] {
   const files: string[] = []
@@ -33,25 +38,34 @@ function collectSourceFiles(dir: string): string[] {
   return files
 }
 
-function resolvesToString(key: string): boolean {
+/** 文字列、または`{ one?, other }`形式の複数形オブジェクトなら解決できたとみなす
+ * （`t.ts`の`isPluralValue`と同じ判定基準）。 */
+function isResolvable(messages: unknown, key: string): boolean {
   const value = key
     .split('.')
     .reduce<unknown>(
       (node, part) => (typeof node === 'object' && node !== null ? (node as Record<string, unknown>)[part] : undefined),
-      ja,
+      messages,
     )
-  return typeof value === 'string'
+  if (typeof value === 'string') {
+    return true
+  }
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).other === 'string'
+  )
 }
 
-describe('t()のリテラルキー呼び出しがja.jsonで解決できること', () => {
-  it('本番コード中の全 t(\'...\') 呼び出しが文字列に解決できる', () => {
+describe('t()のリテラルキー呼び出しが全ロケールで解決できること', () => {
+  it.each(Object.entries(LOCALES))('本番コード中の全 t(\'...\') 呼び出しが%sで解決できる', (locale, messages) => {
     const unresolved: string[] = []
     for (const file of collectSourceFiles(SRC_DIR)) {
       if (relative(SRC_DIR, file).startsWith(join('locales'))) continue
       const content = readFileSync(file, 'utf8')
       for (const match of content.matchAll(LITERAL_KEY_CALL)) {
         const key = match[2]
-        if (!resolvesToString(key)) {
+        if (!isResolvable(messages, key)) {
           unresolved.push(`${relative(SRC_DIR, file)}: ${key}`)
         }
       }
