@@ -13,6 +13,40 @@ const LOCALES = ['ja'] as const
 const ACCENT_COLORS = ['blue', 'green', 'purple', 'orange'] as const
 const FONT_SCALES = ['small', 'standard', 'large'] as const
 
+/** 表示設定の各セレクト欄（言語・テーマ・分析粒度・アクセントカラー・フォントサイズ）は
+ * 同じ形（ラベル＋select＋選択肢の翻訳）を繰り返すため、1つに集約する（CODING_RULES.md
+ * ①DRYの原則）。 */
+function DisplaySelect({
+  label,
+  value,
+  onChange,
+  options,
+  translateOption,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: readonly string[]
+  translateOption: (value: string) => string
+}) {
+  return (
+    <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+      {label}
+      <select
+        className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {translateOption(option)}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 /** 表示設定（仕様書6.11「表示言語、テーマ、既定の表示粒度」）。 */
 export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
@@ -46,78 +80,43 @@ export function DisplaySection({ settings }: { settings: AppSettingsRead }) {
     <Card className="flex flex-col gap-3">
       <h2 className="font-medium text-gray-900">{t('settings.display.title')}</h2>
       <div className="flex gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('settings.display.localeLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={locale}
-            onChange={(e) => setLocale(e.target.value)}
-          >
-            {LOCALES.map((value) => (
-              <option key={value} value={value}>
-                {t(`settings.display.locale.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('settings.display.themeLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-          >
-            {THEMES.map((value) => (
-              <option key={value} value={value}>
-                {t(`settings.display.theme.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('settings.display.defaultGranularityLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={granularity}
-            onChange={(e) => setGranularity(e.target.value)}
-          >
-            {GRANULARITIES.map((value) => (
-              <option key={value} value={value}>
-                {t(`settings.display.granularity.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DisplaySelect
+          label={t('settings.display.localeLabel')}
+          value={locale}
+          onChange={setLocale}
+          options={LOCALES}
+          translateOption={(value) => t(`settings.display.locale.${value}`)}
+        />
+        <DisplaySelect
+          label={t('settings.display.themeLabel')}
+          value={theme}
+          onChange={setTheme}
+          options={THEMES}
+          translateOption={(value) => t(`settings.display.theme.${value}`)}
+        />
+        <DisplaySelect
+          label={t('settings.display.defaultGranularityLabel')}
+          value={granularity}
+          onChange={setGranularity}
+          options={GRANULARITIES}
+          translateOption={(value) => t(`settings.display.granularity.${value}`)}
+        />
       </div>
       <div className="flex gap-3">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('settings.display.accentColorLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={accentColor}
-            onChange={(e) => setAccentColor(e.target.value)}
-          >
-            {ACCENT_COLORS.map((value) => (
-              <option key={value} value={value}>
-                {t(`settings.display.accentColor.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
-          {t('settings.display.fontScaleLabel')}
-          <select
-            className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            value={fontScale}
-            onChange={(e) => setFontScale(e.target.value)}
-          >
-            {FONT_SCALES.map((value) => (
-              <option key={value} value={value}>
-                {t(`settings.display.fontScale.${value}`)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DisplaySelect
+          label={t('settings.display.accentColorLabel')}
+          value={accentColor}
+          onChange={setAccentColor}
+          options={ACCENT_COLORS}
+          translateOption={(value) => t(`settings.display.accentColor.${value}`)}
+        />
+        <DisplaySelect
+          label={t('settings.display.fontScaleLabel')}
+          value={fontScale}
+          onChange={setFontScale}
+          options={FONT_SCALES}
+          translateOption={(value) => t(`settings.display.fontScale.${value}`)}
+        />
       </div>
       <div className="flex justify-end">
         <Button disabled={mutation.isPending} onClick={() => mutation.mutate()}>
