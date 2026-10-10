@@ -186,6 +186,12 @@ def build_notify_callback(notifier: ToastNotifier, port: int, locale: str = DEFA
     「判定（notification_service）」「通知の表示（notifier）」「画面のURL（browser）」を
     結ぶ唯一の場所であり、取り違えても各部品のテストでは捕まらないため、この関数自体を
     テストする。
+
+    引数:
+        notifier: トーストを実際に表示する実装。
+        port: その日の記録画面を開くURLの組み立てに使う待ち受けポート。
+        locale: 表示言語（日英i18n対応、2026-10。呼び出し元`run()`が`_read_locale()`で
+            読んだ値を渡す。既定値はDBが読めない場合の保険）。
     """
 
     def notify(decision: notification_service.NotificationDecision) -> None:
