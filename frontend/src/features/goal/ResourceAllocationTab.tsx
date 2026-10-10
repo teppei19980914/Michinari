@@ -85,10 +85,7 @@ export function ResourceAllocationTab({
             {t('goals.resourceAllocation.totalLabel')}: {total}
             {t('common.unit.minutes')}{' '}
             <span className="text-text-faint">
-              {t('goals.resourceAllocation.averagePerDay', {
-                minutes: avgPerDay,
-                count: avgPerDay,
-              })}
+              {t('goals.resourceAllocation.averagePerDay', { minutes: avgPerDay })}
             </span>
           </p>
 

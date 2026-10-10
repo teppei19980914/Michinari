@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { getLocale, t } from '../../locales/t'
+import { getLocale, rangeSeparator, t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { MarkdownText } from '../../components/MarkdownText'
 import type { DashboardRead } from '../../api/dashboard'
@@ -24,8 +24,7 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
     return null
   }
   const display = resolveWeeklyDigestDisplay(digest)
-  const rangeMarker = getLocale() === 'en' ? '–' : '〜'
-  const weekRange = `${format(parseISO(digest.week_start_date), 'M/d')}${rangeMarker}${format(parseISO(digest.week_end_date), 'M/d')}`
+  const weekRange = `${format(parseISO(digest.week_start_date), 'M/d')}${rangeSeparator()}${format(parseISO(digest.week_end_date), 'M/d')}`
 
   return (
     <Card>
@@ -41,14 +40,10 @@ export function WeeklyDigestSection({ digest }: WeeklyDigestSectionProps) {
       )}
       {display.kind === 'record_summary' && (
         <p className="mt-1 text-sm text-text-primary">
-          {t('dashboard.weeklyDigest.recordedDays', {
-            days: display.recordedDays,
-            count: display.recordedDays,
-          })}
+          {t('dashboard.weeklyDigest.recordedDays', { days: display.recordedDays })}
           {display.totalMinutes !== null &&
             `${getLocale() === 'en' ? '  ' : '　'}${t('dashboard.weeklyDigest.totalMinutes', {
               minutes: display.totalMinutes,
-              count: display.totalMinutes,
             })}`}
         </p>
       )}

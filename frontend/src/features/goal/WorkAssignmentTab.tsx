@@ -119,20 +119,12 @@ function WorkAssignmentProgress({ workAssignment }: { workAssignment: WorkAssign
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted">
       <dt className="text-text-disabled">{t('goals.workAssignment.elapsedDaysLabel')}</dt>
-      <dd>
-        {t('goals.workAssignment.elapsedDaysValue', {
-          days: workAssignment.elapsed_days,
-          count: workAssignment.elapsed_days,
-        })}
-      </dd>
+      <dd>{t('goals.workAssignment.elapsedDaysValue', { days: workAssignment.elapsed_days })}</dd>
       <dt className="text-text-disabled">{t('goals.workAssignment.lastWorkDateLabel')}</dt>
       <dd>{workAssignment.last_work_date ?? t('goals.workAssignment.lastWorkDateUnavailable')}</dd>
       <dt className="text-text-disabled">{t('goals.workAssignment.currentStreakLabel')}</dt>
       <dd>
-        {t('goals.workAssignment.currentStreakValue', {
-          days: workAssignment.current_streak,
-          count: workAssignment.current_streak,
-        })}
+        {t('goals.workAssignment.currentStreakValue', { days: workAssignment.current_streak })}
       </dd>
       <dt className="text-text-disabled">{t('goals.workAssignment.hasRecentMonthlyReportLabel')}</dt>
       <dd>

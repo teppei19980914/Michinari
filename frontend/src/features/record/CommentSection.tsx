@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { getLocale, t } from '../../locales/t'
+import { dateTimeLocaleTag, t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Textarea } from '../../components/Textarea'
@@ -56,7 +56,7 @@ function CommentItem({ targetDate, comment }: { targetDate: string; comment: Com
       <div>
         <p className="text-sm text-text-primary whitespace-pre-wrap">{comment.body}</p>
         <p className="mt-1 text-xs text-text-disabled">
-          {new Date(comment.created_at).toLocaleString(getLocale() === 'en' ? 'en-US' : 'ja-JP')}
+          {new Date(comment.created_at).toLocaleString(dateTimeLocaleTag())}
         </p>
       </div>
       <div className="flex shrink-0 gap-2">

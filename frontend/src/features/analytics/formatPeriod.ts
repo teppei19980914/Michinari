@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { getLocale } from '../../locales/t'
+import { getLocale, rangeSeparator } from '../../locales/t'
 
 /** グラフの横軸ラベルを粒度に応じて整形する（14.2の3粒度: 日別・週別・月別）。
  *
@@ -11,8 +11,7 @@ export function formatPeriodLabel(periodStart: string, granularity: 'DAY' | 'WEE
     return getLocale() === 'en' ? format(date, 'MMM yyyy') : format(date, 'yyyy年M月')
   }
   if (granularity === 'WEEK') {
-    const rangeMarker = getLocale() === 'en' ? '–' : '〜'
-    return `${format(date, 'M/d')}${rangeMarker}`
+    return `${format(date, 'M/d')}${rangeSeparator()}`
   }
   return format(date, 'M/d')
 }

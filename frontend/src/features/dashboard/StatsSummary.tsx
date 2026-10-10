@@ -47,10 +47,7 @@ export function StatsSummary({ goalStats, goalCards, reportRateWindowDays }: Sta
               </div>
               <div className="flex justify-between">
                 <dt>
-                  {t('dashboard.stats.recentReportRate', {
-                    windowDays: reportRateWindowDays,
-                    count: reportRateWindowDays,
-                  })}
+                  {t('dashboard.stats.recentReportRate', { windowDays: reportRateWindowDays })}
                 </dt>
                 <dd>{formatPercent(stats.recent_report_rate)}</dd>
               </div>

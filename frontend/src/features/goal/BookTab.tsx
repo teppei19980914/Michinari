@@ -124,21 +124,11 @@ function BookProgress({ book }: { book: BookRead }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted">
       <dt className="text-text-disabled">{t('goals.book.remainingDaysLabel')}</dt>
-      <dd>
-        {t('goals.book.remainingDaysValue', {
-          days: book.remaining_days,
-          count: book.remaining_days,
-        })}
-      </dd>
+      <dd>{t('goals.book.remainingDaysValue', { days: book.remaining_days })}</dd>
       <dt className="text-text-disabled">{t('goals.book.lastReadingDateLabel')}</dt>
       <dd>{book.last_reading_date ?? t('goals.book.lastReadingDateUnavailable')}</dd>
       <dt className="text-text-disabled">{t('goals.book.currentStreakLabel')}</dt>
-      <dd>
-        {t('goals.book.currentStreakValue', {
-          days: book.current_streak,
-          count: book.current_streak,
-        })}
-      </dd>
+      <dd>{t('goals.book.currentStreakValue', { days: book.current_streak })}</dd>
       {book.current_page !== null && book.progress_rate !== null && (
         <>
           <dt className="text-text-disabled">{t('goals.book.progressLabel')}</dt>

@@ -15,7 +15,6 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.ai.prompt_builder import DatedLogEntry, MaterialStatusEntry
-from app.constants.app_setting_keys import DISPLAY_LOCALE
 from app.constants.enums import (
     AiPurpose,
     BaselineReason,
@@ -61,8 +60,10 @@ _RETROSPECTIVE_QUALITY_GRANULARITY = Granularity.MONTH
 
 #: リプラン契機の表記（AIプロンプトのデータ部分へ差し込む生成テキスト。frontendのja.jsonとは
 #: 別）。末尾に追記する応答言語の指示（`orchestration._append_language_directive`）だけでは
-#: この箇所のような固定語彙は翻訳されないため、`display.locale`に応じて辞書ごと切り替える
-#: （2026-10-09の設計検討、日英i18n対応）。
+#: この箇所のような列挙型ラベルは翻訳されないため、`display.locale`に応じて辞書ごと切り替える
+#: （2026-10-09の設計検討、日英i18n対応）。この対応は列挙型ラベル（本辞書・
+#: `_EXAM_RESULT_LABELS_*`・`_GENDER_LABELS_*`）のみが対象で、周辺の自由文言
+#: （「未登録」「氏名:」等）は未対応（既知の制限、スコープ外として確認済み）。
 _BASELINE_REASON_LABELS_JA = {
     BaselineReason.INITIAL: "初期設定",
     BaselineReason.REPLAN: "リプラン",
@@ -88,10 +89,6 @@ _EXAM_RESULT_LABELS_EN = {
     ExamResultType.FAIL: "fail",
     ExamResultType.PENDING: "pending",
 }
-
-
-def _is_english(session: Session) -> bool:
-    return setting_reader.get_str(session, DISPLAY_LOCALE) == "en"
 
 
 def list_active_goals(session: Session) -> list[Goal]:
