@@ -42,7 +42,7 @@ function GoalCardHeader({ goal }: { goal: GoalCard }) {
         alt=""
         className="h-6 w-6 shrink-0 rounded-full"
       />
-      <h3 className="font-medium text-gray-900">{goal.goal_name}</h3>
+      <h3 className="font-medium text-text-primary">{goal.goal_name}</h3>
     </div>
   )
 }
@@ -54,7 +54,7 @@ function ReadingGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
       <GoalCardHeader goal={goal} />
-      <dl className="space-y-1 text-sm text-gray-600">
+      <dl className="space-y-1 text-sm text-text-muted">
         <div>{formatRemainingDaysReading(goal.remaining_days)}</div>
         {book && (
           <>
@@ -89,7 +89,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
       <GoalCardHeader goal={goal} />
-      <dl className="space-y-1 text-sm text-gray-600">
+      <dl className="space-y-1 text-sm text-text-muted">
         {workAssignment && (
           <>
             <div>
@@ -149,11 +149,11 @@ function ExamGoalCard({ goal }: { goal: GoalCard }) {
             alt=""
             className="h-6 w-6 shrink-0 rounded-full"
           />
-          <h3 className="font-medium text-gray-900">{goal.goal_name}</h3>
+          <h3 className="font-medium text-text-primary">{goal.goal_name}</h3>
         </div>
         {scheduleStatusIcon && <img src={scheduleStatusIcon} alt="" className="h-8 w-8 shrink-0" />}
       </div>
-      <dl className="space-y-1 text-sm text-gray-600">
+      <dl className="space-y-1 text-sm text-text-muted">
         <div className="flex justify-between">
           <dt>{t('dashboard.goalCard.progressRate')}</dt>
           <dd>{formatProgressRate(goal.progress_rate)}</dd>
@@ -177,7 +177,7 @@ export function GoalCardList({ goalCards }: { goalCards: DashboardRead['goal_car
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       {goalCards.map((goal) => (
         <Link key={goal.goal_id} to={ROUTES.goalDetail(goal.goal_id)}>
-          <Card className="h-full hover:border-blue-300">
+          <Card className="h-full hover:border-accent-disabled">
             <GoalCardBody goal={goal} />
           </Card>
         </Link>

@@ -18,12 +18,12 @@ export function CalendarHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h1 className="text-xl font-semibold text-gray-900">{t('calendar.title')}</h1>
+      <h1 className="text-xl font-semibold text-text-primary">{t('calendar.title')}</h1>
       <div className="flex items-center gap-2">
         <Button variant="secondary" onClick={onShowPreviousMonth}>
           {t('calendar.prevMonth')}
         </Button>
-        <span className="text-sm text-gray-700">{format(month, 'yyyy-MM')}</span>
+        <span className="text-sm text-text-secondary">{format(month, 'yyyy-MM')}</span>
         <Button variant="secondary" onClick={onShowNextMonth}>
           {t('calendar.nextMonth')}
         </Button>

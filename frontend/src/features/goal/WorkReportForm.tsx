@@ -30,7 +30,7 @@ export function WorkReportForm({
 }) {
   return (
     <Card className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workReport.targetGoalTextLabel')}
         <Textarea
           value={draft.targetGoalText}
@@ -38,7 +38,7 @@ export function WorkReportForm({
           rows={2}
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workReport.businessSummaryLabel')}
         <Textarea
           value={draft.businessSummary}
@@ -46,10 +46,10 @@ export function WorkReportForm({
           rows={4}
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workReport.achievementScoreLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={draft.achievementScore ?? ''}
           onChange={(e) =>
             draft.setAchievementScore(e.target.value === '' ? null : Number(e.target.value))
@@ -63,7 +63,7 @@ export function WorkReportForm({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workReport.achievementReflectionLabel')}
         <Textarea
           value={draft.achievementReflection}
@@ -71,7 +71,7 @@ export function WorkReportForm({
           rows={4}
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t(nextGoalTextLabelKey)}
         <Textarea
           value={draft.nextGoalText}
@@ -80,7 +80,7 @@ export function WorkReportForm({
         />
       </label>
       {showReportNotes && (
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.workReport.reportNotesLabel')}
           <Textarea
             value={draft.reportNotes}

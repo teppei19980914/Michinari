@@ -32,8 +32,8 @@ export function RecentActivityCalendarSection({ today }: { today: string }) {
   return (
     <Card>
       <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="font-medium text-gray-900">{t('dashboard.recentActivityCalendar.title')}</h2>
-        <Link to={ROUTES.calendar} className="text-xs text-blue-600 hover:underline">
+        <h2 className="font-medium text-text-primary">{t('dashboard.recentActivityCalendar.title')}</h2>
+        <Link to={ROUTES.calendar} className="text-xs text-accent hover:underline">
           {t('dashboard.recentActivityCalendar.viewCalendarLink')}
         </Link>
       </div>

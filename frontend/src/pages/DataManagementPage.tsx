@@ -60,7 +60,7 @@ export function DataManagementPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t('dataManagement.title')}</h1>
+      <h1 className="text-xl font-semibold text-text-primary">{t('dataManagement.title')}</h1>
 
       <DataActionsCard
         isExporting={exportMutation.isPending}

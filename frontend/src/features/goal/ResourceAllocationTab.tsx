@@ -56,19 +56,19 @@ export function ResourceAllocationTab({
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('goals.resourceAllocation.title')}</h2>
-      <p className="text-sm text-gray-500">{t('goals.resourceAllocation.description')}</p>
+      <h2 className="font-medium text-text-primary">{t('goals.resourceAllocation.title')}</h2>
+      <p className="text-sm text-text-faint">{t('goals.resourceAllocation.description')}</p>
       {goal.category === 'READING' && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-text-faint">
           {t('goals.resourceAllocation.optionalForReading')}
         </p>
       )}
-      <Link to={ROUTES.resources} className="text-sm text-blue-600 hover:underline">
+      <Link to={ROUTES.resources} className="text-sm text-accent hover:underline">
         {t('resources.title')}
       </Link>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-gray-500">{t('goals.resourceAllocation.noSlots')}</p>
+        <p className="text-sm text-text-faint">{t('goals.resourceAllocation.noSlots')}</p>
       ) : (
         <>
           <SlotAllocationTable
@@ -80,10 +80,10 @@ export function ResourceAllocationTab({
             }
           />
 
-          <p className="text-sm text-gray-700">
+          <p className="text-sm text-text-secondary">
             {t('goals.resourceAllocation.totalLabel')}: {total}
             {t('common.unit.minutes')}{' '}
-            <span className="text-gray-500">
+            <span className="text-text-faint">
               {t('goals.resourceAllocation.averagePerDay', {
                 minutes: Math.floor(total / DAYS_PER_WEEK),
               })}

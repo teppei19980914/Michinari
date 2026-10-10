@@ -13,22 +13,22 @@ export function DiaryEntrySummaryList({ diaryEntries }: { diaryEntries: DiaryEnt
 
   return (
     <Card className="flex flex-col gap-4">
-      <h2 className="font-medium text-gray-900">{t('dailyReportView.diary.title')}</h2>
+      <h2 className="font-medium text-text-primary">{t('dailyReportView.diary.title')}</h2>
       {diaryEntries.map((entry, index) => (
         <div key={entry.goal_id ?? index} className="flex flex-col gap-3">
           {diaryEntries.length > 1 && entry.goal_name && (
-            <h3 className="font-medium text-gray-900">{entry.goal_name}</h3>
+            <h3 className="font-medium text-text-primary">{entry.goal_name}</h3>
           )}
           {entry.diary_body && (
             <div>
-              <p className="text-xs text-gray-400">{t('dailyReport.diary.bodyLabel')}</p>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.diary_body}</p>
+              <p className="text-xs text-text-disabled">{t('dailyReport.diary.bodyLabel')}</p>
+              <p className="whitespace-pre-wrap text-sm text-text-primary">{entry.diary_body}</p>
             </div>
           )}
           {entry.diary_learned && (
             <div>
-              <p className="text-xs text-gray-400">{t('dailyReport.diary.learnedLabel')}</p>
-              <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.diary_learned}</p>
+              <p className="text-xs text-text-disabled">{t('dailyReport.diary.learnedLabel')}</p>
+              <p className="whitespace-pre-wrap text-sm text-text-primary">{entry.diary_learned}</p>
             </div>
           )}
         </div>

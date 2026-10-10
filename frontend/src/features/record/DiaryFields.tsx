@@ -60,15 +60,15 @@ function DiaryFieldsCard({
 
   return (
     <Card className="flex flex-col gap-3">
-      {showGoalHeading && <h3 className="font-medium text-gray-900">{goal.name}</h3>}
+      {showGoalHeading && <h3 className="font-medium text-text-primary">{goal.name}</h3>}
       <PreviousEntryHint entry={previousEntry.data} />
       {value.diaryBody !== '' && (
-        <div className="flex flex-col gap-1 rounded-md bg-gray-50 p-2 text-sm text-gray-700">
-          <p className="text-xs text-gray-400">{t('dailyReport.diary.bodyLabel')}</p>
+        <div className="flex flex-col gap-1 rounded-md bg-surface-muted p-2 text-sm text-text-secondary">
+          <p className="text-xs text-text-disabled">{t('dailyReport.diary.bodyLabel')}</p>
           <p className="whitespace-pre-wrap">{value.diaryBody}</p>
         </div>
       )}
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('dailyReport.diary.learnedLabel')}
         <Textarea
           rows={5}
@@ -77,7 +77,7 @@ function DiaryFieldsCard({
           onChange={(e) => onChangeLearned(goal.id, e.target.value)}
         />
       </label>
-      <p className="text-xs text-gray-400">{t('dailyReport.voiceInputHint')}</p>
+      <p className="text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
     </Card>
   )
 }

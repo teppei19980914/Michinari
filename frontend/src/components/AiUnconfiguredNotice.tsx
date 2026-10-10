@@ -13,9 +13,9 @@ export function AiUnconfiguredNotice() {
   const navigate = useNavigate()
 
   return (
-    <Card className="flex flex-col gap-2 bg-gray-50">
-      <p className="text-sm text-gray-700">{t('aiUnconfigured.message')}</p>
-      <p className="text-xs text-gray-500">{t('aiUnconfigured.recordingStillWorks')}</p>
+    <Card className="flex flex-col gap-2 bg-surface-muted">
+      <p className="text-sm text-text-secondary">{t('aiUnconfigured.message')}</p>
+      <p className="text-xs text-text-faint">{t('aiUnconfigured.recordingStillWorks')}</p>
       <div>
         <Button variant="secondary" onClick={() => navigate(ROUTE_PATTERNS.settings)}>
           {t('aiUnconfigured.settingsButton')}

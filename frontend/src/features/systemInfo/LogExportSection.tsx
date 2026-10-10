@@ -54,7 +54,7 @@ export function LogExportSection() {
   if (todayQuery.isLoading) {
     return (
       <Card>
-        <p className="text-sm text-gray-500">{t('common.loading')}</p>
+        <p className="text-sm text-text-faint">{t('common.loading')}</p>
       </Card>
     )
   }
@@ -70,8 +70,8 @@ export function LogExportSection() {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('systemInfo.logExport.title')}</h2>
-      <p className="text-sm text-gray-500">{t('systemInfo.logExport.description')}</p>
+      <h2 className="font-medium text-text-primary">{t('systemInfo.logExport.title')}</h2>
+      <p className="text-sm text-text-faint">{t('systemInfo.logExport.description')}</p>
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((preset) => (
           <Button
@@ -84,7 +84,7 @@ export function LogExportSection() {
         ))}
       </div>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('systemInfo.logExport.fromLabel')}
           <Input
             type="date"
@@ -93,7 +93,7 @@ export function LogExportSection() {
             onChange={(e) => setRange({ from: e.target.value, to: dateTo })}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('systemInfo.logExport.toLabel')}
           <Input
             type="date"

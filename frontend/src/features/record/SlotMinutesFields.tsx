@@ -42,13 +42,13 @@ export function SlotMinutesFields({
 
   return (
     <div className="mt-2 flex flex-col gap-1">
-      <p className="text-xs text-gray-600">{label}</p>
+      <p className="text-xs text-text-muted">{label}</p>
       {rows.length === 0 ? (
-        <p className="text-xs text-gray-500">{t('dailyReport.studyLog.noAllocatedSlots')}</p>
+        <p className="text-xs text-text-faint">{t('dailyReport.studyLog.noAllocatedSlots')}</p>
       ) : (
         <div className="flex flex-wrap gap-2">
           {rows.map((row) => (
-            <label key={row.slotId} className="flex items-center gap-1 text-xs text-gray-600">
+            <label key={row.slotId} className="flex items-center gap-1 text-xs text-text-muted">
               {row.slotName}
               <Input
                 type="number"
@@ -62,14 +62,14 @@ export function SlotMinutesFields({
           ))}
         </div>
       )}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-text-faint">
         {t('dailyReport.studyLog.slotMinutesTotal', { minutes: sumSlotMinutes(values) })}
       </p>
       {addable.length > 0 && (
-        <label className="flex items-center gap-1 text-xs text-gray-600">
+        <label className="flex items-center gap-1 text-xs text-text-muted">
           {t('dailyReport.studyLog.addSlotLabel')}
           <select
-            className="rounded-md border border-gray-300 px-2 py-1 text-xs"
+            className="rounded-md border border-border-strong px-2 py-1 text-xs"
             value=""
             onChange={(e) => {
               if (e.target.value !== '') {

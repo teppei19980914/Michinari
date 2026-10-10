@@ -27,20 +27,20 @@ export function StatsSummary({ goalStats, goalCards, reportRateWindowDays }: Sta
 
   return (
     <Card>
-      <h2 className="mb-2 font-medium text-gray-900">{t('dashboard.stats.title')}</h2>
+      <h2 className="mb-2 font-medium text-text-primary">{t('dashboard.stats.title')}</h2>
       <div className="space-y-4">
         {goalStats.map((stats) => (
           <div key={stats.goal_id}>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-gray-700">{stats.goal_name}</h3>
+              <h3 className="text-sm font-medium text-text-secondary">{stats.goal_name}</h3>
               <Link
                 to={`${ROUTES.analytics}?goal=${stats.goal_id}`}
-                className="text-xs text-blue-600 hover:underline"
+                className="text-xs text-accent hover:underline"
               >
                 {t('dashboard.stats.analyticsLink')}
               </Link>
             </div>
-            <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600 sm:grid-cols-3">
+            <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted sm:grid-cols-3">
               <div className="flex justify-between">
                 <dt>{t('dashboard.stats.consecutiveReportDays')}</dt>
                 <dd>{stats.consecutive_report_days}</dd>
@@ -61,7 +61,7 @@ export function StatsSummary({ goalStats, goalCards, reportRateWindowDays }: Sta
               )}
             </dl>
             {stats.material_speeds.length > 0 && (
-              <ul className="mt-1 text-xs text-gray-500">
+              <ul className="mt-1 text-xs text-text-faint">
                 {stats.material_speeds.map((entry) => (
                   <li key={entry.material_id}>
                     {t('dashboard.stats.effectiveSpeed')}（{entry.material_name}）：

@@ -65,7 +65,7 @@ export function DailyReportPage() {
   // 集約している。全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
   const guard = resolveDailyReportGuard(queries, targets.presence, targetDate)
   if (guard.kind === 'LOADING') {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (guard.kind === 'ERROR') {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
@@ -83,10 +83,10 @@ export function DailyReportPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">
+      <h1 className="text-xl font-semibold text-text-primary">
         {t('dailyReport.title', { date: targetDate })}
       </h1>
-      <p className="text-sm text-gray-500">{t('dailyReport.estimatedDuration')}</p>
+      <p className="text-sm text-text-faint">{t('dailyReport.estimatedDuration')}</p>
 
       <ZeroRecordButton
         targetDate={targetDate}

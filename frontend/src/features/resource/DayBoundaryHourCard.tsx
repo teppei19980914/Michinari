@@ -29,10 +29,10 @@ export function DayBoundaryHourCard() {
 
   return (
     <Card className="flex flex-col gap-2">
-      <h2 className="font-medium text-gray-900">{t('resources.dayBoundaryHour.title')}</h2>
-      <p className="text-xs text-gray-500">{t('resources.dayBoundaryHour.description')}</p>
+      <h2 className="font-medium text-text-primary">{t('resources.dayBoundaryHour.title')}</h2>
+      <p className="text-xs text-text-faint">{t('resources.dayBoundaryHour.description')}</p>
       <div className="flex items-end gap-2">
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('resources.dayBoundaryHour.label')}
           <Input
             type="number"

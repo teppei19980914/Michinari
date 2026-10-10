@@ -29,7 +29,7 @@ export function RecapThemeEditCard({
 
   return (
     <Card className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('recapTheme.renameLabel')}
         <div className="flex gap-2">
           <Input
@@ -48,11 +48,11 @@ export function RecapThemeEditCard({
           </Button>
         </div>
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('recapTheme.mergeLabel')}
         <div className="flex gap-2">
           <select
-            className="flex-1 rounded-md border border-gray-300 p-2 text-sm"
+            className="flex-1 rounded-md border border-border-strong p-2 text-sm"
             value={mergeTargetId}
             onChange={(e) => setMergeTargetId(e.target.value === '' ? '' : Number(e.target.value))}
           >

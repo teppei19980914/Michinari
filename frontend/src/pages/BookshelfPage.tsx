@@ -47,12 +47,12 @@ export function BookshelfPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t('bookshelf.title')}</h1>
+      <h1 className="text-xl font-semibold text-text-primary">{t('bookshelf.title')}</h1>
 
-      {booksQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {booksQuery.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
 
       {booksQuery.data && !hasAnyOnShelf && !hasAnyArchived && (
-        <p className="text-sm text-gray-500">{t('bookshelf.empty')}</p>
+        <p className="text-sm text-text-faint">{t('bookshelf.empty')}</p>
       )}
 
       <BookShelfSection
@@ -74,7 +74,7 @@ export function BookshelfPage() {
       />
 
       {hasAnyArchived && (
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-text-muted">
           <input
             type="checkbox"
             checked={showArchived}

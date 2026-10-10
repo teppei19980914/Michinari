@@ -17,20 +17,20 @@ export function RecapThemeSection({ goalId }: { goalId: number }) {
 
   return (
     <Card>
-      <h2 className="font-medium text-gray-900">{t('dashboard.recapThemes.title')}</h2>
-      {query.isLoading && <p className="mt-1 text-sm text-gray-500">{t('common.loading')}</p>}
+      <h2 className="font-medium text-text-primary">{t('dashboard.recapThemes.title')}</h2>
+      {query.isLoading && <p className="mt-1 text-sm text-text-faint">{t('common.loading')}</p>}
       {query.isError && <p className="mt-1 text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
       {query.data && query.data.length === 0 && (
-        <p className="mt-1 text-sm text-gray-500">{t('dashboard.recapThemes.empty')}</p>
+        <p className="mt-1 text-sm text-text-faint">{t('dashboard.recapThemes.empty')}</p>
       )}
       {query.data && query.data.length > 0 && (
         <ul className="mt-2 flex flex-col gap-2">
           {query.data.map((theme) => (
             <li key={theme.id} className="flex items-baseline justify-between gap-2">
-              <Link className="text-sm font-medium text-blue-700 underline" to={ROUTES.recapTheme(theme.id)}>
+              <Link className="text-sm font-medium text-accent-muted-text underline" to={ROUTES.recapTheme(theme.id)}>
                 {theme.name}
               </Link>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-text-faint">
                 {t('dashboard.recapThemes.entryCount', { count: theme.entry_count })}
               </span>
             </li>

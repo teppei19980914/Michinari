@@ -23,7 +23,7 @@ export function ReportTypeChoiceModal({
       onClose={onClose}
       title={t('calendar.choiceModal.title')}
     >
-      <p className="text-sm text-gray-600">{targetDate}</p>
+      <p className="text-sm text-text-muted">{targetDate}</p>
       <div className="mt-4 flex flex-col gap-2">
         <Link to={targetDate ? ROUTES.dailyReport(targetDate) : '#'}>
           <Button className="w-full" onClick={onClose}>

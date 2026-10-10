@@ -30,8 +30,8 @@ export function LogSection({ settings }: { settings: AppSettingsRead }) {
 
   return (
     <Card className="flex flex-col gap-3">
-      <h2 className="font-medium text-gray-900">{t('settings.log.title')}</h2>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <h2 className="font-medium text-text-primary">{t('settings.log.title')}</h2>
+      <label className="flex items-center gap-2 text-sm text-text-secondary">
         <input
           type="checkbox"
           checked={aiEnabled}
@@ -39,7 +39,7 @@ export function LogSection({ settings }: { settings: AppSettingsRead }) {
         />
         {t('settings.log.aiEnabledLabel')}
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('settings.log.retentionDaysLabel')}
         <Input
           type="number"

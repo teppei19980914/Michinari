@@ -30,22 +30,22 @@ export function AiAuthStatusCard({
   const [pat, setPat] = useState('')
 
   return (
-    <div className="rounded-md border border-gray-200 p-3">
-      <h3 className="text-sm font-medium text-gray-900">
+    <div className="rounded-md border border-border p-3">
+      <h3 className="text-sm font-medium text-text-primary">
         {t('settings.aiConnection.authStatus.title')}
       </h3>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-text-muted">
         {status?.authenticated
           ? t('settings.aiConnection.authStatus.authenticated')
           : t('settings.aiConnection.authStatus.notAuthenticated')}
       </p>
       {status?.login_in_progress && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-text-faint">
           {t('settings.aiConnection.authStatus.loginInProgress')}
         </p>
       )}
       {status && Object.keys(status.model_status).length > 0 && (
-        <div className="mt-2 text-xs text-gray-500">
+        <div className="mt-2 text-xs text-text-faint">
           <p>{t('settings.aiConnection.modelStatusTitle')}</p>
           <ul>
             {Object.entries(status.model_status).map(([model, ok]) => (
@@ -57,11 +57,11 @@ export function AiAuthStatusCard({
         </div>
       )}
       <div className="mt-2 flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('settings.aiConnection.hostLabel')}
           <Input value={host} onChange={(e) => onChangeHost(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('settings.aiConnection.authStatus.patLabel')}
           <Input type="password" value={pat} onChange={(e) => setPat(e.target.value)} />
         </label>

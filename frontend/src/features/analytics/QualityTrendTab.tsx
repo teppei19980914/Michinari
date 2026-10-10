@@ -15,7 +15,7 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { apiErrorMessage } from '../../api/client'
 import { getQualityAnalytics, type Granularity } from '../../api/analytics'
-import { cycleSeriesColor, GRID_LINE_COLOR, THRESHOLD_LINE_COLOR } from './chartColors'
+import { cycleSeriesColor, resolveGridLineColor, THRESHOLD_LINE_COLOR } from './chartColors'
 import { cycleSeriesKey, mergeCycleSeries } from './mergeCycleSeries'
 import { formatAxisNumber, formatPeriodLabel } from './formatPeriod'
 import { QUERY_KEYS } from '../../constants/queryKeys'
@@ -36,7 +36,7 @@ export function QualityTrendTab({ goalId }: QualityTrendTabProps) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">{t('analytics.quality.granularityLabel')}</span>
+        <span className="text-sm text-text-muted">{t('analytics.quality.granularityLabel')}</span>
         <div className="flex gap-1">
           {GRANULARITIES.map((g) => (
             <button
@@ -44,7 +44,7 @@ export function QualityTrendTab({ goalId }: QualityTrendTabProps) {
               type="button"
               onClick={() => setGranularity(g)}
               className={`rounded px-2 py-1 text-sm ${
-                granularity === g ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'
+                granularity === g ? 'bg-accent text-white' : 'bg-surface-muted text-text-secondary'
               }`}
             >
               {t(`settings.display.granularity.${g}`)}
@@ -53,11 +53,11 @@ export function QualityTrendTab({ goalId }: QualityTrendTabProps) {
         </div>
       </div>
 
-      {query.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {query.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
       {query.isError && <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>}
 
       {query.data && query.data.materials.length === 0 && (
-        <p className="text-sm text-gray-500">{t('analytics.materialEmpty')}</p>
+        <p className="text-sm text-text-faint">{t('analytics.materialEmpty')}</p>
       )}
 
       {query.data?.materials.map((material) => {
@@ -69,13 +69,13 @@ export function QualityTrendTab({ goalId }: QualityTrendTabProps) {
         )
         return (
           <Card key={material.material_id}>
-            <h3 className="mb-2 font-medium text-gray-900">{material.material_name}</h3>
+            <h3 className="mb-2 font-medium text-text-primary">{material.material_name}</h3>
             {rows.length === 0 ? (
-              <p className="text-sm text-gray-500">{t('analytics.quality.noData')}</p>
+              <p className="text-sm text-text-faint">{t('analytics.quality.noData')}</p>
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart data={rows}>
-                  <CartesianGrid stroke={GRID_LINE_COLOR} vertical={false} />
+                  <CartesianGrid stroke={resolveGridLineColor()} vertical={false} />
                   <XAxis
                     dataKey="x"
                     tickFormatter={(value: string) => formatPeriodLabel(value, granularity)}

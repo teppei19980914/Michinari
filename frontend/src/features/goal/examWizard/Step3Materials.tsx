@@ -25,7 +25,7 @@ function MaterialDraftRow({
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.nameLabel')}
           <Input
             value={draft.name}
@@ -38,11 +38,11 @@ function MaterialDraftRow({
         </Button>
       </div>
       <div className="flex gap-2">
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.unitLabel')}
           <Input value={draft.unitLabel} onChange={(e) => onChange({ ...draft, unitLabel: e.target.value })} required />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.totalAmountLabel')}
           <Input
             type="number"
@@ -52,7 +52,7 @@ function MaterialDraftRow({
             required
           />
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
           {t('goals.materials.plannedCyclesLabel')}
           <Input
             type="number"
@@ -62,7 +62,7 @@ function MaterialDraftRow({
           />
         </label>
       </div>
-      <fieldset className="flex flex-col gap-1 text-sm text-gray-700">
+      <fieldset className="flex flex-col gap-1 text-sm text-text-secondary">
         <legend>{t('goals.materials.subjectsLabel')}</legend>
         <div className="flex flex-wrap gap-3">
           {subjects.map((subject) => (
@@ -93,8 +93,8 @@ export function Step3Materials({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-gray-600">{t('goals.examWizard.step3.description')}</p>
-      <p className="text-xs text-amber-700">{t('goals.examWizard.templateAmountDisclaimer')}</p>
+      <p className="text-sm text-text-muted">{t('goals.examWizard.step3.description')}</p>
+      <p className="text-xs text-warning-text-subtle">{t('goals.examWizard.templateAmountDisclaimer')}</p>
 
       {materials.map((draft, index) => (
         // eslint-disable-next-line react/no-array-index-key -- 教材名は編集途中で重複しうるため

@@ -85,8 +85,8 @@ export function ExamGoalWizardPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t('goals.examWizard.title')}</h1>
-      <p className="text-sm text-gray-500">
+      <h1 className="text-xl font-semibold text-text-primary">{t('goals.examWizard.title')}</h1>
+      <p className="text-sm text-text-faint">
         {t('goals.examWizard.stepIndicator', { current: wizard.step, total: TOTAL_STEPS })}
       </p>
 

@@ -17,23 +17,23 @@ export function ReadingLogHistoryTab({ goalId }: ReadingLogHistoryTabProps) {
   })
 
   if (query.isLoading) {
-    return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (query.isError || !query.data) {
     return <p className="text-sm text-red-600">{apiErrorMessage(query.error)}</p>
   }
   if (query.data.length === 0) {
-    return <p className="text-sm text-gray-500">{t('analytics.readingLog.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('analytics.readingLog.empty')}</p>
   }
 
   return (
     <div className="flex flex-col gap-3">
       {query.data.map((entry, index) => (
         <Card key={`${entry.record_date}-${index}`}>
-          <p className="mb-1 text-xs text-gray-400">{entry.record_date}</p>
-          <p className="whitespace-pre-wrap text-sm text-gray-900">{entry.recall_body}</p>
+          <p className="mb-1 text-xs text-text-disabled">{entry.record_date}</p>
+          <p className="whitespace-pre-wrap text-sm text-text-primary">{entry.recall_body}</p>
           {entry.current_page !== null && (
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-xs text-text-faint">
               {t('analytics.readingLog.currentPageLabel', { page: entry.current_page })}
             </p>
           )}

@@ -26,8 +26,8 @@ export function WorkLogSummaryList({
           : t('dailyReportView.workLog.unknownAssignment', { id: log.work_assignment_id })
         return (
           <Card key={log.id}>
-            <p className="font-medium text-gray-900">{title}</p>
-            <p className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{log.body}</p>
+            <p className="font-medium text-text-primary">{title}</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-text-primary">{log.body}</p>
           </Card>
         )
       })}

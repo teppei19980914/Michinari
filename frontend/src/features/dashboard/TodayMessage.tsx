@@ -37,14 +37,14 @@ export function TodayMessage({ goalId }: TodayMessageProps) {
   }
 
   return (
-    <Card className="bg-blue-50">
+    <Card className="bg-accent-muted-bg">
       {isLoading ? (
-        <p className="text-sm text-gray-500">{t('dashboard.todayMessage.loading')}</p>
+        <p className="text-sm text-text-faint">{t('dashboard.todayMessage.loading')}</p>
       ) : (
         <div className="flex flex-col gap-2">
           {messages.map((message, index) => (
             <div key={message.goal_id ?? index}>
-              <p className="text-sm text-gray-800">
+              <p className="text-sm text-text-primary">
                 {message.is_fallback ? t('dashboard.todayMessage.fallback') : message.body}
               </p>
             </div>

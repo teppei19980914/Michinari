@@ -20,7 +20,7 @@ export function WorkEvaluationReviewCard({
 }) {
   return (
     <Card className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workEvaluationReport.bodyLabel')}
         <Textarea value={body} onChange={(e) => onChangeBody(e.target.value)} rows={12} />
       </label>

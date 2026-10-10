@@ -52,7 +52,7 @@ export function DashboardPage() {
   // 全フックの呼び出しが済んだ後で評価する必要があるため、ここで呼ぶ。
   const guard = resolveDashboardGuard({ dashboard: dashboardQuery, goals: goalsQuery })
   if (guard.kind === 'LOADING') {
-    return <p className="p-6 text-sm text-gray-500">{t('common.loading')}</p>
+    return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (guard.kind === 'ERROR') {
     return <p className="p-6 text-sm text-red-600">{apiErrorMessage(guard.error)}</p>
@@ -79,10 +79,10 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t('dashboard.title')}</h1>
+      <h1 className="text-xl font-semibold text-text-primary">{t('dashboard.title')}</h1>
 
       {showFirstRecordBanner && (
-        <p className="rounded-md bg-blue-50 p-3 text-sm text-blue-800">
+        <p className="rounded-md bg-accent-muted-bg p-3 text-sm text-accent-muted-text">
           {t('dashboard.firstRecordBanner')}
         </p>
       )}

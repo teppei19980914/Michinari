@@ -9,12 +9,12 @@ import { t } from '../../locales/t'
  */
 export function AiConnectionGuide({ host }: { host: string }) {
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-gray-700">
+    <div className="flex flex-col gap-3 rounded-md border border-accent-disabled bg-accent-muted-bg p-3 text-sm text-text-secondary">
       <div>
-        <p className="font-medium text-gray-900">{t('settings.aiConnection.guide.step1Title')}</p>
+        <p className="font-medium text-text-primary">{t('settings.aiConnection.guide.step1Title')}</p>
         {host ? (
           <a
-            className="text-blue-700 underline"
+            className="text-accent-muted-text underline"
             href={`https://${host}`}
             target="_blank"
             rel="noreferrer"
@@ -22,32 +22,32 @@ export function AiConnectionGuide({ host }: { host: string }) {
             {t('settings.aiConnection.guide.step1LinkLabel')}
           </a>
         ) : (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-text-faint">
             {t('settings.aiConnection.guide.step1HostMissing')}
           </p>
         )}
       </div>
 
       <div>
-        <p className="font-medium text-gray-900">{t('settings.aiConnection.guide.step2Title')}</p>
+        <p className="font-medium text-text-primary">{t('settings.aiConnection.guide.step2Title')}</p>
         <p>{t('settings.aiConnection.guide.step2Description')}</p>
         {/* ダミー画像。実際のスクリーンショットは後で frontend/public/help/ 配下の
             同名ファイルを差し替える運用とする（利用者からの依頼、2026-09-19）。 */}
         <img
           src="/help/ai-connect-step2-issue-token.png"
           alt={t('settings.aiConnection.guide.step2ScreenshotAlt')}
-          className="mt-1 max-w-full rounded border border-gray-200"
+          className="mt-1 max-w-full rounded border border-border"
         />
       </div>
 
-      <p className="font-medium text-gray-900">{t('settings.aiConnection.guide.step3Title')}</p>
-      <p className="font-medium text-gray-900">{t('settings.aiConnection.guide.step4Title')}</p>
+      <p className="font-medium text-text-primary">{t('settings.aiConnection.guide.step3Title')}</p>
+      <p className="font-medium text-text-primary">{t('settings.aiConnection.guide.step4Title')}</p>
 
-      <div className="rounded-md bg-white p-2">
-        <p className="font-medium text-gray-900">
+      <div className="rounded-md bg-surface p-2">
+        <p className="font-medium text-text-primary">
           {t('settings.aiConnection.guide.whatIsPatTitle')}
         </p>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-text-muted">
           {t('settings.aiConnection.guide.whatIsPatDescription')}
         </p>
       </div>

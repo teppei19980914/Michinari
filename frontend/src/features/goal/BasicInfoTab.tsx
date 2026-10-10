@@ -37,7 +37,7 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
 
   return (
     <Card className="flex flex-col gap-3">
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {nameLabel}
         <Input
           value={name}
@@ -46,7 +46,7 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
           required
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.basicInfo.startDateLabel')}
         <Input
           type="date"
@@ -56,10 +56,10 @@ export function BasicInfoTab({ goal, readOnly }: { goal: GoalDetailRead; readOnl
           required
         />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.basicInfo.memoLabel')}
         <textarea
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm focus:border-accent focus:outline-none"
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
           disabled={readOnly}

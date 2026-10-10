@@ -31,7 +31,7 @@ export function StudyLogFields({
   showMinutesOptionalNotice = false,
 }: StudyLogFieldsProps) {
   if (quotaItems.length === 0) {
-    return <p className="text-sm text-gray-500">{t('dailyReport.studyLog.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('dailyReport.studyLog.empty')}</p>
   }
 
   const goalGroups = groupByGoal(quotaItems)
@@ -41,7 +41,7 @@ export function StudyLogFields({
       {goalGroups.map((group) => (
         <div key={group.goalId} className="flex flex-col gap-3">
           {goalGroups.length > 1 && (
-            <h3 className="font-medium text-gray-900">{group.goalName}</h3>
+            <h3 className="font-medium text-text-primary">{group.goalName}</h3>
           )}
           {group.items.map((item) => {
             const value = values[item.material_id]
@@ -63,7 +63,7 @@ export function StudyLogFields({
         </div>
       ))}
       {showMinutesOptionalNotice && (
-        <p className="text-xs text-gray-500">{t('progressOnly.minutesOptionalNotice')}</p>
+        <p className="text-xs text-text-faint">{t('progressOnly.minutesOptionalNotice')}</p>
       )}
     </div>
   )

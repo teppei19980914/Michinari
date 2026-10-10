@@ -41,15 +41,15 @@ export function HelpPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-gray-900">{t('help.title')}</h1>
-      <p className="text-sm text-gray-600">{t('help.subtitle')}</p>
+      <h1 className="text-xl font-semibold text-text-primary">{t('help.title')}</h1>
+      <p className="text-sm text-text-muted">{t('help.subtitle')}</p>
 
-      <Link to={ROUTES.welcome} className="text-sm text-blue-600 hover:underline">
+      <Link to={ROUTES.welcome} className="text-sm text-accent hover:underline">
         {t('welcome.reopenLink')}
       </Link>
 
       <Card className="flex flex-col gap-2">
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('help.searchLabel')}
           <Input
             value={query}
@@ -60,8 +60,8 @@ export function HelpPage() {
       </Card>
 
       <Card className="flex flex-col gap-1">
-        <h2 className="font-medium text-gray-900">{t('help.tocTitle')}</h2>
-        <ul className="grid grid-cols-1 gap-1 text-sm text-blue-600 sm:grid-cols-2">
+        <h2 className="font-medium text-text-primary">{t('help.tocTitle')}</h2>
+        <ul className="grid grid-cols-1 gap-1 text-sm text-accent sm:grid-cols-2">
           {HELP_SECTIONS.filter((section) => visibleIds.has(section.id)).map((section) => (
             <li key={section.id}>
               <a href={`#${section.id}`} className="hover:underline">
@@ -73,14 +73,14 @@ export function HelpPage() {
       </Card>
 
       {visibleIds.size === 0 && (
-        <p className="text-sm text-gray-500">{t('help.searchNoResults')}</p>
+        <p className="text-sm text-text-faint">{t('help.searchNoResults')}</p>
       )}
 
       {HELP_SECTIONS.filter((section) => visibleIds.has(section.id)).map((section) => (
         <Card key={section.id} id={section.id} className="flex flex-col gap-2">
-          <h2 className="font-medium text-gray-900">{t(section.titleKey)}</h2>
+          <h2 className="font-medium text-text-primary">{t(section.titleKey)}</h2>
           {section.bodyKeys.map((key) => (
-            <p key={key} className="text-sm text-gray-700">
+            <p key={key} className="text-sm text-text-secondary">
               {t(key)}
             </p>
           ))}
@@ -88,16 +88,16 @@ export function HelpPage() {
           {section.id === 'promptVariables' &&
             HELP_PROMPT_PURPOSES.map((purpose) => (
               <div key={purpose.id} className="mt-2">
-                <h3 className="text-sm font-medium text-gray-900">{t(purpose.titleKey)}</h3>
+                <h3 className="text-sm font-medium text-text-primary">{t(purpose.titleKey)}</h3>
                 <div className="mt-1 overflow-x-auto">
-                  <table className="w-full text-left text-xs text-gray-700">
+                  <table className="w-full text-left text-xs text-text-secondary">
                     <tbody>
                       {purpose.variables.map((variable) => (
-                        <tr key={variable.name} className="border-b border-gray-100 last:border-0">
-                          <td className="whitespace-nowrap py-1 pr-3 font-mono text-gray-900">
+                        <tr key={variable.name} className="border-b border-border last:border-0">
+                          <td className="whitespace-nowrap py-1 pr-3 font-mono text-text-primary">
                             {`{{${variable.name}}}`}
                           </td>
-                          <td className="py-1 text-gray-700">{t(variable.descriptionKey)}</td>
+                          <td className="py-1 text-text-secondary">{t(variable.descriptionKey)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -110,8 +110,8 @@ export function HelpPage() {
             <dl className="flex flex-col gap-3">
               {HELP_FAQ_ITEMS.map((item) => (
                 <div key={item.questionKey}>
-                  <dt className="text-sm font-medium text-gray-900">{t(item.questionKey)}</dt>
-                  <dd className="text-sm text-gray-700">{t(item.answerKey)}</dd>
+                  <dt className="text-sm font-medium text-text-primary">{t(item.questionKey)}</dt>
+                  <dd className="text-sm text-text-secondary">{t(item.answerKey)}</dd>
                 </div>
               ))}
             </dl>

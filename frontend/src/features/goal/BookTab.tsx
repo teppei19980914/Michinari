@@ -67,15 +67,15 @@ function BookForm({
           mutation.mutate()
         }}
       >
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.book.titleLabel')}
           <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.book.authorLabel')}
           <Input value={author} onChange={(e) => setAuthor(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-gray-700">
+        <label className="flex flex-col gap-1 text-sm text-text-secondary">
           {t('goals.book.totalPagesLabel')}
           <Input
             type="number"
@@ -86,7 +86,7 @@ function BookForm({
           />
         </label>
         <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.book.startDateLabel')}
             <Input
               type="date"
@@ -95,7 +95,7 @@ function BookForm({
               required
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm text-gray-700">
+          <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
             {t('goals.book.dueDateLabel')}
             <Input
               type="date"
@@ -122,16 +122,16 @@ function BookForm({
 
 function BookProgress({ book }: { book: BookRead }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600">
-      <dt className="text-gray-400">{t('goals.book.remainingDaysLabel')}</dt>
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted">
+      <dt className="text-text-disabled">{t('goals.book.remainingDaysLabel')}</dt>
       <dd>{t('goals.book.remainingDaysValue', { days: book.remaining_days })}</dd>
-      <dt className="text-gray-400">{t('goals.book.lastReadingDateLabel')}</dt>
+      <dt className="text-text-disabled">{t('goals.book.lastReadingDateLabel')}</dt>
       <dd>{book.last_reading_date ?? t('goals.book.lastReadingDateUnavailable')}</dd>
-      <dt className="text-gray-400">{t('goals.book.currentStreakLabel')}</dt>
+      <dt className="text-text-disabled">{t('goals.book.currentStreakLabel')}</dt>
       <dd>{t('goals.book.currentStreakValue', { days: book.current_streak })}</dd>
       {book.current_page !== null && book.progress_rate !== null && (
         <>
-          <dt className="text-gray-400">{t('goals.book.progressLabel')}</dt>
+          <dt className="text-text-disabled">{t('goals.book.progressLabel')}</dt>
           <dd>
             {t('goals.book.progressValue', {
               current: book.current_page,
@@ -153,7 +153,7 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
 
   if (!goal.book) {
     if (readOnly) {
-      return <p className="text-sm text-gray-500">{t('goals.book.empty')}</p>
+      return <p className="text-sm text-text-faint">{t('goals.book.empty')}</p>
     }
     return (
       <BookForm
@@ -183,8 +183,8 @@ export function BookTab({ goal, readOnly }: { goal: GoalDetailRead; readOnly: bo
     <div className="flex flex-col gap-3">
       <Card className="flex flex-col gap-3">
         <div>
-          <p className="font-medium text-gray-900">{book.title}</p>
-          {book.author && <p className="text-sm text-gray-500">{book.author}</p>}
+          <p className="font-medium text-text-primary">{book.title}</p>
+          {book.author && <p className="text-sm text-text-faint">{book.author}</p>}
         </div>
         <BookProgress book={book} />
         {!readOnly && (

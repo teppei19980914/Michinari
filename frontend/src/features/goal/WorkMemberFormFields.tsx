@@ -27,14 +27,14 @@ export function WorkMemberFormFields({
 }) {
   return (
     <>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workMember.nameLabel')}
         <Input value={name} onChange={(e) => onChangeName(e.target.value)} required />
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workMember.genderLabel')}
         <select
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="rounded-md border border-border-strong px-3 py-2 text-sm"
           value={gender}
           onChange={(e) => onChangeGender(e.target.value as GenderOption | '')}
         >
@@ -46,7 +46,7 @@ export function WorkMemberFormFields({
           ))}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm text-gray-700">
+      <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('goals.workMember.characteristicsLabel')}
         <Textarea
           value={characteristics}
@@ -59,7 +59,7 @@ export function WorkMemberFormFields({
         />
       </label>
       {characteristics !== '' && (
-        <label className="flex items-start gap-2 text-sm text-gray-700">
+        <label className="flex items-start gap-2 text-sm text-text-secondary">
           <input
             type="checkbox"
             className="mt-1"
@@ -68,7 +68,7 @@ export function WorkMemberFormFields({
           />
           <span>
             {t('goals.workMember.consentCheckbox')}
-            <span className="mt-0.5 block text-xs text-gray-500">
+            <span className="mt-0.5 block text-xs text-text-faint">
               {t('goals.workMember.consentHint')}
             </span>
           </span>

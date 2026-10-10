@@ -81,9 +81,9 @@ function GoalCard({
   const isArchived = goal.archived_at !== null
 
   return (
-    <Card className="flex items-center justify-between gap-3 hover:border-blue-300">
+    <Card className="flex items-center justify-between gap-3 hover:border-accent-disabled">
       <Link to={resolveGoalListTarget(goal.id, goal.status)} className="flex flex-1 flex-col gap-1">
-        <span className="flex items-center gap-1 font-medium text-gray-900">
+        <span className="flex items-center gap-1 font-medium text-text-primary">
           {goal.name}
           {goal.is_achieved && (
             <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
@@ -92,35 +92,35 @@ function GoalCard({
             </span>
           )}
         </span>
-        <span className="flex items-center gap-2 text-xs text-gray-500">
+        <span className="flex items-center gap-2 text-xs text-text-faint">
           <span
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${resolveGoalCategoryBadgeClass(goal.category)}`}
           >
             <img src={resolveGoalCategoryIcon(goal.category)} alt="" className="h-4 w-4 rounded-full" />
             {t(`goals.new.category.${goal.category}`)}
           </span>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">
+          <span className="rounded-full bg-surface-muted px-2 py-0.5 font-medium text-text-secondary">
             {t(goalStatusLabelKey(goal.category, goal.status))}
           </span>
           {isArchived && (
-            <span className="rounded-full bg-gray-200 px-2 py-0.5 font-medium text-gray-600">
+            <span className="rounded-full bg-surface-muted px-2 py-0.5 font-medium text-text-muted">
               {t('goals.list.archivedBadge')}
             </span>
           )}
         </span>
       </Link>
       {isClosed && !isArchived && (
-        <Link to={ROUTES.goalExport(goal.id)} className="text-sm text-blue-600 hover:underline">
+        <Link to={ROUTES.goalExport(goal.id)} className="text-sm text-accent hover:underline">
           {t('goals.list.exportLink')}
         </Link>
       )}
       {isClosed && !isArchived && (
-        <Link to={ROUTES.goalDetail(goal.id)} className="text-sm text-blue-600 hover:underline">
+        <Link to={ROUTES.goalDetail(goal.id)} className="text-sm text-accent hover:underline">
           {t('goals.list.detailLink')}
         </Link>
       )}
       {goal.status === 'ACTIVE' && goal.category === 'EXAM' && (
-        <Link to={ROUTES.goalResult(goal.id)} className="text-sm text-blue-600 hover:underline">
+        <Link to={ROUTES.goalResult(goal.id)} className="text-sm text-accent hover:underline">
           {t('goals.list.resultLink')}
         </Link>
       )}
@@ -184,18 +184,18 @@ export function GoalsListPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">{t('goals.list.title')}</h1>
+        <h1 className="text-xl font-semibold text-text-primary">{t('goals.list.title')}</h1>
         <Button onClick={() => setNewGoalModalOpen(true)}>{t('goals.list.newGoal')}</Button>
       </div>
 
-      {goalsQuery.isLoading && <p className="text-sm text-gray-500">{t('common.loading')}</p>}
+      {goalsQuery.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}
 
       {goalsQuery.data && allGoals.length === 0 && (
-        <p className="text-sm text-gray-500">{t('goals.list.empty')}</p>
+        <p className="text-sm text-text-faint">{t('goals.list.empty')}</p>
       )}
 
       {allGoals.length > 0 && (
-        <label className="flex items-center gap-2 text-sm text-gray-600">
+        <label className="flex items-center gap-2 text-sm text-text-muted">
           <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
           {t('goals.list.showAllToggle')}
         </label>

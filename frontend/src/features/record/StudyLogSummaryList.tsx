@@ -19,7 +19,7 @@ export function StudyLogSummaryList({
   materialLabels: Map<number, MaterialLabel>
 }) {
   if (studyLogs.length === 0) {
-    return <p className="text-sm text-gray-500">{t('dailyReportView.studyLog.empty')}</p>
+    return <p className="text-sm text-text-faint">{t('dailyReportView.studyLog.empty')}</p>
   }
 
   return (
@@ -28,19 +28,19 @@ export function StudyLogSummaryList({
         const label = materialLabels.get(log.material_id)
         return (
           <Card key={log.id}>
-            <p className="font-medium text-gray-900">
+            <p className="font-medium text-text-primary">
               {label?.name ?? t('dailyReportView.studyLog.unknownMaterial', { id: log.material_id })}
             </p>
-            <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-600 sm:grid-cols-4">
+            <dl className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-text-muted sm:grid-cols-4">
               <div>
-                <dt className="text-gray-400">{t('dailyReportView.studyLog.minutes')}</dt>
+                <dt className="text-text-disabled">{t('dailyReportView.studyLog.minutes')}</dt>
                 <dd>
                   {log.minutes_spent === null
                     ? t('dailyReportView.studyLog.minutesUnavailable')
                     : `${log.minutes_spent}${t('common.unit.minutes')}`}
                 </dd>
                 {log.slot_minutes.length > 0 && (
-                  <dd className="text-xs text-gray-400">
+                  <dd className="text-xs text-text-disabled">
                     {log.slot_minutes
                       .map(
                         (row) =>
@@ -51,19 +51,19 @@ export function StudyLogSummaryList({
                 )}
               </div>
               <div>
-                <dt className="text-gray-400">{t('dailyReportView.studyLog.amount')}</dt>
+                <dt className="text-text-disabled">{t('dailyReportView.studyLog.amount')}</dt>
                 <dd>
                   {log.amount_completed}
                   {label?.unitLabel ?? ''}
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-400">{t('dailyReportView.studyLog.cycle')}</dt>
+                <dt className="text-text-disabled">{t('dailyReportView.studyLog.cycle')}</dt>
                 <dd>{log.cycle_number}</dd>
               </div>
               {log.quality_value !== null && (
                 <div>
-                  <dt className="text-gray-400">
+                  <dt className="text-text-disabled">
                     {label
                       ? t(resolveQualityLabelKey(label.qualityMetricType))
                       : t('dailyReportView.studyLog.qualityLabel')}
