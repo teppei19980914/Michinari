@@ -13,7 +13,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { t } from '../locales/t'
+import { setLocale, t } from '../locales/t'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { formatBytes } from '../features/data/formatBytes'
 import type { BackupRead } from '../api/data'
@@ -87,6 +87,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
+  setLocale('ja')
 })
 
 describe('DataManagementPage のバックアップ一覧', () => {
@@ -102,6 +103,14 @@ describe('DataManagementPage のバックアップ一覧', () => {
         new RegExp(`${t('dataManagement.backups.sizeLabel')}: ${formatBytes(BACKUP_SIZE_BYTES)}`),
       ),
     ).toBeTruthy()
+    expect(
+      screen.getByText(new RegExp(t('dataManagement.backups.createdAtLabel'))),
+    ).toBeTruthy()
+  })
+
+  it('formats the creation time with the English locale when set to English', async () => {
+    setLocale('en')
+    await renderPage([makeBackup()])
     expect(
       screen.getByText(new RegExp(t('dataManagement.backups.createdAtLabel'))),
     ).toBeTruthy()

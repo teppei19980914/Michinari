@@ -38,6 +38,16 @@ def test_every_locale_key_resolves_to_a_message(key: str):
     assert resolved.strip()
 
 
+@pytest.mark.parametrize("key", ALL_LOCALE_KEYS)
+def test_every_locale_key_resolves_to_a_message_in_english(key: str):
+    """`locale_keys`の全キーが`en.json`にも実在すること（日英i18n対応、2026-10。
+    `resolve_locale_path`は`{locale}.json`を見るため、en.json作成後は無改修で解決できる）。"""
+    resolved = locales.t(key, locale="en")
+
+    assert resolved != key, f"en.json に {key} がありません"
+    assert resolved.strip()
+
+
 def test_locale_file_exists_at_the_expected_path():
     path = locales.resolve_locale_path()
 

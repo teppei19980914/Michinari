@@ -24,6 +24,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.dashboard.p1',
       'help.sections.dashboard.p2',
       'help.sections.dashboard.p3',
+      'help.sections.dashboard.p4',
     ],
   },
   {
@@ -65,6 +66,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.dailyReport.p2',
       'help.sections.dailyReport.p3',
       'help.sections.dailyReport.p4',
+      'help.sections.dailyReport.p5',
     ],
   },
   {
@@ -103,6 +105,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.settingsOther.p3',
       'help.sections.settingsOther.p4',
       'help.sections.settingsOther.p5',
+      'help.sections.settingsOther.p6',
     ],
   },
   {
@@ -207,6 +210,10 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
         name: 'conversation_history',
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.conversation_history',
       },
+      {
+        name: 'perspective_suggestion',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.perspective_suggestion',
+      },
     ],
   },
   {
@@ -282,6 +289,210 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
       {
         name: 'anonymize',
         descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospective.variables.anonymize',
+      },
+    ],
+  },
+  {
+    id: 'dailyFeedbackReading',
+    titleKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.title',
+    variables: [
+      { name: 'today', descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.today' },
+      {
+        name: 'book_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.book_summary',
+      },
+      {
+        name: 'today_recall',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.today_recall',
+      },
+      {
+        name: 'recent_recalls',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.recent_recalls',
+      },
+      {
+        name: 'perspective_suggestion',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.perspective_suggestion',
+      },
+    ],
+  },
+  {
+    id: 'dailyFeedbackWork',
+    titleKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.title',
+    variables: [
+      { name: 'today', descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.today' },
+      {
+        name: 'work_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.work_summary',
+      },
+      {
+        name: 'today_work',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.today_work',
+      },
+      {
+        name: 'recent_work_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.recent_work_logs',
+      },
+      {
+        name: 'perspective_suggestion',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.perspective_suggestion',
+      },
+    ],
+  },
+  {
+    id: 'weeklySummaryReadingWork',
+    titleKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.title',
+    variables: [
+      {
+        name: 'week_range',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.week_range',
+      },
+      {
+        name: 'book_title',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.book_title',
+      },
+      {
+        name: 'week_recalls',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.week_recalls',
+      },
+      {
+        name: 'work_name',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.work_name',
+      },
+      {
+        name: 'week_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.week_logs',
+      },
+      {
+        name: 'anonymize',
+        descriptionKey: 'help.sections.promptVariables.purposes.weeklySummaryReadingWork.variables.anonymize',
+      },
+    ],
+  },
+  {
+    id: 'goalRetrospectiveReading',
+    titleKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.title',
+    variables: [
+      {
+        name: 'book_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.variables.book_summary',
+      },
+      {
+        name: 'overall_metrics',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.variables.overall_metrics',
+      },
+      {
+        name: 'weekly_summaries',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.variables.weekly_summaries',
+      },
+      {
+        name: 'reading_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.variables.reading_logs',
+      },
+      {
+        name: 'anonymize',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveReading.variables.anonymize',
+      },
+    ],
+  },
+  {
+    id: 'goalRetrospectiveWork',
+    titleKey: 'help.sections.promptVariables.purposes.goalRetrospectiveWork.title',
+    variables: [
+      {
+        name: 'work_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.work_summary',
+      },
+      {
+        name: 'target_month_or_period',
+        descriptionKey:
+          'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.target_month_or_period',
+      },
+      {
+        name: 'target_goal_text',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.target_goal_text',
+      },
+      {
+        name: 'weekly_summaries',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.weekly_summaries',
+      },
+      {
+        name: 'month_or_period_logs',
+        descriptionKey:
+          'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.month_or_period_logs',
+      },
+      {
+        name: 'anonymize',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalRetrospectiveWork.variables.anonymize',
+      },
+    ],
+  },
+  {
+    id: 'evaluationReportWork',
+    titleKey: 'help.sections.promptVariables.purposes.evaluationReportWork.title',
+    variables: [
+      {
+        name: 'member_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.evaluationReportWork.variables.member_summary',
+      },
+      {
+        name: 'considerations',
+        descriptionKey: 'help.sections.promptVariables.purposes.evaluationReportWork.variables.considerations',
+      },
+      {
+        name: 'feedback_history',
+        descriptionKey: 'help.sections.promptVariables.purposes.evaluationReportWork.variables.feedback_history',
+      },
+      {
+        name: 'work_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.evaluationReportWork.variables.work_logs',
+      },
+    ],
+  },
+  {
+    id: 'recapThemes',
+    titleKey: 'help.sections.promptVariables.purposes.recapThemes.title',
+    variables: [
+      {
+        name: 'existing_themes',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.existing_themes',
+      },
+      {
+        name: 'entries',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.entries',
+      },
+      {
+        name: 'theme_name',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.theme_name',
+      },
+      {
+        name: 'current_body',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.current_body',
+      },
+      {
+        name: 'new_entries',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.new_entries',
+      },
+      {
+        name: 'body_max_chars',
+        descriptionKey: 'help.sections.promptVariables.purposes.recapThemes.variables.body_max_chars',
+      },
+    ],
+  },
+  {
+    id: 'helpAssistant',
+    titleKey: 'help.sections.promptVariables.purposes.helpAssistant.title',
+    variables: [
+      {
+        name: 'help_body',
+        descriptionKey: 'help.sections.promptVariables.purposes.helpAssistant.variables.help_body',
+      },
+      {
+        name: 'question',
+        descriptionKey: 'help.sections.promptVariables.purposes.helpAssistant.variables.question',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.helpAssistant.variables.nonce',
       },
     ],
   },

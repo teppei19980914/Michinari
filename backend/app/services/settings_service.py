@@ -66,8 +66,10 @@ from app.models.setting import AppSetting, PromptTemplate
 from app.services import notification_service, setting_reader
 from app.services.exceptions import AppSettingNotFoundError, NotFoundError, ValidationError
 
-#: 表示言語は技術選定書の対象が日本語のみのため、現時点ではこの1件のみを許容する。
-_ALLOWED_LOCALES = frozenset({"ja"})
+#: 表示言語（日英対応、2026-10利用者方針）。画面文言・NewtonXフィードバック・
+#: デスクトップ通知の全てがこの値を参照する（`frontend/src/locales/{locale}.json`、
+#: `backend/app/locales.py`、`backend/app/ai/orchestration.py`）。
+_ALLOWED_LOCALES = frozenset({"ja", "en"})
 _ALLOWED_THEMES = frozenset({"system", "light", "dark"})
 #: 装飾的な配色バリエーション（UIリッチ化、2026-10利用者方針）。目標種別バッジ等の
 #: 意味を持つ固定色とは独立した強調色のみに作用するため、値追加は配色の見た目のみに影響する。

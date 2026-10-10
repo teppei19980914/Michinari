@@ -1,0 +1,1553 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "goals": "Goals",
+    "bookshelf": "Bookshelf",
+    "calendar": "Calendar",
+    "analytics": "Analytics",
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "common": {
+    "loading": "Loading…",
+    "overlay": {
+      "saving": "Saving…",
+      "deleting": "Deleting…"
+    },
+    "errorDetailsSummary": "Details (please include this if something goes wrong)",
+    "errorId": "Error ID: {{id}}",
+    "unit": {
+      "minutes": "min",
+      "days": "d",
+      "hours": "hr"
+    },
+    "action": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "add": "Add",
+      "close": "Close",
+      "confirm": "Confirm",
+      "back": "Back",
+      "next": "Next",
+      "reset": "Reset to default",
+      "showAdvanced": "Show advanced settings",
+      "hideAdvanced": "Hide advanced settings"
+    },
+    "confirmDelete": "Delete this? This action cannot be undone.",
+    "saveSucceeded": "Saved",
+    "saveFailed": "Failed to save",
+    "yes": "Yes",
+    "no": "No",
+    "unset": "Not set"
+  },
+  "welcome": {
+    "appIntro": "A Windows app for studying toward a certification exam, reading, and work. Record your daily progress and AI will give you feedback and suggest your next step.",
+    "heading": "Where would you like to start?",
+    "reading": {
+      "title": "Reading",
+      "description": "Register a book and jot down what you read",
+      "recommended": "Recommended"
+    },
+    "work": {
+      "title": "Work",
+      "description": "Register a project and jot down your daily work"
+    },
+    "exam": {
+      "title": "Certification exam",
+      "description": "Register an exam and let the app build your plan automatically",
+      "note": "Setup takes about 5 minutes"
+    },
+    "later": "Later",
+    "reopenLink": "View the welcome screen again"
+  },
+  "errorBoundary": {
+    "message": "An unexpected error occurred. Please reload the page",
+    "detailsSummary": "Details (please include this if something goes wrong)"
+  },
+  "aiUnconfigured": {
+    "message": "AI connection settings are required to use this feature",
+    "recordingStillWorks": "You can still record and view data without setting this up",
+    "settingsButton": "Go to Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "firstRecordBanner": "Let's write your first record",
+    "reportButton": {
+      "label": "Today's report"
+    },
+    "todayStatus": {
+      "label": "Today's status",
+      "unreported": "Not entered",
+      "progressOnly": "Progress only",
+      "reported": "Reported"
+    },
+    "todayMessage": {
+      "loading": "Preparing today's message…",
+      "fallback": "Let's keep going today at a comfortable pace. Once you set up the AI connection, a message tailored to your goal will appear here."
+    },
+    "warningBanner": {
+      "warning": "Your quota exceeds the plan baseline. Consider reviewing your goal.",
+      "forcedReplan": "The gap with your plan has grown large. Your goal needs to be reviewed."
+    },
+    "todayQuota": {
+      "title": "Today's quota",
+      "empty": "No materials are scheduled for today",
+      "bufferDayNotice": "Today is a buffer day. Your quota is treated as 0, but you can still record progress",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "targetMinutesUnavailable": "Target time: unavailable",
+      "availableSlots": "Time slots available today"
+    },
+    "goalCard": {
+      "progressRate": "Overall progress",
+      "remainingDays": {
+        "one": "{{days}} day until the exam",
+        "other": "{{days}} days until the exam"
+      },
+      "remainingDaysUnavailable": "Exam date not set",
+      "forecastDeviation": {
+        "one": "Deviation from forecast completion date: {{days}} day",
+        "other": "Deviation from forecast completion date: {{days}} days"
+      },
+      "forecastDeviationUnavailable": "Deviation from forecast completion date: unavailable",
+      "notAvailable": "Unavailable",
+      "remainingDaysReading": {
+        "one": "{{days}} day until your reading goal",
+        "other": "{{days}} days until your reading goal"
+      },
+      "lastReadingDate": "Last recorded: {{date}}",
+      "lastReadingDateUnavailable": "Last recorded: no records yet",
+      "currentStreak": {
+        "one": "Current streak: {{days}} day",
+        "other": "Current streak: {{days}} days"
+      },
+      "pageProgress": "Page progress",
+      "elapsedDays": {
+        "one": "Elapsed: {{days}} day",
+        "other": "Elapsed: {{days}} days"
+      },
+      "lastWorkDate": "Last recorded: {{date}}",
+      "lastWorkDateUnavailable": "Last recorded: no records yet",
+      "currentStreakWork": {
+        "one": "Current streak: {{days}} day",
+        "other": "Current streak: {{days}} days"
+      },
+      "hasRecentMonthlyReport": "Latest monthly report: generated",
+      "hasRecentMonthlyReportNone": "Latest monthly report: not yet generated"
+    },
+    "stats": {
+      "title": "Summary stats",
+      "consecutiveReportDays": "Consecutive days reported",
+      "recentReportRate": {
+        "one": "Report rate over the last {{windowDays}} day",
+        "other": "Report rate over the last {{windowDays}} days"
+      },
+      "bufferUsageRate": "Buffer day usage rate",
+      "bufferUsageRateUnavailable": "Unavailable (no buffer days elapsed yet)",
+      "effectiveSpeed": "Effective speed",
+      "effectiveSpeedUnavailable": "Unavailable",
+      "perHour": "/hour",
+      "analyticsLink": "View analytics"
+    },
+    "weeklyDigest": {
+      "title": "Last week's summary",
+      "noRecords": "No records last week",
+      "recordedDays": {
+        "one": "Days recorded: {{days}} day",
+        "other": "Days recorded: {{days}} days"
+      },
+      "totalMinutes": {
+        "one": "Time spent: {{minutes}} minute",
+        "other": "Time spent: {{minutes}} minutes"
+      }
+    },
+    "recentActivityCalendar": {
+      "title": "Last 4 weeks",
+      "viewCalendarLink": "View calendar"
+    },
+    "recapThemes": {
+      "title": "This week's recap (by theme)",
+      "empty": "No themes yet. Once your daily report's learnings are classified, they'll appear here",
+      "entryCount": {
+        "one": "{{count}} entry",
+        "other": "{{count}} entries"
+      }
+    }
+  },
+  "goals": {
+    "list": {
+      "title": "Goals",
+      "empty": "No goals registered yet",
+      "newGoal": "Create new goal",
+      "achievedBadge": "Achieved",
+      "exportLink": "Go to summary & export",
+      "resultLink": "Register result",
+      "archiveButton": "Archive",
+      "restoreButton": "Restore",
+      "archiveConfirm": "Archive this goal? It will be hidden from the list, but you can restore it anytime.",
+      "showAllToggle": "Also show completed/abandoned/archived",
+      "archivedBadge": "Archived",
+      "deleteButton": "Delete",
+      "detailLink": "Go to details / resume"
+    },
+    "new": {
+      "category": {
+        "EXAM": "Certification exam",
+        "READING": "Reading",
+        "WORK": "Work"
+      },
+      "quickCreate": {
+        "reading": {
+          "title": "Register a book",
+          "titleLabel": "Title",
+          "authorLabel": "Author (optional)",
+          "totalPagesLabel": "Total pages (optional)"
+        },
+        "work": {
+          "title": "Register a project",
+          "nameLabel": "Project name",
+          "summaryLabel": "Summary (optional)"
+        },
+        "submitButton": "Register and start"
+      }
+    },
+    "examWizard": {
+      "title": "Create a certification exam goal",
+      "stepIndicator": "Step {{current}} of {{total}}",
+      "startButton": "Start",
+      "templateAmountDisclaimer": "Material amounts are approximate. Adjust them to match your own materials",
+      "step1": {
+        "description": "Choose an exam. Selecting a template will automatically fill in example subjects and materials.",
+        "dataDisclaimer": "Template content is illustrative and can be edited later. Figures are provisional values pending the FY2026 exam system revision; please check the official IPA exam guidelines for the official scoring.",
+        "otherOption": "Other (enter manually)",
+        "examNameLabel": "Exam name"
+      },
+      "step2": {
+        "description": "Enter the exam date for each subject.",
+        "addSubject": "Add subject"
+      },
+      "step3": {
+        "description": "Review your materials. You can add, remove, or edit them.",
+        "unnamedSubject": "(Subject name not entered)",
+        "addMaterial": "Add material"
+      },
+      "step4": {
+        "description": "Set your study hours. You can fine-tune time slots for each day of the week later.",
+        "existingSlotsDescription": "Set the time to allocate to this goal within your registered time slots.",
+        "weekdayHoursLabel": "Hours on weekdays",
+        "weekendHoursLabel": "Hours on weekends",
+        "weekdayPreview": "Weekday study time: {{start}} – {{end}}",
+        "weekendPreview": "Weekend study time: {{start}} – {{end}}",
+        "timeDisclaimer": "Times are approximate",
+        "laterNotice": "You can fine-tune time slot details later",
+        "weekdaySlotName": "Weekday study time",
+        "weekendSlotName": "Weekend study time"
+      },
+      "step5": {
+        "cyclesUnit": "cycle(s)",
+        "advancedSettingsNotice": "The load coefficient, required continuous time, environment tags, and quality metric method are created with their defaults. You can change them later from the goal details screen."
+      }
+    },
+    "detail": {
+      "backToList": "Back to goal list",
+      "tabs": {
+        "basicInfo": "Basic info",
+        "subjects": "Subjects",
+        "materials": "Materials",
+        "resourceAllocation": "Resource allocation",
+        "loadProfile": "Load profile",
+        "book": "Book",
+        "workAssignment": "Project info",
+        "monthlyReport": "Monthly report",
+        "semiannualReview": "Semiannual review",
+        "evaluationReport": "Evaluation report"
+      },
+      "tabTooltips": {
+        "basicInfo": "A tab to view and edit this goal's basic information, such as the exam name, start date, status, and notes. Use it to rename the goal or correct its start date.",
+        "basicInfoReading": "A tab to view and edit this reading goal's basic information, such as the title, start date, status, and notes.",
+        "basicInfoWork": "A tab to view and edit this work goal's basic information, such as the project name, start date, status, and notes.",
+        "subjects": "A tab to set the exam date and passing score for each subject, for exams split into multiple subjects (such as certifications where each subject has its own exam date or passing score). Use it to add and edit subjects and manage each one's passing criteria.",
+        "materials": "A tab to register the materials you use to study (textbooks, workbooks, etc.) and manage their links to subjects, planned cycles, and amounts. Use it to add new materials or set the information used to calculate your daily quota.",
+        "resourceAllocation": "A tab to set the time (in minutes) allocated to this goal within each time slot. When you're working on multiple goals at once, allocations are controlled so their total never exceeds the time slot's length, preventing goals from competing for the same slot.",
+        "loadProfile": "A tab to set a load coefficient (baseline 1.0) for a specific period, when you want to increase or decrease your daily study volume for that period only. Use it to reduce load during busy periods or increase it during a final push.",
+        "book": "A tab to register the title, author, total pages, and target completion date, and check your reading progress (days remaining, last recorded date, current streak, page progress). Total pages is required (to display page progress). When you finish reading, choose \"Mark as complete\" from the goal detail actions (a finished reading goal is shown as \"Finished\").",
+        "workAssignment": "A tab to register the client, expected work content, start date, team members, and roles, and check your work progress (elapsed days, last recorded date, current streak).",
+        "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
+        "semiannualReview": "A tab to generate a semiannual review report, review and edit it on the spot, and download it as Markdown.",
+        "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\""
+      },
+      "readOnlyNotice": "This goal is closed, so it is read-only",
+      "archivedNotice": "This goal is archived. To change its status, restore it from the goal list first",
+      "action": {
+        "activate": "Start",
+        "pause": "Pause",
+        "resume": "Resume",
+        "complete": {
+          "EXAM": "Mark as complete",
+          "READING": "Mark as finished",
+          "WORK": "Mark as complete"
+        },
+        "abandon": {
+          "EXAM": "Abandon",
+          "READING": "Abandon",
+          "WORK": "Discontinue"
+        }
+      },
+      "resumeError": "Cannot resume because there is not enough free resource capacity",
+      "completeDisabledHint": "Cannot complete because results are not all in. Please register exam results for every subject"
+    },
+    "basicInfo": {
+      "nameLabel": "Exam name",
+      "nameLabelReading": "Goal name",
+      "nameLabelWork": "Project name",
+      "startDateLabel": "Start date",
+      "memoLabel": "Notes"
+    },
+    "workAssignment": {
+      "empty": "No project information registered yet",
+      "clientNameLabel": "Client / project name (optional)",
+      "expectedContentLabel": "Expected work content",
+      "startDateLabel": "Start date",
+      "elapsedDaysLabel": "Elapsed days",
+      "elapsedDaysValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "lastWorkDateLabel": "Last recorded",
+      "lastWorkDateUnavailable": "No records yet",
+      "currentStreakLabel": "Current streak",
+      "currentStreakValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "hasRecentMonthlyReportLabel": "Latest monthly report",
+      "hasRecentMonthlyReportNone": "Not yet generated",
+      "roleLabel": "Your role in this goal (optional)",
+      "role": {
+        "NONE": "Not set",
+        "EVALUATOR": "Evaluator",
+        "EVALUATEE": "Evaluatee"
+      }
+    },
+    "workMember": {
+      "title": "Team members",
+      "empty": "No members registered yet",
+      "addButton": "Add member",
+      "nameLabel": "Name / initials",
+      "genderLabel": "Gender (optional)",
+      "gender": {
+        "NONE": "Not set",
+        "MALE": "Male",
+        "FEMALE": "Female",
+        "OTHER": "Other"
+      },
+      "characteristicsLabel": "Traits / personality (optional)",
+      "characteristicsPlaceholder": "e.g. Persistent, stays positive even with difficult tasks",
+      "consentCheckbox": "Identity confirmed (registered with the member's consent)",
+      "consentHint": "Saving traits/personality requires confirming that the member's identity has been verified before saving this content. Please re-check this if you change the content.",
+      "consentConfirmedAtLabel": "Identity confirmed",
+      "consentNotConfirmed": "Not confirmed",
+      "deactivateButton": "Deactivate",
+      "deleteButton": "Delete",
+      "inactiveBadge": "Deactivated"
+    },
+    "workEvaluationReport": {
+      "roleRequiredNotice": "This tab appears once you set your role to \"Evaluator\" on the project info tab",
+      "memberRequiredNotice": "To generate an evaluation report, first register a team member on the project info tab",
+      "memberSelectLabel": "Member to evaluate",
+      "memberSelectPlaceholder": "Please select",
+      "considerationsLabel": "Considerations (free text)",
+      "considerationsPlaceholder": "e.g. Please focus especially on deadline awareness this period",
+      "generateButton": "Generate evaluation report",
+      "bodyLabel": "Evaluation report (review and edit the content)",
+      "saveButton": "Save",
+      "downloadButton": "Download as Markdown",
+      "historyTitle": "Generation history",
+      "historyEmpty": "No generation history yet",
+      "editedBadge": "Edited"
+    },
+    "workReport": {
+      "periodLabelMonthly": "Target month (YYYY-MM, blank = last month)",
+      "periodLabelSemiannual": "Target half (YYYY-H1 / YYYY-H2, blank = current half)",
+      "generateButton": "Generate draft",
+      "regenerateButton": "Regenerate",
+      "empty": "Not generated yet",
+      "generateFailedTitleMonthly": "Could not generate the monthly report",
+      "generateFailedTitleSemiannual": "Could not generate the semiannual review",
+      "saveFailedTitleMonthly": "Could not save the monthly report",
+      "saveFailedTitleSemiannual": "Could not save the semiannual review",
+      "periodHeaderMonthly": "Target month: {{target}} / Reporting month: {{reporting}}",
+      "periodHeaderSemiannual": "Target half: {{target}}",
+      "targetGoalTextLabel": "Goal for this period",
+      "businessSummaryLabel": "Work content (project details)",
+      "achievementScoreLabel": "How much of the goal was achieved",
+      "achievementScore": {
+        "1": "1 (121% or more achieved)",
+        "2": "2 (101–120% achieved)",
+        "3": "3 (85–100% achieved)",
+        "4": "4 (60–84% achieved)",
+        "5": "5 (0–59% achieved)"
+      },
+      "achievementReflectionLabel": "Reflection on goal achievement and progress",
+      "nextGoalTextLabelMonthly": "Goal for next month",
+      "nextGoalTextLabelSemiannual": "Goal for next half",
+      "reportNotesLabel": "Notes / remarks",
+      "downloadButton": "Download as Markdown"
+    },
+    "subjects": {
+      "empty": "No exam subjects registered yet",
+      "addTitle": "Add exam subject",
+      "nameLabel": "Subject name",
+      "examDateTypeLabel": "Exam date type",
+      "examDateTypeTooltip": "If the exam date isn't decided yet, choose \"Range\" and enter a start and end date (the plan is calculated based on the earliest date). If the exam date is confirmed, choose \"Fixed date.\"",
+      "examDateType": {
+        "RANGE": "Range",
+        "FIXED": "Fixed date"
+      },
+      "examDateFromLabel": "Range start date",
+      "examDateToLabel": "Range end date",
+      "examDateFixedLabel": "Fixed date",
+      "passingScoreTypeLabel": "Passing score input method",
+      "passingScoreType": {
+        "PERCENTAGE": "Percentage (%)",
+        "RAW_SCORE": "Score (points out of total)"
+      },
+      "passingScoreLabel": "Passing criteria",
+      "passingScoreRawLabel": "Passing score",
+      "passingScoreMaxLabel": "Max score",
+      "passingScoreResultLabel": "Passing criteria",
+      "passingScoreDisplay": {
+        "percentage": "{{score}}%",
+        "raw": "{{score}}/{{max}} pts"
+      },
+      "fixDate": "Fix exam date",
+      "fixDateConfirm": {
+        "title": "Fix exam date",
+        "body": "Fixing it will recalculate the plan baseline. Are you sure?"
+      },
+      "pastRangeWarning": "The range start date is in the past"
+    },
+    "materials": {
+      "empty": "No materials registered yet",
+      "addTitle": "Add material",
+      "nameLabel": "Material name",
+      "unitLabel": "Amount unit",
+      "totalAmountLabel": "Total amount (per cycle)",
+      "plannedCyclesLabel": "Planned cycles",
+      "subjectsLabel": "Subjects covered",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Due date",
+      "dueDateManualLabel": "Set due date manually",
+      "autoDueDatePreview": "Automatically calculated due date: {{dueDate}}",
+      "startDateAfterDueDateError": "The start date must be before the due date ({{dueDate}})",
+      "requiredBlockMinutesLabel": "Required continuous time (minutes)",
+      "requiredEnvironmentLabel": "Required environment",
+      "environment": {
+        "ANY": "No restriction",
+        "PC": "Desk only",
+        "MOBILE": "On the go is fine"
+      },
+      "qualityMetricTypeLabel": "Quality metric method",
+      "qualityMetricTypeTooltip": "Choose how to record whether your answers were correct. Choose \"Objective accuracy rate\" if correctness is clear-cut (e.g. multiple choice), \"Self-scored accuracy rate\" if you can judge correctness to some extent from your answer content (e.g. written answers), or \"Subjective confidence\" if judging correctness is difficult (e.g. essays). Leave it as \"Do not record\" if you don't want to record quality.",
+      "qualityMetricType": {
+        "NONE": "Do not record",
+        "OBJECTIVE": "Objective accuracy rate",
+        "SELF_SCORED": "Self-scored accuracy rate",
+        "SUBJECTIVE": "Subjective confidence"
+      },
+      "totalWork": "Total work",
+      "currentCycle": "Current cycle",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "cycleProgress": "Cycle progress",
+      "overallProgress": "Overall progress",
+      "slotInsufficientWarning": "No time slot satisfies this material's required continuous time and environment",
+      "deactivate": "Deactivate this material"
+    },
+    "resourceAllocation": {
+      "title": "Resource allocation for this goal",
+      "description": "Enter the time (in minutes) to allocate to this goal for each time slot. Blank is treated as 0 minutes.",
+      "slotColumn": "Time slot",
+      "freeColumn": "Free time",
+      "minutesColumn": "Allocated minutes",
+      "totalLabel": "Total allocated time",
+      "averagePerDay": {
+        "one": "(avg. {{minutes}} minute/day)",
+        "other": "(avg. {{minutes}} minutes/day)"
+      },
+      "noSlots": "No time slots are registered. Please register time slots in the study environment settings first.",
+      "exceeded": "Exceeds the free time",
+      "overCapacity": "This time slot's allocation exceeds its capacity. This is caused by shortening or deleting the slot. Please review the allocation.",
+      "optionalForReading": "Resource allocation is optional for reading goals. You can start without setting it."
+    },
+    "loadProfile": {
+      "empty": "No load profiles registered yet",
+      "addTitle": "Add load profile",
+      "dateFromLabel": "Effective from",
+      "dateToLabel": "Effective until",
+      "coefficientLabel": "Load coefficient",
+      "noteLabel": "Note"
+    },
+    "book": {
+      "empty": "No book registered yet",
+      "titleLabel": "Title",
+      "authorLabel": "Author",
+      "totalPagesLabel": "Total pages",
+      "startDateLabel": "Start date",
+      "dueDateLabel": "Target completion date",
+      "remainingDaysLabel": "Days remaining",
+      "remainingDaysValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "lastReadingDateLabel": "Last recorded",
+      "lastReadingDateUnavailable": "No records yet",
+      "currentStreakLabel": "Current streak",
+      "currentStreakValue": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "progressLabel": "Page progress",
+      "progressValue": "{{current}} / {{total}} ({{rate}})"
+    },
+    "status": {
+      "EXAM": {
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Completed",
+        "CLOSED_WITHOUT_RESULT": "Abandoned"
+      },
+      "READING": {
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Finished",
+        "CLOSED_WITHOUT_RESULT": "Abandoned"
+      },
+      "WORK": {
+        "DRAFT": "Draft",
+        "ACTIVE": "Active",
+        "PAUSED": "Paused",
+        "CLOSED_WITH_RESULT": "Completed",
+        "CLOSED_WITHOUT_RESULT": "Discontinued"
+      }
+    },
+    "delete": {
+      "title": "Delete goal",
+      "warning": {
+        "EXAM": "This action cannot be undone. All related data for this goal — materials, study records, diary entries, and more — will be deleted.",
+        "READING": "This action cannot be undone. All related data for this reading goal — the book, recall records, and more — will be deleted.",
+        "WORK": "This action cannot be undone. All related data for this project — project info, work records, evaluation reports, and more — will be deleted."
+      },
+      "typeNamePrompt": "To confirm, please type the goal name \"{{name}}\"",
+      "confirmButton": "Delete"
+    },
+    "end": {
+      "complete": {
+        "confirmButton": "Mark as complete",
+        "EXAM": {
+          "title": "Mark as complete?",
+          "body": "This marks the goal as complete, confirming that results are in for every subject. After completion it becomes read-only (you can resume to fix any mistakes)."
+        },
+        "READING": {
+          "title": "Mark as finished?",
+          "body": "This records the book as finished and takes you to the export screen. The completion report is created when you press \"Generate\" on that screen. After completion it becomes read-only (you can resume to fix any mistakes)."
+        },
+        "WORK": {
+          "title": "Mark as complete?",
+          "body": "This marks the project as complete. After completion it becomes read-only (you can resume to fix any mistakes)."
+        }
+      },
+      "abandon": {
+        "confirmButton": "Abandon",
+        "EXAM": {
+          "title": "Abandon this goal?",
+          "body": "This abandons the goal. Your records so far are kept. It becomes read-only until you resume it."
+        },
+        "READING": {
+          "title": "Abandon this book?",
+          "body": "This abandons this reading goal. Your records so far are kept. It becomes read-only until you resume it."
+        },
+        "WORK": {
+          "title": "Discontinue this project?",
+          "body": "This discontinues the project. Work records are kept. It becomes read-only until you resume it."
+        }
+      }
+    },
+    "resumeWarnings": {
+      "QUOTA_INCREASED": "Your study volume will increase compared to before pausing. Please review your plan, or proceed at a comfortable pace"
+    }
+  },
+  "bookshelf": {
+    "title": "Bookshelf",
+    "empty": "No finished or abandoned reading goals yet",
+    "shelf": {
+      "completedTitle": "Finished books",
+      "interruptedTitle": "Abandoned books"
+    },
+    "showArchivedToggle": "View put-away books",
+    "archivedSectionTitle": "Put-away books",
+    "book": {
+      "status": {
+        "completed": "Finished",
+        "interrupted": "Abandoned"
+      },
+      "archiveButton": "Put away",
+      "restoreButton": "Return to shelf",
+      "deleteCompletelyButton": "Delete permanently",
+      "archiveConfirm": "Put this book away from the shelf? You can bring it back anytime from \"View put-away books.\""
+    },
+    "detail": {
+      "backLink": "Back to bookshelf",
+      "notReadingGoal": "This book's information could not be found.",
+      "tabs": {
+        "info": "Bibliographic info",
+        "log": "Records",
+        "growth": "Growth notes",
+        "retrospective": "Retrospective report"
+      },
+      "info": {
+        "period": "Reading period",
+        "totalPages": "Total pages",
+        "progressRate": "Progress",
+        "interruptedNote": "You stopped reading this book partway through. What you recorded so far is still a meaningful achievement."
+      }
+    }
+  },
+  "resources": {
+    "title": "Study environment settings",
+    "slots": {
+      "title": "Study time slots",
+      "empty": "No study time slots registered yet",
+      "addTitle": "Add study time slot",
+      "nameLabel": "Time slot name",
+      "startTimeLabel": "Start time",
+      "endTimeLabel": "End time",
+      "environmentLabel": "Environment tags",
+      "weekdaysLabel": "Days applied",
+      "isActiveLabel": "Enabled",
+      "duration": "Duration: {{minutes}} {{minutesUnit}} ({{hours}} {{hoursUnit}})"
+    },
+    "weekdays": {
+      "0": "Mon",
+      "1": "Tue",
+      "2": "Wed",
+      "3": "Thu",
+      "4": "Fri",
+      "5": "Sat",
+      "6": "Sun"
+    },
+    "dayTypeDefaults": {
+      "title": "Default day type settings",
+      "plan": "Plan day",
+      "buffer": "Buffer day",
+      "holidayTreatAsBuffer": "Treat public holidays as buffer days by default"
+    },
+    "dayBoundaryHour": {
+      "title": "Day boundary time",
+      "label": "Boundary hour (0–11)",
+      "description": "If you tend to study late into the night, setting a later hour prevents late-night study from being counted toward the next day"
+    },
+    "allocation": {
+      "title": "Allocation status",
+      "byWeekday": "Total time secured by day of week",
+      "byEnvironment": "Time breakdown by environment tag",
+      "bySlot": "Allocation status by time slot",
+      "unallocated": "Unallocated remainder",
+      "overCapacity": "Exceeds capacity",
+      "noGoals": "No goals are allocated"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "aiConnection": {
+      "title": "AI connection",
+      "hostLabel": "Connection URL (tenant host)",
+      "folderPrefixLabel": "Folder name prefix",
+      "timeoutSecondsLabel": "Timeout (seconds)",
+      "minIntervalSecondsLabel": "Minimum call interval (seconds)",
+      "assistant": {
+        "dailyFeedback": "Daily report feedback assistant",
+        "dailyFeedbackReading": "Daily report feedback assistant (reading)",
+        "dailyFeedbackWork": "Daily report feedback assistant (work)",
+        "weeklySummary": "Weekly summary assistant",
+        "weeklySummaryReading": "Weekly summary assistant (reading)",
+        "weeklySummaryWork": "Weekly summary assistant (work)",
+        "dailyMessage": "Today's message assistant",
+        "goalRetrospective": "Retrospective report assistant",
+        "goalRetrospectiveReading": "Retrospective report assistant (reading)",
+        "goalRetrospectiveWorkMonthly": "Monthly report assistant (work)",
+        "goalRetrospectiveWorkSemiannual": "Semiannual review assistant (work)",
+        "evaluationReportWork": "AI evaluation report assistant (work)",
+        "helpAssistant": "Help question assistant",
+        "loading": "Fetching assistant list…",
+        "loadFailed": "Could not fetch the assistant list"
+      },
+      "authStatus": {
+        "title": "Authentication status",
+        "authenticated": "Authenticated",
+        "notAuthenticated": "Not authenticated",
+        "reauth": "Check connection",
+        "reauthSucceeded": "Connected successfully",
+        "reauthFailed": "Could not connect. Please check the connection URL and access token",
+        "patLabel": "Personal Access Token",
+        "loginInProgress": "Checking…"
+      },
+      "modelStatusTitle": "Status",
+      "guide": {
+        "step1Title": "① Open NewtonX's web app",
+        "step1LinkLabel": "Open NewtonX's web app",
+        "step1HostMissing": "A link will appear here once you enter the \"Connection URL\" below",
+        "step2Title": "② Issue an access token",
+        "step2Description": "Sign in to NewtonX's web app, open the access token issuance screen from the account menu in the top right, and issue a new token.",
+        "step2ScreenshotAlt": "Example of the access token issuance screen",
+        "step3Title": "③ Paste the issued token below",
+        "step4Title": "④ Check the connection",
+        "whatIsPatTitle": "What is an access token?",
+        "whatIsPatDescription": "It's a passphrase that lets the app connect to the AI on your behalf. Do not share it with anyone else"
+      }
+    },
+    "threshold": {
+      "title": "Thresholds",
+      "warningRatioLabel": "Warning ratio (%)",
+      "replanOverrunDaysLabel": "Forced replan overrun days"
+    },
+    "promptDegradation": {
+      "title": "Prompt degradation",
+      "maxPromptCharsLabel": "Input limit (characters)",
+      "summaryInjectWeeksLabel": "Weeks of weekly summaries to inject",
+      "perspectiveSuggestionMinRecordsLabel": "Confirmed record count threshold for prompting multiple perspectives"
+    },
+    "display": {
+      "title": "Display",
+      "localeLabel": "Language",
+      "locale": {
+        "ja": "Japanese",
+        "en": "English"
+      },
+      "themeLabel": "Theme",
+      "theme": {
+        "system": "Follow system setting",
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "defaultGranularityLabel": "Default analytics granularity",
+      "granularity": {
+        "DAY": "Daily",
+        "WEEK": "Weekly",
+        "MONTH": "Monthly"
+      },
+      "accentColorLabel": "Accent color",
+      "accentColor": {
+        "blue": "Blue",
+        "green": "Green",
+        "purple": "Purple",
+        "orange": "Orange"
+      },
+      "fontScaleLabel": "Font size",
+      "fontScale": {
+        "small": "Small",
+        "standard": "Standard",
+        "large": "Large"
+      }
+    },
+    "promptTemplate": {
+      "title": "Prompt templates",
+      "customizedBadge": "Edited",
+      "resetConfirm": "Reset to default? Your edits will be lost.",
+      "purpose": {
+        "DAILY_FEEDBACK": "Daily report feedback",
+        "WEEKLY_SUMMARY": "Weekly summary",
+        "DAILY_MESSAGE": "Today's message",
+        "GOAL_RETROSPECTIVE": "Retrospective report",
+        "DAILY_FEEDBACK_READING": "Daily report feedback (reading)",
+        "GOAL_RETROSPECTIVE_READING": "Retrospective report (reading)",
+        "WEEKLY_SUMMARY_READING": "Weekly summary (reading)",
+        "DAILY_FEEDBACK_WORK": "Daily report feedback (work)",
+        "GOAL_RETROSPECTIVE_WORK_MONTHLY": "Monthly report (work)",
+        "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL": "Semiannual review (work)",
+        "WEEKLY_SUMMARY_WORK": "Weekly summary (work)",
+        "RECAP_CLASSIFY": "Recap (theme classification)",
+        "RECAP_THEME_BODY": "Recap (theme body)",
+        "EVALUATION_REPORT_WORK": "AI evaluation report (work)",
+        "HELP_ASSISTANT": "Help question"
+      }
+    },
+    "log": {
+      "title": "Logs",
+      "aiEnabledLabel": "Save AI communication logs",
+      "retentionDaysLabel": "Log retention period (days)"
+    },
+    "resourcesLink": "Go to study environment settings",
+    "dataManagementLink": "Go to data management",
+    "systemInfoLink": "Go to system info",
+    "desktop": {
+      "title": "Desktop & notifications",
+      "description": "Set how the window opens and how recording reminders work.",
+      "openBrowserLabel": "Open the browser window on startup",
+      "openBrowserHelp": "If off, open it manually from the tray icon.",
+      "launchAtLoginLabel": "Launch automatically at Windows startup",
+      "launchAtLoginHelp": "If on, Michinari waits in the tray when you sign in.",
+      "notificationEnabledLabel": "Send recording reminder notifications",
+      "notificationTimeLabel": "Notification time",
+      "notificationHelp": "Notifies you only if that day's record isn't done yet. No notification on days already recorded or marked as excluded on the calendar.",
+      "notificationTimeInvalid": "Please enter the notification time in the format 00:00–23:59."
+    }
+  },
+  "desktop": {
+    "tray": {
+      "tooltip": "Michinari",
+      "open": "Open Michinari",
+      "quit": "Quit"
+    },
+    "notification": {
+      "sourceName": "Michinari",
+      "plan": {
+        "title": "You haven't recorded today yet",
+        "body": "It only takes 3 minutes"
+      },
+      "buffer": {
+        "title": "Today is a rest day",
+        "body": "A short note is fine if you'd like to record anything"
+      }
+    },
+    "startupError": {
+      "title": "Michinari could not start",
+      "body": "A problem occurred during startup.\n\n{{detail}}\n\nDetailed logs are located at:\n{{logPath}}",
+      "serverStartFailed": "The app could not start. Michinari may already be running. Please check the tray icon.",
+      "serverNotResponding": "The app did not finish starting in time. Please restart your computer and try again."
+    }
+  },
+  "systemInfo": {
+    "title": "System info",
+    "appVersionLabel": "App version",
+    "pythonVersionLabel": "Python version",
+    "builtAtLabel": "Build date",
+    "builtAtDev": "Running in development environment",
+    "backendLibrariesTitle": "Backend libraries",
+    "frontendLibrariesTitle": "Frontend libraries",
+    "libraryNameLabel": "Library name",
+    "libraryVersionLabel": "Version",
+    "logExport": {
+      "title": "Get diagnostic logs",
+      "description": "Logs for tracing what happened when an error occurred. Choose a period, download it, and share it with support",
+      "presets": {
+        "today": "Today",
+        "last3Days": "Last 3 days",
+        "last7Days": "Last 7 days"
+      },
+      "fromLabel": "Start date",
+      "toLabel": "End date",
+      "downloadButton": "Download logs",
+      "downloadSucceeded": "Logs downloaded"
+    }
+  },
+  "dataManagement": {
+    "title": "Data management",
+    "export": "Export",
+    "exportSucceeded": "Downloaded the database file",
+    "import": "Import",
+    "importConfirm": "This will overwrite existing data on import. Are you sure?",
+    "importSucceeded": "Imported. Reloading the page",
+    "backup": "Create backup",
+    "backupSucceeded": "Backup created",
+    "backups": {
+      "title": "Backups",
+      "empty": "No backups yet",
+      "createdAtLabel": "Created at",
+      "sizeLabel": "Size",
+      "restore": "Restore",
+      "restoreConfirm": "This will overwrite your current data with this backup's content. Are you sure?",
+      "restoreSucceeded": "Restored. Reloading the page"
+    }
+  },
+  "goalResult": {
+    "title": "Register exam results ({{name}})",
+    "backToGoal": "Back to goal details",
+    "empty": "No exam subjects registered yet",
+    "resultLabel": "Result",
+    "result": {
+      "PASS": "Pass",
+      "FAIL": "Fail",
+      "PENDING": "Pending"
+    },
+    "takenDateLabel": "Exam date",
+    "scoreLabel": "Score",
+    "evaluationLabel": "Evaluation",
+    "noteLabel": "Notes",
+    "registerButton": "Register",
+    "editButton": "Edit",
+    "registeredBadge": "Registered"
+  },
+  "knowledgeExport": {
+    "title": "Knowledge export ({{name}})",
+    "backToGoal": "Back to goal list",
+    "retrospective": {
+      "title": "Retrospective report",
+      "readingTitle": "Completion report",
+      "workTitle": "Monthly report / semiannual review",
+      "workNotice": "Please generate, review, and edit the monthly report / semiannual review from the \"Monthly report\" / \"Semiannual review\" tabs on the goal details screen. This screen only includes them in the preview/export content.",
+      "empty": "The retrospective report has not been generated yet",
+      "readingEmpty": "The completion report has not been generated yet",
+      "generateButton": "Generate",
+      "regenerateButton": "Regenerate",
+      "generating": "Generating… (this may take tens of seconds)",
+      "requiresCompletedHint": "Only completed goals can generate this. Once completed, create it using \"Generate\" on this screen"
+    },
+    "summary": {
+      "title": "Study summary",
+      "totalHours": "Total time spent",
+      "studyDays": "Days studied",
+      "reportRate": "Report rate",
+      "replanCount": "Replan count",
+      "latestQuality": "Latest quality achieved",
+      "unavailable": "Unavailable",
+      "readingTitle": "Reading summary",
+      "workTitle": "Work record summary",
+      "recordDays": "Days recorded",
+      "maxStreakDays": "Longest streak (days)"
+    },
+    "selection": {
+      "title": "Select export items",
+      "goalOverview": "Goal overview",
+      "materials": "Material composition",
+      "summary": "Study volume summary",
+      "readingSummary": "Reading summary",
+      "workSummary": "Work record summary",
+      "dailyRecords": "Progress history",
+      "readingDailyRecords": "Daily recall records",
+      "workDailyRecords": "Daily work records",
+      "qualityTrend": "Quality metric trend",
+      "replanHistory": "Replan history",
+      "weeklySummaries": "Weekly summaries",
+      "diary": "Diary entries",
+      "aiDialogue": "AI dialogue history",
+      "examResults": "Exam results",
+      "retrospective": "Retrospective report",
+      "readingRetrospective": "Completion report",
+      "workRetrospective": "Monthly report / semiannual review",
+      "recapThemes": "Recap themes (cumulative body text by theme)"
+    },
+    "anonymize": {
+      "label": "Anonymize",
+      "description": "When enabled, diary entries are excluded and the weekly summaries / retrospective report are regenerated as an anonymized version",
+      "readingDescription": "When enabled, recall records are excluded and the completion report is regenerated as an anonymized version",
+      "workDescription": "When enabled, work records are excluded and the monthly report / semiannual review are regenerated as an anonymized version"
+    },
+    "previewButton": "Preview",
+    "previewTitle": "Preview",
+    "exportButton": "Export file",
+    "exportSucceeded": "Exported",
+    "exportProgress": "Generating anonymized weekly summaries / retrospective report ({{completed}} / {{total}})…",
+    "exportedPaths": {
+      "markdown": "Markdown: {{path}}",
+      "json": "JSON: {{path}}"
+    }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "weekday": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "marker": {
+      "unreported": "Not entered",
+      "progressOnly": "Progress only",
+      "reported": "Reported"
+    },
+    "auxiliaryMarker": {
+      "EXAM_DATE": "Exam date",
+      "EXAM_PERIOD": "Exam period",
+      "LOAD_ADJUSTED": "Load adjusted"
+    },
+    "editDayTypeLink": "Change day type",
+    "dayType": {
+      "PLAN": "Plan day",
+      "BUFFER": "Buffer day",
+      "OFF": "Excluded day"
+    },
+    "dayTypeModal": {
+      "title": "Change day type",
+      "targetDateLabel": "Target date",
+      "clearOverride": "Clear override (revert to default)"
+    },
+    "choiceModal": {
+      "title": "Choose how to register",
+      "report": "Daily report",
+      "progressOnly": "Progress only"
+    }
+  },
+  "dailyReport": {
+    "title": "Daily report ({{date}})",
+    "estimatedDuration": "Takes 3 minutes",
+    "voiceInputHint": "You can use voice input with Windows key + H",
+    "questionAnswerPlaceholder": "(optional)",
+    "zeroRecord": {
+      "button": "I didn't do anything today",
+      "confirmTitle": "Record today as a \"did nothing\" day?",
+      "confirmBody": "This finalizes the day as recorded, leaving results and notes empty. This action cannot be undone.",
+      "confirmSubmit": "Record",
+      "confirmCancel": "Cancel",
+      "planDayMessage": "Recorded. See you again tomorrow",
+      "restDayMessage": "Today is a rest day. Resting is part of the plan too"
+    },
+    "previousEntry": {
+      "label": "Here's what you wrote last time",
+      "expand": "Show full text",
+      "collapse": "Collapse"
+    },
+    "studyLog": {
+      "title": "Enter results",
+      "empty": "No materials are scheduled for today",
+      "cycleLabel": "Cycle {{current}} of {{planned}}",
+      "quotaLabel": "Today's target: {{quota}} {{unit}}",
+      "amountLabel": "Amount completed ({{unit}})",
+      "cycleNumberLabel": "Cycle",
+      "qualityShortLabel": {
+        "PERCENT": "Accuracy",
+        "SUBJECTIVE_SCALE": "Confidence"
+      },
+      "qualityUnselected": "Please select",
+      "subjectiveScale": {
+        "1": "1: Very poor",
+        "2": "2: Poor",
+        "3": "3: Average",
+        "4": "4: Good",
+        "5": "5: Very good"
+      },
+      "finalizeButton": "Finalize study report",
+      "slotMinutesLabel": "Time spent by time slot",
+      "slotMinutesTotal": {
+        "one": "Total time: {{minutes}} minute",
+        "other": "Total time: {{minutes}} minutes"
+      },
+      "noAllocatedSlots": "No allocated time slots apply to today",
+      "addSlotLabel": "Add another time slot",
+      "addSlotPlaceholder": "Please select"
+    },
+    "diary": {
+      "bodyLabel": "Previous diary entry",
+      "learnedLabel": "What you learned / understood today",
+      "learnedPlaceholder": "e.g. Write down any problems or concepts that stood out, where you got stuck, or what you came to understand. These will be summarized by theme in your recap"
+    },
+    "chat": {
+      "title": "AI dialogue",
+      "empty": "No dialogue yet",
+      "startButton": "Send your results and diary to get AI feedback",
+      "inputPlaceholder": "Type a message to the AI",
+      "sendButton": "Send",
+      "truncatedNotice": "The prompt was too long, so some information was omitted before sending",
+      "contextCategoriesSummary": "Information the AI referenced",
+      "contextCategories": {
+        "GOAL_INFO": "Goal info",
+        "TODAY_RECORD": "Today's record",
+        "WEEKLY_SUMMARY": "Weekly summary",
+        "MATERIAL_PROGRESS": "Material progress"
+      },
+      "privacyNotice": "Only records on this PC are sent. Nothing is stored externally"
+    },
+    "readingLog": {
+      "title": "Recall record",
+      "remainingDays": {
+        "one": "{{days}} day until your reading goal",
+        "other": "{{days}} days until your reading goal"
+      },
+      "recallLabel": "Write freely",
+      "recallPlaceholder": "e.g. How far did you read today? What stood out to you?",
+      "currentPageLabel": "Current page (of {{total}} pages)",
+      "finalizeButton": "Finalize reading report",
+      "slotMinutesLabel": "Reading time by time slot",
+      "question1": "What part of today's reading stuck with you?",
+      "question2": "What felt connected to your work or life?"
+    },
+    "readingChat": {
+      "title": "AI dialogue (reading)",
+      "startButton": "Send your recall notes to get AI feedback"
+    },
+    "workLog": {
+      "title": "Work content record",
+      "noClientName": "No client registered",
+      "bodyLabel": "Write freely",
+      "bodyPlaceholder": "e.g. What kind of work did you do today?",
+      "finalizeButton": "Finalize work report",
+      "question1": "What took up most of your time today?",
+      "question2": "What's on your mind but you haven't gotten to yet?"
+    },
+    "workChat": {
+      "title": "AI dialogue (work)",
+      "startButton": "Send your work content to get AI feedback"
+    },
+    "workMember": {
+      "title": "Team members ({{workName}})"
+    },
+    "confirmedBadge": "Finalized",
+    "minutesOptionalNotice": "You can leave time spent blank (leave every time slot field empty). If left blank, that day is excluded from effective speed calculations"
+  },
+  "progressOnly": {
+    "title": "Progress only ({{date}})",
+    "studyLog": {
+      "title": "Enter results"
+    },
+    "readingLog": {
+      "title": "Recall record"
+    },
+    "workLog": {
+      "title": "Work content record"
+    },
+    "minutesOptionalNotice": "You can leave time spent blank. If left blank, that day is excluded from effective speed calculations",
+    "registerButton": "Register"
+  },
+  "dailyReportView": {
+    "title": "View daily report ({{date}})",
+    "studyLog": {
+      "title": "Results",
+      "empty": "No results registered",
+      "unknownMaterial": "Material ID: {{id}}",
+      "minutes": "Time spent",
+      "minutesUnavailable": "Not entered",
+      "amount": "Amount completed",
+      "cycle": "Cycle",
+      "qualityLabel": "Quality metric",
+      "slotMinutes": "Breakdown by time slot",
+      "slotUnknown": "Deleted time slot"
+    },
+    "diary": {
+      "title": "Diary"
+    },
+    "chatHistory": {
+      "title": "AI dialogue history"
+    },
+    "readingLog": {
+      "title": "Recall record",
+      "unknownBook": "Book ID: {{id}}",
+      "currentPage": "Current page"
+    },
+    "readingChatHistory": {
+      "title": "AI dialogue history (reading)"
+    },
+    "workLog": {
+      "title": "Work content record",
+      "unknownAssignment": "Project ID: {{id}}"
+    },
+    "workChatHistory": {
+      "title": "AI dialogue history (work)"
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments",
+      "newPlaceholder": "Enter a comment",
+      "addButton": "Add"
+    }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "showArchivedToggle": "Show archived",
+    "goalSelector": {
+      "empty": "No goals registered"
+    },
+    "tabs": {
+      "quality": "Quality trend",
+      "progress": "Progress",
+      "forecast": "Forecast",
+      "speed": "Effective speed",
+      "gantt": "Gantt chart",
+      "replanHistory": "Replan history",
+      "growthDescription": "Growth notes",
+      "readingLog": "Reading log",
+      "workLog": "Work log"
+    },
+    "materialEmpty": "This goal has no active materials",
+    "quality": {
+      "granularityLabel": "Granularity",
+      "passingScoreLegend": "Passing criteria line",
+      "cycleLegend": "Cycle {{cycle}}",
+      "noData": "No quality metric records"
+    },
+    "progress": {
+      "actualLegend": "Actual",
+      "planLegend": "Plan line",
+      "cycleBoundaryLabel": "Cycle {{cycle}} complete",
+      "unitTotalWork": "Total work: {{total}} {{unit}}"
+    },
+    "forecast": {
+      "materialHeader": "Material",
+      "dueDateHeader": "Due date",
+      "forecastDateHeader": "Forecast completion date",
+      "deviationHeader": "Deviation",
+      "deviationDays": {
+        "one": "{{days}} day",
+        "other": "{{days}} days"
+      },
+      "onTrack": "On track",
+      "unavailable": {
+        "NO_SPEED_DATA": "Unavailable due to insufficient records",
+        "ITERATION_LIMIT_EXCEEDED": "Significantly overrun (calculation aborted)"
+      }
+    },
+    "speed": {
+      "cycleLegend": "Cycle {{cycle}}",
+      "unitPerHour": "/hour",
+      "noData": "No effective speed records"
+    },
+    "gantt": {
+      "todayLabel": "Today",
+      "empty": "No active materials"
+    },
+    "replanHistory": {
+      "empty": "No replan history",
+      "materialHeader": "Material",
+      "dateHeader": "Date",
+      "reasonHeader": "Reason",
+      "quotaBeforeHeader": "Quota before",
+      "quotaAfterHeader": "Quota after",
+      "reason": {
+        "INITIAL": "Initial setup",
+        "REPLAN": "Replan",
+        "EXAM_DATE_FIXED": "Exam date fixed",
+        "MATERIAL_CHANGED": "Material changed",
+        "CYCLE_CHANGED": "Cycle count changed"
+      }
+    },
+    "growthDescription": {
+      "empty": "No AI daily report feedback history yet",
+      "unassignedLabel": "Unassigned (records from before migration)",
+      "assignPlaceholder": "Select a goal",
+      "assignButton": "Assign to this goal"
+    },
+    "readingLog": {
+      "empty": "No recall records yet",
+      "currentPageLabel": "Current page: {{page}}"
+    },
+    "workLog": {
+      "empty": "No work records yet"
+    }
+  },
+  "helpAssistant": {
+    "launcherLabel": "Ask a help question",
+    "title": "Ask a help question",
+    "placeholder": "Ask how to use the app (e.g. How many goal types are there?)",
+    "send": "Send",
+    "sending": "Composing an answer…",
+    "close": "Close",
+    "disclaimer": "The AI's answer may be incorrect. See the Help screen for details.",
+    "helpLink": "Open the Help screen",
+    "sectionsLabel": "Sources",
+    "empty": "Please enter a question",
+    "tooLong": {
+      "one": "Please limit your question to {{max}} character or fewer",
+      "other": "Please limit your question to {{max}} characters or fewer"
+    },
+    "notFound": "Nothing relevant was found in the help content. Try rephrasing your question, or use the Help screen's table of contents or keyword search.",
+    "unavailable": "This question can't be answered. Please try a different phrasing.",
+    "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to ask help questions.",
+    "error": "Could not get an answer. Please try again later.",
+    "userLabel": "You",
+    "assistantLabel": "Assistant"
+  },
+  "help": {
+    "title": "Help",
+    "subtitle": "Instructions for using each screen are gathered here. Use the table of contents or search to jump to what you need.",
+    "tocTitle": "Table of contents",
+    "searchLabel": "Keyword search",
+    "searchPlaceholder": "e.g. placeholder, Host, backup",
+    "searchNoResults": "No matching items found",
+    "sections": {
+      "intro": {
+        "title": "Getting started: how Michinari works",
+        "p1": "Michinari is an app for planning your study toward a certification exam, recording your daily results, and continuously revising your plan.",
+        "p2": "The basic flow is as follows: ① Create a goal from \"Goals\" (type: certification exam, reading, or work) ② Register available study time slots in the study environment settings (used for certification exam and reading resource allocation) ③ Set up the fields for your goal's type on the goal details screen ④ Submit \"Today's report\" from the dashboard every day ⑤ Check your progress on the calendar or analytics screen ⑥ For certification exams, register your exam results, complete the goal, and export your knowledge; for reading, mark it as finished and export the completion report; for work, mark it as complete.",
+        "p3": "For detailed instructions on each screen, open the relevant section from the table of contents or search below."
+      },
+      "dashboard": {
+        "title": "Dashboard (the screen shown at startup)",
+        "p1": "This is the first screen shown when you open the app. It shows \"Today's message\" (a short AI-generated message), today's status (not entered / progress only / reported), today's quota, warning banners, goal cards, and summary stats (consecutive days reported, recent report rate, buffer day usage rate, effective speed).",
+        "p2": "The \"Today's report\" button takes you to the daily report screen. Clicking a warning banner or goal card takes you to that goal's details/edit screen. You can also go to the analytics screen from the stats cards.",
+        "p3": "If you have 2 or more active goals, a goal tab appears at the top of the screen, letting you select one goal at a time (the same approach as the daily report screen). Today's message, warning banners, today's quota, goal cards, and summary stats show only the selected goal's data. Today's status isn't tied to a goal, so it's shared regardless of which goal tab is selected.",
+        "p4": "If you have an active certification exam or reading goal, \"This week's recap (by theme)\" is also shown. The AI classifies your diary and recall records into multiple themes and automatically builds up each theme's body over time (not available for work). Clicking a theme name takes you to its detail screen, where you can rename the theme, merge it into another theme, or have the AI rebuild its body."
+      },
+      "goals": {
+        "title": "Goal list / goal detail editing",
+        "p1": "The \"Goals\" screen lists every registered goal. Choosing a type (certification exam, reading, or work) from \"Create new goal\" lets you create reading and work goals instantly, while certification exam goals use a wizard: pick a preset exam template or enter the exam name directly, then set the exam date, materials, and study hours in order (templates cannot be added or edited). Selecting a goal takes you to its details/edit screen. If you forget how to use the app, or on first launch, you can reopen the welcome screen from the link on the Help screen.",
+        "p2": "A certification exam goal's detail screen has 5 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), and \"Load profile\" (load coefficient per period). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
+        "p3": "The goal's action area shows \"Start,\" \"Pause,\" \"Resume,\" \"Mark as complete,\" or \"Abandon,\" depending on its status. After completing or abandoning, the goal becomes read-only; a completed or abandoned goal can be reverted with \"Resume\" to continue it. A certification exam goal cannot be completed until results are in for every subject.",
+        "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
+        "p5": "A reading goal's detail screen has 3 tabs — \"Basic info,\" \"Book,\" and \"Resource allocation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
+        "p6": "A work goal's detail screen has 4 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" and \"Semiannual review\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+      },
+      "bookshelf": {
+        "title": "Bookshelf",
+        "p1": "Finished or abandoned reading goals appear as books on the \"Bookshelf\" screen, separate from the goal list. Finished and abandoned books sit on separate shelves so you can tell them apart at a glance. Selecting a book lets you review its bibliographic info, records (list of recall entries), growth notes, and retrospective report together on a single tabbed screen.",
+        "p2": "Putting a book away just hides it, the same as \"Archive\" on the goal list. \"Return to shelf\" brings it back right away. Deleting the book itself shows the same confirmation screen as the goal list."
+      },
+      "resources": {
+        "title": "Study environment settings",
+        "p1": "Register the \"study time slots\" available for studying (name, start/end time, environment tags, days applied). Continuous time is calculated automatically from the start and end times. Time slots that satisfy each material's required continuous time and environment are assigned automatically. \"Allocation status\" lets you check the allocated and remaining time for each goal within each time slot, and shows a warning if shortening or deleting a time slot causes an allocation to exceed capacity (saving itself is not blocked).",
+        "p2": "\"Default day type settings\" lets you set the default (plan day / buffer day) for each day of the week and whether to treat public holidays as buffer days. \"Day boundary time\" lets you set when the date changes over (e.g. treating late-night study as the previous day). \"Allocation status\" lets you check time allocation and unallocated remainder by day of week, environment, and goal."
+      },
+      "calendar": {
+        "title": "Calendar",
+        "p1": "The monthly calendar shows each day's status (not entered / progress only / reported) along with auxiliary markers such as exam dates, exam periods, and load adjustments. Clicking a date takes you to the daily report, progress-only, or view screen depending on that day's status (an unreported previous day shows a choice of how to register, 2+ days ago is progress-only, and an already-reported day opens the view screen).",
+        "p2": "\"Change day type\" lets you override that day's type (plan day / buffer day / excluded day) individually. \"Clear override\" reverts it to the default.",
+        "p3": "If you have 2 or more active goals, a goal tab appears at the top of the screen, letting you select one goal at a time (the same approach as the daily report screen). Auxiliary markers (exam dates, reading due dates, etc.) show only the selected goal's data. Background colors and recorded status aren't tied to a goal, so they're shared regardless of which goal tab is selected."
+      },
+      "dailyReport": {
+        "title": "Daily report / Progress only / View daily report",
+        "p1": "On the \"Daily report\" screen, for each material scheduled today, you enter the time spent per time slot, amount completed, cycle, and quality metric, and write a diary entry (what you learned/understood today). After getting feedback through AI dialogue, finalize with \"Finalize report.\" Time spent starts out pre-filled from your resource allocation settings; change it only if your actual time differs (the change applies only for that day and doesn't affect your resource allocation settings). If you studied in a time slot you haven't allocated, you can record it with \"Add another time slot.\" Note that leaving this screen before finalizing discards your input.",
+        "p2": "\"Progress only\" is a simplified version that enters only your results. Input fields appear for each active category (certification exam, reading, work), and a single \"Register\" records them all at once (a category that's already been reported won't show, since it can't be changed). Time spent can be left blank (leave every time slot field empty), in which case that day is excluded from effective speed calculations. There is no diary or AI dialogue.",
+        "p3": "\"View daily report\" shows a finalized past report read-only, letting you check your results, diary, and AI dialogue history, and add comments only.",
+        "p4": "If you have an active reading goal, the same screen shows a separate \"Today's reading recall\" field and AI dialogue, apart from the certification exam ones (only the recall text is required; numeric results are optional). The only page field is \"Current page\" — you don't need to enter how many pages you read that day. Current page is used only for the on-screen progress display and isn't evaluated by the AI. Reading's AI dialogue is saved as a separate conversation from the certification exam's.",
+        "p5": "If you have an active work goal, the same screen shows separate work record fields and AI dialogue, apart from certification exam and reading. Enter today's work record text per project (there are no fields for time spent or daily quota), then finalize after the AI dialogue. The list of registered team members is also shown on the same screen (view only; add/edit from the \"Project info\" tab on the goal details screen)."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "p1": "Select a goal from the goal tab at the top of the screen to view various analyses in tabs that depend on the goal's type (certification exam / reading / work). Closed goals can also be selected for retrospection. Archived goals are hidden by default; check \"Show archived\" to add them to the goal tab.",
+        "p2": "A certification exam goal has 7 tabs: \"Quality trend\" (quality metric trend by cycle and granularity, with a passing criteria line), \"Progress\" (comparison of actual vs. plan line), \"Forecast\" (forecast completion date and deviation from due date, per material), \"Effective speed\" (effective speed trend by cycle), \"Gantt chart\" (planned period per material), \"Replan history\" (history of quota changes), and \"Growth notes\" (history of AI daily report feedback).",
+        "p3": "A reading goal has 2 tabs, \"Reading log\" (list of daily recall records) and \"Growth notes\"; a work goal also has 2 tabs, \"Work log\" (list of daily work records) and \"Growth notes\" (since they don't use quota, effective speed, or similar calculations). \"Growth notes\" shows the history of AI daily report feedback addressed to the selected goal. History generated before goals were separated by feature (pre-migration) is shown as \"Unassigned,\" and can be manually assigned to a goal from the dropdown."
+      },
+      "examAndExport": {
+        "title": "Register exam results / Knowledge export",
+        "p1": "Before marking a goal as complete, register the pass/fail result, score, evaluation, and notes for each subject (you cannot complete it until results are in). Completing the goal takes you to the knowledge export screen. The retrospective report is created when you press \"Generate\" on that screen.",
+        "p2": "On the knowledge export screen, you can review and regenerate the retrospective report, check your study summary (total time spent, days studied, report rate, replan count, latest quality achieved), and choose export items (goal overview, material composition, study volume summary, progress history, quality metric trend, replan history, weekly summaries, recap themes, diary entries, AI dialogue history, exam results, retrospective report) to export as Markdown/JSON. Progress history also includes the time breakdown by time slot. Enabling \"Anonymize\" excludes diary entries and regenerates the weekly summaries / retrospective report as an anonymized version before exporting.",
+        "p3": "For reading goals, there's a \"Mark as finished\" action instead of exam results (in the goal's action area). Completing it takes you to the knowledge export screen. The completion report is created when you press \"Generate\" on that screen. An abandoned reading goal can be completed after resuming and finishing it."
+      },
+      "aiConnection": {
+        "title": "Settings — AI connection",
+        "p1": "AI integration requires NewtonX's \"Connection URL (tenant host)\" and \"Personal Access Token (PAT).\" Enter the Host in its full form including the domain, like `xxx.newton-x.net` (a company name or abbreviation alone cannot resolve the connection). The `xxx` part differs by affiliation (Seraku in-house staff: `seraku.newton-x.net`; Seraku on-site staff: `seraku-ex.newton-x.net`; Seraku Business Solutions: `bs-seraku.newton-x.net`; AND Think: `andthink.newton-x.net`). If yours isn't listed, use the `xxx` part of the URL you normally use to sign in to NewtonX, `https://xxx.newton-x.net/login`. Please issue your own PAT from NewtonX's web app account screen (this app cannot issue one for you).",
+        "p2": "After entering the Host and PAT and pressing \"Check connection,\" the app applies them to the development kit (NewtonX ADK) settings, actually tries communicating with the AI platform (fetching the assistant list), and shows either \"Connected successfully\" or a failure reason, along with \"Authenticated\"/\"Not authenticated,\" based on the result. This is where you'll notice any mistakes in the Host format or PAT. If network conditions change afterward, you may still see errors again later, for example during daily report AI dialogue.",
+        "p3": "After authenticating, you assign the assistant to use — from a list, no need to type an identifier by hand — for each of 13 purposes: daily report feedback, weekly summary, today's message, retrospective report, each of their reading and work variants, the work AI evaluation report, and the help question assistant. Each purpose already has a default assistant preselected to match its task characteristics, so in most cases you can leave it as-is. Only change it from the list if you want to use a different assistant."
+      },
+      "settingsOther": {
+        "title": "Settings — Thresholds, prompt degradation, display, logs, prompt templates",
+        "p1": "\"Thresholds\": sets the warning ratio (shows a warning banner when your quota exceeds the plan by this ratio) and the forced replan overrun days (forces a replan prompt once the deviation exceeds this many days).",
+        "p2": "\"Prompt degradation\": sets the character limit for prompts sent to the AI, how many weeks of weekly summaries to inject into the prompt, and the threshold (number of finalized records) below which the AI is prompted to ask from multiple perspectives for users with few records. Prompts exceeding the limit are degraded (shortened) in stages, in this order: weekly summaries → aggregated material info → dialogue history → diary entries.",
+        "p3": "\"Display\": sets the display language (Japanese / English), theme (follow system setting / light / dark), accent color, font size, and the default analytics granularity (daily / weekly / monthly). Changing the language reloads the page. NewtonX feedback is also generated in Japanese or English according to this setting.",
+        "p4": "\"Logs\": sets whether to save AI communication logs, and if so, how long to retain them (in days).",
+        "p5": "\"Prompt templates\": lets you edit, and reset to default, the actual prompt text sent to the AI, for each of 15 purposes (daily report feedback, weekly summary, today's message, retrospective report, each reading and work variant, the work AI evaluation report, recap classification/body generation, and the help question assistant). See the \"Prompt template placeholders\" section below for the list of `{{variable_name}}` placeholders available when editing (only the main purposes are listed).",
+        "p6": "\"System info\": from the \"Go to system info\" link in the top right, you can check the app version, the list of libraries used, and export diagnostic logs."
+      },
+      "desktop": {
+        "title": "App startup and shutdown, recording reminder notifications",
+        "p1": "When you start Michinari, the window opens in your browser, and the app itself stays running in the notification area in the bottom right of your screen (where icons sit to the left of the clock). No black console window is shown. If you can't find the icon, click the \"^\" button in the notification area to reveal hidden icons.",
+        "p2": "Clicking Michinari's icon in the notification area opens the window. Right-clicking the icon shows an \"Open Michinari\" / \"Quit\" menu. Closing the browser tab doesn't quit the app. To quit, choose \"Quit\" from this menu. Choosing \"Quit\" waits for any in-progress save to finish before stopping safely.",
+        "p3": "In \"Desktop & notifications\" on the Settings screen, you can toggle whether the browser window opens on startup. If off, open it manually from the tray icon. Turning on \"Launch automatically at Windows startup\" (in the same place) makes Michinari wait in the tray when you sign in (off by default).",
+        "p4": "Turning on \"Send recording reminder notifications\" shows a notification at the time you set (default 21:00), but only if that day's record isn't done yet. Clicking the notification opens that day's daily report screen in your browser. No notification is sent for a day already recorded (whether progress-only or fully reported), or a day marked as excluded on the calendar. On buffer days, the notification uses a lighter message for rest days.",
+        "p5": "Notifications only work while Michinari is running (no separate background program is installed on your PC). If Michinari wasn't running at the set time, that day's notification won't fire. If notifications don't appear, check that Michinari is allowed to notify you under Windows Settings → System → Notifications."
+      },
+      "promptVariables": {
+        "title": "Prompt template placeholder list",
+        "p1": "Writing `{{variable_name}}` in a prompt template's text causes the system to automatically substitute the actual value when sending it to the AI. The variables available for each purpose are as follows (only the variables in this list can be used in the template editor).",
+        "purposes": {
+          "dailyFeedback": {
+            "title": "Daily report feedback",
+            "variables": {
+              "today": "The current logical date",
+              "day_type": "Today's day type",
+              "load_coefficient": "Today's load coefficient",
+              "goal_summary": "Goal name, subject composition, exam date per subject, days remaining",
+              "material_status": "Per material: total amount, planned cycles, current cycle, remaining amount, due date, daily quota, required speed, effective speed, forecast completion date, deviation days",
+              "slot_summary": "Today's available time slots and their material assignments",
+              "buffer_usage_rate": "Buffer day usage rate",
+              "today_logs": "Today's results by material (time spent, amount completed, cycle, quality metric)",
+              "diary_body": "Previous diary entry (legacy input; empty for new entries)",
+              "diary_learned": "What you learned / understood today",
+              "weekly_summaries": "Recent weekly summaries",
+              "conversation_history": "Earlier turns in today's dialogue",
+              "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
+            }
+          },
+          "weeklySummary": {
+            "title": "Weekly summary",
+            "variables": {
+              "week_range": "The target week's date range",
+              "goal_name": "Goal name",
+              "week_logs": "Daily results within the week (including cycle)",
+              "week_diaries": "Diary entries within the week (actions/thoughts, what was learned)",
+              "week_metrics": "Weekly aggregates (total time spent, total amount completed, average quality metric, days reported, buffer day usage)",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "dailyMessage": {
+            "title": "Today's message",
+            "variables": {
+              "today": "The current logical date",
+              "day_type": "Today's day type",
+              "goal_summary": "Goal name and days remaining",
+              "progress_summary": "Progress rate and current cycle per material",
+              "recent_activity": "Report status and results over the last 7 days"
+            }
+          },
+          "goalRetrospective": {
+            "title": "Retrospective report",
+            "variables": {
+              "goal_summary": "Exam name, study period, subject composition",
+              "material_summary": "Per material: total amount, planned cycles, actual cycles, time spent",
+              "overall_metrics": "Total time spent, days studied, report rate, buffer day usage rate, replan count",
+              "quality_trend": "Quality metric trend (by cycle, aggregated monthly)",
+              "replan_history": "Replan history (date, reason, quota before/after, remaining amount and days at that time)",
+              "weekly_summaries": "All weekly summaries",
+              "exam_results": "Pass/fail and score per subject",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "dailyFeedbackReading": {
+            "title": "Daily report feedback (reading)",
+            "variables": {
+              "today": "The current logical date",
+              "book_summary": "Title, author, target completion date, days remaining",
+              "today_recall": "Today's recall text",
+              "recent_recalls": "Recall records from the last several days",
+              "perspective_suggestion": "Extra instruction prompting readers with few records to be asked from multiple perspectives (inserted only when below the threshold)"
+            }
+          },
+          "dailyFeedbackWork": {
+            "title": "Daily report feedback (work)",
+            "variables": {
+              "today": "The current logical date",
+              "work_summary": "Project name, client/project name, expected work content, days elapsed since start",
+              "today_work": "Today's work record text",
+              "recent_work_logs": "Work records from the last several days",
+              "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
+            }
+          },
+          "weeklySummaryReadingWork": {
+            "title": "Weekly summary (reading / work)",
+            "variables": {
+              "week_range": "The target week's date range",
+              "book_title": "Title (reading)",
+              "week_recalls": "Recall records within the week (reading)",
+              "work_name": "Project name = goal name (work)",
+              "week_logs": "Work records within the week (work)",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "goalRetrospectiveReading": {
+            "title": "Completion report",
+            "variables": {
+              "book_summary": "Title, author, reading period",
+              "overall_metrics": "Days recorded, longest streak",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "reading_logs": "Recall records (raw logs) for periods without a weekly summary yet",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "goalRetrospectiveWork": {
+            "title": "Monthly report / semiannual review (work)",
+            "variables": {
+              "work_summary": "Project name, client/project name, expected work content, start date",
+              "target_month_or_period": "Target month (monthly report) / target half (semiannual review)",
+              "target_goal_text": "The \"goal for next period\" set last time",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "month_or_period_logs": "Work records (raw logs) for periods without a weekly summary yet",
+              "anonymize": "Anonymization instruction (inserted only when generating an anonymized version)"
+            }
+          },
+          "evaluationReportWork": {
+            "title": "AI evaluation report (work)",
+            "variables": {
+              "member_summary": "The evaluated member's name, gender, and traits/personality (if registered)",
+              "considerations": "Considerations entered by the user",
+              "feedback_history": "This project's daily report feedback history (the AI's responses)",
+              "work_logs": "Work records for the target period"
+            }
+          },
+          "recapThemes": {
+            "title": "Recap (theme classification / theme body generation)",
+            "variables": {
+              "existing_themes": "List of existing theme names (for classification)",
+              "entries": "Report text to classify (diary / recall records, for classification)",
+              "theme_name": "Theme name (for body generation)",
+              "current_body": "Current theme body (for body generation)",
+              "new_entries": "New report text to merge in this time (for body generation)",
+              "body_max_chars": "Character limit for the theme body (for body generation)"
+            }
+          },
+          "helpAssistant": {
+            "title": "Help question",
+            "variables": {
+              "help_body": "Help text relevant to the question",
+              "question": "The user's question text",
+              "nonce": "A random value to prevent delimiter spoofing (used to verify output)"
+            }
+          }
+        }
+      },
+      "dataManagement": {
+        "title": "Data management",
+        "p1": "The \"Data management\" screen (reached from Settings) lets you export/import the entire database file, and create, list, and restore backups. Both import and restore overwrite existing data, so a confirmation dialog appears before running them."
+      },
+      "faq": {
+        "title": "FAQ / troubleshooting",
+        "q1": "Where do I get a Personal Access Token (PAT)?",
+        "a1": "Please issue it yourself from NewtonX's web app account screen. This app cannot issue a PAT for you.",
+        "q2": "The Settings screen shows \"Authenticated,\" but I can't fetch the assistant list.",
+        "a2": "Please check the format of the \"Connection URL (tenant host)\" (see the \"Settings — AI connection\" section for the value for each affiliation). The \"Authenticated\" status in the authentication state only confirms that a PAT is set — it's separate from whether you can actually connect to the AI platform. If the Host isn't in full domain form, like `xxx.newton-x.net`, an organization name or abbreviation alone cannot resolve the connection, causing communication such as fetching the assistant list to fail.",
+        "q3": "AI-related actions show \"An error occurred with the AI connection\" or \"The AI connection timed out.\"",
+        "a3": "There's a problem communicating with the AI platform. Please wait a while and try again. If it keeps happening, check the Host, PAT, and timeout settings on the Settings screen.",
+        "q4": "I accidentally broke my data. Can I undo it?",
+        "a4": "Go to \"Data management\" on the Settings screen, select an existing backup, and run \"Restore.\" If you hadn't created a backup, you can't return to the previous state. We recommend creating backups regularly.",
+        "q5": "What happens if I leave the screen without finalizing a daily report?",
+        "a5": "Your unfinalized input (results, diary, AI dialogue) is kept within the app even if you move to another screen, and is restored when you return to the daily report screen. However, closing or reloading the browser tab discards the content (a standard browser confirmation dialog appears right before that action). If you leave the app open for a long time, we recommend not postponing finalizing for too long, in case the tab gets closed unintentionally.",
+        "q6": "The black console window I used to see in an older version doesn't appear anymore.",
+        "a6": "The app no longer shows a black console window. It now runs in the notification area as a tray icon. To quit, right-click that icon and choose \"Quit.\""
+      }
+    }
+  },
+  "errors": {
+    "VALIDATION_ERROR": "There's an error in your input. Please check the fields showing an error and try again",
+    "EXAM_SUBJECT_REQUIRED": "You need to register an exam subject to start this goal. Please register at least one on the \"Subjects\" tab",
+    "MATERIAL_REQUIRED": "You need to register a material to start this goal. Please register at least one on the \"Materials\" tab",
+    "RESOURCE_ALLOCATION_REQUIRED": "You need to allocate study time to start this goal. Please set it on the \"Resource allocation\" tab",
+    "RESOURCE_EXCEEDED": "You've scheduled more than the secured time in the selected time range. Please reduce the allocated time or move it to a different time range",
+    "CYCLE_CONFLICT": "The planned cycle count can't be set below the number of cycles already completed. Please review the cycle count",
+    "BOOK_ALREADY_EXISTS": "A book is already registered for this goal. Only 1 book can be registered",
+    "CURRENT_PAGE_EXCEEDS_TOTAL_PAGES": "The current page exceeds the book's total pages. Please enter a value at or below the total pages",
+    "WORK_ASSIGNMENT_ALREADY_EXISTS": "Project information is already registered for this goal. Only 1 project can be registered",
+    "CONSENT_REQUIRED": "You must check \"Identity confirmed\" before saving traits/personality. Please check it only after confirming the member's identity",
+    "BACKDATE_LIMIT_EXCEEDED": "You can't record as far back as that date. Please choose a date within the allowed recording period",
+    "INVALID_STATE_TRANSITION": "This action isn't available in the current state. Please reload the page and try again",
+    "EXAM_RESULTS_INCOMPLETE": "Results aren't all in yet, so this can't be completed. Please register results for every subject, then try again",
+    "IMMUTABLE_RECORD": "A finalized record can't be changed. There's no way to revert to the content before it was finalized",
+    "RECAP_THEME_NAME_CONFLICT": "A theme with that name already exists. Please choose a different name",
+    "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
+    "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
+    "NOT_FOUND": "The requested data could not be found. Please reload the page and try again",
+    "AI_AUTH_REQUIRED": "The AI connection has been lost. Please check the connection on the Settings screen",
+    "AI_CONFIG_ERROR": "The AI connection settings are incorrect. Please check the Settings screen",
+    "AI_TIMEOUT": "The AI's response didn't arrive in time. Please try sending it again",
+    "AI_ERROR": "An error occurred communicating with the AI. Please wait a moment and try again",
+    "DATABASE_BUSY": "Could not save/generate because another process is using the data. Please wait 1–2 minutes and try again",
+    "INTERNAL_ERROR": "An unexpected problem occurred, so the process could not be completed. Please wait a moment and try again (if this keeps happening, please note the number in \"Details\" and contact support)",
+    "NETWORK_ERROR": "Could not communicate with the app itself. Please try restarting the app",
+    "default": "An error occurred. Please wait a moment and try again",
+    "reasons": {
+      "MATERIAL_HAS_LOGS": "This material can't be deleted because it has recorded results. Delete the results first, or edit the material instead",
+      "WORK_MEMBER_HAS_REPORTS": "This member can't be deleted because evaluation reports exist. Deactivate them instead, or proceed after reviewing the evaluation reports"
+    }
+  },
+  "recapTheme": {
+    "backToDashboard": "Back to dashboard",
+    "bodyEmpty": "No body text yet",
+    "renameLabel": "Theme name",
+    "renameButton": "Rename",
+    "mergeLabel": "Merge into another theme (this theme will be deleted and its reports and body moved to the destination)",
+    "mergePlaceholder": "Select the destination theme",
+    "mergeButton": "Merge",
+    "mergeConfirm": "This will consolidate this theme into the destination and delete this theme. Are you sure?",
+    "rebuildButton": "Rebuild",
+    "rebuildConfirm": "This rebuilds the body from the original text of linked reports. It uses AI, so it may take a while. Are you sure?",
+    "entriesTitle": "Linked reports",
+    "entriesEmpty": "No linked reports",
+    "sourceKind": {
+      "DIARY": "Certification exam diary",
+      "READING": "Reading recall record"
+    }
+  }
+}

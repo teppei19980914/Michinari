@@ -1094,12 +1094,16 @@ class TestPyInstallerArgs:
         assert args[args.index("--icon") + 1] == str(build_package.ICON_SOURCE_PATH)
         assert build_package.ICON_SOURCE_PATH.is_file()
 
-    def test_bundles_the_locale_file_where_the_app_looks_for_it(self) -> None:
-        """トレイ・通知の文言が配布物でも解決できること。"""
-        expected = f"{build_package.LOCALE_SOURCE_PATH}{os.pathsep}{LOCALES_DIR_NAME}"
+    def test_bundles_every_supported_locale_file_where_the_app_looks_for_it(self) -> None:
+        """トレイ・通知の文言が、対応言語の全てで配布物でも解決できること
+        （日英i18n対応、2026-10。片方だけ同梱すると配布物でのみその言語が
+        キー文字列表示になる不具合になるため、両方を確認する）。"""
+        args = self._args()
 
-        assert expected in self._args()
-        assert build_package.LOCALE_SOURCE_PATH.is_file()
+        assert len(build_package.LOCALE_SOURCE_PATHS) == len(build_package.SUPPORTED_LOCALES)
+        for locale_path in build_package.LOCALE_SOURCE_PATHS:
+            assert f"{locale_path}{os.pathsep}{LOCALES_DIR_NAME}" in args
+            assert locale_path.is_file()
 
     def test_bundles_the_icon_directory_where_the_app_looks_for_it(self) -> None:
         """トレイ・通知がアイコンを読み込めること。"""

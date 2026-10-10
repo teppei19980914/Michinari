@@ -25,9 +25,10 @@ function formatRemainingDaysReading(days: number | null): string {
 }
 
 function formatForecastDeviation(days: number | null): string {
-  return days === null
-    ? t('dashboard.goalCard.forecastDeviationUnavailable')
-    : t('dashboard.goalCard.forecastDeviation', { days: Math.round(days) })
+  if (days === null) {
+    return t('dashboard.goalCard.forecastDeviationUnavailable')
+  }
+  return t('dashboard.goalCard.forecastDeviation', { days: Math.round(days) })
 }
 
 type GoalCard = DashboardRead['goal_cards'][number]
@@ -101,9 +102,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
                 : t('dashboard.goalCard.lastWorkDateUnavailable')}
             </div>
             <div>
-              {t('dashboard.goalCard.currentStreakWork', {
-                days: workAssignment.current_streak,
-              })}
+              {t('dashboard.goalCard.currentStreakWork', { days: workAssignment.current_streak })}
             </div>
             <div>
               {workAssignment.has_recent_monthly_report

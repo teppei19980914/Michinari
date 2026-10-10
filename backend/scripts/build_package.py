@@ -102,7 +102,11 @@ CONSOLE_LAUNCHER_FILENAME = f"{APP_NAME}-console.bat"
 #: exeへ埋め込まず素のファイルとして配置するライブラリ（LGPL-3.0のため差し替え可能に
 #: する必要がある。`collect_licenses.py` のdocstring参照）。
 LGPL_MODULE_NAME = "pystray"
-LOCALE_SOURCE_PATH = resolve_locale_path()
+#: 対応言語（日英i18n対応、2026-10）。`settings_service._ALLOWED_LOCALES`と同じ値を
+#: 同梱する。片方だけ追加して同梱を忘れると、配布物でのみ一方の言語のトレイ・通知文言が
+#: キー文字列表示になる不具合になるため、両方を明示的に列挙する。
+SUPPORTED_LOCALES = ("ja", "en")
+LOCALE_SOURCE_PATHS = [resolve_locale_path(locale) for locale in SUPPORTED_LOCALES]
 ICON_SOURCE_PATH = resolve_icon_path()
 #: 資格試験テンプレート（JSON）の同梱元ディレクトリ（`app/services/exam_template_service.py`
 #: が実行時に`resolve_bundled_path`で解決する先と対にする）。
@@ -591,8 +595,13 @@ def pyinstaller_args() -> list[str]:
         f"{BACKEND_DIR / ALEMBIC_INI_FILE_NAME}{os.pathsep}.",
         f"{BACKEND_DIR / ALEMBIC_DIR_NAME}{os.pathsep}{ALEMBIC_DIR_NAME}",
         f"{BUILD_INFO_PATH}{os.pathsep}.",
-        # トレイ・通知の文言（フロントエンドと共有する単一の情報源）。
-        f"{LOCALE_SOURCE_PATH}{os.pathsep}{LOCALES_DIR_NAME}",
+        # トレイ・通知の文言（フロントエンドと共有する単一の情報源）。対応言語(SUPPORTED_LOCALES)
+        # の全ファイルを同梱する（日英i18n対応、2026-10。片方だけ同梱すると、配布物でのみ
+        # その言語のトレイ・通知文言がキー文字列表示になる）。
+        *(
+            f"{locale_path}{os.pathsep}{LOCALES_DIR_NAME}"
+            for locale_path in LOCALE_SOURCE_PATHS
+        ),
         # exe・トレイ・通知で共用するアイコン。
         f"{ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}",
         # 資格試験テンプレート（JSON、利用者が編集・追加できる例示データ）。

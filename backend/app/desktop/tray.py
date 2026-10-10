@@ -22,7 +22,7 @@ import pystray
 from PIL import Image
 
 from app.constants import locale_keys
-from app.locales import t
+from app.locales import DEFAULT_LOCALE, t
 
 logger = logging.getLogger(__name__)
 
@@ -54,13 +54,20 @@ def load_icon_image(icon_path: Path) -> Image.Image:
         return Image.new("RGBA", FALLBACK_ICON_SIZE, FALLBACK_ICON_COLOR)
 
 
-def build_icon(on_open: Callable[[], None], on_quit: Callable[[], None], icon_path: Path):
+def build_icon(
+    on_open: Callable[[], None],
+    on_quit: Callable[[], None],
+    icon_path: Path,
+    locale: str = DEFAULT_LOCALE,
+):
     """トレイアイコンを組み立てる（まだ表示はしない）。
 
     引数:
         on_open: 「ミチナリを開く」および左クリックで呼ぶ処理。
         on_quit: 「終了」で呼ぶ処理。
         icon_path: アイコン画像のパス。
+        locale: 表示言語（日英i18n対応、2026-10）。`display.locale`を読んだ
+            `runner.run()`から渡される。既定値はDBが読めない場合の保険。
 
     返り値:
         `pystray.Icon`。`run()`で表示が始まる。
@@ -68,11 +75,11 @@ def build_icon(on_open: Callable[[], None], on_quit: Callable[[], None], icon_pa
     icon = pystray.Icon(
         TRAY_ICON_NAME,
         icon=load_icon_image(icon_path),
-        title=t(locale_keys.TRAY_TOOLTIP),
+        title=t(locale_keys.TRAY_TOOLTIP, locale),
         menu=pystray.Menu(
             # default=True の項目は、Windowsではアイコンの左クリックでも呼ばれる。
-            pystray.MenuItem(t(locale_keys.TRAY_OPEN), lambda *_: on_open(), default=True),
-            pystray.MenuItem(t(locale_keys.TRAY_QUIT), lambda *_: on_quit()),
+            pystray.MenuItem(t(locale_keys.TRAY_OPEN, locale), lambda *_: on_open(), default=True),
+            pystray.MenuItem(t(locale_keys.TRAY_QUIT, locale), lambda *_: on_quit()),
         ),
     )
     return icon

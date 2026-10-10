@@ -25,9 +25,10 @@ from typing import Any
 from app.config import REPO_ROOT, resolve_bundled_path
 from app.constants.bundle import LOCALES_DIR_NAME
 
-#: 表示言語。`app_setting`の`display.locale`は現時点で"ja"のみを許容するため
-#: （`settings_service._ALLOWED_LOCALES`）、読み込むファイルも1つに固定する。
-#: 言語を増やす際は、この定数ではなく`display.locale`を見て切り替えるよう拡張する。
+#: 既定の表示言語。`app_setting`の`display.locale`は"ja"/"en"の両方を許容する
+#: （日英i18n対応、2026-10改54。`settings_service._ALLOWED_LOCALES`）。トレイ・通知
+#: （`app/desktop/tray.py`・`runner.py`）はDBから読んだ`display.locale`を`t()`の
+#: `locale`引数へ渡して切り替える。この定数はDB未接続時（起動失敗時等）のみ使う既定値。
 DEFAULT_LOCALE = "ja"
 
 

@@ -19,6 +19,7 @@ from app import main as main_module
 from app.constants import locale_keys
 from app.constants.app_setting_keys import (
     DESKTOP_LAUNCH_AT_LOGIN,
+    DISPLAY_LOCALE,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
 )
 from app.constants.desktop import BIND_HOST
@@ -100,6 +101,21 @@ class TestReadSettings:
         app_session.flush()
 
         assert runner._read_graceful_shutdown_seconds() == 25
+
+    def test_reads_the_display_locale(self, app_session):
+        app_session.get(AppSetting, DISPLAY_LOCALE).value = "en"
+        app_session.flush()
+
+        assert runner._read_locale() == "en"
+
+    def test_falls_back_to_japanese_when_the_locale_setting_is_missing(self, app_session):
+        """設定行が無いだけで起動を止めないこと（既定のjaで継続）。`_read_bool_setting`と
+        同じ「キー欠落」系の異常系であり、DB接続自体の障害（ファイルロック等）は
+        別種の異常系のため、このテストでは再現していない。"""
+        app_session.query(AppSetting).filter_by(key=DISPLAY_LOCALE).delete()
+        app_session.flush()
+
+        assert runner._read_locale() == "ja"
 
 
 class TestBootstrapLogging:
@@ -293,6 +309,19 @@ class TestBuildNotifyCallback:
 
         assert notifier.calls == [
             (t(locale_keys.NOTIFICATION_BUFFER_TITLE), t(locale_keys.NOTIFICATION_BUFFER_BODY))
+        ]
+
+    def test_resolves_the_wording_in_the_given_locale(self):
+        """`display.locale`に応じて表示言語を切り替える（日英i18n対応、2026-10）。"""
+        notifier = self._FakeNotifier()
+
+        runner.build_notify_callback(notifier, 8100, "en")(self._decision())
+
+        assert notifier.calls == [
+            (
+                t(locale_keys.NOTIFICATION_PLAN_TITLE, "en"),
+                t(locale_keys.NOTIFICATION_PLAN_BODY, "en"),
+            )
         ]
 
     def test_clicking_opens_the_record_screen_for_that_logical_date(
