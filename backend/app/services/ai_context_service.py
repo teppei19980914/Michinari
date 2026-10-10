@@ -15,6 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.ai.prompt_builder import DatedLogEntry, MaterialStatusEntry
+from app.constants.app_setting_keys import DISPLAY_LOCALE
 from app.constants.enums import (
     AiPurpose,
     BaselineReason,
@@ -48,6 +49,7 @@ from app.services import (
     material_service,
     metrics_service,
     quota_service,
+    setting_reader,
     speed_service,
 )
 from app.services import slot_service as slot_service_module
@@ -57,21 +59,39 @@ from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLog
 #: 品質指標の推移（周回別、月次集約）」）。
 _RETROSPECTIVE_QUALITY_GRANULARITY = Granularity.MONTH
 
-#: リプラン契機の日本語表記（AIプロンプト向け生成テキスト。frontendのja.jsonとは別。
-#: バックエンドのAIプロンプトは常に日本語のため、UI表示ロケールとは独立して定義する）。
-_BASELINE_REASON_LABELS = {
+#: リプラン契機の表記（AIプロンプトのデータ部分へ差し込む生成テキスト。frontendのja.jsonとは
+#: 別）。末尾に追記する応答言語の指示（`orchestration._append_language_directive`）だけでは
+#: この箇所のような固定語彙は翻訳されないため、`display.locale`に応じて辞書ごと切り替える
+#: （2026-10-09の設計検討、日英i18n対応）。
+_BASELINE_REASON_LABELS_JA = {
     BaselineReason.INITIAL: "初期設定",
     BaselineReason.REPLAN: "リプラン",
     BaselineReason.EXAM_DATE_FIXED: "受験日確定",
     BaselineReason.MATERIAL_CHANGED: "教材変更",
     BaselineReason.CYCLE_CHANGED: "周回数変更",
 }
+_BASELINE_REASON_LABELS_EN = {
+    BaselineReason.INITIAL: "initial setup",
+    BaselineReason.REPLAN: "replan",
+    BaselineReason.EXAM_DATE_FIXED: "exam date fixed",
+    BaselineReason.MATERIAL_CHANGED: "material changed",
+    BaselineReason.CYCLE_CHANGED: "cycle count changed",
+}
 
-_EXAM_RESULT_LABELS = {
+_EXAM_RESULT_LABELS_JA = {
     ExamResultType.PASS: "合格",
     ExamResultType.FAIL: "不合格",
     ExamResultType.PENDING: "未判定",
 }
+_EXAM_RESULT_LABELS_EN = {
+    ExamResultType.PASS: "pass",
+    ExamResultType.FAIL: "fail",
+    ExamResultType.PENDING: "pending",
+}
+
+
+def _is_english(session: Session) -> bool:
+    return setting_reader.get_str(session, DISPLAY_LOCALE) == "en"
 
 
 def list_active_goals(session: Session) -> list[Goal]:
@@ -713,9 +733,12 @@ def build_replan_history_text(session: Session, goal: Goal) -> str:
     if not changes:
         return "（計画基準値の記録はありません）"
     material_names = {material.id: material.name for material in goal.materials}
+    reason_labels = (
+        _BASELINE_REASON_LABELS_EN if _is_english(session) else _BASELINE_REASON_LABELS_JA
+    )
     lines = []
     for change in changes:
-        reason_text = _BASELINE_REASON_LABELS[change.reason]
+        reason_text = reason_labels[change.reason]
         quota_text = (
             f"{change.quota_before:.1f}→{change.quota_after:.1f}"
             if change.quota_before is not None
@@ -729,10 +752,11 @@ def build_replan_history_text(session: Session, goal: Goal) -> str:
     return "\n".join(lines)
 
 
-def build_exam_results_text(goal: Goal) -> str:
+def build_exam_results_text(session: Session, goal: Goal) -> str:
     """{{exam_results}}: 科目ごとの合否と得点（17.5）。"""
     if not goal.exam_subjects:
         return "（試験科目未登録）"
+    result_labels = _EXAM_RESULT_LABELS_EN if _is_english(session) else _EXAM_RESULT_LABELS_JA
     lines = []
     for subject in sorted(goal.exam_subjects, key=lambda s: s.display_order):
         result = subject.exam_result
@@ -741,7 +765,7 @@ def build_exam_results_text(goal: Goal) -> str:
             continue
         score_text = f"、得点 {result.score}" if result.score is not None else ""
         lines.append(
-            f"・{subject.name}: {_EXAM_RESULT_LABELS[result.result]}{score_text}"
+            f"・{subject.name}: {result_labels[result.result]}{score_text}"
             f"（受験日 {result.taken_date.isoformat()}）"
         )
     return "\n".join(lines)
@@ -1195,19 +1219,25 @@ def build_perspective_suggestion_instruction(
 
 # --- AI評価レポート（EVALUATION_REPORT_WORK、要件定義書6.11） ---
 
-_GENDER_LABELS = {
+_GENDER_LABELS_JA = {
     WorkMemberGender.MALE: "男性",
     WorkMemberGender.FEMALE: "女性",
     WorkMemberGender.OTHER: "その他",
 }
+_GENDER_LABELS_EN = {
+    WorkMemberGender.MALE: "male",
+    WorkMemberGender.FEMALE: "female",
+    WorkMemberGender.OTHER: "other",
+}
 
 
-def build_evaluation_member_summary_text(member: WorkMember) -> str:
+def build_evaluation_member_summary_text(session: Session, member: WorkMember) -> str:
     """{{member_summary}}（EVALUATION_REPORT_WORK）: 評価対象メンバーの氏名・性別
     （あれば）・特徴/性格（あれば）。"""
+    gender_labels = _GENDER_LABELS_EN if _is_english(session) else _GENDER_LABELS_JA
     lines = [f"氏名: {member.name}"]
     if member.gender is not None:
-        lines.append(f"性別: {_GENDER_LABELS[member.gender]}")
+        lines.append(f"性別: {gender_labels[member.gender]}")
     if member.characteristics:
         lines.append(f"特徴・性格: {member.characteristics}")
     return "\n".join(lines)

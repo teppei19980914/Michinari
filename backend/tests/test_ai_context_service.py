@@ -19,6 +19,7 @@ from app.constants.enums import (
     QualityMetricType,
     RecordState,
     RetrospectivePeriodType,
+    WorkMemberGender,
 )
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
@@ -33,8 +34,8 @@ from app.models.record import (
 )
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
-from app.models.work import WorkAssignment
-from app.services import ai_context_service
+from app.models.work import WorkAssignment, WorkMember
+from app.services import ai_context_service, settings_service
 from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
 from tests import allocation_helpers, reading_helpers
 
@@ -884,6 +885,31 @@ def test_build_replan_history_text_shows_before_and_after_quota(seeded_session):
     assert "10.0→15.0" in text
 
 
+def test_build_replan_history_text_uses_english_reason_label_when_locale_is_english(
+    seeded_session,
+):
+    settings_service.update_app_settings(seeded_session, display={"locale": "en"})
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    seeded_session.add(
+        PlanBaseline(
+            material_id=material.id,
+            effective_from=dt.date(2026, 1, 1),
+            baseline_daily_quota=10.0,
+            remaining_at_baseline=100.0,
+            plan_days_at_baseline=10,
+            planned_cycles_at_baseline=1,
+            reason=BaselineReason.REPLAN,
+        )
+    )
+    seeded_session.flush()
+
+    text = ai_context_service.build_replan_history_text(seeded_session, goal)
+
+    assert "replan" in text
+    assert "リプラン" not in text
+
+
 def test_build_replan_history_text_handles_no_baselines(seeded_session):
     goal = _make_goal(seeded_session)
 
@@ -907,7 +933,7 @@ def test_build_exam_results_text_includes_registered_and_unregistered(seeded_ses
     seeded_session.flush()
     seeded_session.refresh(registered)
 
-    text = ai_context_service.build_exam_results_text(goal)
+    text = ai_context_service.build_exam_results_text(seeded_session, goal)
 
     assert "登録済み科目: 合格、得点 88.0" in text
     assert "未登録科目: 未登録" in text
@@ -916,9 +942,29 @@ def test_build_exam_results_text_includes_registered_and_unregistered(seeded_ses
 def test_build_exam_results_text_handles_no_subjects(seeded_session):
     goal = _make_goal(seeded_session)
 
-    text = ai_context_service.build_exam_results_text(goal)
+    text = ai_context_service.build_exam_results_text(seeded_session, goal)
 
     assert "試験科目未登録" in text
+
+
+def test_build_exam_results_text_uses_english_labels_when_locale_is_english(seeded_session):
+    settings_service.update_app_settings(seeded_session, display={"locale": "en"})
+    goal = _make_goal(seeded_session)
+    registered = _make_subject(seeded_session, goal, name="登録済み科目", display_order=1)
+    seeded_session.add(
+        ExamResult(
+            subject_id=registered.id,
+            taken_date=dt.date(2026, 12, 1),
+            result=ExamResultType.PASS,
+            score=88.0,
+        )
+    )
+    seeded_session.flush()
+    seeded_session.refresh(registered)
+
+    text = ai_context_service.build_exam_results_text(seeded_session, goal)
+
+    assert "登録済み科目: pass、得点 88.0" in text
 
 
 def test_build_all_weekly_summaries_entries_orders_chronologically(seeded_session):
@@ -1622,3 +1668,53 @@ def test_list_daily_message_target_goals_includes_exam_and_work_excludes_reading
     assert exam_goal.id in target_ids
     assert work_goal.id in target_ids
     assert reading_goal.id not in target_ids
+
+
+def _make_work_member(session, work_assignment, **overrides):
+    defaults = dict(work_assignment_id=work_assignment.id, name="Aさん")
+    defaults.update(overrides)
+    member = WorkMember(**defaults)
+    session.add(member)
+    session.flush()
+    return member
+
+
+def test_build_evaluation_member_summary_text_includes_gender_and_characteristics(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    member = _make_work_member(
+        seeded_session,
+        work_assignment,
+        gender=WorkMemberGender.FEMALE,
+        characteristics="粘り強い性格",
+    )
+
+    text = ai_context_service.build_evaluation_member_summary_text(seeded_session, member)
+
+    assert "氏名: Aさん" in text
+    assert "性別: 女性" in text
+    assert "特徴・性格: 粘り強い性格" in text
+
+
+def test_build_evaluation_member_summary_text_omits_unset_fields(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    member = _make_work_member(seeded_session, work_assignment)
+
+    text = ai_context_service.build_evaluation_member_summary_text(seeded_session, member)
+
+    assert text == "氏名: Aさん"
+
+
+def test_build_evaluation_member_summary_text_uses_english_gender_label_when_locale_is_english(
+    seeded_session,
+):
+    settings_service.update_app_settings(seeded_session, display={"locale": "en"})
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    member = _make_work_member(seeded_session, work_assignment, gender=WorkMemberGender.FEMALE)
+
+    text = ai_context_service.build_evaluation_member_summary_text(seeded_session, member)
+
+    assert "性別: female" in text
+    assert "女性" not in text

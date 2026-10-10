@@ -94,7 +94,7 @@ def _build_exam_context(
             ),
             "quality_trend": ai_context_service.build_quality_trend_text(session, materials),
             "replan_history": ai_context_service.build_replan_history_text(session, goal),
-            "exam_results": ai_context_service.build_exam_results_text(goal),
+            "exam_results": ai_context_service.build_exam_results_text(session, goal),
             "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
         },
         stages=[
