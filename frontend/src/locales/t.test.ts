@@ -162,6 +162,12 @@ describe('t（単数/複数形）', () => {
     expect(scoped('a')).toBe('a')
   })
 
+  it('selects "other" when no variables object is given at all', async () => {
+    const scoped = await loadWithLocale({ a: { one: 'one day', other: 'some days' } })
+
+    expect(scoped('a')).toBe('some days')
+  })
+
   it('infers count from the single variable when "count" is not given explicitly', async () => {
     const scoped = await loadWithLocale({ a: { one: '{{days}} day', other: '{{days}} days' } })
 
