@@ -47,7 +47,7 @@ export function AllocationStatusCard() {
         <ul className="mt-1 flex flex-col gap-2 text-sm text-text-secondary">
           {allocation.slots.map((slot) => (
             <li key={slot.slot_id}>
-              <p className={slot.is_over_capacity ? 'text-red-600' : ''}>
+              <p className={slot.is_over_capacity ? 'text-danger-text' : ''}>
                 {slot.slot_name}: {slot.allocated_minutes}
                 {t('common.unit.minutes')} / {slot.duration_minutes}
                 {t('common.unit.minutes')}

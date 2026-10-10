@@ -21,10 +21,10 @@ export function ReplanHistoryTab({ goalId }: ReplanHistoryTabProps) {
     return <p className="text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalQuery.isError || !goalQuery.data) {
-    return <p className="text-sm text-red-600">{apiErrorMessage(goalQuery.error)}</p>
+    return <p className="text-sm text-danger-text">{apiErrorMessage(goalQuery.error)}</p>
   }
   if (baselinesQuery.isError || !baselinesQuery.data) {
-    return <p className="text-sm text-red-600">{apiErrorMessage(baselinesQuery.error)}</p>
+    return <p className="text-sm text-danger-text">{apiErrorMessage(baselinesQuery.error)}</p>
   }
 
   const materialNameById = new Map(goalQuery.data.materials.map((m) => [m.id, m.name]))

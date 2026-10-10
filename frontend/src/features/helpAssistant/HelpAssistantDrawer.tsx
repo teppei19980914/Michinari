@@ -121,7 +121,7 @@ export function HelpAssistantDrawer({ onClose }: HelpAssistantDrawerProps) {
           disabled={ask.isPending}
           onChange={(event) => setDraft(event.target.value)}
         />
-        {warning && <p className="text-xs text-red-600">{warning}</p>}
+        {warning && <p className="text-xs text-danger-text">{warning}</p>}
         <Button type="submit" disabled={!canSend}>
           {t('helpAssistant.send')}
         </Button>

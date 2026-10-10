@@ -71,7 +71,7 @@ export function AnalyticsPage() {
     return <p className="p-6 text-sm text-text-faint">{t('common.loading')}</p>
   }
   if (goalsQuery.isError || !goalsQuery.data) {
-    return <p className="p-6 text-sm text-red-600">{apiErrorMessage(goalsQuery.error)}</p>
+    return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(goalsQuery.error)}</p>
   }
 
   const goals = selectableAnalyticsGoals(goalsQuery.data, { includeArchived: showArchived })

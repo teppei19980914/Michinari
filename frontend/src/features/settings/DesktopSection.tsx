@@ -88,7 +88,7 @@ export function DesktopSection({ settings }: { settings: AppSettingsRead }) {
         />
       </label>
       <p className="text-xs text-text-faint">{t('settings.desktop.notificationHelp')}</p>
-      {guard.errorKey !== null && <p className="text-sm text-red-600">{t(guard.errorKey)}</p>}
+      {guard.errorKey !== null && <p className="text-sm text-danger-text">{t(guard.errorKey)}</p>}
 
       <div className="flex justify-end">
         <Button disabled={mutation.isPending || !guard.canSubmit} onClick={() => mutation.mutate()}>
