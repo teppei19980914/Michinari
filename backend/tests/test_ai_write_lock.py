@@ -372,17 +372,13 @@ def _raise_once_then_delegate(bound_method):
     def _wrapped(*args, **kwargs):
         if not state["called"]:
             state["called"] = True
-            raise OperationalError(
-                "<test>", {}, sqlite3.OperationalError("database is locked")
-            )
+            raise OperationalError("<test>", {}, sqlite3.OperationalError("database is locked"))
         return bound_method(*args, **kwargs)
 
     return _wrapped
 
 
-def test_send_and_log_keeps_answer_when_bookkeeping_flush_hits_lock(
-    seeded_session, monkeypatch
-):
+def test_send_and_log_keeps_answer_when_bookkeeping_flush_hits_lock(seeded_session, monkeypatch):
     """last_parent_order更新のflushがロック競合で失敗しても、既に得られたAI応答を
     失わず返す（2026-10-09の不具合の回帰。send_and_log自身の単体テスト）。"""
     monkeypatch.setattr(rate_limiter, "wait_for_interval", lambda *args, **kwargs: None)
@@ -420,9 +416,7 @@ def test_send_and_log_keeps_answer_when_final_commit_hits_lock(seeded_session, m
             response_text="応答本文", latency_ms=1
         ),
     )
-    monkeypatch.setattr(
-        seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit)
-    )
+    monkeypatch.setattr(seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit))
 
     result = ai_orchestration.send_and_log(
         seeded_session,
@@ -448,9 +442,7 @@ def test_send_and_log_reraises_original_domain_error_when_error_log_commit_hits_
         raise AiError("送信に失敗")
 
     monkeypatch.setattr(ai_client, "send_message", _failing_send)
-    monkeypatch.setattr(
-        seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit)
-    )
+    monkeypatch.setattr(seeded_session, "commit", _raise_once_then_delegate(seeded_session.commit))
 
     with pytest.raises(AiError):
         ai_orchestration.send_and_log(

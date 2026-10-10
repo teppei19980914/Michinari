@@ -21,7 +21,7 @@ export function CollapsibleSection({
     <div>
       <button
         type="button"
-        className="text-sm font-medium text-blue-600 hover:underline"
+        className="text-sm font-medium text-accent hover:underline"
         aria-expanded={open}
         onClick={() => setOpen((prev) => !prev)}
       >
