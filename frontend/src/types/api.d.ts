@@ -2360,6 +2360,10 @@ export interface components {
             theme: string;
             /** Default Granularity */
             default_granularity: string;
+            /** Accent Color */
+            accent_color: string;
+            /** Font Scale */
+            font_scale: string;
         };
         /** DisplaySettingsUpdate */
         DisplaySettingsUpdate: {
@@ -2369,6 +2373,10 @@ export interface components {
             theme?: string | null;
             /** Default Granularity */
             default_granularity?: string | null;
+            /** Accent Color */
+            accent_color?: string | null;
+            /** Font Scale */
+            font_scale?: string | null;
         };
         /**
          * Environment

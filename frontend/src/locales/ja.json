@@ -691,6 +691,19 @@
         "DAY": "日別",
         "WEEK": "週別",
         "MONTH": "月別"
+      },
+      "accentColorLabel": "アクセントカラー",
+      "accentColor": {
+        "blue": "ブルー",
+        "green": "グリーン",
+        "purple": "パープル",
+        "orange": "オレンジ"
+      },
+      "fontScaleLabel": "フォントサイズ",
+      "fontScale": {
+        "small": "小",
+        "standard": "標準",
+        "large": "大"
       }
     },
     "promptTemplate": {
