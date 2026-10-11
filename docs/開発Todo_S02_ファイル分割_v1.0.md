@@ -213,26 +213,26 @@ backend/app/services/goal_service.py
 
 ### 3.1 record_service の分割
 
-- [ ] T-01 `backend/app/services/record_service_common.py`を新設し、§1.1の共通関数群を移動する（モジュールdocstringも移動）
-- [ ] T-02 `backend/app/services/record_service_exam.py`を新設し、§1.1のEXAM関数群を移動する
-- [ ] T-03 `backend/app/services/record_service_reading.py`を新設し、§1.1のREADING関数群を移動する
-- [ ] T-04 `backend/app/services/record_service_work.py`を新設し、§1.1のWORK関数群を移動する
-- [ ] T-05 `register_progress`をディスパッチャ化する（決定事項S9）：`_register_exam_progress`/`_register_reading_progress`/`_register_work_progress`をそれぞれexam/reading/workモジュールへ抽出する
-- [ ] T-06 元の`backend/app/services/record_service.py`を削除する
-- [ ] T-07 §1.1の全呼び出し元（17ファイル）のimportを更新する
+- [x] T-01 `backend/app/services/record_service_common.py`を新設し、§1.1の共通関数群を移動する（モジュールdocstringも移動）
+- [x] T-02 `backend/app/services/record_service_exam.py`を新設し、§1.1のEXAM関数群を移動する
+- [x] T-03 `backend/app/services/record_service_reading.py`を新設し、§1.1のREADING関数群を移動する
+- [x] T-04 `backend/app/services/record_service_work.py`を新設し、§1.1のWORK関数群を移動する
+- [x] T-05 `register_progress`をディスパッチャ化する（決定事項S9）：`_register_exam_progress`/`_register_reading_progress`/`_register_work_progress`をそれぞれexam/reading/workモジュールへ抽出する
+- [x] T-06 元の`backend/app/services/record_service.py`を削除する
+- [x] T-07 §1.1の全呼び出し元（17ファイル）のimportを更新する
 - [ ] T-08 `backend/tests/test_record_service.py`を4分割する（§1.5）。ヘルパーの重複が見つかれば集約する
-- [ ] T-09 `grep -rn "record_service"`で旧名称の残留が無いことを確認する（新モジュールのdocstring内「分割元」説明を除く）
+- [x] T-09 `grep -rn "record_service"`で旧名称の残留が無いことを確認する（新モジュールのdocstring内「分割元」説明を除く）
 
 ### 3.2 export_service の分割
 
-- [ ] T-10 `backend/app/services/export_service_common.py`を新設し、§1.2の共通関数群を移動する
-- [ ] T-11 `backend/app/services/export_service_exam.py`を新設し、§1.2のEXAM関数群を移動する
-- [ ] T-12 `backend/app/services/export_service_reading.py`を新設し、§1.2のREADING関数群を移動する
-- [ ] T-13 `backend/app/services/export_service_work.py`を新設し、§1.2のWORK関数群を移動する（`_compute_max_streak_days`は`export_service_reading`からimportする）
-- [ ] T-14 元の`backend/app/services/export_service.py`を削除する
-- [ ] T-15 §1.2の全呼び出し元（4ファイル）のimportを更新する
+- [x] T-10 `backend/app/services/export_service_common.py`を新設し、§1.2の共通関数群を移動する
+- [x] T-11 `backend/app/services/export_service_exam.py`を新設し、§1.2のEXAM関数群を移動する
+- [x] T-12 `backend/app/services/export_service_reading.py`を新設し、§1.2のREADING関数群を移動する
+- [x] T-13 `backend/app/services/export_service_work.py`を新設し、§1.2のWORK関数群を移動する（`_compute_max_streak_days`は`export_service_reading`からimportする）
+- [x] T-14 元の`backend/app/services/export_service.py`を削除する
+- [x] T-15 §1.2の全呼び出し元（4ファイル）のimportを更新する
 - [ ] T-16 `backend/tests/test_export_service.py`を4分割する（§1.5）
-- [ ] T-17 `grep -rn "export_service"`で旧名称の残留が無いことを確認する
+- [x] T-17 `grep -rn "export_service"`で旧名称の残留が無いことを確認する
 
 ### 3.3 prompt_texts の分割
 
@@ -244,11 +244,11 @@ backend/app/services/goal_service.py
 
 ### 3.4 goal_service の分割
 
-- [ ] T-23 `backend/app/services/goal_service_lifecycle.py`を新設し、§1.4のlifecycle関数群を移動する
-- [ ] T-24 `backend/app/services/goal_service_load_profile.py`を新設し、§1.4のload_profile関数群を移動する
-- [ ] T-25 `backend/app/services/goal_service.py`から移動済み関数を削除し、残留関数のみにする（モジュールdocstringを実態に合わせて更新）
-- [ ] T-26 §1.4の呼び出し元（`app/api/goals.py`・`test_goal_service.py`・`test_goal_state_transitions.py`・`test_phase3_service_guards.py`）のimportを更新する。他18ファイルはimport不要であることを個別に再確認する
-- [ ] T-27 `grep -rn "goal_service\."`で、移動した関数の呼び出しが新モジュール経由に揃っていることを確認する
+- [x] T-23 `backend/app/services/goal_service_lifecycle.py`を新設し、§1.4のlifecycle関数群を移動する
+- [x] T-24 `backend/app/services/goal_service_load_profile.py`を新設し、§1.4のload_profile関数群を移動する
+- [x] T-25 `backend/app/services/goal_service.py`から移動済み関数を削除し、残留関数のみにする（モジュールdocstringを実態に合わせて更新）
+- [x] T-26 §1.4の呼び出し元（`app/api/goals.py`・`test_goal_service.py`・`test_goal_state_transitions.py`・`test_phase3_service_guards.py`）のimportを更新する。他18ファイルはimport不要であることを個別に再確認する
+- [x] T-27 `grep -rn "goal_service\."`で、移動した関数の呼び出しが新モジュール経由に揃っていることを確認する
 
 ### 3.5 複雑度の分割（ファイル分割と独立）
 

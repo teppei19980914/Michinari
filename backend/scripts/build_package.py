@@ -598,10 +598,7 @@ def pyinstaller_args() -> list[str]:
         # トレイ・通知の文言（フロントエンドと共有する単一の情報源）。対応言語(SUPPORTED_LOCALES)
         # の全ファイルを同梱する（日英i18n対応、2026-10。片方だけ同梱すると、配布物でのみ
         # その言語のトレイ・通知文言がキー文字列表示になる）。
-        *(
-            f"{locale_path}{os.pathsep}{LOCALES_DIR_NAME}"
-            for locale_path in LOCALE_SOURCE_PATHS
-        ),
+        *(f"{locale_path}{os.pathsep}{LOCALES_DIR_NAME}" for locale_path in LOCALE_SOURCE_PATHS),
         # exe・トレイ・通知で共用するアイコン。
         f"{ICON_SOURCE_DIR}{os.pathsep}{ASSETS_DIR_NAME}",
         # 資格試験テンプレート（JSON、利用者が編集・追加できる例示データ）。

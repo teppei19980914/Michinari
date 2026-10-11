@@ -1,32 +1,31 @@
-"""目標のCRUD・状態遷移・計画基準値の再設定契機（設計書データ構造編5.3・6.2、
-仕様書6.2・7.1・10章、ロジック・プロンプト編12.1、実装フェーズ分割計画書Phase3）。
+"""目標の共通ガード・CRUD・カスケード削除（設計書データ構造編5.3・6.2、
+仕様書6.2・7.1・10章、ロジック・プロンプト編12.1、実装フェーズ分割計画書Phase3・S02）。
 
 resolve_today / resolve_treat_holiday_as_buffer / record_baseline_for_material /
 ensure_goal_editable は subject_service・material_service からも共通処理として呼ばれる
 （CLAUDE.md DRYの原則）。
+
+状態遷移（activate/pause/resume/abandon/complete等）は`goal_service_lifecycle.py`、
+負荷プロファイルCRUDは`goal_service_load_profile.py`に分割して置く（実装フェーズ分割
+計画書S02。資格試験・読書・仕事の3カテゴリの分岐がほとんどの関数内に混在しており
+カテゴリ別ファイルには馴染まないため、処理の段階別に分割した）。
 """
 
 import datetime as dt
-from dataclasses import dataclass
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from app.constants.app_setting_keys import (
-    CALENDAR_DAY_BOUNDARY_HOUR,
-    HOLIDAY_TREAT_AS_BUFFER,
-    RESUME_QUOTA_WARNING_RATIO,
-)
-from app.constants.enums import BaselineReason, DayType, ExamResultType, GoalCategory, GoalStatus
+from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
+from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus
 from app.constants.goal_transitions import (
-    RESUME_WARNING_QUOTA_INCREASED,
     USER_FACING_OPERATIONS,
     GoalOperation,
     is_operation_allowed,
 )
 from app.constants.sentinels import UNSET
 from app.models.base import utcnow
-from app.models.goal import ExamSubject, Goal, GoalStatusHistory, LoadProfile
+from app.models.goal import ExamSubject, Goal, GoalStatusHistory
 from app.models.material import Material, PlanBaseline
 from app.models.record import (
     ChatMessage,
@@ -39,22 +38,13 @@ from app.models.record import (
 )
 from app.models.work import WorkEvaluationReport
 from app.services import (
-    allocation_service,
     baseline_service,
     calendar_service,
     cycle_service,
     quota_service,
     setting_reader,
 )
-from app.services.exceptions import (
-    ExamResultsIncompleteError,
-    ExamSubjectRequiredError,
-    InvalidStateTransitionError,
-    MaterialRequiredError,
-    NotFoundError,
-    ResourceAllocationRequiredError,
-    ValidationError,
-)
+from app.services.exceptions import InvalidStateTransitionError, NotFoundError
 
 #: クローズ済みとみなす目標状態（仕様書6.2「クローズの場合、全項目を読み取り専用とする」）。
 _CLOSED_STATUSES = (GoalStatus.CLOSED_WITH_RESULT, GoalStatus.CLOSED_WITHOUT_RESULT)
@@ -162,18 +152,12 @@ def ensure_any_goal_active(session: Session) -> None:
         raise InvalidStateTransitionError("No ACTIVE goal; cannot operate on comments")
 
 
-def _change_status(session: Session, goal: Goal, new_status: GoalStatus) -> None:
-    """目標の状態を変更し、状態遷移履歴に1行追加する（開発Todo 1-6、履歴は報告率の計算に使う）。
-
-    状態変更はこの関数に集約する。遷移の判定で拒否された場合はここに到達しないため、履歴も残らない。
-    """
-    _append_status_history(session, goal, from_status=goal.status, to_status=new_status)
-    goal.status = new_status
-
-
 def _append_status_history(
     session: Session, goal: Goal, *, from_status: GoalStatus | None, to_status: GoalStatus
 ) -> None:
+    """状態遷移履歴へ1行追加する。`goal_service_lifecycle._change_status`・本モジュールの
+    `create_goal`（初期状態DRAFTの記録）の両方から呼ばれる（CLAUDE.md DRYの原則）。
+    """
     session.add(
         GoalStatusHistory(
             goal_id=goal.id,
@@ -181,20 +165,6 @@ def _append_status_history(
             to_status=to_status,
             changed_at=utcnow(),
         )
-    )
-
-
-def _validate_allocation_capacity(session: Session, goal: Goal) -> None:
-    """目標の現在の配分が、各スロットの容量に収まることを検証する（データ構造編5.2）。
-
-    開始・復帰の時点で、他のACTIVEな目標の配分と合わせて超過しないかを見る。設定時点では
-    ACTIVEでなかった目標（DRAFT・PAUSED）が合計計算に算入されていないため、状態遷移の
-    たびに検証し直す必要がある（仕様書7.1）。
-    """
-    allocation_service.validate_capacity(
-        session,
-        allocation_service.get_allocation_minutes(session, goal.id),
-        exclude_goal_id=goal.id,
     )
 
 
@@ -431,187 +401,6 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     _delete_now_empty_daily_records(session, record_ids)
 
 
-def activate_goal(session: Session, goal: Goal) -> Goal:
-    """下書き→進行中（仕様書7.1）。前提未達・リソース超過時は例外を送出する。
-
-    読書目標（category=READING）は書籍の登録のみを前提とし、教材・リソース配分・
-    計画基準値（EXAM固有の計画管理、要件定義書R-71）は対象外とする。仕事目標
-    （category=WORK）は案件情報の登録のみを前提とする（要件定義書R-74）。
-    """
-    ensure_operation_allowed(goal, GoalOperation.ACTIVATE)
-    if goal.archived_at is not None:
-        raise InvalidStateTransitionError("Goal is archived; restore it before starting")
-
-    if goal.category == GoalCategory.READING:
-        if goal.book is None:
-            raise ValidationError("Register a book first")
-    elif goal.category == GoalCategory.WORK:
-        if goal.work_assignment is None:
-            raise ValidationError("Register work assignment information first")
-    else:
-        if not goal.exam_subjects:
-            raise ExamSubjectRequiredError
-        if not goal.materials:
-            raise MaterialRequiredError
-        if allocation_service.sum_allocated_minutes(session, goal.id) <= 0:
-            raise ResourceAllocationRequiredError
-
-    # 読書目標は配分が任意（R-64）のため配分の有無は問わないが、配分を持つ場合は
-    # 資格試験と同様にスロットの空きを検証する。仕事目標は配分の対象外（R-74）。
-    if goal.category != GoalCategory.WORK:
-        _validate_allocation_capacity(session, goal)
-
-    _change_status(session, goal, GoalStatus.ACTIVE)
-    goal.activated_at = utcnow()
-    session.flush()
-
-    if goal.category == GoalCategory.EXAM:
-        today = resolve_today(session)
-        treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
-        for material in goal.materials:
-            if material.is_active:
-                record_baseline_for_material(
-                    session, material, BaselineReason.INITIAL, today, treat_holiday_as_buffer
-                )
-    return goal
-
-
-def pause_goal(session: Session, goal: Goal) -> Goal:
-    """進行中→一時停止（仕様書7.1）。リソース配分は解放される（合計計算から除外）。"""
-    ensure_operation_allowed(goal, GoalOperation.PAUSE)
-    _change_status(session, goal, GoalStatus.PAUSED)
-    session.flush()
-    return goal
-
-
-@dataclass(frozen=True)
-class ResumeResult:
-    """再開の結果。warnings は警告コードの一覧（資格試験の再計画で学習量が増えた場合など）。"""
-
-    goal: Goal
-    warnings: list[str]
-
-
-def resume_goal(session: Session, goal: Goal) -> ResumeResult:
-    """一時停止・中断・完了→進行中（仕様書7.1、開発Todo 1-5）。
-
-    リソースの空きが不足する場合はエラーとする。資格試験目標は「配分が1分以上あること」を
-    要求する。読書目標は配分が任意のため（要件定義書R-64）、未設定でも復帰できる。ただし配分を
-    持つ場合は、資格試験と同様にスロットの空きが足りるかを検証する（仕様書7.1）。仕事目標は
-    配分の対象外（R-74）。
-
-    中断・完了からの再開では、データを引き継ぐ（開始日は変更しない）。終了時刻（closed_at）は
-    再開により意味を失うため解除する（終了の履歴は状態遷移履歴に残る）。資格試験は再開日から
-    残り期間で計画（基準値）を組み直し、学習量が大きく増える場合は警告を返したうえで再開を許可する。
-    """
-    ensure_operation_allowed(goal, GoalOperation.RESUME)
-    if goal.archived_at is not None:
-        raise InvalidStateTransitionError("Goal is archived; restore it before resuming")
-    if goal.category == GoalCategory.EXAM:
-        if allocation_service.sum_allocated_minutes(session, goal.id) <= 0:
-            raise ResourceAllocationRequiredError
-    if goal.category != GoalCategory.WORK:
-        _validate_allocation_capacity(session, goal)
-    was_closed = goal.status in _CLOSED_STATUSES
-    _change_status(session, goal, GoalStatus.ACTIVE)
-    if was_closed:
-        goal.closed_at = None
-    goal.resumed_at = utcnow()
-    session.flush()
-
-    warnings: list[str] = []
-    if goal.category == GoalCategory.EXAM:
-        warnings = _replan_on_resume(session, goal)
-    session.flush()
-    return ResumeResult(goal=goal, warnings=warnings)
-
-
-def _replan_on_resume(session: Session, goal: Goal) -> list[str]:
-    """再開日から残り期間で、教材ごとに計画基準値を組み直す（開発Todo 1-5）。
-
-    停止前の基準値（1日あたりの必要量）より、再計画後の値が設定倍率以上に増えた場合に警告する。
-    倍率は app_setting から読む（閾値をソースに書かない）。停止前の基準値が無い教材は
-    比較できないため警告しない。
-    """
-    today = resolve_today(session)
-    treat_holiday_as_buffer = resolve_treat_holiday_as_buffer(session)
-    ratio = setting_reader.get_float(session, RESUME_QUOTA_WARNING_RATIO)
-    warnings: set[str] = set()
-    for material in goal.materials:
-        if not material.is_active:
-            continue
-        previous = baseline_service.get_current_baseline(session, material.id, today)
-        current = record_baseline_for_material(
-            session, material, BaselineReason.RESUMED, today, treat_holiday_as_buffer
-        )
-        if (
-            previous is not None
-            and previous.baseline_daily_quota > 0
-            and current.baseline_daily_quota / previous.baseline_daily_quota >= ratio
-        ):
-            warnings.add(RESUME_WARNING_QUOTA_INCREASED)
-    return sorted(warnings)
-
-
-def abandon_goal(session: Session, goal: Goal) -> Goal:
-    """中断する（実行中・一時停止→中断、開発Todo 1-3）。
-
-    中断の表示名は種類ごとに異なる（読書＝中断、資格試験＝中断、仕事＝中止・打ち切り。1-2）。
-    内部の状態は CLOSED_WITHOUT_RESULT に統一する。確認は画面で1回行う。
-    """
-    ensure_operation_allowed(goal, GoalOperation.ABANDON)
-    _change_status(session, goal, GoalStatus.CLOSED_WITHOUT_RESULT)
-    goal.closed_at = utcnow()
-    session.flush()
-    return goal
-
-
-def complete_goal(session: Session, goal: Goal) -> Goal:
-    """完了する（実行中→完了、開発Todo 1-3）。
-
-    完了の条件は種類ごとに異なる。資格試験は全科目の合否が登録済みであること（揃っていない場合は
-    ExamResultsIncompleteErrorで拒否し、画面は完了ボタンを無効化する）。読書は書籍の登録済み
-    （読了として記録する操作の後継）。仕事は案件情報の登録済み。完了の内部状態は
-    CLOSED_WITH_RESULT（読書では「読了」、資格試験では「完了」、仕事では「完了」と表示する）。
-    """
-    ensure_operation_allowed(goal, GoalOperation.COMPLETE)
-    if goal.category == GoalCategory.READING:
-        if goal.book is None:
-            raise ValidationError("Register a book first")
-    elif goal.category == GoalCategory.WORK:
-        if goal.work_assignment is None:
-            raise ValidationError("Register work assignment information first")
-    else:
-        has_all_results = bool(goal.exam_subjects) and all(
-            subject.exam_result is not None for subject in goal.exam_subjects
-        )
-        if not has_all_results:
-            raise ExamResultsIncompleteError
-    _change_status(session, goal, GoalStatus.CLOSED_WITH_RESULT)
-    goal.closed_at = utcnow()
-    session.flush()
-    return goal
-
-
-def compute_is_achieved(goal: Goal) -> bool:
-    """目標が達成済みかどうかを判定する（仕様書v1.1 13.6、S-12の解消）。
-
-    CLOSED_WITH_RESULTは「結果が登録済み」を意味するだけで、資格試験（EXAM）は
-    合否（ExamResultType.PASS/FAIL）を区別しない（complete_goalのhas_all_results判定と同じ
-    exam_subjects/exam_resultを参照）。そのためEXAMのみ、全科目がPASSであることまで
-    確認する。読書（complete_goal）・仕事（完了）は
-    CLOSED_WITH_RESULTへの到達自体が達成を意味するため、追加判定を行わない。
-    """
-    if goal.status != GoalStatus.CLOSED_WITH_RESULT:
-        return False
-    if goal.category != GoalCategory.EXAM:
-        return True
-    return bool(goal.exam_subjects) and all(
-        subject.exam_result is not None and subject.exam_result.result == ExamResultType.PASS
-        for subject in goal.exam_subjects
-    )
-
-
 def get_baselines(session: Session, goal: Goal) -> list[PlanBaseline]:
     """目標配下の全教材のリプラン履歴を取得する（データ構造編5.3、Phase3実装対象「リプラン履歴の取得」）。"""
     return (
@@ -621,93 +410,3 @@ def get_baselines(session: Session, goal: Goal) -> list[PlanBaseline]:
         .order_by(PlanBaseline.effective_from.desc(), PlanBaseline.id.desc())
         .all()
     )
-
-
-def get_load_profile(session: Session, load_profile_id: int) -> LoadProfile:
-    profile = session.get(LoadProfile, load_profile_id)
-    if profile is None:
-        raise NotFoundError("LoadProfile", load_profile_id)
-    return profile
-
-
-def list_load_profiles(session: Session, goal: Goal) -> list[LoadProfile]:
-    return (
-        session.query(LoadProfile)
-        .filter(LoadProfile.goal_id == goal.id)
-        .order_by(LoadProfile.date_from)
-        .all()
-    )
-
-
-def _validate_load_profile_period(
-    session: Session,
-    goal: Goal,
-    date_from: dt.date,
-    date_to: dt.date,
-    coefficient: float,
-    exclude_id: int | None,
-) -> None:
-    if date_from > date_to:
-        raise ValidationError("Effective start date must be on or before the end date")
-    if coefficient <= 0:
-        raise ValidationError("Load coefficient must be a positive number")
-
-    query = session.query(LoadProfile).filter(
-        LoadProfile.goal_id == goal.id,
-        LoadProfile.date_from <= date_to,
-        LoadProfile.date_to >= date_from,
-    )
-    if exclude_id is not None:
-        query = query.filter(LoadProfile.id != exclude_id)
-    if query.first() is not None:
-        raise ValidationError("Period overlaps with an existing load profile")
-
-
-def create_load_profile(
-    session: Session,
-    goal: Goal,
-    *,
-    date_from: dt.date,
-    date_to: dt.date,
-    coefficient: float,
-    note: str | None,
-) -> LoadProfile:
-    ensure_goal_editable(goal)
-    _validate_load_profile_period(session, goal, date_from, date_to, coefficient, exclude_id=None)
-    profile = LoadProfile(
-        goal_id=goal.id, date_from=date_from, date_to=date_to, coefficient=coefficient, note=note
-    )
-    session.add(profile)
-    session.flush()
-    return profile
-
-
-def update_load_profile(
-    session: Session,
-    profile: LoadProfile,
-    *,
-    date_from: dt.date | None = None,
-    date_to: dt.date | None = None,
-    coefficient: float | None = None,
-    note: str | None = None,
-) -> LoadProfile:
-    ensure_goal_editable(profile.goal)
-    new_from = date_from if date_from is not None else profile.date_from
-    new_to = date_to if date_to is not None else profile.date_to
-    new_coefficient = coefficient if coefficient is not None else profile.coefficient
-    _validate_load_profile_period(
-        session, profile.goal, new_from, new_to, new_coefficient, exclude_id=profile.id
-    )
-    profile.date_from = new_from
-    profile.date_to = new_to
-    profile.coefficient = new_coefficient
-    if note is not None:
-        profile.note = note
-    session.flush()
-    return profile
-
-
-def delete_load_profile(session: Session, profile: LoadProfile) -> None:
-    ensure_goal_editable(profile.goal)
-    session.delete(profile)
-    session.flush()
