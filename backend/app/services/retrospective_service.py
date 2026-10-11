@@ -25,7 +25,13 @@ from app.constants.enums import (
 )
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
-from app.services import ai_context_service, goal_service, setting_reader
+from app.services import (
+    ai_context_common,
+    ai_context_exam,
+    ai_context_reading,
+    goal_service,
+    setting_reader,
+)
 from app.services.exceptions import InvalidStateTransitionError, ValidationError
 
 #: ai_conversation.scope_key はGOAL_RETROSPECTIVEでは固定値"main"とする
@@ -34,7 +40,7 @@ from app.services.exceptions import InvalidStateTransitionError, ValidationError
 _SCOPE_KEY = "main"
 
 #: {{weekly_summaries}}／{{reading_logs}}が空の場合の表示（17.5・17.7）。
-#: ai_context_service側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
+#: ai_context_exam／ai_context_reading側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
 #: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う
 #: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_entries／build_reading_logs_entriesの
 #: 前身（build_all_weekly_summaries_text／build_reading_logs_text）が元々返していた文言と
@@ -87,20 +93,20 @@ def _build_exam_context(
     materials = [material for material in goal.materials if material.is_active]
     return prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "goal_summary": ai_context_service.build_goal_summary([goal], today),
-            "material_summary": ai_context_service.build_material_summary_text(session, materials),
-            "overall_metrics": ai_context_service.build_overall_metrics_text(
+            "goal_summary": ai_context_exam.build_goal_summary([goal], today),
+            "material_summary": ai_context_exam.build_material_summary_text(session, materials),
+            "overall_metrics": ai_context_exam.build_overall_metrics_text(
                 session, goal, today, treat_holiday_as_buffer
             ),
-            "quality_trend": ai_context_service.build_quality_trend_text(session, materials),
-            "replan_history": ai_context_service.build_replan_history_text(session, goal),
-            "exam_results": ai_context_service.build_exam_results_text(session, goal),
-            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+            "quality_trend": ai_context_exam.build_quality_trend_text(session, materials),
+            "replan_history": ai_context_exam.build_replan_history_text(session, goal),
+            "exam_results": ai_context_exam.build_exam_results_text(session, goal),
+            "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
-                entries=ai_context_service.build_all_weekly_summaries_entries(session, goal),
+                entries=ai_context_exam.build_all_weekly_summaries_entries(session, goal),
                 empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
             ),
         ],
@@ -117,14 +123,14 @@ def _build_reading_context(
     book = goal.book
     # L-11: 週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない直近部分
     # （週次要約バッチが未到達の場合を含む）は{{reading_logs}}のまま注入する。
-    compressed = ai_context_service.resolve_weekly_compressed_period(
+    compressed = ai_context_common.resolve_weekly_compressed_period(
         session, goal, period_start=book.start_date, period_end=today
     )
     return prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "book_summary": ai_context_service.build_retrospective_book_summary_text(book),
-            "overall_metrics": ai_context_service.build_reading_overall_metrics_text(session, book),
-            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+            "book_summary": ai_context_reading.build_retrospective_book_summary_text(book),
+            "overall_metrics": ai_context_reading.build_reading_overall_metrics_text(session, book),
+            "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
         stages=[
             prompt_builder.DegradableEntryStage(
@@ -134,8 +140,8 @@ def _build_reading_context(
             ),
             prompt_builder.DegradableEntryStage(
                 key="reading_logs",
-                entries=ai_context_service.exclude_covered_dates(
-                    ai_context_service.build_reading_logs_entries(
+                entries=ai_context_common.exclude_covered_dates(
+                    ai_context_reading.build_reading_logs_entries(
                         session, book, date_from=book.start_date
                     ),
                     compressed.covered_ranges,

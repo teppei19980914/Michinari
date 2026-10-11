@@ -32,7 +32,7 @@ from app.constants.recap import (
 )
 from app.models.goal import Goal
 from app.models.recap import RecapTheme
-from app.services import ai_context_service, recap_service, setting_reader
+from app.services import ai_context_exam, ai_context_reading, recap_service, setting_reader
 from app.services.exceptions import RecapBodyRejectedError, RecapPromptTooLongError
 
 _logger = logging.getLogger(__name__)
@@ -235,9 +235,9 @@ def run_all(session: Session, today: dt.date) -> int:
     1件の失敗が他の目標を止めないよう、目標ごとに取り消して続行する（16.7）。
     戻り値は分類できた報告の総件数。
     """
-    goals = ai_context_service.list_active_exam_goals(
+    goals = ai_context_exam.list_active_exam_goals(
         session
-    ) + ai_context_service.list_active_reading_goals(session)
+    ) + ai_context_reading.list_active_reading_goals(session)
     total = 0
     for goal in goals:
         try:

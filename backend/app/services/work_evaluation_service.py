@@ -19,7 +19,7 @@ from app.constants.app_setting_keys import AI_ASSISTANT_UID_EVALUATION_REPORT_WO
 from app.constants.enums import AiPurpose, ConversationScope, WorkEvaluationRole
 from app.models.base import utcnow
 from app.models.work import WorkAssignment, WorkEvaluationReport, WorkMember
-from app.services import ai_context_service, setting_reader
+from app.services import ai_context_work, setting_reader
 from app.services.exceptions import NotFoundError, ValidationError
 
 #: {{feedback_history}}が空（対象目標のNewtonXフィードバック履歴なし）場合の表示。
@@ -54,22 +54,20 @@ def generate_evaluation_report(
 
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "member_summary": ai_context_service.build_evaluation_member_summary_text(
-                session, member
-            ),
+            "member_summary": ai_context_work.build_evaluation_member_summary_text(session, member),
             "considerations": considerations,
         },
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="feedback_history",
-                entries=ai_context_service.build_evaluation_feedback_history_entries(
+                entries=ai_context_work.build_evaluation_feedback_history_entries(
                     session, work_assignment.goal
                 ),
                 empty_text=_NO_FEEDBACK_HISTORY_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
                 key="work_logs",
-                entries=ai_context_service.build_work_logs_entries_for_period(
+                entries=ai_context_work.build_work_logs_entries_for_period(
                     session, work_assignment, work_assignment.start_date, today
                 ),
                 empty_text=_NO_WORK_LOGS_TEXT,

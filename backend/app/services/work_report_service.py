@@ -27,11 +27,11 @@ from app.constants.sentinels import UNSET
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
-from app.services import ai_context_service, retrospective_service, setting_reader
+from app.services import ai_context_common, ai_context_work, retrospective_service, setting_reader
 from app.services.exceptions import ValidationError
 
 #: {{month_logs}}／{{period_logs}}が空（対象期間に業務記録なし）の場合の表示（17.9・17.10）。
-#: ai_context_service.build_work_logs_entries_for_periodは整形前のlist[DatedLogEntry]を
+#: ai_context_work.build_work_logs_entries_for_periodは整形前のlist[DatedLogEntry]を
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が
 #: 持つこの定数を使う（CLAUDE.md DRYの原則。月次・半期の両方で同じ文言を使い回す）。
 _NO_PERIOD_WORK_LOGS_TEXT = "（対象期間の業務記録はありません）"
@@ -280,17 +280,15 @@ def generate_monthly_report(
 
     # L-11: 対象月のうち週次要約が既に生成済みの範囲は圧縮表現へ、まだ生成されていない
     # 直近部分（週次要約バッチが未到達の場合を含む）は{{month_logs}}のまま注入する。
-    compressed = ai_context_service.resolve_weekly_compressed_period(
+    compressed = ai_context_common.resolve_weekly_compressed_period(
         session, goal, period_start=date_from, period_end=date_to
     )
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "work_summary": ai_context_service.build_retrospective_work_summary_text(
-                work_assignment
-            ),
+            "work_summary": ai_context_work.build_retrospective_work_summary_text(work_assignment),
             "target_month": target_month,
             "target_goal_text": target_goal_text,
-            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+            "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
         stages=[
             prompt_builder.DegradableEntryStage(
@@ -300,8 +298,8 @@ def generate_monthly_report(
             ),
             prompt_builder.DegradableEntryStage(
                 key="month_logs",
-                entries=ai_context_service.exclude_covered_dates(
-                    ai_context_service.build_work_logs_entries_for_period(
+                entries=ai_context_common.exclude_covered_dates(
+                    ai_context_work.build_work_logs_entries_for_period(
                         session, work_assignment, date_from, date_to
                     ),
                     compressed.covered_ranges,
@@ -412,17 +410,15 @@ def generate_semiannual_review(
     # 直近部分（週次要約バッチが未到達の場合を含む）は{{period_logs}}のまま注入する。
     # 半期評価は最大6ヶ月分の生ログ注入となるため、この置き換えの効果が最も大きい
     # （L-11「対象期間の前半の実績が評価から漏れる」副作用の根本対応）。
-    compressed = ai_context_service.resolve_weekly_compressed_period(
+    compressed = ai_context_common.resolve_weekly_compressed_period(
         session, goal, period_start=date_from, period_end=date_to
     )
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "work_summary": ai_context_service.build_retrospective_work_summary_text(
-                work_assignment
-            ),
+            "work_summary": ai_context_work.build_retrospective_work_summary_text(work_assignment),
             "target_period": target_period,
             "target_goal_text": target_goal_text,
-            "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+            "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
         stages=[
             prompt_builder.DegradableEntryStage(
@@ -432,8 +428,8 @@ def generate_semiannual_review(
             ),
             prompt_builder.DegradableEntryStage(
                 key="period_logs",
-                entries=ai_context_service.exclude_covered_dates(
-                    ai_context_service.build_work_logs_entries_for_period(
+                entries=ai_context_common.exclude_covered_dates(
+                    ai_context_work.build_work_logs_entries_for_period(
                         session, work_assignment, date_from, date_to
                     ),
                     compressed.covered_ranges,

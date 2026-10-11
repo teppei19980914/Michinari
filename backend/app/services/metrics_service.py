@@ -42,7 +42,7 @@ def compute_buffer_consumption(
     消費済みと判定され、目標ごとの余裕度を表さない値になる。
 
     バッファ消費率（compute_buffer_usage_rate、目標開始日〜前日）と週次要約の
-    {{week_metrics}}（週内、ai_context_service.build_week_metrics_text）は集計窓が
+    {{week_metrics}}（週内、ai_context_exam.build_week_metrics_text）は集計窓が
     異なるだけの同一処理のため、ここへ共通化する（CLAUDE.md DRYの原則）。
     """
     day_types = calendar_service.resolve_day_types(
@@ -241,7 +241,7 @@ class StudySummary:
 def compute_study_summary(session: Session, material_ids: list[int]) -> StudySummary:
     """教材群の総投下時間（分）・学習日数を集計する（総括レポート17.5
     {{overall_metrics}}、ナレッジエクスポート7.1 summary.total_minutes/study_daysの
-    共通算出処理。export_service.pyとai_context_service.pyの双方から呼ぶ、
+    共通算出処理。export_service.pyとai_context_exam.pyの双方から呼ぶ、
     CLAUDE.md DRYの原則）。"""
     if not material_ids:
         return StudySummary(total_minutes=0, study_days=0)

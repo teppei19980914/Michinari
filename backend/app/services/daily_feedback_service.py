@@ -24,7 +24,8 @@ from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCate
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
 from app.services import (
-    ai_context_service,
+    ai_context_common,
+    ai_context_exam,
     calendar_service,
     goal_service,
     record_service,
@@ -82,7 +83,7 @@ def send_daily_feedback(
     diary_entries = [entry for entry in diary_entries if entry.goal_id == goal.id]
 
     active_goals = [goal]
-    active_materials = ai_context_service.list_active_materials(active_goals)
+    active_materials = ai_context_exam.list_active_materials(active_goals)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     day_type = calendar_service.resolve_day_type(session, target_date, treat_holiday_as_buffer)
 
@@ -110,13 +111,13 @@ def send_daily_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
-    diary_body, diary_learned = ai_context_service.build_diary_text(diary_entries, active_goals)
+    diary_body, diary_learned = ai_context_exam.build_diary_text(diary_entries, active_goals)
 
     reported_count = record_service.count_reported_records_before(
         session, GoalCategory.EXAM, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
-    perspective_suggestion = ai_context_service.build_perspective_suggestion_instruction(
+    perspective_suggestion = ai_context_common.build_perspective_suggestion_instruction(
         GoalCategory.EXAM, reported_count < min_records
     )
 
@@ -124,18 +125,18 @@ def send_daily_feedback(
         today=target_date.isoformat(),
         day_type=day_type.value,
         load_coefficient=load_coefficient_text,
-        goal_summary=ai_context_service.build_goal_summary(active_goals, target_date),
-        material_entries=ai_context_service.build_material_status_entries(
+        goal_summary=ai_context_exam.build_goal_summary(active_goals, target_date),
+        material_entries=ai_context_exam.build_material_status_entries(
             session, active_materials, target_date, treat_holiday_as_buffer
         ),
-        slot_summary=ai_context_service.build_slot_summary(session, active_materials, target_date),
-        buffer_usage_rate=ai_context_service.build_buffer_usage_rate_text(
+        slot_summary=ai_context_exam.build_slot_summary(session, active_materials, target_date),
+        buffer_usage_rate=ai_context_exam.build_buffer_usage_rate_text(
             session, active_goals, target_date, treat_holiday_as_buffer
         ),
-        today_logs=ai_context_service.build_today_logs_text(study_log_items, materials_by_id),
+        today_logs=ai_context_exam.build_today_logs_text(study_log_items, materials_by_id),
         diary_body=diary_body,
         diary_learned=diary_learned,
-        weekly_summaries=ai_context_service.build_recent_weekly_summaries(
+        weekly_summaries=ai_context_exam.build_recent_weekly_summaries(
             session, active_goals, setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
         ),
         conversation_history=history,

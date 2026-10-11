@@ -106,7 +106,7 @@ def _work_log(work_assignment_id, **overrides):
 
 def _add_past_work_log(session, work_assignment_id, record_date, body):
     """{{recent_work_logs}}に注入される過去日の業務記録（保存済み）を追加する
-    （ai_context_service.build_recent_work_logs_entriesが参照するWorkLog行、17.8）。"""
+    （ai_context_work.build_recent_work_logs_entriesが参照するWorkLog行、17.8）。"""
     record = DailyRecord(record_date=record_date, work_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()

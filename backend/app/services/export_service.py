@@ -10,6 +10,7 @@ JSONスキーマ例には対応するフィールドが無い（既定で除外�
 import datetime as dt
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -596,7 +597,7 @@ def _build_work_export_data(
     return data
 
 
-def build_export_data(
+def _build_exam_export_data(
     session: Session,
     goal: Goal,
     selection: ExportSelection,
@@ -604,26 +605,11 @@ def build_export_data(
     today: dt.date,
     treat_holiday_as_buffer: bool,
     anonymized: bool,
+    data: dict,
 ) -> dict:
-    """データ構造編7.1のJSONスキーマに沿ってエクスポートデータを組み立てる。
-
-    anonymized=True の場合、weekly_summaries・retrospective は匿名化版レコードのみを参照する
-    （元版へフォールバックしない。フォールバックすると匿名化の目的が果たせないため、
-    未生成であれば空のまま返す。呼び出し元 execute_export が事前に匿名化版を生成する）。
-    """
-    data: dict = {
-        "schema_version": SCHEMA_VERSION,
-        "exported_at": dt.datetime.now(dt.UTC).isoformat(),
-        "anonymized": anonymized,
-    }
-
-    if goal.category == GoalCategory.READING:
-        return _build_reading_export_data(
-            session, goal, selection, anonymized=anonymized, data=data
-        )
-    if goal.category == GoalCategory.WORK:
-        return _build_work_export_data(session, goal, selection, anonymized=anonymized, data=data)
-
+    """資格試験目標（category=EXAM）向けのエクスポートデータ組み立て（build_export_dataの
+    EXAM分岐を抽出。_build_reading_export_data／_build_work_export_dataと対称の形にする、
+    複雑度分割S01）。"""
     materials = [material for material in goal.materials if material.is_active]
 
     if selection.goal_overview:
@@ -660,6 +646,45 @@ def build_export_data(
         data["ai_dialogue"] = _build_ai_dialogue(session, goal)
 
     return data
+
+
+def build_export_data(
+    session: Session,
+    goal: Goal,
+    selection: ExportSelection,
+    *,
+    today: dt.date,
+    treat_holiday_as_buffer: bool,
+    anonymized: bool,
+) -> dict:
+    """データ構造編7.1のJSONスキーマに沿ってエクスポートデータを組み立てる。
+
+    anonymized=True の場合、weekly_summaries・retrospective は匿名化版レコードのみを参照する
+    （元版へフォールバックしない。フォールバックすると匿名化の目的が果たせないため、
+    未生成であれば空のまま返す。呼び出し元 execute_export が事前に匿名化版を生成する）。
+    """
+    data: dict = {
+        "schema_version": SCHEMA_VERSION,
+        "exported_at": dt.datetime.now(dt.UTC).isoformat(),
+        "anonymized": anonymized,
+    }
+
+    if goal.category == GoalCategory.READING:
+        return _build_reading_export_data(
+            session, goal, selection, anonymized=anonymized, data=data
+        )
+    if goal.category == GoalCategory.WORK:
+        return _build_work_export_data(session, goal, selection, anonymized=anonymized, data=data)
+
+    return _build_exam_export_data(
+        session,
+        goal,
+        selection,
+        today=today,
+        treat_holiday_as_buffer=treat_holiday_as_buffer,
+        anonymized=anonymized,
+        data=data,
+    )
 
 
 def _render_reading_markdown(data: dict) -> str:
@@ -749,6 +774,157 @@ def _render_work_markdown(data: dict) -> str:
     return f"# {title}\n\n" + "\n\n".join(sections)
 
 
+def _render_overview_section(data: dict) -> str:
+    goal_data = data["goal"]
+    subjects_text = (
+        "\n".join(
+            f"- {s['name']}{EXPORT_LABEL_EXAM_DATE_PREFIX}{s['exam_date']}"
+            f"{EXPORT_LABEL_PASSING_SCORE_PREFIX}{_format_passing_score(s)}）"
+            for s in data.get("subjects", [])
+        )
+        or EXPORT_PLACEHOLDER_NO_SUBJECTS
+    )
+    closed_at_text = goal_data["closed_at"] or EXPORT_PLACEHOLDER_NOT_CLOSED
+    return (
+        f"{EXPORT_HEADING_OVERVIEW}\n\n"
+        f"{EXPORT_LABEL_EXAM_NAME}{goal_data['name']}\n"
+        f"{EXPORT_LABEL_STUDY_PERIOD}{goal_data['start_date']} 〜 {closed_at_text}\n"
+        f"{EXPORT_LABEL_STATUS}{goal_data['status']}\n\n{subjects_text}"
+    )
+
+
+def _render_retrospective_section(data: dict) -> str:
+    body = data["retrospective"] or EXPORT_PLACEHOLDER_NO_RETROSPECTIVE
+    return f"{EXPORT_HEADING_RETROSPECTIVE}\n\n{body}"
+
+
+def _render_study_volume_section(data: dict) -> str:
+    s = data["summary"]
+    return (
+        f"{EXPORT_HEADING_STUDY_VOLUME}\n\n"
+        f"{EXPORT_LABEL_TOTAL_TIME}{s['total_minutes'] / 60:.1f}{EXPORT_UNIT_HOURS}\n"
+        f"{EXPORT_LABEL_STUDY_DAYS}{s['study_days']}{EXPORT_UNIT_DAYS}\n"
+        f"{EXPORT_LABEL_REPORT_RATE}{s['report_rate']:.0%}\n"
+        f"{EXPORT_LABEL_AVERAGE_TIME}{s['average_minutes_per_day']:.1f}{EXPORT_UNIT_MINUTES_PER_DAY}"
+    )
+
+
+def _render_materials_section(data: dict) -> str:
+    rows = "\n".join(
+        f"| {m['name']} | {m['total_amount']}{m['unit']} | {m['planned_cycles']} | "
+        f"{m['completed_cycles']} | {m['due_date']} |"
+        for m in data["materials"]
+    )
+    return (
+        f"{EXPORT_HEADING_MATERIALS}\n\n"
+        f"{EXPORT_TABLE_HEAD_MATERIALS}\n| --- | --- | --- | --- | --- |\n"
+        f"{rows}"
+    )
+
+
+def _render_quality_trend_section(data: dict) -> str:
+    lines = []
+    for entry in data["quality_trend"]:
+        points = "、".join(f"{p['date']}: {p['value']:.1f}" for p in entry["series"])
+        lines.append(f"- {entry['material']} {entry['cycle']}{EXPORT_UNIT_CYCLE}: {points}")
+    return f"{EXPORT_HEADING_QUALITY_TREND}\n\n" + (
+        "\n".join(lines) or EXPORT_PLACEHOLDER_NO_RECORDS
+    )
+
+
+def _render_replan_history_section(data: dict) -> str:
+    rows = "\n".join(
+        f"| {r['date']} | {r['material']} | {_REASON_LABELS.get(r['reason'], r['reason'])} | "
+        f"{r['quota_before']} → {r['quota_after']} |"
+        for r in data["replan_history"]
+    )
+    return (
+        f"{EXPORT_HEADING_REPLAN_HISTORY}\n\n"
+        f"{EXPORT_TABLE_HEAD_REPLAN}\n| --- | --- | --- | --- |\n"
+        f"{rows}"
+    )
+
+
+def _render_weekly_summaries_section(data: dict) -> str:
+    lines = "\n\n".join(f"### {w['week_start']}\n\n{w['body']}" for w in data["weekly_summaries"])
+    return f"{EXPORT_HEADING_WEEKLY_SUMMARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
+
+
+def _render_recap_themes_section(data: dict) -> str:
+    blocks = "\n\n".join(
+        f"### {theme['name']}\n\n{theme['body'] or EXPORT_PLACEHOLDER_NO_BODY}"
+        for theme in data["recap_themes"]
+    )
+    return f"{EXPORT_HEADING_RECAP_THEMES}\n\n" + (blocks or EXPORT_PLACEHOLDER_NO_RECORDS)
+
+
+def _render_daily_records_section(data: dict) -> str:
+    rows = "\n".join(
+        f"| {r['date']} | {r['material']} | {r['minutes'] or '-'} | {r['amount']} | "
+        f"{r['cycle']} | {r['quality'] if r['quality'] is not None else '-'} |"
+        for r in data["daily_records"]
+    )
+    return (
+        f"{EXPORT_HEADING_APPENDIX_DAILY_RECORDS}\n\n"
+        f"{EXPORT_TABLE_HEAD_DAILY_RECORDS}\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"{rows}"
+    )
+
+
+def _render_exam_results_section(data: dict) -> str:
+    rows = "\n".join(
+        f"| {r['subject']} | {_RESULT_LABELS.get(r['result'], r['result'])} | "
+        f"{r['score'] if r['score'] is not None else '-'} |"
+        for r in data["results"]
+    )
+    return (
+        f"{EXPORT_HEADING_EXAM_RESULTS}\n\n"
+        f"{EXPORT_TABLE_HEAD_EXAM_RESULTS}\n| --- | --- | --- |\n" + rows
+    )
+
+
+def _render_diaries_section(data: dict) -> str:
+    lines = "\n\n".join(
+        f"### {d['date']}\n\n{d['body']}\n\n{EXPORT_LABEL_LEARNED}{d['learned']}"
+        for d in data["diaries"]
+    )
+    return f"{EXPORT_HEADING_DIARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
+
+
+def _render_ai_dialogue_section(data: dict) -> str:
+    lines = "\n".join(f"- [{d['date']}] {d['role']}: {d['content']}" for d in data["ai_dialogue"])
+    return f"{EXPORT_HEADING_AI_DIALOGUE}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
+
+
+#: データのキーと、対応する描画関数の対応（_render_exam_markdownの複雑度分割、S01）。
+#: 1キー＝1セクションの単純な対応のため、辞書で宣言的に表現しif分岐を減らす。
+_EXAM_SECTION_RENDERERS: list[tuple[str, Callable[[dict], str]]] = [
+    ("goal", _render_overview_section),
+    ("retrospective", _render_retrospective_section),
+    ("summary", _render_study_volume_section),
+    ("materials", _render_materials_section),
+    ("quality_trend", _render_quality_trend_section),
+    ("replan_history", _render_replan_history_section),
+    ("weekly_summaries", _render_weekly_summaries_section),
+    ("recap_themes", _render_recap_themes_section),
+    ("daily_records", _render_daily_records_section),
+    ("results", _render_exam_results_section),
+    ("diaries", _render_diaries_section),
+    ("ai_dialogue", _render_ai_dialogue_section),
+]
+
+
+def _render_exam_markdown(data: dict) -> str:
+    """render_markdownのEXAM分岐を抽出（_render_reading_markdown／_render_work_markdownと
+    対称の形にする、複雑度分割S01）。セクションごとの組み立ては各`_render_*_section`へ
+    委譲し、ここではデータに存在するキーの分だけ呼び出す（宣言的な対応表で分岐を減らす）。
+    """
+    sections = [renderer(data) for key, renderer in _EXAM_SECTION_RENDERERS if key in data]
+    title = data.get("goal", {}).get("name", EXPORT_DEFAULT_TITLE)
+    return f"# {title}\n\n" + "\n\n".join(sections)
+
+
 def render_markdown(
     data: dict, selection: ExportSelection, category: GoalCategory = GoalCategory.EXAM
 ) -> str:
@@ -757,133 +933,7 @@ def render_markdown(
         return _render_reading_markdown(data)
     if category == GoalCategory.WORK:
         return _render_work_markdown(data)
-
-    sections: list[str] = []
-
-    if "goal" in data:
-        goal_data = data["goal"]
-        subjects_text = (
-            "\n".join(
-                f"- {s['name']}{EXPORT_LABEL_EXAM_DATE_PREFIX}{s['exam_date']}"
-                f"{EXPORT_LABEL_PASSING_SCORE_PREFIX}{_format_passing_score(s)}）"
-                for s in data.get("subjects", [])
-            )
-            or EXPORT_PLACEHOLDER_NO_SUBJECTS
-        )
-        closed_at_text = goal_data["closed_at"] or EXPORT_PLACEHOLDER_NOT_CLOSED
-        sections.append(
-            f"{EXPORT_HEADING_OVERVIEW}\n\n"
-            f"{EXPORT_LABEL_EXAM_NAME}{goal_data['name']}\n"
-            f"{EXPORT_LABEL_STUDY_PERIOD}{goal_data['start_date']} 〜 {closed_at_text}\n"
-            f"{EXPORT_LABEL_STATUS}{goal_data['status']}\n\n{subjects_text}"
-        )
-
-    if "retrospective" in data:
-        body = data["retrospective"] or EXPORT_PLACEHOLDER_NO_RETROSPECTIVE
-        sections.append(f"{EXPORT_HEADING_RETROSPECTIVE}\n\n{body}")
-
-    if "summary" in data:
-        s = data["summary"]
-        sections.append(
-            f"{EXPORT_HEADING_STUDY_VOLUME}\n\n"
-            f"{EXPORT_LABEL_TOTAL_TIME}{s['total_minutes'] / 60:.1f}{EXPORT_UNIT_HOURS}\n"
-            f"{EXPORT_LABEL_STUDY_DAYS}{s['study_days']}{EXPORT_UNIT_DAYS}\n"
-            f"{EXPORT_LABEL_REPORT_RATE}{s['report_rate']:.0%}\n"
-            f"{EXPORT_LABEL_AVERAGE_TIME}{s['average_minutes_per_day']:.1f}{EXPORT_UNIT_MINUTES_PER_DAY}"
-        )
-
-    if "materials" in data:
-        rows = "\n".join(
-            f"| {m['name']} | {m['total_amount']}{m['unit']} | {m['planned_cycles']} | "
-            f"{m['completed_cycles']} | {m['due_date']} |"
-            for m in data["materials"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_MATERIALS}\n\n"
-            f"{EXPORT_TABLE_HEAD_MATERIALS}\n| --- | --- | --- | --- | --- |\n"
-            f"{rows}"
-        )
-
-    if "quality_trend" in data:
-        lines = []
-        for entry in data["quality_trend"]:
-            points = "、".join(f"{p['date']}: {p['value']:.1f}" for p in entry["series"])
-            lines.append(f"- {entry['material']} {entry['cycle']}{EXPORT_UNIT_CYCLE}: {points}")
-        sections.append(
-            f"{EXPORT_HEADING_QUALITY_TREND}\n\n"
-            + ("\n".join(lines) or EXPORT_PLACEHOLDER_NO_RECORDS)
-        )
-
-    if "replan_history" in data:
-        rows = "\n".join(
-            f"| {r['date']} | {r['material']} | {_REASON_LABELS.get(r['reason'], r['reason'])} | "
-            f"{r['quota_before']} → {r['quota_after']} |"
-            for r in data["replan_history"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_REPLAN_HISTORY}\n\n"
-            f"{EXPORT_TABLE_HEAD_REPLAN}\n| --- | --- | --- | --- |\n"
-            f"{rows}"
-        )
-
-    if "weekly_summaries" in data:
-        lines = "\n\n".join(
-            f"### {w['week_start']}\n\n{w['body']}" for w in data["weekly_summaries"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_WEEKLY_SUMMARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
-        )
-
-    if "recap_themes" in data:
-        blocks = "\n\n".join(
-            f"### {theme['name']}\n\n{theme['body'] or EXPORT_PLACEHOLDER_NO_BODY}"
-            for theme in data["recap_themes"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_RECAP_THEMES}\n\n" + (blocks or EXPORT_PLACEHOLDER_NO_RECORDS)
-        )
-
-    if "daily_records" in data:
-        rows = "\n".join(
-            f"| {r['date']} | {r['material']} | {r['minutes'] or '-'} | {r['amount']} | "
-            f"{r['cycle']} | {r['quality'] if r['quality'] is not None else '-'} |"
-            for r in data["daily_records"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_APPENDIX_DAILY_RECORDS}\n\n"
-            f"{EXPORT_TABLE_HEAD_DAILY_RECORDS}\n"
-            "| --- | --- | --- | --- | --- | --- |\n"
-            f"{rows}"
-        )
-
-    if "results" in data:
-        rows = "\n".join(
-            f"| {r['subject']} | {_RESULT_LABELS.get(r['result'], r['result'])} | "
-            f"{r['score'] if r['score'] is not None else '-'} |"
-            for r in data["results"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_EXAM_RESULTS}\n\n"
-            f"{EXPORT_TABLE_HEAD_EXAM_RESULTS}\n| --- | --- | --- |\n" + rows
-        )
-
-    if "diaries" in data:
-        lines = "\n\n".join(
-            f"### {d['date']}\n\n{d['body']}\n\n{EXPORT_LABEL_LEARNED}{d['learned']}"
-            for d in data["diaries"]
-        )
-        sections.append(f"{EXPORT_HEADING_DIARIES}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS))
-
-    if "ai_dialogue" in data:
-        lines = "\n".join(
-            f"- [{d['date']}] {d['role']}: {d['content']}" for d in data["ai_dialogue"]
-        )
-        sections.append(
-            f"{EXPORT_HEADING_AI_DIALOGUE}\n\n" + (lines or EXPORT_PLACEHOLDER_NO_RECORDS)
-        )
-
-    title = data.get("goal", {}).get("name", EXPORT_DEFAULT_TITLE)
-    return f"# {title}\n\n" + "\n\n".join(sections)
+    return _render_exam_markdown(data)
 
 
 def _safe_filename_fragment(name: str) -> str:
