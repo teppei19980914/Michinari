@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from app.constants.enums import RecapSourceKind
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
-from app.services import recap_service, record_service
+from app.services import recap_service, record_service_reading
 from tests import reading_helpers
 from tests.diary_helpers import finalize_diary, make_exam_goal
 
@@ -94,7 +94,7 @@ def test_collect_is_idempotent_and_excludes_classified_entries(seeded_session):
 def test_collect_registers_reading_recall_records(seeded_session):
     goal = reading_helpers.make_reading_goal(seeded_session, name="読書目標")
     book = reading_helpers.make_book(seeded_session, goal.id)
-    record_service.finalize_reading_record(
+    record_service_reading.finalize_reading_record(
         seeded_session,
         dt.date(2026, 3, 9),
         [reading_helpers.reading_log_item(book.id, recall_body="ネットワークの層")],
@@ -130,7 +130,7 @@ def test_entry_texts_prefers_learned_text_and_fetches_in_bulk(seeded_session):
 def test_entry_texts_returns_recall_body_for_reading(seeded_session):
     goal = reading_helpers.make_reading_goal(seeded_session, name="読書目標")
     book = reading_helpers.make_book(seeded_session, goal.id)
-    record_service.finalize_reading_record(
+    record_service_reading.finalize_reading_record(
         seeded_session,
         dt.date(2026, 3, 9),
         [reading_helpers.reading_log_item(book.id, recall_body="想起内容")],
@@ -240,11 +240,11 @@ def test_goal_themes_for_export_is_empty_without_themes(seeded_session):
 
 
 def test_export_includes_recap_themes_unless_anonymized(seeded_session):
-    from app.services import export_service
+    from app.services import export_service_common
 
     goal = make_exam_goal(seeded_session)
     _seed_export_themes(seeded_session, goal)
-    selection = export_service.ExportSelection(
+    selection = export_service_common.ExportSelection(
         goal_overview=False,
         materials=False,
         summary=False,
@@ -257,7 +257,7 @@ def test_export_includes_recap_themes_unless_anonymized(seeded_session):
         retrospective=False,
     )
 
-    included = export_service.build_export_data(
+    included = export_service_common.build_export_data(
         seeded_session,
         goal,
         selection,
@@ -265,7 +265,7 @@ def test_export_includes_recap_themes_unless_anonymized(seeded_session):
         treat_holiday_as_buffer=True,
         anonymized=False,
     )
-    anonymized = export_service.build_export_data(
+    anonymized = export_service_common.build_export_data(
         seeded_session,
         goal,
         selection,
@@ -279,11 +279,11 @@ def test_export_includes_recap_themes_unless_anonymized(seeded_session):
 
 
 def test_markdown_renders_recap_theme_bodies_or_no_record_message(seeded_session):
-    from app.services import export_service
+    from app.services import export_service_common
 
     goal = make_exam_goal(seeded_session)
     _seed_export_themes(seeded_session, goal)
-    selection = export_service.ExportSelection(
+    selection = export_service_common.ExportSelection(
         goal_overview=False,
         materials=False,
         summary=False,
@@ -297,8 +297,8 @@ def test_markdown_renders_recap_theme_bodies_or_no_record_message(seeded_session
     )
     data = {"recap_themes": recap_service.goal_themes_for_export(seeded_session, goal)}
 
-    markdown = export_service.render_markdown(data, selection)
-    empty = export_service.render_markdown({"recap_themes": []}, selection)
+    markdown = export_service_common.render_markdown(data, selection)
+    empty = export_service_common.render_markdown({"recap_themes": []}, selection)
 
     assert "## 8. 振り返りテーマ" in markdown
     assert "### メール関連" in markdown

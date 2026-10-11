@@ -44,8 +44,9 @@ class GoalRead(BaseModel):
     resumed_at: dt.datetime | None
     #: 画面で実行できる操作（遷移表から算出。画面の操作ボタンはこれに従う）。
     available_operations: list[GoalOperation]
-    #: UI-11（目標達成アイコン）の判定基準（仕様書v1.1 13.6）。goal_service.compute_is_achievedで
-    #: 算出する（都度算出、CLAUDE.md 保存禁止に準拠しDBへは持たない）。
+    #: UI-11（目標達成アイコン）の判定基準（仕様書v1.1 13.6）。
+    #: goal_service_lifecycle.compute_is_achievedで算出する（都度算出、CLAUDE.md
+    #: 保存禁止に準拠しDBへは持たない）。
     is_achieved: bool
 
 

@@ -403,10 +403,10 @@ def test_send_daily_feedback_does_not_persist_study_logs_or_diary(seeded_session
             ],
         )
 
-    record = record_service.get_daily_record(seeded_session, dt.date(2026, 8, 24))
+    record = record_service_common.get_daily_record(seeded_session, dt.date(2026, 8, 24))
     assert record is not None
     assert record.study_logs == []
-    assert record_service.get_diary_entries(seeded_session, record) == []
+    assert record_service_exam.get_diary_entries(seeded_session, record) == []
 
 
 def test_send_daily_feedback_records_failure_to_ai_log(seeded_session, monkeypatch):
@@ -462,7 +462,7 @@ def test_send_daily_feedback_omits_perspective_suggestion_once_enough_records_ex
     goal = _make_goal(seeded_session)
     _make_material(seeded_session, goal)
     for day in (21, 22, 23):
-        record = record_service.ensure_daily_record(seeded_session, dt.date(2026, 8, day))
+        record = record_service_common.ensure_daily_record(seeded_session, dt.date(2026, 8, day))
         record.exam_record_state = RecordState.REPORTED
     seeded_session.flush()
     calls = _stub_send_message(monkeypatch)

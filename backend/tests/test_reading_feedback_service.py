@@ -27,9 +27,9 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ReadingLog, WeeklySummary
 from app.models.setting import AppSetting
-from app.services import daily_feedback_service, reading_feedback_service, record_service
+from app.services import daily_feedback_service, reading_feedback_service, record_service_common
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 from tests import reading_helpers
 
 
@@ -265,7 +265,7 @@ def test_send_reading_feedback_does_not_persist_reading_logs(seeded_session, mon
             reading_log_items=[_reading_log(book.id, recall_body="失われてはいけない想起")],
         )
 
-    record = record_service.get_daily_record(seeded_session, dt.date(2026, 8, 24))
+    record = record_service_common.get_daily_record(seeded_session, dt.date(2026, 8, 24))
     assert record is not None
     assert record.reading_logs == []
 

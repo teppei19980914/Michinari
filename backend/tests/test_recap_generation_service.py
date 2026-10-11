@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS, RECAP_CLASSIFY_CHUNK_CHARS
 from app.models.recap import RecapEntry, RecapTheme
 from app.models.setting import AppSetting
-from app.services import recap_generation_service, recap_service, record_service
+from app.services import recap_generation_service, recap_service, record_service_reading
 from app.services.exceptions import RecapBodyRejectedError, RecapPromptTooLongError
 from tests import reading_helpers
 from tests.diary_helpers import finalize_diary, make_exam_goal
@@ -152,7 +152,7 @@ def test_today_entries_are_excluded_from_the_batch(seeded_session, monkeypatch):
 def test_reading_goal_recalls_are_classified_into_themes(seeded_session, monkeypatch):
     goal = reading_helpers.make_reading_goal(seeded_session, name="読書目標")
     book = reading_helpers.make_book(seeded_session, goal.id)
-    record_service.finalize_reading_record(
+    record_service_reading.finalize_reading_record(
         seeded_session,
         dt.date(2026, 3, 9),
         [reading_helpers.reading_log_item(book.id, recall_body="ネットワークの層構造")],
