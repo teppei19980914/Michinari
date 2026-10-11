@@ -317,7 +317,7 @@ def regenerate_all_weekly_summaries_anonymized(
     run_retroactive_generationの「1件の失敗を握りつぶして継続する」方針（16.7）を
     ここでは意図的に採用しない。
 
-    on_progress は1件生成するたびに呼び出す通知コールバックで、呼び出し元（export_service）が
+    on_progress は1件生成するたびに呼び出す通知コールバックで、呼び出し元（export_service_common）が
     進捗表示（app.services.export_progress）へ反映するために用いる。
     """
     weeks = _non_anonymized_weeks_query(session, goal).all()

@@ -40,7 +40,8 @@ from app.services import (
     material_service,
     metrics_service,
     quota_service,
-    record_service,
+    record_service_common,
+    record_service_exam,
     setting_reader,
     slot_service,
     speed_service,
@@ -201,7 +202,7 @@ def _build_today_quota(
     1件ずつDBへ問い合わせない（CLAUDE.md パフォーマンスチェック: N+1禁止）。
     """
     entries = []
-    for item in record_service.compute_daily_quota(session, today):
+    for item in record_service_exam.compute_daily_quota(session, today):
         material = materials_by_id[item.material_id]
         effective_speed = effective_speed_by_material.get(item.material_id)
         target_minutes = (
@@ -231,7 +232,7 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     today_day_type = calendar_service.resolve_day_type(session, today, treat_holiday_as_buffer)
     report_rate_window_days = setting_reader.get_int(session, DASHBOARD_REPORT_RATE_WINDOW_DAYS)
-    today_record = record_service.get_daily_record(session, today)
+    today_record = record_service_common.get_daily_record(session, today)
 
     active_goals = ai_context_common.list_active_goals(session)
     effective_speed_by_material: dict[int, EffectiveSpeed | None] = {}
@@ -284,13 +285,13 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
 
     return DashboardRead(
         logical_date=today,
-        record_state=record_service.resolve_record_state(today_record),
+        record_state=record_service_common.resolve_record_state(today_record),
         today_day_type=today_day_type,
         report_rate_window_days=report_rate_window_days,
         goal_cards=goal_cards,
         goal_stats=goal_stats,
         today_quota=today_quota,
         available_slot_names=available_slot_names,
-        has_ever_reported_record=record_service.has_any_reported_record(session),
+        has_ever_reported_record=record_service_common.has_any_reported_record(session),
         weekly_digests=weekly_digests,
     )

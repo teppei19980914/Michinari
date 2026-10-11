@@ -14,7 +14,7 @@ from app.schemas.export import (
     KnowledgeExportRequest,
     KnowledgeExportResultRead,
 )
-from app.services import export_progress, export_service, goal_service
+from app.services import export_progress, export_service_common, goal_service
 
 router = APIRouter(tags=["export"])
 
@@ -32,8 +32,8 @@ def _selection_from_query(
     ai_dialogue: Annotated[bool, Query()] = False,
     exam_results: Annotated[bool, Query()] = True,
     retrospective: Annotated[bool, Query()] = True,
-) -> export_service.ExportSelection:
-    return export_service.ExportSelection(
+) -> export_service_common.ExportSelection:
+    return export_service_common.ExportSelection(
         goal_overview=goal_overview,
         materials=materials,
         summary=summary,
@@ -53,14 +53,14 @@ def _selection_from_query(
 def preview_knowledge_export(
     goal_id: int,
     anonymized: bool = False,
-    selection: export_service.ExportSelection = Depends(_selection_from_query),
+    selection: export_service_common.ExportSelection = Depends(_selection_from_query),
     session: Session = Depends(get_db),
 ) -> KnowledgeExportContentRead:
     """プレビュー（読み取りのみ。匿名化版の再生成は行わず、既存レコードのみを参照する）。"""
     goal = goal_service.get_goal(session, goal_id)
     today = goal_service.resolve_today(session)
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
-    data = export_service.build_export_data(
+    data = export_service_common.build_export_data(
         session,
         goal,
         selection,
@@ -68,7 +68,7 @@ def preview_knowledge_export(
         treat_holiday_as_buffer=treat_holiday_as_buffer,
         anonymized=anonymized,
     )
-    markdown = export_service.render_markdown(data, selection, goal.category)
+    markdown = export_service_common.render_markdown(data, selection, goal.category)
     return KnowledgeExportContentRead(data=data, markdown=markdown)
 
 
@@ -93,8 +93,10 @@ def execute_knowledge_export(
 ) -> KnowledgeExportResultRead:
     goal = goal_service.get_goal(session, goal_id)
     fields = payload.model_dump(exclude={"anonymize"})
-    selection = export_service.ExportSelection(**fields)
-    content = export_service.execute_export(session, goal, selection, anonymize=payload.anonymize)
+    selection = export_service_common.ExportSelection(**fields)
+    content = export_service_common.execute_export(
+        session, goal, selection, anonymize=payload.anonymize
+    )
     session.commit()
     return KnowledgeExportResultRead(
         data=content.data,

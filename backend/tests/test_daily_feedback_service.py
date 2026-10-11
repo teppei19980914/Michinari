@@ -18,9 +18,9 @@ from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage
-from app.services import daily_feedback_service, record_service
+from app.services import daily_feedback_service, record_service_common, record_service_exam
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 
 
 @pytest.fixture(autouse=True)

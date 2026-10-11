@@ -12,8 +12,21 @@ from app.constants.enums import GoalCategory, GoalStatus, QualityMetricType, Rec
 from app.constants.goal_transitions import GoalOperation
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyGoalDiary, DailyRecord, StudyLog, StudyLogSlotTime, diary_text_expr
-from app.services import allocation_service, cycle_service, goal_service, quota_service, slot_service, speed_service
+from app.models.record import (
+    DailyGoalDiary,
+    DailyRecord,
+    StudyLog,
+    StudyLogSlotTime,
+    diary_text_expr,
+)
+from app.services import (
+    allocation_service,
+    cycle_service,
+    goal_service,
+    quota_service,
+    slot_service,
+    speed_service,
+)
 from app.services.exceptions import NotFoundError, ValidationError
 from app.services.record_service_common import (
     PreviousEntry,
