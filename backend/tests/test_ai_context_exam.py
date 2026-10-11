@@ -23,7 +23,7 @@ from app.models.material import Material, PlanBaseline
 from app.models.record import DailyGoalDiary, DailyRecord, ExamResult, StudyLog, WeeklySummary
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.services import ai_context_exam, settings_service
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 from tests import ai_context_helpers, allocation_helpers
 
 

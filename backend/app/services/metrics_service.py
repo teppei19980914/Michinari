@@ -241,7 +241,7 @@ class StudySummary:
 def compute_study_summary(session: Session, material_ids: list[int]) -> StudySummary:
     """教材群の総投下時間（分）・学習日数を集計する（総括レポート17.5
     {{overall_metrics}}、ナレッジエクスポート7.1 summary.total_minutes/study_daysの
-    共通算出処理。export_service.pyとai_context_exam.pyの双方から呼ぶ、
+    共通算出処理。export_service_exam.pyとai_context_exam.pyの双方から呼ぶ、
     CLAUDE.md DRYの原則）。"""
     if not material_ids:
         return StudySummary(total_minutes=0, study_days=0)

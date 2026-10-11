@@ -71,14 +71,18 @@
 
 `backend/alembic/`・`backend/scripts/`・`frontend/src/`配下に`record_service`モジュールへの実importは無い（フルスキャン確認済み。`frontend/src`の`register_progress`等の一致はTypeScript側の同名識別子であり、Python側へのimportではない）。
 
+**訂正（フェーズB実施中に発覚）**: `app/api/dashboard.py`が初回スキャンの正規表現（複数行の`from app.services import (...)`内で`record_service,`が単独行のため不一致）で漏れていた。`compute_daily_quota`(exam)・`get_daily_record`/`resolve_record_state`/`has_any_reported_record`(common)を使用しており、`record_service_common`+`record_service_exam`へ更新した。この反省から、以降の確認は`grep -rln "\brecord_service\b"`（単語境界、複数行import内の単独行も確実に捕捉）で再実施し、他の漏れが無いことを確認した（`backend/app/models/record.py`・`backend/app/schemas/record.py`のコメント4箇所も実装と不整合にならないよう更新、`backend/alembic/versions/7c2e5a1d9f4b_...py`はマイグレーション作成時点の設計根拠説明のため変更しない、S11と同じ原則）。
+
 ### 1.2 export_service.py の分割先対応表（1034行）
 
 | 新モジュール | 定数・関数 |
 | --- | --- |
 | `export_service_common.py` | `_UNSAFE_FILENAME_CHARS`・`SCHEMA_VERSION`・`ExportSelection`・`ExportContent`・`build_export_data`（ディスパッチャ）・`render_markdown`（ディスパッチャ）・`_safe_filename_fragment`・`write_export_files`・`execute_export` |
-| `export_service_exam.py` | `_RESULT_LABELS`・`_REASON_LABELS`・`_build_goal_and_subjects`・`_format_passing_score`・`_build_materials`・`_build_summary`・`_build_daily_records`・`_build_slot_minutes_by_study_log`・`_build_quality_trend`・`_build_replan_history`・`_build_weekly_summaries`・`_build_results`・`_build_diaries`・`_build_ai_dialogue`・`_build_exam_export_data`・`_render_exam_markdown`＋12個の`_render_<section>_section`・`_EXAM_SECTION_RENDERERS` |
-| `export_service_reading.py` | `_build_book`・`_reading_log_dates`・`_compute_max_streak_days`・`_build_reading_summary`・`_build_reading_daily_records`・`_build_reading_export_data`・`_render_reading_markdown` |
-| `export_service_work.py` | `_build_work_assignment`・`_work_log_dates`・`_build_work_summary`・`_build_work_daily_records`・`_build_work_retrospectives`・`_build_work_export_data`・`_render_work_markdown` |
+| `export_service_exam.py` | `_RESULT_LABELS`・`_REASON_LABELS`・`_build_goal_and_subjects`・`_format_passing_score`・`_build_materials`・`_build_summary`・`_build_daily_records`・`_build_slot_minutes_by_study_log`・`_build_quality_trend`・`_build_replan_history`・`_build_weekly_summaries`・`_build_results`・`_build_diaries`・`_build_ai_dialogue`・`build_exam_export_data`・`render_exam_markdown`＋12個の`_render_<section>_section`・`_EXAM_SECTION_RENDERERS` |
+| `export_service_reading.py` | `_build_book`・`_reading_log_dates`・`_compute_max_streak_days`・`_build_reading_summary`・`_build_reading_daily_records`・`build_reading_export_data`・`render_reading_markdown` |
+| `export_service_work.py` | `_build_work_assignment`・`_work_log_dates`・`_build_work_summary`・`_build_work_daily_records`・`build_work_retrospectives`・`build_work_export_data`・`render_work_markdown` |
+
+**訂正（フェーズB着手時に発覚）**: `_build_exam_export_data`・`_render_exam_markdown`・`_build_reading_export_data`・`_render_reading_markdown`・`_build_work_export_data`・`_render_work_markdown`・`_build_work_retrospectives`の7関数は、分割前は`export_service.py`内の`build_export_data`/`render_markdown`（ディスパッチャ）・`execute_export`からのみ呼ばれる同一ファイル内のプライベート実装だったためアンダースコア付きだったが、分割後は`export_service_common.py`の3関数から**モジュールを越えて**呼ばれる、各カテゴリモジュールの実質的な公開エントリポイントになる。S01の`_format_days_remaining`（2カテゴリ参照でもアンダースコアを残した）とは異なり、この7関数は「他モジュールの処理を一括して委譲される唯一の窓口」という性質がai_context_exam等の`build_goal_summary`等（アンダースコア無し）に近いため、アンダースコアを外した（`_build_work_retrospectives`のみ、呼び出し元が増えた今回の変更）。
 
 `_compute_max_streak_days`はreading由来だがwork側（`_build_work_summary`）からも呼ばれる（DRYの原則、既存コメントに明記）ため、`export_service_reading.py`に置き`export_service_work.py`からimportする（既存の呼び出し関係をそのまま維持）。
 
