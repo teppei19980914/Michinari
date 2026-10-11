@@ -29,13 +29,19 @@ from app.constants.app_setting_keys import (
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
-from app.services import ai_context_service, goal_service, record_service, setting_reader
+from app.services import (
+    ai_context_common,
+    ai_context_reading,
+    goal_service,
+    record_service,
+    setting_reader,
+)
 from app.services.exceptions import ValidationError
 from app.services.record_service import ReadingLogItem
 
 _ACTION_LABEL = "daily report feedback"
 #: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
-#: （17.6）。ai_context_service.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
+#: （17.6）。ai_context_reading.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
 #: この定数を使う（CLAUDE.md DRYの原則）。
 _NO_RECENT_RECALLS_TEXT = "（直近の想起記録はありません）"
@@ -86,7 +92,7 @@ def send_reading_feedback(
         item for item in reading_log_items if books_by_id[item.book_id].goal_id == goal.id
     ]
 
-    active_books = ai_context_service.list_active_books([goal])
+    active_books = ai_context_reading.list_active_books([goal])
     recent_days = setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS)
     inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
     # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
@@ -98,15 +104,15 @@ def send_reading_feedback(
     # またperiod_startを窓の開始日に限定すると、窓より過去の週次要約が一切見えなくなり
     # 従来あった「直近の窓を越えた過去の経緯の反映」機能が失われるため、limitで歯止め
     # をかけつつperiod_startは目標開始日まで広げる）。
-    compressed = ai_context_service.resolve_weekly_compressed_period(
+    compressed = ai_context_common.resolve_weekly_compressed_period(
         session,
         goal,
         period_start=goal.start_date,
         period_end=target_date - dt.timedelta(days=1),
         limit=inject_weeks,
     )
-    recent_recalls_entries = ai_context_service.exclude_covered_dates(
-        ai_context_service.build_recent_recalls_entries(
+    recent_recalls_entries = ai_context_common.exclude_covered_dates(
+        ai_context_reading.build_recent_recalls_entries(
             session, active_books, target_date, recent_days
         ),
         compressed.covered_ranges,
@@ -133,15 +139,15 @@ def send_reading_feedback(
         session, GoalCategory.READING, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
-    perspective_suggestion = ai_context_service.build_perspective_suggestion_instruction(
+    perspective_suggestion = ai_context_common.build_perspective_suggestion_instruction(
         GoalCategory.READING, reported_count < min_records
     )
 
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "today": target_date.isoformat(),
-            "book_summary": ai_context_service.build_daily_book_summary_text(active_books, today),
-            "today_recall": ai_context_service.build_today_recall_text(
+            "book_summary": ai_context_reading.build_daily_book_summary_text(active_books, today),
+            "today_recall": ai_context_reading.build_today_recall_text(
                 reading_log_items, books_by_id
             ),
             "perspective_suggestion": perspective_suggestion,

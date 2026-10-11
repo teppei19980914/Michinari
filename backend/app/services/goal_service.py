@@ -300,34 +300,33 @@ def unarchive_goal(session: Session, goal: Goal) -> Goal:
     return goal
 
 
-def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
-    """完全削除でstudy_log／reading_logも道連れにする場合の先行削除（データ構造編4.2）。
-
-    material→study_log・book→reading_logはいずれもDB上RESTRICT（PRAGMA foreign_keys=ON、
-    database.py）のため、Goal本体をsession.delete()する前に本関数で明示的に削除し
-    flushしておく必要がある（1目標はEXAM/READINGいずれか一方のため、goal.materialsと
-    goal.bookは常にどちらか一方のみ実データを持つ）。daily_recordは日付単位で他goalの
-    実績・日記と共存しうるため、対象ログ削除後に完全に空（他goalのstudy_log・
-    reading_log・chat_message・record_comment・日記本文のいずれも無い）になったものだけを
-    追加で削除し、他goalのデータは保持する。
+def _delete_work_evaluation_members_and_reports(session: Session, goal: Goal) -> None:
+    """仕事目標のメンバーと評価レポートを、評価レポート→メンバーの順に明示的に削除する
+    （不具合C）。members は passive_deletes のため、ORMに任せると work_assignment_id を
+    NULLにしようとしてNOT NULL違反になる。評価レポートはメンバーに対してRESTRICTのため、
+    先に削除する（_cascade_delete_activity_logsの複雑度分割、実装フェーズ分割計画書S01）。
     """
-    # 仕事目標のメンバーと評価レポートは、評価レポート→メンバーの順に明示的に削除する（不具合C）。
-    # members は passive_deletes のため、ORMに任せると work_assignment_id をNULLにしようとして
-    # NOT NULL違反になる。評価レポートはメンバーに対してRESTRICTのため、先に削除する。
     members = list(goal.work_assignment.members) if goal.work_assignment is not None else []
-    if members:
-        member_ids = [m.id for m in members]
-        for report in (
-            session.query(WorkEvaluationReport)
-            .filter(WorkEvaluationReport.member_id.in_(member_ids))
-            .all()
-        ):
-            session.delete(report)
-        session.flush()
-        for member in members:
-            session.delete(member)
-        session.flush()
+    if not members:
+        return
+    member_ids = [m.id for m in members]
+    for report in (
+        session.query(WorkEvaluationReport)
+        .filter(WorkEvaluationReport.member_id.in_(member_ids))
+        .all()
+    ):
+        session.delete(report)
+    session.flush()
+    for member in members:
+        session.delete(member)
+    session.flush()
 
+
+def _collect_and_delete_activity_logs(session: Session, goal: Goal) -> set[int] | None:
+    """material→study_log・book→reading_log・work_assignment→work_log・goal→日記を収集し
+    削除する。1件も無ければNoneを返す（呼び出し元はこの場合daily_recordの後始末も不要、
+    _cascade_delete_activity_logsの複雑度分割、実装フェーズ分割計画書S01）。
+    """
     material_ids = [m.id for m in goal.materials]
     study_logs = session.query(StudyLog).filter(StudyLog.material_id.in_(material_ids)).all()
     book_ids = [goal.book.id] if goal.book is not None else []
@@ -338,7 +337,7 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     )
     diary_entries = session.query(DailyGoalDiary).filter(DailyGoalDiary.goal_id == goal.id).all()
     if not study_logs and not reading_logs and not work_logs and not diary_entries:
-        return
+        return None
     record_ids = (
         {log.daily_record_id for log in study_logs}
         | {log.daily_record_id for log in reading_logs}
@@ -354,7 +353,14 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
     for entry in diary_entries:
         session.delete(entry)
     session.flush()
+    return record_ids
 
+
+def _delete_now_empty_daily_records(session: Session, record_ids: set[int]) -> None:
+    """ログ削除後に完全に空（他goalのstudy_log・reading_log・work_log・chat_message・
+    record_comment・日記本文のいずれも無い）になったdaily_recordだけを削除し、他goalの
+    データは保持する（_cascade_delete_activity_logsの複雑度分割、実装フェーズ分割計画書S01）。
+    """
     remaining_log_counts = dict(
         session.query(StudyLog.daily_record_id, func.count(StudyLog.id))
         .filter(StudyLog.daily_record_id.in_(record_ids))
@@ -405,6 +411,24 @@ def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
             continue
         session.delete(record)
     session.flush()
+
+
+def _cascade_delete_activity_logs(session: Session, goal: Goal) -> None:
+    """完全削除でstudy_log／reading_logも道連れにする場合の先行削除（データ構造編4.2）。
+
+    material→study_log・book→reading_logはいずれもDB上RESTRICT（PRAGMA foreign_keys=ON、
+    database.py）のため、Goal本体をsession.delete()する前に本関数で明示的に削除し
+    flushしておく必要がある（1目標はEXAM/READINGいずれか一方のため、goal.materialsと
+    goal.bookは常にどちらか一方のみ実データを持つ）。daily_recordは日付単位で他goalの
+    実績・日記と共存しうるため、対象ログ削除後に完全に空（他goalのstudy_log・
+    reading_log・chat_message・record_comment・日記本文のいずれも無い）になったものだけを
+    追加で削除し、他goalのデータは保持する。
+    """
+    _delete_work_evaluation_members_and_reports(session, goal)
+    record_ids = _collect_and_delete_activity_logs(session, goal)
+    if record_ids is None:
+        return
+    _delete_now_empty_daily_records(session, record_ids)
 
 
 def activate_goal(session: Session, goal: Goal) -> Goal:

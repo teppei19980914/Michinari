@@ -84,7 +84,7 @@ def _reading_log(book_id, **overrides):
 
 def _add_past_reading_log(session, book_id, record_date, recall_body):
     """{{recent_recalls}}に注入される過去日の想起記録（保存済み）を追加する
-    （ai_context_service.build_recent_recalls_entriesが参照するReadingLog行、17.6）。"""
+    （ai_context_reading.build_recent_recalls_entriesが参照するReadingLog行、17.6）。"""
     record = DailyRecord(record_date=record_date, reading_record_state=RecordState.PROGRESS_ONLY)
     session.add(record)
     session.flush()
@@ -275,7 +275,7 @@ def test_reading_feedback_conversation_history_does_not_leak_exam_messages(
 ):
     """資格試験の日次報告フィードバックと読書の日次報告フィードバックが同日に両方
     実行されても、互いの対話履歴が相手のプロンプトに注入されないこと
-    （chat_message.purposeによる分離、Phase16でのai_context_service.list_active_exam_goals
+    （chat_message.purposeによる分離、Phase16でのai_context_exam.list_active_exam_goals
     導入に続く回帰防止確認）。
     """
     exam_goal, material = _make_exam_goal_with_material(seeded_session)

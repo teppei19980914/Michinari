@@ -33,7 +33,7 @@ from app.schemas.dashboard import (
     WeeklyDigestRead,
 )
 from app.services import (
-    ai_context_service,
+    ai_context_common,
     calendar_service,
     cycle_service,
     goal_service,
@@ -233,7 +233,7 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     report_rate_window_days = setting_reader.get_int(session, DASHBOARD_REPORT_RATE_WINDOW_DAYS)
     today_record = record_service.get_daily_record(session, today)
 
-    active_goals = ai_context_service.list_active_goals(session)
+    active_goals = ai_context_common.list_active_goals(session)
     effective_speed_by_material: dict[int, EffectiveSpeed | None] = {}
     materials_by_id: dict[int, Material] = {}
 

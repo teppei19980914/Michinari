@@ -38,7 +38,7 @@ def is_english_locale(session: Session) -> bool:
     """`display.locale`が英語かどうか（日英i18n対応、2026-10）。
 
     AI応答言語の指示追記（`app/ai/orchestration.py`）とAIプロンプトのデータ部分の
-    語彙切替（`app/services/ai_context_service.py`）の両方から使う判定で、
+    語彙切替（`app/services/ai_context_exam.py`等）の両方から使う判定で、
     DRYの原則により1箇所へ集約する。
 
     `en`以外は全てja扱いにする除外リスト方式であり、フロントエンドの`t.ts`の`isLocale`
