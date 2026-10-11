@@ -45,10 +45,15 @@ from app.services import (
     daily_feedback_service,
     goal_service,
     reading_feedback_service,
-    record_service,
+    record_service_common,
+    record_service_exam,
+    record_service_reading,
+    record_service_work,
     work_feedback_service,
 )
-from app.services.record_service import DiaryEntryItem, ReadingLogItem, StudyLogItem, WorkLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
+from app.services.record_service_reading import ReadingLogItem
+from app.services.record_service_work import WorkLogItem
 
 router = APIRouter(tags=["records"])
 
@@ -141,7 +146,7 @@ def _serialize_record(
     session: Session, target_date: dt.date, record: DailyRecord | None
 ) -> DailyRecordRead:
     """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。"""
-    diary_entries = record_service.get_diary_entries(session, record) if record else []
+    diary_entries = record_service_exam.get_diary_entries(session, record) if record else []
     return DailyRecordRead(
         record_date=target_date,
         exam_record_state=record.exam_record_state if record else None,
@@ -179,17 +184,17 @@ def _serialize_record(
 def get_today(session: Session = Depends(get_db)) -> TodayRead:
     """論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。
 
-    record_state はカテゴリ横断の集約値（record_service.aggregate_record_state）であり、
+    record_state はカテゴリ横断の集約値（record_service_common.aggregate_record_state）であり、
     カレンダー・ダッシュボードの単一状態表示にのみ使う（仕様変更2026-09-05）。
     """
     today = goal_service.resolve_today(session)
-    record = record_service.get_daily_record(session, today)
-    return TodayRead(logical_date=today, record_state=record_service.resolve_record_state(record))
+    record = record_service_common.get_daily_record(session, today)
+    return TodayRead(logical_date=today, record_state=record_service_common.resolve_record_state(record))
 
 
 @router.get("/records/{target_date}", response_model=DailyRecordRead)
 def get_record(target_date: dt.date, session: Session = Depends(get_db)) -> DailyRecordRead:
-    record = record_service.get_daily_record(session, target_date)
+    record = record_service_common.get_daily_record(session, target_date)
     return _serialize_record(session, target_date, record)
 
 
@@ -198,7 +203,7 @@ def register_progress(
     target_date: dt.date, payload: ProgressRegisterRequest, session: Session = Depends(get_db)
 ) -> DailyRecordRead:
     today = goal_service.resolve_today(session)
-    record = record_service.register_progress(
+    record = record_service_common.register_progress(
         session,
         target_date,
         _to_study_log_items(payload.study_logs),
@@ -218,7 +223,7 @@ def finalize_record(
     （仕様変更2026-09-05: カテゴリごとに独立して確定できるようにするため）。
     """
     today = goal_service.resolve_today(session)
-    record = record_service.finalize_record(
+    record = record_service_exam.finalize_record(
         session,
         target_date,
         _to_study_log_items(payload.study_logs),
@@ -237,7 +242,7 @@ def finalize_reading_record(
     （既存の `/chat`, `/reading-chat`, `/work-chat` と同じカテゴリ別命名規則）。
     """
     today = goal_service.resolve_today(session)
-    record = record_service.finalize_reading_record(
+    record = record_service_reading.finalize_reading_record(
         session, target_date, _to_reading_log_items(payload.reading_logs), today
     )
     session.commit()
@@ -250,7 +255,7 @@ def finalize_work_record(
 ) -> DailyRecordRead:
     """仕事の報告を確定する。資格勉強・読書の確定状態には影響しない。"""
     today = goal_service.resolve_today(session)
-    record = record_service.finalize_work_record(
+    record = record_service_work.finalize_work_record(
         session, target_date, _to_work_log_items(payload.work_logs), today
     )
     session.commit()
@@ -342,7 +347,7 @@ def get_previous_diary(
     """記録画面の「前回はこう書いていました」ヒント表示用（仕様書6.5改）。
     対象目標で一度も日記を書いていない場合はNoneを返す（フロントは非表示にする）。
     """
-    entry = record_service.get_previous_diary_entry(session, goal_id, target_date)
+    entry = record_service_exam.get_previous_diary_entry(session, goal_id, target_date)
     return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
 
 
@@ -351,7 +356,7 @@ def get_previous_reading_log(
     target_date: dt.date, book_id: int, session: Session = Depends(get_db)
 ) -> PreviousEntryRead | None:
     """記録画面の「前回はこう書いていました」ヒント表示用（読書、仕様書6.5改）。"""
-    entry = record_service.get_previous_reading_log(session, book_id, target_date)
+    entry = record_service_reading.get_previous_reading_log(session, book_id, target_date)
     return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
 
 
@@ -360,13 +365,13 @@ def get_previous_work_log(
     target_date: dt.date, work_assignment_id: int, session: Session = Depends(get_db)
 ) -> PreviousEntryRead | None:
     """記録画面の「前回はこう書いていました」ヒント表示用（仕事、仕様書6.5改）。"""
-    entry = record_service.get_previous_work_log(session, work_assignment_id, target_date)
+    entry = record_service_work.get_previous_work_log(session, work_assignment_id, target_date)
     return PreviousEntryRead(record_date=entry.record_date, body=entry.body) if entry else None
 
 
 @router.get("/records/{target_date}/quota", response_model=list[QuotaItemRead])
 def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[QuotaItemRead]:
-    items = record_service.compute_daily_quota(session, target_date)
+    items = record_service_exam.compute_daily_quota(session, target_date)
     return [
         QuotaItemRead(
             material_id=item.material_id,
@@ -399,7 +404,7 @@ def get_quota(target_date: dt.date, session: Session = Depends(get_db)) -> list[
 def create_comment(
     target_date: dt.date, payload: CommentCreate, session: Session = Depends(get_db)
 ) -> CommentRead:
-    comment = record_service.add_comment(session, target_date, payload.body)
+    comment = record_service_common.add_comment(session, target_date, payload.body)
     session.commit()
     return CommentRead.model_validate(comment)
 
@@ -408,14 +413,14 @@ def create_comment(
 def update_comment(
     comment_id: int, payload: CommentUpdate, session: Session = Depends(get_db)
 ) -> CommentRead:
-    comment = record_service.get_comment(session, comment_id)
-    record_service.update_comment(session, comment, payload.body)
+    comment = record_service_common.get_comment(session, comment_id)
+    record_service_common.update_comment(session, comment, payload.body)
     session.commit()
     return CommentRead.model_validate(comment)
 
 
 @router.delete("/comments/{comment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_comment(comment_id: int, session: Session = Depends(get_db)) -> None:
-    comment = record_service.get_comment(session, comment_id)
-    record_service.delete_comment(session, comment)
+    comment = record_service_common.get_comment(session, comment_id)
+    record_service_common.delete_comment(session, comment)
     session.commit()
