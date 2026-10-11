@@ -68,7 +68,8 @@ class DatedLogEntry:
     """日付付きの記録・週次要約1件分（複数の用途で共通、17.6・17.8・17.7・17.9・17.10・
     17.5）。呼び出し側は record_date（週次要約の場合は週の開始日）の古い順（昇順）で渡す。
     text は見出し（【日付 見出し】や[週範囲]等、用途ごとに書式が異なる）を含めて整形済みの
-    文字列とする（整形方法はai_context_service側の責務。MaterialStatusEntryと同じ、
+    文字列とする（整形方法はai_context_common／ai_context_exam／ai_context_reading／
+    ai_context_work側の責務。MaterialStatusEntryと同じ、
     「日付＋整形済みテキスト」の形に揃える、CLAUDE.md DRYの原則）。
     build_with_degradable_entriesの各段階で、リスト先頭＝最も古い記録から除外する
     （過去になるほど情報の鮮度が落ちるため）。

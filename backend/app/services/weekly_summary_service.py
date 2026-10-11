@@ -36,7 +36,14 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, ReadingLog, StudyLog, WeeklySummary, WorkLog
 from app.models.work import WorkAssignment
-from app.services import ai_context_service, goal_service, setting_reader
+from app.services import (
+    ai_context_common,
+    ai_context_exam,
+    ai_context_reading,
+    ai_context_work,
+    goal_service,
+    setting_reader,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -85,11 +92,11 @@ def _exam_week_variables(
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     return {
         "goal_name": goal.name,
-        "week_logs": ai_context_service.build_week_logs_text(session, goal, week_start, week_end),
-        "week_metrics": ai_context_service.build_week_metrics_text(
+        "week_logs": ai_context_exam.build_week_logs_text(session, goal, week_start, week_end),
+        "week_metrics": ai_context_exam.build_week_metrics_text(
             session, goal, week_start, week_end, treat_holiday_as_buffer
         ),
-        "week_diaries": ai_context_service.build_week_diaries_text(
+        "week_diaries": ai_context_exam.build_week_diaries_text(
             session, goal, week_start, week_end
         ),
     }
@@ -114,7 +121,7 @@ def _reading_week_variables(
     book = goal.book
     return {
         "book_title": book.title,
-        "week_recalls": ai_context_service.build_week_recalls_text(
+        "week_recalls": ai_context_reading.build_week_recalls_text(
             session, book, week_start, week_end
         ),
     }
@@ -137,7 +144,7 @@ def _work_week_variables(
     work_assignment = goal.work_assignment
     return {
         "work_name": goal.name,
-        "week_logs": ai_context_service.build_week_work_logs_text(
+        "week_logs": ai_context_work.build_week_work_logs_text(
             session, work_assignment, week_start, week_end
         ),
     }
@@ -230,7 +237,7 @@ def generate_for_week(
     variables = {
         "week_range": f"{week_start.isoformat()}〜{week_end.isoformat()}",
         **spec.build_variables(session, goal, week_start, week_end),
-        "anonymize": ai_context_service.build_anonymize_instruction(anonymize),
+        "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
     }
 
     template_body = ai_orchestration.load_template_body(session, spec.purpose)

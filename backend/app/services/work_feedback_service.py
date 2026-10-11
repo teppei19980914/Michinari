@@ -28,13 +28,19 @@ from app.constants.app_setting_keys import (
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
-from app.services import ai_context_service, goal_service, record_service, setting_reader
+from app.services import (
+    ai_context_common,
+    ai_context_work,
+    goal_service,
+    record_service,
+    setting_reader,
+)
 from app.services.exceptions import ValidationError
 from app.services.record_service import WorkLogItem
 
 _ACTION_LABEL = "daily report feedback"
 #: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
-#: 表示（17.8）。ai_context_service.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
+#: 表示（17.8）。ai_context_work.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
 #: を返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
 #: この定数を使う（CLAUDE.md DRYの原則。reading_feedback_serviceの_NO_RECENT_RECALLS_TEXTと
 #: 同じ形）。
@@ -88,22 +94,22 @@ def send_work_feedback(
         if work_assignments_by_id[item.work_assignment_id].goal_id == goal.id
     ]
 
-    active_work_assignments = ai_context_service.list_active_work_assignments([goal])
+    active_work_assignments = ai_context_work.list_active_work_assignments([goal])
     recent_days = setting_reader.get_int(session, AI_WORK_RECENT_LOG_DAYS)
     inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
     # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
     # ある週次要約もlimit=inject_weeks件まで遡って見せつつ、直近の窓のうち既に週次要約が
     # 生成済みの週は圧縮表現へ、それ以外は生ログのまま注入する
     # （2026-09-16、reading_feedback_serviceと同じ是正。理由もそちらのコメント参照）。
-    compressed = ai_context_service.resolve_weekly_compressed_period(
+    compressed = ai_context_common.resolve_weekly_compressed_period(
         session,
         goal,
         period_start=goal.start_date,
         period_end=target_date - dt.timedelta(days=1),
         limit=inject_weeks,
     )
-    recent_work_logs_entries = ai_context_service.exclude_covered_dates(
-        ai_context_service.build_recent_work_logs_entries(
+    recent_work_logs_entries = ai_context_common.exclude_covered_dates(
+        ai_context_work.build_recent_work_logs_entries(
             session, active_work_assignments, target_date, recent_days
         ),
         compressed.covered_ranges,
@@ -130,17 +136,17 @@ def send_work_feedback(
         session, GoalCategory.WORK, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
-    perspective_suggestion = ai_context_service.build_perspective_suggestion_instruction(
+    perspective_suggestion = ai_context_common.build_perspective_suggestion_instruction(
         GoalCategory.WORK, reported_count < min_records
     )
 
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "today": target_date.isoformat(),
-            "work_summary": ai_context_service.build_daily_work_summary_text(
+            "work_summary": ai_context_work.build_daily_work_summary_text(
                 active_work_assignments, today
             ),
-            "today_work": ai_context_service.build_today_work_text(
+            "today_work": ai_context_work.build_today_work_text(
                 work_log_items, work_assignments_by_id
             ),
             "perspective_suggestion": perspective_suggestion,
