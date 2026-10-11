@@ -220,7 +220,7 @@ backend/app/services/goal_service.py
 - [x] T-05 `register_progress`をディスパッチャ化する（決定事項S9）：`_register_exam_progress`/`_register_reading_progress`/`_register_work_progress`をそれぞれexam/reading/workモジュールへ抽出する
 - [x] T-06 元の`backend/app/services/record_service.py`を削除する
 - [x] T-07 §1.1の全呼び出し元（17ファイル）のimportを更新する
-- [ ] T-08 `backend/tests/test_record_service.py`を4分割する（§1.5）。ヘルパーの重複が見つかれば集約する
+- [x] T-08 `backend/tests/test_record_service.py`を4分割する（§1.5）。ヘルパーの重複が見つかれば集約する
 - [x] T-09 `grep -rn "record_service"`で旧名称の残留が無いことを確認する（新モジュールのdocstring内「分割元」説明を除く）
 
 ### 3.2 export_service の分割
