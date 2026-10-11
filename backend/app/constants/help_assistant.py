@@ -9,7 +9,7 @@ import re
 #: NewtonX 上のチャットのタイトル。利用者の画面には出さない（開発キット側の表示名）。
 HELP_CHAT_TITLE = "ヘルプ質問"
 
-#: 回答の末尾の出典行。プロンプトの「回答の形式」（`prompt_texts.HELP_ASSISTANT`）と
+#: 回答の末尾の出典行。プロンプトの「回答の形式」（`prompt_texts_common.HELP_ASSISTANT`）と
 #: 書式を一致させる。
 #: 行末にだけ一致させるため、回答本文中の角括弧の語句は出典として扱われない。
 CITATION_LINE_PATTERN = re.compile(r"\[出典[:：]\s*([^\]\n]*)\]\s*\Z")

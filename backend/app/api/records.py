@@ -145,16 +145,37 @@ def _to_diary_entry_items(inputs: list[DiaryEntryInput]) -> list[DiaryEntryItem]
 def _serialize_record(
     session: Session, target_date: dt.date, record: DailyRecord | None
 ) -> DailyRecordRead:
-    """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。"""
-    diary_entries = record_service_exam.get_diary_entries(session, record) if record else []
+    """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。
+
+    record is None の分岐を先頭で確定させ、以降のフィールド構築から`if record else ...`の
+    三項演算子を無くすことで複雑度を下げる（決定事項S8、実装フェーズ分割計画書S02）。
+    """
+    if record is None:
+        return DailyRecordRead(
+            record_date=target_date,
+            exam_record_state=None,
+            exam_reported_at=None,
+            reading_record_state=None,
+            reading_reported_at=None,
+            work_record_state=None,
+            work_reported_at=None,
+            diary_entries=[],
+            study_logs=[],
+            reading_logs=[],
+            work_logs=[],
+            comments=[],
+            chat_messages=[],
+        )
+
+    diary_entries = record_service_exam.get_diary_entries(session, record)
     return DailyRecordRead(
         record_date=target_date,
-        exam_record_state=record.exam_record_state if record else None,
-        exam_reported_at=record.exam_reported_at if record else None,
-        reading_record_state=record.reading_record_state if record else None,
-        reading_reported_at=record.reading_reported_at if record else None,
-        work_record_state=record.work_record_state if record else None,
-        work_reported_at=record.work_reported_at if record else None,
+        exam_record_state=record.exam_record_state,
+        exam_reported_at=record.exam_reported_at,
+        reading_record_state=record.reading_record_state,
+        reading_reported_at=record.reading_reported_at,
+        work_record_state=record.work_record_state,
+        work_reported_at=record.work_reported_at,
         diary_entries=[
             DiaryEntryRead(
                 goal_id=entry.goal_id,
@@ -164,17 +185,14 @@ def _serialize_record(
             )
             for entry in diary_entries
         ],
-        study_logs=[_serialize_study_log(log) for log in (record.study_logs if record else [])],
-        reading_logs=[
-            _serialize_reading_log(log) for log in (record.reading_logs if record else [])
-        ],
-        work_logs=[WorkLogRead.model_validate(log) for log in (record.work_logs if record else [])],
-        comments=[CommentRead.model_validate(c) for c in (record.comments if record else [])],
+        study_logs=[_serialize_study_log(log) for log in record.study_logs],
+        reading_logs=[_serialize_reading_log(log) for log in record.reading_logs],
+        work_logs=[WorkLogRead.model_validate(log) for log in record.work_logs],
+        comments=[CommentRead.model_validate(c) for c in record.comments],
         chat_messages=[
             ChatMessageRead.model_validate(chat_message)
             for chat_message in sorted(
-                (record.chat_messages if record else []),
-                key=lambda chat_message: chat_message.sequence,
+                record.chat_messages, key=lambda chat_message: chat_message.sequence
             )
         ],
     )
