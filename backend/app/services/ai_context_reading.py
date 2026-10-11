@@ -13,7 +13,7 @@ from app.models.book import Book
 from app.models.goal import Goal
 from app.models.record import DailyRecord, ReadingLog
 from app.services.ai_context_common import _format_days_remaining
-from app.services.record_service import ReadingLogItem
+from app.services.record_service_reading import ReadingLogItem
 
 
 def list_active_reading_goals(session: Session) -> list[Goal]:

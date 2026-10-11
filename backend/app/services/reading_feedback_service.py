@@ -33,11 +33,12 @@ from app.services import (
     ai_context_common,
     ai_context_reading,
     goal_service,
-    record_service,
+    record_service_common,
+    record_service_reading,
     setting_reader,
 )
 from app.services.exceptions import ValidationError
-from app.services.record_service import ReadingLogItem
+from app.services.record_service_reading import ReadingLogItem
 
 _ACTION_LABEL = "daily report feedback"
 #: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
@@ -82,8 +83,8 @@ def send_reading_feedback(
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_reading_goal(goal)
 
-    record = record_service.ensure_daily_record(session, target_date)
-    books_by_id = record_service.load_books_by_id(
+    record = record_service_common.ensure_daily_record(session, target_date)
+    books_by_id = record_service_reading.load_books_by_id(
         session, {item.book_id for item in reading_log_items}
     )
     # 選択中の目標（書籍）宛ての想起記録のみを対象とする（他の読書目標の下書きが
@@ -135,7 +136,7 @@ def send_reading_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
-    reported_count = record_service.count_reported_records_before(
+    reported_count = record_service_common.count_reported_records_before(
         session, GoalCategory.READING, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
@@ -190,7 +191,7 @@ def send_reading_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = record_service.next_chat_sequence(session, record.id)
+    next_sequence = record_service_common.next_chat_sequence(session, record.id)
     if message:
         session.add(
             ChatMessage(

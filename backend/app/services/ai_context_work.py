@@ -20,7 +20,7 @@ from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord, WorkLog
 from app.models.work import WorkAssignment, WorkMember
 from app.services import setting_reader
-from app.services.record_service import WorkLogItem
+from app.services.record_service_work import WorkLogItem
 
 
 def list_active_work_goals(session: Session) -> list[Goal]:

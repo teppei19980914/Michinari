@@ -34,7 +34,7 @@ from app.constants.app_setting_keys import (
     DESKTOP_NOTIFICATION_TIME,
 )
 from app.constants.enums import DayType
-from app.services import calendar_service, goal_service, record_service, setting_reader
+from app.services import calendar_service, goal_service, record_service_common, setting_reader
 from app.services.exceptions import ValidationError
 
 #: 通知時刻の入力形式（`HH:MM`の24時間表記）。`app_setting`へは文字列で保存するため
@@ -182,8 +182,8 @@ def evaluate(session: Session) -> NotificationDecision:
     if day_type == DayType.OFF:
         return NotificationDecision(False, today, skip_reason="day_type_off")
 
-    record = record_service.get_daily_record(session, today)
-    if record_service.resolve_record_state(record) is not None:
+    record = record_service_common.get_daily_record(session, today)
+    if record_service_common.resolve_record_state(record) is not None:
         return NotificationDecision(False, today, skip_reason="already_recorded")
 
     title_key, body_key = _MESSAGE_KEYS_BY_DAY_TYPE[day_type]
