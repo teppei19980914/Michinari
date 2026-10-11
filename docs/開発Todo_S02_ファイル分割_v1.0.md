@@ -134,6 +134,14 @@
 | `backend/tests/test_goal_state_transitions.py` | lifecycle関数を含む（分割対象外） | 同上 |
 | `backend/tests/test_phase3_service_guards.py` | lifecycle・load_profile関数を含む（分割対象外） | 同上 |
 
+**訂正（フェーズB実施中に発覚）**: `backend/tests/test_goal_state_transitions.py`480行目の
+`monkeypatch.setattr(goal_service, "_validate_allocation_capacity", ...)`が、関数の移動先
+（`goal_service_lifecycle`）ではなく旧モジュール（`goal_service`）を対象にしていたため、
+パッチが効かず`AttributeError`で4件のテストが失敗した（`resume_goal`関連）。
+`goal_service_lifecycle`へ訂正し、全99件合格を確認した。`goal_service.allocation_service`
+参照は事前にT-26で発見済みだったが、同ファイル内の`_validate_allocation_capacity`直接参照は
+フルスキャンの正規表現（`goal_service\.(関数名)`列挙）に含めていなかったため見落とした。
+
 残留するCRUD関数（`get_goal`/`list_goals`/`create_goal`等）のみを使う他18ファイル（`app/api/ai.py`・`analytics.py`・`books.py`・`closure.py`・`dashboard.py`・`export.py`・`recap.py`・`records.py`・`work.py`、`app/main.py`、`app/services/ai_context_common.py`・`ai_context_exam.py`・`baseline_service.py`・`book_service.py`・`daily_feedback_service.py`・`daily_message_service.py`・`export_service.py`（分割後は`export_service_exam.py`等）・`material_service.py`・`notification_service.py`・`reading_feedback_service.py`・`record_service.py`（分割後は各モジュール）・`retrospective_service.py`・`subject_service.py`・`weekly_summary_service.py`・`work_feedback_service.py`・`work_member_service.py`・`work_service.py`、`backend/scripts/build_package.py`、及び`backend/tests/`の`test_book_service.py`・`test_bootstrap.py`・`test_desktop_scheduler.py`・`test_notification_service.py`・`test_record_service.py`・`test_work_service.py`）は、`goal_service.py`のファイル名・import先が変わらないため**変更不要**（Phase B着手時にdelete_goal等のカスケード削除関数を使っていないことを個別に再確認する）。
 
 `app/schemas/goal.py`の`goal_service.compute_is_achieved`参照はコメントのみ（更新不要）。
@@ -231,16 +239,16 @@ backend/app/services/goal_service.py
 - [x] T-13 `backend/app/services/export_service_work.py`を新設し、§1.2のWORK関数群を移動する（`_compute_max_streak_days`は`export_service_reading`からimportする）
 - [x] T-14 元の`backend/app/services/export_service.py`を削除する
 - [x] T-15 §1.2の全呼び出し元（4ファイル）のimportを更新する
-- [ ] T-16 `backend/tests/test_export_service.py`を4分割する（§1.5）
+- [x] T-16 `backend/tests/test_export_service.py`を4分割する（§1.5）
 - [x] T-17 `grep -rn "export_service"`で旧名称の残留が無いことを確認する
 
 ### 3.3 prompt_texts の分割
 
-- [ ] T-18 `backend/app/init/prompt_texts_common.py`/`_exam.py`/`_reading.py`/`_work.py`を新設し、§1.3の定数群を移動する
-- [ ] T-19 元の`backend/app/init/prompt_texts.py`を削除する
-- [ ] T-20 `app/init/seed_data.py`のimportを更新する。`app/constants/help_assistant.py`のコメント文言を更新する（import無し）
-- [ ] T-21 決定事項S10：`prompt_template`初期投入内容が分割前後で一字一句変わらないことを示すテストを追加・確認する
-- [ ] T-22 `grep -rn "prompt_texts\."`で、alembicの6ファイル（意図的に残す、S11）以外に旧名称の残留が無いことを確認する
+- [x] T-18 `backend/app/init/prompt_texts_common.py`/`_exam.py`/`_reading.py`/`_work.py`を新設し、§1.3の定数群を移動する
+- [x] T-19 元の`backend/app/init/prompt_texts.py`を削除する
+- [x] T-20 `app/init/seed_data.py`のimportを更新する。`app/constants/help_assistant.py`のコメント文言を更新する（import無し）
+- [x] T-21 決定事項S10：`prompt_template`初期投入内容が分割前後で一字一句変わらないことを示すテストを追加・確認する
+- [x] T-22 `grep -rn "prompt_texts\."`で、alembicの6ファイル（意図的に残す、S11）以外に旧名称の残留が無いことを確認する
 
 ### 3.4 goal_service の分割
 

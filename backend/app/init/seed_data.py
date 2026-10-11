@@ -66,7 +66,7 @@ from app.constants.app_setting_keys import (
     THRESHOLD_WARNING_RATIO,
 )
 from app.constants.enums import AiPurpose, AppSettingValueType, DayType
-from app.init import prompt_texts
+from app.init import prompt_texts_common, prompt_texts_exam, prompt_texts_reading, prompt_texts_work
 from app.models.ai import AiForbiddenTerm
 from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
 
@@ -195,21 +195,23 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
-    AiPurpose.DAILY_FEEDBACK: prompt_texts.DAILY_FEEDBACK,
-    AiPurpose.RECAP_CLASSIFY: prompt_texts.RECAP_CLASSIFY,
-    AiPurpose.RECAP_THEME_BODY: prompt_texts.RECAP_THEME_BODY,
-    AiPurpose.WEEKLY_SUMMARY: prompt_texts.WEEKLY_SUMMARY,
-    AiPurpose.DAILY_MESSAGE: prompt_texts.DAILY_MESSAGE,
-    AiPurpose.GOAL_RETROSPECTIVE: prompt_texts.GOAL_RETROSPECTIVE,
-    AiPurpose.DAILY_FEEDBACK_READING: prompt_texts.DAILY_FEEDBACK_READING,
-    AiPurpose.GOAL_RETROSPECTIVE_READING: prompt_texts.GOAL_RETROSPECTIVE_READING,
-    AiPurpose.WEEKLY_SUMMARY_READING: prompt_texts.WEEKLY_SUMMARY_READING,
-    AiPurpose.DAILY_FEEDBACK_WORK: prompt_texts.DAILY_FEEDBACK_WORK,
-    AiPurpose.GOAL_RETROSPECTIVE_WORK_MONTHLY: prompt_texts.GOAL_RETROSPECTIVE_WORK_MONTHLY,
-    AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: prompt_texts.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
-    AiPurpose.WEEKLY_SUMMARY_WORK: prompt_texts.WEEKLY_SUMMARY_WORK,
-    AiPurpose.EVALUATION_REPORT_WORK: prompt_texts.EVALUATION_REPORT_WORK,
-    AiPurpose.HELP_ASSISTANT: prompt_texts.HELP_ASSISTANT,
+    AiPurpose.DAILY_FEEDBACK: prompt_texts_exam.DAILY_FEEDBACK,
+    AiPurpose.RECAP_CLASSIFY: prompt_texts_common.RECAP_CLASSIFY,
+    AiPurpose.RECAP_THEME_BODY: prompt_texts_common.RECAP_THEME_BODY,
+    AiPurpose.WEEKLY_SUMMARY: prompt_texts_exam.WEEKLY_SUMMARY,
+    AiPurpose.DAILY_MESSAGE: prompt_texts_common.DAILY_MESSAGE,
+    AiPurpose.GOAL_RETROSPECTIVE: prompt_texts_exam.GOAL_RETROSPECTIVE,
+    AiPurpose.DAILY_FEEDBACK_READING: prompt_texts_reading.DAILY_FEEDBACK_READING,
+    AiPurpose.GOAL_RETROSPECTIVE_READING: prompt_texts_reading.GOAL_RETROSPECTIVE_READING,
+    AiPurpose.WEEKLY_SUMMARY_READING: prompt_texts_reading.WEEKLY_SUMMARY_READING,
+    AiPurpose.DAILY_FEEDBACK_WORK: prompt_texts_work.DAILY_FEEDBACK_WORK,
+    AiPurpose.GOAL_RETROSPECTIVE_WORK_MONTHLY: prompt_texts_work.GOAL_RETROSPECTIVE_WORK_MONTHLY,
+    AiPurpose.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL: (
+        prompt_texts_work.GOAL_RETROSPECTIVE_WORK_SEMIANNUAL
+    ),
+    AiPurpose.WEEKLY_SUMMARY_WORK: prompt_texts_work.WEEKLY_SUMMARY_WORK,
+    AiPurpose.EVALUATION_REPORT_WORK: prompt_texts_work.EVALUATION_REPORT_WORK,
+    AiPurpose.HELP_ASSISTANT: prompt_texts_common.HELP_ASSISTANT,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

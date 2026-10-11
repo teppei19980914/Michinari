@@ -477,7 +477,7 @@ def exam_goal_with_material(seeded_session, monkeypatch):
     monkeypatch.setattr(
         goal_service_lifecycle.allocation_service, "sum_allocated_minutes", lambda s, gid: 60
     )
-    monkeypatch.setattr(goal_service, "_validate_allocation_capacity", lambda s, g: None)
+    monkeypatch.setattr(goal_service_lifecycle, "_validate_allocation_capacity", lambda s, g: None)
     return goal
 
 
