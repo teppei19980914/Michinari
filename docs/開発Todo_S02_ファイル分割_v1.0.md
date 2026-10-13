@@ -260,14 +260,14 @@ backend/app/services/goal_service.py
 
 ### 3.5 複雑度の分割（ファイル分割と独立）
 
-- [ ] T-28 `api/records._serialize_record`を早期return方式へ書き換える（決定事項S8）。`radon cc`で分割前後を比較する
-- [ ] T-29 `radon cc backend/app/services/record_service_common.py backend/app/services/record_service_exam.py backend/app/services/record_service_reading.py backend/app/services/record_service_work.py`で`register_progress`系の分割後の複雑度を測定する（T-05と合わせて実施済みのはず。ここで記録のみ行う）
+- [x] T-28 `api/records._serialize_record`を早期return方式へ書き換える（決定事項S8）。`radon cc`で分割前後を比較する
+- [x] T-29 `radon cc backend/app/services/record_service_common.py backend/app/services/record_service_exam.py backend/app/services/record_service_reading.py backend/app/services/record_service_work.py`で`register_progress`系の分割後の複雑度を測定する（T-05と合わせて実施済みのはず。ここで記録のみ行う）
 
 ### 3.6 test_migration の分割
 
-- [ ] T-30 既存の全テスト名（56〜1277行目）を再確認し、§1.5のS6で示した3系統への割り当て表を確定する
-- [ ] T-31 `test_migration_schema.py`/`test_migration_prompt.py`/`test_migration_data.py`へ分割する。`conftest.py`・`migration_helpers.py`等の共通フィクスチャは変更しない
-- [ ] T-32 元の`backend/tests/test_migration.py`を削除する
+- [x] T-30 既存の全テスト名（56〜1277行目）を再確認し、§1.5のS6で示した3系統への割り当て表を確定する
+- [x] T-31 `test_migration_schema.py`/`test_migration_prompt.py`/`test_migration_data.py`へ分割する。`conftest.py`・`migration_helpers.py`等の共通フィクスチャは変更しない
+- [x] T-32 元の`backend/tests/test_migration.py`を削除する
 
 ### 3.7 test_build_package の分割
 
