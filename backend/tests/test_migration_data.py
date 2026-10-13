@@ -13,6 +13,7 @@ from datetime import datetime
 
 from tests import migration_helpers
 
+
 def test_daily_goal_diary_migration_attributes_shared_diary_by_goal(tmp_path, monkeypatch):
     """未決事項L-04の移行ロジック（9a1c3e7d5b2f）を、既存データがある状態への適用として
     検証する（CODING_RULES.md「DBマイグレーションのテスト」）。
@@ -622,16 +623,6 @@ def test_reading_page_fields_migration_backfills_book_without_reading_log(tmp_pa
     assert total_pages == 1
 
 
-_WEEKLY_SUMMARIES_PROMPT_PURPOSES = (
-    "DAILY_FEEDBACK_READING",
-    "DAILY_FEEDBACK_WORK",
-    "GOAL_RETROSPECTIVE_READING",
-    "GOAL_RETROSPECTIVE_WORK_MONTHLY",
-    "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL",
-)
-
-
-@pytest.mark.parametrize("purpose", _WEEKLY_SUMMARIES_PROMPT_PURPOSES)
 def test_goal_status_history_migration_restores_known_transitions_from_timestamps(
     tmp_path, monkeypatch
 ):

@@ -260,5 +260,3 @@ def test_slot_allocation_migration_slot_time_slot_id_is_nullable():
         assert columns["slot_id"]["nullable"] is True
         assert columns[log_column]["nullable"] is False
         assert columns["minutes"]["nullable"] is False
-
-
