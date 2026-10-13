@@ -136,6 +136,16 @@ def test_daily_feedback_prompt_removal_migration_preserves_customized_template(
     assert row[0] == "ユーザーがカスタマイズした文面（複数目標がある場合の注意を含む）"
 
 
+_WEEKLY_SUMMARIES_PROMPT_PURPOSES = (
+    "DAILY_FEEDBACK_READING",
+    "DAILY_FEEDBACK_WORK",
+    "GOAL_RETROSPECTIVE_READING",
+    "GOAL_RETROSPECTIVE_WORK_MONTHLY",
+    "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL",
+)
+
+
+@pytest.mark.parametrize("purpose", _WEEKLY_SUMMARIES_PROMPT_PURPOSES)
 def test_weekly_summaries_prompt_migration_updates_non_customized_template(
     tmp_path, monkeypatch, purpose
 ):
