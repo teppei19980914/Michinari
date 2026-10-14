@@ -21,7 +21,7 @@ from app.constants.goal_transitions import NON_REPORTING_STATUSES
 from app.models.goal import ExamSubject, Goal, GoalStatusHistory
 from app.models.material import Material, PlanBaseline
 from app.models.record import DailyRecord, ReadingLog, StudyLog, WorkLog
-from app.services import calendar_service, record_service, setting_reader
+from app.services import calendar_service, record_service_common, setting_reader
 from app.services.cycle_service import MaterialProgress
 
 #: SUBJECTIVE（主観的手応え5段階）の正規化テーブル（14.1）。
@@ -153,7 +153,7 @@ def compute_report_rate(session: Session, goal: Goal, today: dt.date) -> float:
         .filter(
             DailyRecord.record_date >= goal.start_date,
             DailyRecord.record_date <= today,
-            record_service.category_state_column(goal.category) == RecordState.REPORTED,
+            record_service_common.category_state_column(goal.category) == RecordState.REPORTED,
         )
         .scalar()
         or 0
@@ -185,7 +185,7 @@ def compute_recent_report_rate(
         .filter(
             DailyRecord.record_date >= window_start,
             DailyRecord.record_date <= today,
-            record_service.category_state_column(goal.category) == RecordState.REPORTED,
+            record_service_common.category_state_column(goal.category) == RecordState.REPORTED,
         )
         .scalar()
         or 0
@@ -208,7 +208,7 @@ def compute_consecutive_report_days(
         for row in session.query(DailyRecord.record_date).filter(
             DailyRecord.record_date >= goal.start_date,
             DailyRecord.record_date <= today,
-            record_service.category_state_column(goal.category) == RecordState.REPORTED,
+            record_service_common.category_state_column(goal.category) == RecordState.REPORTED,
         )
     }
 
@@ -241,7 +241,7 @@ class StudySummary:
 def compute_study_summary(session: Session, material_ids: list[int]) -> StudySummary:
     """教材群の総投下時間（分）・学習日数を集計する（総括レポート17.5
     {{overall_metrics}}、ナレッジエクスポート7.1 summary.total_minutes/study_daysの
-    共通算出処理。export_service.pyとai_context_exam.pyの双方から呼ぶ、
+    共通算出処理。export_service_exam.pyとai_context_exam.pyの双方から呼ぶ、
     CLAUDE.md DRYの原則）。"""
     if not material_ids:
         return StudySummary(total_minutes=0, study_days=0)

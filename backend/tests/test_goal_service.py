@@ -19,7 +19,7 @@ from app.models.record import (
 )
 from app.models.setting import CalendarDayOverride
 from app.models.work import WorkAssignment
-from app.services import goal_service
+from app.services import goal_service, goal_service_lifecycle
 from app.services.exceptions import (
     InvalidStateTransitionError,
 )
@@ -231,7 +231,7 @@ def test_activate_archived_draft_goal_is_rejected(db_session):
     goal = _make_goal(db_session, status=GoalStatus.DRAFT)
     goal_service.archive_goal(db_session, goal)
     with pytest.raises(InvalidStateTransitionError):
-        goal_service.activate_goal(db_session, goal)
+        goal_service_lifecycle.activate_goal(db_session, goal)
 
 
 def test_resume_archived_paused_goal_is_rejected(db_session):
@@ -239,7 +239,7 @@ def test_resume_archived_paused_goal_is_rejected(db_session):
     goal = _make_goal(db_session, status=GoalStatus.PAUSED)
     goal_service.archive_goal(db_session, goal)
     with pytest.raises(InvalidStateTransitionError):
-        goal_service.resume_goal(db_session, goal)
+        goal_service_lifecycle.resume_goal(db_session, goal)
 
 
 def test_archived_draft_goal_can_be_deleted_directly(db_session):

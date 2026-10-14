@@ -4,8 +4,8 @@ import datetime as dt
 
 from app.constants.enums import GoalCategory, GoalStatus
 from app.models.goal import Goal
-from app.services import record_service
-from app.services.record_service import DiaryEntryItem
+from app.services import record_service_exam
+from app.services.record_service_exam import DiaryEntryItem
 
 
 def make_exam_goal(session, name: str = "資格目標", status: GoalStatus = GoalStatus.ACTIVE) -> Goal:
@@ -28,4 +28,4 @@ def finalize_diary(
     session, goal: Goal, day: dt.date, *, diary_body: str = "", diary_learned: str = ""
 ) -> None:
     item = diary_item(goal.id, diary_body, diary_learned)
-    record_service.finalize_record(session, day, [], [item], day)
+    record_service_exam.finalize_record(session, day, [], [item], day)

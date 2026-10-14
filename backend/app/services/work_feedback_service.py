@@ -32,11 +32,12 @@ from app.services import (
     ai_context_common,
     ai_context_work,
     goal_service,
-    record_service,
+    record_service_common,
+    record_service_work,
     setting_reader,
 )
 from app.services.exceptions import ValidationError
-from app.services.record_service import WorkLogItem
+from app.services.record_service_work import WorkLogItem
 
 _ACTION_LABEL = "daily report feedback"
 #: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
@@ -82,8 +83,8 @@ def send_work_feedback(
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_work_goal(goal)
 
-    record = record_service.ensure_daily_record(session, target_date)
-    work_assignments_by_id = record_service.load_work_assignments_by_id(
+    record = record_service_common.ensure_daily_record(session, target_date)
+    work_assignments_by_id = record_service_work.load_work_assignments_by_id(
         session, {item.work_assignment_id for item in work_log_items}
     )
     # 選択中の目標（案件）宛ての業務記録のみを対象とする（他の仕事目標の下書きが
@@ -132,7 +133,7 @@ def send_work_feedback(
     if message:
         history.append(prompt_builder.ChatTurn(role=ChatRole.USER, content=message))
 
-    reported_count = record_service.count_reported_records_before(
+    reported_count = record_service_common.count_reported_records_before(
         session, GoalCategory.WORK, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
@@ -189,7 +190,7 @@ def send_work_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = record_service.next_chat_sequence(session, record.id)
+    next_sequence = record_service_common.next_chat_sequence(session, record.id)
     if message:
         session.add(
             ChatMessage(

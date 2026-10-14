@@ -138,7 +138,8 @@ DRY違反（重複）とは別に、単一のファイル/関数が肥大化・�
 | 閾値・パラメータ | `app_setting` テーブル（画面から変更可能。ソースコードへの直接記述を禁止） |
 | プロンプト文面 | `prompt_template` テーブル（画面から変更可能。ソースコードへの直接記述を禁止） |
 | 1画面でしか使わない処理・値 | その画面のファイル内でOK（無理に切り出さない） |
-| 1ファイルが肥大化・複数カテゴリ（資格試験・読書・仕事等）を1ファイルで扱っている場合 | 共通処理を`<元の名前>_common.py`、カテゴリ固有処理を`<元の名前>_<カテゴリ>.py`（例: `ai_context_common.py`／`ai_context_exam.py`／`ai_context_reading.py`／`ai_context_work.py`）へ分割する。`backend/app/services/`配下は既存どおりフラット配置とし、新規サブパッケージ化はしない。公開関数の名前・引数・振る舞いは変えず、全呼び出し元のimportのみ更新する（実装フェーズ分割計画書S01） |
+| 1ファイルが肥大化・複数カテゴリ（資格試験・読書・仕事等）を1ファイルで扱っている場合 | 共通処理を`<元の名前>_common.py`、カテゴリ固有処理を`<元の名前>_<カテゴリ>.py`（例: `ai_context_common.py`／`ai_context_exam.py`／`ai_context_reading.py`／`ai_context_work.py`）へ分割する。接頭語（`<元の名前>`）は元のファイル名をそのまま使う（`ai_context_service.py`→`ai_context_*`のように末尾の`_service`を省く例もあるが、`record`・`export`のように省くと`app/models/record.py`等の他モジュールと混同する場合は、元のファイル名全体を接頭語にする。例: `record_service_common.py`／`record_service_exam.py`／`record_service_reading.py`／`record_service_work.py`）。`backend/app/services/`配下は既存どおりフラット配置とし、新規サブパッケージ化はしない。公開関数の名前・引数・振る舞いは変えず、全呼び出し元のimportのみ更新する（実装フェーズ分割計画書S01・S02） |
+| 1ファイルが肥大化しているが、複数カテゴリの分岐がほとんどの関数内に混在しており上記のカテゴリ別分割が馴染まない場合（例: `goal_service.py`は目標CRUD・状態遷移が中心で、各関数内でカテゴリ分岐を抱える構造） | 処理の段階別に分割する。元のファイル名を残し共通ガード・CRUD等の中心部分を元のファイル名のまま残し（`goal_service.py`）、処理の段階ごとに`<元の名前>_<処理の段階>.py`（例: `goal_service_lifecycle.py`＝状態遷移、`goal_service_load_profile.py`＝負荷プロファイルCRUD）へ分割する。複数の分割先から共通して呼ばれる関数（例: `_append_status_history`は`create_goal`からも直接呼ばれる）は、呼び出し元の分布を確認したうえで元のファイル（中心部分）側に残す（実装フェーズ分割計画書S02） |
 | 色・配色（UIリッチ化、明暗・アクセントカラー対応） | `frontend/src/index.css`のセマンティックトークン（`bg-surface`/`text-text-primary`/`bg-accent`等）を使う。`bg-white`・`text-gray-900`・`bg-blue-600`等Tailwind標準パレットの直書きは禁止（ダークモードで背景・文字が同化する不具合の原因になるため）。目標種別バッジ等「意味を持つ固定色」は例外として明暗共通の直書きで良い |
 
 詳細なディレクトリ構成は設計書 データ構造編 第8章を参照。

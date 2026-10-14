@@ -8,9 +8,7 @@
 import json
 from pathlib import Path
 
-FIXTURE_PATH = (
-    Path(__file__).resolve().parent / "fixtures" / "help_assistant" / "question_set.json"
-)
+FIXTURE_PATH = Path(__file__).resolve().parent / "fixtures" / "help_assistant" / "question_set.json"
 
 
 def _load() -> dict:

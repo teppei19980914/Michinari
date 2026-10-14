@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas.calendar import CalendarDayRead, DayTypeOverrideRequest, HolidayImportResultRead
-from app.services import calendar_service, record_service
+from app.services import calendar_service, record_service_common
 
 router = APIRouter(tags=["calendar"])
 
@@ -16,7 +16,7 @@ router = APIRouter(tags=["calendar"])
 def get_calendar(
     date_from: dt.date, date_to: dt.date, session: Session = Depends(get_db)
 ) -> list[CalendarDayRead]:
-    days = record_service.get_calendar_days(session, date_from, date_to)
+    days = record_service_common.get_calendar_days(session, date_from, date_to)
     return [
         CalendarDayRead(
             target_date=day.target_date, day_type=day.day_type, record_state=day.record_state
@@ -31,11 +31,11 @@ def set_day_type(
 ) -> CalendarDayRead:
     calendar_service.set_day_type_override(session, target_date, payload.day_type, payload.note)
     session.commit()
-    record = record_service.get_daily_record(session, target_date)
+    record = record_service_common.get_daily_record(session, target_date)
     return CalendarDayRead(
         target_date=target_date,
         day_type=payload.day_type,
-        record_state=record_service.resolve_record_state(record),
+        record_state=record_service_common.resolve_record_state(record),
     )
 
 

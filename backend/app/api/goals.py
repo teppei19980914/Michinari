@@ -42,6 +42,8 @@ from app.services import (
     allocation_service,
     book_service,
     goal_service,
+    goal_service_lifecycle,
+    goal_service_load_profile,
     material_service,
     subject_service,
     work_member_service,
@@ -68,7 +70,7 @@ def serialize_goal(goal: Goal) -> GoalRead:
         archived_at=goal.archived_at,
         resumed_at=goal.resumed_at,
         available_operations=goal_service.available_operations(goal),
-        is_achieved=goal_service.compute_is_achieved(goal),
+        is_achieved=goal_service_lifecycle.compute_is_achieved(goal),
     )
 
 
@@ -204,7 +206,7 @@ def unarchive_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead
 @router.post("/goals/{goal_id}/activate", response_model=GoalRead)
 def activate_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.activate_goal(session, goal)
+    goal_service_lifecycle.activate_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 
@@ -212,7 +214,7 @@ def activate_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
 @router.post("/goals/{goal_id}/pause", response_model=GoalRead)
 def pause_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.pause_goal(session, goal)
+    goal_service_lifecycle.pause_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 
@@ -221,7 +223,7 @@ def pause_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
 def resume_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalResumeRead:
     """一時停止・中断・完了から再開する（開発Todo 1-5）。再計画の警告は warnings で返す。"""
     goal = goal_service.get_goal(session, goal_id)
-    result = goal_service.resume_goal(session, goal)
+    result = goal_service_lifecycle.resume_goal(session, goal)
     session.commit()
     return GoalResumeRead(**serialize_goal(result.goal).model_dump(), warnings=result.warnings)
 
@@ -230,7 +232,7 @@ def resume_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalResumeR
 def complete_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     """完了する（実行中→完了。読書では「読了」と表示する、開発Todo 1-3）。"""
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.complete_goal(session, goal)
+    goal_service_lifecycle.complete_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 
@@ -239,7 +241,7 @@ def complete_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
 def abandon_goal(goal_id: int, session: Session = Depends(get_db)) -> GoalRead:
     """中断する（実行中・一時停止→中断。仕事では「中止・打ち切り」と表示する、開発Todo 1-3）。"""
     goal = goal_service.get_goal(session, goal_id)
-    goal_service.abandon_goal(session, goal)
+    goal_service_lifecycle.abandon_goal(session, goal)
     session.commit()
     return serialize_goal(goal)
 
@@ -380,7 +382,7 @@ def create_work_member(
 @router.get("/goals/{goal_id}/load-profiles", response_model=list[LoadProfileRead])
 def list_load_profiles(goal_id: int, session: Session = Depends(get_db)) -> list[LoadProfileRead]:
     goal = goal_service.get_goal(session, goal_id)
-    profiles = goal_service.list_load_profiles(session, goal)
+    profiles = goal_service_load_profile.list_load_profiles(session, goal)
     return [LoadProfileRead.model_validate(p) for p in profiles]
 
 
@@ -393,7 +395,7 @@ def create_load_profile(
     goal_id: int, payload: LoadProfileCreate, session: Session = Depends(get_db)
 ) -> LoadProfileRead:
     goal = goal_service.get_goal(session, goal_id)
-    profile = goal_service.create_load_profile(session, goal, **payload.model_dump())
+    profile = goal_service_load_profile.create_load_profile(session, goal, **payload.model_dump())
     session.commit()
     return LoadProfileRead.model_validate(profile)
 
@@ -402,14 +404,16 @@ def create_load_profile(
 def update_load_profile(
     load_profile_id: int, payload: LoadProfileUpdate, session: Session = Depends(get_db)
 ) -> LoadProfileRead:
-    profile = goal_service.get_load_profile(session, load_profile_id)
-    goal_service.update_load_profile(session, profile, **payload.model_dump(exclude_unset=True))
+    profile = goal_service_load_profile.get_load_profile(session, load_profile_id)
+    goal_service_load_profile.update_load_profile(
+        session, profile, **payload.model_dump(exclude_unset=True)
+    )
     session.commit()
     return LoadProfileRead.model_validate(profile)
 
 
 @router.delete("/load-profiles/{load_profile_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_load_profile(load_profile_id: int, session: Session = Depends(get_db)) -> None:
-    profile = goal_service.get_load_profile(session, load_profile_id)
-    goal_service.delete_load_profile(session, profile)
+    profile = goal_service_load_profile.get_load_profile(session, load_profile_id)
+    goal_service_load_profile.delete_load_profile(session, profile)
     session.commit()

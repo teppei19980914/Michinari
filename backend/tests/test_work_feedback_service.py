@@ -29,9 +29,10 @@ from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, WeeklySummary, WorkLog
 from app.models.setting import AppSetting
 from app.models.work import WorkAssignment
-from app.services import daily_feedback_service, record_service, work_feedback_service
+from app.services import daily_feedback_service, record_service_common, work_feedback_service
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
-from app.services.record_service import StudyLogItem, WorkLogItem
+from app.services.record_service_exam import StudyLogItem
+from app.services.record_service_work import WorkLogItem
 
 
 @pytest.fixture(autouse=True)
@@ -289,7 +290,7 @@ def test_send_work_feedback_does_not_persist_work_logs(seeded_session, monkeypat
             work_log_items=[_work_log(work_assignment.id, body="失われてはいけない業務内容")],
         )
 
-    record = record_service.get_daily_record(seeded_session, dt.date(2026, 8, 24))
+    record = record_service_common.get_daily_record(seeded_session, dt.date(2026, 8, 24))
     assert record is not None
     assert record.work_logs == []
 

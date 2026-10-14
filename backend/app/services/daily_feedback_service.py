@@ -28,11 +28,12 @@ from app.services import (
     ai_context_exam,
     calendar_service,
     goal_service,
-    record_service,
+    record_service_common,
+    record_service_exam,
     setting_reader,
 )
 from app.services.exceptions import ValidationError
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 
 _ACTION_LABEL = "daily report feedback"
 
@@ -71,8 +72,8 @@ def send_daily_feedback(
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_exam_goal(goal)
 
-    record = record_service.ensure_daily_record(session, target_date)
-    materials_by_id = record_service.load_materials_by_id(
+    record = record_service_common.ensure_daily_record(session, target_date)
+    materials_by_id = record_service_exam.load_materials_by_id(
         session, {item.material_id for item in study_log_items}
     )
     # 選択中の目標配下の教材に属する実績のみを対象とする（他目標の下書き入力が
@@ -113,7 +114,7 @@ def send_daily_feedback(
 
     diary_body, diary_learned = ai_context_exam.build_diary_text(diary_entries, active_goals)
 
-    reported_count = record_service.count_reported_records_before(
+    reported_count = record_service_common.count_reported_records_before(
         session, GoalCategory.EXAM, target_date
     )
     min_records = setting_reader.get_int(session, AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS)
@@ -166,7 +167,7 @@ def send_daily_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = record_service.next_chat_sequence(session, record.id)
+    next_sequence = record_service_common.next_chat_sequence(session, record.id)
     if message:
         session.add(
             ChatMessage(

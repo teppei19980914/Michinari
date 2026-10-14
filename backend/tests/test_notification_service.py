@@ -26,7 +26,7 @@ from app.constants.app_setting_keys import (
 )
 from app.constants.enums import DayType, RecordState
 from app.models.setting import AppSetting, CalendarDayOverride
-from app.services import calendar_service, notification_service, record_service
+from app.services import calendar_service, notification_service, record_service_common
 from app.services.exceptions import ValidationError
 
 
@@ -176,7 +176,7 @@ class TestEvaluate:
         「記録したのに通知が来る」ことになる。
         """
         today = notification_service.goal_service.resolve_today(seeded_session)
-        record = record_service.ensure_daily_record(seeded_session, today)
+        record = record_service_common.ensure_daily_record(seeded_session, today)
         setattr(record, column, state)
         seeded_session.flush()
 
@@ -188,7 +188,7 @@ class TestEvaluate:
     def test_notifies_when_a_record_row_exists_but_no_category_was_touched(self, seeded_session):
         """行だけあって全カテゴリ未入力（集約状態がNULL）の日は「記録済み」と見なさないこと。"""
         today = notification_service.goal_service.resolve_today(seeded_session)
-        record_service.ensure_daily_record(seeded_session, today)
+        record_service_common.ensure_daily_record(seeded_session, today)
         seeded_session.flush()
 
         assert notification_service.evaluate(seeded_session).should_notify

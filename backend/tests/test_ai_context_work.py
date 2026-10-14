@@ -21,7 +21,7 @@ from app.models.record import DailyRecord, WorkLog
 from app.models.retrospective import GoalRetrospective
 from app.models.work import WorkAssignment, WorkMember
 from app.services import ai_context_work, settings_service
-from app.services.record_service import WorkLogItem
+from app.services.record_service_work import WorkLogItem
 from tests import ai_context_helpers
 
 

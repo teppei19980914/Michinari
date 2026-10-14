@@ -55,9 +55,7 @@ def test_send_and_log_appends_japanese_directive_by_default(seeded_session, monk
     assert captured == ["本文\n\n必ず日本語で回答してください。"]
 
 
-def test_send_and_log_appends_english_directive_when_locale_is_english(
-    seeded_session, monkeypatch
-):
+def test_send_and_log_appends_english_directive_when_locale_is_english(seeded_session, monkeypatch):
     settings_service.update_app_settings(seeded_session, display={"locale": "en"})
     conversation = _make_conversation(seeded_session)
     captured: list[str] = []
@@ -75,9 +73,7 @@ def test_send_and_log_appends_english_directive_when_locale_is_english(
     assert captured == ["Body\n\nPlease respond in English."]
 
 
-def test_send_and_log_records_the_directive_in_the_logged_request_body(
-    seeded_session, monkeypatch
-):
+def test_send_and_log_records_the_directive_in_the_logged_request_body(seeded_session, monkeypatch):
     conversation = _make_conversation(seeded_session)
     _install_fake_send(monkeypatch, [])
 

@@ -11,7 +11,7 @@ import datetime as dt
 from app.constants.enums import RecordState
 from app.models.record import DailyRecord, ReadingLog
 from app.services import ai_context_reading
-from app.services.record_service import ReadingLogItem
+from app.services.record_service_reading import ReadingLogItem
 from tests import ai_context_helpers, reading_helpers
 
 

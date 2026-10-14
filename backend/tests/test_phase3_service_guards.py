@@ -24,6 +24,8 @@ from app.models.setting import AppSetting
 from app.services import (
     allocation_service,
     goal_service,
+    goal_service_lifecycle,
+    goal_service_load_profile,
     material_service,
     resource_service,
     subject_service,
@@ -64,7 +66,7 @@ def test_replace_allocations_rejects_unknown_slot(seeded_session):
 def test_create_load_profile_rejects_non_positive_coefficient(seeded_session):
     goal = _seed_goal(seeded_session)
     with pytest.raises(ValidationError):
-        goal_service.create_load_profile(
+        goal_service_load_profile.create_load_profile(
             seeded_session,
             goal,
             date_from=dt.date(2026, 3, 1),
@@ -111,7 +113,7 @@ def test_complete_goal_with_all_results_registered_closes_with_result(seeded_ses
         weekdays=[0, 1, 2, 3, 4, 5, 6],
     )
     allocation_service.replace_allocations(seeded_session, goal, {slot.id: 60})
-    goal_service.activate_goal(seeded_session, goal)
+    goal_service_lifecycle.activate_goal(seeded_session, goal)
     seeded_session.add(
         ExamResult(
             subject_id=subject.id, taken_date=dt.date(2026, 6, 1), result=ExamResultType.PASS
@@ -119,7 +121,7 @@ def test_complete_goal_with_all_results_registered_closes_with_result(seeded_ses
     )
     seeded_session.flush()
 
-    goal_service.complete_goal(seeded_session, goal)
+    goal_service_lifecycle.complete_goal(seeded_session, goal)
     assert goal.status == GoalStatus.CLOSED_WITH_RESULT
 
 
