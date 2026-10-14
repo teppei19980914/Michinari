@@ -321,13 +321,13 @@ backend/app/services/goal_service.py
 
 ## 7. 完了の定義
 
-- §3の全項目が`[x]`になり、バックエンド・フロントエンドともテストが通る
-- §2のベースラインと比較して、テスト件数が減らない（減った場合は理由を説明する）
-- `_serialize_record`・`register_progress`の複雑度が分割前より下がっていることをradonで確認する（§4.1）
-- 旧名称（`record_service`・`export_service`の単一ファイル、`prompt_texts`の単一ファイル）の残留が無い（alembicの意図的な保持箇所を除く）
-- `goal_service.py`の残留関数のみが同ファイルに残り、移動した関数が新2モジュールに揃っている
-- §1.3・§3.9のドキュメントが更新済み
-- 配布パッケージの同梱確認・PyInstaller設定にファイル分割の影響が無いことを確認する（T-35）
+- §3の全項目が`[x]`になり、バックエンド・フロントエンドともテストが通る（達成：T-01〜T-40全完了、§9参照）
+- §2のベースラインと比較して、テスト件数が減らない（減った場合は理由を説明する）（達成：backend 1,838→1,839件、+1は決定事項S10の新規テストのため減少ではない。frontendは無変更）
+- `_serialize_record`・`register_progress`の複雑度が分割前より下がっていることをradonで確認する（§4.1）（達成：C19→B8、C17→C11）
+- 旧名称（`record_service`・`export_service`の単一ファイル、`prompt_texts`の単一ファイル）の残留が無い（alembicの意図的な保持箇所を除く）（達成：§9参照）
+- `goal_service.py`の残留関数のみが同ファイルに残り、移動した関数が新2モジュールに揃っている（達成）
+- §1.3・§3.9のドキュメントが更新済み（達成：T-37）
+- 配布パッケージの同梱確認・PyInstaller設定にファイル分割の影響が無いことを確認する（T-35）（達成：`pyinstaller_args()`に個別モジュール名の列挙は無く、静的import解析で自動検出されることを確認）
 
 ## 8. 作業記録
 
@@ -352,3 +352,31 @@ backend/app/services/goal_service.py
   - T-38〜T-40（test_api_records.pyの4分割）：§1.5に分割方針を記載したが§3への作業手順の追加を失念していたため、本フェーズ中に追記して実施した
   - T-33〜T-35（test_build_package.pyの4分割）：`_write_fixture_repo`・`_launcher_template_text`という非テストのヘルパー関数が各テストの直前に挟まっており、分類対象に含める必要があった（test_migration.pyの境界規則の教訓を活かし事前に全`^def `を確認したため漏れなし）。PyInstallerの引数構築（`pyinstaller_args()`）に個々のサービスモジュール名を列挙する`--hidden-import`は無く（pystray用の"six"のみ）、新モジュールは`app/main.py`からの静的import解析で自動的に検出されるため配布物への影響は無いと確認した（T-35）
   - 全手順完了後、backend全体を再実行：**1,839件合格・0件失敗・カバレッジ100%**（§9に記録）
+  - T-36（CODING_RULES.mdの置き場所ルール更新）：処理段階別命名規則（`<元の名前>_<処理の段階>.py`）とカテゴリ別命名規則の接頭語の扱い（元のファイル名をそのまま使う／末尾の`_service`を省く例外）を追記した
+  - T-37（設計書更新）：`設計書_ロジック・プロンプト編_ミチナリ_v1.1.md`の`prompt_texts.HELP_ASSISTANT`参照2箇所を`prompt_texts_common.HELP_ASSISTANT`へ更新し、改訂履歴に改45を追加した
+
+- 2026-10-14 フェーズC実施（検証・報告）
+  - §9に最終確認結果を記録（下記）
+
+## 9. 最終確認結果（フェーズC）
+
+| 項目 | ベースライン（§2） | 最終結果 | 判定 |
+| --- | --- | --- | --- |
+| `backend`: `uv run ruff check .` | All checks passed! | All checks passed! | 変化なし |
+| `backend`: `uv run pytest -q`（カバレッジ込み） | 1,838件合格・0件失敗・カバレッジ100% | **1,839件合格・0件失敗・カバレッジ100%** | **+1件**（決定事項S10で追加した`test_initial_prompt_templates_content_is_unchanged_by_the_file_split`。減少なし） |
+| `frontend`: `npm run test -- --run` | 155ファイル・1,318件合格 | 155ファイル・1,318件合格 | 変化なし（フロントエンドは本Todoの対象外のため無変更） |
+| `frontend`: `npm run lint`（oxlint） | 0件 | 0件 | 変化なし |
+| `frontend`: `npx tsc -b` | 0件 | 0件 | 変化なし |
+
+**旧名称の残留確認**（`grep -rln "\b<対象名>\b"`、単語境界）：
+- `record_service`・`export_service`：新モジュール自身のdocstring内「分割元」説明（S01の`ai_context_service`と同じ意図的な記述）のみ。実importの残留は無い
+- `goal_service`：移動した関数（`activate_goal`等lifecycle・`get_load_profile`等load_profile）への`goal_service.`経由の呼び出しは0件（新モジュール経由に統一済み）。残留関数（CRUD）への`goal_service.`参照は現役の正しい参照
+- `prompt_texts`：新4モジュール自身のdocstring・`test_seed_data.py`の説明文のみ。`backend/alembic/`の6ファイルは決定事項S11により意図的に保持（マイグレーション作成時点の記録、書き換えない）
+- 削除済みの旧ファイル（`record_service.py`・`export_service.py`・`goal_service.py`の旧内容・`prompt_texts.py`・`test_record_service.py`・`test_export_service.py`・`test_migration.py`・`test_build_package.py`・`test_api_records.py`）はいずれも存在しないことを確認した
+
+テスト件数の内訳（分割前後で1対1に対応することを個別確認済み）：
+- `test_record_service.py`（90関数・94件） → 4分割後も**94件**合格（名前集合が完全一致）
+- `test_export_service.py`（34件） → 4分割後も**34件**合格
+- `test_migration.py`（32関数・48件） → 3分割後も**48件**合格
+- `test_build_package.py`（78件） → 4分割後も**78件**合格
+- `test_api_records.py`（44件） → 4分割後も**44件**合格
