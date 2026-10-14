@@ -4,7 +4,7 @@ import pytest
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
-from app.services import export_progress, export_service
+from app.services import export_progress, export_service_common
 from tests import api_allocation_helpers
 
 
@@ -15,7 +15,7 @@ def _no_rate_limit_sleep(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _export_dir(monkeypatch, tmp_path):
-    monkeypatch.setattr(export_service, "EXPORT_DIR", tmp_path)
+    monkeypatch.setattr(export_service_common, "EXPORT_DIR", tmp_path)
     return tmp_path
 
 
@@ -32,7 +32,7 @@ def test_preview_returns_data_and_markdown(client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["data"]["schema_version"] == export_service.SCHEMA_VERSION
+    assert body["data"]["schema_version"] == export_service_common.SCHEMA_VERSION
     assert "# 目標A" in body["markdown"]
 
 

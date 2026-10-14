@@ -148,6 +148,7 @@
 - `backend/.venv`が開発開始時に破損していた（`OPERATIONS.md`記載の既知症状、OneDriveロックによる`RECORD`欠落）。`rm -rf .venv && uv sync --frozen`で復旧済み。再発する場合は`OPERATIONS.md`「`.venv`が壊れた場合」の手順で対応する
 - `backend/scripts/build_package.py`・`backend/tests/test_ai_orchestration.py`・`backend/tests/test_help_assistant_fixtures.py`の3ファイルが、現行の`ruff format`（インストール済みバージョン）と異なる整形（`ruff format --check .`で「would be reformatted」）になっている。本作業が触れていない既存ファイルのため、本Todoの範囲外として整形は変更しない（横展開で整形を揃えたい場合は別タスクで対応する）
 - `export_service.render_markdown`の`selection: ExportSelection`引数は、分割前から関数本体で一度も参照されていなかった（EXAM・READING・WORKいずれの分岐も`data`の内容のみで判定するため）。振る舞い非変更の原則に従い、本作業ではこの既存の未使用引数をそのまま残した（削除するとpublic関数のシグネチャ変更になり、呼び出し元`app/api/export.py`の変更が必要になるため、別件として記録のみ）
+- `ai_context_exam.build_material_summary_text`は、`for material in materials:`のループ内で`session.query(func.sum(StudyLog.minutes_spent)).filter(...).scalar()`を教材ごとに実行している（N+1相当のパターン）。分割前の`ai_context_service.py`（651e1c45時点）に既に同一の実装があり、本作業はコードを移動したのみで新規に持ち込んだものではない（振る舞い非変更の原則によりこの場で修正しない）。対象は総括レポート（GOAL_RETROSPECTIVE）生成時の教材一覧（通常は数件程度）に限られ、日次の高頻度経路ではないため実害は小さいと推測されるが、改善の余地があれば別タスクで対応する
 
 ## 7. 完了の定義
 

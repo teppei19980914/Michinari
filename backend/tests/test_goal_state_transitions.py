@@ -21,7 +21,9 @@ from app.models.record import DailyRecord, WorkLog
 from app.models.work import WorkAssignment, WorkEvaluationReport, WorkMember
 from app.services import (
     goal_service,
-    record_service,
+    goal_service_lifecycle,
+    record_service_common,
+    record_service_exam,
     retrospective_service,
 )
 from app.services.exceptions import (
@@ -29,11 +31,8 @@ from app.services.exceptions import (
     InvalidStateTransitionError,
     ValidationError,
 )
-from app.services.record_service import (
-    DiaryEntryItem,
-    StudyLogItem,
-    WorkLogItem,
-)
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
+from app.services.record_service_work import WorkLogItem
 from tests import reading_helpers
 from tests.diary_helpers import make_exam_goal
 
@@ -104,10 +103,10 @@ def _make_goal_in(session, category: GoalCategory, status: GoalStatus) -> Goal:
 # --- 状態×操作の表（許可された遷移は成功し、それ以外は拒否される） ---
 
 _SERVICE_ACTIONS = {
-    OP.PAUSE: lambda s, g: goal_service.pause_goal(s, g),
-    OP.ABANDON: lambda s, g: goal_service.abandon_goal(s, g),
-    OP.RESUME: lambda s, g: goal_service.resume_goal(s, g),
-    OP.COMPLETE: lambda s, g: goal_service.complete_goal(s, g),
+    OP.PAUSE: lambda s, g: goal_service_lifecycle.pause_goal(s, g),
+    OP.ABANDON: lambda s, g: goal_service_lifecycle.abandon_goal(s, g),
+    OP.RESUME: lambda s, g: goal_service_lifecycle.resume_goal(s, g),
+    OP.COMPLETE: lambda s, g: goal_service_lifecycle.complete_goal(s, g),
     OP.ARCHIVE: lambda s, g: goal_service.archive_goal(s, g),
     OP.DELETE: lambda s, g: goal_service.delete_goal(s, g),
 }
@@ -150,7 +149,7 @@ def test_resume_from_closed_clears_closed_at_and_keeps_the_data(seeded_session):
     goal.closed_at = dt.datetime(2026, 2, 1)
     book_id = goal.book.id
 
-    goal_service.resume_goal(seeded_session, goal)
+    goal_service_lifecycle.resume_goal(seeded_session, goal)
 
     assert goal.status == GoalStatus.ACTIVE
     assert goal.closed_at is None
@@ -163,21 +162,21 @@ def test_resume_from_archived_goal_is_rejected(seeded_session):
     goal_service.archive_goal(seeded_session, goal)
 
     with pytest.raises(InvalidStateTransitionError):
-        goal_service.resume_goal(seeded_session, goal)
+        goal_service_lifecycle.resume_goal(seeded_session, goal)
 
 
 def test_complete_exam_goal_requires_all_results(seeded_session):
     goal = make_exam_goal(seeded_session, status=GoalStatus.ACTIVE)
 
     with pytest.raises(ExamResultsIncompleteError):
-        goal_service.complete_goal(seeded_session, goal)
+        goal_service_lifecycle.complete_goal(seeded_session, goal)
 
 
 def test_complete_reading_goal_requires_a_book(seeded_session):
     goal = reading_helpers.make_reading_goal(seeded_session, status=GoalStatus.ACTIVE)
 
     with pytest.raises(ValidationError):
-        goal_service.complete_goal(seeded_session, goal)
+        goal_service_lifecycle.complete_goal(seeded_session, goal)
 
 
 def test_complete_work_goal_requires_an_assignment(seeded_session):
@@ -191,7 +190,7 @@ def test_complete_work_goal_requires_an_assignment(seeded_session):
     seeded_session.flush()
 
     with pytest.raises(ValidationError):
-        goal_service.complete_goal(seeded_session, goal)
+        goal_service_lifecycle.complete_goal(seeded_session, goal)
 
 
 def test_delete_work_goal_cascades_evaluation_reports(seeded_session):
@@ -298,7 +297,7 @@ def test_study_log_is_rejected_unless_goal_is_active(seeded_session, status):
     seeded_session.flush()
 
     with pytest.raises(InvalidStateTransitionError):
-        record_service.register_progress(
+        record_service_common.register_progress(
             seeded_session,
             TODAY,
             [
@@ -322,7 +321,7 @@ def test_reading_log_is_rejected_unless_goal_is_active(seeded_session, status):
     seeded_session.flush()
 
     with pytest.raises(InvalidStateTransitionError):
-        record_service.register_progress(
+        record_service_common.register_progress(
             seeded_session,
             TODAY,
             [],
@@ -336,7 +335,7 @@ def test_work_log_is_rejected_unless_goal_is_active(seeded_session, status):
     goal = _make_goal_in(seeded_session, GoalCategory.WORK, status)
 
     with pytest.raises(InvalidStateTransitionError):
-        record_service.register_progress(
+        record_service_common.register_progress(
             seeded_session,
             TODAY,
             [],
@@ -350,7 +349,7 @@ def test_diary_is_rejected_unless_goal_is_active(seeded_session, status):
     goal = make_exam_goal(seeded_session, status=status)
 
     with pytest.raises(InvalidStateTransitionError):
-        record_service.finalize_record(
+        record_service_exam.finalize_record(
             seeded_session,
             TODAY,
             [],
@@ -363,7 +362,7 @@ def test_active_goal_still_accepts_records(seeded_session):
     goal = make_exam_goal(seeded_session, status=GoalStatus.ACTIVE)
     material = _make_material(seeded_session, goal)
 
-    record = record_service.register_progress(
+    record = record_service_common.register_progress(
         seeded_session,
         TODAY,
         [
@@ -387,10 +386,10 @@ def test_comment_requires_at_least_one_active_goal(seeded_session):
     seeded_session.flush()
 
     with pytest.raises(InvalidStateTransitionError):
-        record_service.add_comment(seeded_session, TODAY, "コメント")
+        record_service_common.add_comment(seeded_session, TODAY, "コメント")
 
     make_exam_goal(seeded_session, name="実行中", status=GoalStatus.ACTIVE)
-    comment = record_service.add_comment(seeded_session, TODAY, "コメント")
+    comment = record_service_common.add_comment(seeded_session, TODAY, "コメント")
     assert comment.body == "コメント"
 
 
@@ -432,12 +431,12 @@ def test_status_history_records_each_transition_and_skips_rejected_ones(seeded_s
         category=GoalCategory.READING,
     )
     reading_helpers.make_book(seeded_session, goal.id)
-    goal_service.activate_goal(seeded_session, goal)
-    goal_service.pause_goal(seeded_session, goal)
-    goal_service.resume_goal(seeded_session, goal)
-    goal_service.abandon_goal(seeded_session, goal)
+    goal_service_lifecycle.activate_goal(seeded_session, goal)
+    goal_service_lifecycle.pause_goal(seeded_session, goal)
+    goal_service_lifecycle.resume_goal(seeded_session, goal)
+    goal_service_lifecycle.abandon_goal(seeded_session, goal)
     with pytest.raises(InvalidStateTransitionError):
-        goal_service.complete_goal(seeded_session, goal)
+        goal_service_lifecycle.complete_goal(seeded_session, goal)
 
     rows = (
         seeded_session.query(GoalStatusHistory)
@@ -461,7 +460,7 @@ def test_resume_stamps_the_resume_date_and_keeps_the_start_date(seeded_session):
     reading_helpers.make_book(seeded_session, goal.id)
     assert goal.resumed_at is None
 
-    result = goal_service.resume_goal(seeded_session, goal)
+    result = goal_service_lifecycle.resume_goal(seeded_session, goal)
 
     assert result.goal.resumed_at is not None
     assert result.goal.start_date == dt.date(2026, 1, 1)
@@ -475,8 +474,10 @@ def exam_goal_with_material(seeded_session, monkeypatch):
     _make_material(seeded_session, goal)
     goal.status = GoalStatus.PAUSED
     seeded_session.flush()
-    monkeypatch.setattr(goal_service.allocation_service, "sum_allocated_minutes", lambda s, gid: 60)
-    monkeypatch.setattr(goal_service, "_validate_allocation_capacity", lambda s, g: None)
+    monkeypatch.setattr(
+        goal_service_lifecycle.allocation_service, "sum_allocated_minutes", lambda s, gid: 60
+    )
+    monkeypatch.setattr(goal_service_lifecycle, "_validate_allocation_capacity", lambda s, g: None)
     return goal
 
 
@@ -508,7 +509,7 @@ def test_resume_exam_goal_replans_with_reason_resumed_and_warns_when_quota_jumps
 
     reasons = _stub_baselines(monkeypatch, previous_quota=1.0, new_quota=2.0)
 
-    result = goal_service.resume_goal(seeded_session, exam_goal_with_material)
+    result = goal_service_lifecycle.resume_goal(seeded_session, exam_goal_with_material)
 
     assert reasons == [BaselineReason.RESUMED]
     assert result.warnings == [RESUME_WARNING_QUOTA_INCREASED]
@@ -520,7 +521,7 @@ def test_resume_exam_goal_does_not_warn_when_quota_stays_within_the_ratio(
 ):
     _stub_baselines(monkeypatch, previous_quota=1.0, new_quota=1.2)
 
-    result = goal_service.resume_goal(seeded_session, exam_goal_with_material)
+    result = goal_service_lifecycle.resume_goal(seeded_session, exam_goal_with_material)
 
     assert result.warnings == []
 
@@ -537,7 +538,7 @@ def test_resume_exam_goal_without_previous_baseline_does_not_warn(
         lambda s, material, reason, today, treat: type("B", (), {"baseline_daily_quota": 9.0})(),
     )
 
-    result = goal_service.resume_goal(seeded_session, exam_goal_with_material)
+    result = goal_service_lifecycle.resume_goal(seeded_session, exam_goal_with_material)
 
     assert result.warnings == []
 
@@ -551,7 +552,7 @@ def test_resume_exam_goal_skips_inactive_materials_when_replanning(
     seeded_session.flush()
     reasons = _stub_baselines(monkeypatch, previous_quota=1.0, new_quota=9.0)
 
-    result = goal_service.resume_goal(seeded_session, exam_goal_with_material)
+    result = goal_service_lifecycle.resume_goal(seeded_session, exam_goal_with_material)
 
     assert reasons == []
     assert result.warnings == []

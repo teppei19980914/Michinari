@@ -35,7 +35,7 @@ from app.services import (
 )
 from app.services import slot_service as slot_service_module
 from app.services.ai_context_common import _format_days_remaining
-from app.services.record_service import DiaryEntryItem, StudyLogItem
+from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 
 #: 総括レポート向けの月次集約粒度（ロジック・プロンプト編17.5「{{quality_trend}}:
 #: 品質指標の推移（周回別、月次集約）」）。

@@ -21,7 +21,7 @@ _progress: dict[int, ExportProgress] = {}
 
 
 def start(goal_id: int, total: int) -> None:
-    """goal_idの進捗をcompleted=0で初期化する。呼び出し元（export_service.execute_export）が
+    """goal_idの進捗をcompleted=0で初期化する。呼び出し元（export_service_common.execute_export）が
     処理開始前に、想定するステップ総数（total）を渡す。"""
     with _lock:
         _progress[goal_id] = ExportProgress(completed=0, total=total)

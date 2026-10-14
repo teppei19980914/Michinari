@@ -1,5 +1,7 @@
 """完了条件: 起動時に初期データが投入され、再起動しても重複しないこと。"""
 
+import hashlib
+
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
@@ -33,6 +35,19 @@ def test_run_all_seeds_all_expected_rows(db_session):
     server_port = db_session.get(AppSetting, SERVER_PORT)
     assert server_port is not None
     assert server_port.value == "8100"
+
+
+def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
+    """`prompt_texts.py`を資格試験・読書・仕事・共通の4ファイルへ分割した際（実装フェーズ
+    分割計画書S02）、転記ミスで文面が一字一句から変わっていないことを検証する
+    （決定事項S10）。分割前の単一ファイル時点のハッシュ値と比較することで、個々の文面を
+    本テストへ複製せずに検知する。
+    """
+    concatenated = "".join(
+        INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
+    )
+    digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
+    assert digest == "211c8a692117fab2df06fdc3a4d80595cb670ce6dd628ac1fbc7e1c7e3690e4b"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

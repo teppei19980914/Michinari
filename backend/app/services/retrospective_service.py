@@ -155,7 +155,7 @@ def _build_reading_context(
 def can_generate_retrospective(goal: Goal) -> bool:
     """総括・読了レポートを生成できるか（完了（CLOSED_WITH_RESULT）の目標のみ。利用者方針2026-10-04）。
 
-    生成処理（generate_retrospective）と匿名化エクスポート（export_service）が同じ判定を使う
+    生成処理（generate_retrospective）と匿名化エクスポート（export_service_common）が同じ判定を使う
     （CLAUDE.md DRYの原則）。画面側の判定（frontend の canGenerateRetrospective）と対応する。
     """
     return goal.status == GoalStatus.CLOSED_WITH_RESULT

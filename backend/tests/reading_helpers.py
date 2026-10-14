@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.constants.enums import GoalCategory, GoalStatus
 from app.models.book import Book
 from app.models.goal import Goal
-from app.services.record_service import ReadingLogItem
+from app.services.record_service_reading import ReadingLogItem
 
 #: 書籍の既定値。読了目標日を余裕のある日付にしておき、残日数に依存するテストだけが
 #: due_date を明示して上書きする。
@@ -55,7 +55,7 @@ def make_book(session: Session, goal_id: int, **overrides) -> Book:
 
 
 def reading_log_item(book_id: int, **overrides) -> ReadingLogItem:
-    """想起記録の登録入力（record_service へ渡す ReadingLogItem）を組み立てる。"""
+    """想起記録の登録入力（record_service_reading へ渡す ReadingLogItem）を組み立てる。"""
     defaults = dict(book_id=book_id, recall_body="今日読んだ内容の想起", current_page=10)
     defaults.update(overrides)
     return ReadingLogItem(**defaults)

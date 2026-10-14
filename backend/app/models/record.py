@@ -42,7 +42,7 @@ class DailyRecord(CreatedAtMixin, Base):
     確定状態（*_record_state/*_reported_at）はカテゴリ別に3組持つ。NULLはそのカテゴリを
     その日一度も操作していないことを表す（登録・確定のいずれの対象にもなっていない）。
     3カテゴリ横断の単一状態が必要な箇所（カレンダー・ダッシュボード等）は
-    record_service.aggregate_record_state で都度算出し、列としては保持しない。
+    record_service_common.aggregate_record_state で都度算出し、列としては保持しない。
     """
 
     __tablename__ = "daily_record"
@@ -89,7 +89,7 @@ class StudyLog(CreatedAtMixin, Base):
     （study_log_slot_time）の合計としてサービス層が設定する（データ構造編5.4、仕様書6.5）。
     合計を列として持つのは、実効速度（ロジック・プロンプト編8.1）・週次集計・
     ナレッジエクスポートがいずれも教材単位の合計しか必要とせず、内訳を都度結合すると
-    同一の集約が多数の照会箇所へ分散するため。更新経路は record_service の実績登録処理
+    同一の集約が多数の照会箇所へ分散するため。更新経路は record_service_exam の実績登録処理
     1箇所に限定し、内訳との不整合を防ぐ。
     """
 
