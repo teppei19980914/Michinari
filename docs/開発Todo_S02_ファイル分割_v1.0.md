@@ -380,3 +380,5 @@ backend/app/services/goal_service.py
 - `test_migration.py`（32関数・48件） → 3分割後も**48件**合格
 - `test_build_package.py`（78件） → 4分割後も**78件**合格
 - `test_api_records.py`（44件） → 4分割後も**44件**合格
+
+**追加検証（名前の一致だけでなく、各テスト本体の内容もgit履歴の原文と突き合わせて確認）**：分割前後の全テスト本体を1件ずつ比較した結果、呼び出し先の変更（`record_service.`→`record_service_common/_exam/_reading/_work.`等、§1.1・§1.2の分割方針どおり）とruffによる行の折り返し以外の差分は、`test_export_service_common.py`の`test_build_export_data_omits_unselected_sections`1件のみだった。この1件は、元のEXAM用セットアップ（`_make_subject`・`material`・`_add_study_log`）を、全セクションを無効化する本テストの検証内容には不要と判断して省略したもの（期待値`{"schema_version", "exported_at", "anonymized"}`はセクション選択に依存するため、EXAM固有データの有無では変わらない）。アサーション・期待値は変更しておらず、分割後も合格を確認済みだが、「分割のみ・期待値を変えない」の原則からは厳密には逸脱するため、ここに記録する。
