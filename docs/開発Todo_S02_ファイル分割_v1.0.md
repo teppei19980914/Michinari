@@ -269,35 +269,45 @@ backend/app/services/goal_service.py
 - [x] T-31 `test_migration_schema.py`/`test_migration_prompt.py`/`test_migration_data.py`へ分割する。`conftest.py`・`migration_helpers.py`等の共通フィクスチャは変更しない
 - [x] T-32 元の`backend/tests/test_migration.py`を削除する
 
+### 3.6b test_api_records の分割
+
+**訂正（フェーズB実施中に発覚）**: §1.5に分割方針を記載したが、§3への作業手順（T番号）の追加を誤って失念していたため、ここで追加する（番号の欠落を避けるためT-38以降を付与、既存のT-01〜T-37は変更しない）。
+
+- [x] T-38 既存の全テスト名を再確認し、§1.5に記載の4分割（common/exam/reading/work）への割り当て表を確定する
+- [x] T-39 `test_api_records_common.py`/`_exam.py`/`_reading.py`/`_work.py`へ分割する。`api/records.py`自体は分割しない（§1.5）
+- [x] T-40 元の`backend/tests/test_api_records.py`を削除する
+
 ### 3.7 test_build_package の分割
 
-- [ ] T-33 `test_build_package_version.py`/`_archive.py`/`_package.py`/`_misc.py`へ分割する（決定事項S7）。`_FakeCompletedProcess`等の共通ヘルパーは重複を避けて集約先を決める
-- [ ] T-34 元の`backend/tests/test_build_package.py`を削除する
-- [ ] T-35 配布パッケージの同梱確認（PyInstallerが新モジュール群を取り込めるか）を実機相当のテストで確認する。既存の`pyinstaller_args`・隠しimport設定にファイル分割の影響が無いことを確認する
+- [x] T-33 `test_build_package_version.py`/`_archive.py`/`_package.py`/`_misc.py`へ分割する（決定事項S7）。`_FakeCompletedProcess`等の共通ヘルパーは重複を避けて集約先を決める
+- [x] T-34 元の`backend/tests/test_build_package.py`を削除する
+- [x] T-35 配布パッケージの同梱確認（PyInstallerが新モジュール群を取り込めるか）を実機相当のテストで確認する。既存の`pyinstaller_args`・隠しimport設定にファイル分割の影響が無いことを確認する
 
 ### 3.8 CODING_RULES.md の更新
 
-- [ ] T-36 置き場所ルールへ、決定事項S5の処理段階別命名規則（`<元の名前>_<処理の段階>.py`）を、既存のカテゴリ別規則と対比できる形で追記する
+- [x] T-36 置き場所ルールへ、決定事項S5の処理段階別命名規則（`<元の名前>_<処理の段階>.py`）を、既存のカテゴリ別規則と対比できる形で追記する
 
 ### 3.9 ドキュメント更新（§1.3・決定事項S12）
 
-- [ ] T-37 `設計書_ロジック・プロンプト編_ミチナリ_v1.1.md`の`prompt_texts.HELP_ASSISTANT`参照（2526・2538行目）を`prompt_texts_common.HELP_ASSISTANT`へ更新し、改訂履歴に1行追加する
+- [x] T-37 `設計書_ロジック・プロンプト編_ミチナリ_v1.1.md`の`prompt_texts.HELP_ASSISTANT`参照（2526・2538行目）を`prompt_texts_common.HELP_ASSISTANT`へ更新し、改訂履歴に1行追加する
 
 ## 4. テスト計画
 
-- 各手順（T-01〜T-37）の後、関係するテストファイルを個別実行し、分割前と同じ件数・同じ結果（合格）であることを確認する
+- 各手順（T-01〜T-40）の後、関係するテストファイルを個別実行し、分割前と同じ件数・同じ結果（合格）であることを確認する
 - 全手順完了後、§2と同じ一式（`ruff check`・`pytest --cov`・`vitest`・`oxlint`・`tsc -b`）を再実行し、件数をベースラインと比較する（§9に記録）
 - `grep -rn "record_service\.\|export_service\.\|goal_service\.\|prompt_texts\."`で、移動した関数・定数が新モジュール経由に揃っていることを確認する（T-09・T-17・T-22・T-27の再確認）
 - 公開関数のシグネチャ・振る舞いは変えないため、既存テストは**期待値を一切変更せず**、分割・移動のみで合格することを確認する
 - `_serialize_record`・`register_progress`の複雑度がradonで低下していることを確認する（§4.1に記録）
 - `tests/test_build_package.py`分割後も配布パッケージのビルド確認テストが通ることを確認する（T-35）
 
-### 4.1 複雑度（radon cc）の分割前後比較（分割後に記入）
+### 4.1 複雑度（radon cc）の分割前後比較
 
 | 関数 | 分割前 | 分割後 |
 | --- | --- | --- |
-| `api/records._serialize_record` | C (19) | （T-28後に記入） |
-| `record_service.register_progress` | C (17) | （T-05後に記入） |
+| `api/records._serialize_record` | C (19) | B (8)。`record is None`の早期returnで三項演算子を除去（決定事項S8） |
+| `record_service.register_progress` → `record_service_common.register_progress` | C (17) | C (11)。カテゴリ別の適用処理を`apply_progress`（exam/reading/work）へ分離したが、3カテゴリ分の`_ensure_category_not_reported`確認・空リスト判定の分岐自体は共通ディスパッチャに残るため、Cグレードの下限付近まで下がる（決定事項S9）。S01の`export_service._build_exam_export_data`がC(19)のまま残された前例と同様、CI強制ではなく記録のみ（CODING_RULES.md「保守性」） |
+
+参考（T-05で新設した各カテゴリの`apply_progress`、分割前は`register_progress`内に埋め込まれていた分岐）：`record_service_exam.apply_progress` A(3)・`record_service_reading.apply_progress` A(3)・`record_service_work.apply_progress` A(3)。
 
 ## 5. 未決事項
 
@@ -327,3 +337,18 @@ backend/app/services/goal_service.py
   - `record_service.py`・`export_service.py`・`goal_service.py`・`prompt_texts.py`の全関数・定数を読み、分割先（共通／資格試験／読書／仕事、またはgoal_serviceのみ処理段階別）を決定した
   - 4ファイルの呼び出し元をフルスキャンし、実importとコメントのみの参照（誤検出2件を含む）を区別した
   - 未決事項3件（goal_service分割方針・test_migration分割方針・test_build_package分割方針）と、分割ファイルの命名接頭語について利用者に確認し、全て回答を得た（§0・§5）
+
+- 2026-10-11〜2026-10-13 フェーズB実施（実装）
+  - T-01〜T-27（record_service・export_service・goal_serviceの分割）を完了。実装中に以下を発見・訂正した：
+    - `_load_materials`/`_load_goals`/`_normalize_quality`がcommonでなくEXAM専用だった（§1.1訂正）
+    - `_append_status_history`は`create_goal`（CRUD）からも直接呼ばれるためgoal_service.py側に残す必要があった（§1.4訂正）
+    - export_serviceの7関数（`_build_exam_export_data`等）はモジュールを越えて呼ばれる実質的な公開エントリポイントになるためアンダースコアを外した（§1.2訂正）
+    - `record_service_common.register_progress`等がカテゴリ別モジュールへ委譲する際、循環import回避のため関数本体内での遅延importとTYPE_CHECKING不要の文字列型ヒントを採用した（決定事項S9）
+    - フルスキャンの正規表現が複数行import内の単独行（`record_service,`）を捉えられず`app/api/dashboard.py`を見落としていた。単語境界での再スキャン（`grep -rln "\brecord_service\b"`）で解消し、以降は同方式を併用した
+    - `test_goal_state_transitions.py`の`monkeypatch.setattr(goal_service, "_validate_allocation_capacity", ...)`が移動先（`goal_service_lifecycle`）でなく旧モジュールを対象にしており、4件のテストが`AttributeError`で失敗した。訂正して全件合格を確認した
+  - T-28（`_serialize_record`の早期return化）：radon cc C(19)→B(8)
+  - T-29（`register_progress`系の複雑度記録）：`record_service_common.register_progress` C(17)→C(11)（§4.1参照、CI強制外）
+  - T-30〜T-32（test_migration.pyの3分割）：初回のテーマ別行範囲の切り出しで、`@pytest.mark.parametrize`デコレータと直前のモジュール定数（`_WEEKLY_SUMMARIES_PROMPT_PURPOSES`）がdata分類の末尾に誤って混入し、本来prompt分類の対象テストの先頭から漏れていた（デコレータは「次のテスト」に属するという境界規則の見落とし）。全デコレータ・定数の位置を`grep`で再点検し訂正した
+  - T-38〜T-40（test_api_records.pyの4分割）：§1.5に分割方針を記載したが§3への作業手順の追加を失念していたため、本フェーズ中に追記して実施した
+  - T-33〜T-35（test_build_package.pyの4分割）：`_write_fixture_repo`・`_launcher_template_text`という非テストのヘルパー関数が各テストの直前に挟まっており、分類対象に含める必要があった（test_migration.pyの境界規則の教訓を活かし事前に全`^def `を確認したため漏れなし）。PyInstallerの引数構築（`pyinstaller_args()`）に個々のサービスモジュール名を列挙する`--hidden-import`は無く（pystray用の"six"のみ）、新モジュールは`app/main.py`からの静的import解析で自動的に検出されるため配布物への影響は無いと確認した（T-35）
+  - 全手順完了後、backend全体を再実行：**1,839件合格・0件失敗・カバレッジ100%**（§9に記録）
