@@ -34,18 +34,32 @@ class AiStatusSnapshot:
 
 
 def get_status(session: Session) -> AiStatusSnapshot:
-    """認証状態とAI基盤の稼働状況を取得する（データ構造編6.2 GET /ai/status）。"""
-    authenticated = ai_client.is_authenticated(session)
-    model_status: dict[str, bool] = {}
-    if authenticated:
-        try:
-            model_status = ai_client.get_model_status(session)
-        except Exception:  # noqa: BLE001 - 稼働状況の取得失敗で状態確認自体を失敗させない（16.7）
-            model_status = {}
+    """認証状態とAI基盤の稼働状況を取得する（データ構造編6.2 GET /ai/status）。
+
+    `authenticated`は、ローカルのPAT/トークンの有無（`is_authenticated`）だけでなく、
+    実際にAI基盤と通信できたかまで確認した結果にする。`get_model_status`はAPIが非2xxを
+    返しても例外を投げず空辞書を返す設計のため（開発キットのソースコードで確認済み、
+    `newtonx_adk/client.py`）、PATがローカルに残っているがサーバ側では失効している場合を
+    区別できない（2026-10-14の実機障害：失効後もこの判定だけは「認証済み」のままだった）。
+    `register_pat`と同じ考え方で、非2xxを確実に例外として送出する`get_assistants`を疎通確認に
+    使う。
+    """
+    if not ai_client.is_authenticated(session):
+        return AiStatusSnapshot(
+            authenticated=False, model_status={}, login_in_progress=_state.in_progress
+        )
+    try:
+        ai_client.get_assistants(session)
+    except Exception:  # noqa: BLE001 - 理由を問わず「実際には接続できない」扱いにする
+        return AiStatusSnapshot(
+            authenticated=False, model_status={}, login_in_progress=_state.in_progress
+        )
+    try:
+        model_status = ai_client.get_model_status(session)
+    except Exception:  # noqa: BLE001 - 稼働状況の取得失敗で状態確認自体を失敗させない（16.7）
+        model_status = {}
     return AiStatusSnapshot(
-        authenticated=authenticated,
-        model_status=model_status,
-        login_in_progress=_state.in_progress,
+        authenticated=True, model_status=model_status, login_in_progress=_state.in_progress
     )
 
 

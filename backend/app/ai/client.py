@@ -10,6 +10,7 @@
 `~/.newtonx/config.json`）に委ねる（データ構造編5.8）。
 """
 
+import re
 import time
 from dataclasses import dataclass
 
@@ -40,6 +41,14 @@ from app.services import setting_reader
 #: タイムアウトを示す文字列（16.6「エラーメッセージにタイムアウトを示す文字列が含まれるか」）。
 #: requests/開発キットが実際に発するメッセージに合わせて判定する（timeoutは英語表記のみ）。
 _TIMEOUT_MESSAGE_MARKERS = ("timeout", "timed out")
+
+#: 開発キットの自動再認証（Cookie再確立→デバイスコード再認証）を経てもなお401が解消しない
+#: ケースを検出する（16.6 実装上の注意「認証エラーの判定方法」）。`APIError`は`status_code`
+#: 属性を持つが、開発キットの全raise箇所が位置引数（メッセージ文字列）でしか渡さないため常に
+#: `None`になる（ソースコードで確認済み、`newtonx_adk/client.py`の`get_folders`等）。
+#: 一方メッセージは`get_folders`等のAPI系メソッドで一貫して「...に失敗: {ステータスコード}」
+#: という形式のため、ここから401を検出する。
+_HTTP_401_MARKER = re.compile(r"失敗:\s*401\b")
 
 #: send_messageが常に失敗することを実機確認済みのアシスタントUID（設計書 データ構造編6.2、
 #: 仕様書8.9.1、実装フェーズ分割計画書Phase5前提）。UIDで判定するのは、名称（nameフィールド）
@@ -103,18 +112,26 @@ def _translate_error(exc: Exception, *, elapsed_seconds: float, timeout_seconds:
     """開発キット例外をドメイン例外へ変換する（16.6の対応表）。
 
     タイムアウト専用の例外クラスは存在しないため（16.6実装上の注意）、経過時間または
-    エラーメッセージの文字列判定でAI_TIMEOUTを判定する。
+    エラーメッセージの文字列判定でAI_TIMEOUTを判定する。同様に認証専用の例外クラスも
+    自動再認証後の最終的な401では使われないため（16.6実装上の注意「認証エラーの判定方法」）、
+    メッセージに埋め込まれたステータスコードからAI_AUTH_REQUIREDを判定する。この判定を
+    タイムアウト判定より先に行うのは、PATが失効した状態で自動再認証（ブラウザ待機を含みうる）
+    に時間がかかり、結果として `elapsed_seconds >= timeout_seconds` も同時に満たすケースが
+    あり得るため（その場合も実体は認証エラーであり、再試行ではなく再認証を案内すべき）。
     """
     if isinstance(exc, AuthenticationError):
         return AiAuthRequiredError(str(exc))
     if isinstance(exc, ConfigurationError):
         return AiConfigError(str(exc))
     if isinstance(exc, (APIError, ChatError, FileUploadError, NewtonXError)):
-        message = str(exc).lower()
+        message = str(exc)
+        if _HTTP_401_MARKER.search(message):
+            return AiAuthRequiredError(message)
+        lower_message = message.lower()
         if elapsed_seconds >= timeout_seconds or any(
-            marker in message for marker in _TIMEOUT_MESSAGE_MARKERS
+            marker in lower_message for marker in _TIMEOUT_MESSAGE_MARKERS
         ):
-            return AiTimeoutError(str(exc))
+            return AiTimeoutError(message)
         return AiError(f"{exc} (retry after a short wait)")
     return AiError(str(exc))
 
