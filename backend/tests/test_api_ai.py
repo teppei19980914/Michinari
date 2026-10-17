@@ -20,6 +20,7 @@ def _no_rate_limit_sleep(monkeypatch):
 
 def test_get_ai_status_returns_authenticated_state(client, monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+    monkeypatch.setattr(ai_client, "get_assistants", lambda session: [])
     monkeypatch.setattr(ai_client, "get_model_status", lambda session: {"gpt-5": True})
 
     response = client.get("/api/v1/ai/status")
@@ -35,6 +36,25 @@ def test_get_ai_status_returns_authenticated_state(client, monkeypatch):
 
 def test_get_ai_status_when_unauthenticated(client, monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+
+    response = client.get("/api/v1/ai/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["authenticated"] is False
+    assert body["model_status"] == {}
+
+
+def test_get_ai_status_when_pat_present_locally_but_revoked_server_side(client, monkeypatch):
+    """2026-10-14の実機障害の回帰テスト：PATはローカルに残っているが、NewtonX側で失効して
+    いる場合、`authenticated`は実態どおりFalseになること（従来は`get_model_status`の
+    握りつぶし設計により誤ってTrueを返していた）。"""
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+
+    def _raise(session):
+        raise RuntimeError("フォルダ一覧取得エラー: フォルダ一覧取得に失敗: 401")
+
+    monkeypatch.setattr(ai_client, "get_assistants", _raise)
 
     response = client.get("/api/v1/ai/status")
 

@@ -696,6 +696,7 @@
       },
       "modelStatusTitle": "Status",
       "guide": {
+        "setupSectionTitle": "Initial connection steps",
         "step1Title": "① Open NewtonX's web app",
         "step1LinkLabel": "Open NewtonX's web app",
         "step1HostMissing": "A link will appear here once you enter the \"Connection URL\" below",
@@ -705,7 +706,14 @@
         "step3Title": "③ Paste the issued token below",
         "step4Title": "④ Check the connection",
         "whatIsPatTitle": "What is an access token?",
-        "whatIsPatDescription": "It's a passphrase that lets the app connect to the AI on your behalf. Do not share it with anyone else"
+        "whatIsPatDescription": "It's a passphrase that lets the app connect to the AI on your behalf. Do not share it with anyone else",
+        "troubleshootingSectionTitle": "If it was connected before but now shows an error (regenerate the access token)",
+        "troubleshootingDescription": "If an AI feature (daily report, Help, etc.) that used to work now shows an error like \"The AI connection has been lost,\" your access token may have expired on the NewtonX side. Follow these steps to issue a new token and reconnect.",
+        "troubleshootingStep1Title": "① Open the \"Access tokens\" list on NewtonX's web app",
+        "troubleshootingStep1Description": "As in step ①, sign in to NewtonX's web app and open the access token list screen from the account menu in the top right.",
+        "troubleshootingStep2Title": "② Regenerate the relevant token",
+        "troubleshootingStep2Description": "In the list, press the regenerate icon (🔄) on the row for the token Michinari uses. Regenerating the existing token (rather than issuing a brand-new one) keeps the same name while issuing a new value.",
+        "troubleshootingStep3Title": "③ Paste the newly issued token into the Personal Access Token field above, and press \"Check connection\""
       }
     },
     "threshold": {
@@ -1247,7 +1255,7 @@
     },
     "notFound": "Nothing relevant was found in the help content. Try rephrasing your question, or use the Help screen's table of contents or keyword search.",
     "unavailable": "This question can't be answered. Please try a different phrasing.",
-    "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to ask help questions.",
+    "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to ask help questions (if you've already set it up, your access token may have expired — regenerate it on NewtonX's web app).",
     "error": "Could not get an answer. Please try again later.",
     "userLabel": "You",
     "assistantLabel": "Assistant"
@@ -1321,7 +1329,7 @@
       "aiConnection": {
         "title": "Settings — AI connection",
         "p1": "AI integration requires NewtonX's \"Connection URL (tenant host)\" and \"Personal Access Token (PAT).\" Enter the Host in its full form including the domain, like `xxx.newton-x.net` (a company name or abbreviation alone cannot resolve the connection). The `xxx` part differs by affiliation (Seraku in-house staff: `seraku.newton-x.net`; Seraku on-site staff: `seraku-ex.newton-x.net`; Seraku Business Solutions: `bs-seraku.newton-x.net`; AND Think: `andthink.newton-x.net`). If yours isn't listed, use the `xxx` part of the URL you normally use to sign in to NewtonX, `https://xxx.newton-x.net/login`. Please issue your own PAT from NewtonX's web app account screen (this app cannot issue one for you).",
-        "p2": "After entering the Host and PAT and pressing \"Check connection,\" the app applies them to the development kit (NewtonX ADK) settings, actually tries communicating with the AI platform (fetching the assistant list), and shows either \"Connected successfully\" or a failure reason, along with \"Authenticated\"/\"Not authenticated,\" based on the result. This is where you'll notice any mistakes in the Host format or PAT. If network conditions change afterward, you may still see errors again later, for example during daily report AI dialogue.",
+        "p2": "After entering the Host and PAT and pressing \"Check connection,\" the app applies them to the development kit (NewtonX ADK) settings, actually tries communicating with the AI platform (fetching the assistant list), and shows either \"Connected successfully\" or a failure reason, along with \"Authenticated\"/\"Not authenticated,\" based on the result. This is where you'll notice any mistakes in the Host format or PAT. The authentication status is re-confirmed the same way every time this screen is opened, so if the connection later fails, for example because the PAT expired, it will switch to \"Not authenticated\" (see the FAQ for the steps to regenerate a PAT on the NewtonX side).",
         "p3": "After authenticating, you assign the assistant to use — from a list, no need to type an identifier by hand — for each of 13 purposes: daily report feedback, weekly summary, today's message, retrospective report, each of their reading and work variants, the work AI evaluation report, and the help question assistant. Each purpose already has a default assistant preselected to match its task characteristics, so in most cases you can leave it as-is. Only change it from the list if you want to use a different assistant."
       },
       "settingsOther": {
@@ -1487,10 +1495,10 @@
         "title": "FAQ / troubleshooting",
         "q1": "Where do I get a Personal Access Token (PAT)?",
         "a1": "Please issue it yourself from NewtonX's web app account screen. This app cannot issue a PAT for you.",
-        "q2": "The Settings screen shows \"Authenticated,\" but I can't fetch the assistant list.",
-        "a2": "Please check the format of the \"Connection URL (tenant host)\" (see the \"Settings — AI connection\" section for the value for each affiliation). The \"Authenticated\" status in the authentication state only confirms that a PAT is set — it's separate from whether you can actually connect to the AI platform. If the Host isn't in full domain form, like `xxx.newton-x.net`, an organization name or abbreviation alone cannot resolve the connection, causing communication such as fetching the assistant list to fail.",
+        "q2": "The Settings screen showed \"Authenticated,\" but an AI feature (daily report, Help, etc.) now shows an error like \"The AI connection has been lost.\"",
+        "a2": "Your Personal Access Token (PAT) can expire due to actions on the NewtonX side (regenerating or deleting the token, expiry, etc.) even without changing anything in Michinari's settings. The authentication status is re-confirmed by actually connecting to the AI platform every time this Settings screen is opened, so it will switch to \"Not authenticated\" the next time you open the screen after the token expires. From NewtonX's web app account screen, open the \"Access tokens\" list, regenerate the relevant token, and paste the newly issued token into the Personal Access Token field on the Settings screen, then press \"Check connection\" (see the \"Settings — AI connection\" section for the steps).",
         "q3": "AI-related actions show \"An error occurred with the AI connection\" or \"The AI connection timed out.\"",
-        "a3": "There's a problem communicating with the AI platform. Please wait a while and try again. If it keeps happening, check the Host, PAT, and timeout settings on the Settings screen.",
+        "a3": "There's a problem communicating with the AI platform. Please wait a while and try again. If it keeps happening, check the Host, PAT, and timeout settings on the Settings screen. If your PAT has expired, the authentication status will switch to \"Not authenticated\" — see the question above about regenerating it.",
         "q4": "I accidentally broke my data. Can I undo it?",
         "a4": "Go to \"Data management\" on the Settings screen, select an existing backup, and run \"Restore.\" If you hadn't created a backup, you can't return to the previous state. We recommend creating backups regularly.",
         "q5": "What happens if I leave the screen without finalizing a daily report?",
@@ -1519,7 +1527,7 @@
     "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
     "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
     "NOT_FOUND": "The requested data could not be found. Please reload the page and try again",
-    "AI_AUTH_REQUIRED": "The AI connection has been lost. Please check the connection on the Settings screen",
+    "AI_AUTH_REQUIRED": "The AI connection has been lost. Please regenerate your Personal Access Token and reconnect on the Settings screen",
     "AI_CONFIG_ERROR": "The AI connection settings are incorrect. Please check the Settings screen",
     "AI_TIMEOUT": "The AI's response didn't arrive in time. Please try sending it again",
     "AI_ERROR": "An error occurred communicating with the AI. Please wait a moment and try again",
