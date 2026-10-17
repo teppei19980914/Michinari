@@ -33,35 +33,51 @@ class AiStatusSnapshot:
     login_in_progress: bool
 
 
+def _confirms_connectivity(session: Session) -> bool:
+    """ローカル判定を通過した状態から、実際にAI基盤と通信できるかを確認する
+    （`get_status`・`register_pat`で共通、2026-10-16切り出し）。
+
+    `AuthManager.is_authenticated()`はPATが空文字でないか等のローカル判定のみで、
+    Hostの形式ミスや無効なPAT・サーバ側で失効したPATでも「認証済み」と表示されてしまう
+    （仕様書6.11「接続を確認する」の記述と実装の乖離、2026-10-14の実機障害）。ここでは
+    アシスタント一覧取得（`GET /user/assistants`、開発キット`NewtonXClient.get_assistants`の
+    ソースコードで存在を確認済み。CLAUDE.md 情報源の信頼性ルール）という実際の通信を伴う
+    軽量なAPIを呼び、応答が得られるかで最終判定する。`get_model_status`は非2xxでも例外を
+    投げず空辞書を返すフォールバックを持つため（newtonx_adk/client.py）、疎通の成否が
+    APIレベルで確実に判定できるget_assistantsを選んだ。
+    """
+    try:
+        ai_client.get_assistants(session)
+    except Exception:  # noqa: BLE001 - 疎通確認の失敗理由を問わず「接続できない」扱いにする
+        return False
+    return True
+
+
 def get_status(session: Session) -> AiStatusSnapshot:
-    """認証状態とAI基盤の稼働状況を取得する（データ構造編6.2 GET /ai/status）。"""
-    authenticated = ai_client.is_authenticated(session)
-    model_status: dict[str, bool] = {}
-    if authenticated:
-        try:
-            model_status = ai_client.get_model_status(session)
-        except Exception:  # noqa: BLE001 - 稼働状況の取得失敗で状態確認自体を失敗させない（16.7）
-            model_status = {}
+    """認証状態とAI基盤の稼働状況を取得する（データ構造編6.2 GET /ai/status）。
+
+    `authenticated`は、ローカルのPAT/トークンの有無（`is_authenticated`）だけでなく、
+    実際にAI基盤と通信できたか（`_confirms_connectivity`）まで確認した結果にする。
+    PATがローカルに残っているがサーバ側では失効している場合、ローカル判定だけでは
+    区別できない（2026-10-14の実機障害：失効後もこの判定だけは「認証済み」のままだった）。
+    """
+    if not ai_client.is_authenticated(session) or not _confirms_connectivity(session):
+        return AiStatusSnapshot(
+            authenticated=False, model_status={}, login_in_progress=_state.in_progress
+        )
+    try:
+        model_status = ai_client.get_model_status(session)
+    except Exception:  # noqa: BLE001 - 稼働状況の取得失敗で状態確認自体を失敗させない（16.7）
+        model_status = {}
     return AiStatusSnapshot(
-        authenticated=authenticated,
-        model_status=model_status,
-        login_in_progress=_state.in_progress,
+        authenticated=True, model_status=model_status, login_in_progress=_state.in_progress
     )
 
 
 def register_pat(session: Session, *, host: str | None, personal_access_token: str) -> bool:
     """Host・PATを開発キットの設定へ反映し、軽量なAPI呼び出しで実際にAI基盤と通信できるか
-    まで確認する（16.2「設定画面からのPAT登録」、S-5 5-2）。
-
-    戻り値は疎通確認結果。`AuthManager.is_authenticated()`はPATが空文字でないかという
-    ローカル判定のみで、Hostの形式ミスや無効なPATでも「認証済み」と表示されてしまう
-    不具合があった（仕様書6.11「接続を確認する」の記述と実装の乖離）。ここではローカル
-    判定を通過した場合のみ、アシスタント一覧取得（`GET /user/assistants`、開発キット
-    `NewtonXClient.get_assistants`のソースコードで存在を確認済み。CLAUDE.md 情報源の
-    信頼性ルール）という実際の通信を伴う軽量なAPIを呼び、応答が得られるかで最終判定する。
-    `get_model_status`は未提供環境で例外を投げず空辞書を返すフォールバックを持つため
-    （newtonx_adk/client.py）、疎通の成否がAPIレベルで確実に判定できるget_assistantsを選んだ。
-    PAT・トークンはapp_settingへ保存しない（5.8）。
+    まで確認する（16.2「設定画面からのPAT登録」、S-5 5-2）。戻り値は疎通確認結果
+    （`_confirms_connectivity`参照）。PAT・トークンはapp_settingへ保存しない（5.8）。
     """
     config_manager = ConfigManager()
     snapshot = ai_client.read_config_snapshot(session)
@@ -71,11 +87,7 @@ def register_pat(session: Session, *, host: str | None, personal_access_token: s
     ai_client.apply_config_snapshot(config_manager, snapshot)
     if not AuthManager(config_manager).is_authenticated():
         return False
-    try:
-        ai_client.get_assistants(session)
-    except Exception:  # noqa: BLE001 - 疎通確認の失敗理由を問わず「接続できなかった」扱いにする
-        return False
-    return True
+    return _confirms_connectivity(session)
 
 
 def start_fallback_login(session: Session) -> bool:

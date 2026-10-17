@@ -470,7 +470,13 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
+    // waitForTitle()はLOADING判定が外れた直後の描画を捉えるため、カテゴリ別の入力欄
+    // （実績入力セクション内）が同じ描画に乗るとは限らない（負荷の高い並列実行で
+    // 不安定だった。以降の同パターンも同じ理由）。
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
+      'draft-exam',
+    )
     await user.click(screen.getByRole('button', { name: t('dailyReport.chat.startButton') }))
 
     await waitFor(() => expect(recordsApi.sendChat).toHaveBeenCalled())
@@ -484,7 +490,11 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
+    // 上記と同じ理由（waitForTitle()直後の描画レース）。
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
+      'draft-exam',
+    )
 
     await user.click(getGoalTab(READING_GOAL_NAME))
     await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'draft-reading')
@@ -509,7 +519,10 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
+      'draft-exam',
+    )
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
 
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
@@ -521,7 +534,10 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
+      'draft-exam',
+    )
     await user.click(screen.getByRole('link', { name: NAV_LINK_LABEL }))
     await screen.findByText(DASHBOARD_MARKER)
 
@@ -541,7 +557,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    const amountInput = screen.getByLabelText(
+    const amountInput = await screen.findByLabelText(
       t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
     )
     await user.clear(amountInput)
@@ -636,7 +652,10 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    await user.type(screen.getByLabelText(t('dailyReport.diary.learnedLabel')), 'draft-exam')
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
+      'draft-exam',
+    )
 
     await user.click(getGoalTab(READING_GOAL_NAME))
     await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')

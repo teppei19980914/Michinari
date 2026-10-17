@@ -232,8 +232,12 @@ describe('ProgressOnlyPage', () => {
 
     expect(registerButton().disabled).toBe(true)
 
+    // waitForPage()は見出しの描画を捉えるだけで、実績入力欄が同じ描画に乗るとは限らない
+    // （負荷の高い並列実行で不安定だった。DailyReportPage.test.tsxと同種の対策）。
     await user.type(
-      screen.getByLabelText(t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label })),
+      await screen.findByLabelText(
+        t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
+      ),
       '5',
     )
     expect(registerButton().disabled).toBe(false)
@@ -246,7 +250,9 @@ describe('ProgressOnlyPage', () => {
     await waitForPage()
 
     await user.type(
-      screen.getByLabelText(t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label })),
+      await screen.findByLabelText(
+        t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
+      ),
       '5',
     )
     await user.click(registerButton())
@@ -273,7 +279,10 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
     await waitForPage()
 
     expect(screen.queryByText(t('progressOnly.studyLog.title'))).toBe(null)
-    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'today I read')
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.readingLog.recallLabel')),
+      'today I read',
+    )
     await user.click(registerButton())
 
     await waitFor(() =>
@@ -294,7 +303,10 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
     renderPage()
     await waitForPage()
 
-    await user.type(screen.getByLabelText(t('dailyReport.workLog.bodyLabel')), 'today I worked')
+    await user.type(
+      await screen.findByLabelText(t('dailyReport.workLog.bodyLabel')),
+      'today I worked',
+    )
     await user.click(registerButton())
 
     await waitFor(() =>
@@ -333,7 +345,7 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
     await waitForPage()
 
     expect(screen.queryByText(t('progressOnly.studyLog.title'))).toBe(null)
-    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    await user.type(await screen.findByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
     await user.click(registerButton())
 
     // 確定済みの資格勉強の実績を積むとサーバに拒否され、読書の登録まで失敗する。
@@ -368,7 +380,7 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
     await user.click(screen.getByRole('link', { name: BACK_LINK_LABEL }))
     await waitForPage()
 
-    expect(screen.getByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
+    expect(await screen.findByLabelText(t('dailyReport.readingLog.recallLabel'))).toBeTruthy()
   })
 })
 
@@ -381,7 +393,9 @@ describe('ProgressOnlyPage（時間枠ごとの時間）', () => {
     await waitForPage()
 
     await user.type(
-      screen.getByLabelText(t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label })),
+      await screen.findByLabelText(
+        t('dailyReport.studyLog.amountLabel', { unit: QUOTA_ITEM.unit_label }),
+      ),
       '5',
     )
     await user.type(screen.getByLabelText(new RegExp(SLOT_NAME)), '30')
@@ -412,7 +426,7 @@ describe('ProgressOnlyPage（時間枠ごとの時間）', () => {
     renderPage()
     await waitForPage()
 
-    await user.type(screen.getByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
+    await user.type(await screen.findByLabelText(t('dailyReport.readingLog.recallLabel')), 'recall')
     await user.selectOptions(
       screen.getByLabelText(t('dailyReport.studyLog.addSlotLabel')),
       String(SLOT.id),

@@ -123,6 +123,42 @@ def test_translate_error_maps_to_timeout_when_message_mentions_timeout():
     assert isinstance(result, AiTimeoutError)
 
 
+def test_translate_error_maps_api_error_with_401_to_auth_required():
+    """2026-10-14の実機障害の回帰テスト：開発キットの自動再認証を経てもなお401が解消しない
+    場合、ADK側は`AuthenticationError`ではなく汎用の`APIError`を送出する（ソースコードで
+    確認済み、newtonx_adk/client.pyのget_folders等）。実際のログで観測した多重ラップ形式
+    （フォルダ名指定チャット作成エラー: フォルダ一覧取得エラー: フォルダ一覧取得に失敗: 401）
+    でも、AiAuthRequiredError（AI_AUTH_REQUIRED・401）へ分類されること。"""
+    result = ai_client._translate_error(
+        APIError(
+            "フォルダ名指定チャット作成エラー: フォルダ一覧取得エラー: フォルダ一覧取得に失敗: 401"
+        ),
+        elapsed_seconds=1.0,
+        timeout_seconds=60,
+    )
+    assert isinstance(result, AiAuthRequiredError)
+
+
+def test_translate_error_prefers_auth_required_over_timeout_when_both_match():
+    """自動再認証（ブラウザ待機を含みうる）に時間がかかり、経過時間がタイムアウト設定を
+    超えた場合でも、実体が401（認証エラー）ならAiTimeoutErrorではなくAiAuthRequiredErrorに
+    分類すること（再試行ではなく再認証を案内すべきであるため）。"""
+    result = ai_client._translate_error(
+        APIError("フォルダ一覧取得に失敗: 401"), elapsed_seconds=61.0, timeout_seconds=60
+    )
+    assert isinstance(result, AiAuthRequiredError)
+
+
+def test_translate_error_does_not_misclassify_unrelated_status_codes():
+    """401以外のステータスコード（例: 404・500）は、従来どおり汎用のAiErrorのままであること
+    （誤検出の回帰防止）。"""
+    result = ai_client._translate_error(
+        APIError("アシスタント一覧取得に失敗: 404"), elapsed_seconds=1.0, timeout_seconds=60
+    )
+    assert isinstance(result, AiError)
+    assert not isinstance(result, AiAuthRequiredError)
+
+
 def test_translate_error_maps_chat_error_to_ai_error_with_retry_hint():
     result = ai_client._translate_error(
         ChatError("チャット失敗"), elapsed_seconds=1.0, timeout_seconds=60
@@ -297,6 +333,29 @@ def test_create_chat_in_folder_by_name_translates_error(seeded_session, monkeypa
     class _ErrorClient(FakeNewtonXClient):
         def create_chat_in_folder_by_name(self, assistant_uid, folder_name, title=None):
             raise AuthenticationError("未認証")
+
+    monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
+    with pytest.raises(AiAuthRequiredError):
+        ai_client.create_chat_in_folder_by_name(
+            seeded_session, assistant_uid="asst-1", folder_name="フォルダ", title="タイトル"
+        )
+
+
+def test_create_chat_in_folder_by_name_translates_persistent_401_to_auth_required(
+    seeded_session, monkeypatch
+):
+    """2026-10-14の実機障害の回帰テスト：開発キットの自動再認証後もなお401の場合、ADKは
+    `AuthenticationError`ではなく`APIError`を送出する（上の`...translates_error`テストが
+    カバーする`AuthenticationError`直送のケースとは別の経路）。それでも
+    AiAuthRequiredError（HTTP 401・AI_AUTH_REQUIRED）になり、汎用のAiError（HTTP 502）には
+    ならないこと。"""
+
+    class _ErrorClient(FakeNewtonXClient):
+        def create_chat_in_folder_by_name(self, assistant_uid, folder_name, title=None):
+            raise APIError(
+                "フォルダ名指定チャット作成エラー: "
+                "フォルダ一覧取得エラー: フォルダ一覧取得に失敗: 401"
+            )
 
     monkeypatch.setattr(ai_client, "NewtonXClient", _ErrorClient)
     with pytest.raises(AiAuthRequiredError):
