@@ -472,8 +472,7 @@ describe('DailyReportPage', () => {
 
     // waitForTitle()はLOADING判定が外れた直後の描画を捉えるため、カテゴリ別の入力欄
     // （実績入力セクション内）が同じ描画に乗るとは限らない（負荷の高い並列実行で
-    // 不安定だった。下記restoreの回でも同種の対策が入っている）。findByLabelTextで
-    // 描画の追いつきを待つ。
+    // 不安定だった。以降の同パターンも同じ理由）。
     await user.type(
       await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
       'draft-exam',
@@ -491,8 +490,7 @@ describe('DailyReportPage', () => {
     renderPage()
     await waitForTitle()
 
-    // 実績入力セクションの入力欄は、タイトルと同じ描画に乗るとは限らない（負荷の高い
-    // 並列実行で不安定だった）ためfindByLabelTextで待つ。
+    // 上記と同じ理由（waitForTitle()直後の描画レース）。
     await user.type(
       await screen.findByLabelText(t('dailyReport.diary.learnedLabel')),
       'draft-exam',
