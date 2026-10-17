@@ -6,12 +6,13 @@ from app.ai import auth as ai_auth
 from app.ai import client as ai_client
 
 
-def test_get_status_when_unauthenticated_skips_model_status_call(seeded_session, monkeypatch):
+def test_get_status_when_unauthenticated_skips_connectivity_check(seeded_session, monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
 
     def _fail(session):
-        raise AssertionError("未認証時はモデル稼働状況を取得しないはず")
+        raise AssertionError("未認証時は疎通確認・モデル稼働状況を取得しないはず")
 
+    monkeypatch.setattr(ai_client, "get_assistants", _fail)
     monkeypatch.setattr(ai_client, "get_model_status", _fail)
 
     snapshot = ai_auth.get_status(seeded_session)
@@ -23,6 +24,7 @@ def test_get_status_when_unauthenticated_skips_model_status_call(seeded_session,
 
 def test_get_status_when_authenticated_includes_model_status(seeded_session, monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+    monkeypatch.setattr(ai_client, "get_assistants", lambda session: [])
     monkeypatch.setattr(ai_client, "get_model_status", lambda session: {"gpt-5": True})
 
     snapshot = ai_auth.get_status(seeded_session)
@@ -33,6 +35,7 @@ def test_get_status_when_authenticated_includes_model_status(seeded_session, mon
 
 def test_get_status_swallows_model_status_error(seeded_session, monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+    monkeypatch.setattr(ai_client, "get_assistants", lambda session: [])
 
     def _raise(session):
         raise RuntimeError("接続失敗")
@@ -42,6 +45,31 @@ def test_get_status_swallows_model_status_error(seeded_session, monkeypatch):
     snapshot = ai_auth.get_status(seeded_session)
 
     assert snapshot.authenticated is True
+    assert snapshot.model_status == {}
+
+
+def test_get_status_reports_unauthenticated_when_connectivity_check_fails(
+    seeded_session, monkeypatch
+):
+    """2026-10-14の実機障害の回帰テスト：PATはローカルに残っている（is_authenticated=True）が
+    サーバ側では失効しているケースで、`authenticated`が実態どおりFalseになること。
+    `get_model_status`は呼ばれない（非2xxを握りつぶす設計のため疎通確認には使えない、
+    newtonx_adk/client.py参照）ことも併せて確認する。"""
+    monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
+
+    def _raise(session):
+        raise RuntimeError("フォルダ一覧取得エラー: フォルダ一覧取得に失敗: 401")
+
+    monkeypatch.setattr(ai_client, "get_assistants", _raise)
+
+    def _fail(session):
+        raise AssertionError("疎通確認に失敗した場合はモデル稼働状況を取得しないはず")
+
+    monkeypatch.setattr(ai_client, "get_model_status", _fail)
+
+    snapshot = ai_auth.get_status(seeded_session)
+
+    assert snapshot.authenticated is False
     assert snapshot.model_status == {}
 
 
