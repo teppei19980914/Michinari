@@ -28,7 +28,12 @@ from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ReadingLog, WeeklySummary
 from app.models.setting import AppSetting
 from app.services import daily_feedback_service, reading_feedback_service, record_service_common
-from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
+from app.services.exceptions import (
+    DailyFeedbackPromptTooLongError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    ValidationError,
+)
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 from tests import reading_helpers
 
@@ -114,6 +119,7 @@ def test_send_reading_feedback_raises_when_prompt_template_missing(seeded_sessio
     from app.models.setting import PromptTemplate
 
     goal = _make_reading_goal(seeded_session)
+    _make_book(seeded_session, goal)
     seeded_session.query(PromptTemplate).filter_by(
         purpose=AiPurpose.DAILY_FEEDBACK_READING.value
     ).delete()
@@ -421,15 +427,15 @@ def test_send_reading_feedback_degrades_oldest_recent_logs_before_instructions(
     assert "直近の想起記録はありません" in sent_message
 
 
-def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_recent_window(
+def test_send_reading_feedback_compresses_all_weekly_summaries_without_a_limit(
     seeded_session, monkeypatch
 ):
-    """L-11（2026-09-16是正）: 週次要約はperiod_start=goal.start_dateまで遡って探索する
-    （summary.inject_weeksを上限に、直近recent_days日分〈既定14日〉の窓より前の週も
-    {{weekly_summaries}}へ注入される＝過去の経緯を要約で反映し続ける）。加えて、窓と
-    重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し{{recent_recalls}}側の
-    生ログからは除外する（二重注入を避けつつ、要約による文字数削減の効果が生ログ側にも
-    及ぶようにする是正）。
+    """S04 G1（全期間化）: 週次要約はperiod_start=book.start_dateまで遡って探索し、
+    件数・週数の上限を設けない（旧summary.inject_weeksによる上限は撤廃）ため、
+    対象期間内の週次要約は何週分あっても全て{{weekly_summaries}}へ注入される。加えて、
+    直近の生ログ期間と重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し
+    {{recent_recalls}}側の生ログからは除外する（二重注入を避けつつ、要約による文字数
+    削減の効果が生ログ側にも及ぶ、2026-09-16是正の継承）。
     """
     goal = Goal(
         category=GoalCategory.READING,
@@ -439,12 +445,14 @@ def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_re
     )
     seeded_session.add(goal)
     seeded_session.flush()
-    book = _make_book(seeded_session, goal)
+    # book.start_dateはgoal.start_dateと独立に変更できるため、週次要約の対象期間が
+    # book.start_date基準であることを明示的に検証する（決定事項D6）。
+    book = _make_book(seeded_session, goal, start_date=dt.date(2025, 11, 1))
     seeded_session.add(
         WeeklySummary(
             goal_id=goal.id,
             week_start_date=dt.date(2025, 11, 24),
-            week_end_date=dt.date(2025, 11, 30),  # target_date(2026-1-10)の14日窓より前
+            week_end_date=dt.date(2025, 11, 30),  # target_date(2026-1-10)から遠く離れた週
             summary_body="OLDER_WEEK_SUMMARY",
         )
     )
@@ -452,8 +460,8 @@ def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_re
         WeeklySummary(
             goal_id=goal.id,
             week_start_date=dt.date(2025, 12, 29),
-            week_end_date=dt.date(2026, 1, 4),  # 直近14日窓と重なる週
-            summary_body="OVERLAPPING_WEEK_SUMMARY",
+            week_end_date=dt.date(2026, 1, 4),  # target_dateの直前の週
+            summary_body="RECENT_WEEK_SUMMARY",
         )
     )
     seeded_session.flush()
@@ -470,8 +478,32 @@ def test_send_reading_feedback_compresses_weekly_summaries_inside_and_outside_re
 
     sent_message = calls[0]["message"]
     assert "OLDER_WEEK_SUMMARY" in sent_message
-    # 是正後: 窓と重なる週も既に要約済みなら圧縮対象となり、weekly_summariesへ注入される。
-    assert "OVERLAPPING_WEEK_SUMMARY" in sent_message
+    assert "RECENT_WEEK_SUMMARY" in sent_message
+
+
+def test_send_reading_feedback_raises_without_sending_when_today_input_alone_exceeds_limit(
+    seeded_session, monkeypatch
+):
+    """S04決定事項D1・D9: 週次要約・直近記録を全て除外しても、本日の想起（縮退対象外）
+    だけでai.max_prompt_charsを超える場合は、切り詰めずに送信を中止する。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+    setting.value = "100"
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    with pytest.raises(DailyFeedbackPromptTooLongError):
+        reading_feedback_service.send_reading_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 1, 10),
+            today=dt.date(2026, 1, 10),
+            message=None,
+            reading_log_items=[_reading_log(book.id, recall_body="本日の想起内容" * 50)],
+        )
+
+    assert calls == []
 
 
 # --- 観点提案の追加指示（S-4 4-3） ---

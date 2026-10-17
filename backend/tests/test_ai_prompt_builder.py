@@ -17,6 +17,7 @@ from app.constants.enums import ChatRole
 
 _TEMPLATE = (
     "週次:{{weekly_summaries}}\n"
+    "直近:{{recent_logs}}\n"
     "教材:{{material_status}}\n"
     "対話:{{conversation_history}}\n"
     "日記:{{diary_body}}\n"
@@ -27,6 +28,10 @@ _TEMPLATE = (
     "実績:{{today_logs}}\n"
     "学び:{{diary_learned}}"
 )
+
+
+def _log_entry(record_date: dt.date, body: str) -> DatedLogEntry:
+    return DatedLogEntry(record_date=record_date, text=f"【{record_date.isoformat()}】\n{body}")
 
 
 def _context(**overrides) -> DailyFeedbackContext:
@@ -41,7 +46,8 @@ def _context(**overrides) -> DailyFeedbackContext:
         today_logs="実績なし",
         diary_body="",
         diary_learned="",
-        weekly_summaries=[],
+        weekly_summary_entries=[],
+        recent_log_entries=[],
         conversation_history=[],
     )
     defaults.update(overrides)
@@ -52,6 +58,7 @@ def test_build_daily_feedback_returns_full_text_when_under_limit():
     result = prompt_builder.build_daily_feedback(_TEMPLATE, _context(), max_chars=100000)
 
     assert result.was_truncated is False
+    assert result.exhausted is False
     assert result.prompt_chars == len(result.text)
     assert "目標A" in result.text
 
@@ -92,39 +99,58 @@ def test_build_daily_feedback_substitutes_perspective_suggestion():
 
 
 def test_build_daily_feedback_stage1_drops_oldest_weekly_summary_first():
-    # 縮退の閾値を、週次要約2件のうち1件を除けば収まる大きさに調整する。
-    weekly = ["新しい週の要約" * 50, "古い週の要約" * 50]
-    context = _context(weekly_summaries=weekly)
+    # S04 D7: 下限なし。縮退の閾値を、週次要約2件のうち1件を除けば収まる大きさに調整する。
+    weekly = [
+        _log_entry(dt.date(2026, 7, 6), "古い週の要約" * 50),
+        _log_entry(dt.date(2026, 7, 13), "新しい週の要約" * 50),
+    ]
+    context = _context(weekly_summary_entries=weekly)
     full_text_len = len(prompt_builder.build_daily_feedback(_TEMPLATE, context, 10**9).text)
     threshold = full_text_len - 100  # 1件除けば収まるがフルでは収まらない閾値
 
     result = prompt_builder.build_daily_feedback(_TEMPLATE, context, threshold)
 
     assert result.was_truncated is True
+    assert result.exhausted is False
     assert "新しい週の要約" in result.text
     assert "古い週の要約" not in result.text
 
 
-def test_build_daily_feedback_stage1_keeps_at_least_one_weekly_summary():
-    # 2件のうち1件は除去できるが、残り1件だけでも閾値を超え続ける状況を作る
-    # （段階2〜4で削れる材料が無いため、最終的に1件を残したまま縮退が止まることを確認する）。
-    weekly = ["新しい週の要約" * 1000, "古い週の要約" * 1000]
-    context = _context(weekly_summaries=weekly)
-    single_summary_context = _context(weekly_summaries=[weekly[0]])
-    after_one_removed_len = len(
-        prompt_builder.build_daily_feedback(_TEMPLATE, single_summary_context, 10**9).text
-    )
+def test_build_daily_feedback_stage1_can_drop_all_weekly_summaries():
+    # S04 D7: 「最低1件は残す」制約を撤廃。段階2（recent_logs）で収まるなら0件まで削る。
+    weekly = [
+        _log_entry(dt.date(2026, 7, 6), "古い週の要約" * 1000),
+        _log_entry(dt.date(2026, 7, 13), "新しい週の要約" * 1000),
+    ]
+    context = _context(weekly_summary_entries=weekly)
 
-    result = prompt_builder.build_daily_feedback(
-        _TEMPLATE, context, max_chars=after_one_removed_len - 100
-    )
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, max_chars=200)
 
-    assert "新しい週の要約" in result.text
+    assert "新しい週の要約" not in result.text
     assert "古い週の要約" not in result.text
+    assert "まだ週次要約はありません" in result.text
     assert result.was_truncated is True
+    assert result.exhausted is False
 
 
-def test_build_daily_feedback_stage2_collapses_far_due_material_first():
+def test_build_daily_feedback_stage2_drops_oldest_recent_log_after_summaries_exhausted():
+    # S04 G2・G10: weekly_summariesを使い切った後、recent_logsを古い順に削る。
+    recent = [
+        _log_entry(dt.date(2026, 8, 20), "古い日の記録" * 50),
+        _log_entry(dt.date(2026, 8, 22), "新しい日の記録" * 50),
+    ]
+    context = _context(recent_log_entries=recent)
+    full_text_len = len(prompt_builder.build_daily_feedback(_TEMPLATE, context, 10**9).text)
+    threshold = full_text_len - 100
+
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, threshold)
+
+    assert result.was_truncated is True
+    assert "新しい日の記録" in result.text
+    assert "古い日の記録" not in result.text
+
+
+def test_build_daily_feedback_stage3_collapses_far_due_material_first():
     near = MaterialStatusEntry(due_date=dt.date(2026, 9, 1), text="近い締切教材" * 30)
     far = MaterialStatusEntry(due_date=dt.date(2027, 3, 1), text="遠い締切教材" * 30)
     context = _context(material_entries=[far, near])
@@ -138,50 +164,56 @@ def test_build_daily_feedback_stage2_collapses_far_due_material_first():
     assert result.was_truncated is True
 
 
-def test_build_daily_feedback_stage3_drops_oldest_conversation_turn_first():
+def test_build_daily_feedback_does_not_drop_conversation_history():
+    """S04決定事項D1: 当日の対話は縮退の対象にしない（旧段階3の廃止）。"""
     history = [
         ChatTurn(role=ChatRole.USER, content="古い質問" * 50),
         ChatTurn(role=ChatRole.ASSISTANT, content="新しい回答" * 50),
     ]
-    context = _context(conversation_history=history)
+    context = _context(
+        weekly_summary_entries=[_log_entry(dt.date(2026, 7, 6), "週の要約" * 50)],
+        conversation_history=history,
+    )
     full_len = len(prompt_builder.build_daily_feedback(_TEMPLATE, context, 10**9).text)
 
     result = prompt_builder.build_daily_feedback(_TEMPLATE, context, full_len - 50)
 
+    assert "古い質問" in result.text
     assert "新しい回答" in result.text
-    assert "古い質問" not in result.text
+    assert "週の要約" not in result.text  # 対話より先に過去の記録が削られる
 
 
-def test_build_daily_feedback_stage4_trims_diary_from_head_keeping_tail():
+def test_build_daily_feedback_does_not_trim_diary_body():
+    """S04決定事項D1: 当日の日記は縮退の対象にしない（旧段階4の廃止）。"""
     diary = "A" * 500 + "TAIL_KEEP"
-    context = _context(diary_body=diary)
+    context = _context(
+        weekly_summary_entries=[_log_entry(dt.date(2026, 7, 6), "週の要約" * 50)],
+        diary_body=diary,
+    )
     full_len = len(prompt_builder.build_daily_feedback(_TEMPLATE, context, 10**9).text)
 
-    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, full_len - 30)
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, full_len - 50)
 
-    assert "TAIL_KEEP" in result.text
-    assert "A" * 500 not in result.text
-    assert result.was_truncated is True
+    assert diary in result.text
+    assert "週の要約" not in result.text
 
 
-def test_build_daily_feedback_all_stages_combined_marks_truncated():
+def test_build_daily_feedback_exhausted_when_today_input_alone_exceeds_limit():
+    """S04決定事項D9: 縮退可能な過去の記録を全て使い切っても、当日の入力だけで
+    上限を超える場合はexhausted=Trueとなり、テキストは切り詰めない。"""
     context = _context(
-        weekly_summaries=["週1" * 300, "週2" * 300],
-        material_entries=[
-            MaterialStatusEntry(due_date=dt.date(2026, 9, 1), text="教材A" * 300),
-            MaterialStatusEntry(due_date=dt.date(2027, 1, 1), text="教材B" * 300),
-        ],
-        conversation_history=[
-            ChatTurn(role=ChatRole.USER, content="質問" * 300),
-            ChatTurn(role=ChatRole.ASSISTANT, content="回答" * 300),
-        ],
-        diary_body="日記本文" * 300,
+        weekly_summary_entries=[_log_entry(dt.date(2026, 7, 6), "週の要約")],
+        recent_log_entries=[_log_entry(dt.date(2026, 8, 20), "直近の記録")],
+        today_logs="本日の実績" * 100,
     )
 
     result = prompt_builder.build_daily_feedback(_TEMPLATE, context, max_chars=50)
 
+    assert result.exhausted is True
     assert result.was_truncated is True
-    assert result.prompt_chars == len(result.text)
+    assert "本日の実績" in result.text  # 切り詰めていない
+    assert "週の要約" not in result.text
+    assert "直近の記録" not in result.text
 
 
 _DEGRADABLE_TEMPLATE = (
@@ -390,6 +422,35 @@ def test_build_with_degradable_entries_fallback_trims_tail_when_fixed_variables_
 
     assert len(result.text) == 50
     assert result.was_truncated is True
+
+
+def test_exceeds_with_entries_emptied_false_when_stages_can_make_it_fit():
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls",
+                entries=[_recall_entry(dt.date(2026, 1, 9), "記録" * 200)],
+                empty_text="（直近の想起記録はありません）",
+            ),
+        ],
+    )
+
+    assert (
+        prompt_builder.exceeds_with_entries_emptied(_DEGRADABLE_TEMPLATE, context, max_chars=100)
+        is False
+    )
+
+
+def test_exceeds_with_entries_emptied_true_when_fixed_and_history_alone_exceed():
+    context = _degradable_context(
+        fixed_variables={"today": "2026-08-24", "summary": "A" * 200},
+        conversation_history=[ChatTurn(role=ChatRole.USER, content="質問")],
+    )
+
+    assert (
+        prompt_builder.exceeds_with_entries_emptied(_DEGRADABLE_TEMPLATE, context, max_chars=50)
+        is True
+    )
 
 
 def test_build_simple_returns_full_text_when_under_limit():

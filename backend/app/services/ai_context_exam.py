@@ -344,25 +344,76 @@ def build_recent_activity_text(
     return "\n".join(lines)
 
 
-def build_recent_weekly_summaries(
-    session: Session, goals: list[Goal], inject_weeks: int
-) -> list[str]:
-    """{{weekly_summaries}}: 直近の週次要約を新しい順に（17.2、15.3）。"""
-    if not goals:
-        return []
-    goal_names = {goal.id: goal.name for goal in goals}
-    rows = (
-        session.query(WeeklySummary)
-        .filter(WeeklySummary.goal_id.in_(goal_names), WeeklySummary.is_anonymized.is_(False))
-        .order_by(WeeklySummary.week_start_date.desc())
-        .limit(inject_weeks)
+def build_recent_study_entries(
+    session: Session, goal: Goal, period_start: dt.date, period_end: dt.date
+) -> list[DatedLogEntry]:
+    """{{recent_logs}}（DAILY_FEEDBACK、S04 G2）: 週次要約がまだ無い過去日の実績＋日記を
+    1日1エントリに整形する（17.2新設）。
+
+    build_week_logs_text・build_week_diaries_textの日次版に相当する（同じ整形方針。
+    CLAUDE.md DRYの原則）。実績・日記のいずれか一方しか無い日も、両方無い日は
+    エントリを作らない（list_active_exam_goals等と同じ「記録が無ければ出力しない」方針）。
+    呼び出し側（daily_feedback_service）がai_context_common.build_past_record_entriesへ
+    渡すraw_entriesとして使う。record_dateの古い順（昇順）で返す。
+    """
+    material_ids = [material.id for material in goal.materials]
+    logs_by_date: dict[dt.date, list[str]] = defaultdict(list)
+    if material_ids:
+        log_rows = (
+            session.query(
+                DailyRecord.record_date,
+                StudyLog.material_id,
+                StudyLog.amount_completed,
+                StudyLog.cycle_number,
+                StudyLog.minutes_spent,
+            )
+            .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+            .filter(
+                StudyLog.material_id.in_(material_ids),
+                DailyRecord.record_date >= period_start,
+                DailyRecord.record_date <= period_end,
+            )
+            .order_by(DailyRecord.record_date)
+            .all()
+        )
+        material_names = {material.id: material.name for material in goal.materials}
+        for record_date, material_id, amount, cycle_number, minutes in log_rows:
+            minutes_text = f"{minutes}分" if minutes else "時間未入力"
+            logs_by_date[record_date].append(
+                f"・{material_names[material_id]}: {amount}（{cycle_number}周目、{minutes_text}）"
+            )
+
+    diary_by_date: dict[dt.date, str] = {}
+    diary_rows = (
+        session.query(
+            DailyRecord.record_date, DailyGoalDiary.diary_body, DailyGoalDiary.diary_learned
+        )
+        .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
+        .filter(
+            DailyGoalDiary.goal_id == goal.id,
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= period_end,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
+        )
+        .order_by(DailyRecord.record_date)
         .all()
     )
-    return [
-        f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()} "
-        f"{goal_names[row.goal_id]}]\n{row.summary_body}"
-        for row in rows
-    ]
+    for record_date, diary_body, diary_learned in diary_rows:
+        diary_by_date[record_date] = (
+            f"学んだこと: {diary_learned or ''}\n行動・所感: {diary_body or ''}"
+        )
+
+    dates = sorted(set(logs_by_date) | set(diary_by_date))
+    entries = []
+    for record_date in dates:
+        blocks = []
+        if record_date in logs_by_date:
+            blocks.append("実績:\n" + "\n".join(logs_by_date[record_date]))
+        if record_date in diary_by_date:
+            blocks.append(diary_by_date[record_date])
+        text = f"【{record_date.isoformat()}】\n" + "\n".join(blocks)
+        entries.append(DatedLogEntry(record_date=record_date, text=text))
+    return entries
 
 
 def build_week_logs_text(
@@ -605,7 +656,9 @@ def build_exam_results_text(session: Session, goal: Goal) -> str:
 
 def build_all_weekly_summaries_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
     """{{weekly_summaries}}（総括レポート向け）: 全週の要約を時系列順に（17.5「全週の要約」。
-    build_recent_weekly_summariesは日次報告向けに直近N週へ絞る別用途のため分離する）。
+    日次報告フィードバック向けの期間指定版は`ai_context_common.build_past_record_entries`
+    （S04）を参照。総括レポートはperiod_start/period_endを問わず目標の全期間を対象とする
+    別用途のため分離する）。
 
     week_start_dateの昇順（古い順）で返す。整形前のlist[DatedLogEntry]を返し、空の場合の
     表示・段階的縮退はprompt_builder.build_with_degradable_entries側の責務とする

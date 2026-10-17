@@ -724,7 +724,6 @@
     "promptDegradation": {
       "title": "Prompt degradation",
       "maxPromptCharsLabel": "Input limit (characters)",
-      "summaryInjectWeeksLabel": "Weeks of weekly summaries to inject",
       "perspectiveSuggestionMinRecordsLabel": "Confirmed record count threshold for prompting multiple perspectives"
     },
     "display": {
@@ -1335,7 +1334,7 @@
       "settingsOther": {
         "title": "Settings — Thresholds, prompt degradation, display, logs, prompt templates",
         "p1": "\"Thresholds\": sets the warning ratio (shows a warning banner when your quota exceeds the plan by this ratio) and the forced replan overrun days (forces a replan prompt once the deviation exceeds this many days).",
-        "p2": "\"Prompt degradation\": sets the character limit for prompts sent to the AI, how many weeks of weekly summaries to inject into the prompt, and the threshold (number of finalized records) below which the AI is prompted to ask from multiple perspectives for users with few records. Prompts exceeding the limit are degraded (shortened) in stages, in this order: weekly summaries → aggregated material info → dialogue history → diary entries.",
+        "p2": "\"Prompt degradation\": sets the character limit for prompts sent to the AI, and the threshold (number of finalized records) below which the AI is prompted to ask from multiple perspectives for users with few records. For daily report feedback, past records (weekly summaries, and raw records for past days with no weekly summary yet) cover the entire period from the goal's start date through yesterday, with no limit on count or number of weeks. If a prompt exceeds the character limit, it is degraded in stages starting from the oldest record (for exam goals, collapsing materials with distant deadlines is also used). Today's own performance, diary, and AI dialogue are never degraded; if they alone exceed the limit, sending is cancelled instead of truncating them.",
         "p3": "\"Display\": sets the display language (Japanese / English), theme (follow system setting / light / dark), accent color, font size, and the default analytics granularity (daily / weekly / monthly). Changing the language reloads the page. NewtonX feedback is also generated in Japanese or English according to this setting.",
         "p4": "\"Logs\": sets whether to save AI communication logs, and if so, how long to retain them (in days).",
         "p5": "\"Prompt templates\": lets you edit, and reset to default, the actual prompt text sent to the AI, for each of 15 purposes (daily report feedback, weekly summary, today's message, retrospective report, each reading and work variant, the work AI evaluation report, recap classification/body generation, and the help question assistant). See the \"Prompt template placeholders\" section below for the list of `{{variable_name}}` placeholders available when editing (only the main purposes are listed).",
@@ -1526,6 +1525,7 @@
     "RECAP_THEME_NAME_CONFLICT": "A theme with that name already exists. Please choose a different name",
     "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
     "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
+    "DAILY_FEEDBACK_PROMPT_TOO_LONG": "Today's input exceeds the character limit and could not be sent. Please shorten it and try again",
     "NOT_FOUND": "The requested data could not be found. Please reload the page and try again",
     "AI_AUTH_REQUIRED": "The AI connection has been lost. Please regenerate your Personal Access Token and reconnect on the Settings screen",
     "AI_CONFIG_ERROR": "The AI connection settings are incorrect. Please check the Settings screen",

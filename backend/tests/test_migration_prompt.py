@@ -288,6 +288,59 @@ def test_perspective_suggestion_prompt_migration_preserves_customized_template(
     assert row[0] == "ユーザーがカスタマイズした文面"
 
 
+def test_recent_logs_prompt_migration_updates_non_customized_template(tmp_path, monkeypatch):
+    """S04 G2（ca4cefcbe9c4）: 資格試験の日次報告フィードバックへ{{recent_logs}}を
+    追加するマイグレーションを、既存データがある状態への適用として検証する。
+    is_customized=False（利用者が未編集）のテンプレートは、{{recent_logs}}を含む
+    新文面へ更新されること。
+    """
+    db_path = tmp_path / "recent_logs_prompt_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("b8e4d1f7a3c9")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', '旧文面（{{recent_logs}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+
+    assert "{{recent_logs}}" in row[0]
+
+
+def test_recent_logs_prompt_migration_preserves_customized_template(tmp_path, monkeypatch):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （ca4cefcbe9c4）でも上書きしないこと。"""
+    db_path = tmp_path / "recent_logs_prompt_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("b8e4d1f7a3c9")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', 'ユーザーがカスタマイズした文面', 1, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"
+
+
 _CONVERSATION_CONTINUITY_PROMPT_PURPOSES = (
     "DAILY_FEEDBACK",
     "DAILY_FEEDBACK_READING",

@@ -30,7 +30,12 @@ from app.models.record import ChatMessage, DailyRecord, WeeklySummary, WorkLog
 from app.models.setting import AppSetting
 from app.models.work import WorkAssignment
 from app.services import daily_feedback_service, record_service_common, work_feedback_service
-from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
+from app.services.exceptions import (
+    DailyFeedbackPromptTooLongError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    ValidationError,
+)
 from app.services.record_service_exam import StudyLogItem
 from app.services.record_service_work import WorkLogItem
 
@@ -439,14 +444,14 @@ def test_send_work_feedback_degrades_oldest_recent_logs_before_instructions(
     assert "直近の業務記録はありません" in sent_message
 
 
-def test_send_work_feedback_compresses_weekly_summaries_inside_and_outside_recent_window(
+def test_send_work_feedback_compresses_all_weekly_summaries_without_a_limit(
     seeded_session, monkeypatch
 ):
-    """L-11（2026-09-16是正）: 週次要約はperiod_start=goal.start_dateまで遡って探索する
-    （summary.inject_weeksを上限に、直近recent_days日分〈既定14日〉の窓より前の週も
-    {{weekly_summaries}}へ注入される＝過去の経緯を要約で反映し続ける）。加えて、窓と
-    重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し{{recent_work_logs}}側の
-    生ログからは除外する（reading_feedback_serviceの同名テストと対になる仕事版）。
+    """S04 G1（全期間化）: 週次要約はperiod_start=goal.start_dateまで遡って探索し、
+    件数・週数の上限を設けない（旧summary.inject_weeksによる上限は撤廃）。加えて、
+    直近の生ログ期間と重なる週についても、既に週次要約が生成済みなら圧縮表現へ回し
+    {{recent_work_logs}}側の生ログからは除外する（reading_feedback_serviceの同名
+    テストと対になる仕事版）。
     """
     goal = _make_work_goal(seeded_session, start_date=dt.date(2025, 11, 1))
     work_assignment = _make_work_assignment(seeded_session, goal)
@@ -482,6 +487,31 @@ def test_send_work_feedback_compresses_weekly_summaries_inside_and_outside_recen
     assert "OLDER_WEEK_SUMMARY" in sent_message
     # 是正後: 窓と重なる週も既に要約済みなら圧縮対象となり、weekly_summariesへ注入される。
     assert "OVERLAPPING_WEEK_SUMMARY" in sent_message
+
+
+def test_send_work_feedback_raises_without_sending_when_today_input_alone_exceeds_limit(
+    seeded_session, monkeypatch
+):
+    """S04決定事項D1・D9: 週次要約・直近記録を全て除外しても、本日の業務記録（縮退対象外）
+    だけでai.max_prompt_charsを超える場合は、切り詰めずに送信を中止する。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+    setting.value = "100"
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    with pytest.raises(DailyFeedbackPromptTooLongError):
+        work_feedback_service.send_work_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 1, 10),
+            today=dt.date(2026, 1, 10),
+            message=None,
+            work_log_items=[_work_log(work_assignment.id, body="本日の業務内容" * 50)],
+        )
+
+    assert calls == []
 
 
 # --- 観点提案の追加指示（S-4 4-3） ---

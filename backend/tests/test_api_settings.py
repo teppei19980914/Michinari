@@ -52,10 +52,9 @@ def test_get_settings_includes_reading_assistant_uids_and_recall_window(client):
         body["ai_connection"]["assistant_uid_weekly_summary_reading"]
         == "849c4042-c6de-404e-a1ce-89812eaf850e"
     )
-    assert body["prompt_degradation"]["reading_recall_recent_days"] == 14
 
 
-def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client):
+def test_patch_settings_updates_reading_assistant_uids(client):
     response = client.patch(
         "/api/v1/settings",
         json={
@@ -64,7 +63,6 @@ def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client)
                 "assistant_uid_goal_retrospective_reading": "uid-retrospective-reading",
                 "assistant_uid_weekly_summary_reading": "uid-weekly-summary-reading",
             },
-            "prompt_degradation": {"reading_recall_recent_days": 7},
         },
     )
     assert response.status_code == 200, response.text
@@ -78,7 +76,6 @@ def test_patch_settings_updates_reading_assistant_uids_and_recall_window(client)
         body["ai_connection"]["assistant_uid_weekly_summary_reading"]
         == "uid-weekly-summary-reading"
     )
-    assert body["prompt_degradation"]["reading_recall_recent_days"] == 7
 
 
 def test_get_settings_includes_perspective_suggestion_min_records(client):

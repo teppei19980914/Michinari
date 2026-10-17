@@ -22,8 +22,6 @@ from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
-    AI_WORK_RECENT_LOG_DAYS,
-    SUMMARY_INJECT_WEEKS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -36,11 +34,11 @@ from app.services import (
     record_service_work,
     setting_reader,
 )
-from app.services.exceptions import ValidationError
+from app.services.exceptions import DailyFeedbackPromptTooLongError, ValidationError
 from app.services.record_service_work import WorkLogItem
 
 _ACTION_LABEL = "daily report feedback"
-#: {{recent_work_logs}}が空（対象案件なし、または直近recent_days日分に業務記録なし）の場合の
+#: {{recent_work_logs}}が空（対象案件なし、または対象期間に業務記録なし）の場合の
 #: 表示（17.8）。ai_context_work.build_recent_work_logs_entriesは整形前のlist[DatedLogEntry]
 #: を返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
 #: この定数を使う（CLAUDE.md DRYの原則。reading_feedback_serviceの_NO_RECENT_RECALLS_TEXTと
@@ -96,24 +94,17 @@ def send_work_feedback(
     ]
 
     active_work_assignments = ai_context_work.list_active_work_assignments([goal])
-    recent_days = setting_reader.get_int(session, AI_WORK_RECENT_LOG_DAYS)
-    inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
-    # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
-    # ある週次要約もlimit=inject_weeks件まで遡って見せつつ、直近の窓のうち既に週次要約が
-    # 生成済みの週は圧縮表現へ、それ以外は生ログのまま注入する
-    # （2026-09-16、reading_feedback_serviceと同じ是正。理由もそちらのコメント参照）。
-    compressed = ai_context_common.resolve_weekly_compressed_period(
+    # S04 G1：目標開始日〜対象日の前日の全期間を対象とし、件数・週数の上限を設けない
+    # （2026-09-16のL-11是正から、reading_feedback_serviceと同じ考え方でさらに踏み込む）。
+    period_end = target_date - dt.timedelta(days=1)
+    past_records = ai_context_common.build_past_record_entries(
         session,
         goal,
         period_start=goal.start_date,
-        period_end=target_date - dt.timedelta(days=1),
-        limit=inject_weeks,
-    )
-    recent_work_logs_entries = ai_context_common.exclude_covered_dates(
-        ai_context_work.build_recent_work_logs_entries(
-            session, active_work_assignments, target_date, recent_days
+        period_end=period_end,
+        raw_entries=ai_context_work.build_recent_work_logs_entries(
+            session, active_work_assignments, period_start=goal.start_date, period_end=period_end
         ),
-        compressed.covered_ranges,
     )
 
     # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_service・reading_feedback_service
@@ -155,12 +146,12 @@ def send_work_feedback(
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
+                entries=past_records.weekly_summary_entries,
                 empty_text=_NO_OLDER_WEEKLY_SUMMARIES_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
                 key="recent_work_logs",
-                entries=recent_work_logs_entries,
+                entries=past_records.raw_entries,
                 empty_text=_NO_RECENT_WORK_LOGS_TEXT,
             ),
         ],
@@ -169,6 +160,10 @@ def send_work_feedback(
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_WORK)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
+    # S04決定事項D1・D9：当日の入力（業務記録・対話）は縮退しない。過去の記録を全て削っても
+    # 上限を超える場合は、切り詰めずに送信を中止する（NewtonX利用ナレッジ「切り詰めない」）。
+    if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
+        raise DailyFeedbackPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
     build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK)

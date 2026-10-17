@@ -190,6 +190,70 @@ def test_exclude_covered_dates_returns_entries_unchanged_when_no_ranges(seeded_s
     assert result == entries
 
 
+# --- build_past_record_entries（S04、G1・G2共通化） ---
+
+
+def test_build_past_record_entries_excludes_raw_entries_covered_by_summary(seeded_session):
+    goal = _make_goal(seeded_session)
+    _add_weekly_summary(seeded_session, goal, dt.date(2026, 7, 6))  # 7/6-7/12
+
+    raw_entries = [
+        ai_context_common.DatedLogEntry(record_date=dt.date(2026, 7, 8), text="7/8の生ログ"),
+        ai_context_common.DatedLogEntry(record_date=dt.date(2026, 7, 15), text="7/15の生ログ"),
+    ]
+
+    result = ai_context_common.build_past_record_entries(
+        seeded_session,
+        goal,
+        period_start=dt.date(2026, 7, 6),
+        period_end=dt.date(2026, 7, 19),
+        raw_entries=raw_entries,
+    )
+
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [
+        dt.date(2026, 7, 6)
+    ]
+    assert [entry.record_date for entry in result.raw_entries] == [dt.date(2026, 7, 15)]
+
+
+def test_build_past_record_entries_has_no_limit_on_weekly_summary_count(seeded_session):
+    """S04 G1：件数・週数の上限を設けない（limit=None）。多数の週次要約が全て圧縮対象に
+    含まれることを確認する。"""
+    goal = _make_goal(seeded_session)
+    week_starts = [dt.date(2026, 1, 5) + dt.timedelta(days=7 * i) for i in range(10)]
+    for week_start in week_starts:
+        _add_weekly_summary(seeded_session, goal, week_start)
+
+    result = ai_context_common.build_past_record_entries(
+        seeded_session,
+        goal,
+        period_start=week_starts[0],
+        period_end=week_starts[-1] + dt.timedelta(days=6),
+        raw_entries=[],
+    )
+
+    assert len(result.weekly_summary_entries) == 10
+    assert [entry.record_date for entry in result.weekly_summary_entries] == week_starts
+
+
+def test_build_past_record_entries_returns_all_raw_entries_when_no_summary(seeded_session):
+    goal = _make_goal(seeded_session)
+    raw_entries = [
+        ai_context_common.DatedLogEntry(record_date=dt.date(2026, 7, 6), text="7/6の生ログ"),
+    ]
+
+    result = ai_context_common.build_past_record_entries(
+        seeded_session,
+        goal,
+        period_start=dt.date(2026, 7, 6),
+        period_end=dt.date(2026, 7, 19),
+        raw_entries=raw_entries,
+    )
+
+    assert result.weekly_summary_entries == []
+    assert result.raw_entries == raw_entries
+
+
 # --- build_anonymize_instruction ---
 
 

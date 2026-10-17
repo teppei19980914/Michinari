@@ -19,6 +19,7 @@ from app.services.exceptions import (
     BookAlreadyExistsError,
     ConsentRequiredError,
     CurrentPageExceedsTotalPagesError,
+    DailyFeedbackPromptTooLongError,
     DomainError,
     ExamResultsIncompleteError,
     ExamSubjectRequiredError,
@@ -70,6 +71,10 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     RecapThemeNameConflictError: (status.HTTP_409_CONFLICT, "RECAP_THEME_NAME_CONFLICT"),
     RecapBodyRejectedError: (status.HTTP_409_CONFLICT, "RECAP_BODY_REJECTED"),
     RecapPromptTooLongError: (status.HTTP_409_CONFLICT, "RECAP_PROMPT_TOO_LONG"),
+    DailyFeedbackPromptTooLongError: (
+        status.HTTP_409_CONFLICT,
+        "DAILY_FEEDBACK_PROMPT_TOO_LONG",
+    ),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
     # AI連携（ロジック・プロンプト編16.6の対応表）。

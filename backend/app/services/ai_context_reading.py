@@ -63,16 +63,17 @@ def build_today_recall_text(items: list[ReadingLogItem], books_by_id: dict[int, 
 
 
 def build_recent_recalls_entries(
-    session: Session, books: list[Book], today: dt.date, recent_days: int
+    session: Session, books: list[Book], period_start: dt.date, period_end: dt.date
 ) -> list[DatedLogEntry]:
-    """{{recent_recalls}}（DAILY_FEEDBACK_READING、17.6）: 直近recent_days日分の想起記録
-    （21.4）。週次要約を経由せず原文を直接注入する（読書目標は週次要約を持たないため）。
+    """{{recent_recalls}}（DAILY_FEEDBACK_READING、17.6）: [period_start, period_end]
+    （S04 G1で全期間化。件数・日数の上限を撤廃）の想起記録。週次要約を経由せず原文を
+    直接注入する（読書目標は週次要約を持たないため）。
 
     対象日（today）自身は含めない。today分の想起は{{today_recall}}（下書きの値、
     reading_feedback_service）で別途渡すため、todayの想起がDBへ保存済み（確定後の
     再対話等）だと、含めた場合に同一内容が{{today_recall}}と本関数の結果で二重に
-    プロンプトへ注入されてしまう（2026-09-15、実運用で確認・是正）。そのためtodayを
-    含まないrecent_days日分（today-recent_days 〜 today-1）を対象とする。
+    プロンプトへ注入されてしまう（2026-09-15、実運用で確認・是正）。呼び出し側が
+    period_end=today-1を渡すことでtodayを自然に除外する（S04）。
 
     record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
     prompt_builder.build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則。
@@ -82,14 +83,13 @@ def build_recent_recalls_entries(
         return []
     book_ids = [book.id for book in books]
     book_titles = {book.id: book.title for book in books}
-    period_start = today - dt.timedelta(days=recent_days)
     rows = (
         session.query(DailyRecord.record_date, ReadingLog.book_id, ReadingLog.recall_body)
         .join(ReadingLog, ReadingLog.daily_record_id == DailyRecord.id)
         .filter(
             ReadingLog.book_id.in_(book_ids),
             DailyRecord.record_date >= period_start,
-            DailyRecord.record_date < today,
+            DailyRecord.record_date <= period_end,
         )
         .order_by(DailyRecord.record_date)
         .all()
