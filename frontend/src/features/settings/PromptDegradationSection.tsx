@@ -15,9 +15,6 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
   const [maxPromptChars, setMaxPromptChars] = useState(
     String(settings.prompt_degradation.max_prompt_chars),
   )
-  const [summaryInjectWeeks, setSummaryInjectWeeks] = useState(
-    String(settings.prompt_degradation.summary_inject_weeks),
-  )
   const [perspectiveSuggestionMinRecords, setPerspectiveSuggestionMinRecords] = useState(
     String(settings.prompt_degradation.perspective_suggestion_min_records),
   )
@@ -27,7 +24,6 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
       updateSettings({
         prompt_degradation: {
           max_prompt_chars: Number(maxPromptChars),
-          summary_inject_weeks: Number(summaryInjectWeeks),
           perspective_suggestion_min_records: Number(perspectiveSuggestionMinRecords),
         },
       }),
@@ -50,15 +46,6 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
             min={1000}
             value={maxPromptChars}
             onChange={(e) => setMaxPromptChars(e.target.value)}
-          />
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
-          {t('settings.promptDegradation.summaryInjectWeeksLabel')}
-          <Input
-            type="number"
-            min={1}
-            value={summaryInjectWeeks}
-            onChange={(e) => setSummaryInjectWeeks(e.target.value)}
           />
         </label>
         <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">

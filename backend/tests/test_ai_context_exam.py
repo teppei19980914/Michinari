@@ -452,32 +452,98 @@ def test_build_recent_activity_text_empty_when_goals_have_no_materials(seeded_se
     assert "対象教材はありません" in text
 
 
-# --- build_recent_weekly_summaries ---
+# --- build_recent_study_entries（S04 G2） ---
 
 
-def test_build_recent_weekly_summaries_orders_newest_first_and_respects_limit(seeded_session):
+def test_build_recent_study_entries_combines_logs_and_diary_for_same_day(seeded_session):
     goal = _make_goal(seeded_session)
-    for week_start in (dt.date(2026, 7, 6), dt.date(2026, 7, 13), dt.date(2026, 7, 20)):
-        seeded_session.add(
-            WeeklySummary(
-                goal_id=goal.id,
-                week_start_date=week_start,
-                week_end_date=week_start + dt.timedelta(days=6),
-                summary_body=f"{week_start.isoformat()}の要約",
-            )
+    material = _make_material(seeded_session, goal)
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8))
+    _make_study_log(seeded_session, record, material, amount_completed=10.0, cycle_number=1)
+    seeded_session.add(
+        DailyGoalDiary(
+            daily_record_id=record.id,
+            goal_id=goal.id,
+            diary_body="集中できた",
+            diary_learned="過去問の傾向",
         )
+    )
+    record.exam_record_state = RecordState.REPORTED
     seeded_session.flush()
 
-    result = ai_context_exam.build_recent_weekly_summaries(seeded_session, [goal], inject_weeks=2)
+    entries = ai_context_exam.build_recent_study_entries(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 12)
+    )
 
-    assert len(result) == 2
-    assert "2026-07-20" in result[0]
-    assert "2026-07-13" in result[1]
+    assert len(entries) == 1
+    assert entries[0].record_date == dt.date(2026, 7, 8)
+    assert material.name in entries[0].text
+    assert "過去問の傾向" in entries[0].text
+    assert "集中できた" in entries[0].text
 
 
-def test_build_recent_weekly_summaries_empty_when_no_goals(seeded_session):
-    result = ai_context_exam.build_recent_weekly_summaries(seeded_session, [], inject_weeks=4)
-    assert result == []
+def test_build_recent_study_entries_includes_day_with_logs_only(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8))
+    _make_study_log(seeded_session, record, material, amount_completed=10.0, cycle_number=1)
+    seeded_session.flush()
+
+    entries = ai_context_exam.build_recent_study_entries(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 12)
+    )
+
+    assert len(entries) == 1
+    assert "実績" in entries[0].text
+    assert "学んだこと" not in entries[0].text
+
+
+def test_build_recent_study_entries_includes_day_with_diary_only(seeded_session):
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 7, 8))
+    seeded_session.add(
+        DailyGoalDiary(
+            daily_record_id=record.id,
+            goal_id=goal.id,
+            diary_body="体調が優れなかった",
+            diary_learned="",
+        )
+    )
+    record.exam_record_state = RecordState.REPORTED
+    seeded_session.flush()
+
+    entries = ai_context_exam.build_recent_study_entries(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 12)
+    )
+
+    assert len(entries) == 1
+    assert "体調が優れなかった" in entries[0].text
+    assert "実績" not in entries[0].text
+
+
+def test_build_recent_study_entries_empty_when_no_records(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    entries = ai_context_exam.build_recent_study_entries(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 12)
+    )
+
+    assert entries == []
+
+
+def test_build_recent_study_entries_orders_oldest_first(seeded_session):
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    for record_date in (dt.date(2026, 7, 9), dt.date(2026, 7, 7)):
+        record = _make_daily_record(seeded_session, record_date)
+        _make_study_log(seeded_session, record, material, amount_completed=5.0, cycle_number=1)
+    seeded_session.flush()
+
+    entries = ai_context_exam.build_recent_study_entries(
+        seeded_session, goal, period_start=dt.date(2026, 7, 6), period_end=dt.date(2026, 7, 12)
+    )
+
+    assert [entry.record_date for entry in entries] == [dt.date(2026, 7, 7), dt.date(2026, 7, 9)]
 
 
 # --- build_week_logs_text / build_week_diaries_text / build_week_metrics_text ---
