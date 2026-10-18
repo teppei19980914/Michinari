@@ -65,33 +65,33 @@
 
 ### 3.1 設定キーの入れ替え
 
-- [ ] T-01 `app/constants/app_setting_keys.py`：`SUMMARY_LOOKBACK_WEEKS`を削除、`SUMMARY_RETROACTIVE_MAX_PER_RUN`を追加
-- [ ] T-02 `app/init/seed_data.py`：importとエントリを対応させて入れ替え（初期値 `"10"`、INTEGER）
+- [x] T-01 `app/constants/app_setting_keys.py`：`SUMMARY_LOOKBACK_WEEKS`を削除、`SUMMARY_RETROACTIVE_MAX_PER_RUN`を追加
+- [x] T-02 `app/init/seed_data.py`：importとエントリを対応させて入れ替え（初期値 `"10"`、INTEGER）
 
 ### 3.2 `weekly_summary_service.py`の実装
 
-- [ ] T-03 `_CategorySpec`に`effective_start_date: Callable[[Session, Goal], dt.date]`を追加。`_EXAM_SPEC`・`_WORK_SPEC`は`goal.start_date`、`_READING_SPEC`は`goal.book.start_date`を返す
-- [ ] T-04 `_earliest_effective_start_date(session) -> dt.date | None`を新設：3カテゴリそれぞれの目標を取得し、`effective_start_date`の最小値を返す。目標が1件も無ければ`None`
-- [ ] T-05 `list_pending_weeks(session, today)`：`lookback_weeks`引数を削除。`_earliest_effective_start_date`が`None`、または最も早い週の開始（月曜）が`last_completed_sunday`より後の場合は空リストを返す。それ以外は、最も早い週から`last_completed_sunday`までの全週を対象に、既存の判定（週内のログ有無・生成済み判定）を行う。ループの走査順は変更しない（直近週→過去週、= 新しい週から並ぶ）
-- [ ] T-06 `run_retroactive_generation(session, today)`：`SUMMARY_LOOKBACK_WEEKS`の読み出しをやめ、`SUMMARY_RETROACTIVE_MAX_PER_RUN`を読み出す。`list_pending_weeks(session, today)`の戻り値（新しい週が先頭）の先頭から上限件数分だけを生成対象にする（`pending[:max_per_run]`）。それ以外のロジック（1件ごとのcommit/rollback、失敗の継続）は変更しない
+- [x] T-03 `_CategorySpec`に`effective_start_date: Callable[[Session, Goal], dt.date]`を追加。`_EXAM_SPEC`・`_WORK_SPEC`は`goal.start_date`、`_READING_SPEC`は`goal.book.start_date`を返す
+- [x] T-04 `_earliest_effective_start_date(session) -> dt.date | None`を新設：3カテゴリそれぞれの目標を取得し、`effective_start_date`の最小値を返す。目標が1件も無ければ`None`
+- [x] T-05 `list_pending_weeks(session, today)`：`lookback_weeks`引数を削除。`_earliest_effective_start_date`が`None`、または最も早い週の開始（月曜）が`last_completed_sunday`より後の場合は空リストを返す。それ以外は、最も早い週から`last_completed_sunday`までの全週を対象に、既存の判定（週内のログ有無・生成済み判定）を行う。ループの走査順は変更しない（直近週→過去週、= 新しい週から並ぶ）
+- [x] T-06 `run_retroactive_generation(session, today)`：`SUMMARY_LOOKBACK_WEEKS`の読み出しをやめ、`SUMMARY_RETROACTIVE_MAX_PER_RUN`を読み出す。`list_pending_weeks(session, today)`の戻り値（新しい週が先頭）の先頭から上限件数分だけを生成対象にする（`pending[:max_per_run]`）。それ以外のロジック（1件ごとのcommit/rollback、失敗の継続）は変更しない
 
 ### 3.3 テスト
 
-- [ ] T-07 既存の`list_pending_weeks`呼び出し7箇所から`lookback_weeks=4`引数を削除
-- [ ] T-08 `test_list_pending_weeks_respects_lookback_limit`を、新しい挙動を検証するテストへ置き換える：目標開始日より古い週（存在しないはずの週。ログが無ければ対象外になることの確認）と、目標開始日から数か月前の週にログがある場合に正しく対象として列挙されることを確認する2テストに分ける
-- [ ] T-09 読書目標は`book.start_date`、資格試験・仕事は`goal.start_date`を基準に遡ることを確認するテストを追加（`effective_start_date`の分岐確認）
-- [ ] T-10 目標が1件も無い場合に`list_pending_weeks`が空リストを返すことを確認するテストを追加
-- [ ] T-11 `run_retroactive_generation`が`summary.retroactive_max_per_run`件までしか生成しないことを確認するテスト（未生成週が上限超過の状態を用意し、生成件数が上限と一致することを検証）
-- [ ] T-12 上限により生成されなかった週が、次回の`run_retroactive_generation`呼び出しで生成されることを確認するテスト（2回連続呼び出し）
-- [ ] T-13 新しい週が古い週より先に生成されること（生成順序）を確認するテスト（`_stub_send_message`の呼び出し順、またはAiLogの生成順で検証）
-- [ ] T-14 既存の`test_run_retroactive_generation_continues_after_one_failure`・`test_run_retroactive_generation_respects_call_interval`が新しい実装でも通ることを確認（変更不要なはずだが実行して確認する）
+- [x] T-07 既存の`list_pending_weeks`呼び出し7箇所から`lookback_weeks=4`引数を削除
+- [x] T-08 `test_list_pending_weeks_respects_lookback_limit`を、新しい挙動を検証するテストへ置き換える（`test_list_pending_weeks_reaches_back_to_goal_start_date`・`test_list_pending_weeks_orders_newest_week_first`）
+- [x] T-09 読書目標は`book.start_date`、資格試験・仕事は`goal.start_date`を基準に遡ることを確認するテストを追加（`test_list_pending_weeks_reading_reaches_back_to_book_start_date`）
+- [x] T-10 目標が1件も無い場合・目標が今週開始で完了週がまだ無い場合に`list_pending_weeks`が空リストを返すことを確認するテストを追加（カバレッジ100%のため分岐も網羅）
+- [x] T-11 `run_retroactive_generation`が`summary.retroactive_max_per_run`件までしか生成しないことを確認するテスト（`test_run_retroactive_generation_respects_max_per_run`）
+- [x] T-12 上限により生成されなかった週が、次回の`run_retroactive_generation`呼び出しで生成されることを確認するテスト（`test_run_retroactive_generation_picks_up_remaining_weeks_on_next_run`）
+- [x] T-13 新しい週が古い週より先に生成されること（生成順序）を確認するテスト（`test_run_retroactive_generation_generates_newest_week_first`）
+- [x] T-14 既存の`test_run_retroactive_generation_continues_after_one_failure`・`test_run_retroactive_generation_respects_call_interval`が新しい実装でも通ることを確認済み（`backend`で`pytest`実行、1,867件合格・カバレッジ100%、ベースラインの1,860件から正味+7件）
 
 ### 3.4 ドキュメント改訂
 
-- [ ] D-01 設計書（ロジック・プロンプト編）15.2：手順2・手順4を改訂し、手順3のREADING除外の誤記を是正。改訂履歴に改49を追加
-- [ ] D-02 設計書（ロジック・プロンプト編）24章：L-13を新設
-- [ ] D-03 設計書（データ構造編）5.2：設定キー表の入れ替え。改訂履歴に改47を追加
-- [ ] D-04 実装フェーズ分割計画書：Phase 45（S05）を新設（02_フェーズ一覧.md・03_各フェーズの詳細/Phase45.md）。改訂履歴に改26を追加
+- [x] D-01 設計書（ロジック・プロンプト編）15.2：手順2・手順4を改訂し、手順3のREADING除外の誤記を是正。改訂履歴に改49を追加
+- [x] D-02 設計書（ロジック・プロンプト編）24章：L-13を新設
+- [x] D-03 設計書（データ構造編）5.2：設定キー表の入れ替え。改訂履歴に改47を追加
+- [x] D-04 実装フェーズ分割計画書：Phase 45（S05）を新設（02_フェーズ一覧.md・03_各フェーズの詳細/Phase45.md）。改訂履歴に改26を追加
 
 ## 4. テスト計画
 
