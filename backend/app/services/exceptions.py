@@ -217,3 +217,12 @@ class RecapPromptTooLongError(DomainError):
 
 class RecapThemeNameConflictError(DomainError):
     """振り返りのテーマを、同じ目標内に既にある名前へ改名・統合しようとした場合。"""
+
+
+class DailyFeedbackPromptTooLongError(DomainError):
+    """日次報告フィードバック（資格試験・読書・仕事）で、当日の入力（実績・日記・対話）を
+    保持したまま縮退可能な過去の記録を全て使い切っても、プロンプトが上限文字数を超える場合。
+
+    当日の入力を切り詰めると情報が失われるため、送信せず中止する
+    （S04、RecapPromptTooLongErrorと同じ考え方）。
+    """

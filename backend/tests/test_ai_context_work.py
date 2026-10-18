@@ -137,34 +137,40 @@ def test_build_today_work_text_handles_no_items():
     assert "本日の業務記録はまだありません" in text
 
 
-# --- build_recent_work_logs_entries ---
+# --- build_recent_work_logs_entries（S04 G1：period_start/period_endの全期間指定） ---
 
 
-def test_build_recent_work_logs_entries_excludes_entries_outside_window(seeded_session):
+def test_build_recent_work_logs_entries_excludes_entries_outside_period(seeded_session):
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
-    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="窓内の記録")
-    _add_work_log(seeded_session, work_assignment.id, dt.date(2025, 12, 1), body="窓外の記録")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="期間内の記録")
+    _add_work_log(seeded_session, work_assignment.id, dt.date(2025, 12, 1), body="期間外の記録")
 
     entries = ai_context_work.build_recent_work_logs_entries(
-        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [work_assignment],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     texts = [entry.text for entry in entries]
-    assert any("窓内の記録" in text for text in texts)
-    assert not any("窓外の記録" in text for text in texts)
+    assert any("期間内の記録" in text for text in texts)
+    assert not any("期間外の記録" in text for text in texts)
 
 
 def test_build_recent_work_logs_entries_excludes_todays_own_record(seeded_session):
     """対象日（today）自身の業務記録は含めない。理由はbuild_recent_recalls_entriesと同じ
-    （2026-09-15是正）。"""
+    （2026-09-15是正）。呼び出し側がperiod_end=today-1を渡すことでtodayを除外する（S04）。"""
     goal = _make_work_goal(seeded_session)
     work_assignment = _make_work_assignment(seeded_session, goal)
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 10), body="本日分の記録")
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 9), body="前日分の記録")
 
     entries = ai_context_work.build_recent_work_logs_entries(
-        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [work_assignment],
+        period_start=dt.date(2025, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     texts = [entry.text for entry in entries]
@@ -181,7 +187,10 @@ def test_build_recent_work_logs_entries_orders_oldest_first(seeded_session):
     _add_work_log(seeded_session, work_assignment.id, dt.date(2026, 1, 8), body="古い記録")
 
     entries = ai_context_work.build_recent_work_logs_entries(
-        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [work_assignment],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 8), dt.date(2026, 1, 9)]
@@ -189,7 +198,7 @@ def test_build_recent_work_logs_entries_orders_oldest_first(seeded_session):
 
 def test_build_recent_work_logs_entries_handles_no_assignments(seeded_session):
     entries = ai_context_work.build_recent_work_logs_entries(
-        seeded_session, [], dt.date(2026, 1, 10), recent_days=14
+        seeded_session, [], period_start=dt.date(2026, 1, 1), period_end=dt.date(2026, 1, 9)
     )
     assert entries == []
 
@@ -199,7 +208,10 @@ def test_build_recent_work_logs_entries_handles_no_logs(seeded_session):
     work_assignment = _make_work_assignment(seeded_session, goal)
 
     entries = ai_context_work.build_recent_work_logs_entries(
-        seeded_session, [work_assignment], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [work_assignment],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     assert entries == []

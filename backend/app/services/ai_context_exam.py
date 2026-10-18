@@ -105,6 +105,51 @@ def _group_materials_by_goal(materials: list[Material]) -> dict[int, list[Materi
     return by_goal
 
 
+def _fetch_study_log_rows(
+    session: Session, material_ids: list[int], period_start: dt.date, period_end: dt.date
+):
+    """[period_start, period_end]内の教材別実績の生クエリ結果（build_week_logs_text・
+    build_recent_study_entriesで共通利用、CLAUDE.md DRYの原則）。整形方法は呼び出し側に委ねる。
+    """
+    return (
+        session.query(
+            DailyRecord.record_date,
+            StudyLog.material_id,
+            StudyLog.amount_completed,
+            StudyLog.cycle_number,
+            StudyLog.minutes_spent,
+        )
+        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
+        .filter(
+            StudyLog.material_id.in_(material_ids),
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= period_end,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+
+
+def _fetch_diary_rows(session: Session, goal_id: int, period_start: dt.date, period_end: dt.date):
+    """[period_start, period_end]内の確定済み日記の生クエリ結果（build_week_diaries_text・
+    build_recent_study_entriesで共通利用、CLAUDE.md DRYの原則）。整形方法は呼び出し側に委ねる。
+    """
+    return (
+        session.query(
+            DailyRecord.record_date, DailyGoalDiary.diary_body, DailyGoalDiary.diary_learned
+        )
+        .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
+        .filter(
+            DailyGoalDiary.goal_id == goal_id,
+            DailyRecord.record_date >= period_start,
+            DailyRecord.record_date <= period_end,
+            DailyRecord.exam_record_state == RecordState.REPORTED,
+        )
+        .order_by(DailyRecord.record_date)
+        .all()
+    )
+
+
 def build_diary_text(entries: list[DiaryEntryItem], goals: list[Goal]) -> tuple[str, str]:
     """{{diary_body}}/{{diary_learned}}: 複数目標分の日記エントリを1本の文字列に整形する
     （17.2）。内容のある目標が2件以上のときのみ`■ 目標名`見出しを付けて結合し、1件のみ
@@ -344,25 +389,52 @@ def build_recent_activity_text(
     return "\n".join(lines)
 
 
-def build_recent_weekly_summaries(
-    session: Session, goals: list[Goal], inject_weeks: int
-) -> list[str]:
-    """{{weekly_summaries}}: 直近の週次要約を新しい順に（17.2、15.3）。"""
-    if not goals:
-        return []
-    goal_names = {goal.id: goal.name for goal in goals}
-    rows = (
-        session.query(WeeklySummary)
-        .filter(WeeklySummary.goal_id.in_(goal_names), WeeklySummary.is_anonymized.is_(False))
-        .order_by(WeeklySummary.week_start_date.desc())
-        .limit(inject_weeks)
-        .all()
-    )
-    return [
-        f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()} "
-        f"{goal_names[row.goal_id]}]\n{row.summary_body}"
-        for row in rows
-    ]
+def build_recent_study_entries(
+    session: Session, goal: Goal, period_start: dt.date, period_end: dt.date
+) -> list[DatedLogEntry]:
+    """{{recent_logs}}（DAILY_FEEDBACK、S04 G2）: 週次要約がまだ無い過去日の実績＋日記を
+    1日1エントリに整形する（17.2新設）。
+
+    build_week_logs_text・build_week_diaries_textの日次版に相当する（クエリは
+    _fetch_study_log_rows・_fetch_diary_rowsへ共通化済み、CLAUDE.md DRYの原則）。
+    実績・日記のいずれか一方しか無い日も、両方無い日はエントリを作らない
+    （list_active_exam_goals等と同じ「記録が無ければ出力しない」方針）。
+    呼び出し側（daily_feedback_service）がai_context_common.build_past_record_entriesへ
+    渡すraw_entriesとして使う。record_dateの古い順（昇順）で返す。
+    """
+    material_ids = [material.id for material in goal.materials]
+    logs_by_date: dict[dt.date, list[str]] = defaultdict(list)
+    if material_ids:
+        log_rows = _fetch_study_log_rows(session, material_ids, period_start, period_end)
+        material_names = {material.id: material.name for material in goal.materials}
+        for record_date, material_id, amount, cycle_number, minutes in log_rows:
+            minutes_text = f"{minutes}分" if minutes else "時間未入力"
+            logs_by_date[record_date].append(
+                f"・{material_names[material_id]}: {amount}（{cycle_number}周目、{minutes_text}）"
+            )
+
+    diary_by_date: dict[dt.date, str] = {}
+    diary_rows = _fetch_diary_rows(session, goal.id, period_start, period_end)
+    for record_date, diary_body, diary_learned in diary_rows:
+        # build_week_diaries_text（週次要約向け）は「行動・所感→学んだこと」の順だが、
+        # ここは当日の本来のDAILY_FEEDBACKテンプレート（diary_learnedを先に配置、17.2）と
+        # 揃え「学んだこと→行動・所感」の順にする（学んだことが入力欄の主役、17.2の既存
+        # コメント参照）。週次要約側の順序は本改修の対象外（別件、開発Todo S04参照）。
+        diary_by_date[record_date] = (
+            f"学んだこと: {diary_learned or ''}\n行動・所感: {diary_body or ''}"
+        )
+
+    dates = sorted(set(logs_by_date) | set(diary_by_date))
+    entries = []
+    for record_date in dates:
+        blocks = []
+        if record_date in logs_by_date:
+            blocks.append("実績:\n" + "\n".join(logs_by_date[record_date]))
+        if record_date in diary_by_date:
+            blocks.append(diary_by_date[record_date])
+        text = f"【{record_date.isoformat()}】\n" + "\n".join(blocks)
+        entries.append(DatedLogEntry(record_date=record_date, text=text))
+    return entries
 
 
 def build_week_logs_text(
@@ -372,23 +444,7 @@ def build_week_logs_text(
     material_ids = [material.id for material in goal.materials]
     if not material_ids:
         return "（対象教材はありません）"
-    rows = (
-        session.query(
-            DailyRecord.record_date,
-            StudyLog.material_id,
-            StudyLog.amount_completed,
-            StudyLog.cycle_number,
-            StudyLog.minutes_spent,
-        )
-        .join(StudyLog, StudyLog.daily_record_id == DailyRecord.id)
-        .filter(
-            StudyLog.material_id.in_(material_ids),
-            DailyRecord.record_date >= week_start,
-            DailyRecord.record_date <= week_end,
-        )
-        .order_by(DailyRecord.record_date)
-        .all()
-    )
+    rows = _fetch_study_log_rows(session, material_ids, week_start, week_end)
     if not rows:
         return "（この週の実績はありません）"
     material_names = {material.id: material.name for material in goal.materials}
@@ -410,20 +466,7 @@ def build_week_diaries_text(
     日記は目標別（DailyGoalDiary）に保持しているため、goal_idで絞り込む
     （複数目標が同時進行していた週に他目標の日記が混入しないようにする、L-04関連）。
     """
-    rows = (
-        session.query(
-            DailyRecord.record_date, DailyGoalDiary.diary_body, DailyGoalDiary.diary_learned
-        )
-        .join(DailyGoalDiary, DailyGoalDiary.daily_record_id == DailyRecord.id)
-        .filter(
-            DailyGoalDiary.goal_id == goal.id,
-            DailyRecord.record_date >= week_start,
-            DailyRecord.record_date <= week_end,
-            DailyRecord.exam_record_state == RecordState.REPORTED,
-        )
-        .order_by(DailyRecord.record_date)
-        .all()
-    )
+    rows = _fetch_diary_rows(session, goal.id, week_start, week_end)
     if not rows:
         return "（この週の日記はありません）"
     return "\n\n".join(
@@ -605,7 +648,9 @@ def build_exam_results_text(session: Session, goal: Goal) -> str:
 
 def build_all_weekly_summaries_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
     """{{weekly_summaries}}（総括レポート向け）: 全週の要約を時系列順に（17.5「全週の要約」。
-    build_recent_weekly_summariesは日次報告向けに直近N週へ絞る別用途のため分離する）。
+    日次報告フィードバック向けの期間指定版は`ai_context_common.build_past_record_entries`
+    （S04）を参照。総括レポートはperiod_start/period_endを問わず目標の全期間を対象とする
+    別用途のため分離する）。
 
     week_start_dateの昇順（古い順）で返す。整形前のlist[DatedLogEntry]を返し、空の場合の
     表示・段階的縮退はprompt_builder.build_with_degradable_entries側の責務とする

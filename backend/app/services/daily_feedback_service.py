@@ -18,7 +18,6 @@ from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
-    SUMMARY_INJECT_WEEKS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -32,7 +31,7 @@ from app.services import (
     record_service_exam,
     setting_reader,
 )
-from app.services.exceptions import ValidationError
+from app.services.exceptions import DailyFeedbackPromptTooLongError, ValidationError
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 
 _ACTION_LABEL = "daily report feedback"
@@ -122,6 +121,19 @@ def send_daily_feedback(
         GoalCategory.EXAM, reported_count < min_records
     )
 
+    # S04 G1：目標開始日〜対象日の前日の全期間を対象とし、件数・週数の上限を設けない
+    # （読書・仕事と同じ考え方、reading_feedback_service・work_feedback_serviceのコメント参照）。
+    period_end = target_date - dt.timedelta(days=1)
+    past_records = ai_context_common.build_past_record_entries(
+        session,
+        goal,
+        period_start=goal.start_date,
+        period_end=period_end,
+        raw_entries=ai_context_exam.build_recent_study_entries(
+            session, goal, period_start=goal.start_date, period_end=period_end
+        ),
+    )
+
     context = prompt_builder.DailyFeedbackContext(
         today=target_date.isoformat(),
         day_type=day_type.value,
@@ -137,9 +149,8 @@ def send_daily_feedback(
         today_logs=ai_context_exam.build_today_logs_text(study_log_items, materials_by_id),
         diary_body=diary_body,
         diary_learned=diary_learned,
-        weekly_summaries=ai_context_exam.build_recent_weekly_summaries(
-            session, active_goals, setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
-        ),
+        weekly_summary_entries=past_records.weekly_summary_entries,
+        recent_log_entries=past_records.raw_entries,
         conversation_history=history,
         perspective_suggestion=perspective_suggestion,
     )
@@ -147,6 +158,8 @@ def send_daily_feedback(
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     build_result = prompt_builder.build_daily_feedback(template_body, context, max_chars)
+    if build_result.exhausted:
+        raise DailyFeedbackPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK)
     conversation = ai_conversation.ensure_conversation(

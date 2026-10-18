@@ -8,15 +8,12 @@ import { useToast } from '../../components/toastContext'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
-/** プロンプト縮退設定（仕様書6.11「入力上限」「週次要約の注入週数」）。 */
+/** プロンプト縮退設定（仕様書6.11「入力上限」「観点提案を促す確定済み記録数の閾値」）。 */
 export function PromptDegradationSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()
   const [maxPromptChars, setMaxPromptChars] = useState(
     String(settings.prompt_degradation.max_prompt_chars),
-  )
-  const [summaryInjectWeeks, setSummaryInjectWeeks] = useState(
-    String(settings.prompt_degradation.summary_inject_weeks),
   )
   const [perspectiveSuggestionMinRecords, setPerspectiveSuggestionMinRecords] = useState(
     String(settings.prompt_degradation.perspective_suggestion_min_records),
@@ -27,7 +24,6 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
       updateSettings({
         prompt_degradation: {
           max_prompt_chars: Number(maxPromptChars),
-          summary_inject_weeks: Number(summaryInjectWeeks),
           perspective_suggestion_min_records: Number(perspectiveSuggestionMinRecords),
         },
       }),
@@ -50,15 +46,6 @@ export function PromptDegradationSection({ settings }: { settings: AppSettingsRe
             min={1000}
             value={maxPromptChars}
             onChange={(e) => setMaxPromptChars(e.target.value)}
-          />
-        </label>
-        <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">
-          {t('settings.promptDegradation.summaryInjectWeeksLabel')}
-          <Input
-            type="number"
-            min={1}
-            value={summaryInjectWeeks}
-            onChange={(e) => setSummaryInjectWeeks(e.target.value)}
           />
         </label>
         <label className="flex flex-1 flex-col gap-1 text-sm text-text-secondary">

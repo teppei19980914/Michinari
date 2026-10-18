@@ -73,12 +73,12 @@ def test_update_app_settings_log_and_prompt_degradation(seeded_session):
     updated = settings_service.update_app_settings(
         seeded_session,
         log={"ai_enabled": False, "retention_days": 30},
-        prompt_degradation={"max_prompt_chars": 20000, "summary_inject_weeks": 2},
+        prompt_degradation={"max_prompt_chars": 20000, "perspective_suggestion_min_records": 2},
     )
     assert updated.log.ai_enabled is False
     assert updated.log.retention_days == 30
     assert updated.prompt_degradation.max_prompt_chars == 20000
-    assert updated.prompt_degradation.summary_inject_weeks == 2
+    assert updated.prompt_degradation.perspective_suggestion_min_records == 2
 
 
 def test_update_app_settings_accepts_each_field_independently(seeded_session):
@@ -86,13 +86,13 @@ def test_update_app_settings_accepts_each_field_independently(seeded_session):
     updated = settings_service.update_app_settings(
         seeded_session,
         threshold={"replan_overrun_days": 5},
-        prompt_degradation={"summary_inject_weeks": 6},
+        prompt_degradation={"perspective_suggestion_min_records": 6},
         log={"retention_days": 45},
     )
     assert updated.threshold.warning_ratio == 1.20
     assert updated.threshold.replan_overrun_days == 5
     assert updated.prompt_degradation.max_prompt_chars == 30000
-    assert updated.prompt_degradation.summary_inject_weeks == 6
+    assert updated.prompt_degradation.perspective_suggestion_min_records == 6
     assert updated.log.ai_enabled is True
     assert updated.log.retention_days == 45
 
@@ -133,7 +133,7 @@ def test_update_app_settings_accepts_only_first_field_of_each_group(seeded_sessi
         log={"ai_enabled": False},
     )
     assert updated.prompt_degradation.max_prompt_chars == 25000
-    assert updated.prompt_degradation.summary_inject_weeks == 4
+    assert updated.prompt_degradation.perspective_suggestion_min_records == 3
     assert updated.display.theme == "light"
     assert updated.display.default_granularity == "WEEK"
     assert updated.display.accent_color == "blue"

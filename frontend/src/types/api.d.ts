@@ -715,7 +715,7 @@ export interface paths {
          * Get Today
          * @description 論理的な本日の日付と記録状態を取得する（クライアント側でシステム日付から判断しない）。
          *
-         *     record_state はカテゴリ横断の集約値（record_service.aggregate_record_state）であり、
+         *     record_state はカテゴリ横断の集約値（record_service_common.aggregate_record_state）であり、
          *     カレンダー・ダッシュボードの単一状態表示にのみ使う（仕様変更2026-09-05）。
          */
         get: operations["get_today_api_v1_records_today_get"];
@@ -3302,9 +3302,9 @@ export interface components {
         };
         /**
          * ProgressRegisterRequest
-         * @description study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_serviceで
-         *     検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行しうるため、schema側では
-         *     特定の1つのみのmin_length指定はできない）。
+         * @description study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_service_common
+         *     （register_progress）で検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行
+         *     しうるため、schema側では特定の1つのみのmin_length指定はできない）。
          */
         ProgressRegisterRequest: {
             /** Study Logs */
@@ -3318,10 +3318,6 @@ export interface components {
         PromptDegradationSettingsRead: {
             /** Max Prompt Chars */
             max_prompt_chars: number;
-            /** Summary Inject Weeks */
-            summary_inject_weeks: number;
-            /** Reading Recall Recent Days */
-            reading_recall_recent_days: number;
             /** Perspective Suggestion Min Records */
             perspective_suggestion_min_records: number;
         };
@@ -3329,10 +3325,6 @@ export interface components {
         PromptDegradationSettingsUpdate: {
             /** Max Prompt Chars */
             max_prompt_chars?: number | null;
-            /** Summary Inject Weeks */
-            summary_inject_weeks?: number | null;
-            /** Reading Recall Recent Days */
-            reading_recall_recent_days?: number | null;
             /** Perspective Suggestion Min Records */
             perspective_suggestion_min_records?: number | null;
         };
@@ -3463,7 +3455,7 @@ export interface components {
          *     ページの入力欄は現在ページ1つだけとする（仕様変更2026-09-11）。「読んだページ数」は
          *     利用者が毎日覚えていられない値であるうえ、読書は定量的な進捗管理を行わない目標
          *     （R-71）であり保持する意味を持たないため廃止した。現在ページの上限は書籍の総ページ数
-         *     であり、その検証は書籍を参照できるサービス層（record_service）で行う。
+         *     であり、その検証は書籍を参照できるサービス層（record_service_reading）で行う。
          */
         ReadingLogInput: {
             /** Book Id */
