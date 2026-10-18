@@ -128,3 +128,14 @@ CLAUDE.md「コミット前チェック」に基づき、`dry-reviewer`・`style
 | テストカバレッジ（test-coverage-reviewer） | **指摘あり（MEDIUM）**：`test_list_pending_weeks_reading_reaches_back_to_book_start_date`が、`effective_start_date`を`goal.start_date`へ差し替えるミューテーションでも合格する退化テストだった（book.start_dateをgoal.start_dateより後ろにずらしていたため、区別が効かない配置になっていた） | **対応済み**：book.start_dateをgoal.start_dateより前にし、ログの週をその間（book.start_date以降・goal.start_dateより前）へ配置するよう修正。ミューテーション適用で実際に失敗することを手動確認した |
 
 修正後、`ruff check`・`pytest`（backend、1,867件合格・カバレッジ100%）を再実行し、グリーンであることを確認した。
+
+**修正後の再レビュー（2026-10-18、PR #110マージ後）**：`performance-reviewer`・`test-coverage-reviewer`を修正後のコードに対して再度起動し、独立に再検証した。
+
+- `performance-reviewer`：週ループ内（`for offset in range(weeks_count):`）にDBクエリが残っていないこと、クエリが3カテゴリ一括＋`WeeklySummary`一括＋`Goal`一括の合計5回に固定され週数に依存しないことをコード行指定で確認。「修正により指摘事項は解消。問題なし」
+- `test-coverage-reviewer`：`_READING_SPEC.effective_start_date`を`goal.start_date`へ一時的に差し替えて実際にテストを再実行し、`test_list_pending_weeks_reading_reaches_back_to_book_start_date`が失敗することを確認（確認後に差分ゼロへ復元）。`pytest --cov`でカバレッジ146文・36分岐すべて100%（BrPart=0）であることも再実測。「修正により指摘事項は解消。問題なし」
+
+**依存関係の脆弱性スキャン（vuln-scan.sh／OSV）**：`osv-scanner`が未導入のためスキップされる（`.claude/hooks/vuln-scan.sh`の仕様どおり、非ブロッキング）。本セッションは`backend/pyproject.toml`・`frontend/package.json`等の依存関係ファイルを変更していない（`git diff`で確認済み）ため、新規に追加された依存の脆弱性リスクは無い。
+
+**設計書15章への反映範囲について**：15.2の改訂（手順2・手順4）は「どの週を対象にするか・どの順で生成するか」という業務ロジックの記述であり、今回の性能修正（週ごとのクエリ発行→範囲一括クエリ＋Python側振り分け）は同じ業務ロジックを実現する内部実装の最適化であって、15章が記述する粒度（手順レベル）を変えるものではないため、15章自体の追記は行わなかった。実装判断の経緯は`weekly_summary_service.py`モジュール先頭docstringと本書§7に記録済み。
+
+**チェック完了: 問題なし**（観点別レビュー7種を実施、2件の指摘はいずれも修正後に再レビューで解消を確認。vuln-scanは環境上スキップだが新規依存追加なしのため実害なし）。
