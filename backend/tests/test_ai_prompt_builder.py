@@ -150,6 +150,40 @@ def test_build_daily_feedback_stage2_drops_oldest_recent_log_after_summaries_exh
     assert "古い日の記録" not in result.text
 
 
+def test_build_daily_feedback_exhausts_weekly_summaries_before_recent_logs():
+    """S04 G10: weekly_summaries（段階1）とrecent_logs（段階2）の両方にエントリが
+    残っている状態では、段階1を0件まで使い切るまで段階2には着手しない（先の段階が
+    尽きるまで次の段階へ進まないという既存方針、16.5参照）。"""
+    weekly = [_log_entry(dt.date(2026, 7, 6), "WEEKLY_MARKER")]
+    recent = [
+        _log_entry(dt.date(2026, 8, 20), "古い日の記録" * 50),
+        _log_entry(dt.date(2026, 8, 22), "新しい日の記録" * 50),
+    ]
+
+    # 段階1（weekly）を0件にしても段階2（recent、2件とも）が残っていると収まらない閾値。
+    without_weekly_context = _context(recent_log_entries=recent)
+    without_weekly = len(
+        prompt_builder.build_daily_feedback(_TEMPLATE, without_weekly_context, 10**9).text
+    )
+    # 段階1を0件・段階2も古い方（1件）を除けば収まる閾値。
+    without_weekly_and_oldest_recent = len(
+        prompt_builder.build_daily_feedback(
+            _TEMPLATE, _context(recent_log_entries=[recent[1]]), 10**9
+        ).text
+    )
+    assert without_weekly_and_oldest_recent < without_weekly  # 前提の健全性確認
+
+    context = _context(weekly_summary_entries=weekly, recent_log_entries=recent)
+    result = prompt_builder.build_daily_feedback(
+        _TEMPLATE, context, max_chars=without_weekly_and_oldest_recent
+    )
+
+    assert "WEEKLY_MARKER" not in result.text  # 段階1は0件まで使い切られている
+    assert "まだ週次要約はありません" in result.text
+    assert "古い日の記録" not in result.text  # 段階2は古い方だけ削られる
+    assert "新しい日の記録" in result.text  # 段階2の新しい方は残る
+
+
 def test_build_daily_feedback_stage3_collapses_far_due_material_first():
     near = MaterialStatusEntry(due_date=dt.date(2026, 9, 1), text="近い締切教材" * 30)
     far = MaterialStatusEntry(due_date=dt.date(2027, 3, 1), text="遠い締切教材" * 30)
@@ -306,8 +340,9 @@ def test_build_with_degradable_entries_drops_oldest_entry_first():
 
 
 def test_build_with_degradable_entries_can_drop_all_entries_in_a_stage():
-    # weekly_summaries（build_daily_feedback）と異なり「最低1件残す」制約は無い。
-    # 対話履歴で削れる余地が無い場合、段階内のエントリが0件まで縮退することを確認する。
+    # build_daily_feedbackのweekly_summariesも含め、S04以降はいずれの段階にも
+    # 「最低1件残す」制約は無い（D7で撤廃）。対話履歴で削れる余地が無い場合、
+    # 段階内のエントリが0件まで縮退することを確認する。
     entries = [
         _recall_entry(dt.date(2026, 1, 8), "記録A" * 500),
         _recall_entry(dt.date(2026, 1, 9), "記録B" * 500),
