@@ -112,3 +112,19 @@
 | --- | --- | --- |
 | 1 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/15_週次要約の生成.md`の手順3「category=READINGの目標はstudy_logを持たないため自動的に対象外」という記述は、L-11（読書・仕事への週次要約新設）で実装が変わった後も是正されていなかった（本書D-01で合わせて是正する。本件は影響範囲が同一箇所のため別件ではなく本作業に含めた） |
 | 2 | `docs/設計書_データ構造編_ミチナリ_v1.1.md`改45に「なお改43（2026-10-06付）は本文書に存在しない章を指しており…過去ログのため本分割では修正しない」という既知の誤記が記録されている。本件とは無関係のため対応しない |
+
+## 7. コミット前チェック（観点別レビュー、2026-10-18実施）
+
+CLAUDE.md「コミット前チェック」に基づき、`dry-reviewer`・`style-reviewer`・`label-checker`・`secret-reviewer`・`injection-reviewer`・`performance-reviewer`・`test-coverage-reviewer`を並列起動して`git diff origin/main...HEAD`をレビューした。
+
+| 観点 | 結果 | 対応 |
+| --- | --- | --- |
+| DRY（dry-reviewer） | 問題なし。`effective_start_date`の資格試験/仕事=`goal.start_date`・読書=`book.start_date`という分岐が既存4箇所と同種だが、各1行のフィールド参照であり共通化しても意味のある重複排除にならないと判断（LOW、許容） | 対応不要 |
+| 命名・コメント規約（style-reviewer） | 問題なし | 対応不要 |
+| ゼロハードコーディング（label-checker） | 問題なし（ユーザー向け文言の追加なし） | 対応不要 |
+| 機密情報（secret-reviewer） | 問題なし | 対応不要 |
+| インジェクション（injection-reviewer） | 問題なし（全DBアクセスがSQLAlchemy ORM経由） | 対応不要 |
+| パフォーマンス（performance-reviewer） | **指摘あり（MEDIUM）**：`list_pending_weeks`が週ごとにクエリを発行する実装だと、遡及範囲が目標開始日まで広がったことで、既に生成済みの古い週も起動のたびに際限なく再スキャンし続け、クエリ数が無制限に増え続ける | **対応済み**：`_CategorySpec.goal_ids_with_logs_in_week`（週単位）を`goal_ids_with_logs_by_week`（範囲一括、`dict[週開始日, goal_id集合]`を返す）へ変更し、カテゴリ別クエリ・`WeeklySummary`取得・`Goal`取得をいずれも1回ずつに削減（クエリ数が対象週数に依存しない構成へ）。利用者方針「起動・動作は速く」に合致させた |
+| テストカバレッジ（test-coverage-reviewer） | **指摘あり（MEDIUM）**：`test_list_pending_weeks_reading_reaches_back_to_book_start_date`が、`effective_start_date`を`goal.start_date`へ差し替えるミューテーションでも合格する退化テストだった（book.start_dateをgoal.start_dateより後ろにずらしていたため、区別が効かない配置になっていた） | **対応済み**：book.start_dateをgoal.start_dateより前にし、ログの週をその間（book.start_date以降・goal.start_dateより前）へ配置するよう修正。ミューテーション適用で実際に失敗することを手動確認した |
+
+修正後、`ruff check`・`pytest`（backend、1,867件合格・カバレッジ100%）を再実行し、グリーンであることを確認した。
