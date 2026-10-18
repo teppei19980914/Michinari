@@ -356,6 +356,19 @@ def test_list_pending_weeks_returns_empty_when_no_goals(seeded_session):
     assert pending == []
 
 
+def test_list_pending_weeks_returns_empty_when_goal_started_this_week(seeded_session):
+    """目標が今週（まだ完了していない週）に開始した場合、遡及対象の完了週はまだ存在しない。"""
+    goal = Goal(name="今週開始の目標", start_date=dt.date(2026, 8, 24), status=GoalStatus.ACTIVE)
+    seeded_session.add(goal)
+    seeded_session.flush()
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert pending == []
+
+
 # --- generate_for_week ---
 
 
