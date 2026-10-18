@@ -313,24 +313,30 @@ def test_list_pending_weeks_orders_newest_week_first(seeded_session):
 
 
 def test_list_pending_weeks_reading_reaches_back_to_book_start_date(seeded_session):
-    """読書目標の遡及基準はgoal.start_dateとは独立なbook.start_date（L-12と同じ区別、G3）。"""
+    """読書目標の遡及基準はgoal.start_dateとは独立なbook.start_date（L-12と同じ区別、G3）。
+
+    book.start_dateをgoal.start_dateより前にし、ログの週をその間（book.start_date以降・
+    goal.start_dateより前）に置く。goal.start_dateを基準にする実装では、このログの週が
+    遡及対象の範囲外（走査開始週より後ろ）になり該当週が1件も見つからなくなる
+    （ミューテーションテストで確認済み。effective_start_dateをgoal.start_dateへ差し替えると
+    本テストが失敗することを検証した）。
+    """
     from app.constants.enums import GoalCategory, RecordState
     from app.models.record import ReadingLog
 
     reading_goal = Goal(
         category=GoalCategory.READING,
         name="読書目標B",
-        start_date=dt.date(2026, 1, 1),
+        start_date=dt.date(2026, 8, 1),
         status=GoalStatus.ACTIVE,
     )
     seeded_session.add(reading_goal)
     seeded_session.flush()
-    # book.start_dateをgoal.start_dateより後ろにずらし、book側が基準であることを区別する。
     book = reading_helpers.make_book(
-        seeded_session, reading_goal.id, start_date=dt.date(2026, 7, 15)
+        seeded_session, reading_goal.id, start_date=dt.date(2026, 7, 1)
     )
     record = DailyRecord(
-        record_date=dt.date(2026, 7, 21), reading_record_state=RecordState.PROGRESS_ONLY
+        record_date=dt.date(2026, 7, 14), reading_record_state=RecordState.PROGRESS_ONLY
     )
     seeded_session.add(record)
     seeded_session.flush()
@@ -345,7 +351,7 @@ def test_list_pending_weeks_reading_reaches_back_to_book_start_date(seeded_sessi
 
     assert len(pending) == 1
     assert pending[0].goal.id == reading_goal.id
-    assert pending[0].week_start == dt.date(2026, 7, 20)
+    assert pending[0].week_start == dt.date(2026, 7, 13)
 
 
 def test_list_pending_weeks_returns_empty_when_no_goals(seeded_session):
