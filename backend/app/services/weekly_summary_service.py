@@ -18,11 +18,17 @@ G3（2026-10-18）：遡及対象の検索窓を固定の週数（旧summary.loo
 まで広げ、代わりに1回の起動で生成する件数の上限（summary.retroactive_max_per_run）で
 起動時間の肥大化を抑える。新しい週を優先して生成し、上限を超えた古い週は次回以降の起動へ
 回す（新しい週ほど日次報告フィードバックへの圧縮効果が大きいため）。
+
+検索範囲を目標開始日まで広げたことで対象週数が無制限に増えうるため、週ごとにクエリを
+発行する実装（週数に比例してクエリ数が増え、生成済みの古い週も起動ごとに再スキャンする）
+は採用しない。`list_pending_weeks`はカテゴリ別に範囲一括の問い合わせ（_xxx_goal_ids_with_logs_by_week）
+を1回ずつ行い、Python側で週ごとに振り分ける方式とし、クエリ数を対象週数に関係なく
+一定（カテゴリ数＋2回）に保つ。
 """
 
 import datetime as dt
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -76,8 +82,9 @@ class _CategorySpec:
     purpose: AiPurpose
     scope: ConversationScope
     assistant_uid_key: str
-    #: その週にログがある goal_id 集合を返す（15.2手順3のカテゴリ別実装）。
-    goal_ids_with_logs_in_week: Callable[[Session, dt.date, dt.date], set[int]]
+    #: [range_start, range_end]内の実績から、週開始日（月曜）ごとにログがあるgoal_id集合を
+    #: 返す（15.2手順3のカテゴリ別実装、G3で範囲一括問い合わせへ変更）。
+    goal_ids_with_logs_by_week: Callable[[Session, dt.date, dt.date], dict[dt.date, set[int]]]
     #: {{week_range}}・{{anonymize}}以外の、カテゴリ固有の注入変数を組み立てる。
     build_variables: Callable[[Session, Goal, dt.date, dt.date], dict[str, str]]
     #: 遡及対象を広げる基準となる実質開始日（G3）。資格試験・仕事はgoal.start_date、
@@ -85,15 +92,31 @@ class _CategorySpec:
     effective_start_date: Callable[[Session, Goal], dt.date]
 
 
-def _exam_goal_ids_with_logs(session: Session, week_start: dt.date, week_end: dt.date) -> set[int]:
-    return {
-        row[0]
-        for row in session.query(Material.goal_id)
+def _week_start_of(log_date: dt.date) -> dt.date:
+    """ログの日付が属する週の開始日（月曜）を返す（15.1「月曜日を週の開始日」）。"""
+    return log_date - dt.timedelta(days=log_date.weekday())
+
+
+def _bucket_goal_ids_by_week(rows: Iterable[tuple[int, dt.date]]) -> dict[dt.date, set[int]]:
+    """(goal_id, ログの日付)の行を週開始日単位のgoal_id集合へ振り分ける（G3の範囲一括問い合わせ
+    で、カテゴリごとのクエリ関数から共通して使う）。"""
+    buckets: dict[dt.date, set[int]] = {}
+    for goal_id, log_date in rows:
+        buckets.setdefault(_week_start_of(log_date), set()).add(goal_id)
+    return buckets
+
+
+def _exam_goal_ids_with_logs_by_week(
+    session: Session, range_start: dt.date, range_end: dt.date
+) -> dict[dt.date, set[int]]:
+    rows = (
+        session.query(Material.goal_id, DailyRecord.record_date)
         .join(StudyLog, StudyLog.material_id == Material.id)
         .join(DailyRecord, StudyLog.daily_record_id == DailyRecord.id)
-        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .filter(DailyRecord.record_date >= range_start, DailyRecord.record_date <= range_end)
         .distinct()
-    }
+    )
+    return _bucket_goal_ids_by_week(rows)
 
 
 def _exam_week_variables(
@@ -112,17 +135,17 @@ def _exam_week_variables(
     }
 
 
-def _reading_goal_ids_with_logs(
-    session: Session, week_start: dt.date, week_end: dt.date
-) -> set[int]:
-    return {
-        row[0]
-        for row in session.query(Book.goal_id)
+def _reading_goal_ids_with_logs_by_week(
+    session: Session, range_start: dt.date, range_end: dt.date
+) -> dict[dt.date, set[int]]:
+    rows = (
+        session.query(Book.goal_id, DailyRecord.record_date)
         .join(ReadingLog, ReadingLog.book_id == Book.id)
         .join(DailyRecord, ReadingLog.daily_record_id == DailyRecord.id)
-        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .filter(DailyRecord.record_date >= range_start, DailyRecord.record_date <= range_end)
         .distinct()
-    }
+    )
+    return _bucket_goal_ids_by_week(rows)
 
 
 def _reading_week_variables(
@@ -137,15 +160,17 @@ def _reading_week_variables(
     }
 
 
-def _work_goal_ids_with_logs(session: Session, week_start: dt.date, week_end: dt.date) -> set[int]:
-    return {
-        row[0]
-        for row in session.query(WorkAssignment.goal_id)
+def _work_goal_ids_with_logs_by_week(
+    session: Session, range_start: dt.date, range_end: dt.date
+) -> dict[dt.date, set[int]]:
+    rows = (
+        session.query(WorkAssignment.goal_id, DailyRecord.record_date)
         .join(WorkLog, WorkLog.work_assignment_id == WorkAssignment.id)
         .join(DailyRecord, WorkLog.daily_record_id == DailyRecord.id)
-        .filter(DailyRecord.record_date >= week_start, DailyRecord.record_date <= week_end)
+        .filter(DailyRecord.record_date >= range_start, DailyRecord.record_date <= range_end)
         .distinct()
-    }
+    )
+    return _bucket_goal_ids_by_week(rows)
 
 
 def _work_week_variables(
@@ -165,7 +190,7 @@ _EXAM_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY,
     scope=ConversationScope.WEEKLY_SUMMARY,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY,
-    goal_ids_with_logs_in_week=_exam_goal_ids_with_logs,
+    goal_ids_with_logs_by_week=_exam_goal_ids_with_logs_by_week,
     build_variables=_exam_week_variables,
     effective_start_date=lambda _session, goal: goal.start_date,
 )
@@ -174,7 +199,7 @@ _READING_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY_READING,
     scope=ConversationScope.WEEKLY_SUMMARY_READING,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
-    goal_ids_with_logs_in_week=_reading_goal_ids_with_logs,
+    goal_ids_with_logs_by_week=_reading_goal_ids_with_logs_by_week,
     build_variables=_reading_week_variables,
     effective_start_date=lambda _session, goal: goal.book.start_date,
 )
@@ -183,7 +208,7 @@ _WORK_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY_WORK,
     scope=ConversationScope.WEEKLY_SUMMARY_WORK,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
-    goal_ids_with_logs_in_week=_work_goal_ids_with_logs,
+    goal_ids_with_logs_by_week=_work_goal_ids_with_logs_by_week,
     build_variables=_work_week_variables,
     effective_start_date=lambda _session, goal: goal.start_date,
 )
@@ -216,43 +241,62 @@ def list_pending_weeks(session: Session, today: dt.date) -> list[PendingWeek]:
     遡及対象は固定の週数ではなく、全目標中最も早い実質開始日の週まで広げる（G3）。
     戻り値は新しい週が先頭（直近週→過去週の順）。1回の起動で生成する件数の絞り込みは
     呼び出し側（run_retroactive_generation）が担う。
+
+    対象週数は目標開始日まで遡るため無制限に増えうる一方、問い合わせ件数は週数に
+    関係なく一定（カテゴリ数＋2回）に保つ。週ごとにクエリを発行すると、既に生成済みの
+    古い週も起動のたびに際限なく再スキャンすることになるため（G3是正時の性能レビューで
+    指摘）、範囲全体を一括取得してからPython側で週ごとに振り分ける。
     """
     last_sunday = _last_completed_sunday(today)
     earliest_start = _earliest_effective_start_date(session)
     if earliest_start is None:
         return []
-    earliest_week_start = earliest_start - dt.timedelta(days=earliest_start.weekday())
+    earliest_week_start = _week_start_of(earliest_start)
     last_week_start = last_sunday - dt.timedelta(days=6)
     if earliest_week_start > last_week_start:
         return []
     weeks_count = (last_week_start - earliest_week_start).days // 7 + 1
+
+    goal_ids_by_week: dict[dt.date, set[int]] = {}
+    for spec in _SPECS:
+        for week_start, goal_ids in spec.goal_ids_with_logs_by_week(
+            session, earliest_week_start, last_sunday
+        ).items():
+            goal_ids_by_week.setdefault(week_start, set()).update(goal_ids)
+    if not goal_ids_by_week:
+        return []
+
+    all_goal_ids = {goal_id for ids in goal_ids_by_week.values() for goal_id in ids}
+    already_generated_by_week: dict[dt.date, set[int]] = {}
+    for goal_id, week_start_date in session.query(
+        WeeklySummary.goal_id, WeeklySummary.week_start_date
+    ).filter(
+        WeeklySummary.goal_id.in_(all_goal_ids),
+        WeeklySummary.week_start_date >= earliest_week_start,
+        WeeklySummary.week_start_date <= last_week_start,
+        WeeklySummary.is_anonymized.is_(False),
+    ):
+        already_generated_by_week.setdefault(week_start_date, set()).add(goal_id)
+    goals_by_id = {
+        goal.id: goal for goal in session.query(Goal).filter(Goal.id.in_(all_goal_ids)).all()
+    }
 
     pending: list[PendingWeek] = []
     for offset in range(weeks_count):
         week_end = last_sunday - dt.timedelta(days=7 * offset)
         week_start = week_end - dt.timedelta(days=6)
 
-        goal_ids_with_logs: set[int] = set()
-        for spec in _SPECS:
-            goal_ids_with_logs |= spec.goal_ids_with_logs_in_week(session, week_start, week_end)
+        goal_ids_with_logs = goal_ids_by_week.get(week_start)
         if not goal_ids_with_logs:
             continue
-
-        already_generated = {
-            row[0]
-            for row in session.query(WeeklySummary.goal_id).filter(
-                WeeklySummary.goal_id.in_(goal_ids_with_logs),
-                WeeklySummary.week_start_date == week_start,
-                WeeklySummary.is_anonymized.is_(False),
-            )
-        }
-        target_goal_ids = goal_ids_with_logs - already_generated
+        target_goal_ids = goal_ids_with_logs - already_generated_by_week.get(week_start, set())
         if not target_goal_ids:
             continue
 
-        goals = session.query(Goal).filter(Goal.id.in_(target_goal_ids)).order_by(Goal.id).all()
-        for goal in goals:
-            pending.append(PendingWeek(goal=goal, week_start=week_start, week_end=week_end))
+        for goal_id in sorted(target_goal_ids):
+            pending.append(
+                PendingWeek(goal=goals_by_id[goal_id], week_start=week_start, week_end=week_end)
+            )
     return pending
 
 
