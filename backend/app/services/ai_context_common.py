@@ -70,7 +70,7 @@ class WeeklyCompressedPeriod:
     まだ生成されていない部分は生ログのまま呼び出し側が注入する境界の解決結果
     （日次報告フィードバック17.6・17.8、総括レポート系17.5・17.7・17.9・17.10で共通、L-11）。
 
-    period_start（today-recent_days・book.start_date・対象月/半期の初日等）は
+    period_start（goal.start_date・book.start_date・対象月/半期の初日等）は
     週次要約の週区切り（月曜始まり、15.1）と一致するとは限らないため、「period_startから
     連続する週のみ圧縮対象」という判定は行わない（一致しないケースでは圧縮が実質
     発動しなくなるバグになるため、2026-09-16是正）。[period_start, period_end]に
@@ -103,9 +103,10 @@ def resolve_weekly_compressed_period(
 
     limitを指定すると、period_end側に近い（新しい）方からlimit件までに絞る
     （古い方から溢れた分は圧縮対象から除外＝生ログ側にも現れず、weekly_summariesにも
-    現れない。日次報告フィードバックで使う想定：period_startを目標開始日まで広げて
-    「窓の外側でも既に要約済みの週があれば圧縮できる」ようにしつつ、
-    summary.inject_weeksで昔まで遡りすぎないよう歯止めをかける、2026-09-16）。
+    現れない）。日次報告フィードバック（`build_past_record_entries`経由）・読了レポート・
+    月次報告・半期評価はいずれもlimit=None（対象期間全体を漏れなく圧縮対象とする、
+    S04で日次報告フィードバックもこの方式へ統一。旧実装はsummary.inject_weeksで
+    直近側の件数を絞っていたが、2026-10-17のS04で上限自体を撤廃した）。
     """
     query = session.query(WeeklySummary).filter(
         WeeklySummary.goal_id == goal.id,
@@ -138,6 +139,44 @@ def exclude_covered_dates(
         for entry in entries
         if not any(start <= entry.record_date <= end for start, end in covered_ranges)
     ]
+
+
+@dataclass(frozen=True)
+class PastRecordEntries:
+    """日次報告フィードバックが送る「過去の記録」（目標開始日〜対象日の前日、全期間、
+    件数・週数の上限なし）の組み立て結果（S04、G1・G2共通化）。
+
+    weekly_summary_entries・raw_entriesのいずれも古い順。raw_entriesは、
+    weekly_summary_entriesで圧縮済みの日付をexclude_covered_datesで除外済みのため、
+    テンプレートへそのまま渡してよい（二重注入なし）。
+    """
+
+    weekly_summary_entries: list[DatedLogEntry]
+    raw_entries: list[DatedLogEntry]
+
+
+def build_past_record_entries(
+    session: Session,
+    goal: Goal,
+    period_start: dt.date,
+    period_end: dt.date,
+    raw_entries: list[DatedLogEntry],
+) -> PastRecordEntries:
+    """[period_start, period_end]全期間を対象に、週次要約済みの週は圧縮表現へ、
+    まだ要約されていない日は生ログ（raw_entries）のまま渡すための組み立て処理
+    （S04、資格試験・読書・仕事の3カテゴリで共通、CLAUDE.md DRYの原則）。
+
+    件数・週数の上限は設けない（limit=None）。raw_entriesは呼び出し側が
+    period_start〜period_endの範囲でカテゴリ固有のクエリにより組み立てたものを渡す
+    （整形方法はカテゴリごとに異なるため、本関数の責務外）。
+    """
+    compressed = resolve_weekly_compressed_period(
+        session, goal, period_start, period_end, limit=None
+    )
+    return PastRecordEntries(
+        weekly_summary_entries=compressed.weekly_summary_entries,
+        raw_entries=exclude_covered_dates(raw_entries, compressed.covered_ranges),
+    )
 
 
 def build_anonymize_instruction(anonymize: bool) -> str:

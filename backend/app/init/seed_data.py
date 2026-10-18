@@ -34,10 +34,8 @@ from app.constants.app_setting_keys import (
     AI_MAX_RETRIES,
     AI_MIN_INTERVAL_SECONDS,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
-    AI_READING_RECALL_RECENT_DAYS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
-    AI_WORK_RECENT_LOG_DAYS,
     BACKUP_RETENTION_COUNT,
     CALENDAR_DAY_BOUNDARY_HOUR,
     DASHBOARD_REPORT_RATE_WINDOW_DAYS,
@@ -60,7 +58,6 @@ from app.constants.app_setting_keys import (
     RESUME_QUOTA_WARNING_RATIO,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
     SERVER_PORT,
-    SUMMARY_INJECT_WEEKS,
     SUMMARY_LOOKBACK_WEEKS,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
@@ -115,7 +112,6 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "849c4042-c6de-404e-a1ce-89812eaf850e",
         AppSettingValueType.STRING,
     ),
-    AI_READING_RECALL_RECENT_DAYS: ("14", AppSettingValueType.INTEGER),
     # 仕事の日次フィードバックは読書の日次フィードバックと同一アシスタント
     # （GPT-5.4-mini・高速）を既定値とする。要件定義時点で「読書機能同様に日々の頑張りを
     # 労うフィードバック」と明示されており、高頻度・低負荷という性質も読書と一致するため
@@ -142,7 +138,6 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "849c4042-c6de-404e-a1ce-89812eaf850e",
         AppSettingValueType.STRING,
     ),
-    AI_WORK_RECENT_LOG_DAYS: ("14", AppSettingValueType.INTEGER),
     # AI評価レポート（要件定義書6.11）は月次報告・半期評価と同様に低頻度・高品質重視の
     # 用途のため、同じアシスタント（GPT-5.4・高性能）を既定値とする。
     AI_ASSISTANT_UID_EVALUATION_REPORT_WORK: (
@@ -179,7 +174,6 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     LOG_AI_ENABLED: ("true", AppSettingValueType.BOOLEAN),
     LOG_RETENTION_DAYS: ("90", AppSettingValueType.INTEGER),
     SUMMARY_LOOKBACK_WEEKS: ("4", AppSettingValueType.INTEGER),
-    SUMMARY_INJECT_WEEKS: ("4", AppSettingValueType.INTEGER),
     SERVER_PORT: ("8100", AppSettingValueType.INTEGER),
     SERVER_GRACEFUL_SHUTDOWN_SECONDS: ("10", AppSettingValueType.INTEGER),
     # デスクトップ常駐・記録リマインド通知（Phase37）。ブラウザの自動起動は従来の

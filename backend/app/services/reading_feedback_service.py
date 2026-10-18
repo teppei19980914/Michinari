@@ -23,8 +23,6 @@ from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
-    AI_READING_RECALL_RECENT_DAYS,
-    SUMMARY_INJECT_WEEKS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -37,11 +35,11 @@ from app.services import (
     record_service_reading,
     setting_reader,
 )
-from app.services.exceptions import ValidationError
+from app.services.exceptions import DailyFeedbackPromptTooLongError, ValidationError
 from app.services.record_service_reading import ReadingLogItem
 
 _ACTION_LABEL = "daily report feedback"
-#: {{recent_recalls}}が空（対象書籍なし、または直近recent_days日分に想起記録なし）の場合の表示
+#: {{recent_recalls}}が空（対象書籍なし、または対象期間に想起記録なし）の場合の表示
 #: （17.6）。ai_context_reading.build_recent_recalls_entriesは整形前のlist[DatedLogEntry]を
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が持つ
 #: この定数を使う（CLAUDE.md DRYの原則）。
@@ -94,29 +92,18 @@ def send_reading_feedback(
     ]
 
     active_books = ai_context_reading.list_active_books([goal])
-    recent_days = setting_reader.get_int(session, AI_READING_RECALL_RECENT_DAYS)
-    inject_weeks = setting_reader.get_int(session, SUMMARY_INJECT_WEEKS)
-    # L-11: period_startは直近の窓に絞らず目標開始日まで広げ、窓の外側（より過去）に
-    # ある週次要約もlimit=inject_weeks件まで遡って見せる（要約による過去の経緯の反映）。
-    # 同時に、直近の窓のうち既に週次要約が生成済みの週は圧縮表現へ、それ以外は生ログの
-    # まま注入することで、要約による文字数削減の効果が生ログ側にも及ぶ（2026-09-16是正。
-    # 従来はrecent_recallsが常に窓いっぱいの生ログを返し、weekly_summariesは窓より前の
-    # 分を追加するだけだったため、週次要約が増えてもプロンプト全体は縮まらなかった。
-    # またperiod_startを窓の開始日に限定すると、窓より過去の週次要約が一切見えなくなり
-    # 従来あった「直近の窓を越えた過去の経緯の反映」機能が失われるため、limitで歯止め
-    # をかけつつperiod_startは目標開始日まで広げる）。
-    compressed = ai_context_common.resolve_weekly_compressed_period(
+    book = goal.book
+    # S04 G1：目標開始日（読書はbook.start_date。goal.start_dateとは独立に変更できるため
+    # 区別する、決定事項D6）〜対象日の前日の全期間を対象とし、件数・週数の上限を設けない。
+    period_end = target_date - dt.timedelta(days=1)
+    past_records = ai_context_common.build_past_record_entries(
         session,
         goal,
-        period_start=goal.start_date,
-        period_end=target_date - dt.timedelta(days=1),
-        limit=inject_weeks,
-    )
-    recent_recalls_entries = ai_context_common.exclude_covered_dates(
-        ai_context_reading.build_recent_recalls_entries(
-            session, active_books, target_date, recent_days
+        period_start=book.start_date,
+        period_end=period_end,
+        raw_entries=ai_context_reading.build_recent_recalls_entries(
+            session, active_books, period_start=book.start_date, period_end=period_end
         ),
-        compressed.covered_ranges,
     )
 
     # 対話履歴への注入はpurpose・goal_idで絞り込む（daily_feedback_serviceと同じ理由。
@@ -156,12 +143,12 @@ def send_reading_feedback(
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
+                entries=past_records.weekly_summary_entries,
                 empty_text=_NO_OLDER_WEEKLY_SUMMARIES_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
                 key="recent_recalls",
-                entries=recent_recalls_entries,
+                entries=past_records.raw_entries,
                 empty_text=_NO_RECENT_RECALLS_TEXT,
             ),
         ],
@@ -170,6 +157,10 @@ def send_reading_feedback(
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_READING)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
+    # S04決定事項D1・D9：当日の入力（想起・対話）は縮退しない。過去の記録を全て削っても
+    # 上限を超える場合は、切り詰めずに送信を中止する（NewtonX利用ナレッジ「切り詰めない」）。
+    if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
+        raise DailyFeedbackPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
     build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING)

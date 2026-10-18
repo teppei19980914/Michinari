@@ -42,6 +42,9 @@ DAILY_FEEDBACK = """あなたは資格試験の学習を伴走する専門コー
 # これまでの経過（週次要約）
 {{weekly_summaries}}
 
+# これまでの記録（週次要約が無い日）
+{{recent_logs}}
+
 # 本日のこれまでの会話
 {{conversation_history}}
 

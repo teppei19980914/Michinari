@@ -13,13 +13,20 @@ import pytest
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
+from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
 from app.constants.enums import ChatRole, GoalCategory, GoalStatus, QualityMetricType, RecordState
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage
+from app.models.setting import AppSetting
 from app.services import daily_feedback_service, record_service_common, record_service_exam
-from app.services.exceptions import InvalidStateTransitionError, NotFoundError, ValidationError
+from app.services.exceptions import (
+    DailyFeedbackPromptTooLongError,
+    InvalidStateTransitionError,
+    NotFoundError,
+    ValidationError,
+)
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 
 
@@ -166,6 +173,38 @@ def test_send_daily_feedback_rejects_inactive_goal(seeded_session):
             study_log_items=[],
             diary_entries=[],
         )
+
+
+def test_send_daily_feedback_raises_without_sending_when_today_input_alone_exceeds_limit(
+    seeded_session, monkeypatch
+):
+    """S04決定事項D1・D9: 週次要約・直近記録・教材の集約表示を全て使い切っても、
+    本日の入力（実績・日記・対話、縮退対象外）だけでai.max_prompt_charsを超える場合は、
+    切り詰めずに送信を中止する。"""
+    goal = _make_goal(seeded_session)
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+    setting.value = "100"
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    with pytest.raises(DailyFeedbackPromptTooLongError):
+        daily_feedback_service.send_daily_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            study_log_items=[],
+            diary_entries=[
+                DiaryEntryItem(
+                    goal_id=goal.id,
+                    diary_body="今日は頑張った" * 100,
+                    diary_learned="過去問を解いた" * 100,
+                )
+            ],
+        )
+
+    assert calls == []
 
 
 def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, monkeypatch):

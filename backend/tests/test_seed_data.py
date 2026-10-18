@@ -10,7 +10,6 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
-    AI_WORK_RECENT_LOG_DAYS,
     SERVER_PORT,
 )
 from app.constants.enums import AiPurpose
@@ -47,7 +46,7 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "211c8a692117fab2df06fdc3a4d80595cb670ce6dd628ac1fbc7e1c7e3690e4b"
+    assert digest == "04fea43a7c78cf1794d6d67e3b090f42f6669aabcad748062f0a3ee7e02a03b7"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):
@@ -100,10 +99,6 @@ def test_work_prompt_templates_and_settings_are_seeded(db_session):
         template = db_session.query(PromptTemplate).filter_by(purpose=purpose.value).one()
         assert template.body == INITIAL_PROMPT_TEMPLATES[purpose]
         assert template.is_customized is False
-
-    work_recent_log_days = db_session.get(AppSetting, AI_WORK_RECENT_LOG_DAYS)
-    assert work_recent_log_days is not None
-    assert work_recent_log_days.value == "14"
 
     daily_feedback_assistant = db_session.get(AppSetting, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK)
     assert daily_feedback_assistant is not None

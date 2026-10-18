@@ -99,59 +99,46 @@ def test_build_today_recall_text_handles_no_items():
     assert "本日の想起入力はまだありません" in text
 
 
-# --- build_recent_recalls_entries ---
+# --- build_recent_recalls_entries（S04 G1：period_start/period_endの全期間指定） ---
 
 
-def test_build_recent_recalls_entries_excludes_entries_outside_window(seeded_session):
+def test_build_recent_recalls_entries_excludes_entries_outside_period(seeded_session):
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="書籍A")
-    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="窓内の記録")
-    _add_reading_log(seeded_session, book.id, dt.date(2025, 12, 1), recall_body="窓外の記録")
+    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="期間内の記録")
+    _add_reading_log(seeded_session, book.id, dt.date(2025, 12, 1), recall_body="期間外の記録")
 
     entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [book],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     texts = [entry.text for entry in entries]
-    assert any("窓内の記録" in text for text in texts)
-    assert not any("窓外の記録" in text for text in texts)
+    assert any("期間内の記録" in text for text in texts)
+    assert not any("期間外の記録" in text for text in texts)
 
 
 def test_build_recent_recalls_entries_excludes_todays_own_record(seeded_session):
     """対象日（today）自身の想起記録は含めない。todayの分は{{today_recall}}で別途渡す
-    ため、含めると二重にプロンプトへ注入される不具合になる（2026-09-15是正）。"""
+    ため、含めると二重にプロンプトへ注入される不具合になる（2026-09-15是正）。
+    呼び出し側がperiod_end=today-1を渡すことでtodayを除外する（S04）。"""
     goal = _make_reading_goal(seeded_session)
     book = _make_book(seeded_session, goal, title="書籍A")
     _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 10), recall_body="本日分の記録")
     _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 9), recall_body="前日分の記録")
 
     entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [book],
+        period_start=dt.date(2025, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     texts = [entry.text for entry in entries]
     assert not any("本日分の記録" in text for text in texts)
     assert any("前日分の記録" in text for text in texts)
-
-
-def test_build_recent_recalls_entries_window_covers_recent_days_count_ending_yesterday(
-    seeded_session,
-):
-    """todayを除外する分、窓をtoday-recent_days〜today-1へ後ろへずらし、実質的な日数
-    （recent_days）を変えない（2026-09-15是正）。recent_days=3・today=2026-1-10なら
-    2026-1-7〜2026-1-9の3日分が対象。"""
-    goal = _make_reading_goal(seeded_session)
-    book = _make_book(seeded_session, goal, title="書籍A")
-    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 7), recall_body="窓の始点")
-    _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 6), recall_body="窓の1日外側")
-
-    entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [book], dt.date(2026, 1, 10), recent_days=3
-    )
-
-    texts = [entry.text for entry in entries]
-    assert any("窓の始点" in text for text in texts)
-    assert not any("窓の1日外側" in text for text in texts)
 
 
 def test_build_recent_recalls_entries_orders_oldest_first(seeded_session):
@@ -163,7 +150,10 @@ def test_build_recent_recalls_entries_orders_oldest_first(seeded_session):
     _add_reading_log(seeded_session, book.id, dt.date(2026, 1, 8), recall_body="古い記録")
 
     entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [book],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 8), dt.date(2026, 1, 9)]
@@ -171,7 +161,7 @@ def test_build_recent_recalls_entries_orders_oldest_first(seeded_session):
 
 def test_build_recent_recalls_entries_handles_no_books(seeded_session):
     entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [], dt.date(2026, 1, 10), recent_days=14
+        seeded_session, [], period_start=dt.date(2026, 1, 1), period_end=dt.date(2026, 1, 9)
     )
     assert entries == []
 
@@ -181,7 +171,10 @@ def test_build_recent_recalls_entries_handles_no_logs(seeded_session):
     book = _make_book(seeded_session, goal, title="書籍A")
 
     entries = ai_context_reading.build_recent_recalls_entries(
-        seeded_session, [book], dt.date(2026, 1, 10), recent_days=14
+        seeded_session,
+        [book],
+        period_start=dt.date(2026, 1, 1),
+        period_end=dt.date(2026, 1, 9),
     )
 
     assert entries == []

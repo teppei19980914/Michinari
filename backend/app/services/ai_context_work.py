@@ -73,13 +73,18 @@ def build_today_work_text(
 
 
 def build_recent_work_logs_entries(
-    session: Session, work_assignments: list[WorkAssignment], today: dt.date, recent_days: int
+    session: Session,
+    work_assignments: list[WorkAssignment],
+    period_start: dt.date,
+    period_end: dt.date,
 ) -> list[DatedLogEntry]:
-    """{{recent_work_logs}}（DAILY_FEEDBACK_WORK、17.8）: 直近recent_days日分の業務記録
-    （22.4）。月次報告を経由せず原文を直接注入する（読書の{{recent_recalls}}と同じ考え方）。
+    """{{recent_work_logs}}（DAILY_FEEDBACK_WORK、17.8）: [period_start, period_end]
+    （S04 G1で全期間化。件数・日数の上限を撤廃）の業務記録（22.4）。月次報告を経由せず
+    原文を直接注入する（読書の{{recent_recalls}}と同じ考え方）。
 
     対象日（today）自身は含めない。理由・窓の定義はbuild_recent_recalls_entriesと同じ
-    （2026-09-15、実運用で確認・是正）。
+    （2026-09-15、実運用で確認・是正。呼び出し側がperiod_end=today-1を渡すことで
+    todayを自然に除外する、S04）。
 
     record_date の古い順（昇順）で返す。整形（空の場合の表示・段階的縮退）は
     prompt_builder.build_with_degradable_entries側の責務とする（CLAUDE.md DRYの原則。
@@ -89,14 +94,13 @@ def build_recent_work_logs_entries(
         return []
     work_assignment_ids = [wa.id for wa in work_assignments]
     goal_names = {wa.id: wa.goal.name for wa in work_assignments}
-    period_start = today - dt.timedelta(days=recent_days)
     rows = (
         session.query(DailyRecord.record_date, WorkLog.work_assignment_id, WorkLog.body)
         .join(WorkLog, WorkLog.daily_record_id == DailyRecord.id)
         .filter(
             WorkLog.work_assignment_id.in_(work_assignment_ids),
             DailyRecord.record_date >= period_start,
-            DailyRecord.record_date < today,
+            DailyRecord.record_date <= period_end,
         )
         .order_by(DailyRecord.record_date)
         .all()

@@ -30,7 +30,6 @@ AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_READING = "ai.assistant_uid.goal_retrospecti
 #: 読書用の週次要約（AI-06・AI-07と同じく資格試験用（15章）とは別のプロンプト・
 #: アシスタント設定を用いる、L-11）。
 AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING = "ai.assistant_uid.weekly_summary_reading"
-AI_READING_RECALL_RECENT_DAYS = "ai.reading_recall_recent_days"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK = "ai.assistant_uid.daily_feedback_work"
 AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY = (
     "ai.assistant_uid.goal_retrospective_work_monthly"
@@ -43,7 +42,6 @@ AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK = "ai.assistant_uid.weekly_summary_work"
 #: AI評価レポート（要件定義書6.11）。月次/半期報告と同様、低頻度・高精度が求められる用途
 #: のため高精度アシスタント枠を用いる（実環境での疎通確認・選定はseed_data参照）。
 AI_ASSISTANT_UID_EVALUATION_REPORT_WORK = "ai.assistant_uid.evaluation_report_work"
-AI_WORK_RECENT_LOG_DAYS = "ai.work_recent_log_days"
 AI_FOLDER_PREFIX = "ai.folder_prefix"
 AI_TIMEOUT_SECONDS = "ai.timeout_seconds"
 AI_MAX_RETRIES = "ai.max_retries"
@@ -66,7 +64,6 @@ AI_LANGUAGE_DIRECTIVE_EN = "ai.language_directive.en"
 LOG_AI_ENABLED = "log.ai_enabled"
 LOG_RETENTION_DAYS = "log.retention_days"
 SUMMARY_LOOKBACK_WEEKS = "summary.lookback_weeks"
-SUMMARY_INJECT_WEEKS = "summary.inject_weeks"
 
 # ダッシュボード（仕様書6.1、実装フェーズ分割計画書Phase6）。
 DASHBOARD_REPORT_RATE_WINDOW_DAYS = "dashboard.report_rate_window_days"
