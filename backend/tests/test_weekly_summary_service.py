@@ -6,18 +6,27 @@
 import datetime as dt
 
 import pytest
+from sqlalchemy import select
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
+from app.constants.app_setting_keys import SUMMARY_RETROACTIVE_MAX_PER_RUN
 from app.constants.enums import GoalStatus, QualityMetricType
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog, WeeklySummary
+from app.models.setting import AppSetting
 from app.services import weekly_summary_service
 from app.services.weekly_summary_service import _last_completed_sunday
 from tests import reading_helpers
+
+
+def _set_setting(session, key, value):
+    row = session.scalar(select(AppSetting).where(AppSetting.key == key))
+    row.value = value
+    session.flush()
 
 
 def _make_goal(session, name="目標A"):
@@ -128,7 +137,7 @@ def test_list_pending_weeks_finds_goal_with_logs_in_completed_week(seeded_sessio
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 火曜
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert len(pending) == 1
@@ -201,7 +210,7 @@ def test_list_pending_weeks_includes_reading_goals_with_recall_logs(seeded_sessi
     reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 18))
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert len(pending) == 1
@@ -217,7 +226,7 @@ def test_list_pending_weeks_includes_work_goals_with_work_logs(seeded_session):
     work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 18))
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert len(pending) == 1
@@ -236,7 +245,7 @@ def test_list_pending_weeks_covers_three_categories_in_the_same_week(seeded_sess
     work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 20))
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert {item.goal.id for item in pending} == {exam_goal.id, reading_goal.id, work_goal.id}
@@ -257,7 +266,7 @@ def test_list_pending_weeks_excludes_already_generated(seeded_session):
     seeded_session.flush()
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert pending == []
@@ -267,20 +276,81 @@ def test_list_pending_weeks_excludes_weeks_without_logs(seeded_session):
     _make_goal(seeded_session)
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert pending == []
 
 
-def test_list_pending_weeks_respects_lookback_limit(seeded_session):
-    goal = _make_goal(seeded_session)
+def test_list_pending_weeks_reaches_back_to_goal_start_date(seeded_session):
+    """遡及対象は固定週数ではなく目標開始日まで広がる（G3）。旧実装では
+    lookback_weeks=4の範囲外だった5週間前の実績も対象に含まれることを確認する。"""
+    goal = _make_goal(seeded_session)  # start_date=2026-01-01
     material = _make_material(seeded_session, goal)
-    # 5週間前（lookback=4の範囲外）の実績のみ
-    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 7, 21))
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 7, 21))  # 5週間前
 
     pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24), lookback_weeks=4
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert len(pending) == 1
+    assert pending[0].week_start == dt.date(2026, 7, 20)
+    assert pending[0].week_end == dt.date(2026, 7, 26)
+
+
+def test_list_pending_weeks_orders_newest_week_first(seeded_session):
+    """戻り値は新しい週が先頭（G3決定事項：新しい週から生成する）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 7, 21))  # 5週間前
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 直近週
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert [item.week_start for item in pending] == [dt.date(2026, 8, 17), dt.date(2026, 7, 20)]
+
+
+def test_list_pending_weeks_reading_reaches_back_to_book_start_date(seeded_session):
+    """読書目標の遡及基準はgoal.start_dateとは独立なbook.start_date（L-12と同じ区別、G3）。"""
+    from app.constants.enums import GoalCategory, RecordState
+    from app.models.record import ReadingLog
+
+    reading_goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標B",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+    )
+    seeded_session.add(reading_goal)
+    seeded_session.flush()
+    # book.start_dateをgoal.start_dateより後ろにずらし、book側が基準であることを区別する。
+    book = reading_helpers.make_book(
+        seeded_session, reading_goal.id, start_date=dt.date(2026, 7, 15)
+    )
+    record = DailyRecord(
+        record_date=dt.date(2026, 7, 21), reading_record_state=RecordState.PROGRESS_ONLY
+    )
+    seeded_session.add(record)
+    seeded_session.flush()
+    seeded_session.add(
+        ReadingLog(daily_record_id=record.id, book_id=book.id, recall_body="想起本文")
+    )
+    seeded_session.flush()
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert len(pending) == 1
+    assert pending[0].goal.id == reading_goal.id
+    assert pending[0].week_start == dt.date(2026, 7, 20)
+
+
+def test_list_pending_weeks_returns_empty_when_no_goals(seeded_session):
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24)
     )
 
     assert pending == []
@@ -432,6 +502,68 @@ def test_run_retroactive_generation_respects_call_interval(seeded_session, monke
     weekly_summary_service.run_retroactive_generation(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(wait_calls) == 2  # 生成2件分、毎回呼び出し間隔を確認している
+
+
+def test_run_retroactive_generation_respects_max_per_run(seeded_session, monkeypatch):
+    """1回の起動で生成する件数はsummary.retroactive_max_per_runで区切られる（G3）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    # 3週分の未生成週を用意し、上限を2に設定する。
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))  # 3週前
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 11))  # 2週前
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 直近週
+    seeded_session.commit()
+    _set_setting(seeded_session, SUMMARY_RETROACTIVE_MAX_PER_RUN, "2")
+    _stub_send_message(monkeypatch)
+
+    generated = weekly_summary_service.run_retroactive_generation(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert generated == 2
+    assert seeded_session.query(WeeklySummary).count() == 2
+
+
+def test_run_retroactive_generation_generates_newest_week_first(seeded_session, monkeypatch):
+    """上限に達した場合、新しい週が優先して生成される（G3決定事項）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))  # 3週前
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 直近週
+    seeded_session.commit()
+    _set_setting(seeded_session, SUMMARY_RETROACTIVE_MAX_PER_RUN, "1")
+    _stub_send_message(monkeypatch)
+
+    weekly_summary_service.run_retroactive_generation(seeded_session, today=dt.date(2026, 8, 24))
+
+    summary = seeded_session.query(WeeklySummary).one()
+    assert summary.week_start_date == dt.date(2026, 8, 17)
+
+
+def test_run_retroactive_generation_picks_up_remaining_weeks_on_next_run(
+    seeded_session, monkeypatch
+):
+    """上限で見送られた古い週は、次回以降の起動呼び出しで生成される（G3）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 4))  # 3週前
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 直近週
+    seeded_session.commit()
+    _set_setting(seeded_session, SUMMARY_RETROACTIVE_MAX_PER_RUN, "1")
+    _stub_send_message(monkeypatch)
+
+    first_run = weekly_summary_service.run_retroactive_generation(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+    second_run = weekly_summary_service.run_retroactive_generation(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+
+    assert first_run == 1
+    assert second_run == 1
+    assert {
+        row.week_start_date for row in seeded_session.query(WeeklySummary).all()
+    } == {dt.date(2026, 8, 17), dt.date(2026, 8, 3)}
 
 
 # --- generate_for_week（匿名化版、Phase10） ---

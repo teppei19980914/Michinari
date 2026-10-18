@@ -11,6 +11,13 @@ L-11で読書・仕事にも週次要約を新設した際、資格試験専用�
 （_CategorySpec）を注入する形に一般化した。goal_id・週の一意性で貫くAPI形状（PendingWeek・
 WeeklySummary）自体はカテゴリを問わず共通のため、weekly_summaryテーブルもスキーマ変更なく
 そのまま共用する（データ構造編5.5）。
+
+G3（2026-10-18）：遡及対象の検索窓を固定の週数（旧summary.lookback_weeks）で打ち切る方式は、
+その週数を超えてアプリを起動しなかった期間の週がその後も永久に要約されない不具合があった。
+検索範囲は目標ごとの実質開始日（_CategorySpec.effective_start_date。読書はbook.start_date）
+まで広げ、代わりに1回の起動で生成する件数の上限（summary.retroactive_max_per_run）で
+起動時間の肥大化を抑える。新しい週を優先して生成し、上限を超えた古い週は次回以降の起動へ
+回す（新しい週ほど日次報告フィードバックへの圧縮効果が大きいため）。
 """
 
 import datetime as dt
@@ -27,7 +34,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
-    SUMMARY_LOOKBACK_WEEKS,
+    SUMMARY_RETROACTIVE_MAX_PER_RUN,
 )
 from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
 from app.models.base import utcnow
@@ -73,6 +80,9 @@ class _CategorySpec:
     goal_ids_with_logs_in_week: Callable[[Session, dt.date, dt.date], set[int]]
     #: {{week_range}}・{{anonymize}}以外の、カテゴリ固有の注入変数を組み立てる。
     build_variables: Callable[[Session, Goal, dt.date, dt.date], dict[str, str]]
+    #: 遡及対象を広げる基準となる実質開始日（G3）。資格試験・仕事はgoal.start_date、
+    #: 読書はgoal.start_dateとは独立に変更できるbook.start_dateを用いる（L-12と同じ区別）。
+    effective_start_date: Callable[[Session, Goal], dt.date]
 
 
 def _exam_goal_ids_with_logs(session: Session, week_start: dt.date, week_end: dt.date) -> set[int]:
@@ -157,6 +167,7 @@ _EXAM_SPEC = _CategorySpec(
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     goal_ids_with_logs_in_week=_exam_goal_ids_with_logs,
     build_variables=_exam_week_variables,
+    effective_start_date=lambda _session, goal: goal.start_date,
 )
 _READING_SPEC = _CategorySpec(
     goal_category=GoalCategory.READING,
@@ -165,6 +176,7 @@ _READING_SPEC = _CategorySpec(
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     goal_ids_with_logs_in_week=_reading_goal_ids_with_logs,
     build_variables=_reading_week_variables,
+    effective_start_date=lambda _session, goal: goal.book.start_date,
 )
 _WORK_SPEC = _CategorySpec(
     goal_category=GoalCategory.WORK,
@@ -173,6 +185,7 @@ _WORK_SPEC = _CategorySpec(
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
     goal_ids_with_logs_in_week=_work_goal_ids_with_logs,
     build_variables=_work_week_variables,
+    effective_start_date=lambda _session, goal: goal.start_date,
 )
 _SPECS = (_EXAM_SPEC, _READING_SPEC, _WORK_SPEC)
 _SPEC_BY_CATEGORY = {spec.goal_category: spec for spec in _SPECS}
@@ -184,11 +197,38 @@ def _last_completed_sunday(today: dt.date) -> dt.date:
     return today - dt.timedelta(days=offset)
 
 
-def list_pending_weeks(session: Session, today: dt.date, lookback_weeks: int) -> list[PendingWeek]:
-    """完了しているが未生成の(goal, week)組を列挙する（15.2手順1〜3、3カテゴリ横断）。"""
+def _earliest_effective_start_date(session: Session) -> dt.date | None:
+    """全目標のうち最も早い実質開始日を返す（G3。読書はbook.start_date）。
+    目標が1件も無ければNoneを返す（遡及対象なし）。"""
+    earliest: dt.date | None = None
+    for spec in _SPECS:
+        goals = session.query(Goal).filter(Goal.category == spec.goal_category).all()
+        for goal in goals:
+            start = spec.effective_start_date(session, goal)
+            if earliest is None or start < earliest:
+                earliest = start
+    return earliest
+
+
+def list_pending_weeks(session: Session, today: dt.date) -> list[PendingWeek]:
+    """完了しているが未生成の(goal, week)組を列挙する（15.2手順1〜3、3カテゴリ横断）。
+
+    遡及対象は固定の週数ではなく、全目標中最も早い実質開始日の週まで広げる（G3）。
+    戻り値は新しい週が先頭（直近週→過去週の順）。1回の起動で生成する件数の絞り込みは
+    呼び出し側（run_retroactive_generation）が担う。
+    """
     last_sunday = _last_completed_sunday(today)
+    earliest_start = _earliest_effective_start_date(session)
+    if earliest_start is None:
+        return []
+    earliest_week_start = earliest_start - dt.timedelta(days=earliest_start.weekday())
+    last_week_start = last_sunday - dt.timedelta(days=6)
+    if earliest_week_start > last_week_start:
+        return []
+    weeks_count = (last_week_start - earliest_week_start).days // 7 + 1
+
     pending: list[PendingWeek] = []
-    for offset in range(lookback_weeks):
+    for offset in range(weeks_count):
         week_end = last_sunday - dt.timedelta(days=7 * offset)
         week_start = week_end - dt.timedelta(days=6)
 
@@ -338,9 +378,14 @@ def run_retroactive_generation(session: Session, today: dt.date) -> int:
     既にcommit済み（ai_logのエラー記録を残すため）なので、ここでのrollbackは
     generate_for_week内のtry/except到達前に起きた想定外の例外に対する保険。
     戻り値は実際に生成できた件数。
+
+    遡及対象は目標開始日まで広がる（G3）ため、1回の起動で生成する件数を
+    summary.retroactive_max_per_runで区切る。list_pending_weeksは新しい週が先頭の順で
+    返すため、先頭から上限件数だけを対象にすれば新しい週から生成される。上限を超えた
+    古い週は次回以降の起動で引き続き未生成のまま列挙され、生成される。
     """
-    lookback_weeks = setting_reader.get_int(session, SUMMARY_LOOKBACK_WEEKS)
-    pending = list_pending_weeks(session, today, lookback_weeks)
+    max_per_run = setting_reader.get_int(session, SUMMARY_RETROACTIVE_MAX_PER_RUN)
+    pending = list_pending_weeks(session, today)[:max_per_run]
     generated = 0
     for item in pending:
         try:
