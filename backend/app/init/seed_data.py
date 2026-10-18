@@ -58,7 +58,7 @@ from app.constants.app_setting_keys import (
     RESUME_QUOTA_WARNING_RATIO,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
     SERVER_PORT,
-    SUMMARY_LOOKBACK_WEEKS,
+    SUMMARY_RETROACTIVE_MAX_PER_RUN,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
@@ -173,7 +173,7 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     DISPLAY_FONT_SCALE: ("standard", AppSettingValueType.STRING),
     LOG_AI_ENABLED: ("true", AppSettingValueType.BOOLEAN),
     LOG_RETENTION_DAYS: ("90", AppSettingValueType.INTEGER),
-    SUMMARY_LOOKBACK_WEEKS: ("4", AppSettingValueType.INTEGER),
+    SUMMARY_RETROACTIVE_MAX_PER_RUN: ("10", AppSettingValueType.INTEGER),
     SERVER_PORT: ("8100", AppSettingValueType.INTEGER),
     SERVER_GRACEFUL_SHUTDOWN_SECONDS: ("10", AppSettingValueType.INTEGER),
     # デスクトップ常駐・記録リマインド通知（Phase37）。ブラウザの自動起動は従来の

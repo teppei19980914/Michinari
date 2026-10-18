@@ -63,7 +63,10 @@ AI_LANGUAGE_DIRECTIVE_JA = "ai.language_directive.ja"
 AI_LANGUAGE_DIRECTIVE_EN = "ai.language_directive.en"
 LOG_AI_ENABLED = "log.ai_enabled"
 LOG_RETENTION_DAYS = "log.retention_days"
-SUMMARY_LOOKBACK_WEEKS = "summary.lookback_weeks"
+#: 週次要約の起動時遡及生成（15.2）で、1回の起動あたり生成する(goal, week)件数の上限。
+#: 遡及対象の週は目標開始日（読書はbook.start_date）まで遡るため上限が無いと起動が長引く
+#: （G3、旧summary.lookback_weeksは検索窓自体を打ち切る方式だったため廃止し、本キーへ置換）。
+SUMMARY_RETROACTIVE_MAX_PER_RUN = "summary.retroactive_max_per_run"
 
 # ダッシュボード（仕様書6.1、実装フェーズ分割計画書Phase6）。
 DASHBOARD_REPORT_RATE_WINDOW_DAYS = "dashboard.report_rate_window_days"
