@@ -8,7 +8,7 @@ import { useToast } from '../../components/toastContext'
 import { updateSettings, type AppSettingsRead } from '../../api/settings'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
-/** プロンプト縮退設定（仕様書6.11「入力上限」「週次要約の注入週数」）。 */
+/** プロンプト縮退設定（仕様書6.11「入力上限」「観点提案を促す確定済み記録数の閾値」）。 */
 export function PromptDegradationSection({ settings }: { settings: AppSettingsRead }) {
   const queryClient = useQueryClient()
   const { showToast, showApiError } = useToast()

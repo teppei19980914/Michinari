@@ -481,6 +481,61 @@ def test_send_reading_feedback_compresses_all_weekly_summaries_without_a_limit(
     assert "RECENT_WEEK_SUMMARY" in sent_message
 
 
+def test_send_reading_feedback_period_start_uses_book_start_date_not_goal_start_date(
+    seeded_session, monkeypatch
+):
+    """決定事項D6の回帰テスト: goal.start_dateとbook.start_dateが異なる場合、
+    period_startにはbook.start_dateが使われ、goal.start_date〜book.start_date-1の
+    週次要約・生ログは{{weekly_summaries}}/{{recent_recalls}}に注入されない
+    （period_start=goal.start_dateのままだった場合に検出できるよう、両者を意図的に
+    別の日付にする）。"""
+    goal = Goal(
+        category=GoalCategory.READING,
+        name="読書目標A",
+        start_date=dt.date(2025, 9, 1),  # book.start_dateより前
+        status=GoalStatus.ACTIVE,
+    )
+    seeded_session.add(goal)
+    seeded_session.flush()
+    book = _make_book(seeded_session, goal, start_date=dt.date(2025, 12, 1))
+    # goal.start_date〜book.start_dateの間（period_startの誤りがあれば注入されてしまう週）。
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 9, 8),
+            week_end_date=dt.date(2025, 9, 14),
+            summary_body="BEFORE_BOOK_START_SUMMARY",
+        )
+    )
+    # book.start_date以降の週（正しくperiod_start=book.start_dateなら注入される）。
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2025, 12, 1),
+            week_end_date=dt.date(2025, 12, 7),
+            summary_body="AFTER_BOOK_START_SUMMARY",
+        )
+    )
+    seeded_session.flush()
+    # goal.start_date〜book.start_dateの間の生ログ（period_startの誤りがあれば注入されてしまう）。
+    _add_past_reading_log(seeded_session, book.id, dt.date(2025, 10, 1), "BEFORE_BOOK_START_RAW")
+    calls = _stub_send_message(monkeypatch)
+
+    reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 1, 10),
+        today=dt.date(2026, 1, 10),
+        message=None,
+        reading_log_items=[_reading_log(book.id)],
+    )
+
+    sent_message = calls[0]["message"]
+    assert "AFTER_BOOK_START_SUMMARY" in sent_message
+    assert "BEFORE_BOOK_START_SUMMARY" not in sent_message
+    assert "BEFORE_BOOK_START_RAW" not in sent_message
+
+
 def test_send_reading_feedback_raises_without_sending_when_today_input_alone_exceeds_limit(
     seeded_session, monkeypatch
 ):

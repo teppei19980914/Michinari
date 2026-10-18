@@ -144,3 +144,5 @@ Truth）である。作業は `dev/2026-10-11`（現行ブランチ）で行う�
 | # | 内容 | 対応 |
 | --- | --- | --- |
 | M1 | `ai.reading_recall_recent_days`は設定スキーマ（API）には存在するが、`PromptDegradationSection.tsx`の画面には表示されていなかった（画面と API の不整合、本改修以前から） | 本改修で該当キー自体を削除するため、不整合は解消される。追加対応不要 |
+| M2 | `ai_context_exam.build_week_diaries_text`（週次要約向け、既存・本改修で未変更）は日記を「行動・所感→学んだこと」の順で整形するが、新設`build_recent_study_entries`（日次報告向け、本改修）は「学んだこと→行動・所感」の順にした（`record.py`の既存コメント「学んだことが主」、およびDAILY_FEEDBACKテンプレート自体の変数順と揃えるため）。既存のweek_diaries側の順序は本改修のスコープ外のため変更していないが、2つの整形関数で日記の表示順が異なる状態が残っている（dry-reviewerで指摘） | 対応不要（スコープ外）。将来week_diaries側の順序を見直す際は本件を踏まえる |
+| M3 | `prompt_builder.py`に`_NO_WEEKLY_SUMMARIES_TEXT`、`reading_feedback_service.py`・`work_feedback_service.py`に同義の`_NO_OLDER_WEEKLY_SUMMARIES_TEXT`（名前まで完全一致、値も同一）が別々に定義されている（本改修以前から。dry-reviewerで指摘） | 対応不要（スコープ外、既存の重複）。将来この文言を変更する際は3箇所同時に直す必要がある点に留意する |

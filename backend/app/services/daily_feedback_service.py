@@ -121,6 +121,8 @@ def send_daily_feedback(
         GoalCategory.EXAM, reported_count < min_records
     )
 
+    # S04 G1：目標開始日〜対象日の前日の全期間を対象とし、件数・週数の上限を設けない
+    # （読書・仕事と同じ考え方、reading_feedback_service・work_feedback_serviceのコメント参照）。
     period_end = target_date - dt.timedelta(days=1)
     past_records = ai_context_common.build_past_record_entries(
         session,
