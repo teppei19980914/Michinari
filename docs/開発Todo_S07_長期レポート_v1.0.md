@@ -98,7 +98,7 @@
 
 ### 3.4 検証
 
-- [x] V-01 `ruff check .` → `pytest`（backend）→ `npm run lint`・`npx tsc -b`・`npm run test`（frontend）を全件実行し、§2のベースラインと比較する（backend: ruff合格、pytest 1,885件合格・カバレッジ100%〈T-08対応後〉。frontend: 実行中、§9へ追記）
+- [x] V-01 `ruff check .` → `pytest`（backend）→ `npm run lint`・`npx tsc -b`・`npm run test`（frontend）を全件実行し、§2のベースラインと比較する（B-08のDRY共通化後の最終実行：backend ruff合格・pytest 1,886件合格・カバレッジ100%。frontend lint 0件・tsc -b 0件・vitest 1,318件合格・カバレッジ100%〈フロントエンドはファイル変更なしのため結果不変〉）
 - [x] V-02 旧ローカル定数定義（`_NO_WEEKLY_SUMMARIES_TEXT`）が3ファイルのいずれにも残っていないことをgrepで確認する（T-07で実施済み）
 - [x] V-03 既存DBのコピーで新マイグレーションを適用し、既存の`prompt_template`行（カスタマイズ済み・未済み双方）が仕様通り更新・保持されることを確認する（CODING_RULES.md「DBマイグレーションのテスト」の対象は`add_column`/`alter_column`等スキーマ変更を伴うものに限られ、本マイグレーションは`UPDATE`のみでスキーマ変更が無いため対象外。同等の検証はT-01（`upgrade_to`で1つ前のリビジョンまで構築→実データ行を挿入→headへ適用→内容を確認）で既に充足している）
 
