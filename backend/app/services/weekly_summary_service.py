@@ -325,6 +325,11 @@ def invalidate_weeks(session: Session, goals: Iterable[Goal], record_date: dt.da
     invalidate_weekを呼ぶ（G4。CLAUDE.md パフォーマンスチェック：同一目標の教材・書籍・
     案件を複数件同時に更新しても、goal_id+week_start_dateが同じDELETEを件数分発行しない
     よう、呼び出し元の_apply_*_logs/_apply_diary_entriesがこちらを使う）。
+
+    使用例（_apply_study_logsでの呼び方。goalsには重複・順不同で渡してよい）：
+        invalidate_weeks(
+            session, (m.goal for m in materials.values()), daily_record.record_date
+        )
     """
     seen_goal_ids: set[int] = set()
     for goal in goals:

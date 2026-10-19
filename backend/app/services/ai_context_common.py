@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.ai.prompt_builder import DatedLogEntry
+from app.ai.prompt_builder import DatedLogEntry, DegradableEntryStage
 from app.constants.enums import GoalCategory, GoalStatus
 from app.models.goal import Goal
 from app.models.record import WeeklySummary
@@ -53,6 +53,13 @@ def _format_days_remaining(today: dt.date, target: dt.date) -> str:
     if days >= 0:
         return f"残り{days}日"
     return f"{-days}日超過"
+
+
+#: {{weekly_summaries}}が空の場合の共通表示（S07、総括レポート・読了レポート・月次報告・
+#: 半期評価・AI評価レポートで共通。従前はretrospective_service.py・work_report_service.py
+#: がそれぞれ同一内容のプライベート定数を個別に持ち重複していたため、ここへ集約する
+#: （CLAUDE.md DRYの原則）。
+NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
 
 
 def _format_weekly_summary_entry(row: WeeklySummary) -> DatedLogEntry:
@@ -138,6 +145,38 @@ def exclude_covered_dates(
         entry
         for entry in entries
         if not any(start <= entry.record_date <= end for start, end in covered_ranges)
+    ]
+
+
+def build_weekly_compressed_stages(
+    compressed: WeeklyCompressedPeriod,
+    *,
+    raw_key: str,
+    raw_entries: list[DatedLogEntry],
+    raw_empty_text: str,
+) -> list[DegradableEntryStage]:
+    """resolve_weekly_compressed_periodの結果から、「週次要約（圧縮）→生ログ」の2段階の
+    DegradableEntryStageを組み立てる（週次要約＝古い範囲から先に縮退し、生ログ＝直近分を
+    最後まで残す既存方針と一致）。
+
+    総括レポート（資格・読書）・月次報告・半期評価・AI評価レポートの5箇所で同一の組み立て
+    パターン（resolve_weekly_compressed_period呼び出し後、weekly_summariesステージと
+    exclude_covered_datesした生ログステージを並べる）が重複していたため共通化する
+    （S07、dry-reviewerの指摘、CLAUDE.md DRYの原則）。呼び出し側は圧縮不可の固有ステージ
+    （例: 評価レポートのfeedback_history）がある場合、本関数の戻り値をスプレッドして
+    stagesリストへ合成する。
+    """
+    return [
+        DegradableEntryStage(
+            key="weekly_summaries",
+            entries=compressed.weekly_summary_entries,
+            empty_text=NO_WEEKLY_SUMMARIES_TEXT,
+        ),
+        DegradableEntryStage(
+            key=raw_key,
+            entries=exclude_covered_dates(raw_entries, compressed.covered_ranges),
+            empty_text=raw_empty_text,
+        ),
     ]
 
 
