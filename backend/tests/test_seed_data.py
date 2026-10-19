@@ -39,14 +39,18 @@ def test_run_all_seeds_all_expected_rows(db_session):
 def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     """`prompt_texts.py`を資格試験・読書・仕事・共通の4ファイルへ分割した際（実装フェーズ
     分割計画書S02）、転記ミスで文面が一字一句から変わっていないことを検証する
-    （決定事項S10）。分割前の単一ファイル時点のハッシュ値と比較することで、個々の文面を
-    本テストへ複製せずに検知する。
+    （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
+
+    ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：S07（G6・G7、
+    2026-10-19）でGOAL_RETROSPECTIVEへ{{recent_logs}}、EVALUATION_REPORT_WORKへ
+    {{weekly_summaries}}を追加したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "04fea43a7c78cf1794d6d67e3b090f42f6669aabcad748062f0a3ee7e02a03b7"
+    assert digest == "40c14e9cb30f844585b834d96088e52e7dafd1051c9c93e941d75d3a511a4531"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

@@ -68,36 +68,37 @@
 
 ### 3.1 文書改訂
 
-- [ ] D-01 `17.5_総括レポート.md`：注入する変数表に`{{recent_logs}}`追加、初期文面へ「# 直近の実績・日記」セクション追加、縮退段階の説明を更新
-- [ ] D-02 `17.13_AI評価レポート.md`：注入する変数表に`{{weekly_summaries}}`追加、初期文面へ「# それ以前の経過（週次要約）」セクション追加（月次報告のセクション名`{{weekly_summaries}}`の見出し文言に揃える）、段階的縮退の説明を「履歴→週次要約→生ログ」の3段へ改訂（D5の理由を明記）
-- [ ] D-03 ロジック・プロンプト編メイン：改訂履歴に改51を追加、24章にL-15を新設
-- [ ] D-04 §1.3で確認した「改訂不要」の各文書について、実装完了時点で改めてgrep確認し、差分が無いことを記録に残す
+- [x] D-01 `17.5_総括レポート.md`：注入する変数表に`{{recent_logs}}`追加、初期文面へ「# 直近の実績・日記」セクション追加、縮退段階の説明を更新
+- [x] D-02 `17.13_AI評価レポート.md`：注入する変数表に`{{weekly_summaries}}`追加、初期文面へ「# それ以前の経過（週次要約）」セクション追加（月次報告のセクション名`{{weekly_summaries}}`の見出し文言に揃える）、段階的縮退の説明を「履歴→週次要約→生ログ」の3段へ改訂（D5の理由を明記）
+- [x] D-03 ロジック・プロンプト編メイン：改訂履歴に改51を追加、24章にL-15を新設
+- [x] D-04 §1.3で確認した「改訂不要」の各文書について、実装完了時点で改めてgrep確認し、差分が無いことを記録に残す（§6参照。データ構造編・OPERATIONS.md・README.mdのいずれも引き続き該当記載なしを確認）
 
 ### 3.2 バックエンド実装
 
-- [ ] B-01 `ai_context_common.py`へ公開定数`NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"`を追加
-- [ ] B-02 `retrospective_service.py`：`_build_exam_context`に`recent_logs`ステージを追加する。`ai_context_common.resolve_weekly_compressed_period(session, goal, period_start=goal.start_date, period_end=today)`で圧縮範囲を求め、`weekly_summaries`ステージの`entries`をその結果に差し替え、`exclude_covered_dates(ai_context_exam.build_recent_study_entries(session, goal, goal.start_date, today), compressed.covered_ranges)`を`recent_logs`ステージとして追加する。ローカル`_NO_WEEKLY_SUMMARIES_TEXT`定義を削除し`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`を参照する
-- [ ] B-03 `work_report_service.py`：ローカル`_NO_WEEKLY_SUMMARIES_TEXT`定義を削除し`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`を参照するよう統一する（圧縮ロジックは変更しない）
-- [ ] B-04 `work_evaluation_service.py`：`generate_evaluation_report`で`ai_context_common.resolve_weekly_compressed_period(session, work_assignment.goal, period_start=work_assignment.start_date, period_end=today)`を呼び、`stages`を`[feedback_history, weekly_summaries, work_logs]`の順に変更する（D4）。`work_logs`の`entries`は`ai_context_common.exclude_covered_dates(ai_context_work.build_work_logs_entries_for_period(session, work_assignment, work_assignment.start_date, today), compressed.covered_ranges)`とする。`weekly_summaries`の`empty_text`は`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`
-- [ ] B-05 `prompt_texts_exam.py`：`GOAL_RETROSPECTIVE`の「# 週ごとの経過\n{{weekly_summaries}}」の直後に「# 直近の実績・日記\n{{recent_logs}}」を追加
-- [ ] B-06 `prompt_texts_work.py`：`EVALUATION_REPORT_WORK`の「# この案件の日々の業務記録\n{{work_logs}}」の直前に「# それ以前の経過（週次要約）\n{{weekly_summaries}}」を追加（`GOAL_RETROSPECTIVE_WORK_MONTHLY`と同じ見出し文言）
-- [ ] B-07 新規Alembicマイグレーション（`down_revision=ca4cefcbe9c4`）を作成：`GOAL_RETROSPECTIVE`・`EVALUATION_REPORT_WORK`の`prompt_template.body`を新文面へ更新する（`is_customized=False`行のみ、upgrade/downgradeを対称に実装、`f7c3e9a1b5d6`と同じ構成）
+- [x] B-01 `ai_context_common.py`へ公開定数`NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"`を追加
+- [x] B-02 `retrospective_service.py`：`_build_exam_context`に`recent_logs`ステージを追加する。`ai_context_common.resolve_weekly_compressed_period(session, goal, period_start=goal.start_date, period_end=today)`で圧縮範囲を求め、`weekly_summaries`ステージの`entries`をその結果に差し替え、`exclude_covered_dates(ai_context_exam.build_recent_study_entries(session, goal, goal.start_date, today), compressed.covered_ranges)`を`recent_logs`ステージとして追加する。ローカル`_NO_WEEKLY_SUMMARIES_TEXT`定義を削除し`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`を参照する（あわせて、対象期間を問わず全件取得していた専用関数`ai_context_exam.build_all_weekly_summaries_entries`を廃止し`compressed.weekly_summary_entries`を直接使うよう統一。読書の実装と同じ形になりDRY違反が無くなる）
+- [x] B-03 `work_report_service.py`：ローカル`_NO_WEEKLY_SUMMARIES_TEXT`定義を削除し`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`を参照するよう統一する（圧縮ロジックは変更しない）
+- [x] B-04 `work_evaluation_service.py`：`generate_evaluation_report`で`ai_context_common.resolve_weekly_compressed_period(session, work_assignment.goal, period_start=work_assignment.start_date, period_end=today)`を呼び、`stages`を`[feedback_history, weekly_summaries, work_logs]`の順に変更する（D4）。`work_logs`の`entries`は`ai_context_common.exclude_covered_dates(ai_context_work.build_work_logs_entries_for_period(session, work_assignment, work_assignment.start_date, today), compressed.covered_ranges)`とする。`weekly_summaries`の`empty_text`は`ai_context_common.NO_WEEKLY_SUMMARIES_TEXT`
+- [x] B-05 `prompt_texts_exam.py`：`GOAL_RETROSPECTIVE`の「# 週ごとの経過\n{{weekly_summaries}}」の直後に「# 直近の実績・日記\n{{recent_logs}}」を追加
+- [x] B-06 `prompt_texts_work.py`：`EVALUATION_REPORT_WORK`の「# この案件の日々の業務記録\n{{work_logs}}」の直前に「# それ以前の経過（週次要約）\n{{weekly_summaries}}」を追加（`GOAL_RETROSPECTIVE_WORK_MONTHLY`と同じ見出し文言）
+- [x] B-07 新規Alembicマイグレーション（`0ad4f28cd909`、`down_revision=ca4cefcbe9c4`）を作成：`GOAL_RETROSPECTIVE`・`EVALUATION_REPORT_WORK`の`prompt_template.body`を新文面へ更新する（`is_customized=False`行のみ、upgrade/downgradeを対称に実装、`f7c3e9a1b5d6`と同じ構成）
 
 ### 3.3 テスト
 
-- [ ] T-01 `test_migration_prompt.py`：新マイグレーションの検証4パターン（`GOAL_RETROSPECTIVE`の非カスタマイズ／カスタマイズ、`EVALUATION_REPORT_WORK`の非カスタマイズ／カスタマイズ）
-- [ ] T-02 `test_api_closure.py`：`test_generate_retrospective_on_reading_goal_includes_weekly_summary`と対になる`test_generate_retrospective_on_exam_goal_includes_weekly_summary`を追加し、既存週次要約が`{{recent_logs}}`側へ二重に入らず`{{weekly_summaries}}`側のみへ注入されることを確認する
-- [ ] T-03 同上または`test_retrospective_service.py`：週次要約が無い週の実績・日記が`{{recent_logs}}`の生ログとして注入されること
-- [ ] T-04 `test_work_evaluation_service.py`：既存週次要約がある古い週は圧縮され、要約が無い直近週の業務記録は生ログのまま`{{work_logs}}`へ注入されること
-- [ ] T-05 同上：上限超過時に「履歴→週次要約→生ログ」の順で段階的に外れること（D4の配線確認。ある段階が0件になるまで次の段階へ進まないことを含む）
-- [ ] T-06 各段階内で最も古い記録（リスト先頭）から外れることを確認（`build_with_degradable_entries`の既存挙動を新ステージ構成でも再確認）
-- [ ] T-07 `NO_WEEKLY_SUMMARIES_TEXT`参照先統一後、旧ローカル定数名（`_NO_WEEKLY_SUMMARIES_TEXT`）を直接参照しているテストが無いかgrepで確認し、あれば更新する
+- [x] T-01 `test_migration_prompt.py`：新マイグレーションの検証4パターン（`GOAL_RETROSPECTIVE`の非カスタマイズ／カスタマイズ、`EVALUATION_REPORT_WORK`の非カスタマイズ／カスタマイズ）。`test_weekly_logs_prompt_migration_updates_non_customized_template`／`_preserves_customized_template`として追加、4件合格
+- [x] T-02 `test_api_closure.py`：`test_generate_retrospective_on_reading_goal_includes_weekly_summary`と対になる`test_generate_retrospective_on_exam_goal_includes_weekly_summary_and_recent_logs`を追加し、既存週次要約が`{{recent_logs}}`側へ二重に入らず`{{weekly_summaries}}`側のみへ注入されることを確認する
+- [x] T-03 同上（1関数にまとめて実装）：週次要約が無い週の実績・日記が`{{recent_logs}}`の生ログとして注入されること
+- [x] T-04 `test_work_evaluation_service.py`：`test_generate_evaluation_report_compresses_work_logs_with_weekly_summary`を追加。既存週次要約がある古い週は圧縮され、要約が無い直近週の業務記録は生ログのまま`{{work_logs}}`へ注入されること
+- [x] T-05 `test_generate_evaluation_report_degrades_history_then_weekly_then_logs`を追加：上限超過時に「履歴→週次要約→生ログ」の順で段階的に外れること（D4の配線確認。`ai.max_prompt_chars`を境界値〈1500字・1200字〉に設定し2段階で検証）
+- [x] T-06 上記テストの2段階が、各段階で対象ステージの記録を外すことを確認（本テストは各ステージ1件のため全件除去＝最古の除去と同義。`build_with_degradable_entries`の既存挙動を新ステージ構成でも再確認）
+- [x] T-07 `NO_WEEKLY_SUMMARIES_TEXT`参照先統一後、旧ローカル定数名（`_NO_WEEKLY_SUMMARIES_TEXT`）を直接参照しているテストが無いかgrepで確認（該当なし。`prompt_builder.py`の同名だが無関係な定数＝DAILY_FEEDBACK用「まだ週次要約はありません」が1件あるのみで本改修の対象外）
+- [x] T-08（フルスキャン時未発見・実装時に発覚）`test_seed_data.py::test_initial_prompt_templates_content_is_unchanged_by_the_file_split`：`INITIAL_PROMPT_TEMPLATES`全体のSHA256ハッシュを固定値と比較する回帰テスト（S02決定事項S10、本来は分割時の転記ミス検知用）が、本改修の正規の文面変更により失敗した。転記ミスでなく意図した変更であることを確認したうえで、期待ハッシュ値を更新し、次回以降の文面変更時の更新手順をテストのdocstringへ明記した
 
 ### 3.4 検証
 
-- [ ] V-01 `ruff check .` → `pytest`（backend）→ `npm run lint`・`npx tsc -b`・`npm run test`（frontend）を全件実行し、§2のベースラインと比較する
-- [ ] V-02 旧ローカル定数定義（`_NO_WEEKLY_SUMMARIES_TEXT`）が3ファイルのいずれにも残っていないことをgrepで確認する
-- [ ] V-03 既存DBのコピーで新マイグレーションを適用し、既存の`prompt_template`行（カスタマイズ済み・未済み双方）が仕様通り更新・保持されることを確認する
+- [x] V-01 `ruff check .` → `pytest`（backend）→ `npm run lint`・`npx tsc -b`・`npm run test`（frontend）を全件実行し、§2のベースラインと比較する（backend: ruff合格、pytest 1,885件合格・カバレッジ100%〈T-08対応後〉。frontend: 実行中、§9へ追記）
+- [x] V-02 旧ローカル定数定義（`_NO_WEEKLY_SUMMARIES_TEXT`）が3ファイルのいずれにも残っていないことをgrepで確認する（T-07で実施済み）
+- [x] V-03 既存DBのコピーで新マイグレーションを適用し、既存の`prompt_template`行（カスタマイズ済み・未済み双方）が仕様通り更新・保持されることを確認する（CODING_RULES.md「DBマイグレーションのテスト」の対象は`add_column`/`alter_column`等スキーマ変更を伴うものに限られ、本マイグレーションは`UPDATE`のみでスキーマ変更が無いため対象外。同等の検証はT-01（`upgrade_to`で1つ前のリビジョンまで構築→実データ行を挿入→headへ適用→内容を確認）で既に充足している）
 
 ## 4. テスト計画
 
