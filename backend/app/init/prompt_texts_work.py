@@ -285,6 +285,9 @@ EVALUATION_REPORT_WORK = """あなたは、ある評価者が部下・メンバ�
 # 評価者が記録した、これまでのAIフィードバック履歴（この案件について）
 {{feedback_history}}
 
+# それ以前の経過（週次要約）
+{{weekly_summaries}}
+
 # この案件の日々の業務記録
 {{work_logs}}
 

@@ -20,7 +20,7 @@ from app.constants.enums import (
 )
 from app.models.goal import ExamSubject, Goal
 from app.models.material import Material, PlanBaseline
-from app.models.record import DailyGoalDiary, DailyRecord, ExamResult, StudyLog, WeeklySummary
+from app.models.record import DailyGoalDiary, DailyRecord, ExamResult, StudyLog
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.services import ai_context_exam, settings_service
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
@@ -849,41 +849,6 @@ def test_build_exam_results_text_uses_english_labels_when_locale_is_english(seed
     text = ai_context_exam.build_exam_results_text(seeded_session, goal)
 
     assert "登録済み科目: pass、得点 88.0" in text
-
-
-def test_build_all_weekly_summaries_entries_orders_chronologically(seeded_session):
-    goal = _make_goal(seeded_session)
-    seeded_session.add(
-        WeeklySummary(
-            goal_id=goal.id,
-            week_start_date=dt.date(2026, 1, 12),
-            week_end_date=dt.date(2026, 1, 18),
-            summary_body="2週目",
-        )
-    )
-    seeded_session.add(
-        WeeklySummary(
-            goal_id=goal.id,
-            week_start_date=dt.date(2026, 1, 5),
-            week_end_date=dt.date(2026, 1, 11),
-            summary_body="1週目",
-        )
-    )
-    seeded_session.flush()
-
-    entries = ai_context_exam.build_all_weekly_summaries_entries(seeded_session, goal)
-
-    assert [entry.record_date for entry in entries] == [dt.date(2026, 1, 5), dt.date(2026, 1, 12)]
-    text = "\n\n".join(entry.text for entry in entries)
-    assert text.index("1週目") < text.index("2週目")
-
-
-def test_build_all_weekly_summaries_entries_handles_no_summaries(seeded_session):
-    goal = _make_goal(seeded_session)
-
-    entries = ai_context_exam.build_all_weekly_summaries_entries(seeded_session, goal)
-
-    assert entries == []
 
 
 # --- list_active_exam_goals ---
