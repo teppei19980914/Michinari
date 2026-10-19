@@ -290,23 +290,14 @@ def generate_monthly_report(
             "target_goal_text": target_goal_text,
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="month_logs",
+            raw_entries=ai_context_work.build_work_logs_entries_for_period(
+                session, work_assignment, date_from, date_to
             ),
-            prompt_builder.DegradableEntryStage(
-                key="month_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_work.build_work_logs_entries_for_period(
-                        session, work_assignment, date_from, date_to
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+        ),
     )
 
     template_body = ai_orchestration.load_template_body(
@@ -420,23 +411,14 @@ def generate_semiannual_review(
             "target_goal_text": target_goal_text,
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="period_logs",
+            raw_entries=ai_context_work.build_work_logs_entries_for_period(
+                session, work_assignment, date_from, date_to
             ),
-            prompt_builder.DegradableEntryStage(
-                key="period_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_work.build_work_logs_entries_for_period(
-                        session, work_assignment, date_from, date_to
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+        ),
     )
 
     template_body = ai_orchestration.load_template_body(

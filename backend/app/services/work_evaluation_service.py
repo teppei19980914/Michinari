@@ -75,20 +75,13 @@ def generate_evaluation_report(
                 ),
                 empty_text=_NO_FEEDBACK_HISTORY_TEXT,
             ),
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
-            ),
-            prompt_builder.DegradableEntryStage(
-                key="work_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_work.build_work_logs_entries_for_period(
-                        session, work_assignment, work_assignment.start_date, today
-                    ),
-                    compressed.covered_ranges,
+            *ai_context_common.build_weekly_compressed_stages(
+                compressed,
+                raw_key="work_logs",
+                raw_entries=ai_context_work.build_work_logs_entries_for_period(
+                    session, work_assignment, work_assignment.start_date, today
                 ),
-                empty_text=_NO_WORK_LOGS_TEXT,
+                raw_empty_text=_NO_WORK_LOGS_TEXT,
             ),
         ],
     )

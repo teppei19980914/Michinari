@@ -82,6 +82,7 @@
 - [x] B-05 `prompt_texts_exam.py`：`GOAL_RETROSPECTIVE`の「# 週ごとの経過\n{{weekly_summaries}}」の直後に「# 直近の実績・日記\n{{recent_logs}}」を追加
 - [x] B-06 `prompt_texts_work.py`：`EVALUATION_REPORT_WORK`の「# この案件の日々の業務記録\n{{work_logs}}」の直前に「# それ以前の経過（週次要約）\n{{weekly_summaries}}」を追加（`GOAL_RETROSPECTIVE_WORK_MONTHLY`と同じ見出し文言）
 - [x] B-07 新規Alembicマイグレーション（`0ad4f28cd909`、`down_revision=ca4cefcbe9c4`）を作成：`GOAL_RETROSPECTIVE`・`EVALUATION_REPORT_WORK`の`prompt_template.body`を新文面へ更新する（`is_customized=False`行のみ、upgrade/downgradeを対称に実装、`f7c3e9a1b5d6`と同じ構成）
+- [x] B-08（dry-reviewerの指摘を受け追加）`resolve_weekly_compressed_period`→`weekly_summariesステージ`→`exclude_covered_dates`した生ログステージ、という3行セットの組み立てパターンが本改修で5箇所（総括レポートのEXAM・READING、月次報告、半期評価、AI評価レポート）に重複したため、`ai_context_common.py`へ`build_weekly_compressed_stages(compressed, *, raw_key, raw_entries, raw_empty_text)`を新設し、5箇所すべてから呼び出すよう統一した（`work_evaluation_service.py`は圧縮不可の`feedback_history`ステージがあるため`[feedback_stage, *ai_context_common.build_weekly_compressed_stages(...)]`の形）
 
 ### 3.3 テスト
 
@@ -93,6 +94,7 @@
 - [x] T-06 上記テストの2段階が、各段階で対象ステージの記録を外すことを確認（本テストは各ステージ1件のため全件除去＝最古の除去と同義。`build_with_degradable_entries`の既存挙動を新ステージ構成でも再確認）
 - [x] T-07 `NO_WEEKLY_SUMMARIES_TEXT`参照先統一後、旧ローカル定数名（`_NO_WEEKLY_SUMMARIES_TEXT`）を直接参照しているテストが無いかgrepで確認（該当なし。`prompt_builder.py`の同名だが無関係な定数＝DAILY_FEEDBACK用「まだ週次要約はありません」が1件あるのみで本改修の対象外）
 - [x] T-08（フルスキャン時未発見・実装時に発覚）`test_seed_data.py::test_initial_prompt_templates_content_is_unchanged_by_the_file_split`：`INITIAL_PROMPT_TEMPLATES`全体のSHA256ハッシュを固定値と比較する回帰テスト（S02決定事項S10、本来は分割時の転記ミス検知用）が、本改修の正規の文面変更により失敗した。転記ミスでなく意図した変更であることを確認したうえで、期待ハッシュ値を更新し、次回以降の文面変更時の更新手順をテストのdocstringへ明記した
+- [x] T-09（test-coverage-reviewerの指摘を受け追加）`test_api_closure.py::test_generate_retrospective_on_exam_goal_degrades_weekly_summary_before_recent_logs`：`_build_exam_context`の2段階縮退が「週次要約（古い範囲）→recent_logs（直近の生ログ）」の順で外れることを検証する（work_evaluation_serviceの3段階縮退テストとの整合性確認。`test_generate_retrospective_on_exam_goal_includes_weekly_summary_and_recent_logs`はdedupのみを検証しstages順序は検証していなかったため追加。閾値はテンプレート文面に依存させず、十分大きい上限で実測した全長から動的に算出し、文面変更への耐性を確保した）
 
 ### 3.4 検証
 
@@ -113,4 +115,5 @@
 
 ## 6. 別件（範囲外で見つけた問題）
 
-- （作業の進行に応じて記録する。現時点で発見した範囲外の不具合・改善点はなし）
+- test-coverage-reviewerの指摘：Alembicマイグレーションの`downgrade()`は、本マイグレーション（`0ad4f28cd909`）を含めリポジトリ全体で一度もテスト実行されていない（`command.downgrade`を呼ぶテストがbackend全体に存在しない）。CODING_RULES.md「DBマイグレーションのテスト」は`upgrade`適用時の既存データに対する安全性のみを要求しており`downgrade()`のテストは明文で要求されていないため、本PR固有の後退ではなく既存の全マイグレーションと同じ慣行。恒久対応（全マイグレーションへのdowngradeテスト追加）は本Todoの範囲外のため、是正するかは運用判断として別件に記録するに留める
+- dry-reviewer・test-coverage-reviewerの指摘事項（B-08・T-09で対応したもの以外）に対応要と判断した項目はなし

@@ -113,23 +113,14 @@ def _build_exam_context(
             "exam_results": ai_context_exam.build_exam_results_text(session, goal),
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="recent_logs",
+            raw_entries=ai_context_exam.build_recent_study_entries(
+                session, goal, goal.start_date, today
             ),
-            prompt_builder.DegradableEntryStage(
-                key="recent_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_exam.build_recent_study_entries(
-                        session, goal, goal.start_date, today
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_RECENT_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_RECENT_LOGS_TEXT,
+        ),
     )
 
 
@@ -152,23 +143,14 @@ def _build_reading_context(
             "overall_metrics": ai_context_reading.build_reading_overall_metrics_text(session, book),
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="reading_logs",
+            raw_entries=ai_context_reading.build_reading_logs_entries(
+                session, book, date_from=book.start_date
             ),
-            prompt_builder.DegradableEntryStage(
-                key="reading_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_reading.build_reading_logs_entries(
-                        session, book, date_from=book.start_date
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_READING_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_READING_LOGS_TEXT,
+        ),
     )
 
 
