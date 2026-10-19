@@ -55,6 +55,13 @@ def _format_days_remaining(today: dt.date, target: dt.date) -> str:
     return f"{-days}日超過"
 
 
+#: {{weekly_summaries}}が空の場合の共通表示（S07、総括レポート・読了レポート・月次報告・
+#: 半期評価・AI評価レポートで共通。従前はretrospective_service.py・work_report_service.py
+#: がそれぞれ同一内容のプライベート定数を個別に持ち重複していたため、ここへ集約する
+#: （CLAUDE.md DRYの原則）。
+NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
+
+
 def _format_weekly_summary_entry(row: WeeklySummary) -> DatedLogEntry:
     return DatedLogEntry(
         record_date=row.week_start_date,
