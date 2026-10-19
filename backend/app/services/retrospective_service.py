@@ -39,14 +39,15 @@ from app.services.exceptions import InvalidStateTransitionError, ValidationError
 #: （goal_retrospectiveはgoal_id単位、chat自体はconversation_uid一つで足りるため）。
 _SCOPE_KEY = "main"
 
-#: {{weekly_summaries}}／{{reading_logs}}が空の場合の表示（17.5・17.7）。
+#: {{reading_logs}}が空の場合の表示（17.7）。{{weekly_summaries}}の空表示は
+#: ai_context_common.NO_WEEKLY_SUMMARIES_TEXTへ集約済み（S07、CLAUDE.md DRYの原則）。
 #: ai_context_exam／ai_context_reading側は整形前のlist[DatedLogEntry]を返すため、空の場合の文言は
-#: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う
-#: （CLAUDE.md DRYの原則）。build_all_weekly_summaries_entries／build_reading_logs_entriesの
-#: 前身（build_all_weekly_summaries_text／build_reading_logs_text）が元々返していた文言と
-#: 同じにし、縮退の追加以外は挙動を変えない。
-_NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
+#: 呼び出し側（prompt_builder.build_with_degradable_entries）が持つこの定数を使う。
 _NO_READING_LOGS_TEXT = "（想起記録はありません）"
+#: {{recent_logs}}（総括レポート、S07 G6）が空の場合の表示。DAILY_FEEDBACKの
+#: 同名変数と同じ文言にする（ai_context_exam.build_recent_study_entriesの空リスト、CLAUDE.md
+#: DRYの原則）。
+_NO_RECENT_LOGS_TEXT = "（週次要約が無い過去日の記録はありません）"
 
 #: 完了していない目標に総括・読了レポートを生成しようとした場合の拒否理由（開発Todo 不具合B）。
 _MSG_REPORT_REQUIRES_COMPLETED = "Only a completed goal can generate a completion report"
@@ -91,6 +92,13 @@ def _build_exam_context(
 ) -> prompt_builder.DegradableFeedbackContext:
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     materials = [material for material in goal.materials if material.is_active]
+    # S07 G6: 週次要約が既に生成済みの範囲は{{weekly_summaries}}へ（全期間、
+    # build_all_weekly_summaries_entriesが対象期間を問わず全件返す）、まだ生成されていない
+    # 直近部分は{{recent_logs}}として生ログ（実績・日記）のまま注入する（L-11、読書の
+    # _build_reading_contextと同じ方式に揃える、CLAUDE.md DRYの原則）。
+    compressed = ai_context_common.resolve_weekly_compressed_period(
+        session, goal, period_start=goal.start_date, period_end=today
+    )
     return prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "goal_summary": ai_context_exam.build_goal_summary([goal], today),
@@ -107,7 +115,17 @@ def _build_exam_context(
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
                 entries=ai_context_exam.build_all_weekly_summaries_entries(session, goal),
-                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
+                key="recent_logs",
+                entries=ai_context_common.exclude_covered_dates(
+                    ai_context_exam.build_recent_study_entries(
+                        session, goal, goal.start_date, today
+                    ),
+                    compressed.covered_ranges,
+                ),
+                empty_text=_NO_RECENT_LOGS_TEXT,
             ),
         ],
     )
