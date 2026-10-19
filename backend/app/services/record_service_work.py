@@ -61,6 +61,10 @@ def _load_work_assignments(
 def _upsert_work_log(
     session: Session, daily_record: DailyRecord, work_assignment: WorkAssignment, item: WorkLogItem
 ) -> WorkLog:
+    # weekly_summary_serviceとの循環import対策（record_service_exam._upsert_study_log
+    # と同じ理由。CLAUDE.md DRYの原則）。
+    from app.services import weekly_summary_service
+
     work_log = (
         session.query(WorkLog)
         .filter(
@@ -74,6 +78,7 @@ def _upsert_work_log(
         session.add(work_log)
     work_log.body = item.body
     session.flush()
+    weekly_summary_service.invalidate_week(session, work_assignment.goal, daily_record.record_date)
     return work_log
 
 
