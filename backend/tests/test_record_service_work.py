@@ -15,6 +15,7 @@ from app.models.work import WorkAssignment
 from app.services import record_service_common, record_service_work
 from app.services.exceptions import ImmutableRecordError, NotFoundError
 from app.services.record_service_work import WorkLogItem
+from tests.weekly_summary_helpers import make_weekly_summary as _make_weekly_summary
 
 
 def _make_work_goal(session, status=GoalStatus.ACTIVE, name="仕事目標A"):
@@ -196,21 +197,8 @@ def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(s
     work_assignment = _make_work_assignment(seeded_session, goal)
     week_start = dt.date(2026, 3, 2)  # 月曜
     edited_date = dt.date(2026, 3, 4)  # 同じ週の水曜
-    non_anon = WeeklySummary(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_start + dt.timedelta(days=6),
-        summary_body="既に生成済み",
-    )
-    anon = WeeklySummary(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_start + dt.timedelta(days=6),
-        summary_body="既に生成済み（匿名化版）",
-        is_anonymized=True,
-    )
-    seeded_session.add_all([non_anon, anon])
-    seeded_session.flush()
+    non_anon = _make_weekly_summary(seeded_session, goal, week_start)
+    anon = _make_weekly_summary(seeded_session, goal, week_start, is_anonymized=True)
 
     record_service_common.register_progress(
         seeded_session,

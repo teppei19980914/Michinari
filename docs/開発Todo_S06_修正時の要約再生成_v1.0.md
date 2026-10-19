@@ -13,10 +13,12 @@
 | D2 | D1の理由 | `weekly_summary_service.list_pending_weeks` は既に「行が存在しない＝未生成」を未生成判定に使っている（`weekly_summary_service.py:271-279`）。削除するだけで次回起動時バッチ（`run_retroactive_generation`）が自然に再生成対象として拾う。無効化フラグ方式はAlembicマイグレーション・既存データ移行テスト・`list_pending_weeks`の判定ロジック変更が追加で必要になり、同じ効果に対して複雑さが増すため採用しない |
 | D3 | 匿名化版（`is_anonymized=True`）の扱い | 無効化時に**非匿名化版・匿名化版の両方**を削除する |
 | D4 | D3の理由 | `export_service_common.execute_export`（匿名化時）は `regenerate_all_weekly_summaries_anonymized` を呼ぶが、これは `_non_anonymized_weeks_query`（**非匿名化版が存在する週の一覧**）を基準に回す（`weekly_summary_service.py:377-414`）。非匿名化版だけ削除すると、その週は次回エクスポート時の「匿名化対象週」一覧から外れ、古い匿名化版だけが更新されずエクスポートに出続けてしまう。両方削除すれば、次回起動時バッチが非匿名化版を再生成→その後のエクスポート操作で匿名化版も追従して再生成される（安全側。該当週が一時的にエクスポートから欠けるだけで、誤った内容が出ることはない） |
-| D5 | 呼び出し箇所 | `record_service_exam._upsert_study_log`／`_upsert_diary_entry`、`record_service_reading._upsert_reading_log`、`record_service_work._upsert_work_log` の4箇所の末尾で無効化を呼ぶ。`register_progress`（進捗のみ登録、バックデート制限なし）・`finalize_record`等（確定、前日まで）の両経路が共通してこれらのupsert関数を通るため、呼び出し元ごとに個別対応する必要がない（CODING_RULES.md DRYの原則） |
+| D5 | 呼び出し箇所 | 当初は各upsert関数（`_upsert_study_log`等）の末尾で呼ぶ設計としたが、dry-reviewerの指摘（パフォーマンス観点、D5'参照）を受け、`_apply_study_logs`／`_apply_diary_entries`／`_apply_reading_logs`／`_apply_work_logs`（各カテゴリの「1回の呼び出しをitems分ループしてupsertする」関数）の末尾に変更した。`register_progress`（進捗のみ登録、バックデート制限なし）・`finalize_record`等（確定、前日まで）の両経路が共通してこれらのapply関数を通るため、呼び出し元ごとに個別対応する必要がない（CODING_RULES.md DRYの原則） |
+| D5' | 重複呼び出しの排除 | `weekly_summary_service.invalidate_weeks(session, goals, record_date)`を新設し、同一目標の教材・書籍・案件を1回の登録で複数件更新した場合に、同じ`(goal_id, week_start_date)`へのDELETEを件数分発行しないよう目標IDで重複排除する（`invalidate_week`は単一目標向けの薄い実体のまま維持し、`invalidate_weeks`がその重複排除だけを担う）。CODING_RULES.mdのパフォーマンス観点（ループ内DB問い合わせ）への対応 |
 | D6 | 循環import対策 | `weekly_summary_service`はトップレベルで`ai_context_exam`/`ai_context_reading`/`ai_context_work`をimportし、これらは逆に`record_service_exam`/`_reading`/`_work`をトップレベルでimportしている。`record_service_*`側から`weekly_summary_service`を素直にトップレベルimportすると循環importになるため、`record_service_common.register_progress`が既に採用している「呼び出し時点まで関数内でimportを遅延させる」方式（`record_service_common.py:290-297`）を同様に用いる |
 | D7 | マイグレーション | 不要（D1によりスキーマ変更なし） |
 | D8 | 新規実績の扱い | 既存のweekly_summary行が無い週（未生成）に新規ログを追加する場合は、無効化関数を呼んでも対象行が無いため単純なno-op（`DELETE`が0件）。既存の「未生成週として次回バッチが拾う」挙動と変わらず、副作用なし |
+| D9 | テストヘルパーの共通化 | dry-reviewerの指摘を受け、`WeeklySummary`を非匿名化・匿名化の2件生成するテストコードを`tests/weekly_summary_helpers.py`（`make_weekly_summary`）へ切り出し、`test_record_service_exam.py`／`_reading.py`／`_work.py`の3ファイルから共通利用する（`diary_helpers.py`・`reading_helpers.py`と同じ位置づけ） |
 
 ## 1. 影響範囲（フルスキャンの結果、Exploreエージェントによる調査結果を含む）
 
@@ -70,10 +72,11 @@
 ### 3.1 実装
 
 - [x] B-01 `weekly_summary_service.py`に`invalidate_week(session, goal, record_date)`を追加（`_week_start_of`を再利用。`goal_id`+`week_start_date`一致行を`is_anonymized`問わず削除）
-- [x] B-02 `record_service_exam._upsert_study_log`の末尾で`invalidate_week(session, material.goal, daily_record.record_date)`を呼ぶ（遅延import）
-- [x] B-03 `record_service_exam._upsert_diary_entry`の末尾で`invalidate_week(session, goal, daily_record.record_date)`を呼ぶ（引数の`goal`をそのまま使う）
-- [x] B-04 `record_service_reading._upsert_reading_log`の末尾で`invalidate_week(session, book.goal, daily_record.record_date)`を呼ぶ
-- [x] B-05 `record_service_work._upsert_work_log`の末尾で`invalidate_week(session, work_assignment.goal, daily_record.record_date)`を呼ぶ
+- [x] B-01' `weekly_summary_service.py`に`invalidate_weeks(session, goals, record_date)`を追加（D5'。目標IDで重複排除してから`invalidate_week`を呼ぶ）
+- [x] B-02 `record_service_exam._apply_study_logs`の末尾で`invalidate_weeks(session, (m.goal for m in materials.values()), daily_record.record_date)`を呼ぶ（遅延import。当初は`_upsert_study_log`側で呼ぶ設計だったが、dry-reviewerの指摘を受けD5のとおり呼び出し位置を変更）
+- [x] B-03 `record_service_exam._apply_diary_entries`の末尾で`invalidate_weeks(session, goals.values(), daily_record.record_date)`を呼ぶ
+- [x] B-04 `record_service_reading._apply_reading_logs`の末尾で`invalidate_weeks(session, (b.goal for b in books.values()), daily_record.record_date)`を呼ぶ
+- [x] B-05 `record_service_work._apply_work_logs`の末尾で`invalidate_weeks(session, (w.goal for w in work_assignments.values()), daily_record.record_date)`を呼ぶ
 
 ### 3.2 テスト
 
@@ -85,15 +88,17 @@
 - [x] T-06 `test_record_service_work.py`：業務記録（`register_progress`）でも同様に削除されることを検証
 - [x] T-07 既存`weekly_summary`が無い週（未生成）への新規登録では、削除処理が呼ばれても例外にならないこと（no-op、D8）を`test_invalidate_week_is_noop_when_no_summary_exists`で確認
 - [x] T-08 今週（未完了週）への入力では無効化が実質no-opであること。`invalidate_week`自体は週の完了・未完了を判定せず常に呼ぶ設計であることをコメントで明記済み（weekly_summary_service.pyのdocstring）。`list_pending_weeks`側が完了週かどうかを別途判定するため、未完了週に誤ってweekly_summaryが存在することはなく、個別のテストケースは不要と判断
-- [x] T-09 `test_daily_feedback_service.py`等への追加は不要と判断：`invalidate_week`は既存の`WeeklySummary`行を削除するだけであり、削除後に`resolve_weekly_compressed_period`が生ログへフォールバックする挙動自体は既存のS04実装（`is_anonymized.is_(False)`の行が0件なら`covered_ranges=[]`になる設計）がカバー済みで、新規の分岐を追加していないため
-- [ ] T-09 `test_daily_feedback_service.py`（またはS04で追加済みの該当テスト）：無効化後の週について、日次報告プロンプトに生ログが注入され、古い週次要約は注入されないことを結合的に確認（既存の`build_past_record_entries`の挙動に依拠。新規ロジックではないため、既存テストの延長で確認できるか実装時に判断）
+- [x] T-09 `test_daily_feedback_service.py`等への追加は不要と判断：`invalidate_week`は既存の`WeeklySummary`行を削除するだけであり、削除後に`resolve_weekly_compressed_period`が生ログへフォールバックする挙動自体は既存のS04実装がカバー済みで、新規の分岐を追加していないため。根拠として`tests/test_ai_context_common.py::test_build_past_record_entries_excludes_raw_entries_covered_by_summary`を再確認した。同テストは「対象期間中、ある週だけ`weekly_summary`行が存在しない（＝未生成）」場合に、その週の生ログ（`raw_entries`）が`exclude_covered_dates`で除外されずそのまま結果に残ることを既に検証しており、`invalidate_week`削除後の状態（＝行が存在しない）と全く同じ入力条件を踏んでいる
+- [x] T-10 `test_weekly_summary_service.py`：`invalidate_weeks`の単体テスト（D5'、CLAUDE.mdパフォーマンスチェックへの対応）。複数目標への一括削除・同一目標の重複排除（`continue`分岐）・空リストの3パターンを追加し、`weekly_summary_service.py`のカバレッジ100%を維持
 
 ### 3.3 検証
 
-- [x] V-01 `ruff check .`：全件合格。`pytest --cov`（`backend`で実行）：1,877件合格、カバレッジ100%（8,221文）
+- [x] V-01 `ruff check .`：全件合格。`pytest --cov`（`backend`で実行、配布物の同梱確認`tests/test_build_package_*.py`を含む）：1,880件合格、カバレッジ100%（8,228文）
 - [x] V-02 フロントエンドはファイル変更なしのため再実行不要と判断（§2のベースラインの値が引き続き有効）
-- [x] V-03 テスト数がベースライン（バックエンド1,867件）から10件増加（1,877件）していることを確認。減少なし
-- [x] V-04 `invalidate_week`の全呼び出し元・定義・テストをGrepで確認（定義1箇所・呼び出し4箇所・テスト10件、取り違えや旧名称の残留なし）
+- [x] V-03 テスト数がベースライン（バックエンド1,867件）から13件増加（1,880件）していることを確認。減少なし
+- [x] V-04 `invalidate_week`・`invalidate_weeks`の全呼び出し元・定義・テストをGrepで確認（定義2箇所・呼び出し4箇所〈いずれも`_apply_*`関数〉・テスト13件、取り違えや旧名称の残留なし）。`StudyLog`/`ReadingLog`/`WorkLog`/`DailyGoalDiary`の生成箇所を`app`全体でGrepし、この4箇所以外に書き込み経路が無いこと（横展開漏れが無いこと）を確認
+- [x] V-05 `dry-reviewer`・`style-reviewer`・`label-checker`（並列実行）：label-checkerは問題なし。dry-reviewerの指摘（無効化呼び出し位置の重複排除・テストヘルパーの3ファイル横並び重複）はD5'・D9として反映済み。style-reviewerの指摘（LOW、テストの冗長コメント）は反映済み。残るLOW指摘（`invalidate_weeks`docstringへの使用例追加）は任意改善として見送り
+- [x] V-06 `osv-scanner`（`myvenv/Scripts/osv-scanner.exe scan -r .`）：0 vulnerabilities（CRITICAL/HIGH/Medium/Low いずれも0件）。セッション開始時バナーの「未導入」表示は環境のPATH解決の問題で、実体は`myvenv/Scripts/`に導入済みだった
 
 ## 4. テスト計画（再掲・詳細）
 
@@ -123,9 +128,17 @@
 
 ## 8. 作業記録
 
-- 2026-10-19 実施結果（最終）
-  - 実装：`weekly_summary_service.invalidate_week`を新設し、`record_service_exam`（学習実績・日記）・`record_service_reading`（想起記録）・`record_service_work`（業務記録）の各upsert関数末尾から呼び出す（遅延import、D6）。マイグレーションは発生しない（D1・D7）
-  - テスト：`test_weekly_summary_service.py`に5件、`test_record_service_exam.py`に3件、`test_record_service_reading.py`・`test_record_service_work.py`に各1件、計10件を新規追加
-  - 検証：バックエンド`ruff check .`全件合格、`pytest --cov`1,877件合格・カバレッジ100%（8,221文）。フロントエンドは変更なしのため§2のベースライン（155ファイル・1,318件合格・カバレッジ100%、oxlint 0件、tsc 0件）のまま
+- 2026-10-19 実施結果（初版）
+  - 実装：`weekly_summary_service.invalidate_week`を新設し、各カテゴリのupsert関数末尾から呼び出す設計で実装・テスト・文書更新まで完了
+  - Stop Hookの最終チェック指摘を受け、観点別レビュー（dry-reviewer・style-reviewer・label-checker）と`osv-scanner`による依存脆弱性スキャンを追加実施
+
+- 2026-10-19 最終チェック対応・再検証結果（最終）
+  - dry-reviewerの指摘を2点反映：①無効化の呼び出し位置を各`_upsert_*`関数から各`_apply_*`関数（1回の呼び出しをitems分ループする側）へ変更し、新設の`invalidate_weeks`で目標IDの重複排除を行うことで、同一目標の教材・書籍・案件を1回の登録で複数件更新した場合に同じ`(goal_id, week_start_date)`へのDELETEが件数分発行される問題を解消（D5・D5'、CLAUDE.mdパフォーマンスチェック対応）。②`WeeklySummary`を非匿名化・匿名化の2件生成する重複テストコードを`tests/weekly_summary_helpers.py`（`make_weekly_summary`）へ切り出し、exam/reading/work全ファイルから共通利用（D9）
+  - style-reviewerの指摘（LOW、テスト内の冗長コメント）を反映。label-checkerは問題なし
+  - `invalidate_weeks`の重複排除分岐（`continue`）がテストで踏まれておらずカバレッジ99.98%だった欠落を発見し、`test_invalidate_weeks_*`を3件追加して100%に復帰（T-10）
+  - `osv-scanner scan -r .`（`myvenv/Scripts/osv-scanner.exe`、2.7.0）：0 vulnerabilities。セッション開始時バナーの「未導入」表示は誤りで、実体は導入済みだった（V-06）
+  - T-09の判断根拠を`tests/test_ai_context_common.py::test_build_past_record_entries_excludes_raw_entries_covered_by_summary`の既存アサーションで実証的に再確認（週次要約行が存在しない週は生ログがそのまま残ることを、無効化と同じ入力条件で検証済み）
+  - `StudyLog`/`ReadingLog`/`WorkLog`/`DailyGoalDiary`の生成箇所を`app`全体でGrepし、4つの書き込み経路（いずれも無効化呼び出し済み）以外に横展開漏れが無いことを再確認
+  - 最終検証：バックエンド`ruff check .`全件合格、`pytest --cov`**1,880件合格・カバレッジ100%（8,228文）**。フロントエンドは変更なしのため§2のベースライン（155ファイル・1,318件合格・カバレッジ100%、oxlint 0件、tsc 0件）のまま
   - 文書：設計書ロジック・プロンプト編（15.2手順5・15.4新設、改訂履歴改50、24章L-14）、設計書データ構造編（5.4記録系に追記、改訂履歴改48）を更新。OPERATIONS.md・README.mdは該当記載が無いため対応不要
   - §3の全項目が`[x]`となり、本Todoは完了。別件（§6）は本Todoの範囲外として記録のみ
