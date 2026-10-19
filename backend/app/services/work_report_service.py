@@ -35,8 +35,8 @@ from app.services.exceptions import ValidationError
 #: 返すため、空の場合の文言は呼び出し側（prompt_builder.build_with_degradable_entries）が
 #: 持つこの定数を使う（CLAUDE.md DRYの原則。月次・半期の両方で同じ文言を使い回す）。
 _NO_PERIOD_WORK_LOGS_TEXT = "（対象期間の業務記録はありません）"
-#: {{weekly_summaries}}が空（週次要約が1件も無い）場合の表示（17.9・17.10、L-11）。
-_NO_WEEKLY_SUMMARIES_TEXT = "（週次要約はありません）"
+#: {{weekly_summaries}}が空（週次要約が1件も無い）場合の表示（17.9・17.10、L-11）は
+#: ai_context_common.NO_WEEKLY_SUMMARIES_TEXTへ集約済み（S07、CLAUDE.md DRYの原則）。
 
 #: 月次報告のAI応答を分割する見出し文字列（17.9、この順序・この文字列を厳守）。
 _MONTHLY_HEADINGS = (
@@ -290,23 +290,14 @@ def generate_monthly_report(
             "target_goal_text": target_goal_text,
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="month_logs",
+            raw_entries=ai_context_work.build_work_logs_entries_for_period(
+                session, work_assignment, date_from, date_to
             ),
-            prompt_builder.DegradableEntryStage(
-                key="month_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_work.build_work_logs_entries_for_period(
-                        session, work_assignment, date_from, date_to
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+        ),
     )
 
     template_body = ai_orchestration.load_template_body(
@@ -420,23 +411,14 @@ def generate_semiannual_review(
             "target_goal_text": target_goal_text,
             "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
         },
-        stages=[
-            prompt_builder.DegradableEntryStage(
-                key="weekly_summaries",
-                entries=compressed.weekly_summary_entries,
-                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+        stages=ai_context_common.build_weekly_compressed_stages(
+            compressed,
+            raw_key="period_logs",
+            raw_entries=ai_context_work.build_work_logs_entries_for_period(
+                session, work_assignment, date_from, date_to
             ),
-            prompt_builder.DegradableEntryStage(
-                key="period_logs",
-                entries=ai_context_common.exclude_covered_dates(
-                    ai_context_work.build_work_logs_entries_for_period(
-                        session, work_assignment, date_from, date_to
-                    ),
-                    compressed.covered_ranges,
-                ),
-                empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
-            ),
-        ],
+            raw_empty_text=_NO_PERIOD_WORK_LOGS_TEXT,
+        ),
     )
 
     template_body = ai_orchestration.load_template_body(

@@ -289,6 +289,154 @@ def test_update_evaluation_report_sets_edited_at(seeded_session, monkeypatch):
     assert report.edited_at is not None
 
 
+def test_generate_evaluation_report_compresses_work_logs_with_weekly_summary(
+    seeded_session, monkeypatch
+):
+    """S07 G7: 業務記録のうち週次要約が既にある範囲は{{weekly_summaries}}として注入され、
+    その週の業務記録は{{work_logs}}側から二重に入らない一方、週次要約が無い直近日の
+    業務記録は{{work_logs}}として生ログのまま注入されること
+    （resolve_weekly_compressed_periodの配線確認、work_report_service.
+    generate_monthly_reportの同種テストと対になる評価レポート版）。
+    """
+    from app.models.record import WeeklySummary, WorkLog
+
+    calls = _stub_send_message(monkeypatch)
+    goal, work_assignment = _make_work_goal(seeded_session)
+    member = work_member_service.create_work_member(seeded_session, work_assignment, name="Aさん")
+
+    # resolve_weekly_compressed_periodはperiod_start（=work_assignment.start_date）から
+    # 連続する週次要約のみを圧縮対象とするため、week_start_dateを一致させる。
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=work_assignment.start_date,
+            week_end_date=work_assignment.start_date + dt.timedelta(days=6),
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    covered_record = DailyRecord(record_date=work_assignment.start_date)
+    seeded_session.add(covered_record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(
+            daily_record_id=covered_record.id,
+            work_assignment_id=work_assignment.id,
+            body="COVERED_WORK_LOG",
+        )
+    )
+    recent_date = work_assignment.start_date + dt.timedelta(days=10)
+    recent_record = DailyRecord(record_date=recent_date)
+    seeded_session.add(recent_record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(
+            daily_record_id=recent_record.id,
+            work_assignment_id=work_assignment.id,
+            body="RECENT_WORK_LOG",
+        )
+    )
+    seeded_session.flush()
+
+    work_evaluation_service.generate_evaluation_report(
+        seeded_session,
+        work_assignment,
+        member=member,
+        considerations="考慮事項",
+        today=recent_date,
+    )
+
+    message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in message
+    assert "COVERED_WORK_LOG" not in message
+    assert "RECENT_WORK_LOG" in message
+
+
+def test_generate_evaluation_report_degrades_history_then_weekly_then_logs(
+    seeded_session, monkeypatch
+):
+    """S07 D4（利用者確認済み、2026-10-19、AskUserQuestion）: プロンプトが上限を超える
+    場合、「履歴（feedback_history）→業務記録の週次要約→業務記録の生ログ」の順に外れる
+    こと。各段階1件ずつのマーカーを仕込み、ai.max_prompt_charsを3段階の境界値に設定して
+    検証する。
+    """
+    from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
+    from app.constants.enums import AiPurpose, ChatRole
+    from app.models.record import WeeklySummary, WorkLog
+    from app.models.setting import AppSetting
+
+    calls = _stub_send_message(monkeypatch)
+    goal, work_assignment = _make_work_goal(seeded_session)
+    member = work_member_service.create_work_member(seeded_session, work_assignment, name="Aさん")
+
+    history_record = DailyRecord(record_date=work_assignment.start_date)
+    seeded_session.add(history_record)
+    seeded_session.flush()
+    seeded_session.add(
+        ChatMessage(
+            daily_record_id=history_record.id,
+            goal_id=goal.id,
+            purpose=AiPurpose.DAILY_FEEDBACK_WORK,
+            role=ChatRole.ASSISTANT,
+            content="FEEDBACK_MARKER_" + "F" * 2000,
+            sequence=1,
+        )
+    )
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=work_assignment.start_date,
+            week_end_date=work_assignment.start_date + dt.timedelta(days=6),
+            summary_body="WEEKLY_MARKER_" + "W" * 500,
+        )
+    )
+    recent_date = work_assignment.start_date + dt.timedelta(days=10)
+    recent_record = DailyRecord(record_date=recent_date)
+    seeded_session.add(recent_record)
+    seeded_session.flush()
+    seeded_session.add(
+        WorkLog(
+            daily_record_id=recent_record.id,
+            work_assignment_id=work_assignment.id,
+            body="RECENT_MARKER",
+        )
+    )
+    seeded_session.flush()
+
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+
+    # 段階1（1500字）: 全件そのままでは上限超過（3448字）。履歴だけを外せば収まる
+    # （1443字）ため、履歴のみが外れ、週次要約・生ログは残る。
+    setting.value = "1500"
+    seeded_session.flush()
+    work_evaluation_service.generate_evaluation_report(
+        seeded_session,
+        work_assignment,
+        member=member,
+        considerations="考慮事項",
+        today=recent_date,
+    )
+    message_1500 = calls[-1]["message"]
+    assert "FEEDBACK_MARKER" not in message_1500
+    assert "WEEKLY_MARKER" in message_1500
+    assert "RECENT_MARKER" in message_1500
+
+    # 段階2（1200字）: 履歴を外しても収まらない（1443字）。週次要約も外せば収まる
+    # （917字）ため、履歴・週次要約が外れ、生ログのみ残る。
+    setting.value = "1200"
+    seeded_session.flush()
+    work_evaluation_service.generate_evaluation_report(
+        seeded_session,
+        work_assignment,
+        member=member,
+        considerations="考慮事項",
+        today=recent_date,
+    )
+    message_1200 = calls[-1]["message"]
+    assert "FEEDBACK_MARKER" not in message_1200
+    assert "WEEKLY_MARKER" not in message_1200
+    assert "RECENT_MARKER" in message_1200
+
+
 def test_list_evaluation_reports_filters_by_member(seeded_session, monkeypatch):
     _stub_send_message(monkeypatch)
     goal, work_assignment = _make_work_goal(seeded_session)
