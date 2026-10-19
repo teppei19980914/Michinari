@@ -317,6 +317,88 @@ def test_generate_retrospective_on_exam_goal_includes_weekly_summary_and_recent_
     assert "444.0" in message
 
 
+def test_generate_retrospective_on_exam_goal_degrades_weekly_summary_before_recent_logs(
+    client, seeded_session, monkeypatch
+):
+    """S07 G6: `_build_exam_context`の2段階縮退（weekly_summaries→recent_logs）が、
+    古い範囲（週次要約）を先に外し、直近の生ログ（recent_logs）を最後まで残す順序で動く
+    こと（test-coverage-reviewerの指摘。work_evaluation_serviceの3段階縮退テストと対に
+    なる資格試験版）。
+
+    閾値はテンプレート文面に依存させず、まず上限を十分大きくして実際のプロンプト長を
+    測定し、そこから「週次要約のエントリ1件だけを外せば収まる」境界値を動的に算出する
+    （文面変更に強くするため、固定の文字数を決め打ちしない）。
+    """
+    import datetime as dt
+
+    from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
+    from app.models.record import DailyRecord, StudyLog, WeeklySummary
+    from app.models.setting import AppSetting
+    from app.services.ai_context_common import NO_WEEKLY_SUMMARIES_TEXT
+
+    goal, subject = _make_active_goal_with_subject(client)
+    material = _add_material(client, goal["id"], [subject["id"]], name="RECENTMATERIALMARKERXYZ")
+    goal_start_date = dt.date.fromisoformat(goal["start_date"])
+    week_end_date = goal_start_date + dt.timedelta(days=6)
+    weekly_summary_body = "WEEKLYSUMMARYMARKERABC_" + "W" * 500
+    weekly_entry_text = (
+        f"[{goal_start_date.isoformat()}〜{week_end_date.isoformat()}]\n{weekly_summary_body}"
+    )
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal["id"],
+            week_start_date=goal_start_date,
+            week_end_date=week_end_date,
+            summary_body=weekly_summary_body,
+        )
+    )
+    recent_date = goal_start_date + dt.timedelta(days=10)
+    recent_record = DailyRecord(record_date=recent_date)
+    seeded_session.add(recent_record)
+    seeded_session.flush()
+    seeded_session.add(
+        StudyLog(
+            daily_record_id=recent_record.id,
+            material_id=material["id"],
+            amount_completed=1.0,
+            cycle_number=1,
+        )
+    )
+    seeded_session.commit()
+    client.post(
+        f"/api/v1/subjects/{subject['id']}/result",
+        json={"taken_date": "2026-06-05", "result": "PASS"},
+    )
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
+    calls = _stub_send_message(monkeypatch, response="総括レポート本文")
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+
+    # 基準値測定: 上限を十分大きくし、全件そのままの長さ・内容を取得する。
+    setting.value = "1000000"
+    seeded_session.flush()
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+    assert response.status_code == 200, response.text
+    full_message = calls[-1]["message"]
+    assert "WEEKLYSUMMARYMARKERABC_" in full_message
+    assert "RECENTMATERIALMARKERXYZ" in full_message
+    full_length = len(full_message)
+
+    # 週次要約のエントリ1件だけを外せば収まる境界値（外すと{{weekly_summaries}}は
+    # NO_WEEKLY_SUMMARIES_TEXTに置き換わるため、その差分だけ短くなる）。
+    length_after_dropping_weekly = full_length - len(weekly_entry_text) + len(
+        NO_WEEKLY_SUMMARIES_TEXT
+    )
+    setting.value = str(length_after_dropping_weekly + 3)
+    seeded_session.flush()
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 200, response.text
+    message = calls[-1]["message"]
+    assert "WEEKLYSUMMARYMARKERABC_" not in message
+    assert "RECENTMATERIALMARKERXYZ" in message
+
+
 def test_regenerate_retrospective_keeps_previous_version(client, monkeypatch):
     goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch, response="1回目")
