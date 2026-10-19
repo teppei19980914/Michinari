@@ -375,6 +375,121 @@ def test_list_pending_weeks_returns_empty_when_goal_started_this_week(seeded_ses
     assert pending == []
 
 
+# --- invalidate_week（G4：修正時の再生成） ---
+
+
+def test_invalidate_week_deletes_matching_non_anonymized_summary(seeded_session):
+    goal = _make_goal(seeded_session)
+    summary = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=dt.date(2026, 8, 17),
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="既に生成済み",
+    )
+    seeded_session.add(summary)
+    seeded_session.flush()
+
+    weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 18))
+    seeded_session.flush()
+
+    assert seeded_session.get(WeeklySummary, summary.id) is None
+
+
+def test_invalidate_week_deletes_matching_anonymized_summary_too(seeded_session):
+    """非匿名化版だけでなく匿名化版（is_anonymized=True）も同時に削除する（開発Todo S06 D3・D4。
+    非匿名化版だけ残すと、regenerate_all_weekly_summaries_anonymizedが基準にする
+    _non_anonymized_weeks_queryからこの週が外れたまま古い匿名化版だけが残ってしまう）。"""
+    goal = _make_goal(seeded_session)
+    non_anon = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=dt.date(2026, 8, 17),
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="非匿名化版",
+        is_anonymized=False,
+    )
+    anon = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=dt.date(2026, 8, 17),
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="匿名化版",
+        is_anonymized=True,
+    )
+    seeded_session.add_all([non_anon, anon])
+    seeded_session.flush()
+
+    weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 20))
+    seeded_session.flush()
+
+    assert seeded_session.get(WeeklySummary, non_anon.id) is None
+    assert seeded_session.get(WeeklySummary, anon.id) is None
+
+
+def test_invalidate_week_does_not_touch_other_weeks_or_goals(seeded_session):
+    goal = _make_goal(seeded_session)
+    other_goal = _make_goal(seeded_session, name="目標B")
+    same_goal_other_week = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=dt.date(2026, 8, 24),
+        week_end_date=dt.date(2026, 8, 30),
+        summary_body="別の週",
+    )
+    other_goal_same_week = WeeklySummary(
+        goal_id=other_goal.id,
+        week_start_date=dt.date(2026, 8, 17),
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="別の目標",
+    )
+    seeded_session.add_all([same_goal_other_week, other_goal_same_week])
+    seeded_session.flush()
+
+    weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 18))
+    seeded_session.flush()
+
+    assert seeded_session.get(WeeklySummary, same_goal_other_week.id) is not None
+    assert seeded_session.get(WeeklySummary, other_goal_same_week.id) is not None
+
+
+def test_invalidate_week_is_noop_when_no_summary_exists(seeded_session):
+    """無効化対象の週がまだ生成されていない場合（未完了週への入力時など）は何も削除せず、
+    例外も起きない（開発Todo S06 D8）。"""
+    goal = _make_goal(seeded_session)
+
+    weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 18))
+
+    assert seeded_session.query(WeeklySummary).count() == 0
+
+
+def test_invalidate_week_makes_the_week_pending_again(seeded_session):
+    """無効化後は、list_pending_weeksが再びその週を未生成として返す（削除方式が
+    既存のpending判定とそのまま噛み合うことの回帰確認、開発Todo S06 D1・D2）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal.id,
+            week_start_date=dt.date(2026, 8, 17),
+            week_end_date=dt.date(2026, 8, 23),
+            summary_body="既に生成済み",
+        )
+    )
+    seeded_session.flush()
+    assert (
+        weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
+        == []
+    )
+
+    weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 18))
+    seeded_session.flush()
+
+    pending = weekly_summary_service.list_pending_weeks(
+        seeded_session, today=dt.date(2026, 8, 24)
+    )
+    assert len(pending) == 1
+    assert pending[0].goal.id == goal.id
+    assert pending[0].week_start == dt.date(2026, 8, 17)
+
+
 # --- generate_for_week ---
 
 

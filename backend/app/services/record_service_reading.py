@@ -78,6 +78,10 @@ def _ensure_current_page_within_total_pages(book: Book, current_page: int | None
 def _upsert_reading_log(
     session: Session, daily_record: DailyRecord, book: Book, item: ReadingLogItem
 ) -> ReadingLog:
+    # weekly_summary_serviceとの循環import対策（record_service_exam._upsert_study_log
+    # と同じ理由。CLAUDE.md DRYの原則）。
+    from app.services import weekly_summary_service
+
     _ensure_current_page_within_total_pages(book, item.current_page)
     reading_log = (
         session.query(ReadingLog)
@@ -99,6 +103,7 @@ def _upsert_reading_log(
         reading_log.id,
         slot_minutes,
     )
+    weekly_summary_service.invalidate_week(session, book.goal, daily_record.record_date)
     return reading_log
 
 

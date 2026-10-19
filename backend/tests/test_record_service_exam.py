@@ -13,7 +13,7 @@ import pytest
 
 from app.constants.enums import Environment, GoalStatus, QualityMetricType, RecordState
 from app.models.material import Material
-from app.models.record import DailyRecord
+from app.models.record import DailyRecord, WeeklySummary
 from app.models.resource import ResourceSlot
 from app.services import cycle_service, record_service_common, record_service_exam
 from app.services.exceptions import (
@@ -576,3 +576,67 @@ def test_register_progress_rejects_unknown_slot(seeded_session):
         record_service_common.register_progress(
             seeded_session, today, [_log(material.id, slot_minutes={9999: 30})], today
         )
+
+
+# --- 週次要約の無効化（G4、開発Todo S06） ---
+
+
+def _make_weekly_summary(session, goal, week_start, week_end=None, **overrides):
+    defaults = dict(
+        goal_id=goal.id,
+        week_start_date=week_start,
+        week_end_date=week_end or week_start + dt.timedelta(days=6),
+        summary_body="既に生成済み",
+    )
+    defaults.update(overrides)
+    summary = WeeklySummary(**defaults)
+    session.add(summary)
+    session.flush()
+    return summary
+
+
+def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(seeded_session):
+    """既に週次要約が生成済みの過去週へ進捗のみ登録で実績を追記すると、その週の要約
+    （非匿名化・匿名化とも）が削除される（G4。register_progressはfinalize系と異なり
+    バックデート制限を持たないため、完了済みの週も無制限に編集できてしまう）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    week_start = dt.date(2026, 3, 2)  # 月曜
+    edited_date = dt.date(2026, 3, 4)  # 同じ週の水曜
+    non_anon = _make_weekly_summary(seeded_session, goal, week_start)
+    anon = _make_weekly_summary(seeded_session, goal, week_start, is_anonymized=True)
+
+    record_service_common.register_progress(
+        seeded_session, edited_date, [_log(material.id)], dt.date(2026, 3, 10)
+    )
+
+    assert seeded_session.get(WeeklySummary, non_anon.id) is None
+    assert seeded_session.get(WeeklySummary, anon.id) is None
+
+
+def test_register_progress_does_not_invalidate_other_weeks(seeded_session):
+    """編集した週以外の既存の週次要約は残る。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    other_week = _make_weekly_summary(seeded_session, goal, dt.date(2026, 2, 23))
+
+    record_service_common.register_progress(
+        seeded_session, dt.date(2026, 3, 4), [_log(material.id)], dt.date(2026, 3, 10)
+    )
+
+    assert seeded_session.get(WeeklySummary, other_week.id) is not None
+
+
+def test_finalize_record_invalidates_existing_weekly_summary_via_diary(seeded_session):
+    """日記の確定（finalize_record）でも、同じ週の既存の週次要約が削除される。"""
+    goal = _make_goal(seeded_session)
+    week_start = dt.date(2026, 3, 2)
+    target_date = dt.date(2026, 3, 3)  # 前日（_ensure_finalizable_dateの許容範囲内）
+    today = dt.date(2026, 3, 4)
+    summary = _make_weekly_summary(seeded_session, goal, week_start)
+
+    record_service_exam.finalize_record(
+        seeded_session, target_date, [], [_diary(goal.id, diary_learned="学んだこと")], today
+    )
+
+    assert seeded_session.get(WeeklySummary, summary.id) is None

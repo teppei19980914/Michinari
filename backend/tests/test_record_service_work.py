@@ -10,6 +10,7 @@ import pytest
 
 from app.constants.enums import GoalCategory, GoalStatus, RecordState
 from app.models.goal import Goal
+from app.models.record import WeeklySummary
 from app.models.work import WorkAssignment
 from app.services import record_service_common, record_service_work
 from app.services.exceptions import ImmutableRecordError, NotFoundError
@@ -183,3 +184,41 @@ def test_get_previous_work_log_returns_none_when_no_record_exists(seeded_session
     )
 
     assert entry is None
+
+
+# --- 週次要約の無効化（G4、開発Todo S06） ---
+
+
+def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(seeded_session):
+    """既に週次要約が生成済みの過去週へ業務記録を追記すると、その週の要約（非匿名化・
+    匿名化とも）が削除される（record_service_examと同じ理由の横展開）。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    week_start = dt.date(2026, 3, 2)  # 月曜
+    edited_date = dt.date(2026, 3, 4)  # 同じ週の水曜
+    non_anon = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=week_start,
+        week_end_date=week_start + dt.timedelta(days=6),
+        summary_body="既に生成済み",
+    )
+    anon = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=week_start,
+        week_end_date=week_start + dt.timedelta(days=6),
+        summary_body="既に生成済み（匿名化版）",
+        is_anonymized=True,
+    )
+    seeded_session.add_all([non_anon, anon])
+    seeded_session.flush()
+
+    record_service_common.register_progress(
+        seeded_session,
+        edited_date,
+        [],
+        dt.date(2026, 3, 10),
+        work_items=[_work_log(work_assignment.id)],
+    )
+
+    assert seeded_session.get(WeeklySummary, non_anon.id) is None
+    assert seeded_session.get(WeeklySummary, anon.id) is None
