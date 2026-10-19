@@ -25,6 +25,7 @@ from app.services.exceptions import (
 from app.services.record_service_exam import StudyLogItem
 from tests.diary_helpers import diary_item as _diary
 from tests.diary_helpers import make_exam_goal as _make_goal
+from tests.weekly_summary_helpers import make_weekly_summary as _make_weekly_summary
 
 
 def _make_material(session, goal, **overrides):
@@ -579,20 +580,6 @@ def test_register_progress_rejects_unknown_slot(seeded_session):
 
 
 # --- 週次要約の無効化（G4、開発Todo S06） ---
-
-
-def _make_weekly_summary(session, goal, week_start, week_end=None, **overrides):
-    defaults = dict(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_end or week_start + dt.timedelta(days=6),
-        summary_body="既に生成済み",
-    )
-    defaults.update(overrides)
-    summary = WeeklySummary(**defaults)
-    session.add(summary)
-    session.flush()
-    return summary
 
 
 def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(seeded_session):

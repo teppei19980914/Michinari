@@ -19,6 +19,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_reading import ReadingLogItem
 from tests import reading_helpers
+from tests.weekly_summary_helpers import make_weekly_summary as _make_weekly_summary
 
 
 def _make_slot(session) -> ResourceSlot:
@@ -268,21 +269,8 @@ def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(s
     book = _make_book(seeded_session, goal)
     week_start = dt.date(2026, 3, 2)  # 月曜
     edited_date = dt.date(2026, 3, 4)  # 同じ週の水曜
-    non_anon = WeeklySummary(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_start + dt.timedelta(days=6),
-        summary_body="既に生成済み",
-    )
-    anon = WeeklySummary(
-        goal_id=goal.id,
-        week_start_date=week_start,
-        week_end_date=week_start + dt.timedelta(days=6),
-        summary_body="既に生成済み（匿名化版）",
-        is_anonymized=True,
-    )
-    seeded_session.add_all([non_anon, anon])
-    seeded_session.flush()
+    non_anon = _make_weekly_summary(seeded_session, goal, week_start)
+    anon = _make_weekly_summary(seeded_session, goal, week_start, is_anonymized=True)
 
     record_service_common.register_progress(
         seeded_session, edited_date, [], dt.date(2026, 3, 10), [_reading_log(book.id)]

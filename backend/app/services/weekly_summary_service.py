@@ -320,6 +320,20 @@ def invalidate_week(session: Session, goal: Goal, record_date: dt.date) -> None:
     ).delete()
 
 
+def invalidate_weeks(session: Session, goals: Iterable[Goal], record_date: dt.date) -> None:
+    """複数件の実績・日記を1回の呼び出しで更新した場合に、目標ごとに重複なく
+    invalidate_weekを呼ぶ（G4。CLAUDE.md パフォーマンスチェック：同一目標の教材・書籍・
+    案件を複数件同時に更新しても、goal_id+week_start_dateが同じDELETEを件数分発行しない
+    よう、呼び出し元の_apply_*_logs/_apply_diary_entriesがこちらを使う）。
+    """
+    seen_goal_ids: set[int] = set()
+    for goal in goals:
+        if goal.id in seen_goal_ids:
+            continue
+        seen_goal_ids.add(goal.id)
+        invalidate_week(session, goal, record_date)
+
+
 def generate_for_week(
     session: Session,
     goal: Goal,

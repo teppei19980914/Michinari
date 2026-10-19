@@ -490,6 +490,62 @@ def test_invalidate_week_makes_the_week_pending_again(seeded_session):
     assert pending[0].week_start == dt.date(2026, 8, 17)
 
 
+# --- invalidate_weeks（G4：複数件の一括無効化） ---
+
+
+def test_invalidate_weeks_deletes_for_each_distinct_goal(seeded_session):
+    goal_a = _make_goal(seeded_session, name="目標A")
+    goal_b = _make_goal(seeded_session, name="目標B")
+    week_start = dt.date(2026, 8, 17)
+    summary_a = WeeklySummary(
+        goal_id=goal_a.id,
+        week_start_date=week_start,
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="目標Aの週次要約",
+    )
+    summary_b = WeeklySummary(
+        goal_id=goal_b.id,
+        week_start_date=week_start,
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="目標Bの週次要約",
+    )
+    seeded_session.add_all([summary_a, summary_b])
+    seeded_session.flush()
+
+    weekly_summary_service.invalidate_weeks(seeded_session, [goal_a, goal_b], dt.date(2026, 8, 18))
+    seeded_session.flush()
+
+    assert seeded_session.get(WeeklySummary, summary_a.id) is None
+    assert seeded_session.get(WeeklySummary, summary_b.id) is None
+
+
+def test_invalidate_weeks_skips_duplicate_goals(seeded_session):
+    """同一目標が複数件渡された場合、2件目以降はDELETEを発行しない（CLAUDE.md
+    パフォーマンスチェック。同一目標の教材・書籍・案件を1回の登録で複数件更新した場合に、
+    同じgoal_id+week_start_dateへのDELETEが件数分発行されないことの確認）。"""
+    goal = _make_goal(seeded_session)
+    summary = WeeklySummary(
+        goal_id=goal.id,
+        week_start_date=dt.date(2026, 8, 17),
+        week_end_date=dt.date(2026, 8, 23),
+        summary_body="既に生成済み",
+    )
+    seeded_session.add(summary)
+    seeded_session.flush()
+
+    dup_goals = [goal, goal, goal]
+    weekly_summary_service.invalidate_weeks(seeded_session, dup_goals, dt.date(2026, 8, 18))
+    seeded_session.flush()
+
+    assert seeded_session.get(WeeklySummary, summary.id) is None
+
+
+def test_invalidate_weeks_handles_empty_goals(seeded_session):
+    """対象の目標が無い場合（空リスト）は何もしない（register_progress/finalize_*が
+    items=[]で呼ばれた場合に相当）。"""
+    weekly_summary_service.invalidate_weeks(seeded_session, [], dt.date(2026, 8, 18))
+
+
 # --- generate_for_week ---
 
 
