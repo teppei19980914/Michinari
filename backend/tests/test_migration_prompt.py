@@ -405,3 +405,69 @@ def test_conversation_continuity_prompt_migration_preserves_customized_template(
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+#: S07 G6・G7（0ad4f28cd909）: 対象purposeと、新文面に含まれるはずの新変数の組。
+_WEEKLY_LOGS_PROMPT_TARGETS = (
+    ("GOAL_RETROSPECTIVE", "{{recent_logs}}"),
+    ("EVALUATION_REPORT_WORK", "{{weekly_summaries}}"),
+)
+
+
+@pytest.mark.parametrize("purpose,new_variable", _WEEKLY_LOGS_PROMPT_TARGETS)
+def test_weekly_logs_prompt_migration_updates_non_customized_template(
+    tmp_path, monkeypatch, purpose, new_variable
+):
+    """S07 G6・G7（0ad4f28cd909）: 資格の総括レポートへ{{recent_logs}}、仕事のAI評価
+    レポートへ{{weekly_summaries}}を追加するマイグレーションを、既存データがある状態への
+    適用として検証する。is_customized=False（利用者が未編集）のテンプレートは、新変数を
+    含む新文面へ更新されること。
+    """
+    db_path = tmp_path / f"weekly_logs_prompt_migration_non_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("ca4cefcbe9c4")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, ?, 0, '2026-01-01T00:00:00')",
+            (purpose, f"旧文面（{new_variable}を含まない）"),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert new_variable in row[0]
+
+
+@pytest.mark.parametrize("purpose,new_variable", _WEEKLY_LOGS_PROMPT_TARGETS)
+def test_weekly_logs_prompt_migration_preserves_customized_template(
+    tmp_path, monkeypatch, purpose, new_variable
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （0ad4f28cd909）でも上書きしないこと。"""
+    db_path = tmp_path / f"weekly_logs_prompt_migration_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("ca4cefcbe9c4")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, 'ユーザーがカスタマイズした文面', 1, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"

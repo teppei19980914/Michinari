@@ -198,6 +198,9 @@ GOAL_RETROSPECTIVE = """以下は、ある学習者が資格試験に向けて�
 # 週ごとの経過
 {{weekly_summaries}}
 
+# 直近の実績・日記
+{{recent_logs}}
+
 # 受験結果
 {{exam_results}}
 

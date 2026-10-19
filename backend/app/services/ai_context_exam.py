@@ -20,7 +20,7 @@ from app.constants.enums import (
 )
 from app.models.goal import Goal
 from app.models.material import Material
-from app.models.record import DailyGoalDiary, DailyRecord, StudyLog, WeeklySummary
+from app.models.record import DailyGoalDiary, DailyRecord, StudyLog
 from app.services import (
     allocation_service,
     baseline_service,
@@ -644,29 +644,3 @@ def build_exam_results_text(session: Session, goal: Goal) -> str:
             f"（受験日 {result.taken_date.isoformat()}）"
         )
     return "\n".join(lines)
-
-
-def build_all_weekly_summaries_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
-    """{{weekly_summaries}}（総括レポート向け）: 全週の要約を時系列順に（17.5「全週の要約」。
-    日次報告フィードバック向けの期間指定版は`ai_context_common.build_past_record_entries`
-    （S04）を参照。総括レポートはperiod_start/period_endを問わず目標の全期間を対象とする
-    別用途のため分離する）。
-
-    week_start_dateの昇順（古い順）で返す。整形前のlist[DatedLogEntry]を返し、空の場合の
-    表示・段階的縮退はprompt_builder.build_with_degradable_entries側の責務とする
-    （CLAUDE.md DRYの原則）。
-    """
-    rows = (
-        session.query(WeeklySummary)
-        .filter(WeeklySummary.goal_id == goal.id, WeeklySummary.is_anonymized.is_(False))
-        .order_by(WeeklySummary.week_start_date)
-        .all()
-    )
-    return [
-        DatedLogEntry(
-            record_date=row.week_start_date,
-            text=f"[{row.week_start_date.isoformat()}〜{row.week_end_date.isoformat()}]\n"
-            f"{row.summary_body}",
-        )
-        for row in rows
-    ]

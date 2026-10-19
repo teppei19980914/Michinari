@@ -250,6 +250,73 @@ def test_generate_retrospective_creates_and_persists(client, monkeypatch):
     assert fetched["id"] == body["id"]
 
 
+def test_generate_retrospective_on_exam_goal_includes_weekly_summary_and_recent_logs(
+    client, seeded_session, monkeypatch
+):
+    """S07 G6: 資格の総括レポートに既存の週次要約が{{weekly_summaries}}として注入され、
+    その週の実績は{{recent_logs}}側から二重に入らない一方、週次要約が無い直近日の実績は
+    {{recent_logs}}として生ログのまま注入されること（resolve_weekly_compressed_periodの
+    サービス層への配線確認、読書の読了レポートの同名テストと対になる資格試験版）。
+    """
+    import datetime as dt
+
+    from app.models.record import DailyRecord, StudyLog, WeeklySummary
+
+    goal, subject = _make_active_goal_with_subject(client)
+    material = _add_material(client, goal["id"], [subject["id"]])
+    # resolve_weekly_compressed_periodはperiod_start（=goal.start_date）から連続する週次
+    # 要約のみを圧縮対象とするため、week_start_dateをgoal.start_dateへ一致させる。
+    goal_start_date = dt.date.fromisoformat(goal["start_date"])
+    seeded_session.add(
+        WeeklySummary(
+            goal_id=goal["id"],
+            week_start_date=goal_start_date,
+            week_end_date=goal_start_date + dt.timedelta(days=6),
+            summary_body="OLDER_WEEK_SUMMARY",
+        )
+    )
+    # 週次要約で圧縮された週内の実績（{{recent_logs}}に二重に入らないことを確認する）
+    covered_record = DailyRecord(record_date=goal_start_date)
+    seeded_session.add(covered_record)
+    seeded_session.flush()
+    seeded_session.add(
+        StudyLog(
+            daily_record_id=covered_record.id,
+            material_id=material["id"],
+            amount_completed=777.0,
+            cycle_number=1,
+        )
+    )
+    # 週次要約が無い直近日の実績（{{recent_logs}}として注入されることを確認する）
+    recent_date = goal_start_date + dt.timedelta(days=10)
+    recent_record = DailyRecord(record_date=recent_date)
+    seeded_session.add(recent_record)
+    seeded_session.flush()
+    seeded_session.add(
+        StudyLog(
+            daily_record_id=recent_record.id,
+            material_id=material["id"],
+            amount_completed=444.0,
+            cycle_number=1,
+        )
+    )
+    seeded_session.commit()
+    client.post(
+        f"/api/v1/subjects/{subject['id']}/result",
+        json={"taken_date": "2026-06-05", "result": "PASS"},
+    )
+    client.post(f"/api/v1/goals/{goal['id']}/complete")
+    calls = _stub_send_message(monkeypatch, response="総括レポート本文")
+
+    response = client.post(f"/api/v1/goals/{goal['id']}/retrospective", json={})
+
+    assert response.status_code == 200, response.text
+    message = calls[0]["message"]
+    assert "OLDER_WEEK_SUMMARY" in message
+    assert "777.0" not in message
+    assert "444.0" in message
+
+
 def test_regenerate_retrospective_keeps_previous_version(client, monkeypatch):
     goal = _make_completed_exam_goal(client)
     _stub_send_message(monkeypatch, response="1回目")

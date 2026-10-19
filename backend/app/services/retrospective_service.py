@@ -92,10 +92,12 @@ def _build_exam_context(
 ) -> prompt_builder.DegradableFeedbackContext:
     treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
     materials = [material for material in goal.materials if material.is_active]
-    # S07 G6: 週次要約が既に生成済みの範囲は{{weekly_summaries}}へ（全期間、
-    # build_all_weekly_summaries_entriesが対象期間を問わず全件返す）、まだ生成されていない
-    # 直近部分は{{recent_logs}}として生ログ（実績・日記）のまま注入する（L-11、読書の
-    # _build_reading_contextと同じ方式に揃える、CLAUDE.md DRYの原則）。
+    # S07 G6: 週次要約が既に生成済みの範囲は{{weekly_summaries}}へ圧縮表現、まだ生成されて
+    # いない直近部分は{{recent_logs}}として生ログ（実績・日記）のまま注入する（L-11、読書の
+    # _build_reading_contextと同じ方式に揃える、CLAUDE.md DRYの原則。従前の
+    # build_all_weekly_summaries_entries〈期間を問わず全件取得〉は、goal.start_date〜today
+    # を期間指定するresolve_weekly_compressed_periodの結果と実質同じ集合を返すだけの
+    # 重複処理になるため廃止する）。
     compressed = ai_context_common.resolve_weekly_compressed_period(
         session, goal, period_start=goal.start_date, period_end=today
     )
@@ -114,7 +116,7 @@ def _build_exam_context(
         stages=[
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
-                entries=ai_context_exam.build_all_weekly_summaries_entries(session, goal),
+                entries=compressed.weekly_summary_entries,
                 empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
@@ -154,7 +156,7 @@ def _build_reading_context(
             prompt_builder.DegradableEntryStage(
                 key="weekly_summaries",
                 entries=compressed.weekly_summary_entries,
-                empty_text=_NO_WEEKLY_SUMMARIES_TEXT,
+                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
                 key="reading_logs",

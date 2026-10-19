@@ -19,13 +19,14 @@ from app.constants.app_setting_keys import AI_ASSISTANT_UID_EVALUATION_REPORT_WO
 from app.constants.enums import AiPurpose, ConversationScope, WorkEvaluationRole
 from app.models.base import utcnow
 from app.models.work import WorkAssignment, WorkEvaluationReport, WorkMember
-from app.services import ai_context_work, setting_reader
+from app.services import ai_context_common, ai_context_work, setting_reader
 from app.services.exceptions import NotFoundError, ValidationError
 
 #: {{feedback_history}}が空（対象目標のNewtonXフィードバック履歴なし）場合の表示。
 _NO_FEEDBACK_HISTORY_TEXT = "（この目標のAIフィードバック履歴はありません）"
-#: {{work_logs}}が空（業務記録なし）場合の表示（work_report_service._NO_PERIOD_WORK_LOGS_TEXT
-#: と同文言だが、対象期間の指定有無が異なる別用途のため定数は分離する）。
+#: {{work_logs}}が空（週次要約が無い直近分の業務記録なし）場合の表示
+#: （work_report_service._NO_PERIOD_WORK_LOGS_TEXTと同文言だが、対象期間の指定有無が
+#: 異なる別用途のため定数は分離する）。
 _NO_WORK_LOGS_TEXT = "（業務記録はありません）"
 
 
@@ -52,6 +53,15 @@ def generate_evaluation_report(
     _ensure_evaluator_role(work_assignment)
     _ensure_member_belongs(work_assignment, member)
 
+    # S07 G7: 評価レポートの対象期間はwork_assignment.start_date〜生成時点の全期間で上限が
+    # 無く、案件が長期化するほど業務記録が際限なく増える（月次報告の最大1ヶ月・半期評価の
+    # 最大6ヶ月と異なる）。月次報告・半期評価と同じ方式（resolve_weekly_compressed_period・
+    # exclude_covered_dates）で業務記録を圧縮する（17.13改訂、CLAUDE.md DRYの原則）。
+    # 履歴（feedback_history）は週次要約の材料に含まれないため圧縮せず、利用者確認済みの
+    # 優先順位（2026-10-19）により「履歴→週次要約→生ログ」の順に縮退する。
+    compressed = ai_context_common.resolve_weekly_compressed_period(
+        session, work_assignment.goal, period_start=work_assignment.start_date, period_end=today
+    )
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             "member_summary": ai_context_work.build_evaluation_member_summary_text(session, member),
@@ -66,9 +76,17 @@ def generate_evaluation_report(
                 empty_text=_NO_FEEDBACK_HISTORY_TEXT,
             ),
             prompt_builder.DegradableEntryStage(
+                key="weekly_summaries",
+                entries=compressed.weekly_summary_entries,
+                empty_text=ai_context_common.NO_WEEKLY_SUMMARIES_TEXT,
+            ),
+            prompt_builder.DegradableEntryStage(
                 key="work_logs",
-                entries=ai_context_work.build_work_logs_entries_for_period(
-                    session, work_assignment, work_assignment.start_date, today
+                entries=ai_context_common.exclude_covered_dates(
+                    ai_context_work.build_work_logs_entries_for_period(
+                        session, work_assignment, work_assignment.start_date, today
+                    ),
+                    compressed.covered_ranges,
                 ),
                 empty_text=_NO_WORK_LOGS_TEXT,
             ),
