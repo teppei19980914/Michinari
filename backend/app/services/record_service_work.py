@@ -78,11 +78,20 @@ def _upsert_work_log(
 
 
 def _apply_work_logs(session: Session, daily_record: DailyRecord, items: list[WorkLogItem]) -> None:
+    # weekly_summary_serviceとの循環import対策（record_service_exam._apply_study_logs
+    # と同じ理由）。
+    from app.services import weekly_summary_service
+
     work_assignments = _load_work_assignments(session, {item.work_assignment_id for item in items})
     for work_assignment in work_assignments.values():
         goal_service.ensure_operation_allowed(work_assignment.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_work_log(session, daily_record, work_assignments[item.work_assignment_id], item)
+    weekly_summary_service.invalidate_weeks(
+        session,
+        (work_assignment.goal for work_assignment in work_assignments.values()),
+        daily_record.record_date,
+    )
 
 
 def apply_progress(session: Session, daily_record: DailyRecord, items: list[WorkLogItem]) -> None:

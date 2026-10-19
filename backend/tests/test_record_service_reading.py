@@ -9,6 +9,7 @@ import datetime as dt
 import pytest
 
 from app.constants.enums import Environment, RecordState
+from app.models.record import WeeklySummary
 from app.models.resource import ResourceSlot
 from app.services import record_service_common, record_service_reading
 from app.services.exceptions import (
@@ -18,6 +19,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_reading import ReadingLogItem
 from tests import reading_helpers
+from tests.weekly_summary_helpers import make_weekly_summary as _make_weekly_summary
 
 
 def _make_slot(session) -> ResourceSlot:
@@ -255,3 +257,24 @@ def test_register_progress_records_reading_slot_minutes(seeded_session):
     assert [(row.slot_id, row.minutes) for row in record.reading_logs[0].slot_times] == [
         (slot.id, 25)
     ]
+
+
+# --- 週次要約の無効化（G4、開発Todo S06） ---
+
+
+def test_register_progress_invalidates_existing_weekly_summary_for_edited_week(seeded_session):
+    """既に週次要約が生成済みの過去週へ想起記録を追記すると、その週の要約（非匿名化・
+    匿名化とも）が削除される（record_service_examと同じ理由の横展開）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    week_start = dt.date(2026, 3, 2)  # 月曜
+    edited_date = dt.date(2026, 3, 4)  # 同じ週の水曜
+    non_anon = _make_weekly_summary(seeded_session, goal, week_start)
+    anon = _make_weekly_summary(seeded_session, goal, week_start, is_anonymized=True)
+
+    record_service_common.register_progress(
+        seeded_session, edited_date, [], dt.date(2026, 3, 10), [_reading_log(book.id)]
+    )
+
+    assert seeded_session.get(WeeklySummary, non_anon.id) is None
+    assert seeded_session.get(WeeklySummary, anon.id) is None

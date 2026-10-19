@@ -140,11 +140,20 @@ def _upsert_study_log(
 def _apply_study_logs(
     session: Session, daily_record: DailyRecord, items: list[StudyLogItem]
 ) -> None:
+    # weekly_summary_serviceはトップレベルでai_context_examをimportし、ai_context_exam側は
+    # 本モジュールをトップレベルでimportしているため、ここでトップレベルimportすると循環
+    # importになる。register_progress（record_service_common.py）と同じ理由・同じ対策で、
+    # 呼び出し時点まで遅延させる（実装フェーズ分割計画書S02）。
+    from app.services import weekly_summary_service
+
     materials = _load_materials(session, {item.material_id for item in items})
     for material in materials.values():
         goal_service.ensure_operation_allowed(material.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_study_log(session, daily_record, materials[item.material_id], item)
+    weekly_summary_service.invalidate_weeks(
+        session, (material.goal for material in materials.values()), daily_record.record_date
+    )
 
 
 def apply_progress(session: Session, daily_record: DailyRecord, items: list[StudyLogItem]) -> None:
@@ -201,11 +210,15 @@ def _upsert_diary_entry(
 def _apply_diary_entries(
     session: Session, daily_record: DailyRecord, items: list[DiaryEntryItem]
 ) -> None:
+    # 循環import対策は_apply_study_logsの先頭コメントと同じ理由。
+    from app.services import weekly_summary_service
+
     goals = _load_goals(session, {item.goal_id for item in items})
     for goal in goals.values():
         goal_service.ensure_operation_allowed(goal, GoalOperation.RECORD)
     for item in items:
         _upsert_diary_entry(session, daily_record, goals[item.goal_id], item)
+    weekly_summary_service.invalidate_weeks(session, goals.values(), daily_record.record_date)
 
 
 def get_diary_entries(session: Session, daily_record: DailyRecord) -> list[DiaryEntry]:

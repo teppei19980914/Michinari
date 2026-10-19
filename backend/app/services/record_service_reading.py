@@ -105,11 +105,18 @@ def _upsert_reading_log(
 def _apply_reading_logs(
     session: Session, daily_record: DailyRecord, items: list[ReadingLogItem]
 ) -> None:
+    # weekly_summary_serviceとの循環import対策（record_service_exam._apply_study_logs
+    # と同じ理由）。
+    from app.services import weekly_summary_service
+
     books = _load_books(session, {item.book_id for item in items})
     for book in books.values():
         goal_service.ensure_operation_allowed(book.goal, GoalOperation.RECORD)
     for item in items:
         _upsert_reading_log(session, daily_record, books[item.book_id], item)
+    weekly_summary_service.invalidate_weeks(
+        session, (book.goal for book in books.values()), daily_record.record_date
+    )
 
 
 def apply_progress(

@@ -300,6 +300,40 @@ def list_pending_weeks(session: Session, today: dt.date) -> list[PendingWeek]:
     return pending
 
 
+def invalidate_week(session: Session, goal: Goal, record_date: dt.date) -> None:
+    """record_dateが属する週の既存の週次要約（匿名化版を含む）を削除し、未生成の状態に
+    戻す（G4：完了週の実績・日記を事後に修正・新規登録しても、生成済みの週次要約が
+    古いまま使われ続けてしまう不具合への対応）。
+
+    新しいフラグ列を設けず「行が存在しない＝未生成」という既存の意味（list_pending_weeks
+    の判定、15.2）をそのまま再利用する。削除するだけで次回起動時の遡及生成
+    （run_retroactive_generation）が未生成週として拾い直す。対象週の要約がまだ無い場合
+    （未完了週への入力時など）は0件削除となるだけで副作用はない。
+
+    匿名化版も同時に削除するのは、非匿名化版だけを消すとregenerate_all_weekly_summaries_
+    anonymizedが基準にする_non_anonymized_weeks_queryからこの週が外れ、古い匿名化版だけが
+    更新されずエクスポートに出続けてしまうため（データ構造編7.3、開発Todo S06 D3・D4）。
+    """
+    week_start = _week_start_of(record_date)
+    session.query(WeeklySummary).filter(
+        WeeklySummary.goal_id == goal.id, WeeklySummary.week_start_date == week_start
+    ).delete()
+
+
+def invalidate_weeks(session: Session, goals: Iterable[Goal], record_date: dt.date) -> None:
+    """複数件の実績・日記を1回の呼び出しで更新した場合に、目標ごとに重複なく
+    invalidate_weekを呼ぶ（G4。CLAUDE.md パフォーマンスチェック：同一目標の教材・書籍・
+    案件を複数件同時に更新しても、goal_id+week_start_dateが同じDELETEを件数分発行しない
+    よう、呼び出し元の_apply_*_logs/_apply_diary_entriesがこちらを使う）。
+    """
+    seen_goal_ids: set[int] = set()
+    for goal in goals:
+        if goal.id in seen_goal_ids:
+            continue
+        seen_goal_ids.add(goal.id)
+        invalidate_week(session, goal, record_date)
+
+
 def generate_for_week(
     session: Session,
     goal: Goal,
