@@ -778,7 +778,8 @@
         "RECAP_CLASSIFY": "Recap (theme classification)",
         "RECAP_THEME_BODY": "Recap (theme body)",
         "EVALUATION_REPORT_WORK": "AI evaluation report (work)",
-        "HELP_ASSISTANT": "Help question"
+        "HELP_ASSISTANT": "Help question",
+        "GOAL_CONSULTATION": "Goal consultation"
       }
     },
     "log": {
