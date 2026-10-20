@@ -58,6 +58,11 @@ class BuildResult:
     prompt_chars: int
     was_truncated: bool
     exhausted: bool = False
+    #: 縮退後にプロンプトへ実際に含めた段階ごとのエントリ（古い順、key=DegradableEntryStage.key）。
+    #: 出典検証（プロンプトに実際に含めた日付・週だけを根拠として採用する用途、目標相談チャット
+    #: S09）で使う。build_with_degradable_entries以外（build_simple・build_daily_feedback）は
+    #: 設定せず常にNone（既存の用途はこの情報を使わないため、Noneのまま無視してよい）。
+    included_entries: dict[str, list["DatedLogEntry"]] | None = None
 
 
 @dataclass(frozen=True)
@@ -274,7 +279,12 @@ def build_with_degradable_entries(
 
     text = render()
     if len(text) <= max_chars:
-        return BuildResult(text=text, prompt_chars=len(text), was_truncated=False)
+        return BuildResult(
+            text=text,
+            prompt_chars=len(text),
+            was_truncated=False,
+            included_entries={stage.key: list(stage.entries) for stage in stages},
+        )
 
     was_truncated = False
 
@@ -293,7 +303,12 @@ def build_with_degradable_entries(
         was_truncated = True
         text = text[:max_chars]
 
-    return BuildResult(text=text, prompt_chars=len(text), was_truncated=was_truncated)
+    return BuildResult(
+        text=text,
+        prompt_chars=len(text),
+        was_truncated=was_truncated,
+        included_entries={stage.key: list(stage.entries) for stage in stages},
+    )
 
 
 def exceeds_with_entries_emptied(

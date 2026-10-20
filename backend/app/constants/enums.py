@@ -100,6 +100,7 @@ class AiPurpose(enum.StrEnum):
     RECAP_CLASSIFY = "RECAP_CLASSIFY"
     RECAP_THEME_BODY = "RECAP_THEME_BODY"
     HELP_ASSISTANT = "HELP_ASSISTANT"
+    GOAL_CONSULTATION = "GOAL_CONSULTATION"
 
 
 class ConversationScope(enum.StrEnum):
@@ -117,6 +118,7 @@ class ConversationScope(enum.StrEnum):
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
     RECAP = "RECAP"
     HELP_ASSISTANT = "HELP_ASSISTANT"
+    GOAL_CONSULTATION = "GOAL_CONSULTATION"
 
 
 class WorkMemberGender(enum.StrEnum):
