@@ -42,15 +42,15 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：S07（G6・G7、
-    2026-10-19）でGOAL_RETROSPECTIVEへ{{recent_logs}}、EVALUATION_REPORT_WORKへ
-    {{weekly_summaries}}を追加したことに伴う。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：S08（G5、
+    2026-10-20）でWEEKLY_SUMMARY・WEEKLY_SUMMARY_READING・WEEKLY_SUMMARY_WORKへ
+    {{week_chat}}（週内のAIとの対話のうち利用者本人の発言）を追加したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "40c14e9cb30f844585b834d96088e52e7dafd1051c9c93e941d75d3a511a4531"
+    assert digest == "d4aaf93e9600b23d9e9cab6ae0e2e998f77bfa894e9ff387dcfdb9da367ec158"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

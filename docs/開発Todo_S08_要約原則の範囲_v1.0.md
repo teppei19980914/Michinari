@@ -62,8 +62,8 @@
 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.12_仕事用週次要約.md` | 同上（仕事版） |
 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.4_今日の一言.md` | 末尾に「対象外とする」旨と根拠を1文追記 |
 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.14_振り返りテーマ累積.md` | 末尾に「同等の圧縮として認める」旨と根拠を1文追記 |
-| `docs/設計書_データ構造編_ミチナリ_v1.1/05_テーブル定義/5.5_AI連携系.md` | `chat_message`の用途説明に「週次要約生成時の材料としても参照される（role=USER、G5）」を追記（テーブル構造自体は変更なし） |
-| 各文書の改訂履歴 | 新しい番号を追記（本Todoの§8作業記録に実施日・改番を残す） |
+| `docs/設計書_データ構造編_ミチナリ_v1.1/05_テーブル定義/5.4_記録系.md` | `chat_message`の用途説明に「週次要約生成時の材料としても参照される（role=USER、G5）」を追記（テーブル構造自体は変更なし。当初Todoは5.5と記載していたが、`chat_message`の実際の定義は5.4にあったため修正） |
+| 要件定義書の改訂履歴 | 新しい番号（1.1（改44））を追記。設計書ロジック・プロンプト編・データ構造編は分割後（S03）「改訂履歴」表を持たず、各文書の24章・9章の未決事項ログ（L-XX／D-XX）が実質的な変更履歴を兼ねるため、そちらへ追記する（当初Todoは「各文書に改訂履歴番号を追記」としていたが、実際の文書構成を確認して訂正。仕様書（S-XX）は本改修で画面・設定項目の変更が無いため追記不要） |
 
 ### 1.6 既存機能への横展開（同じ問題の有無を確認）
 
@@ -84,20 +84,20 @@
 
 ### 3.1 文書改訂（フェーズAの決定を反映）
 
-- [ ] D-01 要件定義書：「要求の背景」節にR-35の対応状況（G5・G8・G9）を追記。改訂履歴に追記
-- [ ] D-02 設計書（ロジック・プロンプト編）17.3・17.11・17.12：`{{week_chat}}`変数行・初期文面を更新
-- [ ] D-03 設計書（ロジック・プロンプト編）17.4：今日の一言を対象外とする根拠を追記
-- [ ] D-04 設計書（ロジック・プロンプト編）17.14：テーマ別振り返りを同等の圧縮として認める根拠を追記
-- [ ] D-05 設計書（データ構造編）5.5：`chat_message`の用途説明にG5の参照を追記
-- [ ] D-06 各文書の改訂履歴に新しい番号を追記（相互参照の番号を揃える）
+- [x] D-01 要件定義書：「要求の背景」節にR-35の対応状況（G5・G8・G9）を追記。改訂履歴に1.1（改44）を追記
+- [x] D-02 設計書（ロジック・プロンプト編）17.3・17.11・17.12：`{{week_chat}}`変数行・初期文面を更新
+- [x] D-03 設計書（ロジック・プロンプト編）17.4：今日の一言を対象外とする根拠を追記
+- [x] D-04 設計書（ロジック・プロンプト編）17.14：テーマ別振り返りを同等の圧縮として認める根拠を追記
+- [x] D-05 設計書（データ構造編）5.4：`chat_message`の用途説明にG5の参照を追記（当初Todoの5.5から訂正）
+- [x] D-06 設計書（ロジック・プロンプト編）24章未決事項にL-16を追加（分割後の文書には「改訂履歴」表が無く、未決事項ログが変更履歴を兼ねるため。当初Todoの想定を訂正）
 
 ### 3.2 バックエンド実装（G5のみ）
 
-- [ ] B-01 `ai_context_common.py`：`build_week_user_chat_text(session, goal, purpose, week_start, week_end)`を追加（`ChatMessage`を`role=USER`・`purpose`・`goal_id`・週の日付範囲で絞り込み、日付ごとに整形。0件時は「（この週の対話はありません）」）
-- [ ] B-02 `weekly_summary_service.py`：`_CategorySpec`へ`daily_feedback_purpose`を追加し、`_EXAM_SPEC`/`_READING_SPEC`/`_WORK_SPEC`へ値を設定（`AiPurpose.DAILY_FEEDBACK`/`DAILY_FEEDBACK_READING`/`DAILY_FEEDBACK_WORK`）
-- [ ] B-03 `weekly_summary_service.generate_for_week`：変数組み立てに`"week_chat"`を追加（3カテゴリ共通処理として1箇所に実装）
-- [ ] B-04 `prompt_texts_exam.py`・`prompt_texts_reading.py`・`prompt_texts_work.py`：`WEEKLY_SUMMARY`・`WEEKLY_SUMMARY_READING`・`WEEKLY_SUMMARY_WORK`の初期文面を更新（§7の確定文面を一字一句転記）
-- [ ] B-05 Alembicマイグレーション新規作成（`down_revision="0ad4f28cd909"`）：3purposeの`prompt_template.body`を、`is_customized=False`の行のみ新文面へ更新。`downgrade`で旧文面へ戻す
+- [x] B-01 `ai_context_common.py`：`build_week_user_chat_text(session, goal, purpose, week_start, week_end)`を追加（`ChatMessage`を`role=USER`・`purpose`・`goal_id`・週の日付範囲で絞り込み、日付ごとに整形。0件時は「（この週の対話はありません）」）
+- [x] B-02 `weekly_summary_service.py`：`_CategorySpec`へ`daily_feedback_purpose`を追加し、`_EXAM_SPEC`/`_READING_SPEC`/`_WORK_SPEC`へ値を設定（`AiPurpose.DAILY_FEEDBACK`/`DAILY_FEEDBACK_READING`/`DAILY_FEEDBACK_WORK`）
+- [x] B-03 `weekly_summary_service.generate_for_week`：変数組み立てに`"week_chat"`を追加（3カテゴリ共通処理として1箇所に実装）
+- [x] B-04 `prompt_texts_exam.py`・`prompt_texts_reading.py`・`prompt_texts_work.py`：`WEEKLY_SUMMARY`・`WEEKLY_SUMMARY_READING`・`WEEKLY_SUMMARY_WORK`の初期文面を更新（§7の確定文面を一字一句転記）
+- [x] B-05 Alembicマイグレーション新規作成（リビジョン`9d3d5631a940`、`down_revision="0ad4f28cd909"`）：3purposeの`prompt_template.body`を、`is_customized=False`の行のみ新文面へ更新。`downgrade`で旧文面へ戻す（スクラッチDBで upgrade/downgrade 双方を実機検証済み）
 
 ## 4. テスト計画
 
@@ -105,16 +105,16 @@
 
 ### 4.1 追加するテスト
 
-- [ ] T-01 `test_ai_context_common.py`：`build_week_user_chat_text`（0件、単日複数発言、複数日、他goal_idの除外、他purposeの除外、`role=ASSISTANT`の除外）
-- [ ] T-02 `test_weekly_summary_service.py`：`generate_for_week`が組み立てる変数に`week_chat`が含まれること（資格・読書・仕事3カテゴリ）。既存テストのフィクスチャ更新に伴う影響確認
-- [ ] T-03 `test_migration_prompt.py`：新規マイグレーションの`test_week_chat_prompt_migration_updates_non_customized_template`／`test_week_chat_prompt_migration_preserves_customized_template`を3purpose分（既存の`@pytest.mark.parametrize`パターンに追従）
-- [ ] T-04 既存DBからのアップグレード確認（マイグレーション適用、既存`chat_message`・`weekly_summary`データの保持）
+- [x] T-01 `test_ai_context_common.py`：`build_week_user_chat_text`（0件、単日複数発言、複数日、他goal_idの除外、他purposeの除外、`role=ASSISTANT`の除外、週範囲外の除外）
+- [x] T-02 `test_weekly_summary_service.py`：`generate_for_week`が組み立てる変数に`week_chat`が含まれること（資格・読書・仕事3カテゴリ、AIの応答は含まれないこと、対話が無い週は固定文言になること）
+- [x] T-03 `test_migration_prompt.py`：新規マイグレーションの`test_week_chat_prompt_migration_updates_non_customized_template`／`test_week_chat_prompt_migration_preserves_customized_template`を3purpose分（既存の`@pytest.mark.parametrize`パターンに追従）
+- [x] T-04 既存DBからのアップグレード確認（スクラッチDBにgoal・daily_record・chat_message・weekly_summaryの既存データを投入→マイグレーション適用→件数・内容が変化しないことを確認。実環境のユーザーDBはこのセッションから参照できないため、同等の既存データを再現したスクラッチDBで検証）
 
 ### 4.2 検証手順
 
-- [ ] V-01 `ruff check .`・`pytest`（backend、カバレッジ100%）
-- [ ] V-02 既存DBのコピーへのマイグレーション適用確認（テーブル件数不変）
-- [ ] V-03 実機確認（任意）：資格・読書・仕事いずれか1目標で、日次報告フィードバックで対話（ユーザー発言）を送信→起動時バッチで週次要約を生成→生成結果に対話内容が反映されていることを確認
+- [x] V-01 `ruff check .`（全体合格）・`pytest`（backend、1,903件合格、カバレッジ100%（8,237文・1,552分岐）。初回実行で`test_initial_prompt_templates_content_is_unchanged_by_the_file_split`が意図通り失敗したため、意図した変更であることを確認のうえハッシュ値を更新し、再実行で全件合格）
+- [x] V-02 既存DBのコピーへのマイグレーション適用確認（T-04と同一の検証で実施。goal/daily_record/chat_message/weekly_summaryの件数・内容が不変であることを確認）
+- [ ] V-03 実機確認（任意）：資格・読書・仕事いずれか1目標で、日次報告フィードバックで対話（ユーザー発言）を送信→起動時バッチで週次要約を生成→生成結果に対話内容が反映されていることを確認（AI接続が必要なため未実施。任意項目のため完了の定義には含めない）
 
 ## 5. 未決事項
 
@@ -181,4 +181,10 @@
 
 ## 8. 作業記録
 
-（作業の進行に応じて追記する）
+- 2026-10-20 フェーズB実施結果
+  - 文書改訂（§3.1）：D-01〜D-06すべて完了。実施中に2点の訂正が判明した。(a) `chat_message`の表定義は設計書データ構造編5.5ではなく5.4にあった（当初Todoの誤記）。(b) 設計書ロジック・プロンプト編・データ構造編は文書分割（S03、2026-10-15）以降「改訂履歴」表を持たず、各文書の未決事項ログ（ロジック・プロンプト編24章のL-XX、データ構造編9章のD-XX）が実質的な変更履歴を兼ねる構成になっていた（要件定義書のみ「改訂履歴」表を保持）。両方を本文書・各文書へ反映済み（要件定義書1.1（改44）、ロジック・プロンプト編L-16）。仕様書は画面・設定項目の変更が無いため追記不要と判断。
+  - バックエンド実装（§3.2）：B-01〜B-05すべて完了。マイグレーション（リビジョン`9d3d5631a940`）はスクラッチSQLiteで upgrade/downgrade 双方を実機検証し、is_customized=Falseの行のみ更新・Trueの行は保護されることを確認。既存のgoal・daily_record・chat_message・weekly_summaryデータを模したスクラッチDBでも、本マイグレーション適用前後でこれらのテーブルの件数・内容が一切変化しないことを確認（T-04・V-02）。
+  - テスト（§4.1）：T-01〜T-04すべて完了。新規テスト17件（`test_ai_context_common.py`7件、`test_weekly_summary_service.py`4件、`test_migration_prompt.py`6件）を追加。
+  - 検証（§4.2）：V-01・V-02完了。バックエンド全体 `ruff check .` 合格、`pytest` 1,903件合格（開発前ベースライン1,886件+17件、新規テスト数と一致）、カバレッジ100%（8,237文・1,552分岐）。初回実行時、既存のドリフト検知テスト`test_initial_prompt_templates_content_is_unchanged_by_the_file_split`（`test_seed_data.py`）が意図通り失敗（同テストは「意図した文面変更のたびにハッシュ値を更新する」設計）。本件がG5による意図した文面変更であることを確認したうえでハッシュ値を更新し、再実行で全件合格となった。フロントエンドは本フェーズで変更なし（開発前ベースラインをそのまま維持）。V-03（実機確認）はAI接続が必要なため未実施（任意項目）。
+  - 横展開チェック：既存のR-35適用済み6用途（日次フィードバック3種・総括レポート系5種）には影響がないことを確認（これらは`{{weekly_summaries}}`・`{{recent_logs}}`等、別の変数名・別の仕組みを使用しており、週次要約自体の変数追加とは独立）。`_CategorySpec`を直接構築している箇所が他に無いこと（`grep`で確認、3件とも`weekly_summary_service.py`内のみ）、`ai_context_helpers.py`への新規テストヘルパー追加が既存の`test_analytics_service.py`内の同種プライベートヘルパーと機能重複する点を認識した上で、テスト対象ドメインが異なるため統合は本Todoの範囲外と判断（別件化はしない軽微な重複として記録のみ）。
+  - 完了の定義（§3〜4）を満たした。G8・G9は実装変更なしのまま文書反映のみで完了。
