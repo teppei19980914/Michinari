@@ -27,7 +27,7 @@
 | U17 | 回答状態の表現 | `GoalConsultationAnswerStatus`（`ANSWERED`/`NOT_FOUND`/`UNAVAILABLE`）を`HelpAnswerStatus`と同形で新設する。ドメインが異なる値を共用すると、将来一方だけ値を増やす際に無関係な用途まで分岐が増える（既存のAiPurpose/ConversationScopeも用途ごとに値を分けている既存パターンを踏襲） |
 | U18 | フェーズ番号 | 付与しない。S06「修正時の要約再生成」・S07「長期レポート」・S08「要約原則の範囲」と同じく、実装フェーズ分割計画書（`02_フェーズ一覧.md`）への新規Phase追記は行わず、本Todoを正とする |
 | U19 | 版 | `pyproject.toml`は変更しない（リリース手順で入力） |
-| U20 | 共通エンジンの拡張方針 | `app/ai/prompt_builder.py`の`build_with_degradable_entries`は、各段階（`DegradableEntryStage`）で最終的に生き残った`DatedLogEntry`一覧を返さない（戻り値`BuildResult`には無い）。出典検証には「プロンプトに実際に含めた日付・週」の集合が必要なため、`BuildResult`へ既定値`None`の追加フィールド（例：`included_entries: dict[str, list[DatedLogEntry]] | None = None`）を加えて`build_with_degradable_entries`から返すよう拡張する。既存呼び出し元（§1.4で確定）はこの戻り値を無視するだけで影響を受けない設計とし、全呼び出し元の既存テストが変更前と同じ結果になることを回帰テストで保証する |
+| U20 | 共通エンジンの拡張方針 | `app/ai/prompt_builder.py`の`build_with_degradable_entries`は、各段階（`DegradableEntryStage`）で最終的に生き残った`DatedLogEntry`一覧を返さない（戻り値`BuildResult`には無い）。出典検証には「プロンプトに実際に含めた日付・週」の集合が必要なため、`BuildResult`（frozen dataclass、57〜60行目）へ既定値`None`の追加フィールド`included_entries: dict[str, list[DatedLogEntry]] | None = None`を末尾に加えて`build_with_degradable_entries`から返すよう拡張する。全`BuildResult(...)`の構築はキーワード引数のみ（T-01で確認済み）のため既存呼び出し元は無改修で影響を受けない。全呼び出し元の既存テストが変更前と同じ結果になることを回帰テストで保証する |
 
 ## 1. 影響範囲（フルスキャンの結果）
 
@@ -75,9 +75,9 @@
 
 | 項目 | 状況 | 対応 |
 | --- | --- | --- |
-| `build_with_degradable_entries`の戻り値拡張（U20） | 既存呼び出し元を洗い出す必要がある（`reading_feedback_service.py`・`work_feedback_service.py`・`retrospective_service.py`のEXAM/READING双方・`work_report_service.py`・`work_evaluation_service.py`が候補、実装時に`grep`で確定） | 戻り値は追加フィールド（既定`None`）のみで既存の`text`/`prompt_chars`/`was_truncated`/`exhausted`は変更しない。全呼び出し元の既存テストが無変更で通ることを確認する |
+| `build_with_degradable_entries`の戻り値拡張（U20） | T-01で確定：5ファイル・6箇所（`reading_feedback_service.py:164`、`retrospective_service.py:203`、`work_feedback_service.py:167`、`work_evaluation_service.py:91`、`work_report_service.py:307,428`）。全て`BuildResult(...)`をキーワード引数で構築しており位置引数依存は無い | 戻り値は追加フィールド（既定`None`）のみで既存の`text`/`prompt_chars`/`was_truncated`/`exhausted`は変更しない。6箇所全ての既存テストが無変更で通ることを確認する |
 | EXAM専用ガードの実装漏れ | `GoalDetailPage.tsx`のコメント（354行目付近）に「タブ構成には追加したのに描画側へ反映し忘れ、読書目標でタブは出るが中身が空白になった」実例が記録されている | 同じ事故を起こさないよう、タブ追加とレンダー分岐追加を同一コミット内で行い、READING/WORK目標では「目標相談」タブ自体を出さないことを描画テストで固定する |
-| 禁止語テーブルの共有 | ヘルプ用に investigated した禁止語がそのまま目標相談にも適用される（カテゴリ区別なし） | 意図した挙動（U9）。目標相談特有の禁止語が必要になった場合は別件として扱う（§7） |
+| 禁止語テーブルの共有 | ヘルプ用に投入した禁止語がそのまま目標相談にも適用される（カテゴリ区別なし） | 意図した挙動（U9）。目標相談特有の禁止語が必要になった場合は別件として扱う（§7） |
 | テンプレート注入対策（`_substitute`の1回パス処理） | ヘルプ導入時（Phase43 B-02）に既に全用途向けへ修正済み | 変更不要。新規`GOAL_CONSULTATION`テンプレートもこの既存の安全な実装を使う |
 | 応答の表示（生HTML未解釈） | `MarkdownText`は既存のまま | 変更なし。回帰テストで担保 |
 
@@ -93,7 +93,7 @@
 
 ### 3.1 事前確認
 
-- [ ] T-01 `build_with_degradable_entries`の既存呼び出し元を`grep`で確定し、戻り値拡張の影響範囲表（§1.4）を実装前に確定する
+- [x] T-01 `build_with_degradable_entries`の既存呼び出し元を`grep`で確定し、戻り値拡張の影響範囲表（§1.4）を実装前に確定する（結果：5ファイル・6箇所、全て`BuildResult(...)`はキーワード引数構築のため位置引数依存なし）
 - [ ] T-02 `ai_context_exam.build_material_summary_text`（総括レポート用の簡易集計）を目標相談の「教材の状態」に使うか、`build_material_status_entries`（日次報告用、締切近い順）を使うか最終確認（仮決定：前者。§6未決事項参照）
 
 ### 3.2 文書改訂（U18・1.3）
@@ -107,7 +107,7 @@
 ### 3.3 バックエンド実装
 
 - [ ] B-01 列挙・設定キーの追加（`AiPurpose.GOAL_CONSULTATION`、`ConversationScope.GOAL_CONSULTATION`、`GoalConsultationAnswerStatus`、設定キー4件）
-- [ ] B-02 `app/ai/prompt_builder.py`：`BuildResult`へ`included_entries`フィールド追加、`build_with_degradable_entries`が生き残ったエントリを返すよう拡張（U20）。既存呼び出し元（T-01で確定）の既存テストが無変更で通ることを確認する回帰テストを追加
+- [x] B-02 `app/ai/prompt_builder.py`：`BuildResult`へ`included_entries`フィールド追加、`build_with_degradable_entries`が生き残ったエントリを返すよう拡張（U20）。既存呼び出し元（T-01で確定）の既存テストが無変更で通ることを確認する回帰テストを追加（2026-10-20：`test_ai_prompt_builder.py`29件合格〈新規4件含む〉、5ファイル・6箇所の呼び出し元テスト〈`test_reading_feedback_service.py`等〉116件合格、ruff合格）
 - [ ] B-03 シード：アシスタント既定値・フォルダ名・質問上限・回答上限（`INITIAL_APP_SETTINGS`）、プロンプト本文（`INITIAL_PROMPT_TEMPLATES[AiPurpose.GOAL_CONSULTATION]`）
 - [ ] B-04 `prompt_texts_common.py`：`GOAL_CONSULTATION`定数（区切り・nonce・山括弧全角化、「記録から言えること」/「一般的な助言」の分離指示、出典形式`[記録: ...]`/`[要約: ...]`）
 - [ ] B-05 `goal_consultation_service.py`：入力検証（`sanitize_question`相当、300字）、禁止語判定（`_contains_forbidden_term`相当、`ai_forbidden_term`共有）、対象カテゴリガード（EXAM以外は`ValidationError`）、過去記録・目標概要・教材・品質指標・リプラン履歴の組み立て（既存`build_*`の呼び出しのみ）、質問ごとのチャット送信、出典検証（日付・週の実在チェック、B-02の`included_entries`を使う）、後始末、直列化（`_REQUEST_LOCK`）
