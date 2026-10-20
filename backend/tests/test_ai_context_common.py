@@ -12,7 +12,7 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ChatRole, GoalCategory, GoalStatus
 from app.models.goal import Goal
 from app.models.record import WeeklySummary
 from app.services import ai_context_common
@@ -21,6 +21,24 @@ from tests import ai_context_helpers
 
 def _make_goal(session, name="目標A", status=GoalStatus.ACTIVE):
     return ai_context_helpers.make_goal(session, name=name, status=status)
+
+
+def _make_daily_record(session, record_date):
+    return ai_context_helpers.make_daily_record(session, record_date)
+
+
+def _add_chat_message(
+    session, daily_record_id, role, sequence, content, goal_id=None, purpose=None
+):
+    return ai_context_helpers.add_chat_message(
+        session,
+        daily_record_id,
+        role,
+        sequence,
+        content,
+        goal_id=goal_id,
+        purpose=purpose if purpose is not None else AiPurpose.DAILY_FEEDBACK,
+    )
 
 
 # --- list_active_goals ---
@@ -309,3 +327,103 @@ def test_list_daily_message_target_goals_includes_exam_and_work_excludes_reading
     assert exam_goal.id in target_ids
     assert work_goal.id in target_ids
     assert reading_goal.id not in target_ids
+
+
+# --- build_week_user_chat_text（S08 G5） ---
+
+
+def test_build_week_user_chat_text_empty_when_no_messages(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "（この週の対話はありません）"
+
+
+def test_build_week_user_chat_text_joins_multiple_messages_same_day(seeded_session):
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 18))
+    _add_chat_message(seeded_session, record.id, ChatRole.USER, 1, "最初の発言", goal_id=goal.id)
+    _add_chat_message(seeded_session, record.id, ChatRole.USER, 2, "次の発言", goal_id=goal.id)
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "【2026-08-18】\n・最初の発言\n・次の発言"
+
+
+def test_build_week_user_chat_text_groups_by_date_in_order(seeded_session):
+    goal = _make_goal(seeded_session)
+    record1 = _make_daily_record(seeded_session, dt.date(2026, 8, 18))
+    record2 = _make_daily_record(seeded_session, dt.date(2026, 8, 20))
+    _add_chat_message(seeded_session, record2.id, ChatRole.USER, 1, "20日の発言", goal_id=goal.id)
+    _add_chat_message(seeded_session, record1.id, ChatRole.USER, 1, "18日の発言", goal_id=goal.id)
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "【2026-08-18】\n・18日の発言\n\n【2026-08-20】\n・20日の発言"
+
+
+def test_build_week_user_chat_text_excludes_other_goal(seeded_session):
+    goal = _make_goal(seeded_session, name="目標A")
+    other_goal = _make_goal(seeded_session, name="目標B")
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 18))
+    _add_chat_message(
+        seeded_session, record.id, ChatRole.USER, 1, "他目標の発言", goal_id=other_goal.id
+    )
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "（この週の対話はありません）"
+
+
+def test_build_week_user_chat_text_excludes_other_purpose(seeded_session):
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 18))
+    _add_chat_message(
+        seeded_session,
+        record.id,
+        ChatRole.USER,
+        1,
+        "読書用途の発言",
+        goal_id=goal.id,
+        purpose=AiPurpose.DAILY_FEEDBACK_READING,
+    )
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "（この週の対話はありません）"
+
+
+def test_build_week_user_chat_text_excludes_assistant_role(seeded_session):
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 18))
+    _add_chat_message(seeded_session, record.id, ChatRole.USER, 1, "利用者の発言", goal_id=goal.id)
+    _add_chat_message(seeded_session, record.id, ChatRole.ASSISTANT, 2, "AIの応答", goal_id=goal.id)
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "【2026-08-18】\n・利用者の発言"
+
+
+def test_build_week_user_chat_text_excludes_outside_week_range(seeded_session):
+    goal = _make_goal(seeded_session)
+    record = _make_daily_record(seeded_session, dt.date(2026, 8, 16))
+    _add_chat_message(seeded_session, record.id, ChatRole.USER, 1, "前週の発言", goal_id=goal.id)
+
+    text = ai_context_common.build_week_user_chat_text(
+        seeded_session, goal, AiPurpose.DAILY_FEEDBACK, dt.date(2026, 8, 17), dt.date(2026, 8, 23)
+    )
+
+    assert text == "（この週の対話はありません）"

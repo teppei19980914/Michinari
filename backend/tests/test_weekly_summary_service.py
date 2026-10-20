@@ -12,7 +12,7 @@ from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
 from app.constants.app_setting_keys import SUMMARY_RETROACTIVE_MAX_PER_RUN
-from app.constants.enums import GoalStatus, QualityMetricType
+from app.constants.enums import AiPurpose, ChatRole, GoalStatus, QualityMetricType
 from app.models.ai import AiConversation, AiLog
 from app.models.goal import Goal
 from app.models.material import Material
@@ -20,7 +20,7 @@ from app.models.record import DailyRecord, StudyLog, WeeklySummary
 from app.models.setting import AppSetting
 from app.services import weekly_summary_service
 from app.services.weekly_summary_service import _last_completed_sunday
-from tests import reading_helpers
+from tests import ai_context_helpers, reading_helpers
 
 
 def _set_setting(session, key, value):
@@ -627,6 +627,102 @@ def test_generate_for_week_work_uses_work_purpose_and_work_variables(seeded_sess
     assert "週次要約対象の業務内容" in calls[0]["message"]
     ai_log = seeded_session.query(AiLog).one()
     assert ai_log.purpose == AiPurpose.WEEKLY_SUMMARY_WORK
+
+
+def test_generate_for_week_includes_week_chat_placeholder_when_no_messages(
+    seeded_session, monkeypatch
+):
+    """chat_messageが1件も無い週は、{{week_chat}}に空扱いの固定文言が入ること（S08 G5）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    calls = _stub_send_message(monkeypatch)
+
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert "この週の対話はありません" in calls[0]["message"]
+
+
+def test_generate_for_week_exam_includes_user_chat_message(seeded_session, monkeypatch):
+    """資格試験の週次要約は、その週・その目標のDAILY_FEEDBACKの利用者発言を
+    {{week_chat}}へ含めること（S08 G5）。AIの応答（role=ASSISTANT）は含めない。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    record = _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))
+    ai_context_helpers.add_chat_message(
+        seeded_session,
+        record.id,
+        ChatRole.USER,
+        1,
+        "対話確認用の利用者発言",
+        goal_id=goal.id,
+        purpose=AiPurpose.DAILY_FEEDBACK,
+    )
+    ai_context_helpers.add_chat_message(
+        seeded_session,
+        record.id,
+        ChatRole.ASSISTANT,
+        2,
+        "対話確認用のAI応答",
+        goal_id=goal.id,
+        purpose=AiPurpose.DAILY_FEEDBACK,
+    )
+    calls = _stub_send_message(monkeypatch)
+
+    weekly_summary_service.generate_for_week(
+        seeded_session, goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert "対話確認用の利用者発言" in calls[0]["message"]
+    assert "対話確認用のAI応答" not in calls[0]["message"]
+
+
+def test_generate_for_week_reading_includes_user_chat_message(seeded_session, monkeypatch):
+    """読書の週次要約はDAILY_FEEDBACK_READINGの利用者発言を{{week_chat}}へ含めること
+    （S08 G5。カテゴリ別のdaily_feedback_purpose配線の確認）。"""
+    reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 18))
+    record = seeded_session.query(DailyRecord).filter_by(record_date=dt.date(2026, 8, 18)).one()
+    ai_context_helpers.add_chat_message(
+        seeded_session,
+        record.id,
+        ChatRole.USER,
+        1,
+        "読書対話確認用の利用者発言",
+        goal_id=reading_goal.id,
+        purpose=AiPurpose.DAILY_FEEDBACK_READING,
+    )
+    calls = _stub_send_message(monkeypatch)
+
+    weekly_summary_service.generate_for_week(
+        seeded_session, reading_goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert "読書対話確認用の利用者発言" in calls[0]["message"]
+
+
+def test_generate_for_week_work_includes_user_chat_message(seeded_session, monkeypatch):
+    """仕事の週次要約はDAILY_FEEDBACK_WORKの利用者発言を{{week_chat}}へ含めること
+    （S08 G5。カテゴリ別のdaily_feedback_purpose配線の確認）。"""
+    work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 18))
+    record = seeded_session.query(DailyRecord).filter_by(record_date=dt.date(2026, 8, 18)).one()
+    ai_context_helpers.add_chat_message(
+        seeded_session,
+        record.id,
+        ChatRole.USER,
+        1,
+        "仕事対話確認用の利用者発言",
+        goal_id=work_goal.id,
+        purpose=AiPurpose.DAILY_FEEDBACK_WORK,
+    )
+    calls = _stub_send_message(monkeypatch)
+
+    weekly_summary_service.generate_for_week(
+        seeded_session, work_goal, week_start=dt.date(2026, 8, 17), week_end=dt.date(2026, 8, 23)
+    )
+
+    assert "仕事対話確認用の利用者発言" in calls[0]["message"]
 
 
 # --- run_retroactive_generation ---
