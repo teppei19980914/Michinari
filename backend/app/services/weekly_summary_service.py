@@ -82,6 +82,10 @@ class _CategorySpec:
     purpose: AiPurpose
     scope: ConversationScope
     assistant_uid_key: str
+    #: {{week_chat}}（S08 G5）の絞り込みに使う、カテゴリ別の日次報告フィードバックの
+    #: AiPurpose（資格=DAILY_FEEDBACK、読書=DAILY_FEEDBACK_READING、仕事=DAILY_FEEDBACK_
+    #: WORK）。週次要約自体のpurposeとは別物（週次要約はchat_messageを持たないため）。
+    daily_feedback_purpose: AiPurpose
     #: [range_start, range_end]内の実績から、週開始日（月曜）ごとにログがあるgoal_id集合を
     #: 返す（15.2手順3のカテゴリ別実装、G3で範囲一括問い合わせへ変更）。
     goal_ids_with_logs_by_week: Callable[[Session, dt.date, dt.date], dict[dt.date, set[int]]]
@@ -190,6 +194,7 @@ _EXAM_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY,
     scope=ConversationScope.WEEKLY_SUMMARY,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY,
+    daily_feedback_purpose=AiPurpose.DAILY_FEEDBACK,
     goal_ids_with_logs_by_week=_exam_goal_ids_with_logs_by_week,
     build_variables=_exam_week_variables,
     effective_start_date=lambda _session, goal: goal.start_date,
@@ -199,6 +204,7 @@ _READING_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY_READING,
     scope=ConversationScope.WEEKLY_SUMMARY_READING,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
+    daily_feedback_purpose=AiPurpose.DAILY_FEEDBACK_READING,
     goal_ids_with_logs_by_week=_reading_goal_ids_with_logs_by_week,
     build_variables=_reading_week_variables,
     effective_start_date=lambda _session, goal: goal.book.start_date,
@@ -208,6 +214,7 @@ _WORK_SPEC = _CategorySpec(
     purpose=AiPurpose.WEEKLY_SUMMARY_WORK,
     scope=ConversationScope.WEEKLY_SUMMARY_WORK,
     assistant_uid_key=AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    daily_feedback_purpose=AiPurpose.DAILY_FEEDBACK_WORK,
     goal_ids_with_logs_by_week=_work_goal_ids_with_logs_by_week,
     build_variables=_work_week_variables,
     effective_start_date=lambda _session, goal: goal.start_date,
@@ -360,6 +367,11 @@ def generate_for_week(
     variables = {
         "week_range": f"{week_start.isoformat()}〜{week_end.isoformat()}",
         **spec.build_variables(session, goal, week_start, week_end),
+        # {{week_chat}}（S08 G5）: 3カテゴリ共通の絞り込み（purposeのみ異なる）のため、
+        # 各_xxx_week_variablesへ重複実装せずここへ1箇所でまとめる（CLAUDE.md DRYの原則）。
+        "week_chat": ai_context_common.build_week_user_chat_text(
+            session, goal, spec.daily_feedback_purpose, week_start, week_end
+        ),
         "anonymize": ai_context_common.build_anonymize_instruction(anonymize),
     }
 
