@@ -18,9 +18,9 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.ai.prompt_builder import DatedLogEntry, DegradableEntryStage
-from app.constants.enums import GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ChatRole, GoalCategory, GoalStatus
 from app.models.goal import Goal
-from app.models.record import WeeklySummary
+from app.models.record import ChatMessage, DailyRecord, WeeklySummary
 
 
 def list_active_goals(session: Session) -> list[Goal]:
@@ -266,3 +266,42 @@ def build_perspective_suggestion_instruction(
     if not is_below_threshold:
         return ""
     return _PERSPECTIVE_SUGGESTION_TEXTS[category]
+
+
+def build_week_user_chat_text(
+    session: Session, goal: Goal, purpose: AiPurpose, week_start: dt.date, week_end: dt.date
+) -> str:
+    """{{week_chat}}: 週内のAIとの対話のうち、本人（利用者）の発言（週次要約、S08 G5）。
+
+    AIの応答（role=ASSISTANT）は対象外とする。週次要約の既存の狙い「学習者が用いた
+    表現や説明の粒度を保存する」（17.3）に合致するのは利用者本人の発言であり、AIの
+    過去の発言を含めるとAIが自身の発言を再入力される自己参照になり、プロンプトの
+    増量にもつながるため（S08決定事項G5-範囲）。
+
+    purposeは呼び出し元（weekly_summary_service._CategorySpec.daily_feedback_purpose）が
+    カテゴリに応じて指定する。同一daily_recordに複数用途のchat_message（資格のDAILY_
+    FEEDBACKと読書のDAILY_FEEDBACK_READING等）が混在しうるため、daily_feedback_service
+    等と同じくgoal_id・purposeの両方で絞り込み、他用途・他目標の対話を混入させない。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, ChatMessage.content)
+        .join(ChatMessage, ChatMessage.daily_record_id == DailyRecord.id)
+        .filter(
+            ChatMessage.goal_id == goal.id,
+            ChatMessage.purpose == purpose,
+            ChatMessage.role == ChatRole.USER,
+            DailyRecord.record_date >= week_start,
+            DailyRecord.record_date <= week_end,
+        )
+        .order_by(DailyRecord.record_date, ChatMessage.sequence)
+        .all()
+    )
+    if not rows:
+        return "（この週の対話はありません）"
+    by_date: dict[dt.date, list[str]] = {}
+    for record_date, content in rows:
+        by_date.setdefault(record_date, []).append(content)
+    return "\n\n".join(
+        f"【{record_date.isoformat()}】\n" + "\n".join(f"・{content}" for content in messages)
+        for record_date, messages in by_date.items()
+    )
