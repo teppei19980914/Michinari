@@ -20,10 +20,11 @@ from app.constants.enums import (
 )
 from app.models.goal import Goal
 from app.models.material import Material, PlanBaseline
-from app.models.record import ChatMessage, DailyRecord
+from app.models.record import ChatMessage
 from app.models.setting import CalendarDayOverride
 from app.services import analytics_service
 from app.services.exceptions import NotFoundError, ValidationError
+from tests import ai_context_helpers
 
 
 def _make_goal(db_session, category=GoalCategory.EXAM, name="分析検証") -> Goal:
@@ -133,10 +134,11 @@ def test_plan_line_empty_when_no_baselines(db_session):
 
 
 def _make_record(db_session, record_date: dt.date, state: RecordState = RecordState.REPORTED):
-    record = DailyRecord(record_date=record_date, exam_record_state=state)
-    db_session.add(record)
-    db_session.flush()
-    return record
+    """ai_context_helpers.make_daily_recordの薄いラッパ（S08 G5レビューでDRY違反の指摘を
+    受け、本ファイル独自の実装をtests/ai_context_helpers.pyへ寄せた。呼び出し側の引数順は
+    変えない）。
+    """
+    return ai_context_helpers.make_daily_record(db_session, record_date, state)
 
 
 def _add_chat_message(
@@ -148,17 +150,10 @@ def _add_chat_message(
     goal_id: int | None = None,
     purpose: AiPurpose = AiPurpose.DAILY_FEEDBACK,
 ) -> ChatMessage:
-    message = ChatMessage(
-        daily_record_id=record_id,
-        goal_id=goal_id,
-        purpose=purpose,
-        role=role,
-        content=content,
-        sequence=sequence,
+    """ai_context_helpers.add_chat_messageの薄いラッパ（上記と同じ理由）。"""
+    return ai_context_helpers.add_chat_message(
+        db_session, record_id, role, sequence, content, goal_id=goal_id, purpose=purpose
     )
-    db_session.add(message)
-    db_session.flush()
-    return message
 
 
 def test_growth_descriptions_returns_assistant_messages_ordered_by_date_desc(db_session):
