@@ -52,6 +52,11 @@ AI_ASSISTANT_UID_HELP = "ai.assistant_uid.help"
 AI_HELP_FOLDER_NAME = "ai.help_folder_name"
 AI_HELP_QUESTION_MAX_CHARS = "ai.help_question_max_chars"
 AI_HELP_ANSWER_MAX_CHARS = "ai.help_answer_max_chars"
+#: 目標相談チャット（S09、資格目標専用）。ヘルプAIアシスタントと同じ位置づけの用途専用設定。
+AI_ASSISTANT_UID_GOAL_CONSULTATION = "ai.assistant_uid.goal_consultation"
+AI_GOAL_CONSULTATION_FOLDER_NAME = "ai.goal_consultation_folder_name"
+AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS = "ai.goal_consultation_question_max_chars"
+AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS = "ai.goal_consultation_answer_max_chars"
 #: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
 #: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
 AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"

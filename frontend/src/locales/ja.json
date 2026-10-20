@@ -733,7 +733,8 @@
         "RECAP_CLASSIFY": "振り返り（テーマ分類）",
         "RECAP_THEME_BODY": "振り返り（テーマ本文）",
         "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）",
-        "HELP_ASSISTANT": "ヘルプ質問"
+        "HELP_ASSISTANT": "ヘルプ質問",
+        "GOAL_CONSULTATION": "目標相談"
       }
     },
     "log": {

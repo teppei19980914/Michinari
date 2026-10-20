@@ -12,7 +12,7 @@
 | U2 | 画面入口 | 目標詳細画面（`GoalDetailPage.tsx`）のEXAM専用タブ「目標相談」を常設（ヘルプの全画面浮動ボタンとは別系統、視覚的な混同を避ける） |
 | U3 | 質問上限 | 300字（ヘルプと同じ）。設定キー `ai.goal_consultation_question_max_chars` |
 | U4 | 回答上限 | 新設定キー `ai.goal_consultation_answer_max_chars`（既定値はヘルプの`ai.help_answer_max_chars`=2000字と同水準。具体的な初期値は§6で確定） |
-| U5 | 固定文言 | 目標相談向けに言い換えた新規文言。根拠なし：「記録からはまだ判断できません。日々の記録を増やすと、より具体的な回答ができる可能性があります。」／回答不可：「この質問には回答できません。別の聞き方でお試しください。」（最終文言は§6で確定） |
+| U5 | 固定文言 | 設計の深掘りにより、「根拠なし」は独立した状態・固定文言にしない（U17参照）。「記録からはまだ判断できません。日々の記録を増やすと、より具体的な回答ができる可能性があります。」はプロンプトの指示文に埋め込み、根拠が無いときにAI自身がこの文で答える。画面側の固定文言は回答不可のみ：「この質問には回答できません。別の聞き方でお試しください。」（最終文言は§6で確定） |
 | U6 | 命名案 | `ai.assistant_uid.goal_consultation`／`ai.goal_consultation_folder_name`（既定値「ミチナリ_目標相談」）／`ai.goal_consultation_question_max_chars`／`ai.goal_consultation_answer_max_chars`／`AiPurpose.GOAL_CONSULTATION`／`ConversationScope.GOAL_CONSULTATION` |
 | U7 | 対象の限定 | 資格目標（`GoalCategory.EXAM`）のみ。API層・画面層の両方でガードする（タブを出さない＋APIはドメイン例外→HTTPエラー） |
 | U8 | 1問1答方式 | ヘルプと同じ使い捨てチャット（作成→送信→削除→一覧で削除確認）。`scope_key`は`uuid4().hex`で毎回新規 |
@@ -24,7 +24,7 @@
 | U14 | AI未接続時 | 既存の`AiUnconfiguredNotice`導線をそのまま使う |
 | U15 | 直列化 | 質疑応答全体を専用`_REQUEST_LOCK`（`threading.Lock`）で直列化（ヘルプと同じ方式）。AI送信区間自体は既存の`serialize_writes()`／`send_and_log`をそのまま使う |
 | U16 | 相談履歴の保存 | MVPでは保存しない。画面はコンポーネントstateのみ（1問1答）、`ai_log`（`AiPurpose.GOAL_CONSULTATION`）にのみ記録。永続化はS10 |
-| U17 | 回答状態の表現 | `GoalConsultationAnswerStatus`（`ANSWERED`/`NOT_FOUND`/`UNAVAILABLE`）を`HelpAnswerStatus`と同形で新設する。ドメインが異なる値を共用すると、将来一方だけ値を増やす際に無関係な用途まで分岐が増える（既存のAiPurpose/ConversationScopeも用途ごとに値を分けている既存パターンを踏襲） |
+| U17 | 回答状態の表現 | `GoalConsultationAnswerStatus`は`ANSWERED`/`UNAVAILABLE`の2値のみ（`HelpAnswerStatus`の`NOT_FOUND`は持たない）。目標相談の回答は「記録から言えること」＋「一般的な助言」の併記構成（U12）のため、記録に根拠が無い場合でも一般的な助言は有用な回答であり、ヘルプの「記載なし」とは意味が異なる。根拠なしの説明はプロンプト側の指示文（U5）で担保し、API層の状態としては扱わない（実装時の設計精査により、当初案〈3値〉から簡素化） |
 | U18 | フェーズ番号 | 付与しない。S06「修正時の要約再生成」・S07「長期レポート」・S08「要約原則の範囲」と同じく、実装フェーズ分割計画書（`02_フェーズ一覧.md`）への新規Phase追記は行わず、本Todoを正とする |
 | U19 | 版 | `pyproject.toml`は変更しない（リリース手順で入力） |
 | U20 | 共通エンジンの拡張方針 | `app/ai/prompt_builder.py`の`build_with_degradable_entries`は、各段階（`DegradableEntryStage`）で最終的に生き残った`DatedLogEntry`一覧を返さない（戻り値`BuildResult`には無い）。出典検証には「プロンプトに実際に含めた日付・週」の集合が必要なため、`BuildResult`（frozen dataclass、57〜60行目）へ既定値`None`の追加フィールド`included_entries: dict[str, list[DatedLogEntry]] | None = None`を末尾に加えて`build_with_degradable_entries`から返すよう拡張する。全`BuildResult(...)`の構築はキーワード引数のみ（T-01で確認済み）のため既存呼び出し元は無改修で影響を受けない。全呼び出し元の既存テストが変更前と同じ結果になることを回帰テストで保証する |
