@@ -29,7 +29,7 @@
 | バックエンド・新規関数 | なし | `ai_context_common.py`に`build_week_user_chat_text(session, goal, purpose, week_start, week_end)`を追加（資格・読書・仕事で共通。`ChatMessage`を`role=ChatRole.USER`・`purpose`・`goal_id`・週の日付範囲で絞り込み、日付ごとに整形）。既存の`_fetch_study_log_rows`等と同じ「共通クエリをservices層に集約」方針（CODING_RULES DRYの原則） |
 | `weekly_summary_service.py` | `_CategorySpec`に対話用の情報なし | `_CategorySpec`へ`daily_feedback_purpose: AiPurpose`を追加（資格=`DAILY_FEEDBACK`、読書=`DAILY_FEEDBACK_READING`、仕事=`DAILY_FEEDBACK_WORK`）。`generate_for_week`の変数組み立てに`"week_chat": ai_context_common.build_week_user_chat_text(...)`を追加（3カテゴリ共通処理のため、各`_xxx_week_variables`ではなく`generate_for_week`側に1箇所で実装し重複を避ける） |
 | `app/models/record.py` | — | 変更なし（既存`ChatMessage`テーブルをそのまま利用。新規列・新規テーブル不要） |
-| `app/init/prompt_texts_exam.py`（`WEEKLY_SUMMARY`）、`prompt_texts_reading.py`（`WEEKLY_SUMMARY_READING`）、`prompt_texts_work.py`（`WEEKLY_SUMMARY_WORK`） | `{{week_chat}}`を持たない3文面 | 各文面に「# 本人の発言（AIとの対話）」セクション（`{{week_chat}}`）を追加。「要約の要件」の該当箇所（学習者/読者の表現・説明の粒度を保存する項目）へ「対話中の発言も対象とする」旨を追記（文面は§4に確定版を記載） |
+| `app/init/prompt_texts_exam.py`（`WEEKLY_SUMMARY`）、`prompt_texts_reading.py`（`WEEKLY_SUMMARY_READING`）、`prompt_texts_work.py`（`WEEKLY_SUMMARY_WORK`） | `{{week_chat}}`を持たない3文面 | 各文面に「# 本人の発言（AIとの対話）」セクション（`{{week_chat}}`）を追加。「要約の要件」の該当箇所（学習者/読者の表現・説明の粒度を保存する項目）へ「対話中の発言も対象とする」旨を追記（文面は§7に確定版を記載） |
 | `backend/alembic/versions/` | head=`0ad4f28cd909` | 新規マイグレーション1件（`update`のみ、`create_table`なし）。`prompt_template`の`WEEKLY_SUMMARY`・`WEEKLY_SUMMARY_READING`・`WEEKLY_SUMMARY_WORK`を、`is_customized=False`の行のみ新文面へ更新（`0ad4f28cd909`と同じ方式。利用者が編集済みのテンプレートは上書きしない） |
 | テスト | — | `test_ai_context_common.py`（新規関数）、`test_weekly_summary_service.py`（`generate_for_week`の変数に`week_chat`を追加）、`test_migration_prompt.py`（新規マイグレーションの`updates_non_customized`/`preserves_customized`を3purpose分、既存の`parametrize`パターンに追従） |
 
@@ -63,7 +63,7 @@
 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.4_今日の一言.md` | 末尾に「対象外とする」旨と根拠を1文追記 |
 | `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.14_振り返りテーマ累積.md` | 末尾に「同等の圧縮として認める」旨と根拠を1文追記 |
 | `docs/設計書_データ構造編_ミチナリ_v1.1/05_テーブル定義/5.5_AI連携系.md` | `chat_message`の用途説明に「週次要約生成時の材料としても参照される（role=USER、G5）」を追記（テーブル構造自体は変更なし） |
-| 各文書の改訂履歴 | 新しい番号を追記（本Todoの作業記録§作業記録に実施日・改番を残す） |
+| 各文書の改訂履歴 | 新しい番号を追記（本Todoの§8作業記録に実施日・改番を残す） |
 
 ### 1.6 既存機能への横展開（同じ問題の有無を確認）
 
@@ -96,25 +96,38 @@
 - [ ] B-01 `ai_context_common.py`：`build_week_user_chat_text(session, goal, purpose, week_start, week_end)`を追加（`ChatMessage`を`role=USER`・`purpose`・`goal_id`・週の日付範囲で絞り込み、日付ごとに整形。0件時は「（この週の対話はありません）」）
 - [ ] B-02 `weekly_summary_service.py`：`_CategorySpec`へ`daily_feedback_purpose`を追加し、`_EXAM_SPEC`/`_READING_SPEC`/`_WORK_SPEC`へ値を設定（`AiPurpose.DAILY_FEEDBACK`/`DAILY_FEEDBACK_READING`/`DAILY_FEEDBACK_WORK`）
 - [ ] B-03 `weekly_summary_service.generate_for_week`：変数組み立てに`"week_chat"`を追加（3カテゴリ共通処理として1箇所に実装）
-- [ ] B-04 `prompt_texts_exam.py`・`prompt_texts_reading.py`・`prompt_texts_work.py`：`WEEKLY_SUMMARY`・`WEEKLY_SUMMARY_READING`・`WEEKLY_SUMMARY_WORK`の初期文面を更新（§4の確定文面を一字一句転記）
+- [ ] B-04 `prompt_texts_exam.py`・`prompt_texts_reading.py`・`prompt_texts_work.py`：`WEEKLY_SUMMARY`・`WEEKLY_SUMMARY_READING`・`WEEKLY_SUMMARY_WORK`の初期文面を更新（§7の確定文面を一字一句転記）
 - [ ] B-05 Alembicマイグレーション新規作成（`down_revision="0ad4f28cd909"`）：3purposeの`prompt_template.body`を、`is_customized=False`の行のみ新文面へ更新。`downgrade`で旧文面へ戻す
 
-### 3.3 テスト
+## 4. テスト計画
+
+対象はG5のみ（G8・G9は実装変更なしのため対象外）。新規追加するコード（§3.2のB-01〜B-05）に対し、既存方針（CODING_RULES.mdテストカバレッジ、例外処理を除き100%）を維持する。既存の`parametrize`パターン（3purpose：資格・読書・仕事）に揃えて網羅する。
+
+### 4.1 追加するテスト
 
 - [ ] T-01 `test_ai_context_common.py`：`build_week_user_chat_text`（0件、単日複数発言、複数日、他goal_idの除外、他purposeの除外、`role=ASSISTANT`の除外）
 - [ ] T-02 `test_weekly_summary_service.py`：`generate_for_week`が組み立てる変数に`week_chat`が含まれること（資格・読書・仕事3カテゴリ）。既存テストのフィクスチャ更新に伴う影響確認
 - [ ] T-03 `test_migration_prompt.py`：新規マイグレーションの`test_week_chat_prompt_migration_updates_non_customized_template`／`test_week_chat_prompt_migration_preserves_customized_template`を3purpose分（既存の`@pytest.mark.parametrize`パターンに追従）
 - [ ] T-04 既存DBからのアップグレード確認（マイグレーション適用、既存`chat_message`・`weekly_summary`データの保持）
 
-### 3.4 検証
+### 4.2 検証手順
 
 - [ ] V-01 `ruff check .`・`pytest`（backend、カバレッジ100%）
 - [ ] V-02 既存DBのコピーへのマイグレーション適用確認（テーブル件数不変）
 - [ ] V-03 実機確認（任意）：資格・読書・仕事いずれか1目標で、日次報告フィードバックで対話（ユーザー発言）を送信→起動時バッチで週次要約を生成→生成結果に対話内容が反映されていることを確認
 
-## 4. 確定文面（G5、転記元）
+## 5. 未決事項
 
-### 4.1 資格試験（`WEEKLY_SUMMARY`）
+- なし（G5・G8・G9はいずれも§0で確定済み）
+
+## 6. 別件（本Todoの範囲外として記録）
+
+- NewtonX利用ナレッジ§6・§8.9.1に関連する「GPT-4o mini」「GPT-4o」の使用可否未確認は、本改修と無関係のため対応しない（既存メモリ`prompt_degradation_weekly_summary`参照）
+- 日英i18n対応（`ai_context_exam.py`の列挙型ラベル以外の自由文言）は既知の制限として別件管理（既存メモリ`i18n_en_support_investigation`参照）。本Todoの新規文言（`{{week_chat}}`セクション見出し等）は日本語のみのプロンプト内固定文のため対象外（既存の`{{week_logs}}`等の見出しと同じ扱い）
+
+## 7. 付録：確定文面（G5、転記元）
+
+### 7.1 資格試験（`WEEKLY_SUMMARY`）
 
 `# 日々の記録\n{{week_diaries}}`の直後に以下を追加する。
 
