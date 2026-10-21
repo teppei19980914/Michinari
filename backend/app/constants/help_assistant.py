@@ -2,6 +2,9 @@
 
 閾値・上限値は `app_setting`、プロンプト文面は `prompt_template` に置く（CODING_RULES.md）。
 ここには、プロンプトの書式と検証の仕様として固定する値だけを置く。
+利用者の自由入力の安全対策（区切りの全角化・禁止語照合の正規化・nonceの桁数）はヘルプ専用の
+値ではなく、目標相談チャット（S09）とも共有するため `app/ai/question_safety.py` に集約する
+（CODING_RULES.md DRYの原則）。
 """
 
 import re
@@ -16,16 +19,6 @@ CITATION_LINE_PATTERN = re.compile(r"\[出典[:：]\s*([^\]\n]*)\]\s*\Z")
 
 #: 出典行の区切り文字（半角・全角のカンマ、読点）。
 CITATION_SEPARATOR_PATTERN = re.compile(r"[,、，]")
-
-#: 質問を区切りの中へ埋め込む前に、山括弧を全角へ置換する。区切り（`<<<QUESTION-...>>>`）を
-#: 利用者の質問から偽造できないようにするため（nonce と併用する二重の防御）。
-DELIMITER_REPLACEMENTS = str.maketrans({"<": "＜", ">": "＞"})
-
-#: 照合用の正規化で取り除く対象（空白類）。
-WHITESPACE_PATTERN = re.compile(r"\s+")
-
-#: 区切りの乱数のバイト数（`secrets.token_hex` に渡す）。
-NONCE_BYTES = 8
 
 #: 全文が予算を超えたときに採用するセクションの一致の下限（2文字の組の一致数）。
 #: 1件だけの一致は、助詞などの偶然の一致であることが多いため採用しない。

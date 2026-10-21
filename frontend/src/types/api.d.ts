@@ -1194,6 +1194,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/consultation/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Question
+         * @description 質問に、目標の記録に基づいて答える（質問ごとのチャットで送信し、回答後に削除する）。
+         */
+        post: operations["ask_question_api_v1_goals__goal_id__consultation_questions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/consultation/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Limits
+         * @description 質問の上限文字数を返す（入力欄の文字数表示と事前チェックに使う）。
+         *
+         *     上限値自体は目標に依存しない設定だが、画面（目標詳細の相談タブ）側の呼び出しを
+         *     他の目標相談APIと同じ`/goals/{goal_id}/...`の形に揃える（goal_idの妥当性検証も兼ねる）。
+         */
+        get: operations["get_limits_api_v1_goals__goal_id__consultation_limits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: {
             query?: never;
@@ -1844,6 +1887,8 @@ export interface components {
             assistant_uid_evaluation_report_work: string;
             /** Assistant Uid Help */
             assistant_uid_help: string;
+            /** Assistant Uid Goal Consultation */
+            assistant_uid_goal_consultation: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -1887,6 +1932,8 @@ export interface components {
             assistant_uid_evaluation_report_work?: string | null;
             /** Assistant Uid Help */
             assistant_uid_help?: string | null;
+            /** Assistant Uid Goal Consultation */
+            assistant_uid_goal_consultation?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -1916,7 +1963,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2604,6 +2651,65 @@ export interface components {
          * @enum {string}
          */
         GoalCategory: "EXAM" | "READING" | "WORK";
+        /**
+         * GoalConsultationAnswerRead
+         * @description 回答。`answer`はANSWEREDのときだけ入る。`cited_dates`／`cited_weeks`は検証済みの根拠
+         *     （プロンプトに実際に含めた日付・週だけを採用、開発Todo U10）。
+         */
+        GoalConsultationAnswerRead: {
+            status: components["schemas"]["GoalConsultationAnswerStatus"];
+            /** Answer */
+            answer: string | null;
+            /** Cited Dates */
+            cited_dates: string[];
+            /** Cited Weeks */
+            cited_weeks: components["schemas"]["GoalConsultationCitedWeek"][];
+        };
+        /**
+         * GoalConsultationAnswerStatus
+         * @description 目標相談チャット（S09）の回答の状態（開発Todo U17）。
+         *
+         *     `HelpAnswerStatus`と異なり`NOT_FOUND`は持たない。回答は「記録から言えること」と
+         *     「一般的な助言」を併記する構成（開発Todo U12）のため、記録に根拠が無い場合でも
+         *     一般的な助言は有用な回答になる。根拠が無いことの説明は、AIへの指示文で
+         *     「記録からはまだ判断できません」という固定フレーズを使わせる形でプロンプト側に
+         *     埋め込み（`prompt_texts_common.GOAL_CONSULTATION`）、API層の状態としては扱わない。
+         *     文言は画面側（`ja.json` の `goalConsultation.*`）で解決する。バックエンドは状態だけを返す。
+         * @enum {string}
+         */
+        GoalConsultationAnswerStatus: "ANSWERED" | "UNAVAILABLE";
+        /**
+         * GoalConsultationCitedWeek
+         * @description 根拠として示す週次要約の週（開始日・終了日）。
+         */
+        GoalConsultationCitedWeek: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+        };
+        /**
+         * GoalConsultationLimitsRead
+         * @description 画面が表示・検証に使う上限（app_settingの値）。
+         */
+        GoalConsultationLimitsRead: {
+            /** Max Question Chars */
+            max_question_chars: number;
+        };
+        /**
+         * GoalConsultationQuestionRequest
+         * @description 質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。
+         */
+        GoalConsultationQuestionRequest: {
+            /** Question */
+            question: string;
+        };
         /** GoalCreate */
         GoalCreate: {
             /** @default EXAM */
@@ -6740,6 +6846,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HelpAssistantLimitsRead"];
+                };
+            };
+        };
+    };
+    ask_question_api_v1_goals__goal_id__consultation_questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalConsultationQuestionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalConsultationAnswerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_limits_api_v1_goals__goal_id__consultation_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalConsultationLimitsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

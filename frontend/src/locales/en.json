@@ -261,7 +261,8 @@
         "workAssignment": "Project info",
         "monthlyReport": "Monthly report",
         "semiannualReview": "Semiannual review",
-        "evaluationReport": "Evaluation report"
+        "evaluationReport": "Evaluation report",
+        "goalConsultation": "Goal consultation"
       },
       "tabTooltips": {
         "basicInfo": "A tab to view and edit this goal's basic information, such as the exam name, start date, status, and notes. Use it to rename the goal or correct its start date.",
@@ -275,7 +276,8 @@
         "workAssignment": "A tab to register the client, expected work content, start date, team members, and roles, and check your work progress (elapsed days, last recorded date, current streak).",
         "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
         "semiannualReview": "A tab to generate a semiannual review report, review and edit it on the spot, and download it as Markdown.",
-        "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\""
+        "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\"",
+        "goalConsultation": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What should I study next?). Separate from the daily report feedback feature."
       },
       "readOnlyNotice": "This goal is closed, so it is read-only",
       "archivedNotice": "This goal is archived. To change its status, restore it from the goal list first",
@@ -681,6 +683,7 @@
         "goalRetrospectiveWorkSemiannual": "Semiannual review assistant (work)",
         "evaluationReportWork": "AI evaluation report assistant (work)",
         "helpAssistant": "Help question assistant",
+        "goalConsultation": "Goal consultation assistant",
         "loading": "Fetching assistant list…",
         "loadFailed": "Could not fetch the assistant list"
       },
@@ -778,7 +781,8 @@
         "RECAP_CLASSIFY": "Recap (theme classification)",
         "RECAP_THEME_BODY": "Recap (theme body)",
         "EVALUATION_REPORT_WORK": "AI evaluation report (work)",
-        "HELP_ASSISTANT": "Help question"
+        "HELP_ASSISTANT": "Help question",
+        "GOAL_CONSULTATION": "Goal consultation"
       }
     },
     "log": {
@@ -1255,6 +1259,23 @@
     "notFound": "Nothing relevant was found in the help content. Try rephrasing your question, or use the Help screen's table of contents or keyword search.",
     "unavailable": "This question can't be answered. Please try a different phrasing.",
     "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to ask help questions (if you've already set it up, your access token may have expired — regenerate it on NewtonX's web app).",
+    "error": "Could not get an answer. Please try again later.",
+    "userLabel": "You",
+    "assistantLabel": "Assistant"
+  },
+  "goalConsultation": {
+    "placeholder": "Ask a question based on your records (e.g. What should I study next?)",
+    "send": "Send",
+    "sending": "Composing an answer…",
+    "disclaimer": "The AI's answer may be incorrect.",
+    "citationsLabel": "Based on",
+    "noHistoryYet": "You haven't asked anything yet",
+    "tooLong": {
+      "one": "Please limit your question to {{max}} character or fewer",
+      "other": "Please limit your question to {{max}} characters or fewer"
+    },
+    "unavailable": "This question can't be answered. Please try a different phrasing.",
+    "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to use goal consultation (if you've already set it up, your access token may have expired — regenerate it on NewtonX's web app).",
     "error": "Could not get an answer. Please try again later.",
     "userLabel": "You",
     "assistantLabel": "Assistant"
