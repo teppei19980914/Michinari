@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.ai import client as ai_client
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
-from app.ai import prompt_builder
+from app.ai import prompt_builder, question_safety
 from app.ai.exceptions import AiAuthRequiredError, AiError
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_HELP,
@@ -34,17 +34,20 @@ from app.constants.enums import AiPurpose, ConversationScope, HelpAnswerStatus
 from app.constants.help_assistant import (
     CITATION_LINE_PATTERN,
     CITATION_SEPARATOR_PATTERN,
-    DELIMITER_REPLACEMENTS,
     HELP_CHAT_TITLE,
     MIN_SECTION_MATCHES,
-    NONCE_BYTES,
-    WHITESPACE_PATTERN,
 )
 from app.database import serialize_writes
-from app.models.ai import AiConversation, AiForbiddenTerm
+from app.models.ai import AiConversation
 from app.services import setting_reader
 from app.services.exceptions import ValidationError
 from app.services.help_content import HelpSection, load_sections
+
+#: 正規化・禁止語照合・区切りの全角化は目標相談チャット（S09）と共通のため
+#: `app.ai.question_safety` へ集約済み（CODING_RULES.md DRYの原則）。既存の呼び出し名
+#: （`normalize_for_match`）はテスト（`test_help_assistant_service.py`）から直接参照される
+#: ため、モジュール属性として引き続き公開する。
+normalize_for_match = question_safety.normalize_for_match
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +67,6 @@ class HelpAnswer:
     section_ids: tuple[str, ...]
 
 
-def normalize_for_match(text: str) -> str:
-    """照合用に正規化する（NFKC・小文字化・空白除去）。
-
-    全角と半角の違い、大文字と小文字の違い、空白の挿入による禁止語の回避を防ぐ。
-    """
-    return WHITESPACE_PATTERN.sub("", unicodedata.normalize("NFKC", text)).lower()
-
-
 def sanitize_question(raw: str, max_chars: int) -> str:
     """質問を検証して整える。
 
@@ -84,15 +79,6 @@ def sanitize_question(raw: str, max_chars: int) -> str:
     if len(cleaned) > max_chars:
         raise ValidationError(f"Question must be {max_chars} characters or fewer")
     return cleaned
-
-
-def _contains_forbidden_term(session: Session, text: str) -> bool:
-    """有効な禁止語を含むかを返す（照合は正規化後）。語が空の行は照合に使わない。"""
-    normalized = normalize_for_match(text)
-    terms = session.query(AiForbiddenTerm).filter(AiForbiddenTerm.enabled.is_(True)).all()
-    return any(
-        key and key in normalized for key in (normalize_for_match(term.term) for term in terms)
-    )
 
 
 def _render_section(section: HelpSection) -> str:
@@ -240,7 +226,7 @@ def _interpret(session: Session, raw: str, sections: tuple[HelpSection, ...]) ->
     if not cited or not body:
         return HelpAnswer(HelpAnswerStatus.NOT_FOUND, "", ())
     max_chars = setting_reader.get_int(session, AI_HELP_ANSWER_MAX_CHARS)
-    if len(body) > max_chars or _contains_forbidden_term(session, body):
+    if len(body) > max_chars or question_safety.contains_forbidden_term(session, body):
         return HelpAnswer(HelpAnswerStatus.UNAVAILABLE, "", ())
     return HelpAnswer(HelpAnswerStatus.ANSWERED, body, cited)
 
@@ -249,15 +235,15 @@ def _answer_locked(session: Session, raw_question: str) -> HelpAnswer:
     """質疑の本体（ロックを取った状態で呼ぶ）。"""
     max_question_chars = setting_reader.get_int(session, AI_HELP_QUESTION_MAX_CHARS)
     question = sanitize_question(raw_question, max_question_chars)
-    if _contains_forbidden_term(session, question):
+    if question_safety.contains_forbidden_term(session, question):
         return HelpAnswer(HelpAnswerStatus.UNAVAILABLE, "", ())
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
 
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     template = ai_orchestration.load_template_body(session, AiPurpose.HELP_ASSISTANT)
-    nonce = secrets.token_hex(NONCE_BYTES)
-    escaped_question = question.translate(DELIMITER_REPLACEMENTS)
+    nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+    escaped_question = question.translate(question_safety.DELIMITER_REPLACEMENTS)
     sections = load_sections()
     help_body, chosen = _build_help_body(
         sections,
