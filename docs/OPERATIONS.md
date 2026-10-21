@@ -26,5 +26,6 @@
 | 9 | 連絡先・エスカレーション | [09_連絡先・エスカレーション.md](OPERATIONS/09_連絡先・エスカレーション.md) |
 | 10 | Claude Code Level 5 テンプレートについて | [10_ClaudeCodeLevel5テンプレートについて.md](OPERATIONS/10_ClaudeCodeLevel5テンプレートについて.md) |
 | ― | ヘルプAIアシスタントの運用 | [ヘルプAIアシスタントの運用.md](OPERATIONS/ヘルプAIアシスタントの運用.md) |
+| ― | 目標相談チャットの運用 | [目標相談チャットの運用.md](OPERATIONS/目標相談チャットの運用.md) |
 
 ---
