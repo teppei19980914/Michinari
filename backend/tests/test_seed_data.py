@@ -42,15 +42,14 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：S08（G5、
-    2026-10-20）でWEEKLY_SUMMARY・WEEKLY_SUMMARY_READING・WEEKLY_SUMMARY_WORKへ
-    {{week_chat}}（週内のAIとの対話のうち利用者本人の発言）を追加したことに伴う。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：S09（2026-10-21）で
+    `AiPurpose.GOAL_CONSULTATION`用のプロンプト本文（目標相談チャット）を新設したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "d4aaf93e9600b23d9e9cab6ae0e2e998f77bfa894e9ff387dcfdb9da367ec158"
+    assert digest == "64398a913ea90352df4f947a2e7dd6862cdbdb7c8243d744930cbdd078709996"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

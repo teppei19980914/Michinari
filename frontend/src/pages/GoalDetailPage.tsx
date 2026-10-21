@@ -20,6 +20,7 @@ import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
+import { GoalConsultationTab } from '../features/goalConsultation/GoalConsultationTab'
 import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
@@ -55,6 +56,11 @@ const EXAM_TABS = [
     key: 'loadProfile',
     labelKey: 'goals.detail.tabs.loadProfile',
     tooltipKey: 'goals.detail.tabTooltips.loadProfile',
+  },
+  {
+    key: 'goalConsultation',
+    labelKey: 'goals.detail.tabs.goalConsultation',
+    tooltipKey: 'goals.detail.tabTooltips.goalConsultation',
   },
 ] as const
 
@@ -377,6 +383,7 @@ export function GoalDetailPage() {
           {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
+          {activeTab === 'goalConsultation' && <GoalConsultationTab goalId={goal.id} />}
         </>
       )}
     </div>

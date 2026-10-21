@@ -10,6 +10,8 @@ ai.folder_prefix が指す共通フォルダ（既定値「ミチナリ」）配
 goal非依存の会話も無条件でフォルダに収める。
 """
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.ai import client as ai_client
@@ -20,6 +22,8 @@ from app.database import serialize_writes
 from app.models.ai import AiConversation
 from app.models.goal import Goal
 from app.services import setting_reader
+
+logger = logging.getLogger(__name__)
 
 
 def _find_existing(
@@ -83,3 +87,38 @@ def ensure_conversation(
     with serialize_writes():
         session.commit()
     return conversation
+
+
+def discard_conversation(
+    session: Session, conversation: AiConversation, *, folder_name: str
+) -> None:
+    """質問ごとに使い捨てる会話を削除し、一覧で削除を確認する。失敗しても呼び出し元の
+    戻り値（既に得られた回答）は失わない。
+
+    ヘルプAIアシスタント・目標相談チャットで共通の後始末処理（CODING_RULES.md DRYの原則。
+    元はヘルプ側にのみ実装されていた、S09で抽出）。開発キットの削除の戻り値は信頼しない
+    （NewtonX利用ナレッジ3.2）ため、削除後にフォルダのチャット一覧で残っていないかを
+    確認する。残っていた場合はログに残し、会話行は削除する（利用者の画面には影響させない）。
+
+    呼び出し元の`finally`から呼ばれる想定のため、ここで例外を外へ出すと、既に得られた
+    回答そのものが失われる（`finally`内の例外が呼び出し元の正常な戻り値を上書きするため）。
+    SQLiteの書き込みロック競合等の後始末自体の失敗でこれが起きないよう、ここでは例外を
+    外へ出さない。
+    """
+    try:
+        chat_uid = conversation.conversation_uid
+        try:
+            ai_client.delete_chat(session, chat_uid=chat_uid)
+            remains = ai_client.chat_listed_in_folder(
+                session, folder_name=folder_name, chat_uid=chat_uid
+            )
+        except AiError:
+            remains = True
+        if remains:
+            logger.warning("質問ごとのチャットが削除されませんでした（chat_uid=%s）", chat_uid)
+        session.delete(conversation)
+        with serialize_writes():
+            session.commit()
+    except Exception:  # noqa: BLE001
+        session.rollback()
+        logger.exception("質問ごとのチャットの後始末に失敗しました（会話行が残存の可能性）")

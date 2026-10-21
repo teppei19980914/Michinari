@@ -11,6 +11,7 @@ import unicodedata
 from sqlalchemy.orm import Session
 
 from app.models.ai import AiForbiddenTerm
+from app.services.exceptions import ValidationError
 
 #: 質問を区切りの中へ埋め込む前に、山括弧を全角へ置換する。区切り（`<<<QUESTION-...>>>`）を
 #: 利用者の入力から偽造できないようにするため（nonce と併用する二重の防御）。
@@ -42,3 +43,18 @@ def contains_forbidden_term(session: Session, text: str) -> bool:
     return any(
         key and key in normalized for key in (normalize_for_match(term.term) for term in terms)
     )
+
+
+def sanitize_question(raw: str, max_chars: int) -> str:
+    """質問を検証して整える。
+
+    制御文字（改行以外）を取り除き、前後の空白を除く。空・上限超過は `ValidationError`。
+    上限は呼び出し側が用途別の設定（`ai.help_question_max_chars`／
+    `ai.goal_consultation_question_max_chars`等）を読んで渡す。
+    """
+    cleaned = "".join(ch for ch in raw if ch == "\n" or unicodedata.category(ch) != "Cc").strip()
+    if not cleaned:
+        raise ValidationError("Question must not be empty")
+    if len(cleaned) > max_chars:
+        raise ValidationError(f"Question must be {max_chars} characters or fewer")
+    return cleaned
