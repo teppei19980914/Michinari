@@ -100,6 +100,7 @@ class AiPurpose(enum.StrEnum):
     RECAP_CLASSIFY = "RECAP_CLASSIFY"
     RECAP_THEME_BODY = "RECAP_THEME_BODY"
     HELP_ASSISTANT = "HELP_ASSISTANT"
+    GOAL_CONSULTATION = "GOAL_CONSULTATION"
 
 
 class ConversationScope(enum.StrEnum):
@@ -117,6 +118,7 @@ class ConversationScope(enum.StrEnum):
     EVALUATION_REPORT_WORK = "EVALUATION_REPORT_WORK"
     RECAP = "RECAP"
     HELP_ASSISTANT = "HELP_ASSISTANT"
+    GOAL_CONSULTATION = "GOAL_CONSULTATION"
 
 
 class WorkMemberGender(enum.StrEnum):
@@ -189,4 +191,21 @@ class HelpAnswerStatus(enum.StrEnum):
     #: ヘルプに記載が見当たらない（出典が実在しない・該当セクションが無い）。
     NOT_FOUND = "NOT_FOUND"
     #: 禁止語・長すぎる回答など、回答を表示できない。
+    UNAVAILABLE = "UNAVAILABLE"
+
+
+class GoalConsultationAnswerStatus(enum.StrEnum):
+    """目標相談チャット（S09）の回答の状態（開発Todo U17）。
+
+    `HelpAnswerStatus`と異なり`NOT_FOUND`は持たない。回答は「記録から言えること」と
+    「一般的な助言」を併記する構成（開発Todo U12）のため、記録に根拠が無い場合でも
+    一般的な助言は有用な回答になる。根拠が無いことの説明は、AIへの指示文で
+    「記録からはまだ判断できません」という固定フレーズを使わせる形でプロンプト側に
+    埋め込み（`prompt_texts_common.GOAL_CONSULTATION`）、API層の状態としては扱わない。
+    文言は画面側（`ja.json` の `goalConsultation.*`）で解決する。バックエンドは状態だけを返す。
+    """
+
+    #: 回答（出典の有無を問わない。出典が無い場合は本文内に理由が書かれる）。
+    ANSWERED = "ANSWERED"
+    #: 禁止語・長すぎる回答・出力形式の解釈失敗など、回答を表示できない。
     UNAVAILABLE = "UNAVAILABLE"

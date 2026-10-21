@@ -54,6 +54,17 @@ vi.mock('../api/goals', () => ({
 
 vi.mock('../api/records', () => ({ getToday: vi.fn(() => Promise.resolve(null)) }))
 
+// 目標相談チャット（S09）タブが子として取り込むため、AI接続状態と上限取得も用意しておく
+// （27行目のコメントと同じ理由）。
+const getAiStatus = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ authenticated: true, model_status: {}, login_in_progress: false })),
+)
+vi.mock('../api/ai', () => ({ getAiStatus }))
+vi.mock('../api/goalConsultation', () => ({
+  getGoalConsultationLimits: vi.fn(() => Promise.resolve({ max_question_chars: 300 })),
+  askGoalConsultationQuestion: vi.fn(),
+}))
+
 // URL から目標IDを読むため、ルートパラメータを固定する。
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
@@ -99,6 +110,7 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.subjects')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.materials')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.loadProfile')).not.toBeNull()
+    expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.book')).toBeNull()
     expect(tabButton('goals.detail.tabs.workAssignment')).toBeNull()
   })
@@ -111,9 +123,11 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.book')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.resourceAllocation')).not.toBeNull()
     // 読書は定量的な進捗管理を行わないため、試験科目・教材・負荷プロファイルは出さない。
+    // 目標相談チャットも資格目標専用のため出さない（開発Todo U7）。
     expect(tabButton('goals.detail.tabs.subjects')).toBeNull()
     expect(tabButton('goals.detail.tabs.materials')).toBeNull()
     expect(tabButton('goals.detail.tabs.loadProfile')).toBeNull()
+    expect(tabButton('goals.detail.tabs.goalConsultation')).toBeNull()
   })
 
   it('shows the work tabs for a work goal', async () => {
@@ -125,7 +139,9 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.monthlyReport')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.semiannualReview')).not.toBeNull()
     // 仕事はスロットを奪い合わないため配分タブを持たない。
+    // 目標相談チャットも資格目標専用のため出さない（開発Todo U7）。
     expect(tabButton('goals.detail.tabs.resourceAllocation')).toBeNull()
+    expect(tabButton('goals.detail.tabs.goalConsultation')).toBeNull()
   })
 
   it('switches the shown tab when another one is picked', async () => {
@@ -154,6 +170,18 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(
       await screen.findByText(t('goals.resourceAllocation.optionalForReading')),
     ).toBeDefined()
+  })
+
+  it('renders the goal consultation tab content for an exam goal', async () => {
+    // タブボタンは出るのに中身が描画されない実装漏れ（直上のテストと同種の事故）を防ぐため、
+    // ボタンの存在だけでなく中身（タブ見出し）が出ることまで確認する（開発Todo U7）。
+    const user = userEvent.setup()
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    await user.click(tabButton('goals.detail.tabs.goalConsultation')!)
+
+    expect(await screen.findByText(t('goalConsultation.disclaimer'))).toBeDefined()
   })
 })
 

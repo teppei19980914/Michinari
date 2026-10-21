@@ -61,6 +61,9 @@ def test_build_daily_feedback_returns_full_text_when_under_limit():
     assert result.exhausted is False
     assert result.prompt_chars == len(result.text)
     assert "目標A" in result.text
+    # included_entriesはbuild_with_degradable_entries専用（S09の出典検証用）。
+    # 既存のbuild_daily_feedbackは設定しない（既存5用途を無改修で保つための確認）。
+    assert result.included_entries is None
 
 
 def test_build_daily_feedback_substitutes_all_variables():
@@ -339,6 +342,54 @@ def test_build_with_degradable_entries_drops_oldest_entry_first():
     assert "古い記録" not in result.text
 
 
+def test_build_with_degradable_entries_included_entries_has_all_when_under_limit():
+    """S09（目標相談チャット）の出典検証向け：縮退が発生しない場合、includedは全件を返す。"""
+    entries = [_recall_entry(dt.date(2026, 1, 9), "窓内の記録")]
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls", entries=entries, empty_text="（直近の想起記録はありません）"
+            ),
+        ],
+    )
+    result = prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, 100000)
+
+    assert result.included_entries == {"recent_recalls": entries}
+
+
+def test_build_with_degradable_entries_included_entries_excludes_dropped_entry():
+    """縮退で除外されたエントリはincludedに残らない（出典として採用されない根拠）。"""
+    entries = [
+        _recall_entry(dt.date(2026, 1, 8), "古い記録" * 50),
+        _recall_entry(dt.date(2026, 1, 9), "新しい記録" * 50),
+    ]
+    context = _degradable_context(
+        stages=[
+            DegradableEntryStage(
+                key="recent_recalls",
+                entries=list(entries),
+                empty_text="（直近の想起記録はありません）",
+            ),
+        ],
+    )
+    full_text_len = len(
+        prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, 10**9).text
+    )
+    threshold = full_text_len - 100
+
+    result = prompt_builder.build_with_degradable_entries(_DEGRADABLE_TEMPLATE, context, threshold)
+
+    assert result.included_entries == {"recent_recalls": [entries[1]]}
+
+
+def test_build_with_degradable_entries_included_entries_empty_stage_is_empty_list():
+    result = prompt_builder.build_with_degradable_entries(
+        _DEGRADABLE_TEMPLATE, _degradable_context(), max_chars=100000
+    )
+
+    assert result.included_entries == {"recent_recalls": []}
+
+
 def test_build_with_degradable_entries_can_drop_all_entries_in_a_stage():
     # build_daily_feedbackのweekly_summariesも含め、S04以降はいずれの段階にも
     # 「最低1件残す」制約は無い（D7で撤廃）。対話履歴で削れる余地が無い場合、
@@ -493,6 +544,7 @@ def test_build_simple_returns_full_text_when_under_limit():
 
     assert result.text == "こんにちは太郎"
     assert result.was_truncated is False
+    assert result.included_entries is None
 
 
 def test_build_simple_truncates_when_over_limit():

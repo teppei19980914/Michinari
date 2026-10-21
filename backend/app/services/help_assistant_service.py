@@ -10,10 +10,8 @@
 （CODING_RULES.md「AI通信とトランザクション」）。
 """
 
-import logging
 import secrets
 import threading
-import unicodedata
 import uuid
 from dataclasses import dataclass
 
@@ -22,8 +20,8 @@ from sqlalchemy.orm import Session
 from app.ai import client as ai_client
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
-from app.ai import prompt_builder
-from app.ai.exceptions import AiAuthRequiredError, AiError
+from app.ai import prompt_builder, question_safety
+from app.ai.exceptions import AiAuthRequiredError
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_HELP,
     AI_HELP_ANSWER_MAX_CHARS,
@@ -34,19 +32,18 @@ from app.constants.enums import AiPurpose, ConversationScope, HelpAnswerStatus
 from app.constants.help_assistant import (
     CITATION_LINE_PATTERN,
     CITATION_SEPARATOR_PATTERN,
-    DELIMITER_REPLACEMENTS,
     HELP_CHAT_TITLE,
     MIN_SECTION_MATCHES,
-    NONCE_BYTES,
-    WHITESPACE_PATTERN,
 )
-from app.database import serialize_writes
-from app.models.ai import AiConversation, AiForbiddenTerm
 from app.services import setting_reader
-from app.services.exceptions import ValidationError
 from app.services.help_content import HelpSection, load_sections
 
-logger = logging.getLogger(__name__)
+#: 正規化・禁止語照合・区切りの全角化・質問の検証整形は目標相談チャット（S09）と共通のため
+#: `app.ai.question_safety` へ集約済み（CODING_RULES.md DRYの原則）。既存の呼び出し名
+#: （`normalize_for_match`・`sanitize_question`）はテスト（`test_help_assistant_service.py`）
+#: から直接参照されるため、モジュール属性として引き続き公開する。
+normalize_for_match = question_safety.normalize_for_match
+sanitize_question = question_safety.sanitize_question
 
 #: 質疑の直列化（開発Todo U12）。単一端末のため、プロセス内のロックで足りる。
 _REQUEST_LOCK = threading.Lock()
@@ -62,37 +59,6 @@ class HelpAnswer:
     status: HelpAnswerStatus
     text: str
     section_ids: tuple[str, ...]
-
-
-def normalize_for_match(text: str) -> str:
-    """照合用に正規化する（NFKC・小文字化・空白除去）。
-
-    全角と半角の違い、大文字と小文字の違い、空白の挿入による禁止語の回避を防ぐ。
-    """
-    return WHITESPACE_PATTERN.sub("", unicodedata.normalize("NFKC", text)).lower()
-
-
-def sanitize_question(raw: str, max_chars: int) -> str:
-    """質問を検証して整える。
-
-    制御文字（改行以外）を取り除き、前後の空白を除く。空・上限超過は `ValidationError`。
-    上限は `ai.help_question_max_chars`（呼び出し側で読んで渡す）。
-    """
-    cleaned = "".join(ch for ch in raw if ch == "\n" or unicodedata.category(ch) != "Cc").strip()
-    if not cleaned:
-        raise ValidationError("Question must not be empty")
-    if len(cleaned) > max_chars:
-        raise ValidationError(f"Question must be {max_chars} characters or fewer")
-    return cleaned
-
-
-def _contains_forbidden_term(session: Session, text: str) -> bool:
-    """有効な禁止語を含むかを返す（照合は正規化後）。語が空の行は照合に使わない。"""
-    normalized = normalize_for_match(text)
-    terms = session.query(AiForbiddenTerm).filter(AiForbiddenTerm.enabled.is_(True)).all()
-    return any(
-        key and key in normalized for key in (normalize_for_match(term.term) for term in terms)
-    )
 
 
 def _render_section(section: HelpSection) -> str:
@@ -179,35 +145,6 @@ def _parse_answer(raw: str, known_ids: frozenset[str]) -> tuple[str, tuple[str, 
     return body, cited
 
 
-def _discard_conversation(session: Session, conversation: AiConversation, folder_name: str) -> None:
-    """質問ごとのチャットを削除し、一覧で削除を確認する。失敗しても回答は失わない。
-
-    開発キットの削除の戻り値は信頼しない（開発Todo T-03）。残っていた場合はログに残し、
-    会話行は削除する（利用者の画面には影響させない）。この関数は`_send_question`の
-    `finally`から呼ばれるため、ここで例外を外へ出すと、既に得られた回答そのものが
-    失われる（`finally`内の例外が呼び出し元の正常な戻り値を上書きするため）。
-    SQLiteの書き込みロック競合（2026-10-09の不具合）等の後始末自体の失敗でこれが
-    起きないよう、ここでは例外を外へ出さない。
-    """
-    try:
-        chat_uid = conversation.conversation_uid
-        try:
-            ai_client.delete_chat(session, chat_uid=chat_uid)
-            remains = ai_client.chat_listed_in_folder(
-                session, folder_name=folder_name, chat_uid=chat_uid
-            )
-        except AiError:
-            remains = True
-        if remains:
-            logger.warning("ヘルプ質問のチャットが削除されませんでした（chat_uid=%s）", chat_uid)
-        session.delete(conversation)
-        with serialize_writes():
-            session.commit()
-    except Exception:  # noqa: BLE001
-        session.rollback()
-        logger.exception("ヘルプ質問のチャットの後始末に失敗しました（会話行が残存の可能性）")
-
-
 def _send_question(session: Session, *, prompt_text: str, prompt_chars: int) -> str:
     """質問ごとのチャットを作り、送信して、後始末を行う。応答本文を返す。"""
     folder_name = setting_reader.get_str(session, AI_HELP_FOLDER_NAME)
@@ -230,7 +167,7 @@ def _send_question(session: Session, *, prompt_text: str, prompt_chars: int) -> 
             was_truncated=False,
         )
     finally:
-        _discard_conversation(session, conversation, folder_name)
+        ai_conversation.discard_conversation(session, conversation, folder_name=folder_name)
     return result.response_text
 
 
@@ -240,7 +177,7 @@ def _interpret(session: Session, raw: str, sections: tuple[HelpSection, ...]) ->
     if not cited or not body:
         return HelpAnswer(HelpAnswerStatus.NOT_FOUND, "", ())
     max_chars = setting_reader.get_int(session, AI_HELP_ANSWER_MAX_CHARS)
-    if len(body) > max_chars or _contains_forbidden_term(session, body):
+    if len(body) > max_chars or question_safety.contains_forbidden_term(session, body):
         return HelpAnswer(HelpAnswerStatus.UNAVAILABLE, "", ())
     return HelpAnswer(HelpAnswerStatus.ANSWERED, body, cited)
 
@@ -249,15 +186,15 @@ def _answer_locked(session: Session, raw_question: str) -> HelpAnswer:
     """質疑の本体（ロックを取った状態で呼ぶ）。"""
     max_question_chars = setting_reader.get_int(session, AI_HELP_QUESTION_MAX_CHARS)
     question = sanitize_question(raw_question, max_question_chars)
-    if _contains_forbidden_term(session, question):
+    if question_safety.contains_forbidden_term(session, question):
         return HelpAnswer(HelpAnswerStatus.UNAVAILABLE, "", ())
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
 
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     template = ai_orchestration.load_template_body(session, AiPurpose.HELP_ASSISTANT)
-    nonce = secrets.token_hex(NONCE_BYTES)
-    escaped_question = question.translate(DELIMITER_REPLACEMENTS)
+    nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+    escaped_question = question.translate(question_safety.DELIMITER_REPLACEMENTS)
     sections = load_sections()
     help_body, chosen = _build_help_body(
         sections,
