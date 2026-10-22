@@ -83,7 +83,9 @@ def test_ask_saves_log_entry_with_reading_goal(seeded_session, monkeypatch):
     goal = _make_reading_goal_with_book_and_log(seeded_session)
     FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
-    service.ask(seeded_session, goal=goal, today=_TODAY, raw_question="前に読んだ本とのつながりは？")
+    service.ask(
+        seeded_session, goal=goal, today=_TODAY, raw_question="前に読んだ本とのつながりは？"
+    )
 
     log = seeded_session.query(GoalConsultationLog).filter_by(goal_id=goal.id).one()
     assert log.answer_status is GoalConsultationAnswerStatus.ANSWERED

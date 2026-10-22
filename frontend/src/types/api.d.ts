@@ -1237,6 +1237,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/consultation/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List History
+         * @description 相談履歴の一覧を作成日時の古い順で返す（S10、開発Todo v1.1 V7）。
+         */
+        get: operations["list_history_api_v1_goals__goal_id__consultation_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/consultation/history/{log_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete History Item
+         * @description 相談履歴を1件削除する（S10、開発Todo v1.1 V7）。
+         */
+        delete: operations["delete_history_item_api_v1_goals__goal_id__consultation_history__log_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: {
             query?: never;
@@ -1963,7 +2003,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2667,14 +2707,17 @@ export interface components {
         };
         /**
          * GoalConsultationAnswerStatus
-         * @description 目標相談チャット（S09）の回答の状態（開発Todo U17）。
+         * @description 目標相談チャット（S09で資格目標向けに導入、S10で読書・仕事へ展開）の回答の状態
+         *     （開発Todo U17）。
          *
          *     `HelpAnswerStatus`と異なり`NOT_FOUND`は持たない。回答は「記録から言えること」と
          *     「一般的な助言」を併記する構成（開発Todo U12）のため、記録に根拠が無い場合でも
          *     一般的な助言は有用な回答になる。根拠が無いことの説明は、AIへの指示文で
          *     「記録からはまだ判断できません」という固定フレーズを使わせる形でプロンプト側に
-         *     埋め込み（`prompt_texts_common.GOAL_CONSULTATION`）、API層の状態としては扱わない。
-         *     文言は画面側（`ja.json` の `goalConsultation.*`）で解決する。バックエンドは状態だけを返す。
+         *     埋め込み（`prompt_texts_exam.GOAL_CONSULTATION`・`prompt_texts_reading.
+         *     GOAL_CONSULTATION_READING`・`prompt_texts_work.GOAL_CONSULTATION_WORK`）、
+         *     API層の状態としては扱わない。文言は画面側（`ja.json` の `goalConsultation.*`）で
+         *     解決する。バックエンドは状態だけを返す。
          * @enum {string}
          */
         GoalConsultationAnswerStatus: "ANSWERED" | "UNAVAILABLE";
@@ -2693,6 +2736,28 @@ export interface components {
              * Format: date
              */
             end: string;
+        };
+        /**
+         * GoalConsultationHistoryItemRead
+         * @description 相談履歴の1件（S10、開発Todo v1.1 V7）。
+         */
+        GoalConsultationHistoryItemRead: {
+            /** Id */
+            id: number;
+            /** Question */
+            question: string;
+            status: components["schemas"]["GoalConsultationAnswerStatus"];
+            /** Answer */
+            answer: string | null;
+            /** Cited Dates */
+            cited_dates: string[];
+            /** Cited Weeks */
+            cited_weeks: components["schemas"]["GoalConsultationCitedWeek"][];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /**
          * GoalConsultationLimitsRead
@@ -6904,6 +6969,67 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GoalConsultationLimitsRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_history_api_v1_goals__goal_id__consultation_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalConsultationHistoryItemRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_history_item_api_v1_goals__goal_id__consultation_history__log_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                log_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

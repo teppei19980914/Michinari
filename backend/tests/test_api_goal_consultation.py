@@ -1,8 +1,11 @@
-"""目標相談チャットのAPIのテスト（S09、要件定義書R-104、開発Todo B-06・B-08）。
+"""目標相談チャットのAPIのテスト（S09で導入・S10で読書・仕事へ展開＋履歴API追加、
+要件定義書R-104、開発Todo v1.1 B-06）。
 
 AI基盤へは接続せず、app.ai.client の通信関数を差し替える。API層の責務（リクエストの受け付け、
-ステータスと応答形式、ドメイン例外のHTTP変換、資格以外の目標での拒否）を確かめる
-（test_api_help_assistant.pyと同じ方針）。
+ステータスと応答形式、ドメイン例外のHTTP変換、相談履歴の一覧/削除）を確かめる
+（test_api_help_assistant.pyと同じ方針）。カテゴリ別の変数組み立ての中身は
+test_goal_consultation_service_exam/_reading/_work.pyで検証済みのため、ここではAPIが
+EXAM・READING・WORKのいずれでも受理されることだけを確認する（CODING_RULES.md DRYの原則）。
 """
 
 import datetime as dt
@@ -49,6 +52,19 @@ def reading_goal(seeded_session):
 
 
 @pytest.fixture
+def work_goal(seeded_session):
+    goal = Goal(
+        name="仕事目標",
+        start_date=dt.date(2026, 1, 1),
+        status=GoalStatus.ACTIVE,
+        category=GoalCategory.WORK,
+    )
+    seeded_session.add(goal)
+    seeded_session.commit()
+    return goal
+
+
+@pytest.fixture
 def fake_ai(monkeypatch):
     monkeypatch.setattr(ai_client, "is_authenticated", lambda session: True)
     monkeypatch.setattr(
@@ -79,15 +95,15 @@ def test_post_question_returns_answer(client, exam_goal, fake_ai):
     assert body["cited_weeks"] == []
 
 
-def test_post_question_on_reading_goal_is_rejected(client, reading_goal, fake_ai):
-    """資格以外の目標では使えない（開発Todo U7、API直叩きの拒否）。"""
+def test_post_question_on_reading_goal_is_accepted(client, reading_goal, fake_ai):
+    """S10でEXAM専用ガードを撤廃し、READINGでも使える（開発Todo v1.1 V1）。"""
     response = client.post(
         f"/api/v1/goals/{reading_goal.id}/consultation/questions",
         json={"question": "この後何を読むべきですか？"},
     )
 
-    assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 200
+    assert response.json()["status"] == "ANSWERED"
 
 
 def test_post_question_on_missing_goal_returns_not_found(client, fake_ai):
@@ -173,5 +189,93 @@ def test_get_limits_reflects_app_setting(client, exam_goal, seeded_session):
 
 def test_get_limits_on_missing_goal_returns_not_found(client):
     response = client.get("/api/v1/goals/999999/consultation/limits")
+
+    assert response.status_code == 404
+
+
+def test_post_question_on_work_goal_is_accepted(client, work_goal, fake_ai):
+    """S10でEXAM専用ガードを撤廃し、WORKでも使える（開発Todo v1.1 V1）。"""
+    response = client.post(
+        f"/api/v1/goals/{work_goal.id}/consultation/questions",
+        json={"question": "最近の課題の傾向は？"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ANSWERED"
+
+
+# --- 相談履歴（S10、開発Todo v1.1 V7） ---
+
+
+def test_get_history_returns_saved_entries_in_order(client, exam_goal, fake_ai):
+    client.post(
+        f"/api/v1/goals/{exam_goal.id}/consultation/questions", json={"question": "質問1"}
+    )
+    client.post(
+        f"/api/v1/goals/{exam_goal.id}/consultation/questions", json={"question": "質問2"}
+    )
+
+    response = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert [item["question"] for item in body] == ["質問1", "質問2"]
+    assert body[0]["status"] == "ANSWERED"
+    assert body[0]["cited_dates"] == []
+    assert body[0]["cited_weeks"] == []
+    assert "created_at" in body[0]
+
+
+def test_get_history_excludes_other_goals(client, exam_goal, reading_goal, fake_ai):
+    client.post(
+        f"/api/v1/goals/{exam_goal.id}/consultation/questions", json={"question": "資格の質問"}
+    )
+    client.post(
+        f"/api/v1/goals/{reading_goal.id}/consultation/questions", json={"question": "読書の質問"}
+    )
+
+    response = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history")
+
+    assert [item["question"] for item in response.json()] == ["資格の質問"]
+
+
+def test_get_history_on_missing_goal_returns_not_found(client):
+    response = client.get("/api/v1/goals/999999/consultation/history")
+
+    assert response.status_code == 404
+
+
+def test_delete_history_item_removes_it(client, exam_goal, fake_ai):
+    client.post(
+        f"/api/v1/goals/{exam_goal.id}/consultation/questions", json={"question": "質問"}
+    )
+    [entry] = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json()
+
+    response = client.delete(
+        f"/api/v1/goals/{exam_goal.id}/consultation/history/{entry['id']}"
+    )
+
+    assert response.status_code == 204
+    assert client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json() == []
+
+
+def test_delete_history_item_on_another_goal_returns_not_found(
+    client, exam_goal, reading_goal, fake_ai
+):
+    """他目標の履歴は削除できない（認可境界、開発Todo v1.1 §5）。"""
+    client.post(
+        f"/api/v1/goals/{exam_goal.id}/consultation/questions", json={"question": "資格の質問"}
+    )
+    [entry] = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json()
+
+    response = client.delete(
+        f"/api/v1/goals/{reading_goal.id}/consultation/history/{entry['id']}"
+    )
+
+    assert response.status_code == 404
+
+
+def test_delete_history_item_on_missing_log_id_returns_not_found(client, exam_goal):
+    response = client.delete(f"/api/v1/goals/{exam_goal.id}/consultation/history/999999")
 
     assert response.status_code == 404
