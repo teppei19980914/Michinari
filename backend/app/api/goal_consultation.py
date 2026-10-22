@@ -64,7 +64,9 @@ def get_limits(goal_id: int, session: Session = Depends(get_db)) -> GoalConsulta
 @router.get(
     "/goals/{goal_id}/consultation/history", response_model=list[GoalConsultationHistoryItemRead]
 )
-def list_history(goal_id: int, session: Session = Depends(get_db)) -> list[GoalConsultationHistoryItemRead]:
+def list_history(
+    goal_id: int, session: Session = Depends(get_db)
+) -> list[GoalConsultationHistoryItemRead]:
     """相談履歴の一覧を作成日時の古い順で返す（S10、開発Todo v1.1 V7）。"""
     goal = goal_service.get_goal(session, goal_id)
     entries = goal_consultation_log_service.list_for_goal(session, goal)

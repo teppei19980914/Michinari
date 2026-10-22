@@ -1,6 +1,12 @@
-/** 目標相談チャットの判定ロジックのテスト（S09、開発Todo F-02）。 */
+/** 目標相談チャットの判定ロジックのテスト（S09で導入、S10で質問例ボタンのテストを追加、
+ * 開発Todo v1.1 F-02）。 */
 import { describe, expect, it } from 'vitest'
-import { errorMessageKey, UNAVAILABLE_MESSAGE_KEY, validateQuestion } from './goalConsultationLogic'
+import {
+  errorMessageKey,
+  questionExampleKeys,
+  UNAVAILABLE_MESSAGE_KEY,
+  validateQuestion,
+} from './goalConsultationLogic'
 
 describe('validateQuestion（送信前の質問検証）', () => {
   it('空白だけの質問は空として扱う', () => {
@@ -34,5 +40,29 @@ describe('errorMessageKey（通信エラーの文言）', () => {
   it('それ以外のエラー、またはコード不明は汎用の失敗文言', () => {
     expect(errorMessageKey('AI_ERROR')).toBe('goalConsultation.error')
     expect(errorMessageKey(undefined)).toBe('goalConsultation.error')
+  })
+})
+
+describe('questionExampleKeys（目標の種類ごとの質問例）', () => {
+  it('資格は3件のロケールキーを返す', () => {
+    expect(questionExampleKeys('EXAM')).toEqual([
+      'goalConsultation.questionExamples.exam1',
+      'goalConsultation.questionExamples.exam2',
+      'goalConsultation.questionExamples.exam3',
+    ])
+  })
+
+  it('読書は2件のロケールキーを返す', () => {
+    expect(questionExampleKeys('READING')).toEqual([
+      'goalConsultation.questionExamples.reading1',
+      'goalConsultation.questionExamples.reading2',
+    ])
+  })
+
+  it('仕事は2件のロケールキーを返す', () => {
+    expect(questionExampleKeys('WORK')).toEqual([
+      'goalConsultation.questionExamples.work1',
+      'goalConsultation.questionExamples.work2',
+    ])
   })
 })
