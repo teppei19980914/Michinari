@@ -1,10 +1,11 @@
-"""目標相談チャットのリクエスト・レスポンススキーマ（S09、要件定義書R-104）。
+"""目標相談チャットのリクエスト・レスポンススキーマ（S09、要件定義書R-104。S10で履歴の
+スキーマを追加）。
 
 回答の文言はバックエンドで持たない。画面は`status`に応じて`ja.json`の文言を出す
 （`help_assistant.py`と同じ方針）。
 """
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -41,3 +42,15 @@ class GoalConsultationLimitsRead(BaseModel):
     """画面が表示・検証に使う上限（app_settingの値）。"""
 
     max_question_chars: int
+
+
+class GoalConsultationHistoryItemRead(BaseModel):
+    """相談履歴の1件（S10、開発Todo v1.1 V7）。"""
+
+    id: int
+    question: str
+    status: GoalConsultationAnswerStatus
+    answer: str | None
+    cited_dates: list[date]
+    cited_weeks: list[GoalConsultationCitedWeek]
+    created_at: datetime
