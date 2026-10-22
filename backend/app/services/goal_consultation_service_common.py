@@ -188,6 +188,20 @@ def _build_category_context(session: Session, goal: Goal, today: dt.date) -> Cat
     raise ValidationError(f"Unsupported goal category: {goal.category}")  # pragma: no cover
 
 
+def _save_log(session: Session, goal: Goal, question: str, answer: GoalConsultationAnswer) -> None:
+    """`GoalConsultationAnswer`のフィールドを`goal_consultation_log_service.save`の
+    スカラー引数へ展開する（3つの呼び出し箇所で共通化、CLAUDE.md DRYの原則）。"""
+    goal_consultation_log_service.save(
+        session,
+        goal=goal,
+        question=question,
+        answer_status=answer.status,
+        answer_body=answer.text,
+        cited_dates=answer.cited_dates,
+        cited_weeks=answer.cited_weeks,
+    )
+
+
 def _answer_locked(
     session: Session, goal: Goal, today: dt.date, raw_question: str
 ) -> GoalConsultationAnswer:
@@ -196,7 +210,7 @@ def _answer_locked(
     question = question_safety.sanitize_question(raw_question, max_question_chars)
     if question_safety.contains_forbidden_term(session, question):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        goal_consultation_log_service.save(session, goal=goal, question=question, answer=answer)
+        _save_log(session, goal, question, answer)
         return answer
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
@@ -235,7 +249,7 @@ def _answer_locked(
     # 判定と同じ方針）。
     if prompt_builder.exceeds_with_entries_emptied(template, context, max_chars):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        goal_consultation_log_service.save(session, goal=goal, question=question, answer=answer)
+        _save_log(session, goal, question, answer)
         return answer
     build_result = prompt_builder.build_with_degradable_entries(template, context, max_chars)
 
@@ -261,7 +275,7 @@ def _answer_locked(
         prompt_chars=build_result.prompt_chars,
     )
     answer = _interpret(session, raw, valid_dates, valid_weeks)
-    goal_consultation_log_service.save(session, goal=goal, question=question, answer=answer)
+    _save_log(session, goal, question, answer)
     return answer
 
 

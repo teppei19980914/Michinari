@@ -1,6 +1,6 @@
 """利用者の自由入力をAIへ送る前の安全対策の共通処理（CODING_RULES.md DRYの原則）。
 
-ヘルプAIアシスタント（`help_assistant_service.py`）・目標相談チャット（`goal_consultation_service.py`）
+ヘルプAIアシスタント（`help_assistant_service.py`）・目標相談チャット（`goal_consultation_service_common.py`）
 など、利用者の自由入力を受け付けてAIへ送る用途で共通する処理をここへ集約する
 （S09、両用途で同じ実装だったものを抽出。元はヘルプ側にのみ実装されていた）。
 """
