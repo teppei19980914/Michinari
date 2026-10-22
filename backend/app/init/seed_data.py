@@ -218,7 +218,9 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.WEEKLY_SUMMARY_WORK: prompt_texts_work.WEEKLY_SUMMARY_WORK,
     AiPurpose.EVALUATION_REPORT_WORK: prompt_texts_work.EVALUATION_REPORT_WORK,
     AiPurpose.HELP_ASSISTANT: prompt_texts_common.HELP_ASSISTANT,
-    AiPurpose.GOAL_CONSULTATION: prompt_texts_common.GOAL_CONSULTATION,
+    AiPurpose.GOAL_CONSULTATION: prompt_texts_exam.GOAL_CONSULTATION,
+    AiPurpose.GOAL_CONSULTATION_READING: prompt_texts_reading.GOAL_CONSULTATION_READING,
+    AiPurpose.GOAL_CONSULTATION_WORK: prompt_texts_work.GOAL_CONSULTATION_WORK,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

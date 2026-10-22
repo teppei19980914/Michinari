@@ -275,6 +275,18 @@ def build_evaluation_member_summary_text(session: Session, member: WorkMember) -
     return "\n".join(lines)
 
 
+def build_member_summary_text(session: Session, members: list[WorkMember]) -> str:
+    """{{member_summary}}（S10目標相談、GOAL_CONSULTATION_WORK）: チームメンバー全員分の
+    `build_evaluation_member_summary_text`を連結したもの（利用者確認済み、開発Todo v1.1
+    V11）。`characteristics`は保存時点で同意確認済み（`work_member_service.
+    _apply_characteristics`）のため、ここでの追加の同意チェックは不要。"""
+    if not members:
+        return "（対象メンバーはいません）"
+    return "\n\n".join(
+        build_evaluation_member_summary_text(session, member) for member in members
+    )
+
+
 def build_evaluation_feedback_history_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:
     """{{feedback_history}}（EVALUATION_REPORT_WORK）: この目標（案件）の日次報告
     フィードバック（DAILY_FEEDBACK_WORK）のうちNewtonXからの応答（role=ASSISTANT）を
