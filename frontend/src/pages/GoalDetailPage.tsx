@@ -84,6 +84,11 @@ const READING_TABS = [
     labelKey: 'goals.detail.tabs.resourceAllocation',
     tooltipKey: 'goals.detail.tabTooltips.resourceAllocation',
   },
+  {
+    key: 'goalConsultation',
+    labelKey: 'goals.detail.tabs.goalConsultation',
+    tooltipKey: 'goals.detail.tabTooltips.goalConsultationReading',
+  },
 ] as const
 
 /** 仕事目標（category=WORK）は基本情報＋案件情報＋月次報告＋半期評価の構成とする
@@ -114,6 +119,11 @@ const WORK_TABS = [
     key: 'evaluationReport',
     labelKey: 'goals.detail.tabs.evaluationReport',
     tooltipKey: 'goals.detail.tabTooltips.evaluationReport',
+  },
+  {
+    key: 'goalConsultation',
+    labelKey: 'goals.detail.tabs.goalConsultation',
+    tooltipKey: 'goals.detail.tabTooltips.goalConsultationWork',
   },
 ] as const
 
@@ -383,8 +393,12 @@ export function GoalDetailPage() {
           {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
-          {activeTab === 'goalConsultation' && <GoalConsultationTab goalId={goal.id} />}
         </>
+      )}
+      {/* 目標相談は資格・読書・仕事の3種別で共通のため（S10、開発Todo v1.1 V1）、
+          resourceAllocationと同じ理由でカテゴリ別ブロックの外に置く。 */}
+      {activeTab === 'goalConsultation' && (
+        <GoalConsultationTab goalId={goal.id} category={goal.category} />
       )}
     </div>
   )

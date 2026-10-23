@@ -23,6 +23,7 @@ _TEMPLATE = (
     "日記:{{diary_body}}\n"
     "本日:{{today}} {{day_type}} {{load_coefficient}}\n"
     "目標:{{goal_summary}}\n"
+    "受験結果:{{exam_results}}\n"
     "スロット:{{slot_summary}}\n"
     "バッファ:{{buffer_usage_rate}}\n"
     "実績:{{today_logs}}\n"
@@ -40,6 +41,7 @@ def _context(**overrides) -> DailyFeedbackContext:
         day_type="PLAN",
         load_coefficient="1.00",
         goal_summary="目標A",
+        exam_results="（試験科目未登録）",
         material_entries=[],
         slot_summary="スロットなし",
         buffer_usage_rate="0%",
@@ -81,6 +83,16 @@ def test_build_daily_feedback_substitutes_all_variables():
     assert "過去問を解いた" in result.text
     assert "【学習者】質問です" in result.text
     assert "【AI】回答です" in result.text
+
+
+def test_build_daily_feedback_substitutes_exam_results():
+    """科目単位で先に合否が確定した状態（例: 科目Aのみ合格登録済み）でも、
+    AIがその事実を把握できるよう{{exam_results}}がそのまま差し込まれること。"""
+    context = _context(exam_results="・科目A: 合格、得点 69.0（受験日 2026-08-01）")
+
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, max_chars=100000)
+
+    assert "・科目A: 合格、得点 69.0（受験日 2026-08-01）" in result.text
 
 
 def test_build_daily_feedback_substitutes_perspective_suggestion():

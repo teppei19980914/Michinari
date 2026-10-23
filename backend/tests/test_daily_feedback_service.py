@@ -14,11 +14,19 @@ from app.ai import client as ai_client
 from app.ai import rate_limiter
 from app.ai.exceptions import AiError
 from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
-from app.constants.enums import ChatRole, GoalCategory, GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import (
+    ChatRole,
+    ExamDateType,
+    ExamResultType,
+    GoalCategory,
+    GoalStatus,
+    QualityMetricType,
+    RecordState,
+)
 from app.models.ai import AiConversation, AiLog
-from app.models.goal import Goal
+from app.models.goal import ExamSubject, Goal
 from app.models.material import Material
-from app.models.record import ChatMessage
+from app.models.record import ChatMessage, ExamResult
 from app.models.setting import AppSetting
 from app.services import daily_feedback_service, record_service_common, record_service_exam
 from app.services.exceptions import (
@@ -517,3 +525,52 @@ def test_send_daily_feedback_omits_perspective_suggestion_once_enough_records_ex
     )
 
     assert "断定" not in calls[0]["message"]
+
+
+# --- 科目単位の受験結果の注入（情報処理安全確保支援士のような二段階試験、2026-10-23） ---
+
+
+def test_send_daily_feedback_includes_registered_subject_result(seeded_session, monkeypatch):
+    """科目Aのみ合格登録済みで科目Bが未登録のまま目標がACTIVEで継続する状態でも、
+    AIが科目Aの合否を事実として把握できるよう{{exam_results}}へ反映されること。"""
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+    subject_a = ExamSubject(
+        goal_id=goal.id,
+        name="科目A",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_fixed=dt.date(2026, 8, 1),
+        display_order=1,
+    )
+    subject_b = ExamSubject(
+        goal_id=goal.id,
+        name="科目B",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_fixed=dt.date(2026, 9, 20),
+        display_order=2,
+    )
+    seeded_session.add_all([subject_a, subject_b])
+    seeded_session.flush()
+    seeded_session.add(
+        ExamResult(
+            subject_id=subject_a.id,
+            taken_date=dt.date(2026, 8, 1),
+            result=ExamResultType.PASS,
+            score=69.0,
+        )
+    )
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[],
+        diary_entries=[],
+    )
+
+    assert "科目A: 合格、得点 69.0" in calls[0]["message"]
+    assert "科目B: 未登録" in calls[0]["message"]

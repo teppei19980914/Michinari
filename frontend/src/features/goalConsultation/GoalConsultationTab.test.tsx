@@ -1,4 +1,5 @@
-/** 目標相談チャットのタブの描画テスト（S09、開発Todo F-03）。
+/** 目標相談チャットのタブの描画テスト（S09で導入、S10で質問例ボタン・相談履歴を追加、
+ * 開発Todo v1.1 F-03）。
  *
  * 通信は`api/goalConsultation`を差し替えて検証する。回答が「文字として」描画されること、
  * 生HTMLが実行・描画されないこと（XSS回帰）、根拠の日付が日次報告の閲覧画面へのリンクに
@@ -6,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ApiError } from '../../api/client'
+import { ApiError, apiErrorMessage } from '../../api/client'
 import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -14,9 +15,13 @@ import { GoalConsultationTab } from './GoalConsultationTab'
 
 const askGoalConsultationQuestion = vi.hoisted(() => vi.fn())
 const getGoalConsultationLimits = vi.hoisted(() => vi.fn())
+const getGoalConsultationHistory = vi.hoisted(() => vi.fn())
+const deleteGoalConsultationHistoryItem = vi.hoisted(() => vi.fn())
 vi.mock('../../api/goalConsultation', () => ({
   askGoalConsultationQuestion,
   getGoalConsultationLimits,
+  getGoalConsultationHistory,
+  deleteGoalConsultationHistoryItem,
 }))
 
 const getAiStatus = vi.hoisted(() => vi.fn())
@@ -26,6 +31,8 @@ const GOAL_ID = 42
 
 beforeEach(() => {
   getGoalConsultationLimits.mockResolvedValue({ max_question_chars: 300 })
+  getGoalConsultationHistory.mockResolvedValue([])
+  deleteGoalConsultationHistoryItem.mockResolvedValue(undefined)
   getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
@@ -47,7 +54,7 @@ async function ask(text: string) {
 
 describe('GoalConsultationTab', () => {
   it('タイトルと免責文を表示し、入力が空のあいだは送信できない', async () => {
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     expect(await screen.findByText(t('goalConsultation.disclaimer'))).toBeTruthy()
     expect(screen.getByText(t('goalConsultation.noHistoryYet'))).toBeTruthy()
@@ -64,7 +71,7 @@ describe('GoalConsultationTab', () => {
       cited_dates: ['2026-01-15'],
       cited_weeks: [{ start: '2026-01-05', end: '2026-01-11' }],
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('この後何を勉強すべき？')
 
@@ -82,7 +89,7 @@ describe('GoalConsultationTab', () => {
       cited_dates: [],
       cited_weeks: [],
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('何か')
 
@@ -96,7 +103,7 @@ describe('GoalConsultationTab', () => {
       cited_dates: [],
       cited_weeks: [],
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('根拠のない質問')
 
@@ -111,7 +118,7 @@ describe('GoalConsultationTab', () => {
       cited_dates: [],
       cited_weeks: [],
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('本文のない回答')
 
@@ -120,7 +127,7 @@ describe('GoalConsultationTab', () => {
 
   it('AI未接続のエラーは接続案内を出す', async () => {
     askGoalConsultationQuestion.mockRejectedValue(new ApiError('AI_AUTH_REQUIRED', 'x'))
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('質問')
 
@@ -129,7 +136,7 @@ describe('GoalConsultationTab', () => {
 
   it('それ以外の通信エラーは汎用の失敗文言を出す', async () => {
     askGoalConsultationQuestion.mockRejectedValue(new Error('network'))
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('質問')
 
@@ -143,7 +150,7 @@ describe('GoalConsultationTab', () => {
       cited_dates: [],
       cited_weeks: [],
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('危険な回答')
 
@@ -153,7 +160,7 @@ describe('GoalConsultationTab', () => {
   })
 
   it('質問の上限を超える入力は警告を出し、送信できない', async () => {
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
     await waitFor(() => expect(getGoalConsultationLimits).toHaveBeenCalled())
 
     fireEvent.change(screen.getByRole('textbox', { name: t('goalConsultation.placeholder') }), {
@@ -169,7 +176,7 @@ describe('GoalConsultationTab', () => {
 
   it('送信中は入力を無効化し、送信中の表示を出す', async () => {
     askGoalConsultationQuestion.mockReturnValue(new Promise(() => {}))
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     await ask('質問')
 
@@ -185,14 +192,14 @@ describe('GoalConsultationTab', () => {
       model_status: {},
       login_in_progress: false,
     })
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     expect(await screen.findByText(t('aiUnconfigured.message'))).toBeTruthy()
     expect(screen.queryByRole('textbox', { name: t('goalConsultation.placeholder') })).toBeNull()
   })
 
   it('送信できない状態でフォームを送信しても、質問は送られない', async () => {
-    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} />)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
     await waitFor(() => expect(getGoalConsultationLimits).toHaveBeenCalled())
 
     fireEvent.submit(
@@ -200,5 +207,126 @@ describe('GoalConsultationTab', () => {
     )
 
     expect(askGoalConsultationQuestion).not.toHaveBeenCalled()
+  })
+
+  it('質問例ボタンは目標の種類ごとに異なり、クリックで入力欄に差し込まれる（送信はしない）', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="READING" />)
+    await waitFor(() => expect(getGoalConsultationLimits).toHaveBeenCalled())
+
+    expect(
+      screen.queryByRole('button', {
+        name: t('goalConsultation.questionExamples.exam1'),
+      }),
+    ).toBeNull()
+    await user.click(
+      screen.getByRole('button', { name: t('goalConsultation.questionExamples.reading1') }),
+    )
+
+    const textarea = screen.getByRole('textbox', {
+      name: t('goalConsultation.placeholder'),
+    }) as HTMLTextAreaElement
+    expect(textarea.value).toBe(t('goalConsultation.questionExamples.reading1'))
+    expect(askGoalConsultationQuestion).not.toHaveBeenCalled()
+  })
+
+  it('相談履歴が無い場合は空状態の文言を出す', async () => {
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    expect(await screen.findByText(t('goalConsultation.historyEmpty'))).toBeTruthy()
+  })
+
+  it('保存済みの相談履歴を一覧表示する', async () => {
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        question: '過去の質問',
+        status: 'ANSWERED',
+        answer: '過去の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-10T00:00:00',
+      },
+    ])
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    expect(await screen.findByText('過去の質問')).toBeTruthy()
+    expect(screen.getByText('過去の回答です。')).toBeTruthy()
+  })
+
+  it('相談履歴を削除できる', async () => {
+    const user = userEvent.setup()
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        question: '過去の質問',
+        status: 'ANSWERED',
+        answer: '過去の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-10T00:00:00',
+      },
+    ])
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await screen.findByText('過去の質問')
+
+    await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
+
+    await waitFor(() => expect(deleteGoalConsultationHistoryItem).toHaveBeenCalledWith(GOAL_ID, 1))
+  })
+
+  it('削除確認をキャンセルした場合は削除しない', async () => {
+    const user = userEvent.setup()
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        question: '過去の質問',
+        status: 'ANSWERED',
+        answer: '過去の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-10T00:00:00',
+      },
+    ])
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await screen.findByText('過去の質問')
+
+    await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
+
+    expect(deleteGoalConsultationHistoryItem).not.toHaveBeenCalled()
+  })
+
+  it('相談履歴の取得に失敗した場合はエラー文言を表示する', async () => {
+    const error = new ApiError('VALIDATION_ERROR', 'x')
+    getGoalConsultationHistory.mockRejectedValue(error)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    expect(await screen.findByText(apiErrorMessage(error))).toBeTruthy()
+  })
+
+  it('相談履歴の削除に失敗した場合はエラーをトースト表示する', async () => {
+    const user = userEvent.setup()
+    const error = new ApiError('VALIDATION_ERROR', 'x')
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        question: '過去の質問',
+        status: 'ANSWERED',
+        answer: '過去の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-10T00:00:00',
+      },
+    ])
+    deleteGoalConsultationHistoryItem.mockRejectedValue(error)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await screen.findByText('過去の質問')
+
+    await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
+
+    expect(await screen.findByText(apiErrorMessage(error))).toBeTruthy()
   })
 })
