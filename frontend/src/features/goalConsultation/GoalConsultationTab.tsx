@@ -1,9 +1,12 @@
-/** 目標相談チャットのタブ（S09、要件定義書R-104）。
+/** 目標相談チャットのタブ（S09で資格目標向けに導入、S10で読書・仕事へ展開）。
  *
- * 資格目標の詳細画面に常設する（ヘルプの全画面浮動ボタンとは別系統、開発Todo U2）。
- * 質問ごとに独立した1往復として送る（文脈は引き継がない、開発Todo U8）。画面に出す履歴は、
- * タブを表示している間だけ保持する（他のタブへ切り替えて戻ると消える。履歴の永続化はS10）。 */
+ * 目標詳細画面に常設する（ヘルプの全画面浮動ボタンとは別系統、開発Todo U2）。
+ * 質問ごとに独立した1往復として送る（文脈は引き継がない、開発Todo U8）。画面に積む
+ * 「今回の」履歴（state）はタブを表示している間だけ保持するが、質問・回答自体は
+ * `goal_consultation_log`へ永続化されるため、相談履歴セクション（`GoalConsultationHistory`）
+ * からは他のタブへ切り替えて戻っても参照できる（S10、開発Todo v1.1 V6）。 */
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import type { GoalCategory } from '../../api/goals'
 import { ApiError } from '../../api/client'
 import type { GoalConsultationAnswer } from '../../api/goalConsultation'
 import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
@@ -12,8 +15,9 @@ import { Card } from '../../components/Card'
 import { Textarea } from '../../components/Textarea'
 import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { t } from '../../locales/t'
-import { errorMessageKey, validateQuestion } from './goalConsultationLogic'
+import { errorMessageKey, questionExampleKeys, validateQuestion } from './goalConsultationLogic'
 import { GoalConsultationAnswerBody } from './GoalConsultationAnswer'
+import { GoalConsultationHistory } from './GoalConsultationHistory'
 import { useAskGoalConsultationQuestion, useGoalConsultationLimits } from './useGoalConsultation'
 
 /** 画面に積む履歴の1件。質問・回答・エラーのいずれか。 */
@@ -24,6 +28,7 @@ type HistoryEntry =
 
 type GoalConsultationTabProps = {
   goalId: number
+  category: GoalCategory
 }
 
 /** 質問の入力欄の下に出す検証メッセージ（上限が読めるまでは出さない）。 */
@@ -56,7 +61,7 @@ function HistoryItem({ entry }: { entry: HistoryEntry }) {
   )
 }
 
-export function GoalConsultationTab({ goalId }: GoalConsultationTabProps) {
+export function GoalConsultationTab({ goalId, category }: GoalConsultationTabProps) {
   const aiConfigured = useAiConfigured()
   const [draft, setDraft] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
@@ -102,36 +107,56 @@ export function GoalConsultationTab({ goalId }: GoalConsultationTabProps) {
     })
   }
 
+  const exampleKeys = questionExampleKeys(category)
+
   return (
-    <Card className="flex flex-col gap-3">
-      {/* タブボタン自体が見出しの役割を持つため、他のタブと同じく同一内容の見出しは
-          タブ内に重複表示しない（MaterialsTab等と同じ方針）。 */}
-      <p className="text-xs text-text-faint">{t('goalConsultation.disclaimer')}</p>
-      <div ref={historyRef} className="flex max-h-96 flex-col gap-2 overflow-y-auto">
-        {history.length === 0 && (
-          <p className="text-sm text-text-faint">{t('goalConsultation.noHistoryYet')}</p>
-        )}
-        {history.map((entry) => (
-          <HistoryItem key={entry.id} entry={entry} />
-        ))}
-        {ask.isPending && (
-          <p className="text-sm text-text-faint">{t('goalConsultation.sending')}</p>
-        )}
-      </div>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-        <Textarea
-          aria-label={t('goalConsultation.placeholder')}
-          placeholder={t('goalConsultation.placeholder')}
-          value={draft}
-          rows={3}
-          disabled={ask.isPending}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        {warning && <p className="text-xs text-danger-text">{warning}</p>}
-        <Button type="submit" disabled={!canSend}>
-          {t('goalConsultation.send')}
-        </Button>
-      </form>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <Card className="flex flex-col gap-3">
+        {/* タブボタン自体が見出しの役割を持つため、他のタブと同じく同一内容の見出しは
+            タブ内に重複表示しない（MaterialsTab等と同じ方針）。 */}
+        <p className="text-xs text-text-faint">{t('goalConsultation.disclaimer')}</p>
+        <div ref={historyRef} className="flex max-h-96 flex-col gap-2 overflow-y-auto">
+          {history.length === 0 && (
+            <p className="text-sm text-text-faint">{t('goalConsultation.noHistoryYet')}</p>
+          )}
+          {history.map((entry) => (
+            <HistoryItem key={entry.id} entry={entry} />
+          ))}
+          {ask.isPending && (
+            <p className="text-sm text-text-faint">{t('goalConsultation.sending')}</p>
+          )}
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+          {/* 質問例ボタン（目標の種類ごと、開発Todo v1.1 要件2）。クリックで入力欄に
+              差し込むだけで、送信は利用者の操作に委ねる（即時送信しない）。 */}
+          <div className="flex flex-wrap gap-2">
+            {exampleKeys.map((key) => (
+              <button
+                key={key}
+                type="button"
+                disabled={ask.isPending}
+                onClick={() => setDraft(t(key))}
+                className="rounded-full border border-border px-3 py-1 text-xs text-text-secondary hover:bg-surface-muted"
+              >
+                {t(key)}
+              </button>
+            ))}
+          </div>
+          <Textarea
+            aria-label={t('goalConsultation.placeholder')}
+            placeholder={t('goalConsultation.placeholder')}
+            value={draft}
+            rows={3}
+            disabled={ask.isPending}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          {warning && <p className="text-xs text-danger-text">{warning}</p>}
+          <Button type="submit" disabled={!canSend}>
+            {t('goalConsultation.send')}
+          </Button>
+        </form>
+      </Card>
+      <GoalConsultationHistory goalId={goalId} />
+    </div>
   )
 }
