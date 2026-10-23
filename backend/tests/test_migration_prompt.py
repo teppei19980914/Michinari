@@ -591,3 +591,59 @@ def test_exam_results_prompt_migration_preserves_customized_template(tmp_path, m
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_exam_results_consultation_prompt_migration_updates_non_customized_template(
+    tmp_path, monkeypatch
+):
+    """c7fbb21cc857: 目標相談チャット（GOAL_CONSULTATION、資格目標用）へ{{exam_results}}を
+    追加するマイグレーションを、既存データがある状態への適用として検証する
+    （6536761d4304のDAILY_FEEDBACK版と同じ方針、is_customized=Falseの行のみ対象）。
+    """
+    db_path = tmp_path / "exam_results_consultation_prompt_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("6536761d4304")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('GOAL_CONSULTATION', '旧文面（{{exam_results}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'GOAL_CONSULTATION'"
+        ).fetchone()
+
+    assert "{{exam_results}}" in row[0]
+
+
+def test_exam_results_consultation_prompt_migration_preserves_customized_template(
+    tmp_path, monkeypatch
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （c7fbb21cc857）でも上書きしないこと。"""
+    db_path = tmp_path / "exam_results_consultation_prompt_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("6536761d4304")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('GOAL_CONSULTATION', 'ユーザーがカスタマイズした文面', 1, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'GOAL_CONSULTATION'"
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"
