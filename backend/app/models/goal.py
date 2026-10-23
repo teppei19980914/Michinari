@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Date, DateTime, Enum, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.constants.enums import ExamDateType, GoalCategory, GoalStatus, PassingScoreType
+from app.constants.enums import (
+    ExamDateType,
+    GoalCategory,
+    GoalConsultationAnswerStatus,
+    GoalStatus,
+    PassingScoreType,
+)
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 
 if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
@@ -103,6 +109,34 @@ class GoalStatusHistory(Base):
         Enum(GoalStatus, native_enum=False, validate_strings=True), nullable=False
     )
     changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class GoalConsultationLog(CreatedAtMixin, Base):
+    """目標相談チャット（S09・S10）の質疑1件（開発Todo v1.1 V6）。
+
+    `chat_message`は再利用しない（`daily_record_id`がNOT NULLで日付に紐づく構造のため、
+    日付を問わないアドホックな1問1答と馴染まない。開発Todo v1.1 §0「比較」参照）。
+    `answer_status`は`ANSWERED`/`UNAVAILABLE`のみ（`GoalConsultationAnswerStatus`を再利用）で、
+    UNAVAILABLE時は`answer_body`を空文字にする。`cited_dates`/`cited_weeks`はJSON列を使わず
+    （本アプリにJSON列の前例が無いため）、検証済みの日付・週をスペース区切りの文字列で保持する
+    （`YYYY-MM-DD`／`YYYY-MM-DD~YYYY-MM-DD`、空文字は根拠なし）。
+
+    目標削除時は`ondelete="CASCADE"`で連鎖削除する（`chat_message.goal_id`と同じ方式）。
+    """
+
+    __tablename__ = "goal_consultation_log"
+    __table_args__ = (Index("ix_goal_consultation_log_goal_id", "goal_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_status: Mapped[GoalConsultationAnswerStatus] = mapped_column(
+        Enum(GoalConsultationAnswerStatus, native_enum=False, validate_strings=True),
+        nullable=False,
+    )
+    answer_body: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    cited_dates: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    cited_weeks: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
 
 class ExamSubject(TimestampMixin, Base):

@@ -247,7 +247,9 @@
         "monthlyReport": "月次報告のドラフトを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
         "semiannualReview": "半期評価レポートを生成し、その場で内容を確認・修正してMarkdownをダウンロードするタブです。",
         "evaluationReport": "登録済みのチームメンバーを選び、日々の業務記録とAIフィードバック履歴をもとにした評価レポートのドラフトを生成し、確認・修正してダウンロードするタブです。役割を「評価者」に設定している場合のみ表示されます。",
-        "goalConsultation": "蓄積した記録を根拠に、AIへ自由に質問できるタブです（例：この後どのような分野の勉強が必要ですか？）。日次報告のフィードバックとは別の、相談用の機能です。"
+        "goalConsultation": "蓄積した記録を根拠に、AIへ自由に質問できるタブです（例：この後どのような分野の勉強が必要ですか？）。日次報告のフィードバックとは別の、相談用の機能です。",
+        "goalConsultationReading": "蓄積した記録を根拠に、AIへ自由に質問できるタブです（例：前に読んだ本とのつながりは？）。日次報告のフィードバックとは別の、相談用の機能です。",
+        "goalConsultationWork": "蓄積した記録を根拠に、AIへ自由に質問できるタブです（例：最近の課題の傾向は？）。日次報告のフィードバックとは別の、相談用の機能です。"
       },
       "readOnlyNotice": "この目標はクローズ済みのため読み取り専用です",
       "archivedNotice": "この目標はアーカイブ済みです。状態を変更する操作を行うには、先に目標一覧から復元してください",
@@ -737,7 +739,9 @@
         "RECAP_THEME_BODY": "振り返り（テーマ本文）",
         "EVALUATION_REPORT_WORK": "AI評価レポート（仕事）",
         "HELP_ASSISTANT": "ヘルプ質問",
-        "GOAL_CONSULTATION": "目標相談"
+        "GOAL_CONSULTATION": "目標相談",
+        "GOAL_CONSULTATION_READING": "目標相談（読書）",
+        "GOAL_CONSULTATION_WORK": "目標相談（仕事）"
       }
     },
     "log": {
@@ -1218,7 +1222,20 @@
     "authRequired": "AI機能の接続が必要です。設定画面のAI接続でPATを登録すると、目標相談が使えます（登録済みの場合は、アクセストークンの有効期限が切れている可能性があります。NewtonXのWeb版で再生成してください）。",
     "error": "回答を取得できませんでした。時間をおいて再試行してください。",
     "userLabel": "あなた",
-    "assistantLabel": "アシスタント"
+    "assistantLabel": "アシスタント",
+    "questionExamplesLabel": "よくある質問",
+    "questionExamples": {
+      "exam1": "苦手な分野はどこ？",
+      "exam2": "このペースで間に合う？",
+      "exam3": "次に重点を置く分野は？",
+      "reading1": "前に読んだ本とのつながりは？",
+      "reading2": "この本で学んだことを3行で",
+      "work1": "今月の成果を上司向けに3行で",
+      "work2": "最近の課題の傾向は？"
+    },
+    "historyTitle": "相談履歴",
+    "historyEmpty": "まだ相談履歴はありません",
+    "historyQuestionLabel": "質問"
   },
   "help": {
     "title": "ヘルプ",

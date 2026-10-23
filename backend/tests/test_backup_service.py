@@ -249,6 +249,39 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
     ]
     # 空テーブルも（0件のリストとして）キーが含まれる。
     assert data["tables"]["material"] == []
+    # S10で追加した goal_consultation_log も、他の新規テーブルと同様に
+    # コード変更無しで対象に入ることを確認する（開発Todo v1.1 V6・B-08）。
+    assert data["tables"]["goal_consultation_log"] == []
+
+
+def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):
+    _insert_minimal_goal(full_schema_db)
+    connection = sqlite3.connect(full_schema_db)
+    try:
+        connection.execute(
+            "INSERT INTO goal_consultation_log "
+            "(id, goal_id, question, answer_status, answer_body, cited_dates, cited_weeks, "
+            "created_at) VALUES "
+            "(1, 1, '質問', 'ANSWERED', '回答', '2026-01-10', '', '2026-01-10T00:00:00')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = backup_service.export_all_data()
+
+    assert data["tables"]["goal_consultation_log"] == [
+        {
+            "id": 1,
+            "goal_id": 1,
+            "question": "質問",
+            "answer_status": "ANSWERED",
+            "answer_body": "回答",
+            "cited_dates": "2026-01-10",
+            "cited_weeks": "",
+            "created_at": "2026-01-10T00:00:00",
+        }
+    ]
 
 
 def test_import_all_data_round_trips_rows(full_schema_db):
@@ -310,6 +343,7 @@ def test_import_accepts_previous_schema_version_1_1(full_schema_db):
     data = backup_service.export_all_data()
     data["schema_version"] = "1.1"
     data["tables"].pop("goal_status_history", None)
+    data["tables"].pop("goal_consultation_log", None)
     for row in data["tables"]["goal"]:
         row.pop("resumed_at", None)
 
@@ -318,6 +352,22 @@ def test_import_accepts_previous_schema_version_1_1(full_schema_db):
     restored = backup_service.export_all_data()
     assert restored["tables"]["goal"][0]["name"] == "マーカー"
     assert restored["tables"]["goal_status_history"] == []
+    assert restored["tables"]["goal_consultation_log"] == []
+
+
+def test_import_accepts_previous_schema_version_1_2(full_schema_db):
+    """1.2で書き出したバックアップは取り込める（S10で追加したgoal_consultation_logが
+    無いだけで、形式自体は互換のため。開発Todo v1.1 V6・B-08）。"""
+    _insert_minimal_goal(full_schema_db)
+    data = backup_service.export_all_data()
+    data["schema_version"] = "1.2"
+    data["tables"].pop("goal_consultation_log", None)
+
+    backup_service.import_all_data(data)
+
+    restored = backup_service.export_all_data()
+    assert restored["tables"]["goal"][0]["name"] == "マーカー"
+    assert restored["tables"]["goal_consultation_log"] == []
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

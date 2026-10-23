@@ -139,6 +139,7 @@ def send_daily_feedback(
         day_type=day_type.value,
         load_coefficient=load_coefficient_text,
         goal_summary=ai_context_exam.build_goal_summary(active_goals, target_date),
+        exam_results=ai_context_exam.build_exam_results_text(session, goal),
         material_entries=ai_context_exam.build_material_status_entries(
             session, active_materials, target_date, treat_holiday_as_buffer
         ),

@@ -1,16 +1,17 @@
-"""目標相談チャットの質疑応答（S09、要件定義書R-104、開発Todo §4）。
+"""目標相談チャットの質疑応答・共通処理（S09でEXAM向けに導入、S10でREADING/WORKへ展開、
+開発Todo v1.1 V5）。
 
-資格目標（`GoalCategory.EXAM`）限定で、利用者の質問に、目標の記録（週次要約＋週次要約が
-無い過去日の生ログ）・目標概要・教材の状態・品質指標の推移・リプラン履歴を根拠にして答える。
-過去記録・目標概要等の組み立ては既存の`ai_context_common`／`ai_context_exam`の関数を
-そのまま再利用し、再実装しない（開発Todo 要件1）。
+カテゴリ別の変数組み立て・テンプレート選択は`goal_consultation_service_exam.py`・
+`_reading.py`・`_work.py`に置く（`record_service_common`/`_exam`/`_reading`/`_work`と
+同じ分割方式、CODING_RULES.md置き場所ルール）。本ファイルは、カテゴリに依存しない処理
+（直列化・質問の安全対策・送信・応答の解釈・相談履歴の保存）とカテゴリ分岐そのものを持つ。
 
-処理の順序は開発Todo §4のとおり：入力検証 → 対象カテゴリガード → 禁止語 → 記録等の組み立て
-（上限超過時は週次要約→生ログの順に古いものから縮退）→ 質問ごとのチャットで送信 → 根拠の検証
-（プロンプトに実際に含めた日付・週だけを採用）→ 後始末（チャットの削除と一覧での確認）。
+処理の順序：入力検証 → 禁止語 → カテゴリ別の変数組み立て（上限超過時は週次要約→生ログの
+順に古いものから縮退） → 質問ごとのチャットで送信 → 根拠の検証（プロンプトに実際に
+含めた日付・週だけを採用） → 後始末（チャットの削除と一覧での確認） → 相談履歴の保存。
 
 安全対策（禁止語・区切りの全角化・nonce・質問の検証整形）はヘルプAIアシスタントと共通の
-`app.ai.question_safety`を使う（CODING_RULES.md DRYの原則、開発Todo U9）。質問ごとに
+`app.ai.question_safety`を使う（CODING_RULES.md DRYの原則、S09 U9）。質問ごとに
 新しいチャットを作り、回答後に削除する（1問1答、ヘルプと同方式）。AIへの送信は
 `ai_orchestration.send_and_log`を通し、会話行は`ai_conversation.ensure_conversation`で作る
 （CODING_RULES.md「AI通信とトランザクション」）。
@@ -29,6 +30,7 @@ from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder, question_safety
 from app.ai.exceptions import AiAuthRequiredError
+from app.ai.prompt_builder import DatedLogEntry
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_CONSULTATION,
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS,
@@ -48,10 +50,10 @@ from app.constants.goal_consultation import (
     SUMMARY_CITATION_PATTERN,
 )
 from app.models.goal import Goal
-from app.services import ai_context_common, ai_context_exam, setting_reader
+from app.services import ai_context_common, goal_consultation_log_service, setting_reader
 from app.services.exceptions import ValidationError
 
-#: 質疑の直列化（ヘルプAIアシスタントと同方式、開発Todo U15）。単一端末のため、
+#: 質疑の直列化（ヘルプAIアシスタントと同方式、S09 U15）。単一端末のため、
 #: プロセス内のロックで足りる。
 _REQUEST_LOCK = threading.Lock()
 
@@ -64,7 +66,7 @@ _NO_RECENT_LOGS_TEXT = "（週次要約が無い過去日の記録はありま�
 @dataclass(frozen=True)
 class GoalConsultationAnswer:
     """目標相談の質疑の結果。`text`は回答本文（根拠行を除く）。`cited_dates`／`cited_weeks`は
-    検証済みの根拠（プロンプトに実際に含めた日付・週だけを採用、開発Todo U10）。
+    検証済みの根拠（プロンプトに実際に含めた日付・週だけを採用、S09 U10）。
     """
 
     status: GoalConsultationAnswerStatus
@@ -73,10 +75,16 @@ class GoalConsultationAnswer:
     cited_weeks: tuple[tuple[dt.date, dt.date], ...]
 
 
-def _require_exam_goal(goal: Goal) -> None:
-    """対象を資格目標（EXAM）に限定する（開発Todo U7。読書・仕事はS10）。"""
-    if goal.category is not GoalCategory.EXAM:
-        raise ValidationError("Goal consultation is only available for exam goals")
+@dataclass(frozen=True)
+class CategoryContext:
+    """カテゴリ別の変数組み立ての結果（開発Todo v1.1 V5）。`fixed_variables`は
+    カテゴリ固有の固定変数のみ（`question`・`nonce`は本ファイルが共通で付加する）。
+    `raw_entries`は`{{recent_logs}}`（週次要約が無い過去日の記録）の生ログ。
+    """
+
+    purpose: AiPurpose
+    fixed_variables: dict[str, str]
+    raw_entries: list[DatedLogEntry]
 
 
 def _parse_answer(
@@ -108,13 +116,19 @@ def _parse_answer(
     return body, cited_dates, cited_weeks
 
 
-def _send_question(session: Session, *, goal: Goal, prompt_text: str, prompt_chars: int) -> str:
-    """質問ごとのチャットを作り、送信して、後始末を行う。応答本文を返す。"""
+def _send_question(
+    session: Session, *, goal: Goal, purpose: AiPurpose, prompt_text: str, prompt_chars: int
+) -> str:
+    """質問ごとのチャットを作り、送信して、後始末を行う。応答本文を返す。
+
+    `scope`は`purpose`と同じ値（`AiPurpose.GOAL_CONSULTATION*`と`ConversationScope.
+    GOAL_CONSULTATION*`は文字列値を揃えている、開発Todo v1.1 V2）。
+    """
     folder_name = setting_reader.get_str(session, AI_GOAL_CONSULTATION_FOLDER_NAME)
     conversation = ai_conversation.ensure_conversation(
         session,
         goal=goal,
-        scope=ConversationScope.GOAL_CONSULTATION,
+        scope=ConversationScope(purpose.value),
         scope_key=uuid.uuid4().hex,
         assistant_uid=setting_reader.get_str(session, AI_ASSISTANT_UID_GOAL_CONSULTATION),
         title=GOAL_CONSULTATION_CHAT_TITLE,
@@ -123,7 +137,7 @@ def _send_question(session: Session, *, goal: Goal, prompt_text: str, prompt_cha
     try:
         result = ai_orchestration.send_and_log(
             session,
-            purpose=AiPurpose.GOAL_CONSULTATION,
+            purpose=purpose,
             conversation=conversation,
             prompt_text=prompt_text,
             prompt_chars=prompt_chars,
@@ -154,19 +168,55 @@ def _interpret(
     )
 
 
+def _build_category_context(session: Session, goal: Goal, today: dt.date) -> CategoryContext:
+    """カテゴリ別の変数組み立てへ分岐する（`goal_consultation_service_exam/_reading/_work`は
+    本モジュールの`CategoryContext`を参照するため、ここで関数内importして循環importを
+    避ける。`ai_context_work.build_work_progress_summary`と同じ方式、CLAUDE.md DRYの原則）。
+    """
+    if goal.category is GoalCategory.EXAM:
+        from app.services import goal_consultation_service_exam
+
+        return goal_consultation_service_exam.build_context(session, goal, today)
+    if goal.category is GoalCategory.READING:
+        from app.services import goal_consultation_service_reading
+
+        return goal_consultation_service_reading.build_context(session, goal, today)
+    if goal.category is GoalCategory.WORK:
+        from app.services import goal_consultation_service_work
+
+        return goal_consultation_service_work.build_context(session, goal, today)
+    raise ValidationError(f"Unsupported goal category: {goal.category}")  # pragma: no cover
+
+
+def _save_log(session: Session, goal: Goal, question: str, answer: GoalConsultationAnswer) -> None:
+    """`GoalConsultationAnswer`のフィールドを`goal_consultation_log_service.save`の
+    スカラー引数へ展開する（3つの呼び出し箇所で共通化、CLAUDE.md DRYの原則）。"""
+    goal_consultation_log_service.save(
+        session,
+        goal=goal,
+        question=question,
+        answer_status=answer.status,
+        answer_body=answer.text,
+        cited_dates=answer.cited_dates,
+        cited_weeks=answer.cited_weeks,
+    )
+
+
 def _answer_locked(
     session: Session, goal: Goal, today: dt.date, raw_question: str
 ) -> GoalConsultationAnswer:
     """質疑の本体（ロックを取った状態で呼ぶ）。"""
-    _require_exam_goal(goal)
     max_question_chars = setting_reader.get_int(session, AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS)
     question = question_safety.sanitize_question(raw_question, max_question_chars)
     if question_safety.contains_forbidden_term(session, question):
-        return GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
+        answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
+        _save_log(session, goal, question, answer)
+        return answer
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
 
-    materials = [material for material in goal.materials if material.is_active]
+    category_context = _build_category_context(session, goal, today)
+
     # S04・S07と同じ「週次要約（圧縮）→生ログ」の2段階構成（ai_context_common参照）。
     # 目標相談は日次報告と異なり「今日」までの記録を根拠にできる（日次報告は当日分を
     # 自身の対象として除くためtarget_date-1までだが、相談は今日の記録も参照してよい）。
@@ -176,9 +226,7 @@ def _answer_locked(
     stages = ai_context_common.build_weekly_compressed_stages(
         compressed,
         raw_key="recent_logs",
-        raw_entries=ai_context_exam.build_recent_study_entries(
-            session, goal, goal.start_date, today
-        ),
+        raw_entries=category_context.raw_entries,
         raw_empty_text=_NO_RECENT_LOGS_TEXT,
     )
 
@@ -186,28 +234,27 @@ def _answer_locked(
     escaped_question = question.translate(question_safety.DELIMITER_REPLACEMENTS)
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
-            "goal_summary": ai_context_exam.build_goal_summary([goal], today),
-            "material_summary": ai_context_exam.build_material_summary_text(session, materials),
-            "quality_trend": ai_context_exam.build_quality_trend_text(session, materials),
-            "replan_history": ai_context_exam.build_replan_history_text(session, goal),
+            **category_context.fixed_variables,
             "question": escaped_question,
             "nonce": nonce,
         },
         stages=stages,
     )
 
-    template = ai_orchestration.load_template_body(session, AiPurpose.GOAL_CONSULTATION)
+    template = ai_orchestration.load_template_body(session, category_context.purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     # 質問文・指示文・目標概要等の固定変数は縮退しない（開発Todo 要約と縮退の設計原則）。
     # 週次要約・生ログを全て削ってもなお上限を超える場合は、切り詰めずに送信しない
     # （NewtonX利用ナレッジ「切り詰めない」、ヘルプAIアシスタントの`prompt.was_truncated`
     # 判定と同じ方針）。
     if prompt_builder.exceeds_with_entries_emptied(template, context, max_chars):
-        return GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
+        answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
+        _save_log(session, goal, question, answer)
+        return answer
     build_result = prompt_builder.build_with_degradable_entries(template, context, max_chars)
 
     # build_simpleではなくbuild_with_degradable_entriesを使っているため、
-    # included_entriesは必ず設定される（app/ai/prompt_builder.py参照、開発Todo U20）。
+    # included_entriesは必ず設定される（app/ai/prompt_builder.py参照、S09 U20）。
     included = build_result.included_entries
     assert included is not None
     valid_dates = frozenset(entry.record_date for entry in included["recent_logs"])
@@ -221,19 +268,27 @@ def _answer_locked(
     )
 
     raw = _send_question(
-        session, goal=goal, prompt_text=build_result.text, prompt_chars=build_result.prompt_chars
+        session,
+        goal=goal,
+        purpose=category_context.purpose,
+        prompt_text=build_result.text,
+        prompt_chars=build_result.prompt_chars,
     )
-    return _interpret(session, raw, valid_dates, valid_weeks)
+    answer = _interpret(session, raw, valid_dates, valid_weeks)
+    _save_log(session, goal, question, answer)
+    return answer
 
 
 def ask(
     session: Session, *, goal: Goal, today: dt.date, raw_question: str
 ) -> GoalConsultationAnswer:
-    """利用者の質問に、目標の記録に基づいて答える（開発Todo §4）。
+    """利用者の質問に、目標の記録に基づいて答える（開発Todo v1.1 §3）。
 
-    対象外カテゴリ・入力が不正なら`ValidationError`、AI未接続なら`AiAuthRequiredError`、
-    通信の失敗は`AiError`系を送出する（API層でHTTPに変換する）。禁止語・表示できない回答は
-    例外にせず、`GoalConsultationAnswer.status`で返す。
+    EXAM・READING・WORKの全カテゴリで利用できる（S10でEXAM専用ガードを撤廃、開発Todo v1.1
+    V1）。入力が不正なら`ValidationError`、AI未接続なら`AiAuthRequiredError`、通信の失敗は
+    `AiError`系を送出する（API層でHTTPに変換する）。禁止語・表示できない回答は例外にせず、
+    `GoalConsultationAnswer.status`で返す。質問・回答は状態を問わず`goal_consultation_log`へ
+    保存する（開発Todo v1.1 V8）。
     """
     with _REQUEST_LOCK:
         return _answer_locked(session, goal, today, raw_question)

@@ -1,7 +1,31 @@
-/** 目標相談チャットの判定ロジック（純粋関数、S09）。
+/** 目標相談チャットの判定ロジック（純粋関数、S09で導入・S10で質問例ボタンを追加）。
  *
  * 描画と通信はコンポーネント・フックに置き、判定はここに寄せる（CODING_RULES.md「フロントの分岐は `.ts` へ切り出す」、
  * `helpAssistantLogic.ts`と同じ方針）。文言は`ja.json`の`goalConsultation.*`から引く。 */
+import type { GoalCategory } from '../../api/goals'
+
+/** 目標の種類ごとの質問例（ロケールキーのみ。文言自体はja.json/en.jsonで解決する、
+ * CODING_RULES.mdゼロハードコーディング）。利用者確認済みの初期案（開発Todo v1.1 V12）。 */
+const QUESTION_EXAMPLE_KEYS: Record<GoalCategory, string[]> = {
+  EXAM: [
+    'goalConsultation.questionExamples.exam1',
+    'goalConsultation.questionExamples.exam2',
+    'goalConsultation.questionExamples.exam3',
+  ],
+  READING: [
+    'goalConsultation.questionExamples.reading1',
+    'goalConsultation.questionExamples.reading2',
+  ],
+  WORK: [
+    'goalConsultation.questionExamples.work1',
+    'goalConsultation.questionExamples.work2',
+  ],
+}
+
+/** 目標の種類に応じた質問例ボタンのロケールキー一覧を返す（開発Todo v1.1 要件2）。 */
+export function questionExampleKeys(category: GoalCategory): string[] {
+  return QUESTION_EXAMPLE_KEYS[category]
+}
 
 /** 送信前の質問の検証結果。問題が無ければnull。 */
 export type QuestionError = 'empty' | 'tooLong'

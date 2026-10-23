@@ -277,7 +277,9 @@
         "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
         "semiannualReview": "A tab to generate a semiannual review report, review and edit it on the spot, and download it as Markdown.",
         "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\"",
-        "goalConsultation": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What should I study next?). Separate from the daily report feedback feature."
+        "goalConsultation": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What should I study next?). Separate from the daily report feedback feature.",
+        "goalConsultationReading": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. How does this connect to books I've read before?). Separate from the daily report feedback feature.",
+        "goalConsultationWork": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What are the recent trends in challenges I'm facing?). Separate from the daily report feedback feature."
       },
       "readOnlyNotice": "This goal is closed, so it is read-only",
       "archivedNotice": "This goal is archived. To change its status, restore it from the goal list first",
@@ -782,7 +784,9 @@
         "RECAP_THEME_BODY": "Recap (theme body)",
         "EVALUATION_REPORT_WORK": "AI evaluation report (work)",
         "HELP_ASSISTANT": "Help question",
-        "GOAL_CONSULTATION": "Goal consultation"
+        "GOAL_CONSULTATION": "Goal consultation",
+        "GOAL_CONSULTATION_READING": "Goal consultation (reading)",
+        "GOAL_CONSULTATION_WORK": "Goal consultation (work)"
       }
     },
     "log": {
@@ -1278,7 +1282,20 @@
     "authRequired": "AI connection is required for this feature. Set up the AI connection on the Settings screen to use goal consultation (if you've already set it up, your access token may have expired — regenerate it on NewtonX's web app).",
     "error": "Could not get an answer. Please try again later.",
     "userLabel": "You",
-    "assistantLabel": "Assistant"
+    "assistantLabel": "Assistant",
+    "questionExamplesLabel": "Common questions",
+    "questionExamples": {
+      "exam1": "Which topics am I weak at?",
+      "exam2": "Am I on pace to finish in time?",
+      "exam3": "Which topic should I focus on next?",
+      "reading1": "How does this connect to books I've read before?",
+      "reading2": "Summarize what I learned from this book in 3 lines",
+      "work1": "Summarize this month's results for my manager in 3 lines",
+      "work2": "What are the recent trends in challenges I'm facing?"
+    },
+    "historyTitle": "Consultation history",
+    "historyEmpty": "No consultation history yet",
+    "historyQuestionLabel": "Question"
   },
   "help": {
     "title": "Help",

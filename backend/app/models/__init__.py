@@ -3,7 +3,13 @@
 from app.models.ai import AiConversation, AiForbiddenTerm, AiLog
 from app.models.base import Base
 from app.models.book import Book
-from app.models.goal import ExamSubject, Goal, GoalStatusHistory, LoadProfile
+from app.models.goal import (
+    ExamSubject,
+    Goal,
+    GoalConsultationLog,
+    GoalStatusHistory,
+    LoadProfile,
+)
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import (
@@ -45,6 +51,7 @@ __all__ = [
     "Goal",
     "ExamSubject",
     "LoadProfile",
+    "GoalConsultationLog",
     "Material",
     "MaterialSubject",
     "PlanBaseline",
