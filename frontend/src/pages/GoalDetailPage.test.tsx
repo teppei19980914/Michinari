@@ -63,6 +63,8 @@ vi.mock('../api/ai', () => ({ getAiStatus }))
 vi.mock('../api/goalConsultation', () => ({
   getGoalConsultationLimits: vi.fn(() => Promise.resolve({ max_question_chars: 300 })),
   askGoalConsultationQuestion: vi.fn(),
+  getGoalConsultationHistory: vi.fn(() => Promise.resolve([])),
+  deleteGoalConsultationHistoryItem: vi.fn(),
 }))
 
 // URL から目標IDを読むため、ルートパラメータを固定する。
@@ -123,11 +125,11 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.book')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.resourceAllocation')).not.toBeNull()
     // 読書は定量的な進捗管理を行わないため、試験科目・教材・負荷プロファイルは出さない。
-    // 目標相談チャットも資格目標専用のため出さない（開発Todo U7）。
+    // 目標相談チャットはS10で読書・仕事へ展開したため出す（開発Todo v1.1 V1）。
     expect(tabButton('goals.detail.tabs.subjects')).toBeNull()
     expect(tabButton('goals.detail.tabs.materials')).toBeNull()
     expect(tabButton('goals.detail.tabs.loadProfile')).toBeNull()
-    expect(tabButton('goals.detail.tabs.goalConsultation')).toBeNull()
+    expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
   })
 
   it('shows the work tabs for a work goal', async () => {
@@ -139,9 +141,9 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.monthlyReport')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.semiannualReview')).not.toBeNull()
     // 仕事はスロットを奪い合わないため配分タブを持たない。
-    // 目標相談チャットも資格目標専用のため出さない（開発Todo U7）。
+    // 目標相談チャットはS10で読書・仕事へ展開したため出す（開発Todo v1.1 V1）。
     expect(tabButton('goals.detail.tabs.resourceAllocation')).toBeNull()
-    expect(tabButton('goals.detail.tabs.goalConsultation')).toBeNull()
+    expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
   })
 
   it('switches the shown tab when another one is picked', async () => {
@@ -176,6 +178,31 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     // タブボタンは出るのに中身が描画されない実装漏れ（直上のテストと同種の事故）を防ぐため、
     // ボタンの存在だけでなく中身（タブ見出し）が出ることまで確認する（開発Todo U7）。
     const user = userEvent.setup()
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    await user.click(tabButton('goals.detail.tabs.goalConsultation')!)
+
+    expect(await screen.findByText(t('goalConsultation.disclaimer'))).toBeDefined()
+  })
+
+  it('renders the goal consultation tab content for a reading goal', async () => {
+    // S10で読書へ展開した際、タブ構成（READING_TABS）には追加したのに描画側
+    // （activeTab分岐）がEXAM専用ブロックの中に残っていて中身が空白になる、という同種の
+    // 実装漏れを防ぐ（開発Todo v1.1 F-02）。
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(makeGoalDetail({ category: 'READING' }))
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    await user.click(tabButton('goals.detail.tabs.goalConsultation')!)
+
+    expect(await screen.findByText(t('goalConsultation.disclaimer'))).toBeDefined()
+  })
+
+  it('renders the goal consultation tab content for a work goal', async () => {
+    const user = userEvent.setup()
+    getGoal.mockResolvedValue(makeGoalDetail({ category: 'WORK' }))
     renderWithProviders(<GoalDetailPage />)
 
     await screen.findByText('目標A')
