@@ -3,9 +3,11 @@
  * 保存済みの質問・回答を一覧表示する。回答の表示は`GoalConsultationAnswerBody`を再利用する
  * （`GoalConsultationAnswerRead`と`GoalConsultationHistoryItemRead`はstatus/answer/
  * cited_dates/cited_weeksの形が同じため、CODING_RULES.md DRYの原則）。 */
+import { apiErrorMessage } from '../../api/client'
 import { dateTimeLocaleTag, t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
+import { useToast } from '../../components/toastContext'
 import type { GoalConsultationHistoryItem } from '../../api/goalConsultation'
 import { GoalConsultationAnswerBody } from './GoalConsultationAnswer'
 import {
@@ -20,6 +22,7 @@ function HistoryItem({
   goalId: number
   item: GoalConsultationHistoryItem
 }) {
+  const { showApiError } = useToast()
   const deleteItem = useDeleteGoalConsultationHistoryItem(goalId)
 
   return (
@@ -34,7 +37,7 @@ function HistoryItem({
           disabled={deleteItem.isPending}
           onClick={() => {
             if (window.confirm(t('common.confirmDelete'))) {
-              deleteItem.mutate(item.id)
+              deleteItem.mutate(item.id, { onError: showApiError })
             }
           }}
         >
@@ -67,6 +70,8 @@ export function GoalConsultationHistory({ goalId }: { goalId: number }) {
       </h3>
       {history.isLoading ? (
         <p className="text-sm text-text-faint">{t('common.loading')}</p>
+      ) : history.isError ? (
+        <p className="text-sm text-danger-text">{apiErrorMessage(history.error)}</p>
       ) : items.length === 0 ? (
         <p className="text-sm text-text-faint">{t('goalConsultation.historyEmpty')}</p>
       ) : (
