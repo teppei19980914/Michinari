@@ -538,3 +538,56 @@ def test_week_chat_prompt_migration_preserves_customized_template(
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_exam_results_prompt_migration_updates_non_customized_template(tmp_path, monkeypatch):
+    """dfef541d349f: 資格試験の日次報告フィードバックへ{{exam_results}}（科目ごとの合否と
+    得点）を追加するマイグレーションを、既存データがある状態への適用として検証する。
+    科目Aのみ合格登録済みで科目Bが未登録のまま目標が継続する二段階試験でも、AIが科目単位の
+    合否を事実として把握できるようにする設計変更（is_customized=Falseの行のみ対象）。
+    """
+    db_path = tmp_path / "exam_results_prompt_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("9d3d5631a940")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', '旧文面（{{exam_results}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+
+    assert "{{exam_results}}" in row[0]
+
+
+def test_exam_results_prompt_migration_preserves_customized_template(tmp_path, monkeypatch):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （dfef541d349f）でも上書きしないこと。"""
+    db_path = tmp_path / "exam_results_prompt_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("9d3d5631a940")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('DAILY_FEEDBACK', 'ユーザーがカスタマイズした文面', 1, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'DAILY_FEEDBACK'"
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"

@@ -20,6 +20,9 @@ DAILY_FEEDBACK = """あなたは資格試験の学習を伴走する専門コー
 # 目標
 {{goal_summary}}
 
+# 受験結果
+{{exam_results}}
+
 # 教材ごとの計画状態
 {{material_status}}
 
