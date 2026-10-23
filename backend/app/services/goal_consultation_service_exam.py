@@ -15,11 +15,12 @@ from app.services.goal_consultation_service_common import CategoryContext
 
 
 def build_context(session: Session, goal: Goal, today: dt.date) -> CategoryContext:
-    """{{goal_summary}}・{{material_summary}}・{{quality_trend}}・{{replan_history}}と
-    {{recent_logs}}の生ログを組み立てる。"""
+    """{{goal_summary}}・{{exam_results}}・{{material_summary}}・{{quality_trend}}・
+    {{replan_history}}と{{recent_logs}}の生ログを組み立てる。"""
     materials = [material for material in goal.materials if material.is_active]
     fixed_variables = {
         "goal_summary": ai_context_exam.build_goal_summary([goal], today),
+        "exam_results": ai_context_exam.build_exam_results_text(session, goal),
         "material_summary": ai_context_exam.build_material_summary_text(session, materials),
         "quality_trend": ai_context_exam.build_quality_trend_text(session, materials),
         "replan_history": ai_context_exam.build_replan_history_text(session, goal),

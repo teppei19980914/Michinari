@@ -20,10 +20,10 @@ from app.constants.app_setting_keys import (
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS,
     AI_MAX_PROMPT_CHARS,
 )
-from app.constants.enums import GoalConsultationAnswerStatus
+from app.constants.enums import ExamDateType, ExamResultType, GoalConsultationAnswerStatus
 from app.models.ai import AiConversation, AiForbiddenTerm
-from app.models.goal import GoalConsultationLog
-from app.models.record import DailyGoalDiary, WeeklySummary
+from app.models.goal import ExamSubject, GoalConsultationLog
+from app.models.record import DailyGoalDiary, ExamResult, WeeklySummary
 from app.models.setting import AppSetting
 from app.services import goal_consultation_service_common as service
 from app.services.exceptions import ValidationError
@@ -311,6 +311,36 @@ def test_ask_does_not_expand_template_placeholders_in_question(seeded_session, m
 
     prompt = fake.sent[0]
     assert "{{goal_summary}} と書いてあります。この後何を勉強すべき？" in prompt
+
+
+def test_ask_includes_registered_subject_result(seeded_session, monkeypatch):
+    """科目Aのみ合格登録済みで科目Bが未登録のまま目標がACTIVEで継続する状態でも、
+    相談チャットのAIが科目Aの合否を事実として把握できるよう{{exam_results}}へ
+    反映されること（daily_feedback_serviceと同じ対応、2026-10-23）。"""
+    goal = _make_exam_goal_with_records(seeded_session)
+    subject_a = ExamSubject(
+        goal_id=goal.id,
+        name="科目A",
+        exam_date_type=ExamDateType.FIXED,
+        exam_date_fixed=dt.date(2026, 1, 10),
+        display_order=1,
+    )
+    seeded_session.add(subject_a)
+    seeded_session.flush()
+    seeded_session.add(
+        ExamResult(
+            subject_id=subject_a.id,
+            taken_date=dt.date(2026, 1, 10),
+            result=ExamResultType.PASS,
+            score=69.0,
+        )
+    )
+    seeded_session.flush()
+    fake = FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
+
+    service.ask(seeded_session, goal=goal, today=_TODAY, raw_question="この後何を勉強すべき？")
+
+    assert "科目A: 合格、得点 69.0" in fake.sent[0]
 
 
 def test_ask_wraps_question_with_per_request_nonce(seeded_session, monkeypatch):

@@ -43,15 +43,16 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
     確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-10-23で
-    `DAILY_FEEDBACK`（資格目標用）へ`{{exam_results}}`（科目ごとの合否と得点）セクションを
-    追加したことに伴う（科目Aのみ合格登録済みで科目Bが未登録のまま目標が継続する
-    二段階試験で、AIが科目単位の合否を事実として把握できるようにする設計変更）。
+    `DAILY_FEEDBACK`・`GOAL_CONSULTATION`（いずれも資格目標用）へ`{{exam_results}}`
+    （科目ごとの合否と得点）セクションを追加したことに伴う（科目Aのみ合格登録済みで
+    科目Bが未登録のまま目標が継続する二段階試験で、AIが科目単位の合否を事実として
+    把握できるようにする設計変更）。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "8a5951acf44e72c69bc03d7fe4f3d7d772b06960da77e40b7abeeac1b4fe55d6"
+    assert digest == "b5ad6dc7c1bc1593c113ab48432d04ff5e597cadf32272d6ba3d0eba4c0f1650"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

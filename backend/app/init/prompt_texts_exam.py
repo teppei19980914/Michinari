@@ -307,9 +307,10 @@ GOAL_RETROSPECTIVE = """以下は、ある学習者が資格試験に向けて�
 # （prompt_texts_reading.py）・`GOAL_CONSULTATION_WORK`（prompt_texts_work.py）を新設した際、
 # 他のDAILY_FEEDBACK/WEEKLY_SUMMARY/GOAL_RETROSPECTIVEと同じ「カテゴリ別の本文は
 # カテゴリ別ファイルに置く」配置ルールに合わせてこちらへ移動した（CODING_RULES.md DRYの原則）。
-# 変数: {{goal_summary}}・{{material_summary}}・{{quality_trend}}・{{replan_history}}
-#       （固定、縮退対象外）、{{weekly_summaries}}・{{recent_logs}}（段階的縮退対象）、
-#       {{question}}（利用者の質問）・{{nonce}}（リクエストごとの乱数の区切り）。
+# 変数: {{goal_summary}}・{{exam_results}}・{{material_summary}}・{{quality_trend}}・
+#       {{replan_history}}（固定、縮退対象外）、{{weekly_summaries}}・{{recent_logs}}
+#       （段階的縮退対象）、{{question}}（利用者の質問）、
+#       {{nonce}}（リクエストごとの乱数の区切り）。
 # 出典行は回答の検証に使う（プロンプトに実際に含めた日付・週だけが実在する、開発Todo U10）。
 GOAL_CONSULTATION = """あなたは「ミチナリ」アプリで資格学習を支援するアシスタントです。
 利用者の質問に、下の「学習記録」に書かれている内容を根拠にして答えてください。
@@ -325,6 +326,9 @@ GOAL_CONSULTATION = """あなたは「ミチナリ」アプリで資格学習を
 
 # 目標の概要
 {{goal_summary}}
+
+# 受験結果
+{{exam_results}}
 
 # 教材の状態
 {{material_summary}}
