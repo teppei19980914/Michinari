@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ApiError } from '../../api/client'
+import { ApiError, apiErrorMessage } from '../../api/client'
 import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
 import { renderWithProviders } from '../../test/renderWithProviders'
@@ -296,5 +296,37 @@ describe('GoalConsultationTab', () => {
     await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
 
     expect(deleteGoalConsultationHistoryItem).not.toHaveBeenCalled()
+  })
+
+  it('相談履歴の取得に失敗した場合はエラー文言を表示する', async () => {
+    const error = new ApiError('VALIDATION_ERROR', 'x')
+    getGoalConsultationHistory.mockRejectedValue(error)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    expect(await screen.findByText(apiErrorMessage(error))).toBeTruthy()
+  })
+
+  it('相談履歴の削除に失敗した場合はエラーをトースト表示する', async () => {
+    const user = userEvent.setup()
+    const error = new ApiError('VALIDATION_ERROR', 'x')
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        question: '過去の質問',
+        status: 'ANSWERED',
+        answer: '過去の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-10T00:00:00',
+      },
+    ])
+    deleteGoalConsultationHistoryItem.mockRejectedValue(error)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await screen.findByText('過去の質問')
+
+    await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
+
+    expect(await screen.findByText(apiErrorMessage(error))).toBeTruthy()
   })
 })
