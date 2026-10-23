@@ -105,6 +105,7 @@ class DailyFeedbackContext:
     day_type: str
     load_coefficient: str
     goal_summary: str
+    exam_results: str
     material_entries: list[MaterialStatusEntry]
     slot_summary: str
     buffer_usage_rate: str
@@ -171,6 +172,7 @@ def build_daily_feedback(
             "day_type": context.day_type,
             "load_coefficient": context.load_coefficient,
             "goal_summary": context.goal_summary,
+            "exam_results": context.exam_results,
             "material_status": _format_materials(materials, collapsed_count),
             "slot_summary": context.slot_summary,
             "buffer_usage_rate": context.buffer_usage_rate,

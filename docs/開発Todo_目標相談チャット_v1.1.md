@@ -103,43 +103,43 @@
 ### 3.1 事前確認
 
 - [x] T-01 確認事項①〜④（§6）をAskUserQuestionで確認する（2026-10-22、全項目利用者確認済み。結果はV11〜V14）
-- [ ] T-02 `GoalConsultationLog`モデルの配置ファイルを確定する（`models/goal.py`追記 or 新規`models/goal_consultation.py`。既存`models/goal.py`の行数を見て判断）
+- [x] T-02 `GoalConsultationLog`モデルの配置ファイルを確定する（既存`models/goal.py`に追記。`GoalStatusHistory`と同じ単純なログ型テーブルの前例に合わせた）
 
 ### 3.2 文書改訂
 
-- [ ] D-01 要件定義書：6.14の対象拡大・新規R番号、改訂履歴
-- [ ] D-02 仕様書：目標詳細画面仕様（READING/WORKタブ）、8.1更新、履歴CRUD仕様、改訂履歴
-- [ ] D-03 設計書（ロジック・プロンプト編）：24章更新（プロンプト2件・サービス分割構成）、脅威モデル差分、改訂履歴
-- [ ] D-04 設計書（データ構造編）：`goal_consultation_log`定義、改訂履歴
-- [ ] D-05 OPERATIONS.md：「目標相談チャットの運用」更新（対象拡大・履歴の運用）
+- [x] D-01 要件定義書：6.14の対象拡大（R-104改訂）・R-111・R-112を新設、改訂履歴（1.1改46）
+- [x] D-02 仕様書：6.2（SC-03、目標相談タブをEXAM限定から全種別へ、質問例ボタン・相談履歴セクション）、8.1（AI-16・AI-17新設）・8.5、改訂履歴（1.1改58）
+- [x] D-03 設計書（ロジック・プロンプト編）：24章を全面改訂（サービス分割構成・カテゴリ別プロンプト・24.6相談履歴の保存・24.7脅威モデル差分）、25章にL-18を新設、改訂履歴（1.1改53）
+- [x] D-04 設計書（データ構造編）：5.3に`goal_consultation_log`を新設、改訂履歴（1.1改50）
+- [x] D-05 OPERATIONS.md：「目標相談チャットの運用」更新（対象拡大・質問例ボタン・相談履歴の運用）
 
 ### 3.3 バックエンド実装
 
-- [ ] B-01 列挙：`AiPurpose`・`ConversationScope`に2値追加
-- [ ] B-02 モデル・マイグレーション：`GoalConsultationLog`新設、Alembicリビジョン追加
-- [ ] B-03 プロンプト・シード：`GOAL_CONSULTATION_READING`・`GOAL_CONSULTATION_WORK`定数とシード投入
-- [ ] B-04 サービス分割：`goal_consultation_service_common.py`／`_exam.py`／`_reading.py`／`_work.py`へ分割（既存`test_goal_consultation_service.py`が無変更で通ることを回帰確認してから分割する。CODING_RULES.md「超過を解消するときの手順」と同じ順序：先にテストを固定→分割→再確認）
-- [ ] B-05 履歴サービス：`goal_consultation_log_service.py`（保存・一覧・削除）、`goal_consultation_service_common.py`から保存を呼ぶよう接続
-- [ ] B-06 API：ガード撤廃、履歴API2本追加
-- [ ] B-07 目標削除の連鎖：`test_goal_service.py`に`goal_consultation_log`の残存が無いことを確認するテスト追加
-- [ ] B-08 データ管理：`test_backup_service.py`に新テーブルを含む往復確認を追加
-- [ ] B-09 セキュリティテスト：読書・仕事それぞれでの区切り偽装・禁止語・根拠偽装（S09と同観点）、他目標の履歴へのアクセス不可（goal_id絞り込み）、削除APIの認可境界
+- [x] B-01 列挙：`AiPurpose`・`ConversationScope`に`GOAL_CONSULTATION_READING`・`GOAL_CONSULTATION_WORK`を追加
+- [x] B-02 モデル・マイグレーション：`GoalConsultationLog`新設（`models/goal.py`）、Alembicリビジョン`0f15de420a01`追加
+- [x] B-03 プロンプト・シード：`prompt_texts_reading.GOAL_CONSULTATION_READING`・`prompt_texts_work.GOAL_CONSULTATION_WORK`を新設（既存`GOAL_CONSULTATION`は`prompt_texts_common.py`→`prompt_texts_exam.py`へ移動、配置ルール統一）、シード投入
+- [x] B-04 サービス分割：`goal_consultation_service_common.py`／`_exam.py`／`_reading.py`／`_work.py`へ分割完了。既存21件のテストはカテゴリ分岐を外した以外無改修で通過を確認
+- [x] B-05 履歴サービス：`goal_consultation_log_service.py`（保存・一覧・削除）、`goal_consultation_service_common.py`から`_save_log`経由で接続
+- [x] B-06 API：EXAM専用ガード撤廃、`GET`/`DELETE` `/goals/{goal_id}/consultation/history` を追加
+- [x] B-07 目標削除の連鎖：`test_goal_service.py::test_delete_goal_cascades_removes_goal_consultation_log`を追加
+- [x] B-08 データ管理：`test_backup_service.py`に新テーブルを含む往復確認（空テーブル・行の往復・1.1/1.2互換インポート）を追加、`DATA_SCHEMA_VERSION`を1.2→1.3へ更新
+- [x] B-09 セキュリティテスト：読書・仕事それぞれの区切り偽装・禁止語・フォールバック文言、他目標の履歴へのアクセス不可（`goal_id`絞り込み、404）、削除APIの認可境界を追加
 
 ### 3.4 フロントエンド実装
 
-- [ ] F-01 型の再生成（`openapi-typescript`）
-- [ ] F-02 `GoalDetailPage.tsx`：READING_TABS・WORK_TABSへタブ追加、描画テストで中身が空白にならないことを固定
-- [ ] F-03 質問例ボタン：確認事項②の確定文言で実装、カテゴリ別の表示切り替え
-- [ ] F-04 相談履歴：一覧・削除UI、確認モーダル、空状態
-- [ ] F-05 文言：`ja.json`/`en.json`追加
-- [ ] F-06 `npm run lint`・`tsc -b`・`npm run test`
+- [x] F-01 型の再生成（`.venv/Scripts/python.exe scripts/export_openapi.py` → `npx openapi-typescript`）
+- [x] F-02 `GoalDetailPage.tsx`：READING_TABS・WORK_TABSへタブ追加。描画分岐がEXAM専用ブロック内に残っていた実装漏れを修正し、カテゴリ非依存の位置へ移動。3カテゴリとも中身が空白にならないことを描画テストで固定
+- [x] F-03 質問例ボタン：確認事項②の確定文言で実装（`questionExampleKeys`、カテゴリ別の表示切り替え）
+- [x] F-04 相談履歴：`GoalConsultationHistory.tsx`（一覧・削除UI、`window.confirm`による確認、空状態・読み込み中の表示）
+- [x] F-05 文言：`ja.json`/`en.json`に質問例・履歴セクション・カテゴリ別タブツールチップを追加
+- [x] F-06 `npm run lint`・`tsc -b`・`npm run test` 全て合格
 
 ### 3.5 検証
 
-- [ ] V-01 ruff・pytest・vitest（ベースライン比較）
-- [ ] V-02 実機テスト（一時DB、実NewtonX）：読書・仕事それぞれでT1〜T4相当（S09 V-02参照）、履歴の保存・一覧・削除、目標削除時の連鎖削除
-- [ ] V-03 フルスキャンの再確認（§1.4の横展開項目）
-- [ ] V-04 `tests/test_migration.py`・リリース前スモークで新規マイグレーション（`create_table`のみ）の適用を確認
+- [x] V-01 ruff・pytest・vitest（ベースライン比較、2026-10-23実施）。バックエンド：ruff合格、pytest 1,962件合格（ベースライン1,937件から+25件）、カバレッジ100%（ベースライン98%から向上）。フロントエンド：lint 0件、tsc 0件、vitest 1,348件合格（ベースライン1,338件から+10件）、カバレッジ100%
+- [ ] V-02 実機テスト（一時DB、実NewtonX）：読書・仕事それぞれでT1〜T4相当（S09 V-02参照）、履歴の保存・一覧・削除、目標削除時の連鎖削除。2026-10-23、別セッションが同じブランチで並行作業中（`exam_results`関連の未コミット変更）であることが判明し、利用者の判断で一旦保留（§7別件参照）
+- [x] V-03 フルスキャンの再確認（§1.4の横展開項目）：EXAM専用ガードの撤廃漏れ（サービス層・画面タブ出し分けの両方で確認済み、F-02のテストで固定）、`build_with_degradable_entries`の戻り値拡張（S09で完了済み、影響なし）、禁止語テーブルの共有（意図した挙動のまま）、`question_safety`/`discard_conversation`の共通化（そのまま再利用）、仕事目標のチームメンバー情報利用の前例（確認済み、V11根拠）
+- [x] V-04 `create_table`のみのマイグレーション（既存データへの影響なし、CODING_RULES.mdの除外対象）。`test_migration_schema.py::test_upgrade_head_creates_all_tables`が新テーブルを含めて合格することを確認済み（V-01のpytest全体に含まれる）
 
 ## 4. テスト計画
 
@@ -168,3 +168,8 @@
 
 - 禁止語の管理画面（S09から継続、未着手）
 - 相談履歴の検索・絞り込み（件数が増えた場合の将来課題。MVPはページング無しの全件表示）
+- V-02（実機検証）：2026-10-23、同じ`dev/2026-10-22`ブランチで別セッションが並行作業中（`exam_results`を日次報告フィードバックへ追加する未コミット変更。本改修とは無関係）であることが判明し、利用者の判断で実施を一旦保留した。コードの実装・テスト（V-01でモック通信により確認済み）は完了しており、残るのは実のNewtonXへの通信確認のみ
+
+---
+
+**実装完了（2026-10-23）**：§3の全項目が`[x]`（V-02を除く）。バックエンド・フロントエンドともテスト合格・カバレッジ100%（V-01参照）。ドキュメント（要件定義書・仕様書・設計書2冊・OPERATIONS.md）は本Todoの内容と一致。V-02（実NewtonXでの実機検証）のみ、別セッションの並行作業を踏まえて利用者の判断で保留中。
