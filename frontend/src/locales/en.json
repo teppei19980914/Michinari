@@ -1295,7 +1295,14 @@
     },
     "historyTitle": "Consultation history",
     "historyEmpty": "No consultation history yet",
-    "historyQuestionLabel": "Question"
+    "historyQuestionLabel": "Question",
+    "conversation": {
+      "switchLabel": "Conversation",
+      "untitled": "Conversation {{n}}",
+      "newButton": "Start a new conversation",
+      "deleteButton": "Delete this conversation",
+      "deleteConfirm": "This will delete this conversation and all its questions and answers. Continue?"
+    }
   },
   "help": {
     "title": "Help",

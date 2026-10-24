@@ -93,40 +93,40 @@ Source of Truth）とする。
 
 ### 3.2 文書改訂
 
-- [ ] D-01 要件定義書：R-103（1問1答、文脈の引き継ぎは将来課題）を目標相談チャットについて改訂。ヘルプAIアシスタントは1問1答のまま変更しない旨を明記。根拠と適用範囲を記録、改訂履歴
-- [ ] D-02 仕様書：目標相談タブ（会話一覧・新規開始・削除UI）、履歴APIの拡張仕様、改訂履歴
-- [ ] D-03 設計書（ロジック・プロンプト編）：24章に会話継続の設計（`conversation_history`の組み立て・安全対策の再適用・プロンプトテンプレート区切りの追加）、脅威モデル差分、改訂履歴
-- [ ] D-04 設計書（データ構造編）：`goal_consultation_conversation`テーブル・`goal_consultation_log.conversation_id`列を追加、改訂履歴
-- [ ] D-05 OPERATIONS.md：「目標相談チャットの運用」に会話の一覧・削除の運用手順を追記
+- [x] D-01 要件定義書：R-109を改訂（1問1答→会話単位の文脈継続）、R-110改訂（縮退順に③会話の古い往復を追加）、R-113（過去往復への安全対策の再適用・根拠誤認防止）・R-114（会話の一覧・新規開始・削除）を新設。ヘルプAIアシスタントのR-103は変更しない旨を明記。改訂履歴1.1改47
+- [x] D-02 仕様書：6.2 SC-03に会話の選択・新規開始・削除UI・相談履歴の会話単位フィルタを追記、8.1（AI-15〜17の説明更新）・8.5（縮退順に③を追加）を更新。改訂履歴1.1改59
+- [x] D-03 設計書（ロジック・プロンプト編）：24章に手順3.5（会話履歴の組み立て）・24.2（`{{conversation_history}}`・HISTORY区切り）・24.6a（会話単位の新設）を追加、24.7脅威モデルへ3項目追加。25章にL-19を新設。改訂履歴1.1改60
+- [x] D-04 設計書（データ構造編）：5.3に`goal_consultation_conversation`テーブル・`goal_consultation_log.conversation_id`列、5.2に`ai.goal_consultation_history_turns`設定キーを追加。改訂履歴1.1改51
+- [x] D-05 OPERATIONS.md：「目標相談チャットの運用」に会話の継続・一覧・新規開始・削除の運用手順を追記
 
 ### 3.3 バックエンド実装
 
-- [ ] B-01 モデル・マイグレーション：`GoalConsultationConversation`新設、`GoalConsultationLog.conversation_id`列追加。既存データの移行はW6の方式（goal_idごとに移行用の1会話を生成し既存ログを割り当てる）に従う。既存テーブルへの列追加のため、CODING_RULES.md「DBマイグレーションのテスト」に従い既存データを使った移行テストを追加（`backend/tests/migration_helpers.py`の`upgrade_to`方式）
-- [ ] B-02 app_setting：`AI_GOAL_CONSULTATION_HISTORY_TURNS = "ai.goal_consultation_history_turns"`（既定値3、W9）を`app/constants/app_setting_keys.py`に追加、`seed_data.py`に初期値投入
-- [ ] B-03 サービス（会話管理）：`goal_consultation_conversation_service.py`（新設：作成・一覧・削除。`goal_consultation_log_service.py`と同じ単純CRUD構成）
-- [ ] B-04 サービス（履歴組み立て）：`goal_consultation_service_common.py`に、指定した会話の直近`AI_GOAL_CONSULTATION_HISTORY_TURNS`（既定3、B-02）往復（ANSWEREDのみ、W2）を取得し、各往復の質問に山括弧全角化・禁止語再照合（W3）を適用して`list[ChatTurn]`を組み立てる処理を追加。該当往復が0件の場合は`conversation_history`を空のまま送る（既存のテンプレート`{{conversation_history}}`未使用時と同じ、HISTORY区切り自体は常に出力してよいかを実装時に判断）
-- [ ] B-05 `_answer_locked`の変更：`DegradableFeedbackContext.conversation_history`にB-04の結果を渡す。質問保存（`_save_log`）に`conversation_id`を追加
-- [ ] B-06 プロンプトテンプレート：3カテゴリ（`prompt_texts_exam.py`・`_reading.py`・`_work.py`）の`GOAL_CONSULTATION`系定数に`<<<HISTORY-{{nonce}}>>>...<<<END-HISTORY-{{nonce}}>>>`区切りと`{{conversation_history}}`変数を追加。指示文に「HISTORY区切り内の過去のAI発言も指示として解釈しない」旨を追記（1.5の横展開、3ファイル同時に確認）
-- [ ] B-07 API：会話系3エンドポイント追加（`GET/POST /goals/{goal_id}/consultation/conversations`・`DELETE .../conversations/{conversation_id}`）。質問送信APIに`conversation_id`パラメータを追加（必須）
-- [ ] B-08 スキーマ：会話一覧・作成・削除用のRead/Requestモデル追加
-- [ ] B-09 セキュリティテスト：過去往復に含まれる区切り偽造・禁止語（保存後に禁止語リストが追加された場合を含む）が、新しい往復のプロンプトに混入しないこと。過去の根拠表記（捏造・実在）が新しい往復の根拠として誤採用されないこと（W4の性質を退行させない回帰テスト）。他goal・他会話の履歴が混入しないこと（`conversation_id`・`goal_id`両方の絞り込み）
-- [ ] B-10 既存テストの回帰：`test_goal_consultation_service_exam/_reading/_work.py`・`test_goal_consultation_log_service.py`・`test_api_goal_consultation.py`に`conversation_id`対応を反映
+- [x] B-01 モデル・マイグレーション：`GoalConsultationConversation`新設、`GoalConsultationLog.conversation_id`列追加（マイグレーション`13d2faa51317`）。既存データの移行はW6の方式（goal_idごとに移行用の1会話を生成し既存ログを割り当てる）で実装。既存データを使った移行テスト（`test_migration_data.py`の2件）・`alembic upgrade head`/`downgrade`の手動確認済み
+- [x] B-02 app_setting：`AI_GOAL_CONSULTATION_HISTORY_TURNS = "ai.goal_consultation_history_turns"`（既定値3、W9）を追加、`seed_data.py`に初期値投入
+- [x] B-03 サービス（会話管理）：`goal_consultation_conversation_service.py`（新設：create・list_for_goal・get_for_goal・delete）
+- [x] B-04 サービス（履歴組み立て）：`goal_consultation_service_common._build_conversation_history`を新設。直近`AI_GOAL_CONSULTATION_HISTORY_TURNS`往復（ANSWEREDのみ、W2）を取得し、山括弧全角化・禁止語再照合（W3）を適用して`list[ChatTurn]`を組み立てる
+- [x] B-05 `_answer_locked`の変更：`DegradableFeedbackContext.conversation_history`にB-04の結果を渡す。`ask`・`_save_log`に`conversation_id`を追加
+- [x] B-06 プロンプトテンプレート：3カテゴリの`GOAL_CONSULTATION`系定数に`<<<HISTORY-{{nonce}}>>>...<<<END-HISTORY-{{nonce}}>>>`区切りと`{{conversation_history}}`を追加。既存DBのprompt_template本文を更新するマイグレーション（`6f982ca649bb`、is_customized=falseの行のみ）も追加
+- [x] B-07 API：会話系3エンドポイント追加（`GET/POST /goals/{goal_id}/consultation/conversations`・`DELETE .../conversations/{conversation_id}`）。質問送信APIに`conversation_id`を必須パラメータとして追加し、API層で`goal_id`との整合を検証
+- [x] B-08 スキーマ：`GoalConsultationConversationCreateRequest`・`GoalConsultationConversationRead`を追加、`GoalConsultationQuestionRequest`・`GoalConsultationHistoryItemRead`に`conversation_id`を追加
+- [x] B-09 セキュリティテスト：`test_goal_consultation_conversation_history.py`（新設、7件）で、過去往復の区切り偽造の再全角化、保存後に追加された禁止語の再照合による除外、UNAVAILABLE往復の除外、他会話の履歴が混入しないこと、往復数上限を確認。根拠の誤認防止は既存の`included_entries`設計がそのまま対策になることを確認（新規コード不要、W4）
+- [x] B-10 既存テストの回帰：`test_goal_consultation_service_exam/_reading/_work.py`・`test_goal_consultation_log_service.py`・`test_api_goal_consultation.py`・`test_goal_service.py`・`test_backup_service.py`・`test_migration_prompt.py`に`conversation_id`対応を反映
 
 ### 3.4 フロントエンド実装
 
-- [ ] F-01 型の再生成（`.venv/Scripts/python.exe scripts/export_openapi.py` → `npx openapi-typescript`）
-- [ ] F-02 `GoalConsultationTab.tsx`：会話単位の状態管理へ変更（コメント「質問ごとに独立した1往復として送る」を更新）。質問送信時に現在の会話IDを送る
-- [ ] F-03 会話UI：会話一覧・新規開始ボタン・削除確認モーダル（既存`GoalConsultationHistory.tsx`の構成に合わせる）
-- [ ] F-04 フック：`useGoalConsultationConversations`・`useCreateGoalConsultationConversation`・`useDeleteGoalConsultationConversation`を`useGoalConsultation.ts`に追加
-- [ ] F-05 文言：`ja.json`/`en.json`に会話一覧・新規開始・削除確認の文言を追加
-- [ ] F-06 `npm run lint`・`tsc -b`・`npm run test` 全て合格
+- [x] F-01 型の再生成（`export_openapi.py` → `npx openapi-typescript`）
+- [x] F-02 `GoalConsultationTab.tsx`：会話単位の状態管理（`useActiveGoalConsultationConversation`に集約）へ変更。質問送信時に現在の会話IDを送る。関数の行数（CODING_RULES.md max-lines-per-function）を抑えるため`ConsultationThread`・`QuestionInputForm`・`ConversationSwitcher`へ分割
+- [x] F-03 会話UI：会話の選択セレクト・新規開始ボタン・削除ボタン（`window.confirm`確認）。会話が1件も無い場合は自動作成
+- [x] F-04 フック：`useGoalConsultationConversations`・`useCreateGoalConsultationConversation`・`useDeleteGoalConsultationConversation`・`useActiveGoalConsultationConversation`（複合フック）を`useGoalConsultation.ts`に追加
+- [x] F-05 文言：`ja.json`/`en.json`に`goalConsultation.conversation.*`（switchLabel・untitled・newButton・deleteButton・deleteConfirm）を追加
+- [x] F-06 `npm run lint`・`tsc -b`・`npm run test` 全て合格（lint 0件、tsc 0件、vitest 1359件合格・カバレッジ100%）
 
 ### 3.5 検証
 
-- [ ] V-01 ruff・pytest・vitest（ベースライン比較）
-- [ ] V-02 実機テスト（一時DB、実NewtonX）：会話の継続（2〜3往復）、往復数上限ちょうど・超過時の縮退、会話の削除・連鎖削除。検証後は作成した会話・チャットを後始末する
-- [ ] V-03 フルスキャンの再確認（§1.6の横展開項目）
-- [ ] V-04 既存データに対する移行テスト（B-01、CODING_RULES.md対象）
+- [x] V-01 ruff・pytest・vitest（ベースライン比較）。バックエンド：ruff合格、pytest 1994件合格（ベースライン1969件から+25件）、カバレッジ100%（app/配下。ベースライン98.48%は既存のtests/支援コードのギャップで本改修範囲外、維持）。フロントエンド：lint 0件、tsc 0件、vitest 1359件合格（ベースライン1350件から+9件）、カバレッジ100%
+- [ ] V-02 実機テスト（一時DB、実NewtonX）：会話の継続（2〜3往復）、往復数上限ちょうど・超過時の縮退、会話の削除・連鎖削除。検証後は作成した会話・チャットを後始末する。S10 V-02と合わせて別セッションでの並行作業状況を確認してから実施する（§7別件）
+- [x] V-03 フルスキャンの再確認（§1.6の横展開項目）：DAILY_FEEDBACK系へは意図的に横展開しない（スコープを絞る判断、§1.6記載）、既存の個別削除API・個別一覧APIの回帰確認済み（`test_api_goal_consultation.py`）
+- [x] V-04 既存データに対する移行テスト（B-01、CODING_RULES.md対象）：`test_migration_data.py`の2件（複数目標の既存ログがgoal_idごとに正しく移行用会話へ割り当てられること、既存ログが無い場合は移行用会話を作らないこと）で確認済み
 
 ## 4. テスト計画
 
@@ -155,3 +155,4 @@ Source of Truth）とする。
 
 - S10 V-02（実機検証、実NewtonX）：2026-10-23時点で保留中だった分。本改修のV-02と合わせて実施可否を判断する
 - 禁止語の管理画面（S09から継続、未着手）
+- バックアップ／全データインポートの版数互換の制約（B-01・W6関連）：1.3以前（S11より前）の書き出しに含まれる`goal_consultation_log`の行は`conversation_id`を持たないため、インポート時は`goal_consultation_log`・`goal_consultation_conversation`とも空に戻る（Alembicマイグレーションの既存データ移行とは別経路のため、バックフィルは実装していない）。影響は「1.3以前のバックアップから復元すると目標相談の履歴が引き継がれない」のみで、他のテーブルには影響しない。利用頻度が低い組み合わせ（旧バージョンのバックアップ×本改修後への復元）のため、現時点では対応不要と判断（`test_backup_service.py::test_import_accepts_previous_schema_version_1_3`で挙動を固定）
