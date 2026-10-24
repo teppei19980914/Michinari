@@ -647,3 +647,73 @@ def test_exam_results_consultation_prompt_migration_preserves_customized_templat
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_conversation_history_prompt_migration_updates_non_customized_templates(
+    tmp_path, monkeypatch
+):
+    """6f982ca649bb: 目標相談チャット3種（GOAL_CONSULTATION/_READING/_WORK）へ会話継続
+    （{{conversation_history}}）のHISTORY区切りを追加するマイグレーションを、既存データが
+    ある状態への適用として検証する（開発Todo v1.2 W6・B-06、is_customized=Falseの行のみ対象）。
+    """
+    db_path = tmp_path / "conversation_history_prompt_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("13d2faa51317")  # 本マイグレーション（head）の1つ前
+
+    purposes = ("GOAL_CONSULTATION", "GOAL_CONSULTATION_READING", "GOAL_CONSULTATION_WORK")
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        for purpose in purposes:
+            connection.execute(
+                "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+                "VALUES (?, '旧文面（{{conversation_history}}を含まない）', 0, "
+                "'2026-01-01T00:00:00')",
+                (purpose,),
+            )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        bodies = {
+            purpose: connection.execute(
+                "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+            ).fetchone()[0]
+            for purpose in purposes
+        }
+
+    for purpose in purposes:
+        assert "{{conversation_history}}" in bodies[purpose]
+        assert "<<<HISTORY-{{nonce}}>>>" in bodies[purpose]
+
+
+def test_conversation_history_prompt_migration_preserves_customized_templates(
+    tmp_path, monkeypatch
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （6f982ca649bb）でも上書きしないこと。"""
+    db_path = tmp_path / "conversation_history_prompt_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("13d2faa51317")
+
+    purposes = ("GOAL_CONSULTATION", "GOAL_CONSULTATION_READING", "GOAL_CONSULTATION_WORK")
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        for purpose in purposes:
+            connection.execute(
+                "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+                "VALUES (?, 'ユーザーがカスタマイズした文面', 1, '2026-01-01T00:00:00')",
+                (purpose,),
+            )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        bodies = {
+            purpose: connection.execute(
+                "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+            ).fetchone()[0]
+            for purpose in purposes
+        }
+
+    for purpose in purposes:
+        assert bodies[purpose] == "ユーザーがカスタマイズした文面"
