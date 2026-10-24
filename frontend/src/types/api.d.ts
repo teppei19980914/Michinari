@@ -1206,9 +1206,56 @@ export interface paths {
         /**
          * Ask Question
          * @description 質問に、目標の記録に基づいて答える（質問ごとのチャットで送信し、回答後に削除する）。
+         *
+         *     `conversation_id`がこの目標に属する会話であることを検証してから渡す（`goal_id`との
+         *     二重絞り込み、開発Todo v1.2 §5脅威モデル）。
          */
         post: operations["ask_question_api_v1_goals__goal_id__consultation_questions_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/consultation/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Conversations
+         * @description この目標の会話一覧を作成日時の古い順で返す（S11、開発Todo v1.2 W7）。
+         */
+        get: operations["list_conversations_api_v1_goals__goal_id__consultation_conversations_get"];
+        put?: never;
+        /**
+         * Create Conversation
+         * @description 新しい会話を開始する（利用者が自由に複数の会話を作れる方式、開発Todo v1.2 確認事項③）。
+         */
+        post: operations["create_conversation_api_v1_goals__goal_id__consultation_conversations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/consultation/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Conversation
+         * @description 会話を削除する（所属する相談履歴も連鎖削除される、S11、開発Todo v1.2 W7）。
+         */
+        delete: operations["delete_conversation_api_v1_goals__goal_id__consultation_conversations__conversation_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2738,12 +2785,41 @@ export interface components {
             end: string;
         };
         /**
+         * GoalConsultationConversationCreateRequest
+         * @description 新しい会話の開始（S11、開発Todo v1.2 W7）。`title`は省略可（既定は空文字、
+         *     画面側で既定文言を表示する）。
+         */
+        GoalConsultationConversationCreateRequest: {
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+        };
+        /**
+         * GoalConsultationConversationRead
+         * @description 会話一覧・作成結果の1件（S11、開発Todo v1.2 W7）。
+         */
+        GoalConsultationConversationRead: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
          * GoalConsultationHistoryItemRead
-         * @description 相談履歴の1件（S10、開発Todo v1.1 V7）。
+         * @description 相談履歴の1件（S10、開発Todo v1.1 V7。S11で`conversation_id`を追加）。
          */
         GoalConsultationHistoryItemRead: {
             /** Id */
             id: number;
+            /** Conversation Id */
+            conversation_id: number;
             /** Question */
             question: string;
             status: components["schemas"]["GoalConsultationAnswerStatus"];
@@ -2770,8 +2846,12 @@ export interface components {
         /**
          * GoalConsultationQuestionRequest
          * @description 質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。
+         *     `conversation_id`はどの会話への質問かを明示する（S11、開発Todo v1.2 W7。省略時に
+         *     暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。
          */
         GoalConsultationQuestionRequest: {
+            /** Conversation Id */
+            conversation_id: number;
             /** Question */
             question: string;
         };
@@ -6938,6 +7018,102 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GoalConsultationAnswerRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_v1_goals__goal_id__consultation_conversations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalConsultationConversationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_conversation_api_v1_goals__goal_id__consultation_conversations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GoalConsultationConversationCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalConsultationConversationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_api_v1_goals__goal_id__consultation_conversations__conversation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
