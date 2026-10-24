@@ -111,6 +111,24 @@ class GoalStatusHistory(Base):
     changed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
+class GoalConsultationConversation(CreatedAtMixin, Base):
+    """目標相談チャットの「会話」単位（S11、開発Todo v1.2 W6）。
+
+    利用者が自由に複数の会話を作成できる（確認事項③、2026-10-24利用者確認）。`title`は
+    利用者が付ける見出し（空文字可。空の場合は画面側の既定文言を表示、ja.json側で対応）。
+    移行用会話（既存データのマイグレーション13d2faa51317で生成）も`title`は空文字。
+
+    目標削除時は`ondelete="CASCADE"`で連鎖削除する（`goal_consultation_log.goal_id`と同じ方式）。
+    """
+
+    __tablename__ = "goal_consultation_conversation"
+    __table_args__ = (Index("ix_goal_consultation_conversation_goal_id", "goal_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+
 class GoalConsultationLog(CreatedAtMixin, Base):
     """目標相談チャット（S09・S10）の質疑1件（開発Todo v1.1 V6）。
 
@@ -121,14 +139,23 @@ class GoalConsultationLog(CreatedAtMixin, Base):
     （本アプリにJSON列の前例が無いため）、検証済みの日付・週をスペース区切りの文字列で保持する
     （`YYYY-MM-DD`／`YYYY-MM-DD~YYYY-MM-DD`、空文字は根拠なし）。
 
+    `conversation_id`は会話継続（S11、開発Todo v1.2）の単位。既存データは移行用会話
+    （マイグレーション13d2faa51317）へ割り当て済みのためNOT NULL。
+
     目標削除時は`ondelete="CASCADE"`で連鎖削除する（`chat_message.goal_id`と同じ方式）。
     """
 
     __tablename__ = "goal_consultation_log"
-    __table_args__ = (Index("ix_goal_consultation_log_goal_id", "goal_id"),)
+    __table_args__ = (
+        Index("ix_goal_consultation_log_goal_id", "goal_id"),
+        Index("ix_goal_consultation_log_conversation_id", "conversation_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("goal_consultation_conversation.id", ondelete="CASCADE"), nullable=False
+    )
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer_status: Mapped[GoalConsultationAnswerStatus] = mapped_column(
         Enum(GoalConsultationAnswerStatus, native_enum=False, validate_strings=True),
