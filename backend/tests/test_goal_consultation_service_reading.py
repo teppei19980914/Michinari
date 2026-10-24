@@ -14,6 +14,7 @@ from app.ai import rate_limiter
 from app.constants.enums import GoalConsultationAnswerStatus
 from app.models.goal import GoalConsultationLog
 from app.models.record import ReadingLog
+from app.services import goal_consultation_conversation_service
 from app.services import goal_consultation_service_common as service
 from tests import reading_helpers
 from tests.ai_chat_fakes import FakeAi
@@ -45,12 +46,22 @@ def _make_reading_goal_with_book_and_log(session):
     return goal
 
 
+def _make_conversation(session, goal):
+    """会話継続（S11）のテストで使う会話を1件作る（開発Todo v1.2 W6）。"""
+    return goal_consultation_conversation_service.create(session, goal, "").id
+
+
 def test_ask_answers_reading_goal_with_book_context(seeded_session, monkeypatch):
     goal = _make_reading_goal_with_book_and_log(seeded_session)
     fake = FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
+    conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(
-        seeded_session, goal=goal, today=_TODAY, raw_question="前に読んだ本とのつながりは？"
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="前に読んだ本とのつながりは？",
     )
 
     assert answer.status is GoalConsultationAnswerStatus.ANSWERED
@@ -70,8 +81,13 @@ def test_ask_uses_fallback_text_when_book_is_not_registered(seeded_session, monk
     fake = FakeAi(monkeypatch, ("## 記録から言えること\n記録からはまだ判断できません。\n"
                                 "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",))
 
+    conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(
-        seeded_session, goal=goal, today=_TODAY, raw_question="この本で学んだことを3行で"
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="この本で学んだことを3行で",
     )
 
     assert answer.status is GoalConsultationAnswerStatus.ANSWERED
@@ -83,8 +99,13 @@ def test_ask_saves_log_entry_with_reading_goal(seeded_session, monkeypatch):
     goal = _make_reading_goal_with_book_and_log(seeded_session)
     FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
+    conversation_id = _make_conversation(seeded_session, goal)
     service.ask(
-        seeded_session, goal=goal, today=_TODAY, raw_question="前に読んだ本とのつながりは？"
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="前に読んだ本とのつながりは？",
     )
 
     log = seeded_session.query(GoalConsultationLog).filter_by(goal_id=goal.id).one()
