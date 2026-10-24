@@ -47,3 +47,11 @@ export const UNAVAILABLE_MESSAGE_KEY = 'goalConsultation.unavailable'
 export function errorMessageKey(code: string | undefined): string {
   return code === 'AI_AUTH_REQUIRED' ? 'goalConsultation.authRequired' : 'goalConsultation.error'
 }
+
+/** 会話の表示名（S11、開発Todo v1.2 W7）。利用者が付けた`title`があればそれを使い、
+ * 空（既定）の場合はnullを返す。呼び出し側（コンポーネント）が、連番を使った既定文言
+ * （`goalConsultation.conversation.untitled`）で補う。 */
+export function conversationDisplayTitle(title: string): string | null {
+  const trimmed = title.trim()
+  return trimmed === '' ? null : trimmed
+}

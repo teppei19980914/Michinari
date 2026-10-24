@@ -1,7 +1,8 @@
 /** 目標相談チャットの判定ロジックのテスト（S09で導入、S10で質問例ボタンのテストを追加、
- * 開発Todo v1.1 F-02）。 */
+ * S11で会話の表示名のテストを追加、開発Todo v1.1 F-02・v1.2 F-02）。 */
 import { describe, expect, it } from 'vitest'
 import {
+  conversationDisplayTitle,
   errorMessageKey,
   questionExampleKeys,
   UNAVAILABLE_MESSAGE_KEY,
@@ -64,5 +65,19 @@ describe('questionExampleKeys（目標の種類ごとの質問例）', () => {
       'goalConsultation.questionExamples.work1',
       'goalConsultation.questionExamples.work2',
     ])
+  })
+})
+
+describe('conversationDisplayTitle（会話の表示名、S11）', () => {
+  it('タイトルがあればそのまま返す', () => {
+    expect(conversationDisplayTitle('科目Aの相談')).toBe('科目Aの相談')
+  })
+
+  it('空文字はnullを返す（既定文言は呼び出し側が補う）', () => {
+    expect(conversationDisplayTitle('')).toBeNull()
+  })
+
+  it('空白だけのタイトルもnullを返す', () => {
+    expect(conversationDisplayTitle('   ')).toBeNull()
   })
 })

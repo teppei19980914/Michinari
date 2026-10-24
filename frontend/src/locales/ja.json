@@ -1235,7 +1235,14 @@
     },
     "historyTitle": "相談履歴",
     "historyEmpty": "まだ相談履歴はありません",
-    "historyQuestionLabel": "質問"
+    "historyQuestionLabel": "質問",
+    "conversation": {
+      "switchLabel": "会話",
+      "untitled": "会話{{n}}",
+      "newButton": "新しい会話を始める",
+      "deleteButton": "この会話を削除",
+      "deleteConfirm": "この会話と、その中の質問・回答をすべて削除します。よろしいですか？"
+    }
   },
   "help": {
     "title": "ヘルプ",

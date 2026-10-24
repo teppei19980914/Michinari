@@ -59,9 +59,18 @@ function HistoryItem({
   )
 }
 
-export function GoalConsultationHistory({ goalId }: { goalId: number }) {
+export function GoalConsultationHistory({
+  goalId,
+  conversationId,
+}: {
+  goalId: number
+  /** 指定すると、その会話の往復だけに絞り込む（S11、開発Todo v1.2 W7）。未指定は全会話分。 */
+  conversationId?: number
+}) {
   const history = useGoalConsultationHistory(goalId)
-  const items = history.data ?? []
+  const items = (history.data ?? []).filter(
+    (item) => conversationId === undefined || item.conversation_id === conversationId,
+  )
 
   return (
     <div className="flex flex-col gap-2">

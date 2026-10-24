@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.database import serialize_writes
 from app.models.goal import Goal, GoalConsultationConversation
 from app.services.exceptions import NotFoundError
 
@@ -30,11 +29,14 @@ def _to_entry(row: GoalConsultationConversation) -> GoalConsultationConversation
 
 
 def create(session: Session, goal: Goal, title: str) -> GoalConsultationConversationEntry:
-    """新しい会話を開始する（利用者が自由に複数作成できる方式、確認事項③）。"""
-    with serialize_writes():
-        row = GoalConsultationConversation(goal_id=goal.id, title=title)
-        session.add(row)
-        session.commit()
+    """新しい会話を開始する（利用者が自由に複数作成できる方式、確認事項③）。
+
+    AI通信を伴わない単純な書き込みのため`serialize_writes()`は使わない
+    （CODING_RULES.md「AI通信とトランザクション」の対象はAI呼び出し前後の書き込みのみ）。
+    """
+    row = GoalConsultationConversation(goal_id=goal.id, title=title)
+    session.add(row)
+    session.commit()
     return _to_entry(row)
 
 
