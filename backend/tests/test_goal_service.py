@@ -6,7 +6,7 @@ import pytest
 
 from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus, RecordState
 from app.models.book import Book
-from app.models.goal import Goal, GoalConsultationLog
+from app.models.goal import Goal, GoalConsultationConversation, GoalConsultationLog
 from app.models.material import Material
 from app.models.record import (
     ChatMessage,
@@ -533,14 +533,18 @@ def test_delete_goal_cascades_preserves_daily_record_with_chat_or_comment(
 
 
 def test_delete_goal_cascades_removes_goal_consultation_log(db_session):
-    """目標相談チャットの履歴は`goal_consultation_log.goal_id`のON DELETE CASCADEで消える
+    """目標相談チャットの履歴・会話は`goal_id`のON DELETE CASCADEで消える
     （chat_message.goal_idと同じ方式、`goal_service`側の明示的な削除は不要。開発Todo v1.1
-    V6・B-07）。カテゴリによらず同じ仕組みのため、代表としてEXAMで確認する（カテゴリ別の
+    V6・B-07、v1.2 W6）。カテゴリによらず同じ仕組みのため、代表としてEXAMで確認する（カテゴリ別の
     挙動はgoal_consultation_service_exam/_reading/_workのテストで別途確認済み）。"""
     goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    conversation = GoalConsultationConversation(goal_id=goal.id, title="")
+    db_session.add(conversation)
+    db_session.flush()
     db_session.add(
         GoalConsultationLog(
             goal_id=goal.id,
+            conversation_id=conversation.id,
             question="この後何を勉強すべき？",
             answer_status="ANSWERED",
             answer_body="順調です。",
@@ -553,4 +557,5 @@ def test_delete_goal_cascades_removes_goal_consultation_log(db_session):
 
     goal_service.delete_goal(db_session, goal)
 
+    assert db_session.query(GoalConsultationConversation).count() == 0
     assert db_session.query(GoalConsultationLog).count() == 0

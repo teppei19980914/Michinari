@@ -15,6 +15,7 @@ from app.constants.enums import GoalCategory, GoalConsultationAnswerStatus, Goal
 from app.models.goal import Goal, GoalConsultationLog
 from app.models.record import WorkLog
 from app.models.work import WorkAssignment, WorkMember
+from app.services import goal_consultation_conversation_service
 from app.services import goal_consultation_service_common as service
 from tests.ai_chat_fakes import FakeAi
 from tests.ai_context_helpers import make_daily_record
@@ -70,12 +71,22 @@ def _make_work_goal_with_log(session):
     return goal, work_assignment
 
 
+def _make_conversation(session, goal):
+    """会話継続（S11）のテストで使う会話を1件作る（開発Todo v1.2 W6）。"""
+    return goal_consultation_conversation_service.create(session, goal, "").id
+
+
 def test_ask_answers_work_goal_with_work_context(seeded_session, monkeypatch):
     goal, _ = _make_work_goal_with_log(seeded_session)
     fake = FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
+    conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(
-        seeded_session, goal=goal, today=_TODAY, raw_question="今月の成果を上司向けに3行で"
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="今月の成果を上司向けに3行で",
     )
 
     assert answer.status is GoalConsultationAnswerStatus.ANSWERED
@@ -103,7 +114,14 @@ def test_ask_includes_member_characteristics_in_prompt(seeded_session, monkeypat
     seeded_session.commit()
     fake = FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
-    service.ask(seeded_session, goal=goal, today=_TODAY, raw_question="最近の課題の傾向は？")
+    conversation_id = _make_conversation(seeded_session, goal)
+    service.ask(
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="最近の課題の傾向は？",
+    )
 
     prompt = fake.sent[0]
     assert "山田太郎" in prompt
@@ -116,8 +134,13 @@ def test_ask_uses_fallback_text_when_work_assignment_is_not_registered(seeded_se
     FakeAi(monkeypatch, ("## 記録から言えること\n記録からはまだ判断できません。\n"
                          "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",))
 
+    conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(
-        seeded_session, goal=goal, today=_TODAY, raw_question="最近の課題の傾向は？"
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="最近の課題の傾向は？",
     )
 
     assert answer.status is GoalConsultationAnswerStatus.ANSWERED
@@ -127,7 +150,14 @@ def test_ask_saves_log_entry_with_work_goal(seeded_session, monkeypatch):
     goal, _ = _make_work_goal_with_log(seeded_session)
     FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
 
-    service.ask(seeded_session, goal=goal, today=_TODAY, raw_question="今月の成果を上司向けに3行で")
+    conversation_id = _make_conversation(seeded_session, goal)
+    service.ask(
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="今月の成果を上司向けに3行で",
+    )
 
     log = seeded_session.query(GoalConsultationLog).filter_by(goal_id=goal.id).one()
     assert log.answer_status is GoalConsultationAnswerStatus.ANSWERED
