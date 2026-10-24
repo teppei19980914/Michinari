@@ -1,5 +1,5 @@
 """目標相談チャットのリクエスト・レスポンススキーマ（S09、要件定義書R-104。S10で履歴の
-スキーマを追加）。
+スキーマを追加、S11で会話継続のスキーマを追加）。
 
 回答の文言はバックエンドで持たない。画面は`status`に応じて`ja.json`の文言を出す
 （`help_assistant.py`と同じ方針）。
@@ -13,9 +13,28 @@ from app.constants.enums import GoalConsultationAnswerStatus
 
 
 class GoalConsultationQuestionRequest(BaseModel):
-    """質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。"""
+    """質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。
+    `conversation_id`はどの会話への質問かを明示する（S11、開発Todo v1.2 W7。省略時に
+    暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。
+    """
 
+    conversation_id: int
     question: str
+
+
+class GoalConsultationConversationCreateRequest(BaseModel):
+    """新しい会話の開始（S11、開発Todo v1.2 W7）。`title`は省略可（既定は空文字、
+    画面側で既定文言を表示する）。"""
+
+    title: str = ""
+
+
+class GoalConsultationConversationRead(BaseModel):
+    """会話一覧・作成結果の1件（S11、開発Todo v1.2 W7）。"""
+
+    id: int
+    title: str
+    created_at: datetime
 
 
 class GoalConsultationCitedWeek(BaseModel):
@@ -45,9 +64,10 @@ class GoalConsultationLimitsRead(BaseModel):
 
 
 class GoalConsultationHistoryItemRead(BaseModel):
-    """相談履歴の1件（S10、開発Todo v1.1 V7）。"""
+    """相談履歴の1件（S10、開発Todo v1.1 V7。S11で`conversation_id`を追加）。"""
 
     id: int
+    conversation_id: int
     question: str
     status: GoalConsultationAnswerStatus
     answer: str | None
