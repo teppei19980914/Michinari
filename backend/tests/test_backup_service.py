@@ -252,6 +252,8 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
     # S10で追加した goal_consultation_log も、他の新規テーブルと同様に
     # コード変更無しで対象に入ることを確認する（開発Todo v1.1 V6・B-08）。
     assert data["tables"]["goal_consultation_log"] == []
+    # S11で追加した goal_consultation_conversation も同様（開発Todo v1.2 W6）。
+    assert data["tables"]["goal_consultation_conversation"] == []
 
 
 def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):
@@ -259,10 +261,14 @@ def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):
     connection = sqlite3.connect(full_schema_db)
     try:
         connection.execute(
+            "INSERT INTO goal_consultation_conversation (id, goal_id, title, created_at) "
+            "VALUES (1, 1, '', '2026-01-10T00:00:00')"
+        )
+        connection.execute(
             "INSERT INTO goal_consultation_log "
-            "(id, goal_id, question, answer_status, answer_body, cited_dates, cited_weeks, "
-            "created_at) VALUES "
-            "(1, 1, '質問', 'ANSWERED', '回答', '2026-01-10', '', '2026-01-10T00:00:00')"
+            "(id, goal_id, conversation_id, question, answer_status, answer_body, "
+            "cited_dates, cited_weeks, created_at) VALUES "
+            "(1, 1, 1, '質問', 'ANSWERED', '回答', '2026-01-10', '', '2026-01-10T00:00:00')"
         )
         connection.commit()
     finally:
@@ -270,10 +276,14 @@ def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):
 
     data = backup_service.export_all_data()
 
+    assert data["tables"]["goal_consultation_conversation"] == [
+        {"id": 1, "goal_id": 1, "title": "", "created_at": "2026-01-10T00:00:00"}
+    ]
     assert data["tables"]["goal_consultation_log"] == [
         {
             "id": 1,
             "goal_id": 1,
+            "conversation_id": 1,
             "question": "質問",
             "answer_status": "ANSWERED",
             "answer_body": "回答",
@@ -344,6 +354,7 @@ def test_import_accepts_previous_schema_version_1_1(full_schema_db):
     data["schema_version"] = "1.1"
     data["tables"].pop("goal_status_history", None)
     data["tables"].pop("goal_consultation_log", None)
+    data["tables"].pop("goal_consultation_conversation", None)
     for row in data["tables"]["goal"]:
         row.pop("resumed_at", None)
 
@@ -353,6 +364,7 @@ def test_import_accepts_previous_schema_version_1_1(full_schema_db):
     assert restored["tables"]["goal"][0]["name"] == "マーカー"
     assert restored["tables"]["goal_status_history"] == []
     assert restored["tables"]["goal_consultation_log"] == []
+    assert restored["tables"]["goal_consultation_conversation"] == []
 
 
 def test_import_accepts_previous_schema_version_1_2(full_schema_db):
@@ -362,12 +374,34 @@ def test_import_accepts_previous_schema_version_1_2(full_schema_db):
     data = backup_service.export_all_data()
     data["schema_version"] = "1.2"
     data["tables"].pop("goal_consultation_log", None)
+    data["tables"].pop("goal_consultation_conversation", None)
 
     backup_service.import_all_data(data)
 
     restored = backup_service.export_all_data()
     assert restored["tables"]["goal"][0]["name"] == "マーカー"
     assert restored["tables"]["goal_consultation_log"] == []
+    assert restored["tables"]["goal_consultation_conversation"] == []
+
+
+def test_import_accepts_previous_schema_version_1_3(full_schema_db):
+    """1.3で書き出したバックアップは取り込める（S11で追加したgoal_consultation_conversation・
+    goal_consultation_log.conversation_idが無いだけで、形式自体は互換のため。1.3時点の
+    goal_consultation_logの行は会話の概念を持たないため、インポート後は両テーブルとも空に
+    戻る（conversation_id無しの行のバックフィルはこのインポート経路の対象外、開発Todo v1.2
+    §7別件。Alembicマイグレーション13d2faa51317側では既存データのバックフィルを別途検証済み）。
+    """
+    _insert_minimal_goal(full_schema_db)
+    data = backup_service.export_all_data()
+    data["schema_version"] = "1.3"
+    data["tables"].pop("goal_consultation_conversation", None)
+
+    backup_service.import_all_data(data)
+
+    restored = backup_service.export_all_data()
+    assert restored["tables"]["goal"][0]["name"] == "マーカー"
+    assert restored["tables"]["goal_consultation_log"] == []
+    assert restored["tables"]["goal_consultation_conversation"] == []
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

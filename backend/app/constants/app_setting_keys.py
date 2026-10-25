@@ -57,6 +57,8 @@ AI_ASSISTANT_UID_GOAL_CONSULTATION = "ai.assistant_uid.goal_consultation"
 AI_GOAL_CONSULTATION_FOLDER_NAME = "ai.goal_consultation_folder_name"
 AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS = "ai.goal_consultation_question_max_chars"
 AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS = "ai.goal_consultation_answer_max_chars"
+#: 会話継続（S11）でプロンプトに含める直近往復数の既定値（開発Todo v1.2 W9、確認事項②）。
+AI_GOAL_CONSULTATION_HISTORY_TURNS = "ai.goal_consultation_history_turns"
 #: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
 #: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
 AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"

@@ -37,11 +37,16 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 #: 1.1: goal.resource_ratio廃止・goal_slot_allocation等の新設に伴うテーブル構成の変更。
 #: 1.2: goal.resumed_at（再開日）と goal_status_history（状態遷移履歴、開発Todo 1-6）の追加。
 #: 1.3: goal_consultation_log（目標相談チャットの履歴、S10開発Todo v1.1 V6）の追加。
-DATA_SCHEMA_VERSION = "1.3"
+#: 1.4: goal_consultation_conversation（会話単位、S11開発Todo v1.2 W6）の追加と、
+#:      goal_consultation_log.conversation_id（NOT NULL）の追加。1.3以前の書き出しは
+#:      goal_consultation_logに行があってもconversation_id列を持たないため、
+#:      インポート時はgoal_consultation_conversation・goal_consultation_logとも空に戻る
+#:      （1.3以前の相談履歴の取り込みは対象外、開発Todo v1.2 §7別件）。
+DATA_SCHEMA_VERSION = "1.4"
 #: インポートで受け付ける版数。旧い版の書き出しは、テーブルや列が無いだけで形式は互換のため
 #: 受け入れる（欠けたテーブル・列は既定値で復元される。履歴は空になり、報告率の停止期間は
 #: 計算されない／相談履歴は空になる）。
-_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", "1.2", DATA_SCHEMA_VERSION})
+_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", "1.2", "1.3", DATA_SCHEMA_VERSION})
 
 
 def database_path() -> Path:

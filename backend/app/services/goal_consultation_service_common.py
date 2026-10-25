@@ -1,20 +1,27 @@
 """目標相談チャットの質疑応答・共通処理（S09でEXAM向けに導入、S10でREADING/WORKへ展開、
-開発Todo v1.1 V5）。
+S11で会話継続に対応、開発Todo v1.1 V5・v1.2）。
 
 カテゴリ別の変数組み立て・テンプレート選択は`goal_consultation_service_exam.py`・
 `_reading.py`・`_work.py`に置く（`record_service_common`/`_exam`/`_reading`/`_work`と
 同じ分割方式、CODING_RULES.md置き場所ルール）。本ファイルは、カテゴリに依存しない処理
 （直列化・質問の安全対策・送信・応答の解釈・相談履歴の保存）とカテゴリ分岐そのものを持つ。
+会話（`goal_consultation_conversation`）の作成・一覧・削除自体は
+`goal_consultation_conversation_service.py`が担う（単一責任、本ファイルは会話IDを
+受け取って使うだけ）。
 
-処理の順序：入力検証 → 禁止語 → カテゴリ別の変数組み立て（上限超過時は週次要約→生ログの
-順に古いものから縮退） → 質問ごとのチャットで送信 → 根拠の検証（プロンプトに実際に
-含めた日付・週だけを採用） → 後始末（チャットの削除と一覧での確認） → 相談履歴の保存。
+処理の順序：入力検証 → 禁止語 → カテゴリ別の変数組み立て → 会話履歴の組み立て（直近
+`ai.goal_consultation_history_turns`往復、過去の質問にも安全対策を再適用、開発Todo v1.2
+W2・W3） → 上限超過時は①週次要約→②生ログ→③会話の古い往復の順に古いものから縮退
+（既存`build_with_degradable_entries`、W1・W10） → 質問ごとのチャットで送信 → 根拠の検証
+（この回のプロンプトに実際に含めた日付・週だけを採用。会話履歴中の表現の模倣も自動的に
+除外される、W4） → 後始末（チャットの削除と一覧での確認） → 相談履歴の保存（会話IDつき）。
 
 安全対策（禁止語・区切りの全角化・nonce・質問の検証整形）はヘルプAIアシスタントと共通の
 `app.ai.question_safety`を使う（CODING_RULES.md DRYの原則、S09 U9）。質問ごとに
-新しいチャットを作り、回答後に削除する（1問1答、ヘルプと同方式）。AIへの送信は
-`ai_orchestration.send_and_log`を通し、会話行は`ai_conversation.ensure_conversation`で作る
-（CODING_RULES.md「AI通信とトランザクション」）。
+新しいチャットを作り、回答後に削除する（1問1答、ヘルプと同方式。会話の単位は
+`goal_consultation_conversation`テーブルでアプリ側が管理し、NewtonX側のチャットには
+文脈を持たせない）。AIへの送信は`ai_orchestration.send_and_log`を通し、会話行は
+`ai_conversation.ensure_conversation`で作る（CODING_RULES.md「AI通信とトランザクション」）。
 """
 
 import datetime as dt
@@ -30,15 +37,17 @@ from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder, question_safety
 from app.ai.exceptions import AiAuthRequiredError
-from app.ai.prompt_builder import DatedLogEntry
+from app.ai.prompt_builder import ChatTurn, DatedLogEntry
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_CONSULTATION,
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS,
     AI_GOAL_CONSULTATION_FOLDER_NAME,
+    AI_GOAL_CONSULTATION_HISTORY_TURNS,
     AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS,
 )
 from app.constants.enums import (
     AiPurpose,
+    ChatRole,
     ConversationScope,
     GoalCategory,
     GoalConsultationAnswerStatus,
@@ -188,12 +197,19 @@ def _build_category_context(session: Session, goal: Goal, today: dt.date) -> Cat
     raise ValidationError(f"Unsupported goal category: {goal.category}")  # pragma: no cover
 
 
-def _save_log(session: Session, goal: Goal, question: str, answer: GoalConsultationAnswer) -> None:
+def _save_log(
+    session: Session,
+    goal: Goal,
+    conversation_id: int,
+    question: str,
+    answer: GoalConsultationAnswer,
+) -> None:
     """`GoalConsultationAnswer`のフィールドを`goal_consultation_log_service.save`の
     スカラー引数へ展開する（3つの呼び出し箇所で共通化、CLAUDE.md DRYの原則）。"""
     goal_consultation_log_service.save(
         session,
         goal=goal,
+        conversation_id=conversation_id,
         question=question,
         answer_status=answer.status,
         answer_body=answer.text,
@@ -202,15 +218,42 @@ def _save_log(session: Session, goal: Goal, question: str, answer: GoalConsultat
     )
 
 
+def _build_conversation_history(session: Session, conversation_id: int) -> list[ChatTurn]:
+    """会話継続（S11）でプロンプトに含める直近往復を組み立てる（開発Todo v1.2 W2・W3）。
+
+    `ANSWERED`の往復のみを対象にし（W2）、過去の質問には今回の質問と同じ安全対策
+    （山括弧の全角化・禁止語の照合）を再適用する（W3）。保存後に禁止語リストへ新規登録
+    された語に、保存時点では一致しなかった過去の質問が今後一致するようになる場合があるため、
+    保存時の判定結果に頼らず埋め込み時に再照合する。一致した往復はまるごと除外する
+    （質問だけ除外すると回答が文脈を失うため）。
+
+    根拠行の誤認防止（要件2後半）は新規コード不要（既存設計で解決済み、開発Todo v1.2 W4）：
+    保存される`answer_body`は`_parse_answer`が末尾の根拠行を除去した本文のみのため、
+    過去の往復に根拠表記そのものが含まれない。
+    """
+    turns_limit = setting_reader.get_int(session, AI_GOAL_CONSULTATION_HISTORY_TURNS)
+    entries = goal_consultation_log_service.list_recent_answered_for_conversation(
+        session, conversation_id, turns_limit
+    )
+    history: list[ChatTurn] = []
+    for entry in entries:
+        if question_safety.contains_forbidden_term(session, entry.question):
+            continue
+        escaped_question = entry.question.translate(question_safety.DELIMITER_REPLACEMENTS)
+        history.append(ChatTurn(role=ChatRole.USER, content=escaped_question))
+        history.append(ChatTurn(role=ChatRole.ASSISTANT, content=entry.answer_body))
+    return history
+
+
 def _answer_locked(
-    session: Session, goal: Goal, today: dt.date, raw_question: str
+    session: Session, goal: Goal, today: dt.date, conversation_id: int, raw_question: str
 ) -> GoalConsultationAnswer:
     """質疑の本体（ロックを取った状態で呼ぶ）。"""
     max_question_chars = setting_reader.get_int(session, AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS)
     question = question_safety.sanitize_question(raw_question, max_question_chars)
     if question_safety.contains_forbidden_term(session, question):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        _save_log(session, goal, question, answer)
+        _save_log(session, goal, conversation_id, question, answer)
         return answer
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
@@ -232,6 +275,10 @@ def _answer_locked(
 
     nonce = secrets.token_hex(question_safety.NONCE_BYTES)
     escaped_question = question.translate(question_safety.DELIMITER_REPLACEMENTS)
+    # 会話継続（S11）。縮退順は既存のbuild_with_degradable_entriesに委ねる
+    # （①stages＝週次要約→生ログ→②conversation_history＝会話の古い往復、の順で削る。
+    # 開発Todo v1.2 W1・W10、依頼文の推奨順と一致するため新規縮退ロジックは作らない）。
+    conversation_history = _build_conversation_history(session, conversation_id)
     context = prompt_builder.DegradableFeedbackContext(
         fixed_variables={
             **category_context.fixed_variables,
@@ -239,17 +286,20 @@ def _answer_locked(
             "nonce": nonce,
         },
         stages=stages,
+        conversation_history=conversation_history,
     )
 
     template = ai_orchestration.load_template_body(session, category_context.purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     # 質問文・指示文・目標概要等の固定変数は縮退しない（開発Todo 要約と縮退の設計原則）。
-    # 週次要約・生ログを全て削ってもなお上限を超える場合は、切り詰めずに送信しない
+    # 週次要約・生ログ・会話履歴を全て削ってもなお上限を超える場合は、切り詰めずに送信しない
     # （NewtonX利用ナレッジ「切り詰めない」、ヘルプAIアシスタントの`prompt.was_truncated`
     # 判定と同じ方針）。
-    if prompt_builder.exceeds_with_entries_emptied(template, context, max_chars):
+    if prompt_builder.exceeds_with_entries_emptied(
+        template, context, max_chars, conversation_history_is_degradable=True
+    ):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        _save_log(session, goal, question, answer)
+        _save_log(session, goal, conversation_id, question, answer)
         return answer
     build_result = prompt_builder.build_with_degradable_entries(template, context, max_chars)
 
@@ -274,21 +324,26 @@ def _answer_locked(
         prompt_text=build_result.text,
         prompt_chars=build_result.prompt_chars,
     )
+    # 根拠の誤認防止（開発Todo v1.2 W4）：valid_dates/valid_weeksはこの回のプロンプトに
+    # 実際に含めたエントリのみから作るため、会話履歴（過去の往復）中の表現をAIが模倣して
+    # 新しい根拠行に書いても、ここで実在しないものとして除外される。
     answer = _interpret(session, raw, valid_dates, valid_weeks)
-    _save_log(session, goal, question, answer)
+    _save_log(session, goal, conversation_id, question, answer)
     return answer
 
 
 def ask(
-    session: Session, *, goal: Goal, today: dt.date, raw_question: str
+    session: Session, *, goal: Goal, today: dt.date, conversation_id: int, raw_question: str
 ) -> GoalConsultationAnswer:
-    """利用者の質問に、目標の記録に基づいて答える（開発Todo v1.1 §3）。
+    """利用者の質問に、目標の記録に基づいて答える（開発Todo v1.1 §3、S11で会話継続に対応）。
 
     EXAM・READING・WORKの全カテゴリで利用できる（S10でEXAM専用ガードを撤廃、開発Todo v1.1
-    V1）。入力が不正なら`ValidationError`、AI未接続なら`AiAuthRequiredError`、通信の失敗は
-    `AiError`系を送出する（API層でHTTPに変換する）。禁止語・表示できない回答は例外にせず、
+    V1）。`conversation_id`は`goal`に属する会話でなければならない（呼び出し元のAPI層が
+    `goal_consultation_conversation_service.get_for_goal`で検証してから渡す）。入力が不正なら
+    `ValidationError`、AI未接続なら`AiAuthRequiredError`、通信の失敗は`AiError`系を送出する
+    （API層でHTTPに変換する）。禁止語・表示できない回答は例外にせず、
     `GoalConsultationAnswer.status`で返す。質問・回答は状態を問わず`goal_consultation_log`へ
     保存する（開発Todo v1.1 V8）。
     """
     with _REQUEST_LOCK:
-        return _answer_locked(session, goal, today, raw_question)
+        return _answer_locked(session, goal, today, conversation_id, raw_question)

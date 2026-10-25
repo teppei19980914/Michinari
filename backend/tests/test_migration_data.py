@@ -681,3 +681,81 @@ def test_goal_status_history_migration_restores_known_transitions_from_timestamp
     assert by_goal["一時停止"][-1] == ("ACTIVE", "PAUSED", datetime(2026, 2, 15))
     assert by_goal["中断"][-1] == ("ACTIVE", "CLOSED_WITHOUT_RESULT", datetime(2026, 3, 1))
     assert all(row[0] is None for row in resumed)
+
+
+def test_goal_consultation_conversation_migration_backfills_existing_logs_by_goal(
+    tmp_path, monkeypatch
+):
+    """会話単位の新設（13d2faa51317、開発Todo v1.2 W6）で、既存の`goal_consultation_log`が
+    goal_idごとに1件の移行用会話へ正しく割り当てられること（CODING_RULES.md「DBマイグレー
+    ションのテスト」）。移行用会話の`created_at`はその目標の最も古いログの日時になること、
+    複数の目標の既存ログが混ざらないことを確認する。
+    """
+    db_path = tmp_path / "goal_consultation_conversation_migration.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c7fbb21cc857")  # 会話単位新設（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (2, 'READING', '目標B', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        # 目標Aは2件（移行用会話へまとめて割り当てられる）、目標Bは1件（UNAVAILABLE含む）。
+        connection.execute(
+            "INSERT INTO goal_consultation_log (id, goal_id, question, answer_status, "
+            "answer_body, cited_dates, cited_weeks, created_at) "
+            "VALUES (1, 1, '質問1', 'ANSWERED', '回答1', '', '', '2026-01-02T10:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal_consultation_log (id, goal_id, question, answer_status, "
+            "answer_body, cited_dates, cited_weeks, created_at) "
+            "VALUES (2, 1, '質問2', 'ANSWERED', '回答2', '', '', '2026-01-03T10:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal_consultation_log (id, goal_id, question, answer_status, "
+            "answer_body, cited_dates, cited_weeks, created_at) "
+            "VALUES (3, 2, '質問3', 'UNAVAILABLE', '', '', '', '2026-01-05T10:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        conversations = connection.execute(
+            "SELECT id, goal_id, title, created_at FROM goal_consultation_conversation ORDER BY id"
+        ).fetchall()
+        log_conversation_ids = dict(
+            connection.execute(
+                "SELECT id, conversation_id FROM goal_consultation_log ORDER BY id"
+            ).fetchall()
+        )
+
+    assert conversations == [
+        (1, 1, "", "2026-01-02T10:00:00"),
+        (2, 2, "", "2026-01-05T10:00:00"),
+    ]
+    assert log_conversation_ids == {1: 1, 2: 1, 3: 2}
+
+
+def test_goal_consultation_conversation_migration_without_existing_logs_creates_none(
+    tmp_path, monkeypatch
+):
+    """既存の相談履歴が1件も無い場合、移行用会話は作られず空のまま推移すること。"""
+    db_path = tmp_path / "goal_consultation_conversation_migration_empty.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c7fbb21cc857")
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        conversations = connection.execute(
+            "SELECT COUNT(*) FROM goal_consultation_conversation"
+        ).fetchone()[0]
+
+    assert conversations == 0
