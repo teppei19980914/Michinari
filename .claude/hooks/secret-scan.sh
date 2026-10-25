@@ -7,6 +7,10 @@ set -u
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
 
+# gitleaksもosv-scannerと同じmyvenv/Scripts配置の opt-in ツールのため、PATH解決の理由は
+# vuln-scan.shのコメントを参照（activateに頼らずこのHook自身でPATHを保証する）。
+export PATH="$PWD/myvenv/Scripts:$PATH"
+
 echo "=== Secret Scan ==="
 
 # 1) gitleaks があれば使う
