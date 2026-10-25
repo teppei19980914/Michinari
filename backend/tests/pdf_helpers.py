@@ -25,7 +25,11 @@ def _assemble_pdf(objects: list[bytes]) -> bytes:
         offset += len(chunk)
 
     xref_offset = offset
-    xref_chunks: list[bytes] = [b"xref\n", f"0 {len(objects) + 1}\n".encode(), b"0000000000 65535 f \n"]
+    xref_chunks: list[bytes] = [
+        b"xref\n",
+        f"0 {len(objects) + 1}\n".encode(),
+        b"0000000000 65535 f \n",
+    ]
     for entry_offset in offsets:
         xref_chunks.append(f"{entry_offset:010d} 00000 n \n".encode())
     xref_chunks.append(b"trailer\n")
@@ -67,4 +71,6 @@ def register_attachment(session: Session, file_name: str, text: str) -> Attachme
     """`build_minimal_pdf`でPDFを生成し、そのまま`attachment_service.register`へ渡す
     薄いラッパー（複数のテストファイルで同一の1行ラッパーが重複していたため集約する、
     dry-reviewer指摘、2026-10-25）。"""
-    return attachment_service.register(session, file_name=file_name, content=build_minimal_pdf(text))
+    return attachment_service.register(
+        session, file_name=file_name, content=build_minimal_pdf(text)
+    )

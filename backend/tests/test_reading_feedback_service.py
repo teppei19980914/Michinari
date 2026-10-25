@@ -27,12 +27,7 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ReadingLog, WeeklySummary
 from app.models.setting import AppSetting
-from app.services import (
-    attachment_service,
-    daily_feedback_service,
-    reading_feedback_service,
-    record_service_common,
-)
+from app.services import daily_feedback_service, reading_feedback_service, record_service_common
 from app.services.exceptions import (
     DailyFeedbackPromptTooLongError,
     InvalidStateTransitionError,
@@ -41,7 +36,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 from tests import reading_helpers
-from tests.pdf_helpers import build_minimal_pdf
+from tests.pdf_helpers import register_attachment
 
 
 @pytest.fixture(autouse=True)
@@ -622,10 +617,10 @@ def test_send_reading_feedback_includes_selected_attachment_text_in_prompt(
 ):
     goal = _make_reading_goal(seeded_session)
     _make_book(seeded_session, goal)
-    attachment = attachment_service.register(
+    attachment = register_attachment(
         seeded_session,
-        file_name="notes.pdf",
-        content=build_minimal_pdf("this is a book note long enough for the minimum length check"),
+        "notes.pdf",
+        "this is a book note long enough for the minimum length check",
     )
     calls = _stub_send_message(monkeypatch)
 

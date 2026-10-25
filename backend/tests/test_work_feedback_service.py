@@ -29,12 +29,7 @@ from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, WeeklySummary, WorkLog
 from app.models.setting import AppSetting
 from app.models.work import WorkAssignment
-from app.services import (
-    attachment_service,
-    daily_feedback_service,
-    record_service_common,
-    work_feedback_service,
-)
+from app.services import daily_feedback_service, record_service_common, work_feedback_service
 from app.services.exceptions import (
     DailyFeedbackPromptTooLongError,
     InvalidStateTransitionError,
@@ -43,7 +38,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_exam import StudyLogItem
 from app.services.record_service_work import WorkLogItem
-from tests.pdf_helpers import build_minimal_pdf
+from tests.pdf_helpers import register_attachment
 
 
 @pytest.fixture(autouse=True)
@@ -575,12 +570,10 @@ def test_send_work_feedback_includes_selected_attachment_text_in_prompt(
 ):
     goal = _make_work_goal(seeded_session)
     _make_work_assignment(seeded_session, goal)
-    attachment = attachment_service.register(
+    attachment = register_attachment(
         seeded_session,
-        file_name="spec.pdf",
-        content=build_minimal_pdf(
-            "this is a work specification document long enough for the check"
-        ),
+        "spec.pdf",
+        "this is a work specification document long enough for the check",
     )
     calls = _stub_send_message(monkeypatch)
 
