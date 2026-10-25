@@ -40,6 +40,24 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: 'goalConsultation',
+    titleKey: 'help.sections.goalConsultation.title',
+    bodyKeys: [
+      'help.sections.goalConsultation.p1',
+      'help.sections.goalConsultation.p2',
+      'help.sections.goalConsultation.p3',
+    ],
+  },
+  {
+    id: 'attachment',
+    titleKey: 'help.sections.attachment.title',
+    bodyKeys: [
+      'help.sections.attachment.p1',
+      'help.sections.attachment.p2',
+      'help.sections.attachment.p3',
+    ],
+  },
+  {
     id: 'bookshelf',
     titleKey: 'help.sections.bookshelf.title',
     bodyKeys: ['help.sections.bookshelf.p1', 'help.sections.bookshelf.p2'],
@@ -211,6 +229,11 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.conversation_history',
       },
       {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.attachments',
+      },
+      { name: 'nonce', descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.nonce' },
+      {
         name: 'perspective_suggestion',
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedback.variables.perspective_suggestion',
       },
@@ -310,6 +333,14 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.recent_recalls',
       },
       {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.attachments',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.nonce',
+      },
+      {
         name: 'perspective_suggestion',
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackReading.variables.perspective_suggestion',
       },
@@ -331,6 +362,14 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
       {
         name: 'recent_work_logs',
         descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.recent_work_logs',
+      },
+      {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.attachments',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.dailyFeedbackWork.variables.nonce',
       },
       {
         name: 'perspective_suggestion',
@@ -493,6 +532,138 @@ export const HELP_PROMPT_PURPOSES: HelpPromptPurpose[] = [
       {
         name: 'nonce',
         descriptionKey: 'help.sections.promptVariables.purposes.helpAssistant.variables.nonce',
+      },
+    ],
+  },
+  {
+    id: 'goalConsultation',
+    titleKey: 'help.sections.promptVariables.purposes.goalConsultation.title',
+    variables: [
+      {
+        name: 'goal_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.goal_summary',
+      },
+      {
+        name: 'exam_results',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.exam_results',
+      },
+      {
+        name: 'material_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.material_summary',
+      },
+      {
+        name: 'quality_trend',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.quality_trend',
+      },
+      {
+        name: 'replan_history',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.replan_history',
+      },
+      {
+        name: 'weekly_summaries',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.weekly_summaries',
+      },
+      {
+        name: 'recent_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.recent_logs',
+      },
+      {
+        name: 'conversation_history',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.conversation_history',
+      },
+      {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.attachments',
+      },
+      {
+        name: 'question',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.question',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultation.variables.nonce',
+      },
+    ],
+  },
+  {
+    id: 'goalConsultationReading',
+    titleKey: 'help.sections.promptVariables.purposes.goalConsultationReading.title',
+    variables: [
+      {
+        name: 'book_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.book_summary',
+      },
+      {
+        name: 'reading_metrics',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.reading_metrics',
+      },
+      {
+        name: 'weekly_summaries',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.weekly_summaries',
+      },
+      {
+        name: 'recent_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.recent_logs',
+      },
+      {
+        name: 'conversation_history',
+        descriptionKey:
+          'help.sections.promptVariables.purposes.goalConsultationReading.variables.conversation_history',
+      },
+      {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.attachments',
+      },
+      {
+        name: 'question',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.question',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationReading.variables.nonce',
+      },
+    ],
+  },
+  {
+    id: 'goalConsultationWork',
+    titleKey: 'help.sections.promptVariables.purposes.goalConsultationWork.title',
+    variables: [
+      {
+        name: 'work_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.work_summary',
+      },
+      {
+        name: 'work_progress',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.work_progress',
+      },
+      {
+        name: 'member_summary',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.member_summary',
+      },
+      {
+        name: 'weekly_summaries',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.weekly_summaries',
+      },
+      {
+        name: 'recent_logs',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.recent_logs',
+      },
+      {
+        name: 'conversation_history',
+        descriptionKey:
+          'help.sections.promptVariables.purposes.goalConsultationWork.variables.conversation_history',
+      },
+      {
+        name: 'attachments',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.attachments',
+      },
+      {
+        name: 'question',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.question',
+      },
+      {
+        name: 'nonce',
+        descriptionKey: 'help.sections.promptVariables.purposes.goalConsultationWork.variables.nonce',
       },
     ],
   },
