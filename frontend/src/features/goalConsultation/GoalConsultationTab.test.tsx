@@ -1,9 +1,11 @@
 /** 目標相談チャットのタブの描画テスト（S09で導入、S10で質問例ボタン・相談履歴を追加、
- * 開発Todo v1.1 F-03）。
+ * S11で会話継続（会話の選択・新規開始・削除）を追加、開発Todo v1.1 F-03・v1.2 F-02〜F-04）。
  *
  * 通信は`api/goalConsultation`を差し替えて検証する。回答が「文字として」描画されること、
  * 生HTMLが実行・描画されないこと（XSS回帰）、根拠の日付が日次報告の閲覧画面へのリンクに
- * なること、AI未接続時に案内が出ることを固定する（`HelpAssistantDrawer.test.tsx`と同じ方針）。 */
+ * なること、AI未接続時に案内が出ることを固定する（`HelpAssistantDrawer.test.tsx`と同じ方針）。
+ * 会話は既定で1件（id=1）だけ存在する状態をbeforeEachで用意し、個々のテストは必要に応じて
+ * 上書きする（毎回の会話一覧取得を待つ手間を減らす、CODING_RULES.md DRYの原則）。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -17,22 +19,36 @@ const askGoalConsultationQuestion = vi.hoisted(() => vi.fn())
 const getGoalConsultationLimits = vi.hoisted(() => vi.fn())
 const getGoalConsultationHistory = vi.hoisted(() => vi.fn())
 const deleteGoalConsultationHistoryItem = vi.hoisted(() => vi.fn())
+const getGoalConsultationConversations = vi.hoisted(() => vi.fn())
+const createGoalConsultationConversation = vi.hoisted(() => vi.fn())
+const deleteGoalConsultationConversation = vi.hoisted(() => vi.fn())
 vi.mock('../../api/goalConsultation', () => ({
   askGoalConsultationQuestion,
   getGoalConsultationLimits,
   getGoalConsultationHistory,
   deleteGoalConsultationHistoryItem,
+  getGoalConsultationConversations,
+  createGoalConsultationConversation,
+  deleteGoalConsultationConversation,
 }))
 
 const getAiStatus = vi.hoisted(() => vi.fn())
 vi.mock('../../api/ai', () => ({ getAiStatus }))
 
 const GOAL_ID = 42
+const CONVERSATION = { id: 1, title: '', created_at: '2026-01-01T00:00:00' }
 
 beforeEach(() => {
   getGoalConsultationLimits.mockResolvedValue({ max_question_chars: 300 })
   getGoalConsultationHistory.mockResolvedValue([])
   deleteGoalConsultationHistoryItem.mockResolvedValue(undefined)
+  getGoalConsultationConversations.mockResolvedValue([CONVERSATION])
+  createGoalConsultationConversation.mockResolvedValue({
+    id: 2,
+    title: '',
+    created_at: '2026-01-02T00:00:00',
+  })
+  deleteGoalConsultationConversation.mockResolvedValue(undefined)
   getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
@@ -48,6 +64,7 @@ function isDisabled(element: HTMLElement): boolean {
 async function ask(text: string) {
   const user = userEvent.setup()
   await waitFor(() => expect(getGoalConsultationLimits).toHaveBeenCalled())
+  await waitFor(() => expect(getGoalConsultationConversations).toHaveBeenCalled())
   await user.type(screen.getByRole('textbox', { name: t('goalConsultation.placeholder') }), text)
   await user.click(screen.getByRole('button', { name: t('goalConsultation.send') }))
 }
@@ -79,7 +96,11 @@ describe('GoalConsultationTab', () => {
     const link = screen.getByRole('link', { name: '2026-01-15' })
     expect(link.getAttribute('href')).toBe(ROUTES.dailyReportView('2026-01-15'))
     expect(screen.getByText('2026-01-05〜2026-01-11')).toBeTruthy()
-    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 'この後何を勉強すべき？')
+    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(
+      GOAL_ID,
+      CONVERSATION.id,
+      'この後何を勉強すべき？',
+    )
   })
 
   it('表示できない回答は固定文言だけを出す', async () => {
@@ -209,6 +230,13 @@ describe('GoalConsultationTab', () => {
     expect(askGoalConsultationQuestion).not.toHaveBeenCalled()
   })
 
+  it('会話が1件も無い場合は、最初の会話を自動で作成する（確認事項③）', async () => {
+    getGoalConsultationConversations.mockResolvedValue([])
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    await waitFor(() => expect(createGoalConsultationConversation).toHaveBeenCalledWith(GOAL_ID, ''))
+  })
+
   it('質問例ボタンは目標の種類ごとに異なり、クリックで入力欄に差し込まれる（送信はしない）', async () => {
     const user = userEvent.setup()
     renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="READING" />)
@@ -236,10 +264,11 @@ describe('GoalConsultationTab', () => {
     expect(await screen.findByText(t('goalConsultation.historyEmpty'))).toBeTruthy()
   })
 
-  it('保存済みの相談履歴を一覧表示する', async () => {
+  it('保存済みの相談履歴を一覧表示する（現在の会話分のみ）', async () => {
     getGoalConsultationHistory.mockResolvedValue([
       {
         id: 1,
+        conversation_id: CONVERSATION.id,
         question: '過去の質問',
         status: 'ANSWERED',
         answer: '過去の回答です。',
@@ -247,11 +276,22 @@ describe('GoalConsultationTab', () => {
         cited_weeks: [],
         created_at: '2026-01-10T00:00:00',
       },
+      {
+        id: 2,
+        conversation_id: 999,
+        question: '別の会話の質問',
+        status: 'ANSWERED',
+        answer: '別の会話の回答です。',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-11T00:00:00',
+      },
     ])
     renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
 
     expect(await screen.findByText('過去の質問')).toBeTruthy()
     expect(screen.getByText('過去の回答です。')).toBeTruthy()
+    expect(screen.queryByText('別の会話の質問')).toBeNull()
   })
 
   it('相談履歴を削除できる', async () => {
@@ -259,6 +299,7 @@ describe('GoalConsultationTab', () => {
     getGoalConsultationHistory.mockResolvedValue([
       {
         id: 1,
+        conversation_id: CONVERSATION.id,
         question: '過去の質問',
         status: 'ANSWERED',
         answer: '過去の回答です。',
@@ -281,6 +322,7 @@ describe('GoalConsultationTab', () => {
     getGoalConsultationHistory.mockResolvedValue([
       {
         id: 1,
+        conversation_id: CONVERSATION.id,
         question: '過去の質問',
         status: 'ANSWERED',
         answer: '過去の回答です。',
@@ -312,6 +354,7 @@ describe('GoalConsultationTab', () => {
     getGoalConsultationHistory.mockResolvedValue([
       {
         id: 1,
+        conversation_id: CONVERSATION.id,
         question: '過去の質問',
         status: 'ANSWERED',
         answer: '過去の回答です。',
@@ -328,5 +371,120 @@ describe('GoalConsultationTab', () => {
     await user.click(screen.getByRole('button', { name: t('common.action.delete') }))
 
     expect(await screen.findByText(apiErrorMessage(error))).toBeTruthy()
+  })
+
+  // --- 会話（S11、開発Todo v1.2 W7） ---
+
+  it('会話が複数あると選択肢として一覧表示し、未設定の会話は連番で表示する', async () => {
+    getGoalConsultationConversations.mockResolvedValue([
+      { id: 1, title: '', created_at: '2026-01-01T00:00:00' },
+      { id: 2, title: '科目Aの相談', created_at: '2026-01-02T00:00:00' },
+    ])
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+
+    expect(
+      await screen.findByRole('option', { name: t('goalConsultation.conversation.untitled', { n: 1 }) }),
+    ).toBeTruthy()
+    expect(screen.getByRole('option', { name: '科目Aの相談' })).toBeTruthy()
+  })
+
+  it('新しい会話を開始すると、その会話が選択され、質問はその会話IDで送られる', async () => {
+    const user = userEvent.setup()
+    askGoalConsultationQuestion.mockResolvedValue({
+      status: 'ANSWERED',
+      answer: '回答',
+      cited_dates: [],
+      cited_weeks: [],
+    })
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await waitFor(() => expect(getGoalConsultationConversations).toHaveBeenCalled())
+
+    await user.click(
+      screen.getByRole('button', { name: t('goalConsultation.conversation.newButton') }),
+    )
+    await waitFor(() => expect(createGoalConsultationConversation).toHaveBeenCalledWith(GOAL_ID, ''))
+    await ask('新しい会話での質問')
+
+    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 2, '新しい会話での質問')
+  })
+
+  it('会話を切り替えると、その会話の履歴だけを表示し、質問は切り替え後の会話IDで送られる', async () => {
+    const user = userEvent.setup()
+    getGoalConsultationConversations.mockResolvedValue([
+      { id: 1, title: '会話その1', created_at: '2026-01-01T00:00:00' },
+      { id: 2, title: '会話その2', created_at: '2026-01-02T00:00:00' },
+    ])
+    getGoalConsultationHistory.mockResolvedValue([
+      {
+        id: 1,
+        conversation_id: 1,
+        question: '会話1の質問',
+        status: 'ANSWERED',
+        answer: '会話1の回答',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-01T00:00:00',
+      },
+      {
+        id: 2,
+        conversation_id: 2,
+        question: '会話2の質問',
+        status: 'ANSWERED',
+        answer: '会話2の回答',
+        cited_dates: [],
+        cited_weeks: [],
+        created_at: '2026-01-02T00:00:00',
+      },
+    ])
+    askGoalConsultationQuestion.mockResolvedValue({
+      status: 'ANSWERED',
+      answer: '回答',
+      cited_dates: [],
+      cited_weeks: [],
+    })
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    // 既定（最新）は会話その2が選ばれているため、会話2の履歴が見える。
+    expect(await screen.findByText('会話2の質問')).toBeTruthy()
+    expect(screen.queryByText('会話1の質問')).toBeNull()
+
+    await user.selectOptions(
+      screen.getByLabelText(t('goalConsultation.conversation.switchLabel')),
+      '1',
+    )
+
+    expect(await screen.findByText('会話1の質問')).toBeTruthy()
+    expect(screen.queryByText('会話2の質問')).toBeNull()
+
+    await ask('会話1での新しい質問')
+
+    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 1, '会話1での新しい質問')
+  })
+
+  it('会話を削除できる', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await waitFor(() => expect(getGoalConsultationConversations).toHaveBeenCalled())
+
+    await user.click(
+      screen.getByRole('button', { name: t('goalConsultation.conversation.deleteButton') }),
+    )
+
+    await waitFor(() =>
+      expect(deleteGoalConsultationConversation).toHaveBeenCalledWith(GOAL_ID, CONVERSATION.id),
+    )
+  })
+
+  it('会話の削除確認をキャンセルした場合は削除しない', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    renderWithProviders(<GoalConsultationTab goalId={GOAL_ID} category="EXAM" />)
+    await waitFor(() => expect(getGoalConsultationConversations).toHaveBeenCalled())
+
+    await user.click(
+      screen.getByRole('button', { name: t('goalConsultation.conversation.deleteButton') }),
+    )
+
+    expect(deleteGoalConsultationConversation).not.toHaveBeenCalled()
   })
 })

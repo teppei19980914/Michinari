@@ -21,9 +21,11 @@ export const QUERY_KEYS = {
   // --- ヘルプAIアシスタント（Phase43）---
   helpAssistantLimits: () => ['help-assistant', 'limits'] as const,
 
-  // --- 目標相談チャット（S09で導入、S10で履歴を追加）---
+  // --- 目標相談チャット（S09で導入、S10で履歴を追加、S11で会話を追加）---
   goalConsultationLimits: (goalId: number) => ['goal-consultation', 'limits', goalId] as const,
   goalConsultationHistory: (goalId: number) => ['goal-consultation', 'history', goalId] as const,
+  goalConsultationConversations: (goalId: number) =>
+    ['goal-consultation', 'conversations', goalId] as const,
 
   // --- 目標 ---
   goals: () => ['goals'] as const,

@@ -314,22 +314,36 @@ def build_with_degradable_entries(
 
 
 def exceeds_with_entries_emptied(
-    template_body: str, context: DegradableFeedbackContext, max_chars: int
+    template_body: str,
+    context: DegradableFeedbackContext,
+    max_chars: int,
+    *,
+    conversation_history_is_degradable: bool = False,
 ) -> bool:
-    """全stageのentriesを0件にした場合（当日対話・固定変数はそのまま）でも
-    max_charsを超えるかを判定する（S04、読書・仕事の日次報告フィードバック専用）。
+    """全stageのentriesを0件にした場合でもmax_charsを超えるかを判定する
+    （S04、読書・仕事の日次報告フィードバック専用。S11で目標相談チャット用に
+    `conversation_history_is_degradable`引数を追加）。
 
-    当日の入力（当日対話を含む）は縮退の対象にしない（S04決定事項D1）ため、
-    build_with_degradable_entries自体は変更せず（D2、他5用途への影響を避ける）、
+    既定（`conversation_history_is_degradable=False`）では当日対話はそのまま保持する
+    （S04決定事項D1：当日の入力は縮退の対象にしない。読書・仕事の日次報告フィードバックの
+    呼び出しはこの既定のまま）。目標相談チャット（S11）の`conversation_history`は「当日対話」
+    ではなく「会話の古い往復」であり、stagesと同じく縮退対象（開発Todo v1.2 W1）のため、
+    `True`を渡して空の状態で判定する。そうしないと、実際には
+    `build_with_degradable_entries`が会話履歴を縮退して収まるにもかかわらず、本関数が
+    「会話履歴を保持したままの」最悪値で判定してしまい、不要なUNAVAILABLEを返してしまう
+    （2026-10-25、実装直後のレビューで発見）。
+
+    build_with_degradable_entries自体は変更せず（D2、既存5用途への影響を避ける）、
     呼び出し側がこの事前判定でTrueの場合はbuild_with_degradable_entriesを呼ばずに
-    送信を中止する。Falseの場合、過去記録を全て削れば必ず収まることが保証されるため、
-    build_with_degradable_entriesの対話履歴トリミング・末尾切り詰めフォールバックには
-    到達しない（stageのエントリ除外だけで必ず収まる）。
+    送信を中止する。Falseの場合、縮退可能な内容（stages、目標相談チャットの場合は
+    conversation_historyも含む）を全て削れば必ず収まることが保証されるため、
+    build_with_degradable_entriesの末尾切り詰めフォールバックには到達しない。
     """
     variables = dict(context.fixed_variables)
     for stage in context.stages:
         variables[stage.key] = stage.empty_text
-    variables["conversation_history"] = format_conversation_history(context.conversation_history)
+    history = [] if conversation_history_is_degradable else context.conversation_history
+    variables["conversation_history"] = format_conversation_history(history)
     return len(_substitute(template_body, variables)) > max_chars
 
 

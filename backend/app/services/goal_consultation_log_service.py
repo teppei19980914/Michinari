@@ -55,6 +55,7 @@ class GoalConsultationLogEntry:
     """相談履歴の1件（画面の一覧表示用、API層でRead schemaへ変換する）。"""
 
     id: int
+    conversation_id: int
     question: str
     answer_status: GoalConsultationAnswerStatus
     answer_body: str
@@ -66,6 +67,7 @@ class GoalConsultationLogEntry:
 def _to_entry(row: GoalConsultationLog) -> GoalConsultationLogEntry:
     return GoalConsultationLogEntry(
         id=row.id,
+        conversation_id=row.conversation_id,
         question=row.question,
         answer_status=row.answer_status,
         answer_body=row.answer_body,
@@ -79,6 +81,7 @@ def save(
     session: Session,
     *,
     goal: Goal,
+    conversation_id: int,
     question: str,
     answer_status: GoalConsultationAnswerStatus,
     answer_body: str,
@@ -99,6 +102,7 @@ def save(
         session.add(
             GoalConsultationLog(
                 goal_id=goal.id,
+                conversation_id=conversation_id,
                 question=question,
                 answer_status=answer_status,
                 answer_body=answer_body,
@@ -107,6 +111,29 @@ def save(
             )
         )
         session.commit()
+
+
+def list_recent_answered_for_conversation(
+    session: Session, conversation_id: int, limit: int
+) -> list[GoalConsultationLogEntry]:
+    """会話継続（S11）でプロンプトへ含める直近往復を、古い順で返す。
+
+    `ANSWERED`のみを対象にする（開発Todo v1.2 W2。`UNAVAILABLE`は本文が空か、禁止語検出・
+    出力形式失敗等で表示できない内容のため、後続の質問の文脈として積む意味が無い）。
+    まず新しい順に`limit`件取得し、古い順へ並べ替える（同時刻はid降順でタイブレーク、
+    CODING_RULES.md「タイムスタンプでの並び替え」）。
+    """
+    rows = (
+        session.query(GoalConsultationLog)
+        .filter(
+            GoalConsultationLog.conversation_id == conversation_id,
+            GoalConsultationLog.answer_status == GoalConsultationAnswerStatus.ANSWERED,
+        )
+        .order_by(GoalConsultationLog.created_at.desc(), GoalConsultationLog.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [_to_entry(row) for row in reversed(rows)]
 
 
 def list_for_goal(session: Session, goal: Goal) -> list[GoalConsultationLogEntry]:

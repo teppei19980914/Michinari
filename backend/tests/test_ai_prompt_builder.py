@@ -551,6 +551,42 @@ def test_exceeds_with_entries_emptied_true_when_fixed_and_history_alone_exceed()
     )
 
 
+def test_exceeds_with_entries_emptied_keeps_history_by_default_even_if_large():
+    """既定（`conversation_history_is_degradable=False`）では当日対話はそのまま保持する
+    （S04決定事項D1、読書・仕事の日次報告フィードバックの既存呼び出しを変えないため）。
+    stagesが空でも、大きな会話履歴を抱えたままではTrueになる。
+    """
+    history = [ChatTurn(role=ChatRole.USER, content="あ" * 200)]
+    context = _degradable_context(
+        fixed_variables={"today": "x", "summary": ""}, conversation_history=history
+    )
+
+    assert (
+        prompt_builder.exceeds_with_entries_emptied(_DEGRADABLE_TEMPLATE, context, max_chars=50)
+        is True
+    )
+
+
+def test_exceeds_with_entries_emptied_false_when_history_is_degradable_and_can_be_emptied():
+    """目標相談チャット（S11）が渡す`conversation_history_is_degradable=True`では、
+    会話履歴も空にして判定するため、`build_with_degradable_entries`が実際には履歴を
+    縮退して収まるケースをFalseと正しく判定する（開発Todo v1.2、2026-10-25是正。
+    会話履歴を保持したまま判定すると、本来は履歴の縮退だけで収まるにもかかわらず
+    不要なUNAVAILABLEを返してしまう不具合があった）。
+    """
+    history = [ChatTurn(role=ChatRole.USER, content="あ" * 200)]
+    context = _degradable_context(
+        fixed_variables={"today": "x", "summary": ""}, conversation_history=history
+    )
+
+    assert (
+        prompt_builder.exceeds_with_entries_emptied(
+            _DEGRADABLE_TEMPLATE, context, max_chars=50, conversation_history_is_degradable=True
+        )
+        is False
+    )
+
+
 def test_build_simple_returns_full_text_when_under_limit():
     result = prompt_builder.build_simple("こんにちは{{name}}", {"name": "太郎"}, max_chars=100)
 
