@@ -192,6 +192,35 @@ def test_get_many_or_raise_raises_not_found_for_missing_id(seeded_session):
         attachment_service.get_many_or_raise(seeded_session, [attachment.id, 999])
 
 
+def test_get_many_or_raise_deduplicates_repeated_ids(seeded_session):
+    """同じIDを多数回指定しても1件分にしか展開されない（プロンプト肥大化の防止、
+    injection-reviewer指摘）。"""
+    attachment = attachment_service.register(
+        seeded_session, file_name="a.pdf", content=build_minimal_pdf(_SAMPLE_TEXT_A)
+    )
+
+    result = attachment_service.get_many_or_raise(
+        seeded_session, [attachment.id, attachment.id, attachment.id]
+    )
+
+    assert [entry.id for entry in result] == [attachment.id]
+
+
+def test_get_many_or_raise_rejects_selection_exceeding_max_count(seeded_session):
+    """重複除去後の選択件数が保持上限を超える場合は拒否する。"""
+    _set_setting(seeded_session, AI_ATTACHMENT_MAX_COUNT, "2")
+    first = attachment_service.register(
+        seeded_session, file_name="a.pdf", content=build_minimal_pdf(_SAMPLE_TEXT_A)
+    )
+    second = attachment_service.register(
+        seeded_session, file_name="b.pdf", content=build_minimal_pdf(_SAMPLE_TEXT_B)
+    )
+    third_id = max(first.id, second.id) + 1
+
+    with pytest.raises(ValidationError):
+        attachment_service.get_many_or_raise(seeded_session, [first.id, second.id, third_id])
+
+
 # --- build_attachment_block ---
 
 
