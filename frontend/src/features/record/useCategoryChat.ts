@@ -11,8 +11,9 @@ export type CategoryChatOptions = {
   goalId: number | null
   /** 履歴の絞り込みと、ローカル表示用ユーザー発言に付与する用途。 */
   purpose: AiPurpose
-  /** 送信処理。カテゴリごとにエンドポイントと下書きの積み方が異なるため呼び出し側が渡す。 */
-  sendRequest: (message: string | null) => Promise<ChatResponse>
+  /** 送信処理。カテゴリごとにエンドポイントと下書きの積み方が異なるため呼び出し側が渡す。
+   * `attachmentIds`は利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1）。 */
+  sendRequest: (message: string | null, attachmentIds: number[]) => Promise<ChatResponse>
   /** 表示中の対話履歴。3カテゴリ分が1つの配列に混在するため、呼び出し側の状態を更新する。 */
   setMessages: Dispatch<SetStateAction<ChatMessageRead[]>>
   onError: (error: unknown) => void
@@ -25,7 +26,7 @@ export type CategoryChat = {
   /** 直近の送信でAIへ渡した情報の種別（2026-09-19、非エンジニア向け「AIが参照した情報」表示）。
    * 用途（AiPurpose）固定のためgoalIdやpurposeに依らず送信のたびに置き換わる。未送信のうちは空。 */
   contextCategories: string[]
-  send: (message: string | null) => void
+  send: (message: string | null, attachmentIds: number[]) => void
 }
 
 /**
@@ -49,14 +50,15 @@ export function useCategoryChat({
   const [contextCategories, setContextCategories] = useState<string[]>([])
 
   const mutation = useMutation({
-    mutationFn: sendRequest,
+    mutationFn: ({ message, attachmentIds }: { message: string | null; attachmentIds: number[] }) =>
+      sendRequest(message, attachmentIds),
     meta: { overlay: 'saving' },
-    onSuccess: (response, message) => {
+    onSuccess: (response, variables) => {
       setMessages((current) =>
         appendChatExchange(current, {
           goalId,
           purpose,
-          message,
+          message: variables.message,
           assistantMessage: response.assistant_message,
         }),
       )
@@ -66,5 +68,10 @@ export function useCategoryChat({
     onError,
   })
 
-  return { isPending: mutation.isPending, wasTruncated, contextCategories, send: mutation.mutate }
+  return {
+    isPending: mutation.isPending,
+    wasTruncated,
+    contextCategories,
+    send: (message, attachmentIds) => mutation.mutate({ message, attachmentIds }),
+  }
 }

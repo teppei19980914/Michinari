@@ -298,6 +298,7 @@ def chat(
         message=payload.message,
         study_log_items=_to_study_log_items(payload.study_logs),
         diary_entries=_to_diary_entry_items(payload.diary_entries),
+        attachment_ids=payload.attachment_ids,
     )
     session.commit()
     return ChatResponse(
@@ -324,6 +325,7 @@ def reading_chat(
         today=today,
         message=payload.message,
         reading_log_items=_to_reading_log_items(payload.reading_logs),
+        attachment_ids=payload.attachment_ids,
     )
     session.commit()
     return ChatResponse(
@@ -350,6 +352,7 @@ def work_chat(
         today=today,
         message=payload.message,
         work_log_items=_to_work_log_items(payload.work_logs),
+        attachment_ids=payload.attachment_ids,
     )
     session.commit()
     return ChatResponse(

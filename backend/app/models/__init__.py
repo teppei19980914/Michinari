@@ -1,6 +1,7 @@
 """全モデルをここでインポートし、Base.metadata と relationship の文字列解決を保証する。"""
 
 from app.models.ai import AiConversation, AiForbiddenTerm, AiLog
+from app.models.attachment import Attachment, ChatMessageAttachment, GoalConsultationLogAttachment
 from app.models.base import Base
 from app.models.book import Book
 from app.models.goal import (
@@ -76,4 +77,7 @@ __all__ = [
     "AiConversation",
     "AiForbiddenTerm",
     "AiLog",
+    "Attachment",
+    "ChatMessageAttachment",
+    "GoalConsultationLogAttachment",
 ]

@@ -106,3 +106,11 @@ RECAP_CLASSIFY_CHUNK_CHARS = "recap.classify_chunk_chars"
 RECAP_BODY_MAX_CHARS = "recap.body_max_chars"
 #: テーマ本文の更新で、更新前の文字数に対して下回ってはならない比率（下回る応答は採用しない）。
 RECAP_MIN_RETENTION_RATIO = "recap.min_retention_ratio"
+
+# 添付ファイル機能（開発Todo_添付ファイル機能_v1.0）。goal非依存の共通プール。
+#: 1ファイルあたりの抽出テキスト文字数上限（登録時バリデーション、A7）。
+AI_ATTACHMENT_MAX_FILE_CHARS = "ai.attachment_max_file_chars"
+#: 保持できる添付ファイルの件数上限（A10）。
+AI_ATTACHMENT_MAX_COUNT = "ai.attachment_max_count"
+#: アップロード時のPDFファイルサイズ上限（MB、P1）。
+AI_ATTACHMENT_MAX_UPLOAD_SIZE_MB = "ai.attachment_max_upload_size_mb"

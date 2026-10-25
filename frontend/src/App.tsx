@@ -11,6 +11,7 @@ import { DailyReportDraftProvider } from './features/record/dailyReportDraftStor
 import { DashboardPage } from './pages/DashboardPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { GoalsListPage } from './pages/GoalsListPage'
+import { AttachmentManagementPage } from './pages/AttachmentManagementPage'
 import { ExamGoalWizardPage } from './pages/ExamGoalWizardPage'
 import { GoalDetailPage } from './pages/GoalDetailPage'
 import { RecapThemeDetailPage } from './pages/RecapThemeDetailPage'
@@ -67,6 +68,7 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.recapTheme} element={<RecapThemeDetailPage />} />
       <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
       <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />
+      <Route path={ROUTE_PATTERNS.attachments} element={<AttachmentManagementPage />} />
       <Route path={ROUTE_PATTERNS.bookshelf} element={<BookshelfPage />} />
       <Route path={ROUTE_PATTERNS.bookDetail} element={<BookDetailPage />} />
       <Route path={ROUTE_PATTERNS.resources} element={<ResourceSettingsPage />} />

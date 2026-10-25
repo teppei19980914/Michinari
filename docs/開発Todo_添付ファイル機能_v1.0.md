@@ -1,6 +1,6 @@
 # 開発Todo：添付ファイル機能（学習・業務資料のAIフィードバック活用）
 
-**本書の位置づけ**：現段階は設計・開発計画の作成のみであり、実装（コード変更）は行わない。実装着手は別途の指示を受けてから判断する。実装フェーズ分割計画書（`実装フェーズ分割計画書_ミチナリ_v1.1.md`）への新規Phase追加の要否も、実装着手時に判断する（本書では保留）。
+**本書の位置づけ**：設計・開発計画の作成から実装まで完了（2026-10-25）。実装フェーズ分割計画書（`実装フェーズ分割計画書_ミチナリ_v1.1.md`）への新規Phase追加は行わなかった（S09〜S11と同じ改修シリーズとして、本開発Todo文書のみで管理。利用者確認済み）。実装結果は§8参照。
 
 対象：資格試験の過去問・解答例・講評、ユーザー自身の記述式回答、仕事の関連ドキュメント等を、利用者が共通プールに登録（PDF→テキスト変換して保存）し、日次報告・目標相談チャットのAIフィードバック生成時に複数選択して参照できるようにする。
 
@@ -92,6 +92,50 @@
 | L7 | IPA等、公式過去問PDFの二次利用・AI投入に関する利用規約 | 未確認。CLAUDE.md情報源ルールに基づき実装着手前に公式サイトで確認 |
 | L8 | `app_setting`への外部化キー一覧の確定 | `ai.attachment_max_file_chars`・`ai.attachment_max_count`・`ai.attachment_max_pdf_size_mb`等、命名は既存`ai.*`パターンに合わせる |
 
-## 7. 今後の進め方
+## 7. 今後の進め方（実施済み）
 
-本書は設計・計画段階の記録であり、実装は含まない。実装着手の判断を受けた段階で、§6の未決事項を解消し、既存の開発Todo文書（例: `開発Todo_目標相談チャット_v1.2.md`）と同じ形式で「影響範囲のフルスキャン」「作業Todo（B-xx/F-xx）」を追加する。
+§6の未決事項（L1〜L8）は、実装計画段階（Plan agentによる検討、利用者確認）で以下のように解消した。
+
+| # | 解消結果 |
+| --- | --- |
+| L1 | アップロード時のPDFサイズ上限は20MB（`ai.attachment_max_upload_size_mb`既定20）に確定 |
+| L2 | 保持件数上限は50件（`ai.attachment_max_count`既定50）に確定 |
+| L3 | 添付ファイルの削除は常に許可する。中間テーブル（`chat_message_attachment`・`goal_consultation_log_attachment`）の行のみCASCADE削除し、参照元の対話・質問本体は残る |
+| L4 | 相談チャットでの選択はDBに永続化せず、画面のローカルstateで保持する。同一会話を表示中は選択を保持し、会話を切り替えたらリセットする |
+| L5 | 日次報告側は、その回の呼び出しで作られるChatMessage（USER発言があればUSER行、無ければASSISTANT行）に添付リンクを紐づける |
+| L6 | 日次報告・相談チャット画面でのその場アップロードは許容しない（登録済みファイルからの選択のみ） |
+| L7 | IPA等の公式過去問PDFの二次利用規約確認は、利用者自身の責任とする（技術実装の対象外） |
+| L8 | `app_setting`キーは`ai.attachment_max_file_chars`・`ai.attachment_max_count`・`ai.attachment_max_upload_size_mb`の3つに確定 |
+
+## 8. 実装結果（2026-10-25完了）
+
+### 8.1 バックエンド
+
+- モデル：`app/models/attachment.py`（`Attachment`・`ChatMessageAttachment`・`GoalConsultationLogAttachment`）
+- マイグレーション：`c02c4e8b1cf1`（3テーブル新設）・`2ceb7aa212fc`（`ai.max_prompt_chars`既定値引き上げ、既存環境は値一致ヒューリスティックで更新）・`0ab58c423373`（6テンプレートへATTACHMENTS区切り追加）
+- サービス：`app/services/attachment_service.py`（`register`・`list_all`・`delete`・`get_many_or_raise`・`build_attachment_block`。PDFテキスト抽出は`pypdf`を使用）
+- API：`app/api/attachment.py`（`POST/GET /attachments`・`DELETE /attachments/{id}`・`GET /attachments/limits`）、スキーマ：`app/schemas/attachment.py`
+- 既存サービスへの統合：`goal_consultation_service_common.py`（`ask`・`_answer_locked`・`_save_log`に`attachment_ids`追加）、`daily_feedback_service.py`／`reading_feedback_service.py`／`work_feedback_service.py`（`send_*`に`attachment_ids`追加、添付ブロック専用nonceを新規生成）
+- プロンプトテンプレート：`prompt_texts_exam.py`／`_reading.py`／`_work.py`の6定数に`{{attachments}}`・ATTACHMENTS区切りを追加
+- `app/ai/prompt_builder.py`：`DailyFeedbackContext`に`attachments`・`nonce`フィールドを追加（既存5呼び出し元はデフォルト値で後方互換）
+- `backup_service.py`：`DATA_SCHEMA_VERSION`を1.4→1.5へ更新
+- 新規依存：`pypdf`（`pyproject.toml`）
+
+### 8.2 フロントエンド
+
+- API：`frontend/src/api/attachment.ts`
+- 部品：`frontend/src/features/attachment/`（`AttachmentPicker.tsx`・`useAttachment.ts`・`attachmentLogic.ts`）
+- 画面：`frontend/src/pages/AttachmentManagementPage.tsx`（新規、ルート`/attachments`）、`GoalsListPage.tsx`に導線を追加
+- 既存画面への統合：`GoalConsultationTab.tsx`（質問入力欄に`AttachmentPicker`を追加）、`ChatPanel.tsx`（日次報告の対話に`AttachmentPicker`を追加、`useCategoryChat.ts`・`useDailyReportActions.ts`を経由）
+- 文言：`ja.json`／`en.json`に`attachment.*`を追加
+
+### 8.3 実装中に見つけた問題と対応
+
+- **区切り偽造の全角化漏れ**（セキュリティ上の欠陥、テストで検出・即修正）：`attachment_service.build_attachment_block`の初期実装は禁止語の再照合のみを行い、山括弧の全角化（`question_safety.DELIMITER_REPLACEMENTS`）を適用していなかった。添付ファイルのテキストに`<<<END-ATTACHMENTS-...>>>`を埋め込むと区切りを偽造できる状態だったため、ファイル名・本文の両方に全角化を適用するよう修正した。
+- React Queryの`mutationFn`に関数を直接渡すと、バージョンによって第2引数（`MutationFunctionContext`）が渡り、呼び出し元が1引数だけを期待していると不整合になる。既存コード（`DataManagementPage.tsx`の`importDataFile`）と同じく、`mutationFn: (file: File) => uploadAttachment(file)`の形でラップした。
+
+### 8.4 テスト・検証
+
+- バックエンド：2051件合格、カバレッジ100%（`pytest --cov`）。新規：`test_attachment_service.py`・`test_api_attachment.py`、既存ファイルへの追加：`test_goal_consultation_service_exam.py`・`test_daily_feedback_service.py`・`test_reading_feedback_service.py`・`test_work_feedback_service.py`・`test_backup_service.py`・`test_migration_prompt.py`・`test_seed_data.py`・`test_settings_service.py`・`test_help_assistant_service.py`
+- フロントエンド：1381件合格、カバレッジ100%（`npm run test`）。新規：`attachmentLogic.test.ts`・`AttachmentPicker.test.tsx`・`AttachmentManagementPage.test.tsx`
+- `ruff check .`・`npx tsc -b`・`npm run lint`いずれも合格

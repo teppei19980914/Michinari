@@ -19,6 +19,7 @@ import { Card } from '../../components/Card'
 import { Textarea } from '../../components/Textarea'
 import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { t } from '../../locales/t'
+import { AttachmentPicker } from '../attachment/AttachmentPicker'
 import {
   conversationDisplayTitle,
   errorMessageKey,
@@ -106,6 +107,8 @@ function QuestionInputForm({
   warning,
   canSend,
   pending,
+  selectedAttachmentIds,
+  setSelectedAttachmentIds,
 }: {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
   exampleKeys: string[]
@@ -114,6 +117,8 @@ function QuestionInputForm({
   warning: string | null
   canSend: boolean
   pending: boolean
+  selectedAttachmentIds: number[]
+  setSelectedAttachmentIds: (ids: number[]) => void
 }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2">
@@ -140,6 +145,7 @@ function QuestionInputForm({
         disabled={pending}
         onChange={(event) => setDraft(event.target.value)}
       />
+      <AttachmentPicker selectedIds={selectedAttachmentIds} onChange={setSelectedAttachmentIds} />
       {warning && <p className="text-xs text-danger-text">{warning}</p>}
       <Button type="submit" disabled={!canSend}>
         {t('goalConsultation.send')}
@@ -202,6 +208,7 @@ export function GoalConsultationTab({ goalId, category }: GoalConsultationTabPro
   const aiConfigured = useAiConfigured()
   const [draft, setDraft] = useState('')
   const [history, setHistory] = useState<HistoryEntry[]>([])
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<number[]>([])
   const nextId = useRef(0)
   const historyRef = useRef<HTMLDivElement>(null)
   const limits = useGoalConsultationLimits(goalId)
@@ -241,7 +248,7 @@ export function GoalConsultationTab({ goalId, category }: GoalConsultationTabPro
     setDraft('')
     append((id) => ({ kind: 'question', id, text }))
     ask.mutate(
-      { conversationId: activeConversationId, question: text },
+      { conversationId: activeConversationId, question: text, attachmentIds: selectedAttachmentIds },
       {
         onSuccess: (answer) => append((id) => ({ kind: 'answer', id, answer })),
         onError: (error) => {
@@ -266,10 +273,13 @@ export function GoalConsultationTab({ goalId, category }: GoalConsultationTabPro
           onSelect={(id) => {
             conversation.select(id)
             setHistory([])
+            // 会話を切り替えたら添付ファイルの選択はリセットする（他会話への混入を防ぐ、P4）。
+            setSelectedAttachmentIds([])
           }}
           onCreate={() => {
             conversation.createNew()
             setHistory([])
+            setSelectedAttachmentIds([])
           }}
           onDelete={() => {
             if (!window.confirm(t('goalConsultation.conversation.deleteConfirm'))) return
@@ -287,6 +297,8 @@ export function GoalConsultationTab({ goalId, category }: GoalConsultationTabPro
           warning={warning}
           canSend={canSend}
           pending={ask.isPending}
+          selectedAttachmentIds={selectedAttachmentIds}
+          setSelectedAttachmentIds={setSelectedAttachmentIds}
         />
       </Card>
       <GoalConsultationHistory goalId={goalId} conversationId={activeConversationId ?? undefined} />

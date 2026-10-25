@@ -42,11 +42,15 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 #:      goal_consultation_logに行があってもconversation_id列を持たないため、
 #:      インポート時はgoal_consultation_conversation・goal_consultation_logとも空に戻る
 #:      （1.3以前の相談履歴の取り込みは対象外、開発Todo v1.2 §7別件）。
-DATA_SCHEMA_VERSION = "1.4"
+#: 1.5: attachment・chat_message_attachment・goal_consultation_log_attachment
+#:      （添付ファイル機能、開発Todo_添付ファイル機能_v1.0）の追加。1.4以前の書き出しは
+#:      これら3テーブルを持たないため、インポート時は空に戻る（登録済み添付ファイルの
+#:      取り込みは対象外）。
+DATA_SCHEMA_VERSION = "1.5"
 #: インポートで受け付ける版数。旧い版の書き出しは、テーブルや列が無いだけで形式は互換のため
 #: 受け入れる（欠けたテーブル・列は既定値で復元される。履歴は空になり、報告率の停止期間は
 #: 計算されない／相談履歴は空になる）。
-_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", "1.2", "1.3", DATA_SCHEMA_VERSION})
+_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", "1.2", "1.3", "1.4", DATA_SCHEMA_VERSION})
 
 
 def database_path() -> Path:

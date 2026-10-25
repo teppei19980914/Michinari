@@ -118,12 +118,26 @@ class DailyFeedbackContext:
     #: {{perspective_suggestion}}: 記録件数が閾値未満の場合の追加指示（S-4 4-3）。
     #: 空文字なら何も注入しない（build_anonymize_instructionと同じ方式）。
     perspective_suggestion: str = ""
+    #: {{attachments}}: 選択された添付ファイルの内容（開発Todo_添付ファイル機能_v1.0 A6）。
+    #: 縮退対象外（当日入力と同等の扱い）のため、stages/conversation_historyとは独立した
+    #: フィールドとして持つ。空文字なら「選択されていません」文言に差し替える
+    #: （attachment_service.build_attachment_blockが空文字を返すため、ここでは差し替えない。
+    #: 呼び出し元のattachment_service側が空表示文言の責務を持つ、CODING_RULES.md①DRY）。
+    attachments: str = ""
+    #: {{nonce}}: 添付ブロック専用の区切り乱数（P11。既存のDAILY_FEEDBACK系には質問文のような
+    #: 利用者の自由入力が無くnonceを持たなかったが、添付ファイルは外部文書由来でリスクが
+    #: 質的に高いため新規導入する。日記等の既存入力自体には適用しない）。
+    nonce: str = ""
 
 
 _NO_MATERIALS_TEXT = "（対象教材はありません）"
 _NO_WEEKLY_SUMMARIES_TEXT = "（まだ週次要約はありません）"
 _NO_RECENT_LOGS_TEXT = "（週次要約が無い過去日の記録はありません）"
 _NO_CONVERSATION_TEXT = "（本日はまだ対話していません）"
+#: {{attachments}}が空の場合の表示。DAILY_FEEDBACK系（本モジュール）に加え、
+#: GOAL_CONSULTATION系（goal_consultation_service_common.py）でも同じ文言を使うため
+#: 公開する（開発Todo_添付ファイル機能_v1.0、CODING_RULES.md①DRY）。
+NO_ATTACHMENTS_TEXT = "（添付ファイルは選択されていません）"
 _CHAT_ROLE_LABELS = {ChatRole.USER: "学習者", ChatRole.ASSISTANT: "AI"}
 
 
@@ -183,6 +197,8 @@ def build_daily_feedback(
             "recent_logs": _join_dated_entries(recent_logs, _NO_RECENT_LOGS_TEXT),
             "conversation_history": format_conversation_history(context.conversation_history),
             "perspective_suggestion": context.perspective_suggestion,
+            "attachments": context.attachments or NO_ATTACHMENTS_TEXT,
+            "nonce": context.nonce,
         }
         return _substitute(template_body, variables)
 
