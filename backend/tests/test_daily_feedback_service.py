@@ -586,10 +586,6 @@ def test_send_daily_feedback_includes_registered_subject_result(seeded_session, 
 # --- 添付ファイル（開発Todo_添付ファイル機能_v1.0） ---
 
 
-def _register_attachment(session, file_name, text):
-    return attachment_service.register(session, file_name=file_name, content=build_minimal_pdf(text))
-
-
 def test_send_daily_feedback_includes_selected_attachment_text_in_prompt(
     seeded_session, monkeypatch
 ):
