@@ -133,6 +133,15 @@
 
 - **区切り偽造の全角化漏れ**（セキュリティ上の欠陥、テストで検出・即修正）：`attachment_service.build_attachment_block`の初期実装は禁止語の再照合のみを行い、山括弧の全角化（`question_safety.DELIMITER_REPLACEMENTS`）を適用していなかった。添付ファイルのテキストに`<<<END-ATTACHMENTS-...>>>`を埋め込むと区切りを偽造できる状態だったため、ファイル名・本文の両方に全角化を適用するよう修正した。
 - React Queryの`mutationFn`に関数を直接渡すと、バージョンによって第2引数（`MutationFunctionContext`）が渡り、呼び出し元が1引数だけを期待していると不整合になる。既存コード（`DataManagementPage.tsx`の`importDataFile`）と同じく、`mutationFn: (file: File) => uploadAttachment(file)`の形でラップした。
+- **実装完了後の多層レビュー（dry-reviewer・style-reviewer・label-checker・injection-reviewer・dependency-reviewer）で検出し、追加で修正した事項**（2026-10-25）：
+  - [HIGH] `attachment_ids`に同じ有効なIDを多数回指定するだけで、選択ファイルの連結テキストを増幅できた（プロンプト肥大化によるDoS）。`attachment_service.get_many_or_raise`で重複除去（`dict.fromkeys`）と選択件数の上限チェック（`ai.attachment_max_count`）を追加した。
+  - [HIGH→DRY] `daily_feedback_service.py`・`reading_feedback_service.py`・`work_feedback_service.py`で、ChatMessage往復の保存＋添付ファイル利用リンク付けの約30行がほぼ完全一致で3回重複していた。`record_service_common.append_feedback_turn`へ共通化し、3サービスから呼び出す形にした。
+  - [MEDIUM] `POST /attachments`が`async def`のままPDFパース（CPU負荷の高い同期処理）を直接呼んでおり、イベントループを占有して他のリクエストを止めうる状態だった。同期`def`へ変更し、既存の同期ハンドラ（`records.py`等）と同じくスレッドプールへ自動退避されるようにした。
+  - [MEDIUM] 禁止語の照合が`extracted_text`のみに適用され、`file_name`（利用者が自由に指定できる）には適用されていなかった。登録時・送信直前の両方でファイル名も照合するようにした。
+  - [MEDIUM] `pypdf.PdfReader`の例外捕捉が`PdfReadError`／`ValueError`のみで、壊れたPDF構造が引き起こす他の例外（`RecursionError`等）が未捕捉だった。`except Exception`へ広げ、`ValidationError`に変換するようにした。
+  - [LOW] `tests/pdf_helpers.py`内でxref構築ロジックが2関数に重複していたため、`_assemble_pdf`へ共通化。同ファイルに`register_attachment`ヘルパーを追加し、複数のテストファイルで重複していた1行ラッパーを統一した。
+  - 未使用のロケールキー（`attachment.uploadError`・`attachment.deleteError`）をja.json/en.jsonから削除した。
+  - サービス層の内部DTO`AttachmentRead`（dataclass）がAPI層のPydanticスキーマ`AttachmentRead`と同名だったため、既存命名慣習（`Entry`接尾語）に合わせ`AttachmentEntry`へリネームした。
 
 ### 8.4 テスト・検証
 
