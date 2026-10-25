@@ -1313,8 +1313,6 @@
     "deleteButton": "Delete",
     "deleteConfirm": "This will delete this attachment. If it was referenced by a past conversation or question, the record of which file was used will be lost. Continue?",
     "charCountLabel": "{{count}} characters",
-    "uploadError": "Upload failed. Please check that the file is a PDF with extractable text.",
-    "deleteError": "Delete failed",
     "maxCountReached": "You've reached the limit of {{max}} attachments",
     "picker": {
       "label": "Attachments",

@@ -42,7 +42,7 @@ from app.services.exceptions import (
     ValidationError,
 )
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
-from tests.pdf_helpers import build_minimal_pdf
+from tests.pdf_helpers import register_attachment
 
 
 @pytest.fixture(autouse=True)

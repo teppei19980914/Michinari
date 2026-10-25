@@ -9,7 +9,6 @@ import io
 from dataclasses import dataclass
 
 from pypdf import PdfReader
-from pypdf.errors import PdfReadError
 from sqlalchemy.orm import Session
 
 from app.ai.question_safety import DELIMITER_REPLACEMENTS, contains_forbidden_term
@@ -60,12 +59,17 @@ def get_limits(session: Session) -> AttachmentLimits:
 
 
 def _extract_text(content: bytes) -> str:
-    """PDFバイト列からテキストを抽出する（A3・A4、OCRは行わない）。"""
+    """PDFバイト列からテキストを抽出する（A3・A4、OCRは行わない）。
+
+    pypdfは壊れた・悪意ある構造（異常なxref・深いネスト等）に対し`PdfReadError`／
+    `ValueError`以外の例外（`RecursionError`等）を投げることがあるため、広く捕捉して
+    `ValidationError`へ変換する（injection-reviewer指摘、2026-10-25）。
+    """
     try:
         reader = PdfReader(io.BytesIO(content))
-    except (PdfReadError, ValueError) as exc:
+        pages_text = [page.extract_text() or "" for page in reader.pages]
+    except Exception as exc:
         raise ValidationError("Uploaded file is not a readable PDF") from exc
-    pages_text = [page.extract_text() or "" for page in reader.pages]
     return "\n".join(pages_text).strip()
 
 
@@ -99,8 +103,10 @@ def register(session: Session, *, file_name: str, content: bytes) -> Attachment:
         raise ValidationError(
             f"Extracted text must be {limits.max_file_chars} characters or fewer"
         )
-    if contains_forbidden_term(session, extracted_text):
-        raise ValidationError("Extracted text contains a forbidden term")
+    if contains_forbidden_term(session, extracted_text) or contains_forbidden_term(
+        session, file_name
+    ):
+        raise ValidationError("File name or extracted text contains a forbidden term")
 
     attachment = Attachment(
         file_name=file_name, extracted_text=extracted_text, char_count=len(extracted_text)
@@ -131,16 +137,25 @@ def delete(session: Session, attachment_id: int) -> None:
 
 
 def get_many_or_raise(session: Session, attachment_ids: list[int]) -> list[Attachment]:
-    """指定IDの添付ファイルを取得する。1件でも存在しない場合はNotFoundError。"""
+    """指定IDの添付ファイルを取得する。1件でも存在しない場合はNotFoundError。
+
+    重複IDは1件に正規化し、選択件数が保持上限（`ai.attachment_max_count`）を超える場合は
+    拒否する。正規化前の入力をそのまま`build_attachment_block`へ渡すと、同じIDを多数回
+    指定するだけで連結文字列を増幅できてしまう（injection-reviewer指摘、2026-10-25）。
+    """
     if not attachment_ids:
         return []
-    rows = session.query(Attachment).filter(Attachment.id.in_(attachment_ids)).all()
+    unique_ids = list(dict.fromkeys(attachment_ids))
+    limits = get_limits(session)
+    if len(unique_ids) > limits.max_count:
+        raise ValidationError(f"Attachment selection must be {limits.max_count} or fewer")
+    rows = session.query(Attachment).filter(Attachment.id.in_(unique_ids)).all()
     found_ids = {row.id for row in rows}
-    missing = [aid for aid in attachment_ids if aid not in found_ids]
+    missing = [aid for aid in unique_ids if aid not in found_ids]
     if missing:
         raise NotFoundError("Attachment", missing[0])
     by_id = {row.id: row for row in rows}
-    return [by_id[aid] for aid in attachment_ids]
+    return [by_id[aid] for aid in unique_ids]
 
 
 def build_attachment_block(session: Session, attachments: list[Attachment]) -> str:
@@ -157,7 +172,9 @@ def build_attachment_block(session: Session, attachments: list[Attachment]) -> s
     if not attachments:
         return ""
     for attachment in attachments:
-        if contains_forbidden_term(session, attachment.extracted_text):
+        if contains_forbidden_term(session, attachment.extracted_text) or contains_forbidden_term(
+            session, attachment.file_name
+        ):
             raise ValidationError(
                 f"Attachment(id={attachment.id}) contains a forbidden term"
             )
