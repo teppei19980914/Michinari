@@ -21,7 +21,6 @@ from app.constants.app_setting_keys import (
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
-from app.models.attachment import ChatMessageAttachment
 from app.models.goal import Goal
 from app.models.record import ChatMessage, DailyRecord
 from app.services import (
@@ -196,42 +195,15 @@ def send_daily_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = record_service_common.next_chat_sequence(session, record.id)
-    # 添付ファイルの利用リンクは、この回に作られるChatMessage（USER発言があればUSER行、
-    # 無ければASSISTANT行）に紐づける（開発Todo_添付ファイル機能_v1.0 P5）。
-    attachment_target_message: ChatMessage | None = None
-    if message:
-        user_message = ChatMessage(
-            daily_record_id=record.id,
-            goal_id=goal.id,
-            purpose=AiPurpose.DAILY_FEEDBACK,
-            role=ChatRole.USER,
-            content=message,
-            sequence=next_sequence,
-        )
-        session.add(user_message)
-        attachment_target_message = user_message
-        next_sequence += 1
-
-    assistant_message = ChatMessage(
+    assistant_message = record_service_common.append_feedback_turn(
+        session,
         daily_record_id=record.id,
         goal_id=goal.id,
         purpose=AiPurpose.DAILY_FEEDBACK,
-        role=ChatRole.ASSISTANT,
-        content=send_result.response_text,
-        sequence=next_sequence,
+        message=message,
+        response_text=send_result.response_text,
+        attachment_ids=attachment_ids,
     )
-    session.add(assistant_message)
-    if attachment_target_message is None:
-        attachment_target_message = assistant_message
-    session.flush()
-    for attachment_id in attachment_ids or []:
-        session.add(
-            ChatMessageAttachment(
-                chat_message_id=attachment_target_message.id, attachment_id=attachment_id
-            )
-        )
-    session.flush()
 
     return ChatOutcome(
         daily_record=record,

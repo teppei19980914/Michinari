@@ -16,11 +16,17 @@ router = APIRouter(tags=["attachment"])
 
 
 @router.post("/attachments", response_model=AttachmentRead, status_code=status.HTTP_201_CREATED)
-async def upload_attachment(
+def upload_attachment(
     file: UploadFile = File(...), session: Session = Depends(get_db)
 ) -> AttachmentRead:
-    """PDFをアップロードし、テキスト抽出して登録する（A2・A3・A4）。"""
-    content = await file.read()
+    """PDFをアップロードし、テキスト抽出して登録する（A2・A3・A4）。
+
+    PDFのパース（`attachment_service.register`内の`pypdf`呼び出し）はCPU負荷が高く、
+    `async def`ハンドラのままではイベントループを占有し他のリクエストを止めてしまう
+    （`records.py`等の既存ハンドラはいずれも同期`def`でスレッドプールへ自動退避される、
+    injection-reviewer指摘、2026-10-25）。同期`def`にすることで同様に退避させる。
+    """
+    content = file.file.read()
     attachment = attachment_service.register(
         session, file_name=file.filename or "", content=content
     )
