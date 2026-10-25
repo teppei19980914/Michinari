@@ -156,3 +156,7 @@ Source of Truth）とする。
 - S10 V-02（実機検証、実NewtonX）：2026-10-23時点で保留中だった分。本改修のV-02と合わせて実施可否を判断する
 - 禁止語の管理画面（S09から継続、未着手）
 - バックアップ／全データインポートの版数互換の制約（B-01・W6関連）：1.3以前（S11より前）の書き出しに含まれる`goal_consultation_log`の行は`conversation_id`を持たないため、インポート時は`goal_consultation_log`・`goal_consultation_conversation`とも空に戻る（Alembicマイグレーションの既存データ移行とは別経路のため、バックフィルは実装していない）。影響は「1.3以前のバックアップから復元すると目標相談の履歴が引き継がれない」のみで、他のテーブルには影響しない。利用頻度が低い組み合わせ（旧バージョンのバックアップ×本改修後への復元）のため、現時点では対応不要と判断（`test_backup_service.py::test_import_accepts_previous_schema_version_1_3`で挙動を固定）
+
+## 8. 実装後レビューで発見・是正した不具合
+
+- **`exceeds_with_entries_emptied`の会話履歴の扱い（2026-10-25、マージ前レビューで発見）**：`prompt_builder.exceeds_with_entries_emptied`（週次要約・生ログを空にしても上限を超えるかの事前判定）は、既存の読書・仕事の日次報告フィードバック用途では`conversation_history`を「当日対話」として縮退対象外で扱う（S04決定事項D1）。目標相談チャットの`conversation_history`（会話の古い往復）はW1の設計どおり縮退対象のはずだが、この事前判定に既定のまま渡していたため、会話履歴を保持したままの最悪値で判定してしまい、実際には`build_with_degradable_entries`が履歴の縮退だけで収まるケースまで誤って`UNAVAILABLE`を返す不具合があった（再現コードで確認：`exceeds_with_entries_emptied`がTrueでも実際のビルドは42字で収まった）。`conversation_history_is_degradable`引数（既定`False`、既存2呼び出し元は無変更）を追加し、目標相談チャットの呼び出しのみ`True`を渡すよう修正。回帰テスト2件を`tests/test_ai_prompt_builder.py`に追加、設計書24.1手順5に追記
