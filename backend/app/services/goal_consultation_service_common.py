@@ -295,7 +295,9 @@ def _answer_locked(
     # 週次要約・生ログ・会話履歴を全て削ってもなお上限を超える場合は、切り詰めずに送信しない
     # （NewtonX利用ナレッジ「切り詰めない」、ヘルプAIアシスタントの`prompt.was_truncated`
     # 判定と同じ方針）。
-    if prompt_builder.exceeds_with_entries_emptied(template, context, max_chars):
+    if prompt_builder.exceeds_with_entries_emptied(
+        template, context, max_chars, conversation_history_is_degradable=True
+    ):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
         _save_log(session, goal, conversation_id, question, answer)
         return answer
