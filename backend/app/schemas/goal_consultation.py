@@ -15,11 +15,13 @@ from app.constants.enums import GoalConsultationAnswerStatus
 class GoalConsultationQuestionRequest(BaseModel):
     """質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。
     `conversation_id`はどの会話への質問かを明示する（S11、開発Todo v1.2 W7。省略時に
-    暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。
+    暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。`attachment_ids`は利用者が
+    選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
     """
 
     conversation_id: int
     question: str
+    attachment_ids: list[int] = []
 
 
 class GoalConsultationConversationCreateRequest(BaseModel):

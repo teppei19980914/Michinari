@@ -100,6 +100,7 @@ describe('GoalConsultationTab', () => {
       GOAL_ID,
       CONVERSATION.id,
       'この後何を勉強すべき？',
+      [],
     )
   })
 
@@ -405,7 +406,7 @@ describe('GoalConsultationTab', () => {
     await waitFor(() => expect(createGoalConsultationConversation).toHaveBeenCalledWith(GOAL_ID, ''))
     await ask('新しい会話での質問')
 
-    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 2, '新しい会話での質問')
+    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 2, '新しい会話での質問', [])
   })
 
   it('会話を切り替えると、その会話の履歴だけを表示し、質問は切り替え後の会話IDで送られる', async () => {
@@ -457,7 +458,7 @@ describe('GoalConsultationTab', () => {
 
     await ask('会話1での新しい質問')
 
-    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 1, '会話1での新しい質問')
+    expect(askGoalConsultationQuestion).toHaveBeenCalledWith(GOAL_ID, 1, '会話1での新しい質問', [])
   })
 
   it('会話を削除できる', async () => {

@@ -53,6 +53,7 @@ def ask_question(
         today=today,
         conversation_id=conversation.id,
         raw_question=payload.question,
+        attachment_ids=payload.attachment_ids,
     )
     return GoalConsultationAnswerRead(
         status=answer.status,

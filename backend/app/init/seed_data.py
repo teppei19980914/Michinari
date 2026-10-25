@@ -23,6 +23,9 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    AI_ATTACHMENT_MAX_COUNT,
+    AI_ATTACHMENT_MAX_FILE_CHARS,
+    AI_ATTACHMENT_MAX_UPLOAD_SIZE_MB,
     AI_CLIENT_ID,
     AI_FOLDER_PREFIX,
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS,
@@ -153,7 +156,9 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     AI_TIMEOUT_SECONDS: ("60", AppSettingValueType.INTEGER),
     AI_MAX_RETRIES: ("1", AppSettingValueType.INTEGER),
     AI_MIN_INTERVAL_SECONDS: ("2", AppSettingValueType.INTEGER),
-    AI_MAX_PROMPT_CHARS: ("30000", AppSettingValueType.INTEGER),
+    # 添付ファイル機能導入にあわせ既定値を引き上げる（A5）。既存環境へは専用マイグレーション
+    # （値一致ヒューリスティックで旧既定値30000の行のみ更新）で反映する（P9）。
+    AI_MAX_PROMPT_CHARS: ("50000", AppSettingValueType.INTEGER),
     # ヘルプAIアシスタント（Phase43、開発Todo U1・U6）。既存の用途と重ならない標準モデル
     # （GPT-5 mini 高速）を既定値とする。ナレッジを持たないため、ヘルプ以外が混入しない。
     AI_ASSISTANT_UID_HELP: ("c9e542e1-a324-46d5-a02e-fe6bfaebf85a", AppSettingValueType.STRING),
@@ -169,6 +174,10 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS: ("300", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_HISTORY_TURNS: ("3", AppSettingValueType.INTEGER),
+    # 添付ファイル機能（開発Todo_添付ファイル機能_v1.0、A7・A10・P1）。
+    AI_ATTACHMENT_MAX_FILE_CHARS: ("20000", AppSettingValueType.INTEGER),
+    AI_ATTACHMENT_MAX_COUNT: ("50", AppSettingValueType.INTEGER),
+    AI_ATTACHMENT_MAX_UPLOAD_SIZE_MB: ("20", AppSettingValueType.INTEGER),
     RECAP_CLASSIFY_CHUNK_CHARS: ("12000", AppSettingValueType.INTEGER),
     RECAP_BODY_MAX_CHARS: ("6000", AppSettingValueType.INTEGER),
     RECAP_MIN_RETENTION_RATIO: ("0.8", AppSettingValueType.FLOAT),

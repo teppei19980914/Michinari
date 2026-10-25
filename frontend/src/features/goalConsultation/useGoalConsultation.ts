@@ -29,8 +29,15 @@ export function useGoalConsultationLimits(goalId: number) {
 export function useAskGoalConsultationQuestion(goalId: number) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ conversationId, question }: { conversationId: number; question: string }) =>
-      askGoalConsultationQuestion(goalId, conversationId, question),
+    mutationFn: ({
+      conversationId,
+      question,
+      attachmentIds,
+    }: {
+      conversationId: number
+      question: string
+      attachmentIds: number[]
+    }) => askGoalConsultationQuestion(goalId, conversationId, question, attachmentIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.goalConsultationHistory(goalId) })
     },

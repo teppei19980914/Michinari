@@ -27,5 +27,6 @@
 | 10 | Claude Code Level 5 テンプレートについて | [10_ClaudeCodeLevel5テンプレートについて.md](OPERATIONS/10_ClaudeCodeLevel5テンプレートについて.md) |
 | ― | ヘルプAIアシスタントの運用 | [ヘルプAIアシスタントの運用.md](OPERATIONS/ヘルプAIアシスタントの運用.md) |
 | ― | 目標相談チャットの運用 | [目標相談チャットの運用.md](OPERATIONS/目標相談チャットの運用.md) |
+| ― | 添付ファイル機能の運用 | [添付ファイル機能の運用.md](OPERATIONS/添付ファイル機能の運用.md) |
 
 ---
