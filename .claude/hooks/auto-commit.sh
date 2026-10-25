@@ -20,6 +20,9 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 cd "$REPO_ROOT"
 
+# PATH解決の理由はvuln-scan.shのコメントを参照（activateに頼らずこのHook自身でPATHを保証する）。
+export PATH="$PWD/myvenv/Scripts:$PATH"
+
 CONFIG_FILE=".claude/.git-automation-config"
 
 # ========================================

@@ -12,6 +12,9 @@ set -u
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
 
+# PATH解決の理由はvuln-scan.shのコメントを参照（activateに頼らずこのHook自身でPATHを保証する）。
+export PATH="$PWD/myvenv/Scripts:$PATH"
+
 MISSING=0
 
 if command -v gitleaks >/dev/null 2>&1; then
