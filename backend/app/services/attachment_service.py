@@ -29,8 +29,13 @@ _MIN_EXTRACTED_TEXT_CHARS = 50
 
 
 @dataclass(frozen=True)
-class AttachmentRead:
-    """添付ファイル1件分の表示用情報（本文は含まない、一覧表示用）。"""
+class AttachmentEntry:
+    """添付ファイル1件分の表示用情報（本文は含まない、一覧表示用）。
+
+    API層のPydanticスキーマ`schemas.attachment.AttachmentRead`とは別物（サービス層の
+    内部DTOは`Entry`/`Summary`等で終える既存命名慣習に合わせ、スキーマ層の`*Read`接尾語と
+    名前を揃えない。例: `ReadingLogEntry`・`GoalConsultationLogEntry`）。
+    """
 
     id: int
     file_name: str
@@ -105,11 +110,11 @@ def register(session: Session, *, file_name: str, content: bytes) -> Attachment:
     return attachment
 
 
-def list_all(session: Session) -> list[AttachmentRead]:
+def list_all(session: Session) -> list[AttachmentEntry]:
     """登録順（id昇順）で一覧を返す。"""
     rows = session.query(Attachment).order_by(Attachment.id).all()
     return [
-        AttachmentRead(id=row.id, file_name=row.file_name, char_count=row.char_count)
+        AttachmentEntry(id=row.id, file_name=row.file_name, char_count=row.char_count)
         for row in rows
     ]
 
