@@ -36,7 +36,7 @@ export function TodayQuotaSection({
             {goalGroups.length > 1 && (
               <h3 className="mb-1 font-medium text-text-primary">{group.goalName}</h3>
             )}
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-border">
               {group.items.map((item) => (
                 <li
                   key={item.material_id}
