@@ -2,7 +2,7 @@
 
 作成日: 2026-10-25
 対象: 2026-10-24のセッションで報告された「目標相談チャット（S09）のAI回答がダークモードで背景と同化して読みにくい」不具合について、同根バグの他箇所への残存有無を`frontend/src`全体でフルスキャンし、影響範囲を確定したもの。
-前提: 本ドキュメントはTodoの作成のみが目的であり、**本番コードの変更は一切行っていない**（調査のみ）。
+前提: 0〜3章は影響範囲確認時点（コード変更なし）の記録。ユーザー承認を受け、4章の残TODO2件は2026-10-25に対応済み（詳細は4章・5章）。
 
 ---
 
@@ -79,14 +79,34 @@ AI回答等のMarkdown本文を`@tailwindcss/typography`の`prose`（`prose-gray
 
 ---
 
-## 4. 残TODO（未対応、実装待ち）
+## 4. 残TODO（2026-10-25 対応済み）
 
-いずれも調査のみで**未着手**。ユーザー承認後に着手する。
-
-- [ ] `MarkdownText.tsx`（[frontend/src/components/MarkdownText.tsx:15](../frontend/src/components/MarkdownText.tsx#L15)）のclassNameに`dark:prose-invert`を追加し、ダークモードでAI回答等のMarkdown本文が背景と同化しないようにする。影響5画面（1.2参照）は呼び出し元を変更せず、共通部品側の修正のみで解消見込み。修正後は5画面それぞれダークモードで目視確認する（既存の自動テストに`prose`関連のアサーションは無いため、回帰確認は目視＋必要なら視覚的な新規テスト観点の追加を検討）。
-- [ ] `TodayQuotaSection.tsx`（[frontend/src/features/dashboard/TodayQuotaSection.tsx:39](../frontend/src/features/dashboard/TodayQuotaSection.tsx#L39)）の`divide-gray-100`をセマンティックトークン（`divide-border`相当）へ置き換える。
-- [ ] 上記2件の修正後、フロントエンド全体のlint（`npm run lint`）・型検査（`npx tsc --noEmit`）・テスト（`npm run test`、カバレッジ100%維持確認）を実行し、デグレが無いことを確認する。
+- [x] `MarkdownText.tsx`（[frontend/src/components/MarkdownText.tsx:15](../frontend/src/components/MarkdownText.tsx#L15)）のclassNameに`dark:prose-invert`を追加し、ダークモードでAI回答等のMarkdown本文が背景と同化しないようにした。呼び出し元（影響5画面、1.2参照）は変更せず、共通部品側の修正のみで解消（ビルド後のCSSで`.dark\:prose-invert:where([data-theme=dark],...)`が`--tw-prose-body`等をinvert値へ切り替えることを`npm run build`の出力CSSで実機確認済み）。回帰防止として`MarkdownText.test.tsx`を新規作成し、`dark:prose-invert`クラスの存在と、呼び出し元から渡した`className`が維持されることを固定した（従来この部品に専用テストが無かったため、クラス変更時の検知手段を併せて用意した）。
+- [x] `TodayQuotaSection.tsx`（[frontend/src/features/dashboard/TodayQuotaSection.tsx:39](../frontend/src/features/dashboard/TodayQuotaSection.tsx#L39)）の`divide-gray-100`をセマンティックトークン`divide-border`へ置き換えた（他の一覧・罫線が揃って使っている`border-border`と同じトークン、3章参照）。`TodayQuotaSection.test.tsx`に、区切り線が`divide-border`を使い`divide-gray-100`を含まないことを固定するテストを追加した。
+- [x] 上記2件の修正後、フロントエンド全体のlint（`npm run lint`）・型検査（`npx tsc --noEmit`）・テスト（`npm run test`、カバレッジ付き）を実行し、デグレが無いことを確認した（結果は5章）。
 
 ### 再発防止についての所感（参考、対応要否は要判断）
 
 今回の2件はいずれも「背景はセマンティックトークンで理論追従するが、文字色・罫線色だけがTailwindの生パレット色で固定されたまま」という共通パターンで発生していた。`CODING_RULES.md`の`style-reviewer`/`label-checker`はハードコード文言・命名規約が対象で、この種の配色トークン逸脱は現状レビュー対象外。再発防止として、PRレビュー観点（または`style-reviewer`の対象拡大）に「新規追加されたTailwindクラスに`-gray-`/`-white`/`-black`等の生パレット色が含まれていないか」を加えることが考えられるが、要否はユーザー判断に委ねる。
+
+---
+
+## 5. 対応結果（2026-10-25）
+
+### 5.1 変更内容
+- [frontend/src/components/MarkdownText.tsx](../frontend/src/components/MarkdownText.tsx): `prose prose-sm prose-gray max-w-none` → `prose prose-sm prose-gray max-w-none dark:prose-invert`。あわせて、なぜ`dark:prose-invert`が要るかをコード内コメントに追記（CODING_RULES.mdのコメント方針「WHYが非自明な箇所のみ」に従う）。
+- [frontend/src/features/dashboard/TodayQuotaSection.tsx](../frontend/src/features/dashboard/TodayQuotaSection.tsx): `divide-y divide-gray-100` → `divide-y divide-border`。
+- [frontend/src/components/MarkdownText.test.tsx](../frontend/src/components/MarkdownText.test.tsx): 新規作成（本文描画・`dark:prose-invert`付与・呼び出し元classNameの合成を固定）。
+- [frontend/src/features/dashboard/TodayQuotaSection.test.tsx](../frontend/src/features/dashboard/TodayQuotaSection.test.tsx): 区切り線のクラスを固定するテストを1件追加。
+
+呼び出し元5画面（1.2参照）・`goalCategoryBadge.ts`等3章で対象外と判定した箇所には変更を加えていない（横展開範囲の通りで過不足なし）。
+
+### 5.2 検証結果
+- `npm run build`: 成功。出力CSS（`dist/assets/index-*.css`）に`.dark\:prose-invert:where([data-theme=dark],[data-theme=dark] *){--tw-prose-body:var(--tw-prose-invert-body);...}`および`.divide-border>:not(:last-child)){border-color:var(--border)}`が生成されていることを`grep`で実機確認（`--border`は`index.css`でダークモード時`#374151`に切り替わるトークン）。
+- `npm run test`（カバレッジ付き、フロントエンド全体）: **158 test files / 1363 tests 全通過**。カバレッジ**Statements/Branches/Functions/Lines いずれも100%**を維持。
+- `npm run lint`（oxlint）: 警告0件。
+- `npx tsc --noEmit`: エラー0件。
+- バックエンドは対象外（フロントエンドのみの変更のため無変更、`pytest`/`ruff`の再実行は不要と判断）。
+
+### 5.3 デグレ判定
+上記の結果から、今回の2件の修正によるデグレは検出されなかった。

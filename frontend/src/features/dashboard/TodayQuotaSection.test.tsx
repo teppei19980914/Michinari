@@ -65,6 +65,20 @@ describe('TodayQuotaSection', () => {
     expect(screen.getByText(t('dashboard.todayQuota.targetMinutesUnavailable'))).toBeDefined()
   })
 
+  it('uses the theme-aware divider token so the separator is visible in dark mode too', () => {
+    const { container } = renderWithProviders(
+      <TodayQuotaSection
+        todayQuota={[makeTodayQuotaEntry()]}
+        availableSlotNames={SLOT_NAMES}
+        isBufferDay={false}
+      />,
+    )
+
+    const list = container.querySelector('ul')
+    expect(list?.className).toContain('divide-border')
+    expect(list?.className).not.toContain('divide-gray-100')
+  })
+
   it('lists the usable slots only when there is any', () => {
     const { unmount } = renderWithProviders(
       <TodayQuotaSection
