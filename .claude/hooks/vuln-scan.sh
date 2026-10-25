@@ -17,6 +17,12 @@ set -u
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)" || exit 0
 
+# myvenv/Scripts/ はこのリポジトリを配置したパスで都度構築する（`myvenv`自体のactivateスクリプトは
+# venv作成時のパスを固定で埋め込むため、リポジトリを移動・リネームすると参照が壊れて
+# `command -v` が解決できなくなる。CLAUDE.md「ツール導入ルール」が前提とする
+# 「myvenv有効時にPATHに含まれる」を、activateに頼らずこのHook自身で保証する）。
+export PATH="$PWD/myvenv/Scripts:$PATH"
+
 if ! command -v osv-scanner >/dev/null 2>&1; then
   echo "[vuln-scan] osv-scanner 未インストールのためスキップ（導入手順: docs/OPERATIONS.md「任意ツールの導入」。仮想環境 myvenv/Scripts/ へ配置する）"
   exit 0
