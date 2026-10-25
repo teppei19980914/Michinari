@@ -8,13 +8,14 @@
 """
 
 import datetime as dt
+import secrets
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from app.ai import conversation as ai_conversation
 from app.ai import orchestration as ai_orchestration
-from app.ai import prompt_builder
+from app.ai import prompt_builder, question_safety
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
@@ -25,6 +26,7 @@ from app.models.record import ChatMessage, DailyRecord
 from app.services import (
     ai_context_common,
     ai_context_exam,
+    attachment_service,
     calendar_service,
     goal_service,
     record_service_common,
@@ -59,17 +61,22 @@ def send_daily_feedback(
     message: str | None,
     study_log_items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
+    attachment_ids: list[int] | None = None,
 ) -> ChatOutcome:
     """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/chat）。
 
     Phase26で日次フィードバックを目標単位の会話へ分離した。goal_idで指定された1目標のみを
     対象とし、他目標の下書き入力・状況はプロンプトに混入させない（未決事項L-07の解消方針転換）。
+
+    `attachment_ids`は利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1・A8、
+    goal非依存の共通プール）。存在しないIDは`NotFoundError`。
     """
     if target_date > today:
         raise ValidationError("Cannot start an AI conversation for a future date")
 
     goal = goal_service.get_goal(session, goal_id)
     _ensure_active_exam_goal(goal)
+    attachments = attachment_service.get_many_or_raise(session, attachment_ids or [])
 
     record = record_service_common.ensure_daily_record(session, target_date)
     materials_by_id = record_service_exam.load_materials_by_id(
@@ -134,6 +141,11 @@ def send_daily_feedback(
         ),
     )
 
+    # 添付ファイルの文字数は段階的縮退の対象外（当日入力と同等、開発Todo_添付ファイル機能_v1.0
+    # A6）。禁止語は保存後に追加される可能性があるため送信直前に再照合する（P12②）。
+    attachment_block = attachment_service.build_attachment_block(session, attachments)
+    nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+
     context = prompt_builder.DailyFeedbackContext(
         today=target_date.isoformat(),
         day_type=day_type.value,
@@ -154,6 +166,8 @@ def send_daily_feedback(
         recent_log_entries=past_records.raw_entries,
         conversation_history=history,
         perspective_suggestion=perspective_suggestion,
+        attachments=attachment_block,
+        nonce=nonce,
     )
 
     template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK)
@@ -181,30 +195,15 @@ def send_daily_feedback(
         was_truncated=build_result.was_truncated,
     )
 
-    next_sequence = record_service_common.next_chat_sequence(session, record.id)
-    if message:
-        session.add(
-            ChatMessage(
-                daily_record_id=record.id,
-                goal_id=goal.id,
-                purpose=AiPurpose.DAILY_FEEDBACK,
-                role=ChatRole.USER,
-                content=message,
-                sequence=next_sequence,
-            )
-        )
-        next_sequence += 1
-
-    assistant_message = ChatMessage(
+    assistant_message = record_service_common.append_feedback_turn(
+        session,
         daily_record_id=record.id,
         goal_id=goal.id,
         purpose=AiPurpose.DAILY_FEEDBACK,
-        role=ChatRole.ASSISTANT,
-        content=send_result.response_text,
-        sequence=next_sequence,
+        message=message,
+        response_text=send_result.response_text,
+        attachment_ids=attachment_ids,
     )
-    session.add(assistant_message)
-    session.flush()
 
     return ChatOutcome(
         daily_record=record,

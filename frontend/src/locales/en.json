@@ -1304,6 +1304,23 @@
       "deleteConfirm": "This will delete this conversation and all its questions and answers. Continue?"
     }
   },
+  "attachment": {
+    "pageTitle": "Attachments",
+    "pageDescription": "Register PDFs such as past exam papers, model answers, or work documents, then select them in daily reports or goal consultation chat to get AI answers that take their content into account. Registered files can be selected from any goal.",
+    "uploadButton": "Add PDF",
+    "uploading": "Uploading…",
+    "emptyList": "No attachments yet",
+    "deleteButton": "Delete",
+    "deleteConfirm": "This will delete this attachment. If it was referenced by a past conversation or question, the record of which file was used will be lost. Continue?",
+    "charCountLabel": "{{count}} characters",
+    "maxCountReached": "You've reached the limit of {{max}} attachments",
+    "picker": {
+      "label": "Attachments",
+      "none": "No attachments registered",
+      "selectedTotalChars": "Selected total: {{count}} characters"
+    },
+    "navLinkFromGoalsList": "Manage attachments"
+  },
   "help": {
     "title": "Help",
     "subtitle": "Instructions for using each screen are gathered here. Use the table of contents or search to jump to what you need.",

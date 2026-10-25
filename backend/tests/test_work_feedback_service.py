@@ -38,6 +38,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_exam import StudyLogItem
 from app.services.record_service_work import WorkLogItem
+from tests.pdf_helpers import register_attachment
 
 
 @pytest.fixture(autouse=True)
@@ -559,3 +560,51 @@ def test_send_work_feedback_omits_perspective_suggestion_once_enough_records_exi
     )
 
     assert "断定" not in calls[0]["message"]
+
+
+# --- 添付ファイル（開発Todo_添付ファイル機能_v1.0） ---
+
+
+def test_send_work_feedback_includes_selected_attachment_text_in_prompt(
+    seeded_session, monkeypatch
+):
+    goal = _make_work_goal(seeded_session)
+    _make_work_assignment(seeded_session, goal)
+    attachment = register_attachment(
+        seeded_session,
+        "spec.pdf",
+        "this is a work specification document long enough for the check",
+    )
+    calls = _stub_send_message(monkeypatch)
+
+    work_feedback_service.send_work_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        work_log_items=[],
+        attachment_ids=[attachment.id],
+    )
+
+    assert "spec.pdf" in calls[0]["message"]
+    assert "this is a work specification document long enough for the check" in calls[0]["message"]
+
+
+def test_send_work_feedback_raises_not_found_for_missing_attachment_id(
+    seeded_session, monkeypatch
+):
+    goal = _make_work_goal(seeded_session)
+    _make_work_assignment(seeded_session, goal)
+    _stub_send_message(monkeypatch)
+
+    with pytest.raises(NotFoundError):
+        work_feedback_service.send_work_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            work_log_items=[],
+            attachment_ids=[999],
+        )

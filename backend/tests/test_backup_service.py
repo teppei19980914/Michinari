@@ -294,6 +294,54 @@ def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):
     ]
 
 
+def test_export_all_data_round_trips_attachment_rows(full_schema_db):
+    """添付ファイル（開発Todo_添付ファイル機能_v1.0）はextracted_textがTEXT型のみで
+    構成されるため、BLOB非使用でJSON化（sqlite3.Row→dict→JSON）が成立することを確認する。
+    """
+    _insert_minimal_goal(full_schema_db)
+    connection = sqlite3.connect(full_schema_db)
+    try:
+        connection.execute(
+            "INSERT INTO daily_record (id, record_date, created_at) "
+            "VALUES (1, '2026-01-10', '2026-01-10T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO attachment (id, file_name, extracted_text, char_count, created_at) "
+            "VALUES (1, 'exam.pdf', '過去問の本文', 6, '2026-01-10T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO chat_message (id, daily_record_id, goal_id, purpose, role, content, "
+            "sequence, created_at) VALUES "
+            "(1, 1, 1, 'DAILY_FEEDBACK', 'ASSISTANT', '回答', 1, '2026-01-10T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO chat_message_attachment (id, chat_message_id, attachment_id) "
+            "VALUES (1, 1, 1)"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    data = backup_service.export_all_data()
+
+    assert data["tables"]["attachment"] == [
+        {
+            "id": 1,
+            "file_name": "exam.pdf",
+            "extracted_text": "過去問の本文",
+            "char_count": 6,
+            "created_at": "2026-01-10T00:00:00",
+        }
+    ]
+    assert data["tables"]["chat_message_attachment"] == [
+        {"id": 1, "chat_message_id": 1, "attachment_id": 1}
+    ]
+
+    backup_service.import_all_data(data)
+    restored = backup_service.export_all_data()
+    assert restored["tables"]["attachment"] == data["tables"]["attachment"]
+
+
 def test_import_all_data_round_trips_rows(full_schema_db):
     _insert_minimal_goal(full_schema_db, name="インポート前")
     data = backup_service.export_all_data()
@@ -402,6 +450,25 @@ def test_import_accepts_previous_schema_version_1_3(full_schema_db):
     assert restored["tables"]["goal"][0]["name"] == "マーカー"
     assert restored["tables"]["goal_consultation_log"] == []
     assert restored["tables"]["goal_consultation_conversation"] == []
+
+
+def test_import_accepts_previous_schema_version_1_4(full_schema_db):
+    """1.4で書き出したバックアップは取り込める（添付ファイル機能で追加したattachment等
+    3テーブルが無いだけで、形式自体は互換のため。インポート後は3テーブルとも空に戻る
+    （開発Todo_添付ファイル機能_v1.0、登録済み添付ファイルの取り込みは対象外）。
+    """
+    _insert_minimal_goal(full_schema_db)
+    data = backup_service.export_all_data()
+    data["schema_version"] = "1.4"
+    data["tables"].pop("attachment", None)
+    data["tables"].pop("chat_message_attachment", None)
+    data["tables"].pop("goal_consultation_log_attachment", None)
+
+    backup_service.import_all_data(data)
+
+    restored = backup_service.export_all_data()
+    assert restored["tables"]["goal"][0]["name"] == "マーカー"
+    assert restored["tables"]["attachment"] == []
 
 
 def test_import_all_data_rejects_schema_version_mismatch(full_schema_db):

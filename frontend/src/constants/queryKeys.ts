@@ -27,6 +27,10 @@ export const QUERY_KEYS = {
   goalConsultationConversations: (goalId: number) =>
     ['goal-consultation', 'conversations', goalId] as const,
 
+  // --- 添付ファイル（開発Todo_添付ファイル機能_v1.0、goal非依存の共通プール）---
+  attachments: () => ['attachments'] as const,
+  attachmentLimits: () => ['attachments', 'limits'] as const,
+
   // --- 目標 ---
   goals: () => ['goals'] as const,
   /** goalIdがnullを取りうるのは、目標が未選択の間だけ`enabled: false`で待機する

@@ -59,7 +59,12 @@ from app.constants.goal_consultation import (
     SUMMARY_CITATION_PATTERN,
 )
 from app.models.goal import Goal
-from app.services import ai_context_common, goal_consultation_log_service, setting_reader
+from app.services import (
+    ai_context_common,
+    attachment_service,
+    goal_consultation_log_service,
+    setting_reader,
+)
 from app.services.exceptions import ValidationError
 
 #: 質疑の直列化（ヘルプAIアシスタントと同方式、S09 U15）。単一端末のため、
@@ -203,6 +208,7 @@ def _save_log(
     conversation_id: int,
     question: str,
     answer: GoalConsultationAnswer,
+    attachment_ids: list[int],
 ) -> None:
     """`GoalConsultationAnswer`のフィールドを`goal_consultation_log_service.save`の
     スカラー引数へ展開する（3つの呼び出し箇所で共通化、CLAUDE.md DRYの原則）。"""
@@ -215,6 +221,7 @@ def _save_log(
         answer_body=answer.text,
         cited_dates=answer.cited_dates,
         cited_weeks=answer.cited_weeks,
+        attachment_ids=attachment_ids,
     )
 
 
@@ -246,17 +253,27 @@ def _build_conversation_history(session: Session, conversation_id: int) -> list[
 
 
 def _answer_locked(
-    session: Session, goal: Goal, today: dt.date, conversation_id: int, raw_question: str
+    session: Session,
+    goal: Goal,
+    today: dt.date,
+    conversation_id: int,
+    raw_question: str,
+    attachment_ids: list[int],
 ) -> GoalConsultationAnswer:
     """質疑の本体（ロックを取った状態で呼ぶ）。"""
     max_question_chars = setting_reader.get_int(session, AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS)
     question = question_safety.sanitize_question(raw_question, max_question_chars)
     if question_safety.contains_forbidden_term(session, question):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        _save_log(session, goal, conversation_id, question, answer)
+        _save_log(session, goal, conversation_id, question, answer, attachment_ids=[])
         return answer
     if not ai_client.is_authenticated(session):
         raise AiAuthRequiredError("AI connection is required")
+
+    # 添付ファイルの存在確認は質問の安全対策より後（存在しないIDはNotFoundError、
+    # 開発Todo_添付ファイル機能_v1.0 A1）。禁止語の再照合（P12②）はプロンプトへ
+    # 組み込む直前（下のbuild_attachment_block呼び出し）で行う。
+    attachments = attachment_service.get_many_or_raise(session, attachment_ids)
 
     category_context = _build_category_context(session, goal, today)
 
@@ -275,6 +292,9 @@ def _answer_locked(
 
     nonce = secrets.token_hex(question_safety.NONCE_BYTES)
     escaped_question = question.translate(question_safety.DELIMITER_REPLACEMENTS)
+    # 添付ファイルの文字数は段階的縮退の対象外（当日入力と同等、開発Todo_添付ファイル機能_v1.0
+    # A6）。禁止語は保存後に追加される可能性があるため送信直前に再照合する（P12②）。
+    attachment_block = attachment_service.build_attachment_block(session, attachments)
     # 会話継続（S11）。縮退順は既存のbuild_with_degradable_entriesに委ねる
     # （①stages＝週次要約→生ログ→②conversation_history＝会話の古い往復、の順で削る。
     # 開発Todo v1.2 W1・W10、依頼文の推奨順と一致するため新規縮退ロジックは作らない）。
@@ -284,6 +304,7 @@ def _answer_locked(
             **category_context.fixed_variables,
             "question": escaped_question,
             "nonce": nonce,
+            "attachments": attachment_block or prompt_builder.NO_ATTACHMENTS_TEXT,
         },
         stages=stages,
         conversation_history=conversation_history,
@@ -299,7 +320,7 @@ def _answer_locked(
         template, context, max_chars, conversation_history_is_degradable=True
     ):
         answer = GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
-        _save_log(session, goal, conversation_id, question, answer)
+        _save_log(session, goal, conversation_id, question, answer, attachment_ids=attachment_ids)
         return answer
     build_result = prompt_builder.build_with_degradable_entries(template, context, max_chars)
 
@@ -328,12 +349,18 @@ def _answer_locked(
     # 実際に含めたエントリのみから作るため、会話履歴（過去の往復）中の表現をAIが模倣して
     # 新しい根拠行に書いても、ここで実在しないものとして除外される。
     answer = _interpret(session, raw, valid_dates, valid_weeks)
-    _save_log(session, goal, conversation_id, question, answer)
+    _save_log(session, goal, conversation_id, question, answer, attachment_ids=attachment_ids)
     return answer
 
 
 def ask(
-    session: Session, *, goal: Goal, today: dt.date, conversation_id: int, raw_question: str
+    session: Session,
+    *,
+    goal: Goal,
+    today: dt.date,
+    conversation_id: int,
+    raw_question: str,
+    attachment_ids: list[int] | None = None,
 ) -> GoalConsultationAnswer:
     """利用者の質問に、目標の記録に基づいて答える（開発Todo v1.1 §3、S11で会話継続に対応）。
 
@@ -344,6 +371,11 @@ def ask(
     （API層でHTTPに変換する）。禁止語・表示できない回答は例外にせず、
     `GoalConsultationAnswer.status`で返す。質問・回答は状態を問わず`goal_consultation_log`へ
     保存する（開発Todo v1.1 V8）。
+
+    `attachment_ids`は利用者が選択した添付ファイル（goal非依存の共通プール、開発Todo_
+    添付ファイル機能_v1.0 A1・A8）。存在しないIDは`NotFoundError`。
     """
     with _REQUEST_LOCK:
-        return _answer_locked(session, goal, today, conversation_id, raw_question)
+        return _answer_locked(
+            session, goal, today, conversation_id, raw_question, attachment_ids or []
+        )

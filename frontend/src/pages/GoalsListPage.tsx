@@ -185,7 +185,12 @@ export function GoalsListPage() {
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-text-primary">{t('goals.list.title')}</h1>
-        <Button onClick={() => setNewGoalModalOpen(true)}>{t('goals.list.newGoal')}</Button>
+        <div className="flex items-center gap-2">
+          <Link to={ROUTES.attachments} className="text-sm text-accent hover:underline">
+            {t('attachment.navLinkFromGoalsList')}
+          </Link>
+          <Button onClick={() => setNewGoalModalOpen(true)}>{t('goals.list.newGoal')}</Button>
+        </div>
       </div>
 
       {goalsQuery.isLoading && <p className="text-sm text-text-faint">{t('common.loading')}</p>}

@@ -8,15 +8,18 @@ export type GoalConsultationHistoryItem = components['schemas']['GoalConsultatio
 export type GoalConsultationConversation = components['schemas']['GoalConsultationConversationRead']
 
 /** 質問に、目標の記録に基づいて答える（S09、要件定義書R-104。S10で読書・仕事へ展開、S11で
- * 会話継続に対応し`conversationId`を必須化、開発Todo v1.2 W7）。 */
+ * 会話継続に対応し`conversationId`を必須化、開発Todo v1.2 W7）。`attachmentIds`は利用者が
+ * 選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1）。 */
 export function askGoalConsultationQuestion(
   goalId: number,
   conversationId: number,
   question: string,
+  attachmentIds: number[],
 ): Promise<GoalConsultationAnswer> {
   return apiClient.post<GoalConsultationAnswer>(`/goals/${goalId}/consultation/questions`, {
     conversation_id: conversationId,
     question,
+    attachment_ids: attachmentIds,
   })
 }
 

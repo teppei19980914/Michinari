@@ -87,7 +87,7 @@ export function CategoryReportSection({
           <>
             <p className="text-xs text-text-disabled">{t('dailyReport.chat.privacyNotice')}</p>
             {messages.length === 0 && (
-              <Button disabled={chat.isPending} onClick={() => chat.send(null)}>
+              <Button disabled={chat.isPending} onClick={() => chat.send(null, [])}>
                 {labels.chatStartLabel}
               </Button>
             )}
@@ -96,7 +96,11 @@ export function CategoryReportSection({
               wasTruncated={chat.wasTruncated}
               contextCategories={chat.contextCategories}
               isSending={chat.isPending}
-              onSend={messages.length > 0 ? (message) => chat.send(message) : undefined}
+              onSend={
+                messages.length > 0
+                  ? (message, attachmentIds) => chat.send(message, attachmentIds)
+                  : undefined
+              }
             />
           </>
         )}

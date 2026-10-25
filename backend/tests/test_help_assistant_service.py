@@ -325,10 +325,12 @@ def test_ask_wraps_question_with_per_request_nonce(seeded_session, monkeypatch):
 def test_ask_refuses_to_send_truncated_prompt(seeded_session, monkeypatch):
     """末尾の切り詰めで指示文が欠落する送信はしない（2026-09-14の不具合と同じ事態を防ぐ）。"""
     fake = FakeAi(monkeypatch)
+    # ai.max_prompt_charsの既定値が50000（添付ファイル機能導入、開発Todo_添付ファイル機能_v1.0
+    # A5）のため、それを確実に超える長さにする。
     monkeypatch.setattr(
         service,
         "_build_help_body",
-        lambda *args, **kwargs: ("x" * 40000, list(load_sections())),
+        lambda *args, **kwargs: ("x" * 60000, list(load_sections())),
     )
 
     answer = service.ask(seeded_session, raw_question="目標は何種類ありますか")

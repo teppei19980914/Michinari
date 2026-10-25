@@ -3,8 +3,11 @@
 
 Phase4時点ではAI連携（chat_message の生成）は対象外としていた。報告確定は chat_message が
 空の状態でも成立する（実装フェーズ分割計画書Phase4「注意点」、AI呼び出し失敗時の動作保証
-16.7）。chat_message自体の生成・保存はapp/services/daily_feedback_service.py（Phase5）が
-担い、本ファイルは日次記録（DailyRecord）の取得・作成のためのヘルパのみ提供する。
+16.7）。chat_messageの中身（どのプロンプトでどう応答させるか）はapp/services/
+daily_feedback_service.py（Phase5）等が担い、本ファイルは日次記録（DailyRecord）の取得・
+作成のためのヘルパを主とするが、3カテゴリ（資格・読書・仕事）で完全に同一の往復保存パターン
+（`append_feedback_turn`、添付ファイルの利用リンク付けを含む）は本ファイルに集約する
+（開発Todo_添付ファイル機能_v1.0、CODING_RULES.md①DRY、2026-10-25）。
 
 本モジュールは、目標の種類（資格試験・読書・仕事）を問わず2カテゴリ以上から参照される
 共通処理を置く（実装フェーズ分割計画書S02、`record_service.py`からの分割）。カテゴリ固有の
@@ -20,7 +23,8 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.constants.enums import DayType, GoalCategory, RecordState
+from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory, RecordState
+from app.models.attachment import ChatMessageAttachment
 from app.models.base import utcnow
 from app.models.record import (
     ChatMessage,
@@ -72,6 +76,61 @@ def next_chat_sequence(session: Session, daily_record_id: int) -> int:
         .scalar()
     )
     return (current_max or 0) + 1
+
+
+def append_feedback_turn(
+    session: Session,
+    *,
+    daily_record_id: int,
+    goal_id: int,
+    purpose: AiPurpose,
+    message: str | None,
+    response_text: str,
+    attachment_ids: list[int] | None = None,
+) -> ChatMessage:
+    """日次報告フィードバックの1往復を保存する（資格・読書・仕事の3カテゴリで共通、
+    CODING_RULES.md①DRY）。
+
+    利用者の発言（message）があればUSER行→ASSISTANT行の順で追加し、無ければASSISTANT行
+    のみを追加する。添付ファイルの利用リンク（`ChatMessageAttachment`）は、USER行があれば
+    そこへ、無ければASSISTANT行へ紐づける（開発Todo_添付ファイル機能_v1.0 P5）。
+    戻り値はASSISTANT行（呼び出し元が`ChatOutcome`等に積む）。
+    """
+    next_sequence = next_chat_sequence(session, daily_record_id)
+    attachment_target_message: ChatMessage | None = None
+    if message:
+        user_message = ChatMessage(
+            daily_record_id=daily_record_id,
+            goal_id=goal_id,
+            purpose=purpose,
+            role=ChatRole.USER,
+            content=message,
+            sequence=next_sequence,
+        )
+        session.add(user_message)
+        attachment_target_message = user_message
+        next_sequence += 1
+
+    assistant_message = ChatMessage(
+        daily_record_id=daily_record_id,
+        goal_id=goal_id,
+        purpose=purpose,
+        role=ChatRole.ASSISTANT,
+        content=response_text,
+        sequence=next_sequence,
+    )
+    session.add(assistant_message)
+    if attachment_target_message is None:
+        attachment_target_message = assistant_message
+    session.flush()
+    for attachment_id in attachment_ids or []:
+        session.add(
+            ChatMessageAttachment(
+                chat_message_id=attachment_target_message.id, attachment_id=attachment_id
+            )
+        )
+    session.flush()
+    return assistant_message
 
 
 #: 時間枠別の投下時間（slot_id → 分）。仕様書6.5「時間枠ごとの投下時間の入力」。
