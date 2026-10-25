@@ -42,16 +42,16 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-10-24で
-    `GOAL_CONSULTATION`・`GOAL_CONSULTATION_READING`・`GOAL_CONSULTATION_WORK`へ
-    会話継続（`{{conversation_history}}`、HISTORY区切り）のセクションを追加したことに伴う
-    （S11、開発Todo v1.2 W6・B-06）。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-10-25で
+    `DAILY_FEEDBACK`/`_READING`/`_WORK`・`GOAL_CONSULTATION`/`_READING`/`_WORK`の6テンプレート
+    へ添付ファイル（`{{attachments}}`、ATTACHMENTS区切り）のセクションを追加したことに伴う
+    （開発Todo_添付ファイル機能_v1.0）。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "02c7ce07318d79dde4e7829c5e3edf245f151140bb6199b0007318e025c5ea24"
+    assert digest == "e80d9cc924101d5af921c5da0cb9e71e8a87fc495db6f246cf6b63ab5a871616"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

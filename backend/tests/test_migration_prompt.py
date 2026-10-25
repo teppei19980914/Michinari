@@ -717,3 +717,123 @@ def test_conversation_history_prompt_migration_preserves_customized_templates(
 
     for purpose in purposes:
         assert bodies[purpose] == "ユーザーがカスタマイズした文面"
+
+
+#: 開発Todo_添付ファイル機能_v1.0: ATTACHMENTS区切り（{{attachments}}）を追加する6テンプレート。
+_ATTACHMENT_PROMPT_PURPOSES = (
+    "DAILY_FEEDBACK",
+    "DAILY_FEEDBACK_READING",
+    "DAILY_FEEDBACK_WORK",
+    "GOAL_CONSULTATION",
+    "GOAL_CONSULTATION_READING",
+    "GOAL_CONSULTATION_WORK",
+)
+
+
+@pytest.mark.parametrize("purpose", _ATTACHMENT_PROMPT_PURPOSES)
+def test_attachment_prompt_migration_updates_non_customized_template(
+    tmp_path, monkeypatch, purpose
+):
+    """0ab58c423373: 添付ファイル機能に伴い6テンプレートへATTACHMENTS区切り
+    （{{attachments}}）を追加するマイグレーションを、既存データがある状態への適用として
+    検証する。is_customized=False（利用者が未編集）のテンプレートは、{{attachments}}を
+    含む新文面へ更新されること。
+    """
+    db_path = tmp_path / f"attachment_prompt_migration_non_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("2ceb7aa212fc")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, '旧文面（{{attachments}}を含まない）', 0, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert "{{attachments}}" in row[0]
+    assert "<<<ATTACHMENTS-{{nonce}}>>>" in row[0]
+
+
+@pytest.mark.parametrize("purpose", _ATTACHMENT_PROMPT_PURPOSES)
+def test_attachment_prompt_migration_preserves_customized_template(
+    tmp_path, monkeypatch, purpose
+):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （0ab58c423373）でも上書きしないこと。"""
+    db_path = tmp_path / f"attachment_prompt_migration_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("2ceb7aa212fc")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, 'ユーザーがカスタマイズした文面', 1, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_max_prompt_chars_migration_updates_rows_at_old_default(tmp_path, monkeypatch):
+    """2ceb7aa212fc: ai.max_prompt_charsの既定値引き上げ（30000→50000）は、現在値が
+    旧既定値のままの行のみを更新する値一致ヒューリスティック（開発Todo_添付ファイル機能_v1.0
+    A5・P9）。既定値のままの行は50000へ更新されること。
+    """
+    db_path = tmp_path / "max_prompt_chars_migration_at_old_default.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c02c4e8b1cf1")  # 本マイグレーション（head）の2つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO app_setting (key, value, value_type, updated_at) "
+            "VALUES ('ai.max_prompt_chars', '30000', 'INTEGER', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT value FROM app_setting WHERE key = 'ai.max_prompt_chars'"
+        ).fetchone()
+
+    assert row[0] == "50000"
+
+
+def test_max_prompt_chars_migration_preserves_customized_value(tmp_path, monkeypatch):
+    """利用者が既定値から変更済みの行（旧既定値30000と一致しない）は上書きしないこと。"""
+    db_path = tmp_path / "max_prompt_chars_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("c02c4e8b1cf1")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO app_setting (key, value, value_type, updated_at) "
+            "VALUES ('ai.max_prompt_chars', '12345', 'INTEGER', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT value FROM app_setting WHERE key = 'ai.max_prompt_chars'"
+        ).fetchone()
+
+    assert row[0] == "12345"

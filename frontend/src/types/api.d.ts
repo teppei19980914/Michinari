@@ -1324,6 +1324,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Attachments
+         * @description 登録順（id昇順）で一覧を返す。
+         */
+        get: operations["list_attachments_api_v1_attachments_get"];
+        put?: never;
+        /**
+         * Upload Attachment
+         * @description PDFをアップロードし、テキスト抽出して登録する（A2・A3・A4）。
+         */
+        post: operations["upload_attachment_api_v1_attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Attachment
+         * @description 添付ファイルを削除する（P3：常に削除を許可する）。
+         */
+        delete: operations["delete_attachment_api_v1_attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/attachments/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Attachment Limits
+         * @description 画面が表示・事前チェックに使う上限を返す（A7・A10・P1）。
+         */
+        get: operations["get_attachment_limits_api_v1_attachments_limits_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard": {
         parameters: {
             query?: never;
@@ -2096,6 +2160,30 @@ export interface components {
             desktop?: components["schemas"]["DesktopSettingsUpdate"] | null;
             log?: components["schemas"]["LogSettingsUpdate"] | null;
         };
+        /**
+         * AttachmentLimitsRead
+         * @description 画面が表示・検証に使う上限（app_settingの値、A7・A10・P1）。
+         */
+        AttachmentLimitsRead: {
+            /** Max File Chars */
+            max_file_chars: number;
+            /** Max Count */
+            max_count: number;
+            /** Max Upload Size Mb */
+            max_upload_size_mb: number;
+        };
+        /**
+         * AttachmentRead
+         * @description 添付ファイル1件分の表示用情報（一覧・登録結果の共通形）。
+         */
+        AttachmentRead: {
+            /** Id */
+            id: number;
+            /** File Name */
+            file_name: string;
+            /** Char Count */
+            char_count: number;
+        };
         /** BackupRead */
         BackupRead: {
             /** Id */
@@ -2126,6 +2214,11 @@ export interface components {
         };
         /** Body_import_holidays_api_v1_calendar_holidays_import_post */
         Body_import_holidays_api_v1_calendar_holidays_import_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_upload_attachment_api_v1_attachments_post */
+        Body_upload_attachment_api_v1_attachments_post: {
             /** File */
             file: string;
         };
@@ -2251,6 +2344,8 @@ export interface components {
             study_logs?: components["schemas"]["StudyLogInput"][];
             /** Diary Entries */
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
+            /** Attachment Ids */
+            attachment_ids?: number[];
         };
         /** ChatResponse */
         ChatResponse: {
@@ -2847,13 +2942,19 @@ export interface components {
          * GoalConsultationQuestionRequest
          * @description 質問。長さの上限は`ai.goal_consultation_question_max_chars`で検証する（サービス層）。
          *     `conversation_id`はどの会話への質問かを明示する（S11、開発Todo v1.2 W7。省略時に
-         *     暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。
+         *     暗黙で最新会話を使う、という曖昧さを避けるため必須にする）。`attachment_ids`は利用者が
+         *     選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
          */
         GoalConsultationQuestionRequest: {
             /** Conversation Id */
             conversation_id: number;
             /** Question */
             question: string;
+            /**
+             * Attachment Ids
+             * @default []
+             */
+            attachment_ids: number[];
         };
         /** GoalCreate */
         GoalCreate: {
@@ -3674,6 +3775,8 @@ export interface components {
             message?: string | null;
             /** Reading Logs */
             reading_logs?: components["schemas"]["ReadingLogInput"][];
+            /** Attachment Ids */
+            attachment_ids?: number[];
         };
         /**
          * ReadingFinalizeRequest
@@ -4291,6 +4394,8 @@ export interface components {
             message?: string | null;
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
+            /** Attachment Ids */
+            attachment_ids?: number[];
         };
         /** WorkEvaluationReportGenerateRequest */
         WorkEvaluationReportGenerateRequest: {
@@ -7214,6 +7319,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_attachments_api_v1_attachments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentRead"][];
+                };
+            };
+        };
+    };
+    upload_attachment_api_v1_attachments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_attachment_api_v1_attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_attachment_api_v1_attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_attachment_limits_api_v1_attachments_limits_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentLimitsRead"];
                 };
             };
         };

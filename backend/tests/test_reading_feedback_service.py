@@ -27,7 +27,12 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import ChatMessage, DailyRecord, ReadingLog, WeeklySummary
 from app.models.setting import AppSetting
-from app.services import daily_feedback_service, reading_feedback_service, record_service_common
+from app.services import (
+    attachment_service,
+    daily_feedback_service,
+    reading_feedback_service,
+    record_service_common,
+)
 from app.services.exceptions import (
     DailyFeedbackPromptTooLongError,
     InvalidStateTransitionError,
@@ -36,6 +41,7 @@ from app.services.exceptions import (
 )
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
 from tests import reading_helpers
+from tests.pdf_helpers import build_minimal_pdf
 
 
 @pytest.fixture(autouse=True)
@@ -606,3 +612,51 @@ def test_send_reading_feedback_omits_perspective_suggestion_once_enough_records_
     )
 
     assert "断定" not in calls[0]["message"]
+
+
+# --- 添付ファイル（開発Todo_添付ファイル機能_v1.0） ---
+
+
+def test_send_reading_feedback_includes_selected_attachment_text_in_prompt(
+    seeded_session, monkeypatch
+):
+    goal = _make_reading_goal(seeded_session)
+    _make_book(seeded_session, goal)
+    attachment = attachment_service.register(
+        seeded_session,
+        file_name="notes.pdf",
+        content=build_minimal_pdf("this is a book note long enough for the minimum length check"),
+    )
+    calls = _stub_send_message(monkeypatch)
+
+    reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        reading_log_items=[],
+        attachment_ids=[attachment.id],
+    )
+
+    assert "notes.pdf" in calls[0]["message"]
+    assert "this is a book note long enough for the minimum length check" in calls[0]["message"]
+
+
+def test_send_reading_feedback_raises_not_found_for_missing_attachment_id(
+    seeded_session, monkeypatch
+):
+    goal = _make_reading_goal(seeded_session)
+    _make_book(seeded_session, goal)
+    _stub_send_message(monkeypatch)
+
+    with pytest.raises(NotFoundError):
+        reading_feedback_service.send_reading_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            reading_log_items=[],
+            attachment_ids=[999],
+        )

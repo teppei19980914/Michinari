@@ -1244,6 +1244,25 @@
       "deleteConfirm": "この会話と、その中の質問・回答をすべて削除します。よろしいですか？"
     }
   },
+  "attachment": {
+    "pageTitle": "添付ファイル",
+    "pageDescription": "過去問・解答例・業務ドキュメントなどのPDFを登録しておくと、日次報告や目標相談チャットで選択して、その内容を踏まえたAIの回答が得られます。登録したファイルはどの目標からも選択できます。",
+    "uploadButton": "PDFを追加",
+    "uploading": "アップロードしています…",
+    "emptyList": "まだ添付ファイルがありません",
+    "deleteButton": "削除",
+    "deleteConfirm": "この添付ファイルを削除します。過去の対話・質問でこのファイルが参照されていた場合、「どのファイルを参照したか」の情報が失われます。よろしいですか？",
+    "charCountLabel": "{{count}}字",
+    "uploadError": "アップロードに失敗しました。PDF形式で、テキストを抽出できるファイルかご確認ください。",
+    "deleteError": "削除に失敗しました",
+    "maxCountReached": "登録できる添付ファイルの上限（{{max}}件）に達しています",
+    "picker": {
+      "label": "添付ファイル",
+      "none": "登録済みの添付ファイルはありません",
+      "selectedTotalChars": "選択中の合計: {{count}}字"
+    },
+    "navLinkFromGoalsList": "添付ファイルを管理"
+  },
   "help": {
     "title": "ヘルプ",
     "subtitle": "画面の使い方をここに集約しています。目次または検索でお探しの項目へ移動してください。",

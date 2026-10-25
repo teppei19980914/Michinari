@@ -111,7 +111,7 @@ describe('CategoryReportSection', () => {
       await user.click(screen.getByRole('button', { name: LABELS.chatStartLabel }))
 
       // 初回は利用者の発言なしで実績だけを送る。
-      expect(chat.send).toHaveBeenCalledWith(null)
+      expect(chat.send).toHaveBeenCalledWith(null, [])
     })
 
     it('disables the start button while the request is in flight', () => {
@@ -135,7 +135,7 @@ describe('CategoryReportSection', () => {
       )
       await user.click(screen.getByRole('button', { name: t('dailyReport.chat.sendButton') }))
 
-      expect(chat.send).toHaveBeenCalledWith('follow-up')
+      expect(chat.send).toHaveBeenCalledWith('follow-up', [])
     })
 
     it('notifies when the prompt had to be truncated', () => {

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.enums import GoalConsultationAnswerStatus
 from app.database import serialize_writes
+from app.models.attachment import GoalConsultationLogAttachment
 from app.models.goal import Goal, GoalConsultationLog
 from app.services.exceptions import NotFoundError
 
@@ -87,6 +88,7 @@ def save(
     answer_body: str,
     cited_dates: tuple[dt.date, ...],
     cited_weeks: tuple[tuple[dt.date, dt.date], ...],
+    attachment_ids: list[int] | None = None,
 ) -> None:
     """質問・回答・根拠を保存する（ANSWERED・UNAVAILABLEの両方、開発Todo v1.1 V8）。
 
@@ -96,20 +98,26 @@ def save(
 
     AI通信（送信・後始末）がすべて終わった後に呼ぶ想定の短い書き込み区間のため、
     `serialize_writes()`で直列化する（CODING_RULES.md「AI通信とトランザクション」と
-    同じ方針）。
+    同じ方針）。`attachment_ids`は利用した添付ファイル（開発Todo_添付ファイル機能_v1.0）。
     """
     with serialize_writes():
-        session.add(
-            GoalConsultationLog(
-                goal_id=goal.id,
-                conversation_id=conversation_id,
-                question=question,
-                answer_status=answer_status,
-                answer_body=answer_body,
-                cited_dates=_serialize_dates(cited_dates),
-                cited_weeks=_serialize_weeks(cited_weeks),
-            )
+        log = GoalConsultationLog(
+            goal_id=goal.id,
+            conversation_id=conversation_id,
+            question=question,
+            answer_status=answer_status,
+            answer_body=answer_body,
+            cited_dates=_serialize_dates(cited_dates),
+            cited_weeks=_serialize_weeks(cited_weeks),
         )
+        session.add(log)
+        session.flush()
+        for attachment_id in attachment_ids or []:
+            session.add(
+                GoalConsultationLogAttachment(
+                    goal_consultation_log_id=log.id, attachment_id=attachment_id
+                )
+            )
         session.commit()
 
 

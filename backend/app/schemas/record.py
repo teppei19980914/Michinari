@@ -257,6 +257,8 @@ class ChatRequest(BaseModel):
     message: str | None = Field(default=None, min_length=1)
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
+    #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
+    attachment_ids: list[int] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):
@@ -279,6 +281,8 @@ class ReadingChatRequest(BaseModel):
     goal_id: int
     message: str | None = Field(default=None, min_length=1)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+    #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
+    attachment_ids: list[int] = Field(default_factory=list)
 
 
 class WorkChatRequest(BaseModel):
@@ -291,6 +295,8 @@ class WorkChatRequest(BaseModel):
     goal_id: int
     message: str | None = Field(default=None, min_length=1)
     work_logs: list[WorkLogInput] = Field(default_factory=list)
+    #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
+    attachment_ids: list[int] = Field(default_factory=list)
 
 
 class DailyMessageRead(BaseModel):

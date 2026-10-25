@@ -22,6 +22,7 @@ from alembic import command
 from app.ai import logger as ai_logger
 from app.api.ai import router as ai_router
 from app.api.analytics import router as analytics_router
+from app.api.attachment import router as attachment_router
 from app.api.books import router as books_router
 from app.api.calendar import router as calendar_router
 from app.api.client_logs import router as client_logs_router
@@ -236,6 +237,7 @@ def create_app() -> FastAPI:
     app.include_router(ai_router, prefix=API_V1_PREFIX)
     app.include_router(help_assistant_router, prefix=API_V1_PREFIX)
     app.include_router(goal_consultation_router, prefix=API_V1_PREFIX)
+    app.include_router(attachment_router, prefix=API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=API_V1_PREFIX)
     app.include_router(settings_router, prefix=API_V1_PREFIX)
     app.include_router(analytics_router, prefix=API_V1_PREFIX)

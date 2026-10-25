@@ -72,12 +72,13 @@ function useExamActions({
   const chat = useCategoryChat({
     goalId,
     purpose: 'DAILY_FEEDBACK',
-    sendRequest: (message) =>
+    sendRequest: (message, attachmentIds) =>
       sendChat(targetDate, {
         goal_id: goalId as number,
         message,
         study_logs: buildStudyLogPayload(draft.studyLogValues),
         diary_entries: buildDiaryEntriesPayload(draft.diaryValues),
+        attachment_ids: attachmentIds,
       }),
     setMessages: draft.setChatMessages,
     onError,
@@ -109,11 +110,12 @@ function useReadingActions({
   const chat = useCategoryChat({
     goalId,
     purpose: 'DAILY_FEEDBACK_READING',
-    sendRequest: (message) =>
+    sendRequest: (message, attachmentIds) =>
       sendReadingChat(targetDate, {
         goal_id: goalId as number,
         message,
         reading_logs: buildReadingLogPayload(draft.readingLogValues),
+        attachment_ids: attachmentIds,
       }),
     setMessages: draft.setChatMessages,
     onError,
@@ -144,11 +146,12 @@ function useWorkActions({
   const chat = useCategoryChat({
     goalId,
     purpose: 'DAILY_FEEDBACK_WORK',
-    sendRequest: (message) =>
+    sendRequest: (message, attachmentIds) =>
       sendWorkChat(targetDate, {
         goal_id: goalId as number,
         message,
         work_logs: buildWorkLogPayload(draft.workLogValues),
+        attachment_ids: attachmentIds,
       }),
     setMessages: draft.setChatMessages,
     onError,

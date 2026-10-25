@@ -88,6 +88,9 @@ export default defineConfig({
         'src/features/bookshelf/BookSpineCard.tsx',
         'src/features/bookshelf/BookInfoTab.tsx',
         'src/features/bookshelf/BookShelfSection.tsx',
+        // 添付ファイル機能（開発Todo_添付ファイル機能_v1.0）。どのファイルが選択されて
+        // 送信されるかを決める部品のため、同じ方針で含める。
+        'src/features/attachment/AttachmentPicker.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',

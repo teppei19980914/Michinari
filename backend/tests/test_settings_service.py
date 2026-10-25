@@ -15,7 +15,8 @@ def test_get_app_settings_returns_seeded_defaults(seeded_session):
     assert settings.ai_connection.timeout_seconds == 60
     assert settings.threshold.warning_ratio == 1.20
     assert settings.threshold.replan_overrun_days == 3
-    assert settings.prompt_degradation.max_prompt_chars == 30000
+    # 添付ファイル機能導入にあわせ既定値を50000へ引き上げ（開発Todo_添付ファイル機能_v1.0 A5）。
+    assert settings.prompt_degradation.max_prompt_chars == 50000
     assert settings.display.locale == "ja"
     assert settings.display.theme == "system"
     assert settings.display.default_granularity == "WEEK"
@@ -91,7 +92,7 @@ def test_update_app_settings_accepts_each_field_independently(seeded_session):
     )
     assert updated.threshold.warning_ratio == 1.20
     assert updated.threshold.replan_overrun_days == 5
-    assert updated.prompt_degradation.max_prompt_chars == 30000
+    assert updated.prompt_degradation.max_prompt_chars == 50000
     assert updated.prompt_degradation.perspective_suggestion_min_records == 6
     assert updated.log.ai_enabled is True
     assert updated.log.retention_days == 45

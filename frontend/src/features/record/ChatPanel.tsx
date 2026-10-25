@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { t } from '../../locales/t'
 import { Button } from '../../components/Button'
 import { Textarea } from '../../components/Textarea'
+import { AttachmentPicker } from '../attachment/AttachmentPicker'
 import type { components } from '../../types/api.d.ts'
 
 type ChatMessageRead = components['schemas']['ChatMessageRead']
@@ -14,7 +15,9 @@ type ChatPanelProps = {
    * 情報」表示）。プロンプト全文は表示せず、種別のみをロケール文言へ変換して一覧表示する。 */
   contextCategories?: string[]
   readOnly?: boolean
-  onSend?: (message: string) => void
+  /** `attachmentIds`は利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1）。
+   * 選択状態はこのコンポーネントのローカルstateで保持する（P5、画面を開いている間だけ保持）。 */
+  onSend?: (message: string, attachmentIds: number[]) => void
   isSending?: boolean
 }
 
@@ -28,6 +31,7 @@ export function ChatPanel({
   isSending = false,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const [selectedAttachmentIds, setSelectedAttachmentIds] = useState<number[]>([])
 
   return (
     <div className="flex flex-col gap-2">
@@ -68,24 +72,30 @@ export function ChatPanel({
       )}
 
       {!readOnly && onSend && (
-        <div className="flex gap-2">
-          <Textarea
-            rows={2}
-            className="flex-1"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={t('dailyReport.chat.inputPlaceholder')}
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <Textarea
+              rows={2}
+              className="flex-1"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={t('dailyReport.chat.inputPlaceholder')}
+            />
+            <Button
+              type="button"
+              disabled={isSending || draft.trim() === ''}
+              onClick={() => {
+                onSend(draft, selectedAttachmentIds)
+                setDraft('')
+              }}
+            >
+              {t('dailyReport.chat.sendButton')}
+            </Button>
+          </div>
+          <AttachmentPicker
+            selectedIds={selectedAttachmentIds}
+            onChange={setSelectedAttachmentIds}
           />
-          <Button
-            type="button"
-            disabled={isSending || draft.trim() === ''}
-            onClick={() => {
-              onSend(draft)
-              setDraft('')
-            }}
-          >
-            {t('dailyReport.chat.sendButton')}
-          </Button>
         </div>
       )}
     </div>
