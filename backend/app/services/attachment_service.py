@@ -19,7 +19,7 @@ from app.constants.app_setting_keys import (
 )
 from app.models.attachment import Attachment
 from app.services import setting_reader
-from app.services.exceptions import NotFoundError, ValidationError
+from app.services.exceptions import AttachmentExtractionFailedError, NotFoundError, ValidationError
 
 #: 抽出テキストがこの文字数未満の場合は抽出失敗（画像のみのページ等、A4）とみなして
 #: 登録を拒否する（P10）。利用者が調整する値ではなく抽出の技術的な妥当性確認のための
@@ -96,9 +96,7 @@ def register(session: Session, *, file_name: str, content: bytes) -> Attachment:
 
     extracted_text = _extract_text(content)
     if len(extracted_text) < _MIN_EXTRACTED_TEXT_CHARS:
-        raise ValidationError(
-            "Could not extract enough text from this PDF (image-only pages are not supported)"
-        )
+        raise AttachmentExtractionFailedError()
     if len(extracted_text) > limits.max_file_chars:
         raise ValidationError(
             f"Extracted text must be {limits.max_file_chars} characters or fewer"
