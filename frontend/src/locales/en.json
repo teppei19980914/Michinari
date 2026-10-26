@@ -1345,11 +1345,23 @@
       "goals": {
         "title": "Goal list / goal detail editing",
         "p1": "The \"Goals\" screen lists every registered goal. Choosing a type (certification exam, reading, or work) from \"Create new goal\" lets you create reading and work goals instantly, while certification exam goals use a wizard: pick a preset exam template or enter the exam name directly, then set the exam date, materials, and study hours in order (templates cannot be added or edited). Selecting a goal takes you to its details/edit screen. If you forget how to use the app, or on first launch, you can reopen the welcome screen from the link on the Help screen.",
-        "p2": "A certification exam goal's detail screen has 5 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), and \"Load profile\" (load coefficient per period). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
+        "p2": "A certification exam goal's detail screen has 6 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), \"Load profile\" (load coefficient per period), and \"Goal consultation\" (ask the AI free-form questions grounded in your accumulated records; see the \"Goal consultation chat\" section for details). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
         "p3": "The goal's action area shows \"Start,\" \"Pause,\" \"Resume,\" \"Mark as complete,\" or \"Abandon,\" depending on its status. After completing or abandoning, the goal becomes read-only; a completed or abandoned goal can be reverted with \"Resume\" to continue it. A certification exam goal cannot be completed until results are in for every subject.",
         "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
-        "p5": "A reading goal's detail screen has 3 tabs — \"Basic info,\" \"Book,\" and \"Resource allocation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
-        "p6": "A work goal's detail screen has 4 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" and \"Semiannual review\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+        "p5": "A reading goal's detail screen has 4 tabs — \"Basic info,\" \"Book,\" \"Resource allocation,\" and \"Goal consultation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
+        "p6": "A work goal's detail screen has 5 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" \"Semiannual review,\" and \"Goal consultation\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+      },
+      "goalConsultation": {
+        "title": "Goal consultation chat",
+        "p1": "The \"Goal consultation\" tab on the goal details screen lets you ask the AI free-form questions grounded in your accumulated records (results, diary, recall records, work records, weekly summaries, etc., depending on the goal's type). It's separate from the AI dialogue in the daily report — rather than feedback on your daily results, it's for consulting about how to approach your studying, reading, or work itself (for example, what to study next, how it relates to a book you read earlier, or recent trends in your work challenges). It's available for certification exam, reading, and work goals alike.",
+        "p2": "You're not limited to a single question — you can continue the conversation within the same tab (answers take the recent exchange into account). Past questions and answers can be reviewed and deleted from \"Consultation history.\" Each answer ends with the dates/weeks of the records it was based on (or \"Basis: none\" if there weren't any).",
+        "p3": "If you have registered attachments, you can select them when sending a question so the AI's answer takes their content into account (see the \"Attachments\" section below for details on attachments). Attaching past exam questions, sample answers, or grading comments lets you get specific advice based on them."
+      },
+      "attachment": {
+        "title": "Attachments",
+        "p1": "Registering PDF files such as past exam questions, sample answers, grading comments, or work documents lets you select them in the daily report's AI dialogue or the goal consultation chat, so the AI's answer takes their content into account. Registration is a shared pool that isn't tied to any goal, so you can select the same files from any goal. Reach the \"Attachments\" management screen from the link on the goal list screen.",
+        "p2": "Only PDF files are supported. On registration, the app extracts and saves the text from the file; the original PDF itself isn't saved (a file whose text can't be extracted well enough, such as image-only pages, can't be registered — OCR isn't supported). There are limits on the number of attachments, file size, and extracted character count; the screen shows a message when you reach a limit.",
+        "p3": "You can delete an attachment at any time. Deleting it causes past dialogues/questions that referenced it to lose the record of which file was referenced, but the dialogue/question content itself remains."
       },
       "bookshelf": {
         "title": "Bookshelf",
@@ -1391,7 +1403,7 @@
         "title": "Settings — AI connection",
         "p1": "AI integration requires NewtonX's \"Connection URL (tenant host)\" and \"Personal Access Token (PAT).\" Enter the Host in its full form including the domain, like `xxx.newton-x.net` (a company name or abbreviation alone cannot resolve the connection). The `xxx` part differs by affiliation (Seraku in-house staff: `seraku.newton-x.net`; Seraku on-site staff: `seraku-ex.newton-x.net`; Seraku Business Solutions: `bs-seraku.newton-x.net`; AND Think: `andthink.newton-x.net`). If yours isn't listed, use the `xxx` part of the URL you normally use to sign in to NewtonX, `https://xxx.newton-x.net/login`. Please issue your own PAT from NewtonX's web app account screen (this app cannot issue one for you).",
         "p2": "After entering the Host and PAT and pressing \"Check connection,\" the app applies them to the development kit (NewtonX ADK) settings, actually tries communicating with the AI platform (fetching the assistant list), and shows either \"Connected successfully\" or a failure reason, along with \"Authenticated\"/\"Not authenticated,\" based on the result. This is where you'll notice any mistakes in the Host format or PAT. The authentication status is re-confirmed the same way every time this screen is opened, so if the connection later fails, for example because the PAT expired, it will switch to \"Not authenticated\" (see the FAQ for the steps to regenerate a PAT on the NewtonX side).",
-        "p3": "After authenticating, you assign the assistant to use — from a list, no need to type an identifier by hand — for each of 13 purposes: daily report feedback, weekly summary, today's message, retrospective report, each of their reading and work variants, the work AI evaluation report, and the help question assistant. Each purpose already has a default assistant preselected to match its task characteristics, so in most cases you can leave it as-is. Only change it from the list if you want to use a different assistant."
+        "p3": "After authenticating, you assign the assistant to use — from a list, no need to type an identifier by hand — for each of 14 purposes: daily report feedback, weekly summary, today's message, retrospective report, each of their reading and work variants, the work AI evaluation report, the help question assistant, and the goal consultation chat assistant (shared across certification exam, reading, and work). Each purpose already has a default assistant preselected to match its task characteristics, so in most cases you can leave it as-is. Only change it from the list if you want to use a different assistant."
       },
       "settingsOther": {
         "title": "Settings — Thresholds, prompt degradation, display, logs, prompt templates",
@@ -1399,7 +1411,7 @@
         "p2": "\"Prompt degradation\": sets the character limit for prompts sent to the AI, and the threshold (number of finalized records) below which the AI is prompted to ask from multiple perspectives for users with few records. For daily report feedback, past records (weekly summaries, and raw records for past days with no weekly summary yet) cover the entire period from the goal's start date through yesterday, with no limit on count or number of weeks. If a prompt exceeds the character limit, it is degraded in stages starting from the oldest record (for exam goals, collapsing materials with distant deadlines is also used). Today's own performance, diary, and AI dialogue are never degraded; if they alone exceed the limit, sending is cancelled instead of truncating them.",
         "p3": "\"Display\": sets the display language (Japanese / English), theme (follow system setting / light / dark), accent color, font size, and the default analytics granularity (daily / weekly / monthly). Changing the language reloads the page. NewtonX feedback is also generated in Japanese or English according to this setting.",
         "p4": "\"Logs\": sets whether to save AI communication logs, and if so, how long to retain them (in days).",
-        "p5": "\"Prompt templates\": lets you edit, and reset to default, the actual prompt text sent to the AI, for each of 15 purposes (daily report feedback, weekly summary, today's message, retrospective report, each reading and work variant, the work AI evaluation report, recap classification/body generation, and the help question assistant). See the \"Prompt template placeholders\" section below for the list of `{{variable_name}}` placeholders available when editing (only the main purposes are listed).",
+        "p5": "\"Prompt templates\": lets you edit, and reset to default, the actual prompt text sent to the AI, for each of 18 purposes (daily report feedback, weekly summary, today's message, retrospective report, each reading and work variant, the work AI evaluation report, recap classification/body generation, the help question assistant, and goal consultation chat (3 purposes: certification exam, reading, and work)). See the \"Prompt template placeholders\" section below for the list of `{{variable_name}}` placeholders available when editing (only the main purposes are listed).",
         "p6": "\"System info\": from the \"Go to system info\" link in the top right, you can check the app version, the list of libraries used, and export diagnostic logs."
       },
       "desktop": {
@@ -1429,6 +1441,8 @@
               "diary_learned": "What you learned / understood today",
               "weekly_summaries": "Recent weekly summaries",
               "conversation_history": "Earlier turns in today's dialogue",
+              "attachments": "The content of attachments the user selected (past exam questions, sample answers, grading comments, etc.)",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)",
               "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
             }
           },
@@ -1473,6 +1487,8 @@
               "book_summary": "Title, author, target completion date, days remaining",
               "today_recall": "Today's recall text",
               "recent_recalls": "Recall records from the last several days",
+              "attachments": "The content of attachments the user selected",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)",
               "perspective_suggestion": "Extra instruction prompting readers with few records to be asked from multiple perspectives (inserted only when below the threshold)"
             }
           },
@@ -1483,6 +1499,8 @@
               "work_summary": "Project name, client/project name, expected work content, days elapsed since start",
               "today_work": "Today's work record text",
               "recent_work_logs": "Work records from the last several days",
+              "attachments": "The content of attachments the user selected",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)",
               "perspective_suggestion": "Extra instruction prompting users with few records to be asked from multiple perspectives (inserted only when below the threshold)"
             }
           },
@@ -1544,6 +1562,49 @@
               "help_body": "Help text relevant to the question",
               "question": "The user's question text",
               "nonce": "A random value to prevent delimiter spoofing (used to verify output)"
+            }
+          },
+          "goalConsultation": {
+            "title": "Goal consultation (certification exam)",
+            "variables": {
+              "goal_summary": "Goal name, subject composition, exam date per subject, days remaining",
+              "exam_results": "Pass/fail and score per subject",
+              "material_summary": "Per material: total amount, planned cycles, actual cycles, time spent",
+              "quality_trend": "Quality metric trend (by cycle, aggregated monthly)",
+              "replan_history": "Replan history (date, reason, quota before/after, remaining amount and days at that time)",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "recent_logs": "Records (raw logs) for periods without a weekly summary yet",
+              "conversation_history": "This conversation's recent exchanges (up to the configured number of turns)",
+              "attachments": "The content of attachments the user selected",
+              "question": "The user's question text",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)"
+            }
+          },
+          "goalConsultationReading": {
+            "title": "Goal consultation (reading)",
+            "variables": {
+              "book_summary": "Title, author, reading period",
+              "reading_metrics": "Days recorded, longest streak",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "recent_logs": "Recall records (raw logs) for periods without a weekly summary yet",
+              "conversation_history": "This conversation's recent exchanges (up to the configured number of turns)",
+              "attachments": "The content of attachments the user selected",
+              "question": "The user's question text",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)"
+            }
+          },
+          "goalConsultationWork": {
+            "title": "Goal consultation (work)",
+            "variables": {
+              "work_summary": "Project name, client/project name, expected work content, start date",
+              "work_progress": "Days elapsed since start, most recent record date, streak length, whether a monthly report was recently generated",
+              "member_summary": "Name, gender, and traits/personality (if registered) of every registered team member",
+              "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
+              "recent_logs": "Work records (raw logs) for periods without a weekly summary yet",
+              "conversation_history": "This conversation's recent exchanges (up to the configured number of turns)",
+              "attachments": "The content of attachments the user selected",
+              "question": "The user's question text",
+              "nonce": "A random value to prevent delimiter spoofing (shared across multiple delimiters)"
             }
           }
         }

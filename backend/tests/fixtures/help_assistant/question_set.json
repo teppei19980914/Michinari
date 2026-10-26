@@ -17,7 +17,9 @@
     { "question": "目標を削除するとどうなりますか？", "expected_section_id": "goals" },
     { "question": "表示言語を英語に変更するとどうなりますか？", "expected_section_id": "settingsOther" },
     { "question": "ミチナリを終了するにはどうすればいいですか？", "expected_section_id": "desktop" },
-    { "question": "データのバックアップはどこで作成しますか？", "expected_section_id": "dataManagement" }
+    { "question": "データのバックアップはどこで作成しますか？", "expected_section_id": "dataManagement" },
+    { "question": "添付ファイルに登録できるのはどんな形式のファイルですか？", "expected_section_id": "attachment" },
+    { "question": "目標相談チャットと日次報告のAI対話は何が違いますか？", "expected_section_id": "goalConsultation" }
   ],
   "out_of_scope": [
     { "question": "おすすめの参考書を教えてください" },
