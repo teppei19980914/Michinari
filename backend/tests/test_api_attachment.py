@@ -25,7 +25,11 @@ def test_upload_attachment_rejects_pdf_without_extractable_text(client):
     )
 
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    body = response.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    # 原因不明の汎用文言では、画像のみのスキャンPDFが拒否される理由が利用者に伝わらない
+    # ため、reasonで原因を明示する（2026-10-26）。
+    assert body["error"]["details"] == [{"reason": "ATTACHMENT_EXTRACTION_FAILED"}]
 
 
 def test_list_attachments_returns_registered_entries(client):

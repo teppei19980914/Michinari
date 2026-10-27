@@ -42,6 +42,23 @@ class ValidationError(DomainError):
     """入力値・状態整合の検証エラー（データ構造編6.3 VALIDATION_ERROR、仕様書10章）。"""
 
 
+class AttachmentExtractionFailedError(DomainError):
+    """添付PDFからテキストを抽出できなかった場合（画像のみのスキャンPDF等、A4）。
+
+    OCRは行わない設計のため起こりうる正常系の拒否だが、原因不明の汎用VALIDATION_ERROR文言
+    では利用者がなぜ拒否されたか分からない（画像のみのスキャンPDFは珍しくない、2026-10-26の
+    問い合わせで判明）。エラーコード自体は増やさず、原因をdetailsのreasonで伝える
+    （MaterialHasStudyLogsErrorと同じ設計）。
+    """
+
+    reason = "ATTACHMENT_EXTRACTION_FAILED"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "Could not extract enough text from this PDF (image-only pages are not supported)"
+        )
+
+
 class ExamSubjectRequiredError(DomainError):
     """目標開始に必要な試験科目が1件も登録されていない場合（仕様書7.1）。
 

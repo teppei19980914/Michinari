@@ -15,6 +15,7 @@ from sqlalchemy.exc import OperationalError
 from app.ai.exceptions import AiAuthRequiredError, AiConfigError, AiError, AiTimeoutError
 from app.services.exceptions import (
     AppSettingNotFoundError,
+    AttachmentExtractionFailedError,
     BackdateLimitExceededError,
     BookAlreadyExistsError,
     ConsentRequiredError,
@@ -43,6 +44,7 @@ from app.services.exceptions import (
 #: 未登録の DomainError サブクラスは INTERNAL_ERROR として扱う（想定外の内部エラー）。
 _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ValidationError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
+    AttachmentExtractionFailedError: (status.HTTP_400_BAD_REQUEST, "VALIDATION_ERROR"),
     ExamSubjectRequiredError: (status.HTTP_400_BAD_REQUEST, "EXAM_SUBJECT_REQUIRED"),
     MaterialRequiredError: (status.HTTP_400_BAD_REQUEST, "MATERIAL_REQUIRED"),
     ResourceAllocationRequiredError: (

@@ -15,7 +15,7 @@ from app.constants.app_setting_keys import (
 from app.models.ai import AiForbiddenTerm
 from app.models.attachment import Attachment
 from app.services import attachment_service
-from app.services.exceptions import NotFoundError, ValidationError
+from app.services.exceptions import AttachmentExtractionFailedError, NotFoundError, ValidationError
 from tests.pdf_helpers import build_minimal_pdf, build_pdf_without_text
 
 
@@ -99,10 +99,13 @@ def test_register_rejects_corrupted_pdf(seeded_session):
 
 
 def test_register_rejects_pdf_with_no_extractable_text(seeded_session):
-    with pytest.raises(ValidationError):
+    """画像のみのスキャンPDF等（A4）は、原因を画面へ伝えられるよう専用の例外を送出する
+    （2026-10-26、IPA試験の過去問PDF添付で汎用VALIDATION_ERROR文言が原因不明だった問い合わせ）。"""
+    with pytest.raises(AttachmentExtractionFailedError) as exc_info:
         attachment_service.register(
             seeded_session, file_name="image-only.pdf", content=build_pdf_without_text()
         )
+    assert exc_info.value.reason == "ATTACHMENT_EXTRACTION_FAILED"
 
 
 def test_register_rejects_text_exceeding_file_char_limit(seeded_session):
