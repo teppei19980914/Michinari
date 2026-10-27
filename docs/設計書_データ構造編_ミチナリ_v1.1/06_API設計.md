@@ -292,6 +292,8 @@
 
 **`details`のreason（1.1改24、2026-09-23にWORK_MEMBER_HAS_REPORTSを追加）**: 実績・想起記録・業務記録・評価レポートが紐づく教材/書籍/案件情報/メンバーの削除拒否は、コードは`VALIDATION_ERROR`のまま増やさず、`details`に`{"reason": "..."}`を1件付与して原因を区別する（`MATERIAL_HAS_LOGS`／`BOOK_HAS_LOGS`／`WORK_ASSIGNMENT_HAS_LOGS`／`WORK_MEMBER_HAS_REPORTS`）。フロントは`ApiError.localizedMessage`（`frontend/src/api/client.ts`）がこの`reason`を優先的に文言化する（`locales/ja.json`の`errors.reasons.*`）。
 
+同じ`reason`の仕組みを使うエラーとして、`POST /attachments`がPDFから抽出した文字数が下限（既定50字）未満の場合（画像のみのスキャンPDF等、OCR非対応のため抽出不可）に`ATTACHMENT_EXTRACTION_FAILED`を付与する（1.1改62、2026-10-26。IPA試験の過去問PDF添付で汎用VALIDATION_ERROR文言が原因不明だった問い合わせを受け、削除拒否系reasonと同じ設計で原因を画面へ伝えるようにした）。
+
 ### 6.4 セキュリティ設計（診断ログ出力・トレース強化、Phase40）
 
 **信頼境界**：本アプリはシングルユーザーのローカル常駐デスクトップアプリであり、`127.0.0.1`のみで待受け、既存エンドポイント全てが無認証（6.1「認証: なし」）。`POST /client-logs`は「フロントエンド（同一マシン上のブラウザ）→バックエンド」という既存の信頼境界内の入力であり、リモート攻撃者からの直接到達は想定しない。

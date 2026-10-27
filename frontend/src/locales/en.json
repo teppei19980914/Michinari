@@ -1660,7 +1660,8 @@
     "default": "An error occurred. Please wait a moment and try again",
     "reasons": {
       "MATERIAL_HAS_LOGS": "This material can't be deleted because it has recorded results. Delete the results first, or edit the material instead",
-      "WORK_MEMBER_HAS_REPORTS": "This member can't be deleted because evaluation reports exist. Deactivate them instead, or proceed after reviewing the evaluation reports"
+      "WORK_MEMBER_HAS_REPORTS": "This member can't be deleted because evaluation reports exist. Deactivate them instead, or proceed after reviewing the evaluation reports",
+      "ATTACHMENT_EXTRACTION_FAILED": "Could not register this PDF because no text could be extracted from it. It may consist only of scanned images (text recognition from images is not supported). Please use a PDF that contains text"
     }
   },
   "recapTheme": {
