@@ -108,6 +108,9 @@ class DashboardRead(BaseModel):
     参照されるため存続する）。
 
     has_ever_reported_record は初回記録バナー（S-4 4-2）の非表示条件に使う。
+
+    show_reminder_onboarding_prompt・show_reminder_autostart_banner は記録リマインドの
+    到達性案内（開発Todo リマインド導線 D2・D5）の表示条件。都度算出するため保存しない。
     """
 
     logical_date: dt.date
@@ -120,3 +123,5 @@ class DashboardRead(BaseModel):
     available_slot_names: list[str]
     has_ever_reported_record: bool
     weekly_digests: list[WeeklyDigestRead]
+    show_reminder_onboarding_prompt: bool
+    show_reminder_autostart_banner: bool

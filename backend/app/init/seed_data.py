@@ -47,11 +47,13 @@ from app.constants.app_setting_keys import (
     BACKUP_RETENTION_COUNT,
     CALENDAR_DAY_BOUNDARY_HOUR,
     DASHBOARD_REPORT_RATE_WINDOW_DAYS,
+    DESKTOP_AUTOSTART_BANNER_DISMISSED,
     DESKTOP_LAUNCH_AT_LOGIN,
     DESKTOP_NOTIFICATION_CHECK_INTERVAL_SECONDS,
     DESKTOP_NOTIFICATION_ENABLED,
     DESKTOP_NOTIFICATION_TIME,
     DESKTOP_OPEN_BROWSER_ON_STARTUP,
+    DESKTOP_REMINDER_ONBOARDING_SHOWN,
     DISPLAY_ACCENT_COLOR,
     DISPLAY_DEFAULT_GRANULARITY,
     DISPLAY_FONT_SCALE,
@@ -73,6 +75,7 @@ from app.constants.app_setting_keys import (
 from app.constants.enums import AiPurpose, AppSettingValueType, DayType
 from app.init import prompt_texts_common, prompt_texts_exam, prompt_texts_reading, prompt_texts_work
 from app.models.ai import AiForbiddenTerm
+from app.models.goal import Goal
 from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
 
 # キー: (値, 型)。値は app_setting.value に文字列として保存する（設計書 データ構造編 5.2）。
@@ -207,6 +210,12 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     DESKTOP_NOTIFICATION_ENABLED: ("true", AppSettingValueType.BOOLEAN),
     DESKTOP_NOTIFICATION_TIME: ("21:00", AppSettingValueType.STRING),
     DESKTOP_NOTIFICATION_CHECK_INTERVAL_SECONDS: ("60", AppSettingValueType.INTEGER),
+    # 既存利用者向け自動起動案内（開発Todo リマインド導線 D5）。「閉じた」操作が無ければ
+    # 常にfalseで足りる（目標の有無で分岐させる必要がない）ため、他の既定値と同様ここに置く。
+    # 新規利用者向けの案内済みフラグ（DESKTOP_REMINDER_ONBOARDING_SHOWN）は、既存DBでの
+    # 初期値を目標の有無で分岐させる必要があるため、ここではなく
+    # seed_desktop_reminder_onboarding_flag()で個別に投入する（D4）。
+    DESKTOP_AUTOSTART_BANNER_DISMISSED: ("false", AppSettingValueType.BOOLEAN),
     BACKUP_RETENTION_COUNT: ("5", AppSettingValueType.INTEGER),
     DASHBOARD_REPORT_RATE_WINDOW_DAYS: ("30", AppSettingValueType.INTEGER),
 }
@@ -252,6 +261,29 @@ def seed_app_settings(session: Session) -> None:
         if key in existing_keys:
             continue
         session.add(AppSetting(key=key, value=value, value_type=value_type))
+
+
+def seed_desktop_reminder_onboarding_flag(session: Session) -> None:
+    """新規利用者向け「記録リマインドを受け取りますか」案内の表示済みフラグを投入する
+    （開発Todo リマインド導線 D3・D4）。
+
+    `INITIAL_APP_SETTINGS`の他のキーと異なり固定値を投入できない。この案内は
+    「ウェルカム画面から最初の目標を作った直後」の利用者だけに見せる想定のため、
+    新規インストール（目標0件）では`false`（未案内）、既にこのバージョンへ更新した
+    既存利用者（目標が1件以上）では`true`（案内済み扱い）で投入する。既に行があれば
+    （2回目以降の起動）何もしない（都度判定し直すと、目標を全て削除した利用者に
+    再び新規向け案内が出てしまうため）。
+    """
+    if session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN) is not None:
+        return
+    has_existing_goal = session.query(Goal.id).first() is not None
+    session.add(
+        AppSetting(
+            key=DESKTOP_REMINDER_ONBOARDING_SHOWN,
+            value="true" if has_existing_goal else "false",
+            value_type=AppSettingValueType.BOOLEAN,
+        )
+    )
 
 
 def seed_prompt_templates(session: Session) -> None:
@@ -340,6 +372,7 @@ def backfill_work_assistant_defaults(session: Session) -> None:
 
 def run_all(session: Session) -> None:
     seed_app_settings(session)
+    seed_desktop_reminder_onboarding_flag(session)
     seed_prompt_templates(session)
     seed_forbidden_terms(session)
     seed_day_type_defaults(session)

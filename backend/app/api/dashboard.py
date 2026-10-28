@@ -43,6 +43,7 @@ from app.services import (
     record_service_common,
     record_service_exam,
     setting_reader,
+    settings_service,
     slot_service,
     speed_service,
     threshold_service,
@@ -283,6 +284,8 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     slots_by_weekday = slot_service.group_slots_by_weekday(slot_service.get_active_slots(session))
     available_slot_names = [slot.name for slot in slots_by_weekday.get(today.weekday(), [])]
 
+    reminder_onboarding_flags = settings_service.resolve_reminder_onboarding_flags(session)
+
     return DashboardRead(
         logical_date=today,
         record_state=record_service_common.resolve_record_state(today_record),
@@ -294,4 +297,6 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
         available_slot_names=available_slot_names,
         has_ever_reported_record=record_service_common.has_any_reported_record(session),
         weekly_digests=weekly_digests,
+        show_reminder_onboarding_prompt=reminder_onboarding_flags.show_reminder_onboarding_prompt,
+        show_reminder_autostart_banner=reminder_onboarding_flags.show_reminder_autostart_banner,
     )

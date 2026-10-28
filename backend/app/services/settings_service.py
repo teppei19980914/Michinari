@@ -35,10 +35,12 @@ from app.constants.app_setting_keys import (
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
+    DESKTOP_AUTOSTART_BANNER_DISMISSED,
     DESKTOP_LAUNCH_AT_LOGIN,
     DESKTOP_NOTIFICATION_ENABLED,
     DESKTOP_NOTIFICATION_TIME,
     DESKTOP_OPEN_BROWSER_ON_STARTUP,
+    DESKTOP_REMINDER_ONBOARDING_SHOWN,
     LOG_AI_ENABLED,
     LOG_RETENTION_DAYS,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
@@ -142,12 +144,20 @@ class DisplaySettings:
 
 @dataclass(frozen=True)
 class DesktopSettings:
-    """デスクトップ常駐・記録リマインドの設定（実装スコープA〜C、Phase37）。"""
+    """デスクトップ常駐・記録リマインドの設定（実装スコープA〜C、Phase37）。
+
+    `reminder_onboarding_shown`・`autostart_banner_dismissed`は設定画面には出さない
+    内部状態（開発Todo リマインド導線 D3・D5）だが、他の`desktop.*`設定と同じ
+    `PATCH /settings`経路で読み書きできるようにし、新規の保存APIを増やさない
+    （CLAUDE.md DRYの原則）。
+    """
 
     open_browser_on_startup: bool
     launch_at_login: bool
     notification_enabled: bool
     notification_time: str
+    reminder_onboarding_shown: bool
+    autostart_banner_dismissed: bool
 
 
 @dataclass(frozen=True)
@@ -236,6 +246,12 @@ def get_app_settings(session: Session) -> AppSettings:
         launch_at_login=setting_reader.get_bool(session, DESKTOP_LAUNCH_AT_LOGIN),
         notification_enabled=setting_reader.get_bool(session, DESKTOP_NOTIFICATION_ENABLED),
         notification_time=setting_reader.get_str(session, DESKTOP_NOTIFICATION_TIME),
+        reminder_onboarding_shown=setting_reader.get_bool(
+            session, DESKTOP_REMINDER_ONBOARDING_SHOWN
+        ),
+        autostart_banner_dismissed=setting_reader.get_bool(
+            session, DESKTOP_AUTOSTART_BANNER_DISMISSED
+        ),
     )
     log = LogSettings(
         ai_enabled=setting_reader.get_bool(session, LOG_AI_ENABLED),
@@ -248,6 +264,38 @@ def get_app_settings(session: Session) -> AppSettings:
         display=display,
         desktop=desktop,
         log=log,
+    )
+
+
+@dataclass(frozen=True)
+class ReminderOnboardingFlags:
+    """ダッシュボード（`GET /dashboard`）が表示する2つの案内の表示条件（開発Todo
+    リマインド導線 D2・D5）。都度算出し、保存はしない（CLAUDE.md「日次ノルマ・残量・
+    現在周回の保存」禁止と同じ考え方）。
+    """
+
+    show_reminder_onboarding_prompt: bool
+    show_reminder_autostart_banner: bool
+
+
+def resolve_reminder_onboarding_flags(session: Session) -> ReminderOnboardingFlags:
+    """記録リマインドの案内2件（新規利用者向け・既存利用者向け）を表示すべきかを返す。
+
+    `GET /dashboard`（初期表示2秒以内の性能要件）から呼ばれるため、必要な4キーだけを
+    読む。`get_app_settings`は無関係な設定（AI接続・プロンプト縮退等、約25キー）も
+    まとめて読み出すため、ここでは使わない。
+    """
+    reminder_onboarding_shown = setting_reader.get_bool(session, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    notification_enabled = setting_reader.get_bool(session, DESKTOP_NOTIFICATION_ENABLED)
+    launch_at_login = setting_reader.get_bool(session, DESKTOP_LAUNCH_AT_LOGIN)
+    autostart_banner_dismissed = setting_reader.get_bool(
+        session, DESKTOP_AUTOSTART_BANNER_DISMISSED
+    )
+    return ReminderOnboardingFlags(
+        show_reminder_onboarding_prompt=not reminder_onboarding_shown,
+        show_reminder_autostart_banner=(
+            notification_enabled and not launch_at_login and not autostart_banner_dismissed
+        ),
     )
 
 
@@ -348,6 +396,8 @@ def _update_desktop(session: Session, **fields: object) -> None:
         "open_browser_on_startup": DESKTOP_OPEN_BROWSER_ON_STARTUP,
         "launch_at_login": DESKTOP_LAUNCH_AT_LOGIN,
         "notification_enabled": DESKTOP_NOTIFICATION_ENABLED,
+        "reminder_onboarding_shown": DESKTOP_REMINDER_ONBOARDING_SHOWN,
+        "autostart_banner_dismissed": DESKTOP_AUTOSTART_BANNER_DISMISSED,
     }
     for field, key in boolean_key_by_field.items():
         value = fields.get(field)

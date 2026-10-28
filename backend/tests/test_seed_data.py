@@ -1,6 +1,7 @@
 """完了条件: 起動時に初期データが投入され、再起動しても重複しないこと。"""
 
 import hashlib
+from datetime import date
 
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
@@ -10,9 +11,10 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
+    DESKTOP_REMINDER_ONBOARDING_SHOWN,
     SERVER_PORT,
 )
-from app.constants.enums import AiPurpose
+from app.constants.enums import AiPurpose, GoalCategory, GoalStatus
 from app.init.seed_data import (
     INITIAL_APP_SETTINGS,
     INITIAL_DAY_TYPE_DEFAULTS,
@@ -20,20 +22,35 @@ from app.init.seed_data import (
     backfill_reading_assistant_defaults,
     backfill_work_assistant_defaults,
     run_all,
+    seed_desktop_reminder_onboarding_flag,
 )
+from app.models.goal import Goal
 from app.models.setting import AppSetting, DayTypeDefault, PromptTemplate
+
+#: `DESKTOP_REMINDER_ONBOARDING_SHOWN`は`INITIAL_APP_SETTINGS`の対象外（既存DBでの初期値を
+#: 目標の有無で分岐させるため、`seed_desktop_reminder_onboarding_flag`が個別に1行投入する。
+#: 開発Todo リマインド導線 D3・D4）。
+_EXTRA_SEEDED_SETTINGS_COUNT = 1
 
 
 def test_run_all_seeds_all_expected_rows(db_session):
     run_all(db_session)
 
-    assert db_session.query(AppSetting).count() == len(INITIAL_APP_SETTINGS)
+    assert (
+        db_session.query(AppSetting).count()
+        == len(INITIAL_APP_SETTINGS) + _EXTRA_SEEDED_SETTINGS_COUNT
+    )
     assert db_session.query(PromptTemplate).count() == len(INITIAL_PROMPT_TEMPLATES)
     assert db_session.query(DayTypeDefault).count() == len(INITIAL_DAY_TYPE_DEFAULTS)
 
     server_port = db_session.get(AppSetting, SERVER_PORT)
     assert server_port is not None
     assert server_port.value == "8100"
+
+    # 新規インストール（目標0件）では未案内（false）で投入される（開発Todo リマインド導線 D4）。
+    reminder_onboarding_shown = db_session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    assert reminder_onboarding_shown is not None
+    assert reminder_onboarding_shown.value == "false"
 
 
 def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
@@ -68,7 +85,10 @@ def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):
 
     run_all(db_session)
 
-    assert db_session.query(AppSetting).count() == len(INITIAL_APP_SETTINGS)
+    assert (
+        db_session.query(AppSetting).count()
+        == len(INITIAL_APP_SETTINGS) + _EXTRA_SEEDED_SETTINGS_COUNT
+    )
     assert db_session.query(PromptTemplate).count() == len(INITIAL_PROMPT_TEMPLATES)
     assert db_session.query(DayTypeDefault).count() == len(INITIAL_DAY_TYPE_DEFAULTS)
 
@@ -227,3 +247,63 @@ def test_backfill_work_assistant_defaults_does_not_overwrite_semiannual_customiz
 
     reloaded = db_session.get(AppSetting, AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL)
     assert reloaded.value == "利用者が選択済みのUID"
+
+
+def test_seed_desktop_reminder_onboarding_flag_defaults_to_false_for_a_fresh_install(db_session):
+    """目標が1件も無い新規インストールでは、新規利用者向け案内をまだ表示していない
+    （false）として投入すること（開発Todo リマインド導線 D4）。"""
+    seed_desktop_reminder_onboarding_flag(db_session)
+    db_session.commit()
+
+    setting = db_session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    assert setting is not None
+    assert setting.value == "false"
+
+
+def test_seed_desktop_reminder_onboarding_flag_defaults_to_true_when_a_goal_already_exists(
+    db_session,
+):
+    """既にこのバージョンへ更新した既存利用者（目標が1件以上）には、新規利用者向けの
+    案内を遡って表示しないよう、案内済み（true）扱いで投入すること（D4）。"""
+    db_session.add(
+        Goal(
+            category=GoalCategory.EXAM,
+            name="既存の目標",
+            start_date=date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    seed_desktop_reminder_onboarding_flag(db_session)
+    db_session.commit()
+
+    setting = db_session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    assert setting is not None
+    assert setting.value == "true"
+
+
+def test_seed_desktop_reminder_onboarding_flag_does_not_recompute_once_seeded(db_session):
+    """2回目以降の起動では再判定しない（目標を全て削除した利用者に、新規向け案内が
+    再び出てしまうのを防ぐ、開発Todo リマインド導線 §6）。"""
+    seed_desktop_reminder_onboarding_flag(db_session)
+    db_session.commit()
+    setting = db_session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    setting.value = "true"
+    db_session.commit()
+
+    db_session.add(
+        Goal(
+            category=GoalCategory.EXAM,
+            name="あとで作った目標",
+            start_date=date(2026, 1, 1),
+            status=GoalStatus.ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    seed_desktop_reminder_onboarding_flag(db_session)
+    db_session.commit()
+
+    reloaded = db_session.get(AppSetting, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    assert reloaded.value == "true"

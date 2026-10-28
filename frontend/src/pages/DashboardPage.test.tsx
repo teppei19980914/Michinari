@@ -43,6 +43,15 @@ vi.mock('../api/calendar', () => ({ getCalendar }))
 const listRecapThemes = vi.hoisted(() => vi.fn())
 vi.mock('../api/recap', () => ({ listRecapThemes }))
 
+// 記録リマインドの到達性案内（開発Todo リマインド導線）。既定（show_*がfalse）では
+// 呼ばれないが、案内2件の表示を検証するテストのために用意する。
+const getSettings = vi.hoisted(() => vi.fn())
+const updateSettings = vi.hoisted(() => vi.fn())
+vi.mock('../api/settings', () => ({ getSettings, updateSettings }))
+
+const syncAutostart = vi.hoisted(() => vi.fn())
+vi.mock('../api/desktop', () => ({ syncAutostart }))
+
 const OTHER_GOAL_ID = GOAL_ID + 1
 const OTHER_MATERIAL_NAME = '別目標の教材'
 const WELCOME_MARKER = 'welcome-marker'
@@ -102,6 +111,18 @@ beforeEach(() => {
   listGoals.mockResolvedValue([makeGoal()])
   getDailyMessage.mockResolvedValue(null)
   getCalendar.mockResolvedValue([])
+  getSettings.mockResolvedValue({
+    desktop: {
+      open_browser_on_startup: true,
+      launch_at_login: false,
+      notification_enabled: true,
+      notification_time: '21:00',
+      reminder_onboarding_shown: false,
+      autostart_banner_dismissed: false,
+    },
+  })
+  updateSettings.mockResolvedValue(undefined)
+  syncAutostart.mockResolvedValue({ launch_at_login: true, supported: true, applied: true })
 })
 
 afterEach(() => {
@@ -262,5 +283,37 @@ describe('DashboardPage の初回記録バナー', () => {
 
     await screen.findByText(t('dashboard.title'))
     expect(screen.queryByText(t('dashboard.firstRecordBanner'))).toBeNull()
+  })
+})
+
+describe('DashboardPage の記録リマインド到達性案内（開発Todo リマインド導線）', () => {
+  it('shows the onboarding prompt when the server says to', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ show_reminder_onboarding_prompt: true }))
+    renderWithProviders(<DashboardPage />)
+
+    expect(await screen.findByText(t('desktop.onboardingPrompt.title'))).toBeDefined()
+  })
+
+  it('hides the onboarding prompt once the server says it was already shown', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ show_reminder_onboarding_prompt: false }))
+    renderWithProviders(<DashboardPage />)
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(t('desktop.onboardingPrompt.title'))).toBeNull()
+  })
+
+  it('shows the autostart banner when the server says to', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ show_reminder_autostart_banner: true }))
+    renderWithProviders(<DashboardPage />)
+
+    expect(await screen.findByText(t('dashboard.autostartBanner.description'))).toBeDefined()
+  })
+
+  it('hides the autostart banner when the server says not to', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ show_reminder_autostart_banner: false }))
+    renderWithProviders(<DashboardPage />)
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(t('dashboard.autostartBanner.description'))).toBeNull()
   })
 })

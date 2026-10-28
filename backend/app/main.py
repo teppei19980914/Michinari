@@ -29,6 +29,7 @@ from app.api.client_logs import router as client_logs_router
 from app.api.closure import router as closure_router
 from app.api.dashboard import router as dashboard_router
 from app.api.data import router as data_router
+from app.api.desktop import router as desktop_router
 from app.api.errors import register_exception_handlers
 from app.api.exam_templates import router as exam_templates_router
 from app.api.export import router as export_router
@@ -240,6 +241,7 @@ def create_app() -> FastAPI:
     app.include_router(attachment_router, prefix=API_V1_PREFIX)
     app.include_router(dashboard_router, prefix=API_V1_PREFIX)
     app.include_router(settings_router, prefix=API_V1_PREFIX)
+    app.include_router(desktop_router, prefix=API_V1_PREFIX)
     app.include_router(analytics_router, prefix=API_V1_PREFIX)
     app.include_router(closure_router, prefix=API_V1_PREFIX)
     app.include_router(export_router, prefix=API_V1_PREFIX)
