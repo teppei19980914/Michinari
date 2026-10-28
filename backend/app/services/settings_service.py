@@ -279,14 +279,22 @@ class ReminderOnboardingFlags:
 
 
 def resolve_reminder_onboarding_flags(session: Session) -> ReminderOnboardingFlags:
-    """記録リマインドの案内2件（新規利用者向け・既存利用者向け）を表示すべきかを返す。"""
-    desktop = get_app_settings(session).desktop
+    """記録リマインドの案内2件（新規利用者向け・既存利用者向け）を表示すべきかを返す。
+
+    `GET /dashboard`（初期表示2秒以内の性能要件）から呼ばれるため、必要な4キーだけを
+    読む。`get_app_settings`は無関係な設定（AI接続・プロンプト縮退等、約25キー）も
+    まとめて読み出すため、ここでは使わない。
+    """
+    reminder_onboarding_shown = setting_reader.get_bool(session, DESKTOP_REMINDER_ONBOARDING_SHOWN)
+    notification_enabled = setting_reader.get_bool(session, DESKTOP_NOTIFICATION_ENABLED)
+    launch_at_login = setting_reader.get_bool(session, DESKTOP_LAUNCH_AT_LOGIN)
+    autostart_banner_dismissed = setting_reader.get_bool(
+        session, DESKTOP_AUTOSTART_BANNER_DISMISSED
+    )
     return ReminderOnboardingFlags(
-        show_reminder_onboarding_prompt=not desktop.reminder_onboarding_shown,
+        show_reminder_onboarding_prompt=not reminder_onboarding_shown,
         show_reminder_autostart_banner=(
-            desktop.notification_enabled
-            and not desktop.launch_at_login
-            and not desktop.autostart_banner_dismissed
+            notification_enabled and not launch_at_login and not autostart_banner_dismissed
         ),
     )
 
