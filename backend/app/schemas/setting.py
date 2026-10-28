@@ -102,6 +102,9 @@ class DesktopSettingsRead(BaseModel):
     launch_at_login: bool
     notification_enabled: bool
     notification_time: str
+    #: 設定画面には出さない内部状態（開発Todo リマインド導線 D3・D5）。
+    reminder_onboarding_shown: bool
+    autostart_banner_dismissed: bool
 
 
 class DesktopSettingsUpdate(BaseModel):
@@ -112,6 +115,9 @@ class DesktopSettingsUpdate(BaseModel):
     #: （notification_service.parse_notification_time）が行い、ここでは長さだけを見る。
     #: 判定に使う正規表現を2箇所へ書かないため（CODING_RULES.md DRYの原則）。
     notification_time: str | None = Field(default=None, min_length=1)
+    #: 設定画面には出さない内部状態（開発Todo リマインド導線 D3・D5）。
+    reminder_onboarding_shown: bool | None = None
+    autostart_banner_dismissed: bool | None = None
 
 
 class LogSettingsRead(BaseModel):

@@ -1340,6 +1340,11 @@ export interface paths {
         /**
          * Upload Attachment
          * @description PDFをアップロードし、テキスト抽出して登録する（A2・A3・A4）。
+         *
+         *     PDFのパース（`attachment_service.register`内の`pypdf`呼び出し）はCPU負荷が高く、
+         *     `async def`ハンドラのままではイベントループを占有し他のリクエストを止めてしまう
+         *     （`records.py`等の既存ハンドラはいずれも同期`def`でスレッドプールへ自動退避される、
+         *     injection-reviewer指摘、2026-10-25）。同期`def`にすることで同様に退避させる。
          */
         post: operations["upload_attachment_api_v1_attachments_post"];
         delete?: never;
@@ -1468,6 +1473,26 @@ export interface paths {
         put?: never;
         /** Reset Prompt Template */
         post: operations["reset_prompt_template_api_v1_prompt_templates__purpose__reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/desktop/autostart/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Autostart
+         * @description 保存済みの`desktop.launch_at_login`を読み直し、Windowsレジストリへ今すぐ反映する。
+         */
+        post: operations["sync_autostart_api_v1_desktop_autostart_sync_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2484,6 +2509,9 @@ export interface components {
          *     参照されるため存続する）。
          *
          *     has_ever_reported_record は初回記録バナー（S-4 4-2）の非表示条件に使う。
+         *
+         *     show_reminder_onboarding_prompt・show_reminder_autostart_banner は記録リマインドの
+         *     到達性案内（開発Todo リマインド導線 D2・D5）の表示条件。都度算出するため保存しない。
          */
         DashboardRead: {
             /**
@@ -2507,6 +2535,10 @@ export interface components {
             has_ever_reported_record: boolean;
             /** Weekly Digests */
             weekly_digests: components["schemas"]["WeeklyDigestRead"][];
+            /** Show Reminder Onboarding Prompt */
+            show_reminder_onboarding_prompt: boolean;
+            /** Show Reminder Autostart Banner */
+            show_reminder_autostart_banner: boolean;
         };
         /** DayBoundaryHourRead */
         DayBoundaryHourRead: {
@@ -2529,6 +2561,25 @@ export interface components {
             /** Note */
             note?: string | null;
         };
+        /**
+         * DesktopAutostartSyncResult
+         * @description `POST /desktop/autostart/sync`の結果。
+         *
+         *     属性:
+         *         launch_at_login: 反映を試みた時点で保存されていた設定値。
+         *         supported: 自動起動の登録が意味を持つ実行形態（配布パッケージ）か。
+         *             `False`の場合、`applied`も必ず`False`になる（開発環境のため何もしていない。
+         *             失敗ではない）。
+         *         applied: Windowsレジストリへ実際に反映できたか。
+         */
+        DesktopAutostartSyncResult: {
+            /** Launch At Login */
+            launch_at_login: boolean;
+            /** Supported */
+            supported: boolean;
+            /** Applied */
+            applied: boolean;
+        };
         /** DesktopSettingsRead */
         DesktopSettingsRead: {
             /** Open Browser On Startup */
@@ -2539,6 +2590,10 @@ export interface components {
             notification_enabled: boolean;
             /** Notification Time */
             notification_time: string;
+            /** Reminder Onboarding Shown */
+            reminder_onboarding_shown: boolean;
+            /** Autostart Banner Dismissed */
+            autostart_banner_dismissed: boolean;
         };
         /** DesktopSettingsUpdate */
         DesktopSettingsUpdate: {
@@ -2550,6 +2605,10 @@ export interface components {
             notification_enabled?: boolean | null;
             /** Notification Time */
             notification_time?: string | null;
+            /** Reminder Onboarding Shown */
+            reminder_onboarding_shown?: boolean | null;
+            /** Autostart Banner Dismissed */
+            autostart_banner_dismissed?: boolean | null;
         };
         /**
          * DiaryEntryInput
@@ -7580,6 +7639,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_autostart_api_v1_desktop_autostart_sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesktopAutostartSyncResult"];
                 };
             };
         };
