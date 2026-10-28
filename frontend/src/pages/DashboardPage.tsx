@@ -15,6 +15,8 @@ import { StatsSummary } from '../features/dashboard/StatsSummary'
 import { WeeklyDigestSection } from '../features/dashboard/WeeklyDigestSection'
 import { RecapThemeSection } from '../features/dashboard/RecapThemeSection'
 import { RecentActivityCalendarSection } from '../features/dashboard/RecentActivityCalendarSection'
+import { AutostartBanner } from '../features/dashboard/AutostartBanner'
+import { ReminderOnboardingPrompt } from '../features/desktop/ReminderOnboardingPrompt'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { resolveTargetGoalId } from '../features/record/resolveTargetGoalId'
@@ -80,6 +82,9 @@ export function DashboardPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-xl font-semibold text-text-primary">{t('dashboard.title')}</h1>
+
+      <ReminderOnboardingPrompt open={dashboard.show_reminder_onboarding_prompt} />
+      <AutostartBanner show={dashboard.show_reminder_autostart_banner} />
 
       {showFirstRecordBanner && (
         <p className="rounded-md bg-accent-muted-bg p-3 text-sm text-accent-muted-text">

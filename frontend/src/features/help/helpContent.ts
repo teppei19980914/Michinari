@@ -135,6 +135,7 @@ export const HELP_SECTIONS: HelpSection[] = [
       'help.sections.desktop.p3',
       'help.sections.desktop.p4',
       'help.sections.desktop.p5',
+      'help.sections.desktop.p6',
     ],
   },
   {

@@ -260,6 +260,8 @@ class TestDesktopSettingsApi:
             "launch_at_login": False,
             "notification_enabled": True,
             "notification_time": "21:00",
+            "reminder_onboarding_shown": False,
+            "autostart_banner_dismissed": False,
         }
 
     def test_patch_updates_the_desktop_group(self, client):

@@ -74,6 +74,11 @@
   "dashboard": {
     "title": "Dashboard",
     "firstRecordBanner": "Let's write your first record",
+    "autostartBanner": {
+      "description": "Notifications won't arrive unless the app is running. You can set it to launch automatically when Windows starts.",
+      "enable": "Enable autostart",
+      "dismiss": "Dismiss"
+    },
     "reportButton": {
       "label": "Today's report"
     },
@@ -811,6 +816,18 @@
     }
   },
   "desktop": {
+    "onboardingPrompt": {
+      "title": "Receive recording reminder notifications?",
+      "description": "Every evening, if that day's record isn't done yet, we'll notify you.",
+      "timeLabel": "Notification time",
+      "autostartNote": "Choosing \"Yes\" also turns on launching Michinari automatically when Windows starts, so the notification can reliably reach you (notifications don't arrive unless the app is running).",
+      "accept": "Yes, notify me",
+      "decline": "No thanks"
+    },
+    "autostartSync": {
+      "unsupported": "Autostart registration isn't applied in a development environment.",
+      "failed": "Failed to register autostart. Please try again from the Settings screen."
+    },
     "tray": {
       "tooltip": "Michinari",
       "open": "Open Michinari",
@@ -1420,7 +1437,8 @@
         "p2": "Clicking Michinari's icon in the notification area opens the window. Right-clicking the icon shows an \"Open Michinari\" / \"Quit\" menu. Closing the browser tab doesn't quit the app. To quit, choose \"Quit\" from this menu. Choosing \"Quit\" waits for any in-progress save to finish before stopping safely.",
         "p3": "In \"Desktop & notifications\" on the Settings screen, you can toggle whether the browser window opens on startup. If off, open it manually from the tray icon. Turning on \"Launch automatically at Windows startup\" (in the same place) makes Michinari wait in the tray when you sign in (off by default).",
         "p4": "Turning on \"Send recording reminder notifications\" shows a notification at the time you set (default 21:00), but only if that day's record isn't done yet. Clicking the notification opens that day's daily report screen in your browser. No notification is sent for a day already recorded (whether progress-only or fully reported), or a day marked as excluded on the calendar. On buffer days, the notification uses a lighter message for rest days.",
-        "p5": "Notifications only work while Michinari is running (no separate background program is installed on your PC). If Michinari wasn't running at the set time, that day's notification won't fire. If notifications don't appear, check that Michinari is allowed to notify you under Windows Settings → System → Notifications."
+        "p5": "Notifications only work while Michinari is running (no separate background program is installed on your PC). If Michinari wasn't running at the set time, that day's notification won't fire. If notifications don't appear, check that Michinari is allowed to notify you under Windows Settings → System → Notifications.",
+        "p6": "Recording reminders can't reach you unless Michinari is running. Right after you create your first goal, you'll be asked once, \"Receive recording reminder notifications every evening?\" Choosing \"Yes\" also turns on launching Michinari automatically when Windows starts, together with the notification. If notifications are already on but autostart is off, a one-time banner appears on the dashboard letting you turn on autostart with one click. Either way, once you close or answer it, it won't appear again, but you can still change it anytime from \"Desktop & notifications\" in Settings."
       },
       "promptVariables": {
         "title": "Prompt template placeholder list",
