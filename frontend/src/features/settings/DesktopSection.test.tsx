@@ -22,6 +22,8 @@ function makeDesktop(
     launch_at_login: false,
     notification_enabled: true,
     notification_time: '21:00',
+    reminder_onboarding_shown: false,
+    autostart_banner_dismissed: false,
     ...overrides,
   }
 }

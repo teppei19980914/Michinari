@@ -24,6 +24,8 @@
 
 `has_ever_reported_record`（bool）は、カテゴリを問わず1件でも確定済み(REPORTED)の記録があるかを返す。初回記録バナー（仕様書6.1、S-4 4-2）の非表示条件に用いる。`location.state`のような遷移1回限りの状態ではなく実データで判定するため、この値をここに含めた。
 
+`show_reminder_onboarding_prompt`・`show_reminder_autostart_banner`（bool、開発Todo「リマインド導線」v1.0）は、記録リマインドの到達性案内（仕様書6.1.4）2件の表示条件。`settings_service.resolve_reminder_onboarding_flags`が`app_setting`（`desktop.reminder_onboarding_shown`・`desktop.notification_enabled`・`desktop.launch_at_login`・`desktop.autostart_banner_dismissed`）から都度算出し、保存はしない。
+
 `weekly_digests`（`WeeklyDigestRead`の配列、目標ごとに1件、S-4 4-4）は「先週のまとめ」（仕様書6.1）用の値。直前の月曜始まりの週について、`weekly_summary`（`is_anonymized=false`の版）が既に存在すればその`summary_body`を`ai_summary_text`へ、無ければ`metrics_service.compute_weekly_record_summary`が返す非AI集計（`recorded_days`・`total_minutes`。`total_minutes`は資格試験目標のみ非null）を格納する。AI呼び出しは行わずDBの既存データを読むだけのため、今日の一言と異なり`GET /dashboard`へ含めても初期表示2秒以内の性能要件に影響しない。
 
 目標カード（goal_cards）は`category`を含み、`category=READING`の場合はprogress_rate・remaining_daysを書籍の派生値（ページ進捗・読了目標日までの残日数）で置き換え、forecast_deviation_days・has_warning・has_forced_replanは対象外（null／false）とする。書籍の詳細（残日数・直近記録日・連続記録日数・ページ進捗）は`book`フィールドに`BookRead`をそのまま含める（Phase17実装）。`category=WORK`の場合は、progress_rate・remaining_daysに相当する定量指標を持たないため、着手日からの経過日数・直近記録日・連続記録日数・直近の月次報告有無という軽量な表示に置き換える（読書のDSH-06相当の設計を踏襲、6.2「案件」参照）。forecast_deviation_days・has_warning・has_forced_replanはREADINGと同様に対象外（null／false）とする。
@@ -232,6 +234,7 @@
 | GET | /settings/prompts | プロンプトテンプレート一覧 |
 | PUT | /settings/prompts/{purpose} | テンプレート更新 |
 | POST | /settings/prompts/{purpose}/reset | テンプレートを初期値に戻す |
+| POST | /desktop/autostart/sync | 保存済みの`desktop.launch_at_login`をWindowsレジストリへ今すぐ反映する（開発Todo「リマインド導線」v1.0 D6）。応答は`{launch_at_login, supported, applied}`。自動起動の値自体の保存は`PATCH /settings`（desktopグループ）で行い、本APIは反映のみを行う |
 | GET | /ai/status | 認証状態とAI基盤の稼働状況 |
 | POST | /ai/login | 認証の実行（非同期）。PAT指定時の`authenticated`は、ローカルのPAT形式チェックに加え、軽量なAPI呼び出し（アシスタント一覧取得）による実疎通確認の結果（S-5 5-2、ロジック・プロンプト編16.2） |
 | POST | /ai/logout | トークンの破棄 |

@@ -99,6 +99,14 @@ DESKTOP_NOTIFICATION_TIME = "desktop.notification_time"
 #: 通知時刻をまたいだかを調べる間隔。設定画面には出さない（利用者が調整する値ではない）が、
 #: 秒数をスケジューラへ直書きしないため app_setting へ置く。
 DESKTOP_NOTIFICATION_CHECK_INTERVAL_SECONDS = "desktop.notification_check_interval_seconds"
+#: 新規利用者向け「記録リマインドを受け取りますか」の1問案内を表示済みか（開発Todo
+#: リマインド導線 D3）。一度表示（回答済み）したら二度と出さない。既存DBへの初期値は
+#: 単純な固定値ではなく、起動時点で目標が既にあるかで分岐させる必要があるため
+#: `init/seed_data.py`の`INITIAL_APP_SETTINGS`ではなく専用関数で投入する（D4）。
+DESKTOP_REMINDER_ONBOARDING_SHOWN = "desktop.reminder_onboarding_shown"
+#: 既存利用者向け「自動起動が無効」ダッシュボード案内を閉じたか（開発Todo リマインド導線 D5）。
+#: 閉じた後は二度と出さない。
+DESKTOP_AUTOSTART_BANNER_DISMISSED = "desktop.autostart_banner_dismissed"
 
 #: 振り返り（テーマ累積）の分類バッチ1回分の報告本文の上限文字数（プロンプト上限の内側に収める）。
 RECAP_CLASSIFY_CHUNK_CHARS = "recap.classify_chunk_chars"

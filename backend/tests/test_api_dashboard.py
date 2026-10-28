@@ -109,6 +109,8 @@ def test_dashboard_returns_empty_lists_when_no_active_goals(client, seeded_sessi
         "available_slot_names": [],
         "has_ever_reported_record": False,
         "weekly_digests": [],
+        "show_reminder_onboarding_prompt": True,
+        "show_reminder_autostart_banner": True,
     }
 
 

@@ -245,3 +245,73 @@ class TestDesktopSettings:
         assert (
             settings_service.get_app_settings(seeded_session).desktop.notification_time == "21:00"
         )
+
+    def test_get_returns_reminder_onboarding_flags_seeded_defaults(self, seeded_session):
+        """新規インストール相当（目標0件）の既定値は両方false（開発Todo リマインド導線 D3・D5）。"""
+        desktop = settings_service.get_app_settings(seeded_session).desktop
+
+        assert desktop.reminder_onboarding_shown is False
+        assert desktop.autostart_banner_dismissed is False
+
+    def test_update_writes_reminder_onboarding_flags(self, seeded_session):
+        updated = settings_service.update_app_settings(
+            seeded_session,
+            desktop={"reminder_onboarding_shown": True, "autostart_banner_dismissed": True},
+        )
+
+        assert updated.desktop.reminder_onboarding_shown is True
+        assert updated.desktop.autostart_banner_dismissed is True
+
+
+class TestResolveReminderOnboardingFlags:
+    """`GET /dashboard`が表示する2つの案内の表示条件（開発Todo リマインド導線 D2・D5）。"""
+
+    def test_shows_onboarding_prompt_until_marked_shown(self, seeded_session):
+        flags = settings_service.resolve_reminder_onboarding_flags(seeded_session)
+        assert flags.show_reminder_onboarding_prompt is True
+
+        settings_service.update_app_settings(
+            seeded_session, desktop={"reminder_onboarding_shown": True}
+        )
+
+        flags = settings_service.resolve_reminder_onboarding_flags(seeded_session)
+        assert flags.show_reminder_onboarding_prompt is False
+
+    def test_shows_autostart_banner_only_when_notification_on_and_autostart_off_and_not_dismissed(
+        self, seeded_session
+    ):
+        # 既定値（通知オン・自動起動オフ・未クローズ）では出る。
+        flags = settings_service.resolve_reminder_onboarding_flags(seeded_session)
+        assert flags.show_reminder_autostart_banner is True
+
+        # 自動起動をオンにすると出なくなる。
+        settings_service.update_app_settings(seeded_session, desktop={"launch_at_login": True})
+        assert (
+            settings_service.resolve_reminder_onboarding_flags(
+                seeded_session
+            ).show_reminder_autostart_banner
+            is False
+        )
+
+        # 自動起動をオフへ戻しても、通知自体がオフなら出ない。
+        settings_service.update_app_settings(
+            seeded_session, desktop={"launch_at_login": False, "notification_enabled": False}
+        )
+        assert (
+            settings_service.resolve_reminder_onboarding_flags(
+                seeded_session
+            ).show_reminder_autostart_banner
+            is False
+        )
+
+        # 通知を戻しても、閉じた（dismissed）後は出ない。
+        settings_service.update_app_settings(
+            seeded_session,
+            desktop={"notification_enabled": True, "autostart_banner_dismissed": True},
+        )
+        assert (
+            settings_service.resolve_reminder_onboarding_flags(
+                seeded_session
+            ).show_reminder_autostart_banner
+            is False
+        )

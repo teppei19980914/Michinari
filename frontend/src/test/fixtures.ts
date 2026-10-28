@@ -195,6 +195,10 @@ export function makeDashboard(overrides: Partial<DashboardRead> = {}): Dashboard
     // バナー表示を検証するテストは明示的にfalseへ上書きすること。
     has_ever_reported_record: true,
     weekly_digests: [makeWeeklyDigest()],
+    // 既定は「両方の案内済みフラグがtrueの、確立した利用者」の状態。
+    // 各案内の表示を検証するテストは明示的にtrueへ上書きすること。
+    show_reminder_onboarding_prompt: false,
+    show_reminder_autostart_banner: false,
     ...overrides,
   }
 }
