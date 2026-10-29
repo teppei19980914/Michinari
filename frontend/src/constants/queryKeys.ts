@@ -37,6 +37,7 @@ export const QUERY_KEYS = {
    * 呼び出し（CalendarPageの目標詳細）があるため。選択後は同じキーで取得に切り替わる。 */
   goal: (goalId: number | null) => ['goal', goalId] as const,
   goalSlotAllocations: (goalId: number) => ['goal-slot-allocations', goalId] as const,
+  goalRoadmap: (goalId: number) => ['goal-roadmap', goalId] as const,
   materialSlotCheck: (materialId: number) => ['material-slot-check', materialId] as const,
   examTemplates: () => ['exam-templates'] as const,
 
