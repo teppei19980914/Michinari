@@ -42,6 +42,7 @@ from app.services import (
     quota_service,
     record_service_common,
     record_service_exam,
+    roadmap_service,
     setting_reader,
     settings_service,
     slot_service,
@@ -58,6 +59,23 @@ def _goal_remaining_days(goal: Goal, today: dt.date) -> int | None:
         return None
     nearest = min(material_service.effective_exam_date(s) for s in goal.exam_subjects)
     return (nearest - today).days
+
+
+def _resolve_roadmap_summary(
+    category: GoalCategory, progress_rate: float | None, today: dt.date
+) -> tuple[float | None, bool]:
+    """道のりマップ縮小版向けの進捗比率・達成フラグ（開発Todo_道のりマップ_v1.0.md §0 U15）。
+
+    新規の重い算出は行わず、既存のprogress_rate（EXAMは教材平均、READINGは書籍の派生値）を
+    再利用する。WORKのみ進捗量の概念が無いため、現評価期間に対する経過日数の割合を使う
+    （roadmap_serviceの_work_roadmapと同じ算出、CLAUDE.md DRYの原則）。
+    """
+    if category == GoalCategory.WORK:
+        start_date, goal_date = roadmap_service.resolve_work_period(today)
+        ratio = roadmap_service.compute_elapsed_ratio(start_date, goal_date, today)
+        return ratio, today > goal_date
+    is_achieved = progress_rate is not None and progress_rate >= 1.0
+    return progress_rate, is_achieved
 
 
 def _build_goal_card_and_stats(
@@ -120,6 +138,9 @@ def _build_goal_card_and_stats(
         forecast_deviation_days=forecast_deviation_days,
         has_warning=has_warning,
         has_forced_replan=has_forced_replan,
+        roadmap_overrun_days=(
+            forecast_deviation_days if goal.category == GoalCategory.EXAM else None
+        ),
     )
 
     material_speeds = [
@@ -274,6 +295,15 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
                     "work_assignment": serialize_work_assignment(session, goal.work_assignment),
                 }
             )
+        roadmap_progress_ratio, roadmap_is_achieved = _resolve_roadmap_summary(
+            goal.category, card.progress_rate, today
+        )
+        card = card.model_copy(
+            update={
+                "roadmap_progress_ratio": roadmap_progress_ratio,
+                "roadmap_is_achieved": roadmap_is_achieved,
+            }
+        )
         goal_cards.append(card)
         goal_stats.append(stats)
 
