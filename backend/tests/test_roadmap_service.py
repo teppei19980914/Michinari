@@ -120,7 +120,9 @@ def _add_study_log(db_session, material_id, record_date, amount) -> None:
     db_session.flush()
 
 
-def _add_feedback_message(db_session, goal_id, record_date, purpose=AiPurpose.DAILY_FEEDBACK) -> None:
+def _add_feedback_message(
+    db_session, goal_id, record_date, purpose=AiPurpose.DAILY_FEEDBACK
+) -> None:
     record = _get_or_create_record(db_session, record_date)
     db_session.add(
         ChatMessage(
@@ -345,7 +347,9 @@ def test_reading_roadmap_footprint_for_page_not_entered_day(db_session):
 def test_reading_roadmap_progress_100_percent_when_current_page_reaches_total(db_session):
     """境界ケース：進捗100%（現在ページ＝総ページ数）。"""
     goal = _make_goal(db_session, category=GoalCategory.READING)
-    book = _make_book(db_session, goal.id, dt.date(2026, 1, 1), dt.date(2026, 3, 1), total_pages=100)
+    book = _make_book(
+        db_session, goal.id, dt.date(2026, 1, 1), dt.date(2026, 3, 1), total_pages=100
+    )
     _add_reading_log(db_session, book.id, dt.date(2026, 2, 1), current_page=100)
 
     roadmap = roadmap_service.get_roadmap(db_session, goal, dt.date(2026, 2, 5), True)
@@ -473,10 +477,8 @@ def test_compute_elapsed_ratio_clamps_between_0_and_1():
 
 
 def test_compute_elapsed_ratio_handles_zero_length_period():
-    assert (
-        roadmap_service.compute_elapsed_ratio(dt.date(2026, 1, 1), dt.date(2026, 1, 1), dt.date(2026, 1, 1))
-        == 1.0
-    )
+    same_day = dt.date(2026, 1, 1)
+    assert roadmap_service.compute_elapsed_ratio(same_day, same_day, same_day) == 1.0
 
 
 # --- 内部ヘルパーの防御分岐（date_from > date_to・空系列等） ---
