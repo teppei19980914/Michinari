@@ -122,7 +122,7 @@ def test_get_roadmap_returns_404_for_missing_goal(client):
 
 
 def test_get_roadmap_for_draft_exam_goal_without_subjects(client):
-    """境界ケース：記録0件（科目・教材とも未登録の下書き中の目標）、開発Todo_道のりマップ_v1.0.md B-06。"""
+    """境界ケース：記録0件（科目・教材とも未登録の下書き中の目標、開発Todo B-06）。"""
     goal = _create_goal(client)
 
     response = client.get(f"/api/v1/goals/{goal['id']}/roadmap")

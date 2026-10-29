@@ -118,13 +118,13 @@
 
 ### 3.3 バックエンド実装
 
-- [ ] B-01 `work_report_service.py`：`default_semiannual_period_key`／`_semiannual_period_range` を公開関数化（既存呼び出し元のテストが通ることを確認）
-- [ ] B-02 `roadmap_service.py`：EXAM用算出（山頂日付＝全科目中の最も遅い受験日、標高＝全周回進捗率、計画線＝複数教材の単純平均合成、リプラン目印＝`PlanBaseline`、道標＝AIフィードバック日）
-- [ ] B-03 `roadmap_service.py`：READING用算出（道の長さ＝総ページ数、現在地＝現在ページ、足跡＝ページ未入力の記録日、計画線＝日数按分の予定ページ、道標＝AIフィードバック日）
-- [ ] B-04 `roadmap_service.py`：WORK用算出（道の起点・終点＝現評価期間、足跡＝記録した日、道標＝AIフィードバック日）
-- [ ] B-05 新規API（縮小版・詳細版）、スキーマ、`main.py` 登録。エラーはドメイン例外→API層で変換
-- [ ] B-06 境界値テスト：記録0件、ゴール当日、ゴール超過、進捗100%、AI未設定、フィードバック履歴0件、各目標状態（DRAFT/ACTIVE/PAUSED/CLOSED_WITH_RESULT/CLOSED_WITHOUT_RESULT、`archived_at`設定済み）
-- [ ] B-07 性能確認：縮小版APIが既存ダッシュボードの2秒要件に抵触しないこと（N+1なきクエリ設計、AI呼び出しなし）
+- [x] B-01 `work_report_service.py`：`default_semiannual_period_key`／`semiannual_period_range` を公開関数化（既存呼び出し元・テストを更新し、既存テストが通ることを確認、2026-10-29）
+- [x] B-02 `roadmap_service.py`：EXAM用算出（山頂日付＝全科目中の最も遅い受験日、標高＝全周回進捗率、計画線＝複数教材の単純平均合成、リプラン目印＝`PlanBaseline`〈INITIAL除く〉、道標＝AIフィードバック日、予備日＝バッファ日、2026-10-29）
+- [x] B-03 `roadmap_service.py`：READING用算出（道の長さ＝総ページ数、現在地＝現在ページ、足跡＝ページ未入力の記録日、計画線＝日数按分の予定ページ、道標＝AIフィードバック日、2026-10-29）
+- [x] B-04 `roadmap_service.py`：WORK用算出（道の起点・終点＝現評価期間、足跡＝記録した日、道標＝AIフィードバック日、2026-10-29）。実装中に判明：`resolve_work_period`は常にtodayを含む期間を返すため「ゴール超過」は構造的に発生しない。期間最終日（ゴール当日）を達成扱い（`today >= goal_date`）とし、dashboard.pyの縮小版も同じ条件にした
+- [x] B-05 新規API（`GET /goals/{id}/roadmap`詳細版、`GET /dashboard`の`GoalCardRead`拡張で縮小版）、スキーマ（`app/schemas/roadmap.py`）。goals.pyは既存の`baselines`エンドポイントと同じ置き場所のため`main.py`への新規ルーター登録は不要（既存`goals_router`に相乗り、2026-10-29）
+- [x] B-06 境界値テスト：記録0件、ゴール当日、ゴール超過、進捗100%、AI未設定、フィードバック履歴0件、各目標状態（DRAFT/ACTIVE/PAUSED/CLOSED_WITH_RESULT/CLOSED_WITHOUT_RESULT、`archived_at`設定済み）。`backend/tests/test_roadmap_service.py`（29件）・`test_api_goals.py`追加3件で網羅（2026-10-29）
+- [x] B-07 性能確認：縮小版（`GoalCardRead`拡張）は既存の`progress_rate`・`forecast_deviation_days`を再利用するのみで新規DBクエリを追加しておらず、N+1なし・AI呼び出しなしを確認（2026-10-29）
 
 ### 3.4 フロントエンド実装
 
@@ -187,3 +187,10 @@
 （作業の進行に応じて追記する）
 
 - 2026-10-29 工程1・工程2完了。バックグラウンド調査（2件）により、前提資料・既存Todoとの競合確認・全ソースコードのフルスキャンを実施。ベースライン（バックエンド2064件・フロントエンド1402件、ともにカバレッジ100%）を記録。未決事項2件（読書・仕事の「道の引き直し」目印の表現、READING/WORKへの進捗状態アイコン新設の要否）を利用者に確認し、いずれも「現状の既定方針を維持（新設・表示しない）」の回答を得た（U7・U10に反映）。
+
+- 2026-10-29 バックエンド実装（§3.3 B-01〜B-07）完了。
+  - 新規：`backend/app/services/roadmap_service.py`（EXAM/READING/WORKの3種別算出、`resolve_work_period`・`compute_elapsed_ratio`はdashboard.pyと共用）、`backend/app/schemas/roadmap.py`（`GoalRoadmapRead`等）、`backend/tests/test_roadmap_service.py`（29件）。
+  - 変更：`backend/app/services/work_report_service.py`（`_semiannual_period_range`→`semiannual_period_range`公開化）、`backend/app/api/goals.py`（`GET /goals/{id}/roadmap`追加）、`backend/app/api/dashboard.py`（`_resolve_roadmap_summary`追加、`GoalCardRead`に`roadmap_progress_ratio`／`roadmap_is_achieved`／`roadmap_overrun_days`を付与）、`backend/app/schemas/dashboard.py`（同3フィールド追加）、`backend/tests/test_work_report_service.py`（リネーム追随）、`backend/tests/test_api_goals.py`（roadmap API テスト3件追加）。
+  - 実装中に追記した決定事項：U16（スケジュール状態フィールドの重複排除、backendは`overrunDays`のみ返しフロント既存の`resolveScheduleStatus`に委ねる）、U17（仕事目標の計画線・実績線は常に空配列、進捗比率は経過日数割合で代替）。
+  - 検証結果：`ruff check .` 全通過。`pytest --cov=app` **2093件全通過・カバレッジ100%**（開発前2064件から+29件、既存テストの破壊なし）。環境側の問題（myvenvに`pypdf`が未導入でテスト収集が14件エラー）を発見し、`pyproject.toml`の既存宣言どおり`pip install -e .`で導入して解消（本機能のスコープ外、環境ドリフトの復旧）。
+  - 残課題：文書改訂（§3.2 D-01〜D-06）・フロントエンド実装（§3.4 F-01〜F-09）・検証（§3.5 V-02〜V-06）は次工程。
