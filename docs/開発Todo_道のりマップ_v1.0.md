@@ -21,7 +21,9 @@
 | U12 | 新規API | 算出済みの「正規化された点列・マイルストーン」をJSONで返すエンドポイントを追加する。SVG座標への変換はフロント側（`roadmapGeometry.ts`）で行い、座標計算ロジックの重複を避ける |
 | U13 | バージョン | 2.4.0。`pyproject.toml` の版更新は**リリース手順（`release.bat`）で入力する**（開発中は変更しない） |
 | U14 | フェーズ | 新フェーズ Phase 47（直前の最終フェーズはPhase 46・リマインド導線、2026-10-28マージ済み） |
-| U15 | APIの分割 | ダッシュボードの縮小版は既存 `GET /dashboard` の `GoalCardRead` に軽量フィールド（進捗比率・達成フラグ・EXAMのみスケジュール状態／乖離日数）を追加するのみとし、線データ・目印データは返さない。詳細版は目標詳細タブを開いたときに新規 `GET /goals/{id}/roadmap` を呼び、計画線・実績線・足跡・道標・リプラン目印を返す。これにより新規データ取得をダッシュボード初期表示（2秒要件）から分離する |
+| U15 | APIの分割 | ダッシュボードの縮小版は既存 `GET /dashboard` の `GoalCardRead` に軽量フィールド（`roadmap_progress_ratio`／`roadmap_is_achieved`／`roadmap_overrun_days`。EXAM以外は`roadmap_overrun_days=null`）を追加するのみとし、線データ・目印データは返さない。詳細版は目標詳細タブを開いたときに新規 `GET /goals/{id}/roadmap` を呼び、計画線・実績線・足跡・道標・リプラン目印を返す。これにより新規データ取得をダッシュボード初期表示（2秒要件）から分離する |
+| U16（実装時追記、2026-10-29） | スケジュール状態フィールドの重複排除 | バックエンドは `scheduleStatus`（delayed/onTrack/ahead）を返さず、`overrun_days`（float\|None）のみ返す。遅れ/予定どおり/先行の判定は既存のフロント側 `scheduleStatus.ts` の `resolveScheduleStatus(overrunDays)` が既に持つため、同じロジックをバックエンドにも複製するとDRY違反になる（CLAUDE.md①）。S-02のレスポンス構造から`scheduleStatus`フィールドを削除し、`overrunDays`のみとする |
+| U17（実装時追記、2026-10-29） | 仕事目標の計画線・実績線 | WORKには「進捗量」の概念がなく（U7の既定方針どおり遅れ/先行の判定も無い）、計画線と比較すべきペースの指標が存在しない。`plannedPoints`／`actualPoints`は常に空配列とし、`progress_ratio`は「現評価期間に対する経過日数の割合」（`(today - start_date) / (goal_date - start_date)`、0〜1にクランプ）を返す。道（時間軸）の上に現在地（経過日数割合の位置）と足跡（記録した日）を置くのみの表現とする |
 
 ## 1. 影響範囲（フルスキャンの結果）
 
@@ -88,7 +90,7 @@
 ### 3.1 設計（新機能のため着手前に必須）
 
 - [x] S-01 `/threat-model`（STRIDE分析）を実施（2026-10-29）。結果は下表（§3.1 STRIDE分析結果）および §6 に反映
-- [x] S-02 新規APIレスポンス構造（正規化された点列・マイルストーン）の設計確定（2026-10-29）。詳細版 `GoalRoadmapRead`：`category`／`startDate`／`goalDate`／`todayDate`／`progressRatio`(0.0-1.0)／`isAchieved`／`plannedPoints: {date, ratio}[]`／`actualPoints: {date, ratio}[]`／`footprintDates: {date, hasInput}[]`（READING/WORK用、EXAMは空配列）／`replanMarks: {date, ratio}[]`（EXAMのみ、U10によりREADING/WORKは空配列）／`feedbackMarks: {date}[]`（道標、`date`は`ROUTES.dailyReportView(date)`の引数そのもの）／`bufferDates: date[]`（EXAMのみ、U8によりREADING/WORKは空配列）／`scheduleStatus: 'delayed'|'onTrack'|'ahead'|null`（EXAMのみ、U7によりREADING/WORKはnull）／`overrunDays: int|null`。縮小版は既存`GoalCardRead`に`progressRatio`／`isAchieved`／`scheduleStatus`／`overrunDays`のみ追加（U15）。文言（カテゴリ表示名等）は返さず、フロント側が`ja.json`で解決する（ゼロハードコーディング、CLAUDE.md）
+- [x] S-02 新規APIレスポンス構造（正規化された点列・マイルストーン）の設計確定（2026-10-29）。詳細版 `GoalRoadmapRead`：`category`／`startDate`／`goalDate`／`todayDate`／`progressRatio`(0.0-1.0)／`isAchieved`／`plannedPoints: {date, ratio}[]`／`actualPoints: {date, ratio}[]`／`footprintDates: {date, hasInput}[]`（READING/WORK用、EXAMは空配列）／`replanMarks: {date, ratio}[]`（EXAMのみ、U10によりREADING/WORKは空配列）／`feedbackMarks: {date}[]`（道標、`date`は`ROUTES.dailyReportView(date)`の引数そのもの）／`bufferDates: date[]`（EXAMのみ、U8によりREADING/WORKは空配列）／`overrunDays: float|null`（EXAMのみ算出。スケジュール状態への変換はフロント既存の`resolveScheduleStatus`に委ね、backendでは複製しない。U16）。縮小版は既存`GoalCardRead`に`roadmap_progress_ratio`／`roadmap_is_achieved`／`roadmap_overrun_days`のみ追加（U15）。文言（カテゴリ表示名等）は返さず、フロント側が`ja.json`で解決する（ゼロハードコーディング、CLAUDE.md）
 
 #### STRIDE分析結果（2026-10-29）
 
