@@ -32,6 +32,18 @@ describe('GoalCardList', () => {
 
     expect(screen.getByRole('link').getAttribute('href')).toBe(ROUTES.goalDetail(GOAL_ID))
   })
+
+  it('道のりマップの縮小版が無くても破綻せず描画できる（開発Todo_道のりマップ_v1.0.md §0 U15）', () => {
+    const { container } = renderWithProviders(
+      <GoalCardList
+        goalCards={[
+          makeGoalCard({ roadmap_progress_ratio: undefined, roadmap_overrun_days: undefined }),
+        ]}
+      />,
+    )
+
+    expect(container.querySelector('svg')).toBeTruthy()
+  })
 })
 
 describe('GoalCardList（資格試験）', () => {

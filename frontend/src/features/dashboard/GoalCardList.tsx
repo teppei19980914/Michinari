@@ -56,9 +56,9 @@ function GoalCardRoadmap({ goal }: { goal: GoalCard }) {
     <div className="mb-2">
       <GoalRoadmapMini
         category={goal.category}
-        progressRatio={goal.roadmap_progress_ratio}
+        progressRatio={goal.roadmap_progress_ratio ?? null}
         isAchieved={goal.roadmap_is_achieved}
-        overrunDays={goal.roadmap_overrun_days}
+        overrunDays={goal.roadmap_overrun_days ?? null}
       />
     </div>
   )
