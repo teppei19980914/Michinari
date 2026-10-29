@@ -30,6 +30,7 @@ export type WorkEvaluationRole = components['schemas']['WorkEvaluationRole']
 export type WorkMemberRead = components['schemas']['WorkMemberRead']
 export type WorkMemberCreate = components['schemas']['WorkMemberCreate']
 export type WorkMemberUpdate = components['schemas']['WorkMemberUpdate']
+export type GoalRoadmapRead = components['schemas']['GoalRoadmapRead']
 
 /** 進行中の読書目標とその書籍（listActiveReadingBooksの戻り）。 */
 export type ActiveReadingBook = { goal: GoalRead; book: BookRead }
@@ -48,6 +49,11 @@ export function createGoal(payload: GoalCreate): Promise<GoalRead> {
 
 export function getGoal(goalId: number): Promise<GoalDetailRead> {
   return apiClient.get<GoalDetailRead>(`/goals/${goalId}`)
+}
+
+/** 道のりマップの詳細版（開発Todo_道のりマップ_v1.0.md §3.4 F-06）。 */
+export function getGoalRoadmap(goalId: number): Promise<GoalRoadmapRead> {
+  return apiClient.get<GoalRoadmapRead>(`/goals/${goalId}/roadmap`)
 }
 
 export function updateGoal(goalId: number, payload: GoalUpdate): Promise<GoalRead> {
