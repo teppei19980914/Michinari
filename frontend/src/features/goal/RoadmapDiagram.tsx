@@ -10,7 +10,13 @@ import {
   THRESHOLD_LINE_COLOR,
 } from '../analytics/chartColors'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
-import { computeRoadmapLayout, type RoadmapLayoutInput } from './roadmapGeometry'
+import {
+  computeRoadmapLayout,
+  type LayoutFootprint,
+  type LayoutMark,
+  type LayoutTick,
+  type RoadmapLayoutInput,
+} from './roadmapGeometry'
 import { resolveScheduleStatusIcon } from './scheduleStatus'
 import { buildRoadmapSummaryText } from './roadmapSummaryText'
 import type { GoalCategory } from '../../api/goals'
@@ -18,6 +24,7 @@ import type { GoalCategory } from '../../api/goals'
 export type RoadmapDiagramInput = RoadmapLayoutInput & {
   category: GoalCategory
   is_achieved: boolean
+  overrun_days: number | null
 }
 
 type RoadmapDiagramProps = {
@@ -61,6 +68,99 @@ function resolveCurrentIcon(roadmap: RoadmapDiagramInput): string {
   return resolveScheduleStatusIcon(roadmap.overrun_days) ?? CHARACTER_ICONS.normal
 }
 
+/** 予備日の目盛り（UI-07相当、資格のみ。§0 U8。RoadmapDiagram本体の行数分割のため抽出）。 */
+function BufferTicks({ ticks, groundY }: { ticks: LayoutTick[]; groundY: number }) {
+  return (
+    <>
+      {ticks.map((tick) => (
+        <line
+          key={`buffer-${tick.date}`}
+          x1={toSvgX(tick.x)}
+          y1={groundY - 2}
+          x2={toSvgX(tick.x)}
+          y2={groundY + 2}
+          stroke={resolveGridLineColor()}
+          strokeWidth={0.8}
+        />
+      ))}
+    </>
+  )
+}
+
+/** 足跡（記録はあるが定量入力が無い日は薄く表示。§0 要件2）。 */
+function FootprintMarks({ footprints }: { footprints: LayoutFootprint[] }) {
+  return (
+    <>
+      {footprints.map((footprint) => (
+        <circle
+          key={`footprint-${footprint.date}`}
+          cx={toSvgX(footprint.x)}
+          cy={toSvgY(footprint.y)}
+          r={1.2}
+          fill={cycleSeriesColor(0)}
+          opacity={footprint.hasInput ? 0.9 : 0.4}
+        />
+      ))}
+    </>
+  )
+}
+
+/** 道の引き直し目印（EXAMのみ。§0 U10によりREADING/WORKは常に空配列）。 */
+function ReplanMarks({ marks }: { marks: LayoutMark[] }) {
+  return (
+    <>
+      {marks.map((mark) => (
+        <line
+          key={`replan-${mark.date}`}
+          x1={toSvgX(mark.x)}
+          y1={toSvgY(0)}
+          x2={toSvgX(mark.x)}
+          y2={toSvgY(1)}
+          stroke={THRESHOLD_LINE_COLOR}
+          strokeWidth={0.6}
+          strokeDasharray="1.5 1.5"
+        />
+      ))}
+    </>
+  )
+}
+
+/** 道標（AIフィードバック日）。詳細版（interactive）のみ日次報告閲覧へのリンクにする
+ * （ダッシュボード縮小版はGoalRoadmapMini側で描くため、ここは常にinteractive、§0 U2・U5）。 */
+function FeedbackMarks({
+  marks,
+  groundY,
+  interactive,
+}: {
+  marks: LayoutTick[]
+  groundY: number
+  interactive: boolean
+}) {
+  return (
+    <>
+      {marks.map((mark) =>
+        interactive ? (
+          <a
+            key={`feedback-${mark.date}`}
+            href={ROUTES.dailyReportView(mark.date)}
+            aria-label={t('goals.roadmap.feedbackMarkLabel')}
+          >
+            <circle cx={toSvgX(mark.x)} cy={groundY} r={1.6} fill={cycleSeriesColor(2)} />
+          </a>
+        ) : (
+          <circle
+            key={`feedback-${mark.date}`}
+            cx={toSvgX(mark.x)}
+            cy={groundY}
+            r={1.6}
+            fill={cycleSeriesColor(2)}
+          />
+        ),
+      )}
+    </>
+  )
+}
+
 /**
  * 道のりマップの図（開発Todo_道のりマップ_v1.0.md §4）。新しいグラフ用ライブラリは追加せず
  * 生SVGで描く（§0 要件5）。`GoalRoadmapMini`（縮小版）・`GoalRoadmapTab`（詳細版）の両方が
@@ -72,12 +172,13 @@ export function RoadmapDiagram({ roadmap, interactive = false }: RoadmapDiagramP
   const [hasWalkedIn, setHasWalkedIn] = useState(prefersReducedMotion)
 
   useEffect(() => {
+    // 初回表示後にのみ現在地まで歩くアニメーションを発生させる（§0 要件5）。
+    // prefersReducedMotionがオンの場合は初期状態が既にtrueのため、ここでは何もしない。
     if (prefersReducedMotion) {
-      setHasWalkedIn(true)
       return
     }
-    // 初回表示後にのみ現在地まで歩くアニメーションを発生させる（§0 要件5）。
-    setHasWalkedIn(true)
+    const frameId = requestAnimationFrame(() => setHasWalkedIn(true))
+    return () => cancelAnimationFrame(frameId)
   }, [prefersReducedMotion])
 
   const summaryText = buildRoadmapSummaryText({
@@ -117,17 +218,7 @@ export function RoadmapDiagram({ roadmap, interactive = false }: RoadmapDiagramP
         strokeWidth={0.5}
       />
 
-      {layout.bufferTicks.map((tick) => (
-        <line
-          key={`buffer-${tick.date}`}
-          x1={toSvgX(tick.x)}
-          y1={groundY - 2}
-          x2={toSvgX(tick.x)}
-          y2={groundY + 2}
-          stroke={resolveGridLineColor()}
-          strokeWidth={0.8}
-        />
-      ))}
+      <BufferTicks ticks={layout.bufferTicks} groundY={groundY} />
 
       {layout.plannedPath.length > 1 && (
         <polyline
@@ -147,49 +238,9 @@ export function RoadmapDiagram({ roadmap, interactive = false }: RoadmapDiagramP
         />
       )}
 
-      {layout.footprints.map((footprint) => (
-        <circle
-          key={`footprint-${footprint.date}`}
-          cx={toSvgX(footprint.x)}
-          cy={toSvgY(footprint.y)}
-          r={1.2}
-          fill={cycleSeriesColor(0)}
-          opacity={footprint.hasInput ? 0.9 : 0.4}
-        />
-      ))}
-
-      {layout.replanMarks.map((mark) => (
-        <line
-          key={`replan-${mark.date}`}
-          x1={toSvgX(mark.x)}
-          y1={toSvgY(0)}
-          x2={toSvgX(mark.x)}
-          y2={toSvgY(1)}
-          stroke={THRESHOLD_LINE_COLOR}
-          strokeWidth={0.6}
-          strokeDasharray="1.5 1.5"
-        />
-      ))}
-
-      {layout.feedbackMarks.map((mark) =>
-        interactive ? (
-          <a
-            key={`feedback-${mark.date}`}
-            href={ROUTES.dailyReportView(mark.date)}
-            aria-label={t('goals.roadmap.feedbackMarkLabel')}
-          >
-            <circle cx={toSvgX(mark.x)} cy={groundY} r={1.6} fill={cycleSeriesColor(2)} />
-          </a>
-        ) : (
-          <circle
-            key={`feedback-${mark.date}`}
-            cx={toSvgX(mark.x)}
-            cy={groundY}
-            r={1.6}
-            fill={cycleSeriesColor(2)}
-          />
-        ),
-      )}
+      <FootprintMarks footprints={layout.footprints} />
+      <ReplanMarks marks={layout.replanMarks} />
+      <FeedbackMarks marks={layout.feedbackMarks} groundY={groundY} interactive={interactive} />
 
       <image
         href={currentIcon}

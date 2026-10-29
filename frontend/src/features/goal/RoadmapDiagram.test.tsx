@@ -129,6 +129,48 @@ describe('RoadmapDiagram', () => {
     expect(container.querySelector('svg')).toBeTruthy()
   })
 
+  it('計画線・実績線は2点以上あればpolylineとして描かれる', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+          actual_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-06', ratio: 0.5 },
+          ],
+        })}
+      />,
+    )
+    expect(container.querySelectorAll('polyline')).toHaveLength(2)
+  })
+
+  it('足跡（記録のみの日）は円で描かれる（§0 要件2）', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          actual_points: [{ date: '2026-01-01', ratio: 0.2 }],
+          footprint_dates: [
+            { date: '2026-01-02', has_input: false },
+            { date: '2026-01-03', has_input: true },
+          ],
+        })}
+      />,
+    )
+    expect(container.querySelectorAll('circle').length).toBeGreaterThan(1)
+  })
+
+  it('道の引き直し目印（EXAM）は縦線で描かれる（§0 U6）', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({ replan_marks: [{ date: '2026-01-04', ratio: 0.3 }] })}
+      />,
+    )
+    expect(container.querySelectorAll('line').length).toBeGreaterThan(1)
+  })
+
   it('仕事目標は現在地・ゴールが常に地面の高さに置かれる（§0 U17）', () => {
     const { container } = render(
       <RoadmapDiagram roadmap={baseRoadmap({ category: 'WORK', overrun_days: null })} />,
