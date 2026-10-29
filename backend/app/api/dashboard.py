@@ -73,7 +73,7 @@ def _resolve_roadmap_summary(
     if category == GoalCategory.WORK:
         start_date, goal_date = roadmap_service.resolve_work_period(today)
         ratio = roadmap_service.compute_elapsed_ratio(start_date, goal_date, today)
-        return ratio, today > goal_date
+        return ratio, today >= goal_date
     is_achieved = progress_rate is not None and progress_rate >= 1.0
     return progress_rate, is_achieved
 
