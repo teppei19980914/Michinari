@@ -171,15 +171,17 @@ def _extend_to_range(
 def _average_series(
     series_list: list[dict[dt.date, float]], date_from: dt.date, date_to: dt.date
 ) -> list[RoadmapPoint]:
-    """複数教材の比率系列を日次で単純平均し、目標単位の1本に合成する（§0 U6）。"""
+    """複数教材の比率系列を日次で単純平均し、目標単位の1本に合成する（§0 U6）。
+
+    呼び出し側（_exam_roadmap）は各系列を_extend_to_rangeで必ずdate_from〜date_toの
+    全日付を含む形に揃えて渡すため、ここでは欠損日の存在を考慮しない。
+    """
     if not series_list:
         return []
-    points: list[RoadmapPoint] = []
-    for d in _date_range(date_from, date_to):
-        values = [series[d] for series in series_list if d in series]
-        if values:
-            points.append(RoadmapPoint(date=d, ratio=sum(values) / len(values)))
-    return points
+    return [
+        RoadmapPoint(date=d, ratio=sum(series[d] for series in series_list) / len(series_list))
+        for d in _date_range(date_from, date_to)
+    ]
 
 
 def _replan_marks(session: Session, goal: Goal) -> list[RoadmapPoint]:
@@ -421,7 +423,9 @@ def _work_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
         goal_date=goal_date,
         today_date=today,
         progress_ratio=compute_elapsed_ratio(start_date, goal_date, today),
-        is_achieved=today > goal_date,
+        # resolve_work_periodは常にtodayを含む期間を返すため、「ゴール超過」は構造的に
+        # 発生しない。期間最終日（ゴール当日）を達成扱いとする（>=）。
+        is_achieved=today >= goal_date,
         planned_points=[],  # §0 U17：進捗量の概念が無いため計画線・実績線は描かない
         actual_points=[],  # §0 U17
         footprint_dates=footprints,
