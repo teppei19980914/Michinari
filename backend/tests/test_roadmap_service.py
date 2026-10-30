@@ -206,7 +206,7 @@ def test_exam_roadmap_replan_marks_exclude_initial_and_include_later_reasons(db_
 
 
 def test_exam_roadmap_buffer_dates_only_include_buffer_day_type(db_session):
-    """§0 U8：予備日（UI-07）はEXAMのみ。"""
+    """§0 U8：予備日（UI-07）は資格試験目標が対象（仕様書13.5、読書も対象）。"""
     goal = _make_goal(db_session)
     _make_subject(db_session, goal.id, dt.date(2026, 1, 5))
     db_session.add(CalendarDayOverride(target_date=dt.date(2026, 1, 3), day_type=DayType.BUFFER))
@@ -379,8 +379,19 @@ def test_reading_roadmap_has_no_schedule_status_or_replan_marks(db_session):
     roadmap = roadmap_service.get_roadmap(db_session, goal, dt.date(2026, 1, 10), True)
 
     assert roadmap.replan_marks == []
-    assert roadmap.buffer_dates == []
     assert roadmap.overrun_days is None
+
+
+def test_reading_roadmap_buffer_dates_included(db_session):
+    """§0 U8訂正（2026-10-30）：予備日（UI-07）は仕様書13.5のとおり読書目標も対象。"""
+    goal = _make_goal(db_session, category=GoalCategory.READING)
+    _make_book(db_session, goal.id, dt.date(2026, 1, 1), dt.date(2026, 3, 1))
+    db_session.add(CalendarDayOverride(target_date=dt.date(2026, 1, 3), day_type=DayType.BUFFER))
+    db_session.commit()
+
+    roadmap = roadmap_service.get_roadmap(db_session, goal, dt.date(2026, 1, 1), True)
+
+    assert dt.date(2026, 1, 3) in roadmap.buffer_dates
 
 
 # --- WORK ---

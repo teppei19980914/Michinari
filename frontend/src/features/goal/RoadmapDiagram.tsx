@@ -52,18 +52,20 @@ function pointsAttr(points: { x: number; y: number }[]): string {
   return points.map((p) => `${toSvgX(p.x)},${toSvgY(p.y)}`).join(' ')
 }
 
-/** 現在地のキャラクターアイコン（UI-01〜UI-04/UI-07/UI-11）を状態から選ぶ（§0 要件3・U7・U8）。 */
+/** 現在地のキャラクターアイコン（UI-01〜UI-04/UI-07/UI-11）を状態から選ぶ（§0 要件3・U7・U8）。
+ * 予備日（UI-07）は仕様書13.5のとおり資格試験・読書目標が対象（仕事目標のみ対象外、
+ * §0 U8訂正・2026-10-30。バッファ日はカテゴリに依存しないカレンダー概念のため、
+ * スケジュール状態アイコン〈UI-02〜04、資格試験のみ〉より先に判定する）。 */
 function resolveCurrentIcon(roadmap: RoadmapDiagramInput): string {
   if (roadmap.is_achieved) {
     return CHARACTER_ICONS.achieved
   }
-  if (roadmap.category !== 'EXAM') {
-    // 読書・仕事は常にUI-01（§0 U7：進捗状態アイコンは新設しない）。
-    return CHARACTER_ICONS.normal
-  }
-  if (roadmap.buffer_dates.includes(roadmap.today_date)) {
-    // 本日が予備日の場合はUI-07（§0 要件3・U8、資格のみ）。
+  if (roadmap.category !== 'WORK' && roadmap.buffer_dates.includes(roadmap.today_date)) {
     return CHARACTER_ICONS.buffer
+  }
+  if (roadmap.category !== 'EXAM') {
+    // 読書・仕事は進捗状態アイコンを新設しないため常にUI-01（§0 U7）。
+    return CHARACTER_ICONS.normal
   }
   return resolveScheduleStatusIcon(roadmap.overrun_days) ?? CHARACTER_ICONS.normal
 }

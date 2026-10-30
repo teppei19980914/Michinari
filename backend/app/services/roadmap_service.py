@@ -74,7 +74,7 @@ def get_roadmap(
     if goal.category == GoalCategory.EXAM:
         return _exam_roadmap(session, goal, today, treat_holiday_as_buffer)
     if goal.category == GoalCategory.READING:
-        return _reading_roadmap(session, goal, today)
+        return _reading_roadmap(session, goal, today, treat_holiday_as_buffer)
     return _work_roadmap(session, goal, today)
 
 
@@ -207,7 +207,10 @@ def _replan_marks(session: Session, goal: Goal) -> list[RoadmapPoint]:
 def _buffer_dates(
     session: Session, start_date: dt.date, goal_date: dt.date, treat_holiday_as_buffer: bool
 ) -> list[dt.date]:
-    """予備日（UI-07、EXAMのみ、§0 U8）。"""
+    """予備日（UI-07）。バッファ日（`day_type`）はカテゴリに依存しないアプリ全体のカレンダー
+    概念のため、仕様書13.5の既定方針どおり資格試験・読書目標が対象、仕事目標は対象外
+    （§0 U8訂正、2026-10-30。計算量カバレッジはEXAM専用の`compute_buffer_usage_rate`とは
+    別の指標であり、バッファ日の存在自体はカテゴリに依存しない）。"""
     day_types = calendar_service.resolve_day_types(
         session, start_date, goal_date, treat_holiday_as_buffer
     )
@@ -312,7 +315,9 @@ def _exam_roadmap(
 # --- READING（道） ---
 
 
-def _reading_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
+def _reading_roadmap(
+    session: Session, goal: Goal, today: dt.date, treat_holiday_as_buffer: bool
+) -> Roadmap:
     book = goal.book
     if book is None:
         # 書籍未登録（下書き中）。境界ケース：記録0件と同様、空の道として成立させる。
@@ -329,7 +334,7 @@ def _reading_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
             footprint_dates=[],
             replan_marks=[],
             feedback_marks=_feedback_marks(session, goal),
-            buffer_dates=[],
+            buffer_dates=_buffer_dates(session, start_date, start_date, treat_holiday_as_buffer),
             overrun_days=None,
         )
 
@@ -390,7 +395,8 @@ def _reading_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
         footprint_dates=footprints,
         replan_marks=[],  # §0 U10：読書に計画基準値の概念が無いため表示しない
         feedback_marks=_feedback_marks(session, goal),
-        buffer_dates=[],  # §0 U8：バッファ日の概念はEXAM専用
+        # 予備日（UI-07）は仕様書13.5の既定方針どおり読書も対象（§0 U8訂正、2026-10-30）。
+        buffer_dates=_buffer_dates(session, start_date, goal_date, treat_holiday_as_buffer),
         overrun_days=None,  # §0 U7：進捗状態の判定は新設しない
     )
 
@@ -431,6 +437,7 @@ def _work_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
         footprint_dates=footprints,
         replan_marks=[],  # §0 U10
         feedback_marks=_feedback_marks(session, goal),
-        buffer_dates=[],  # §0 U8
+        # 予備日（UI-07）は仕様書13.5のとおり仕事目標のみ対象外（§0 U8訂正、2026-10-30）。
+        buffer_dates=[],
         overrun_days=None,  # §0 U7
     )
