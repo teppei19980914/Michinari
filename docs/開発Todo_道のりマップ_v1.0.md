@@ -9,7 +9,7 @@
 | --- | --- | --- |
 | U1 | 詳細版の配置場所 | `GoalDetailPage` に新規タブ「道のり」を追加（`basicInfo` の次、全種別共通）。理由：`AnalyticsPage` は `selectableAnalyticsGoals.ts` でDRAFT状態の目標を一覧から除外する設計のため、要件「下書き…のそれぞれで表示に矛盾が出ないように」と矛盾する。`GoalDetailPage` は `isReadOnly = isClosedGoalStatus(goal.status)` のみで分岐し、DRAFT〜CLOSED全状態を表示できる |
 | U2 | 縮小版の配置 | ダッシュボードの目標カード一覧（`GoalCardList` 系）に追加。単独コンポーネント `GoalRoadmapMini` として実装し、ふりかえりまとめ・社内共有カードでも再利用できるようにする（読み取り専用、クリックで詳細タブへ遷移） |
-| U3 | CLOSED目標の遷移経路 | 目標一覧からCLOSED目標を選ぶと現状 `resolveGoalListTarget` により `ROUTES.goalExport`（SC-13 ナレッジエクスポート）へ遷移し `GoalDetailPage` へは行かない。ダッシュボードの縮小版「道のり」クリックはこの振り分けを経由せず、常に `GoalDetailPage` の道のりタブへ直接遷移させる（URL直接指定）。これによりCLOSED後も道のりを閲覧できる |
+| U3 | CLOSED目標の遷移経路 | 目標一覧からCLOSED目標を選ぶと現状 `resolveGoalListTarget` により `ROUTES.goalExport`（SC-13 ナレッジエクスポート）へ遷移し `GoalDetailPage` へは行かない。**実装時訂正（2026-10-30）**：ダッシュボードの目標カードは元々 `resolveGoalListTarget` を経由せず常に `ROUTES.goalDetail`（プレーンな `Link`）へ遷移する実装だったため、CLOSED後も道のりを閲覧できる目的はこの既存経路で既に満たされていた。タブへの深いリンク（URL直接指定で`roadmap`タブを開く）は、既存の`WorkGoalCard`のコメントに明記された「URLベースのタブ深いリンクは現状の実装方針に無いため導入しない」という既存方針に合わせ、本機能でも導入しない（他タブへの導線と一貫させる）。GoalDetailPageを開いた後、利用者が「道のり」タブを選ぶ |
 | U4 | 資格：山頂の日付 | 要件文言どおり「全科目の受験を終える日」＝ 目標に紐づく全科目の `effective_exam_date` の最大値（最も遅い日）を新規算出する。既存の `dashboard.py` `_goal_remaining_days`（最も近い受験日を使う別目的の関数）とは流用せず、新規関数とする |
 | U5 | 資格：2周目・3周目の扱い | 標高＝全周回を通した進捗率。既存 `cycle_service`（`total_work = total_amount × planned_cycles`）をそのまま使う。周回ごとの区切り線等の追加表現は本件のスコープ外とし、§7（既知のリスクと対策）に将来課題として残す |
 | U6 | 資格：複数教材の計画線集約 | 教材ごとの `analytics_service.compute_plan_line` の結果を日次で単純平均し、目標単位の1本の計画線に合成する新規ロジックを追加する |
@@ -17,13 +17,15 @@
 | U8 | 予備日アイコン（UI-07） | 資格のみ。バッファ日（`day_type`）の概念は資格専用（`calendar_service`、`metrics_service.compute_buffer_usage_rate` も資格以外は `None` を返す）。読書・仕事には予備日アイコンを表示しない |
 | U9 | 仕事：道の起点・終点 | 起点＝現評価期間の開始日、終点＝評価期間の終了日。`work_report_service.default_semiannual_period_key` / `_semiannual_period_range`（private）を公開関数として切り出し利用する。`goal.start_date` や `work_assignment.start_date` は使わない |
 | U10 | 読書・仕事：道の引き直し目印 | **表示しない**（利用者回答、2026-10-29）。計画基準値（`PlanBaseline`）という概念自体が読書・仕事には設計上存在しない（データ構造編5.3）。新しい値をDBに保存しない方針の下で代替データも作らない。読書・仕事は「実際の歩み（足跡）の積み上がり自体がまっすぐ向かう強みの可視化になる」とし、計画線と実績線を重ねる表現（要件2の前段）のみ行う |
-| U11 | 英語ロケール | 今回は `ja.json` のみに本機能のヘルプ文言を追加する。`en.json` は対象外（既存方針：`ja.json` がヘルプ本文の正、英語対応は別件・未実装） |
+| U11 | 英語ロケール | **実装時訂正（2026-10-30）**：当初は`ja.json`のみに追加する決定だったが、実装時に確認した結果、`en.json`の`help`名前空間は既存の全セクションで`ja.json`と同じキー数（214キー）を持ち、既に完全に英訳済みだった（本決定の前提にした「英語対応は別件・未実装」はヘルプ本文には当てはまらず、誤りだった）。また`localeKeyUsage.test.ts`が本番コード中の全`t('...')`呼び出しをja/en両方で解決可能であることを機械的に検証するため、タブラベル・ツールチップ等のUI文言キーは構造的にも両方必須。横展開の方針（既存の全機能が両言語で揃っている実態に合わせる）に従い、本機能のタブラベル・ツールチップ・要約文言・ヘルプ本文（`help.sections.goals.roadmap`）を`en.json`にも追加した |
 | U12 | 新規API | 算出済みの「正規化された点列・マイルストーン」をJSONで返すエンドポイントを追加する。SVG座標への変換はフロント側（`roadmapGeometry.ts`）で行い、座標計算ロジックの重複を避ける |
 | U13 | バージョン | 2.4.0。`pyproject.toml` の版更新は**リリース手順（`release.bat`）で入力する**（開発中は変更しない） |
 | U14 | フェーズ | 新フェーズ Phase 47（直前の最終フェーズはPhase 46・リマインド導線、2026-10-28マージ済み） |
 | U15 | APIの分割 | ダッシュボードの縮小版は既存 `GET /dashboard` の `GoalCardRead` に軽量フィールド（`roadmap_progress_ratio`／`roadmap_is_achieved`／`roadmap_overrun_days`。EXAM以外は`roadmap_overrun_days=null`）を追加するのみとし、線データ・目印データは返さない。詳細版は目標詳細タブを開いたときに新規 `GET /goals/{id}/roadmap` を呼び、計画線・実績線・足跡・道標・リプラン目印を返す。これにより新規データ取得をダッシュボード初期表示（2秒要件）から分離する |
 | U16（実装時追記、2026-10-29） | スケジュール状態フィールドの重複排除 | バックエンドは `scheduleStatus`（delayed/onTrack/ahead）を返さず、`overrun_days`（float\|None）のみ返す。遅れ/予定どおり/先行の判定は既存のフロント側 `scheduleStatus.ts` の `resolveScheduleStatus(overrunDays)` が既に持つため、同じロジックをバックエンドにも複製するとDRY違反になる（CLAUDE.md①）。S-02のレスポンス構造から`scheduleStatus`フィールドを削除し、`overrunDays`のみとする |
 | U17（実装時追記、2026-10-29） | 仕事目標の計画線・実績線 | WORKには「進捗量」の概念がなく（U7の既定方針どおり遅れ/先行の判定も無い）、計画線と比較すべきペースの指標が存在しない。`plannedPoints`／`actualPoints`は常に空配列とし、`progress_ratio`は「現評価期間に対する経過日数の割合」（`(today - start_date) / (goal_date - start_date)`、0〜1にクランプ）を返す。道（時間軸）の上に現在地（経過日数割合の位置）と足跡（記録した日）を置くのみの表現とする |
+| U18（実装時追記、2026-10-30） | `RoadmapDiagramInput`型の不整合 | フロント実装（フォーク作業）が中断された状態を引き継いだ際、`RoadmapDiagram.tsx`が`roadmap.overrun_days`を参照しているのに型`RoadmapDiagramInput`（`RoadmapLayoutInput & {category, is_achieved}`）に`overrun_days`が無く、`tsc -b`が8件のエラーで失敗していることを検証中に発見した。`overrun_days: number \| null`を型へ追加し、連動して`GoalCardList.tsx`（`roadmap_progress_ratio`/`roadmap_overrun_days`が`GoalCardRead`では任意フィールドのため`undefined`を取り得る点に`?? null`で対応）と`statsVisibility.test.ts`（新規必須フィールド`roadmap_is_achieved`をフィクスチャに追加）を修正して解消した |
+| U19（実装時追記、2026-10-30） | `GoalRoadmapTab.tsx`の未実装 | フロント実装フォークが中断された時点で、描画エンジン`RoadmapDiagram.tsx`・縮小版`GoalRoadmapMini.tsx`は完成していたが、詳細版をGoalDetailPageに表示するF-03（`GoalRoadmapTab.tsx`とタブ配列への組込み）が未着手だった。既存の`ReplanHistoryTab.tsx`と同じuseQuery＋読み込み中／エラー表示の構成で新規作成し、`EXAM_TABS`／`READING_TABS`／`WORK_TABS`（`basicInfo`の次）とタブ本体の描画分岐へ追加した |
 
 ## 1. 影響範囲（フルスキャンの結果）
 
@@ -128,19 +130,19 @@
 
 ### 3.4 フロントエンド実装
 
-- [ ] F-01 `roadmapGeometry.ts`：3種別の純粋関数（SVG座標計算）とテスト
-- [ ] F-02 `GoalRoadmapMini.tsx`：単独コンポーネント、ダッシュボードへの組込み、`role="img"`・`aria-label`（要約文言）
-- [ ] F-03 `GoalRoadmapTab.tsx`：`GoalDetailPage` への新規タブ追加（`EXAM_TABS`／`READING_TABS`／`WORK_TABS`）
-- [ ] F-04 初回表示アニメーション（現在地まで歩く）、`prefers-reduced-motion` 分岐とテスト
-- [ ] F-05 道標クリック→`ROUTES.dailyReportView(date)` への遷移
-- [ ] F-06 `api/`新規ファイル、型の生成し直し（`npm run generate:api-types`）
-- [ ] F-07 `ja.json`：`help` 名前空間に図の見方の説明、図内要約文言のキーを追加
-- [ ] F-08 ダークモード確認（`chartColors.ts` の既存関数を利用）
-- [ ] F-09 `npm run lint`・`tsc -b`・`npm run test` の閾値確認
+- [x] F-01 `roadmapGeometry.ts`：3種別の純粋関数（SVG座標計算）とテスト（2026-10-29、フォーク実装）
+- [x] F-02 `GoalRoadmapMini.tsx`：単独コンポーネント、`GoalCardList.tsx`への組込み、`role="img"`・`aria-label`（要約文言）（2026-10-29、フォーク実装）
+- [x] F-03 `GoalRoadmapTab.tsx`：`GoalDetailPage` への新規タブ追加（`EXAM_TABS`／`READING_TABS`／`WORK_TABS`の`basicInfo`の次、描画分岐は`GoalDetailTabContent`に集約）（2026-10-30、フォーク中断を引き継ぎ本セッションで実装。U19参照）
+- [x] F-04 初回表示アニメーション（現在地まで歩く、`requestAnimationFrame`で遷移を発生させる）、`prefers-reduced-motion` 分岐とテスト（2026-10-29フォーク実装、2026-10-30にoxlintの`set-state-in-effect`警告を解消するため`requestAnimationFrame`化）
+- [x] F-05 道標クリック→`ROUTES.dailyReportView(date)` への遷移（`RoadmapDiagram.tsx`の`FeedbackMarks`、`interactive`時のみ。2026-10-29）
+- [x] F-06 `api/goals.ts`に`getGoalRoadmap`追加、型の生成し直し（`npm run generate:api-types`→`api.d.ts`に`GoalRoadmapRead`等反映）（2026-10-29）
+- [x] F-07 `ja.json`：`help.sections.goals.roadmap`に図の見方の説明、`goals.roadmap.*`に要約文言・ラベルのキーを追加（2026-10-29）。U11の訂正により`en.json`にも同内容を追加（2026-10-30）
+- [x] F-08 ダークモード確認：`chartColors.ts`の既存関数（`resolveAxisLineColor`/`resolveGridLineColor`/`resolvePlanLineColor`/`cycleSeriesColor`）をそのまま使用、新規色関数は追加していない（2026-10-29）
+- [x] F-09 `npx tsc -b`・`npm run lint`（oxlint）・`npm run test`（vitest、カバレッジ付き）を実行し確認（2026-10-30）。初回実行でtsc 8件のエラー（U18）とoxlint警告3件（`GoalDetailPage`/`RoadmapDiagram`の関数行数超過、`RoadmapDiagram`のeffect内setState）を検出し、型修正・関数分割・`requestAnimationFrame`化で解消。最終結果：tsc 0件・oxlint 0件・vitest **170ファイル・1446件全通過・カバレッジ100%**（開発前164ファイル・1402件から+6ファイル・+44件、既存テストの破壊なし）
 
 ### 3.5 検証
 
-- [ ] V-01 ruff・pytest・vitest（新規機能のカバレッジ100%。全体の最終実行は§9）
+- [x] V-01 ruff・pytest・vitest（2026-10-30実行。backend: `ruff check .`全通過、`pytest --cov=app` 2093件全通過・カバレッジ100%〈バックエンド実装完了時から変化なし、本セッションではbackendを変更していない〉。frontend: 上記F-09のとおり170ファイル・1446件全通過・カバレッジ100%）
 - [ ] V-02 既存DBからの起動確認（新しい値を保存しないため、マイグレーション不要であることの確認）
 - [ ] V-03 実機確認：3種別それぞれの図、各状態（下書き・進行中・一時停止・アーカイブ・クローズ）での矛盾のなさ、ダッシュボード初期表示2秒以内、ダークモード、`prefers-reduced-motion`
 - [ ] V-04 横展開チェック（§1.4の確認対象の再確認）
@@ -194,3 +196,14 @@
   - 実装中に追記した決定事項：U16（スケジュール状態フィールドの重複排除、backendは`overrunDays`のみ返しフロント既存の`resolveScheduleStatus`に委ねる）、U17（仕事目標の計画線・実績線は常に空配列、進捗比率は経過日数割合で代替）。
   - 検証結果：`ruff check .` 全通過。`pytest --cov=app` **2093件全通過・カバレッジ100%**（開発前2064件から+29件、既存テストの破壊なし）。環境側の問題（myvenvに`pypdf`が未導入でテスト収集が14件エラー）を発見し、`pyproject.toml`の既存宣言どおり`pip install -e .`で導入して解消（本機能のスコープ外、環境ドリフトの復旧）。
   - 残課題：文書改訂（§3.2 D-01〜D-06）・フロントエンド実装（§3.4 F-01〜F-09）・検証（§3.5 V-02〜V-06）は次工程。
+
+- 2026-10-30 フロントエンド実装（§3.4 F-01〜F-09）完了。前回セッションでフロントエンド実装フォークが完了前にホストプロセス終了により中断（F-03未着手、§8未更新のまま停止）していたものを引き継いで完了させた。
+  - 中断時点までにフォークが作成・変更していたファイル（自動コミット済み）：`frontend/src/features/goal/roadmapGeometry.ts`+test、`GoalRoadmapMini.tsx`+test、`RoadmapDiagram.tsx`+test、`roadmapSummaryText.ts`+test、`frontend/src/hooks/usePrefersReducedMotion.ts`+test、`frontend/src/api/goals.ts`（`getGoalRoadmap`）、`frontend/src/constants/queryKeys.ts`、`frontend/src/features/dashboard/GoalCardList.tsx`（`GoalRoadmapMini`組込み）、`frontend/src/locales/ja.json`・`en.json`、`frontend/src/types/api.d.ts`、`backend/app/content/help_content.json`。
+  - 本セッションで追加実装：`frontend/src/features/goal/GoalRoadmapTab.tsx`（新規、F-03）＋test、`GoalDetailPage.tsx`への`roadmap`タブ組込み（`EXAM_TABS`/`READING_TABS`/`WORK_TABS`、`GoalDetailTabContent`への描画分岐の切り出し）。
+  - 検証で発見し修正した不整合（U18）：`RoadmapDiagramInput`型に`overrun_days`が無く`tsc -b`が8件エラー（`RoadmapDiagram.tsx`本体が未検証のまま参照していた）。型へ追加し、連動する`GoalCardList.tsx`（`?? null`）・`statsVisibility.test.ts`（フィクスチャに`roadmap_is_achieved`追加）を修正。
+  - oxlint警告3件（`GoalDetailPage`/`RoadmapDiagram`の関数行数超過、effect内のsetState）を関数分割（`GoalDetailTabContent`、`BufferTicks`/`FootprintMarks`/`ReplanMarks`/`FeedbackMarks`）と`requestAnimationFrame`化で解消。
+  - U11を訂正（上表参照）：`en.json`のヘルプ本文は既に全機能で完全対訳済みと判明したため、本機能のタブラベル・ツールチップ・要約文言・ヘルプ本文も`en.json`に追加した（フォークの実装が正しく、当初のU11決定が誤りだった）。
+  - U3の記述を実装事実に合わせて訂正（上表参照）：ダッシュボードカードは元々`resolveGoalListTarget`を経由しないプレーンな`Link`だったため、新規の「タブへの直接URL遷移」は導入せず、既存の「タブ深いリンクは導入しない」方針に合わせた。
+  - 新規テスト追加（カバレッジ100%達成のため）：`GoalRoadmapTab.test.tsx`（3件）、`RoadmapDiagram.test.tsx`に3件追加（計画線/実績線のpolyline描画、足跡、リプラン目印）、`GoalCardList.test.tsx`に1件追加（roadmap関連フィールドが`undefined`でも破綻しない）。
+  - 最終確認：`cd backend && ruff check . && python -m pytest --cov=app`（2093件全通過・カバレッジ100%、本セッションでbackend未変更のため前回と同値）。`cd frontend && npx tsc -b && npm run lint && npm run test`（tsc 0件・oxlint 0件・vitest 170ファイル1446件全通過・カバレッジ100%）。
+  - 残課題：文書改訂（§3.2 D-01〜D-06）・検証（§3.5 V-02〜V-06）は次工程。
