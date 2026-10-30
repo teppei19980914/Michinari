@@ -32,7 +32,8 @@ class GoalRoadmapRead(BaseModel):
     """目標の道のり（詳細版、資格=山、読書=地図上の道、仕事=足跡の積み上げ）。
 
     カテゴリにより一部フィールドは常に空配列／nullになる（開発Todo §0 U7・U8・U10・U17）：
-    EXAM以外はreplan_marks・buffer_dates・overrun_daysが空／null、EXAMはfootprint_datesが
+    EXAM以外はreplan_marks・overrun_daysが空／null、buffer_datesは仕事目標のみ空
+    （予備日は仕様書13.5のとおり資格試験・読書目標が対象）、EXAMはfootprint_datesが
     常に空、WORKはplanned_points・actual_pointsが常に空。
     """
 

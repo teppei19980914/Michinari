@@ -79,6 +79,35 @@ describe('RoadmapDiagram', () => {
     expect(currentMarker.getAttribute('href')).toBe(CHARACTER_ICONS.buffer)
   })
 
+  it('読書：本日が予備日の場合もUI-07を使う（仕様書13.5、§0 U8訂正2026-10-30）', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          category: 'READING',
+          today_date: '2026-01-06',
+          buffer_dates: ['2026-01-06'],
+        })}
+      />,
+    )
+    const currentMarker = container.querySelectorAll('image')[0]
+    expect(currentMarker.getAttribute('href')).toBe(CHARACTER_ICONS.buffer)
+  })
+
+  it('仕事：本日が予備日と同じ日付でもUI-07にならない（仕様書13.5、仕事目標は対象外）', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          category: 'WORK',
+          today_date: '2026-01-06',
+          buffer_dates: ['2026-01-06'],
+          overrun_days: null,
+        })}
+      />,
+    )
+    const currentMarker = container.querySelectorAll('image')[0]
+    expect(currentMarker.getAttribute('href')).toBe(CHARACTER_ICONS.normal)
+  })
+
   it('道標は非対話版では<a>にならない', () => {
     const { container } = render(
       <RoadmapDiagram roadmap={baseRoadmap({ feedback_marks: ['2026-01-03'] })} interactive={false} />,
