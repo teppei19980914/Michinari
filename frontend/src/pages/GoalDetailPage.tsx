@@ -16,6 +16,7 @@ import {
   type GoalDetailRead,
 } from '../api/goals'
 import { BasicInfoTab } from '../features/goal/BasicInfoTab'
+import { GoalRoadmapTab } from '../features/goal/GoalRoadmapTab'
 import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
@@ -36,6 +37,11 @@ const EXAM_TABS = [
     key: 'basicInfo',
     labelKey: 'goals.detail.tabs.basicInfo',
     tooltipKey: 'goals.detail.tabTooltips.basicInfo',
+  },
+  {
+    key: 'roadmap',
+    labelKey: 'goals.detail.tabs.roadmap',
+    tooltipKey: 'goals.detail.tabTooltips.roadmap',
   },
   {
     key: 'subjects',
@@ -75,6 +81,11 @@ const READING_TABS = [
     tooltipKey: 'goals.detail.tabTooltips.basicInfoReading',
   },
   {
+    key: 'roadmap',
+    labelKey: 'goals.detail.tabs.roadmap',
+    tooltipKey: 'goals.detail.tabTooltips.roadmap',
+  },
+  {
     key: 'book',
     labelKey: 'goals.detail.tabs.book',
     tooltipKey: 'goals.detail.tabTooltips.book',
@@ -99,6 +110,11 @@ const WORK_TABS = [
     key: 'basicInfo',
     labelKey: 'goals.detail.tabs.basicInfo',
     tooltipKey: 'goals.detail.tabTooltips.basicInfoWork',
+  },
+  {
+    key: 'roadmap',
+    labelKey: 'goals.detail.tabs.roadmap',
+    tooltipKey: 'goals.detail.tabTooltips.roadmap',
   },
   {
     key: 'workAssignment',
@@ -364,7 +380,28 @@ export function GoalDetailPage() {
         ))}
       </div>
 
+      <GoalDetailTabContent goal={goal} activeTab={activeTab} isReadOnly={isReadOnly} />
+    </div>
+  )
+}
+
+/** タブ本体の描画切り出し（GoalDetailPage本体が100行制限に収まるよう分割。
+ * 分割の境目はタブバーと内容の間で、ロジック自体は変えていない）。 */
+function GoalDetailTabContent({
+  goal,
+  activeTab,
+  isReadOnly,
+}: {
+  goal: GoalDetailRead
+  activeTab: TabKey
+  isReadOnly: boolean
+}) {
+  return (
+    <>
       {activeTab === 'basicInfo' && <BasicInfoTab goal={goal} readOnly={isReadOnly} />}
+      {/* 道のりタブは資格・読書・仕事の3種別で共通のため、goalConsultationと同じ理由で
+          カテゴリ別ブロックの外に置く（開発Todo_道のりマップ_v1.0.md §0 U1）。 */}
+      {activeTab === 'roadmap' && <GoalRoadmapTab goalId={goal.id} />}
       {/* リソース配分タブは資格試験・読書の2種別で共通のため、カテゴリ別ブロックの外で
           1箇所にまとめる。カテゴリ別ブロックの中に重複して書くと、タブ構成
           （EXAM_TABS/READING_TABS）には追加したのに描画側へ反映し忘れる実装漏れが起きうる
@@ -400,6 +437,6 @@ export function GoalDetailPage() {
       {activeTab === 'goalConsultation' && (
         <GoalConsultationTab goalId={goal.id} category={goal.category} />
       )}
-    </div>
+    </>
   )
 }

@@ -30,6 +30,8 @@
 
 目標カード（goal_cards）は`category`を含み、`category=READING`の場合はprogress_rate・remaining_daysを書籍の派生値（ページ進捗・読了目標日までの残日数）で置き換え、forecast_deviation_days・has_warning・has_forced_replanは対象外（null／false）とする。書籍の詳細（残日数・直近記録日・連続記録日数・ページ進捗）は`book`フィールドに`BookRead`をそのまま含める（Phase17実装）。`category=WORK`の場合は、progress_rate・remaining_daysに相当する定量指標を持たないため、着手日からの経過日数・直近記録日・連続記録日数・直近の月次報告有無という軽量な表示に置き換える（読書のDSH-06相当の設計を踏襲、6.2「案件」参照）。forecast_deviation_days・has_warning・has_forced_replanはREADINGと同様に対象外（null／false）とする。
 
+目標カードは、道のりマップの縮小版（開発Todo「道のりマップ」v1.0、仕様書6.1.5）用に`roadmap_progress_ratio`（進捗比率、既存のprogress_rateを再利用。WORKのみ評価期間に対する経過日数の割合）・`roadmap_is_achieved`（達成フラグ）・`roadmap_overrun_days`（完了予測との乖離、EXAMのみ算出）の3フィールドを含む。線データ・足跡・道標等の詳細な点列は持たず、詳細版（`GET /goals/{id}/roadmap`）を開いたときに別途取得する。これにより新規データ取得をダッシュボード初期表示（2秒要件）から分離する。
+
 **資格試験テンプレート**（1.1改23、実装フェーズ分割計画書Phase38）
 
 | メソッド | パス | 概要 |
@@ -57,6 +59,7 @@
 | POST | /goals/{id}/abandon | 中断へ遷移（資格・読書は中断、仕事は中止・打ち切り）。実行中・一時停止から可能（1.1改32） |
 | POST | /goals/{id}/replan | 基準値を再設定（EXAMのみ） |
 | GET | /goals/{id}/baselines | リプラン履歴の取得（EXAMのみ） |
+| GET | /goals/{id}/roadmap | 道のりマップの詳細版（開発Todo「道のりマップ」v1.0、`GoalRoadmapRead`）。計画線・実績線・足跡・道標・リプラン目印・予備日・完了予測との乖離を、正規化された比率（0.0〜1.0）・日付で返す。新しい値はDBに保存せず、既存テーブル（教材・書籍・案件・AIフィードバック履歴等）から都度算出する（ロジック・プロンプト編25章） |
 
 **書籍（category=READINGの場合のみ）**
 

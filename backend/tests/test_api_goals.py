@@ -115,6 +115,48 @@ def test_activate_records_initial_baseline(client):
     assert "INITIAL" in reasons
 
 
+def test_get_roadmap_returns_404_for_missing_goal(client):
+    response = client.get("/api/v1/goals/9999/roadmap")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_get_roadmap_for_draft_exam_goal_without_subjects(client):
+    """境界ケース：記録0件（科目・教材とも未登録の下書き中の目標、開発Todo B-06）。"""
+    goal = _create_goal(client)
+
+    response = client.get(f"/api/v1/goals/{goal['id']}/roadmap")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["category"] == "EXAM"
+    assert body["progress_ratio"] == 0.0
+    assert body["is_achieved"] is False
+    assert body["planned_points"] == []
+    assert body["footprint_dates"] == []
+    assert body["replan_marks"] == []
+    assert body["buffer_dates"] == []
+    assert body["overrun_days"] is None
+
+
+def test_get_roadmap_for_active_exam_goal_includes_replan_mark(client):
+    """科目の受験日変更（EXAM_DATE_FIXED）はINITIAL以外の基準値を発生させ、
+    道の引き直し目印（replan_marks）として現れる（§0 U10）。"""
+    goal = _make_activatable_goal(client)
+    subject_id = client.get(f"/api/v1/goals/{goal['id']}").json()["exam_subjects"][0]["id"]
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    client.post(f"/api/v1/subjects/{subject_id}/fix-date", json={"exam_date_fixed": "2026-07-01"})
+
+    response = client.get(f"/api/v1/goals/{goal['id']}/roadmap")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["category"] == "EXAM"
+    assert len(body["replan_marks"]) >= 1
+    assert "date" in body["replan_marks"][0]
+    assert "ratio" in body["replan_marks"][0]
+
+
 def test_activate_twice_is_rejected(client):
     goal = _make_activatable_goal(client)
     client.post(f"/api/v1/goals/{goal['id']}/activate")

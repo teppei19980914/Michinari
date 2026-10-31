@@ -233,6 +233,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Goal Roadmap
+         * @description 道のりマップの詳細版（開発Todo_道のりマップ_v1.0.md §0 U1・U12・U15）。
+         */
+        get: operations["get_goal_roadmap_api_v1_goals__goal_id__roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goals/{goal_id}/subjects": {
         parameters: {
             query?: never;
@@ -2866,6 +2886,10 @@ export interface components {
          *     持たないため元々Noneのまま。要件定義書R-74）。work_assignmentに仕事進捗の全体
          *     （経過日数・直近記録日・連続記録日数・直近の月次報告有無を含む）を格納する
          *     （実装フェーズ分割計画書Phase23、読書のDSH-06相当のDSH-07）。
+         *
+         *     roadmap_* は道のりマップの縮小版（開発Todo_道のりマップ_v1.0.md §0 U15）用の軽量フィールド。
+         *     線データ・目印データは返さず、既存のprogress_rate・forecast_deviation_daysを再利用する
+         *     （初期表示2秒要件を損なわない。重い算出はGET /goals/{id}/roadmapへ分離）。
          */
         GoalCardRead: {
             /** Goal Id */
@@ -2885,6 +2909,15 @@ export interface components {
             has_forced_replan: boolean;
             book?: components["schemas"]["BookRead"] | null;
             work_assignment?: components["schemas"]["WorkAssignmentRead"] | null;
+            /** Roadmap Progress Ratio */
+            roadmap_progress_ratio?: number | null;
+            /**
+             * Roadmap Is Achieved
+             * @default false
+             */
+            roadmap_is_achieved: boolean;
+            /** Roadmap Overrun Days */
+            roadmap_overrun_days?: number | null;
         };
         /**
          * GoalCategory
@@ -3134,6 +3167,50 @@ export interface components {
              * @default []
              */
             warnings: string[];
+        };
+        /**
+         * GoalRoadmapRead
+         * @description 目標の道のり（詳細版、資格=山、読書=地図上の道、仕事=足跡の積み上げ）。
+         *
+         *     カテゴリにより一部フィールドは常に空配列／nullになる（開発Todo §0 U7・U8・U10・U17）：
+         *     EXAM以外はreplan_marks・buffer_dates・overrun_daysが空／null、EXAMはfootprint_datesが
+         *     常に空、WORKはplanned_points・actual_pointsが常に空。
+         */
+        GoalRoadmapRead: {
+            category: components["schemas"]["GoalCategory"];
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
+            /**
+             * Goal Date
+             * Format: date
+             */
+            goal_date: string;
+            /**
+             * Today Date
+             * Format: date
+             */
+            today_date: string;
+            /** Progress Ratio */
+            progress_ratio: number;
+            /** Is Achieved */
+            is_achieved: boolean;
+            /** Planned Points */
+            planned_points: components["schemas"]["RoadmapPointRead"][];
+            /** Actual Points */
+            actual_points: components["schemas"]["RoadmapPointRead"][];
+            /** Footprint Dates */
+            footprint_dates: components["schemas"]["RoadmapFootprintRead"][];
+            /** Replan Marks */
+            replan_marks: components["schemas"]["RoadmapPointRead"][];
+            /** Feedback Marks */
+            feedback_marks: string[];
+            /** Buffer Dates */
+            buffer_dates: string[];
+            /** Overrun Days */
+            overrun_days: number | null;
         };
         /**
          * GoalStatsRead
@@ -4049,6 +4126,32 @@ export interface components {
              * Format: date-time
              */
             generated_at: string;
+        };
+        /**
+         * RoadmapFootprintRead
+         * @description 足跡の1件。
+         */
+        RoadmapFootprintRead: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Has Input */
+            has_input: boolean;
+        };
+        /**
+         * RoadmapPointRead
+         * @description 道のり上の1点（比率は0.0〜1.0）。
+         */
+        RoadmapPointRead: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Ratio */
+            ratio: number;
         };
         /** SemiannualReviewUpdateRequest */
         SemiannualReviewUpdateRequest: {
@@ -5117,6 +5220,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PlanBaselineRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_goal_roadmap_api_v1_goals__goal_id__roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalRoadmapRead"];
                 };
             };
             /** @description Validation Error */
