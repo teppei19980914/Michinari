@@ -86,7 +86,7 @@ def test_post_empty_question_is_rejected(client, fake_ai):
 
 
 def test_post_over_long_question_is_rejected(client, fake_ai):
-    response = client.post("/api/v1/help-assistant/questions", json={"question": "あ" * 301})
+    response = client.post("/api/v1/help-assistant/questions", json={"question": "あ" * 501})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
