@@ -26,6 +26,7 @@
 | U17（実装時追記、2026-10-29） | 仕事目標の計画線・実績線 | WORKには「進捗量」の概念がなく（U7の既定方針どおり遅れ/先行の判定も無い）、計画線と比較すべきペースの指標が存在しない。`plannedPoints`／`actualPoints`は常に空配列とし、`progress_ratio`は「現評価期間に対する経過日数の割合」（`(today - start_date) / (goal_date - start_date)`、0〜1にクランプ）を返す。道（時間軸）の上に現在地（経過日数割合の位置）と足跡（記録した日）を置くのみの表現とする |
 | U18（実装時追記、2026-10-30） | `RoadmapDiagramInput`型の不整合 | フロント実装（フォーク作業）が中断された状態を引き継いだ際、`RoadmapDiagram.tsx`が`roadmap.overrun_days`を参照しているのに型`RoadmapDiagramInput`（`RoadmapLayoutInput & {category, is_achieved}`）に`overrun_days`が無く、`tsc -b`が8件のエラーで失敗していることを検証中に発見した。`overrun_days: number \| null`を型へ追加し、連動して`GoalCardList.tsx`（`roadmap_progress_ratio`/`roadmap_overrun_days`が`GoalCardRead`では任意フィールドのため`undefined`を取り得る点に`?? null`で対応）と`statsVisibility.test.ts`（新規必須フィールド`roadmap_is_achieved`をフィクスチャに追加）を修正して解消した |
 | U19（実装時追記、2026-10-30） | `GoalRoadmapTab.tsx`の未実装 | フロント実装フォークが中断された時点で、描画エンジン`RoadmapDiagram.tsx`・縮小版`GoalRoadmapMini.tsx`は完成していたが、詳細版をGoalDetailPageに表示するF-03（`GoalRoadmapTab.tsx`とタブ配列への組込み）が未着手だった。既存の`ReplanHistoryTab.tsx`と同じuseQuery＋読み込み中／エラー表示の構成で新規作成し、`EXAM_TABS`／`READING_TABS`／`WORK_TABS`（`basicInfo`の次）とタブ本体の描画分岐へ追加した |
+| U20（実装後の利用者フィードバック対応、2026-11-01） | 詳細版の視認性改善 | 利用者から、図（スクリーンショット2件、資格=山・仕事=足跡）だけでは何が何を表しているか分かりづらいとのフィードバックを受けた。既存ロケールに用意済みだったが未使用だった`startLabel`/`goalLabel`/`plannedLineLabel`/`actualLineLabel`等のキーを実際に図へ配線する形で、①見える要約文言（aria-labelと同内容を可視化、資格の遅れのみ強調色）、②スタート/ゴールの名称＋日付ラベル、③本日時点の計画線と実績線のズレを示す縦線（資格・読書、仕様書13.8「ズレ自体で表現する」の明示化）、④凡例、⑤仕事目標の地面帯による経過表示、⑥ゴール未到達時の輪の目印、を追加した。新規データ取得・新規API・新規ロケールキーは無し（既存の`GET /goals/{id}/roadmap`のレスポンスのみで完結、フロント側`roadmapGeometry.ts`の線形補間`planRatioAt`を追加） |
 
 ## 1. 影響範囲（フルスキャンの結果）
 
@@ -179,7 +180,7 @@
 
 ## 7. 完了の定義
 
-- 全項目（§3）が `[x]` になり、テストが通る（バックエンド・フロントエンドとも）。→ 満たした（backend 2094件、frontend 1448件、いずれもカバレッジ100%）。
+- 全項目（§3）が `[x]` になり、テストが通る（バックエンド・フロントエンドとも）。→ 満たした（backend 2094件、frontend 1468件、いずれもカバレッジ100%。U20対応分を含む最終値）。
 - カバレッジは例外処理を除き100%。→ 満たした。
 - §5 の基準を満たすか、未達の場合は理由と対応を §8 に記録する。→ 満たした。
 - 文書（§1.3）が実装と一致する。→ 満たした。文書改訂時に発見したU8の前提誤り（読書目標への予備日アイコン未適用、仕様書13.5との不整合）は、既知の課題として先送りせず実装側を修正し、文書・実装とも整合させた。
@@ -222,3 +223,12 @@
   - 文書反映：要件定義書R-131・仕様書13.8・設計書25（25.5「既知の課題」節を削除し脅威モデルを25.5へ採番替え）・実装フェーズ分割計画書Phase47から「既知の課題」の記載を除去し、解消済みの内容に更新。開発Todo（本書）U8・§6・§7を更新。
   - 最終確認：backend `ruff check .`全通過・`pytest --cov=app` **2094件全通過・カバレッジ100%**（前回2093件から+1）。frontend `tsc -b`0件・`lint`0件・`test` **170ファイル・1448件全通過・カバレッジ100%**（前回1446件から+2）。既存テストの破壊なし。
   - これにより§0の決定事項（U1〜U19）は全て実装と一致し、既知の課題として残っていた項目は無くなった。
+
+- 2026-11-01 利用者フィードバック（U20）への対応完了。実機スクリーンショット2件（資格=山・仕事=足跡の詳細版タブ）を提示され、「視覚的でポップだが、何が何を表しているか分かりづらい」との指摘を受けた。
+  - 修正：`frontend/src/features/goal/roadmapGeometry.ts`（計画線の本日時点比率を線形補間する`planRatioAt`を追加、`RoadmapLayout`に`plannedAtCurrent`を追加）、`frontend/src/features/analytics/chartColors.ts`（`resolveDelayedLineColor`を追加、index.cssの`--danger-text`と値を合わせる）、`frontend/src/features/goal/roadmapSummaryText.ts`（`resolveRoadmapStatusTextClass`を追加、ForecastTab.tsxと同じ「遅延のみ強調」の配色方針）、`frontend/src/features/goal/RoadmapDiagram.tsx`（`LandmarkLabel`/`GapIndicator`/`GroundLine`/`Landmarks`を新規抽出。スタート/ゴールのラベル表示、ゴール未到達時の輪、本日位置の計画・実績のズレを示す縦線、仕事目標の経過帯を追加。`BOTTOM_MARGIN`をラベル分拡張）、`frontend/src/features/goal/GoalRoadmapTab.tsx`（見える要約文言と凡例を追加）。
+  - 新規：`frontend/src/features/goal/RoadmapLegend.tsx`＋test（種別ごとに実在する凡例項目のみ表示、`resolveByGoalCategory`で種別追加漏れをtscが検知できるようにする）。
+  - 新規ロケールキー・新規API・バックエンド変更は無し（`startLabel`/`goalLabel`等、以前から`ja.json`/`en.json`に用意されていたが未使用だったキーを配線した）。
+  - テスト追加：`roadmapGeometry.test.ts`（`plannedAtCurrent`の境界値4件）、`roadmapSummaryText.test.ts`（`resolveRoadmapStatusTextClass`3件）、`chartColors.test.ts`（`resolveDelayedLineColor`明暗2件）、`RoadmapDiagram.test.tsx`（ラベル表示・輪の有無・ズレ目印の3状態・仕事目標の経過帯、計7件）、`RoadmapLegend.test.tsx`（種別ごとの表示項目、3件）、`GoalRoadmapTab.test.tsx`（見える要約文言・凡例、2件）。
+  - カバレッジ対応：初回実装で`roadmapGeometry.ts`の`planRatioAt`に、日付昇順の点列という前提上到達しえない防御的な分岐（重複日付の区間、ループ後のフォールバック）が残りカバレッジが100%を割った。`mergeCycleSeries.ts`等の既存コードと同じ`/* v8 ignore next */`（CODING_RULES.md「除外可: 意図的に発生させにくい異常系」）で対応し、さらに3点以上の計画点で区間探索を跨ぐ分岐（`&&`条件の片方がfalseになるケース）のカバレッジ漏れをテスト追加で解消した。
+  - 最終確認：backend `ruff check .`全通過・`pytest --cov=app` **2094件全通過・カバレッジ100%**（本件はフロントのみの変更のため前回と同値）。frontend `tsc -b`0件・`lint`0件・`test` **171ファイル・1468件全通過・カバレッジ100%（stmt/branch/func/line）**（前回170ファイル・1448件から+1ファイル・+20件）。既存テストの破壊なし。
+  - 文書反映：仕様書6.2（道のりタブの説明に①〜⑤の視認性向上策を追記）、設計書25.1（`plannedAtCurrent`の算出根拠を追記）、本Todo（U20、本項目）。ダッシュボードの縮小版（`GoalRoadmapMini`）は、カード内に既存の`formatProgressRate`表示が別途あるため同様の改修対象外と判断した（横展開チェック）。
