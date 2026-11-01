@@ -54,4 +54,16 @@ describe('GoalRoadmapTab', () => {
     renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
     expect(await screen.findByRole('img')).toBeTruthy()
   })
+
+  it('図の上に見える文字で現状（進捗％・遅れ/先行）を表示する（利用者フィードバック対応、2026-11-01）', async () => {
+    getGoalRoadmap.mockResolvedValue(makeRoadmap({ overrun_days: 3 }))
+    renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
+    expect(await screen.findByText('全体の50%、予定より3日遅れです')).toBeTruthy()
+  })
+
+  it('凡例を表示する', async () => {
+    getGoalRoadmap.mockResolvedValue(makeRoadmap())
+    renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
+    expect(await screen.findByText(t('goals.roadmap.actualLineLabel'))).toBeTruthy()
+  })
 })

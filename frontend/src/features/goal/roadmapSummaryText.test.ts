@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRoadmapSummaryText } from './roadmapSummaryText'
+import { buildRoadmapSummaryText, resolveRoadmapStatusTextClass } from './roadmapSummaryText'
 
 describe('buildRoadmapSummaryText', () => {
   it('資格：遅れている場合', () => {
@@ -77,5 +77,34 @@ describe('buildRoadmapSummaryText', () => {
         isAchieved: true,
       }),
     ).toBe('目標を達成しました（100%）')
+  })
+})
+
+describe('resolveRoadmapStatusTextClass', () => {
+  it('資格：遅れている場合のみ強調色にする（ForecastTab.tsxと同じ方針）', () => {
+    expect(resolveRoadmapStatusTextClass({ category: 'EXAM', overrunDays: 3 })).toBe(
+      'text-danger-text',
+    )
+  })
+
+  it('資格：予定どおり・先行・完了予測無しは本文色のまま', () => {
+    expect(resolveRoadmapStatusTextClass({ category: 'EXAM', overrunDays: 0 })).toBe(
+      'text-text-primary',
+    )
+    expect(resolveRoadmapStatusTextClass({ category: 'EXAM', overrunDays: -2 })).toBe(
+      'text-text-primary',
+    )
+    expect(resolveRoadmapStatusTextClass({ category: 'EXAM', overrunDays: null })).toBe(
+      'text-text-primary',
+    )
+  })
+
+  it('読書・仕事は遅れ判定自体が無いため常に本文色（§0 U7）', () => {
+    expect(resolveRoadmapStatusTextClass({ category: 'READING', overrunDays: null })).toBe(
+      'text-text-primary',
+    )
+    expect(resolveRoadmapStatusTextClass({ category: 'WORK', overrunDays: null })).toBe(
+      'text-text-primary',
+    )
   })
 })

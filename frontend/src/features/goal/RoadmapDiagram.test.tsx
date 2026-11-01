@@ -205,8 +205,94 @@ describe('RoadmapDiagram', () => {
       <RoadmapDiagram roadmap={baseRoadmap({ category: 'WORK', overrun_days: null })} />,
     )
     const [currentMarker, goalMarker] = container.querySelectorAll('image')
-    // VIEW_HEIGHT=56, TOP_MARGIN=8, PLOT_HEIGHT=38, ground = 8 + 38*(1-0) = 46, 半幅5を引く。
+    // VIEW_HEIGHT=64, TOP_MARGIN=8, PLOT_HEIGHT=38, ground = 8 + 38*(1-0) = 46, 半幅5を引く。
     expect(currentMarker.getAttribute('y')).toBe('41')
     expect(goalMarker.getAttribute('y')).toBe('41')
+  })
+
+  it('スタート・ゴールに名称と日付のラベルを表示する（利用者フィードバック対応、2026-11-01）', () => {
+    const { container } = render(<RoadmapDiagram roadmap={baseRoadmap()} />)
+    const texts = Array.from(container.querySelectorAll('text')).map((el) => el.textContent)
+    expect(texts).toContain('スタート')
+    expect(texts).toContain('1/1')
+    expect(texts).toContain('ゴール')
+    expect(texts).toContain('1/11')
+  })
+
+  it('ゴール未到達時は輪を表示し、達成時は輪を消す', () => {
+    const { container: notAchieved } = render(
+      <RoadmapDiagram roadmap={baseRoadmap({ is_achieved: false })} />,
+    )
+    expect(notAchieved.querySelectorAll('circle[stroke-dasharray="1.5 1"]').length).toBe(1)
+
+    const { container: achieved } = render(
+      <RoadmapDiagram roadmap={baseRoadmap({ is_achieved: true, progress_ratio: 1 })} />,
+    )
+    expect(achieved.querySelectorAll('circle[stroke-dasharray="1.5 1"]').length).toBe(0)
+  })
+
+  it('計画と実績にズレがある場合、本日位置に縦線（ズレの目印）を表示する（仕様書13.8）', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+          actual_points: [{ date: '2026-01-06', ratio: 0.2 }],
+        })}
+      />,
+    )
+    const gapLine = container.querySelector('line[stroke-dasharray="1 1"]')
+    expect(gapLine).toBeTruthy()
+    // 計画(0.5)より実績(0.2)が低い＝遅れているため、強調色（ライトモードの--danger-text）になる。
+    expect(gapLine?.getAttribute('stroke')).toBe('#dc2626')
+  })
+
+  it('計画より実績が進んでいる場合は強調色にならない', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+          actual_points: [{ date: '2026-01-06', ratio: 0.8 }],
+        })}
+      />,
+    )
+    const gapLine = container.querySelector('line[stroke-dasharray="1 1"]')
+    expect(gapLine?.getAttribute('stroke')).not.toBe('#dc2626')
+  })
+
+  it('計画と実績がほぼ同じ場合はズレの目印を表示しない', () => {
+    const { container } = render(
+      <RoadmapDiagram
+        roadmap={baseRoadmap({
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+          actual_points: [{ date: '2026-01-06', ratio: 0.5 }],
+        })}
+      />,
+    )
+    expect(container.querySelector('line[stroke-dasharray="1 1"]')).toBeNull()
+  })
+
+  it('仕事目標は計画線が無いためズレの目印を表示しない', () => {
+    const { container } = render(
+      <RoadmapDiagram roadmap={baseRoadmap({ category: 'WORK', overrun_days: null })} />,
+    )
+    expect(container.querySelector('line[stroke-dasharray="1 1"]')).toBeNull()
+  })
+
+  it('仕事目標は現在地までの経過を地面の色付き帯で示す（§0 U17）', () => {
+    const { container } = render(
+      <RoadmapDiagram roadmap={baseRoadmap({ category: 'WORK', overrun_days: null })} />,
+    )
+    // x=50%地点（開始〜終了10日のうち5日目）。
+    const elapsedLine = container.querySelector('line[x2="50"]')
+    expect(elapsedLine).toBeTruthy()
   })
 })

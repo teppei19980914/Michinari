@@ -43,3 +43,9 @@ export function resolveGridLineColor(): string {
 export function resolveAxisLineColor(): string {
   return isDarkTheme() ? '#4b5563' : '#c3c2b7'
 }
+
+/** 計画と実績のズレ（遅れ側）を示す色。index.cssの`--danger-text`と値を合わせる
+ * （道のりマップの計画線・実績線の乖離表示、仕様書13.8）。 */
+export function resolveDelayedLineColor(): string {
+  return isDarkTheme() ? '#f87171' : '#dc2626'
+}
