@@ -170,6 +170,21 @@ describe('computeRoadmapLayout', () => {
       expect(layout.plannedAtCurrent).toBeCloseTo(0.1)
     })
 
+    it('3点以上ある場合、本日が含まれる区間まで探索して補間する', () => {
+      const layout = computeRoadmapLayout(
+        baseInput({
+          today_date: '2026-01-09',
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-05', ratio: 0.3 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+        }),
+      )
+      // 01-05〜01-11（6日）のうち4日経過: 0.3 + (1-0.3)*(4/6)
+      expect(layout.plannedAtCurrent).toBeCloseTo(0.3 + (1 - 0.3) * (4 / 6))
+    })
+
     it('境界値: 本日が最後の計画点より後なら最後の点の比率に据え置く', () => {
       const layout = computeRoadmapLayout(
         baseInput({
