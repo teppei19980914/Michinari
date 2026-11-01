@@ -3,6 +3,7 @@ import {
   CYCLE_SERIES_COLORS,
   cycleSeriesColor,
   resolveAxisLineColor,
+  resolveDelayedLineColor,
   resolveGridLineColor,
   resolvePlanLineColor,
 } from './chartColors'
@@ -29,6 +30,7 @@ describe('テーマに追従する中立色（UIリッチ化、ダークモー�
     expect(resolveGridLineColor()).toBe('#e1e0d9')
     expect(resolveAxisLineColor()).toBe('#c3c2b7')
     expect(resolvePlanLineColor()).toBe('#898781')
+    expect(resolveDelayedLineColor()).toBe('#dc2626')
   })
 
   it('switches to a dark-mode-safe value when data-theme="dark"', () => {
@@ -37,5 +39,6 @@ describe('テーマに追従する中立色（UIリッチ化、ダークモー�
     expect(resolveGridLineColor()).toBe('#374151')
     expect(resolveAxisLineColor()).toBe('#4b5563')
     expect(resolvePlanLineColor()).toBe('#9ca3af')
+    expect(resolveDelayedLineColor()).toBe('#f87171')
   })
 })

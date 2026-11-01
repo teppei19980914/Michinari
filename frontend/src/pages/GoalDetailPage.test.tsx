@@ -61,7 +61,7 @@ const getAiStatus = vi.hoisted(() =>
 )
 vi.mock('../api/ai', () => ({ getAiStatus }))
 vi.mock('../api/goalConsultation', () => ({
-  getGoalConsultationLimits: vi.fn(() => Promise.resolve({ max_question_chars: 300 })),
+  getGoalConsultationLimits: vi.fn(() => Promise.resolve({ max_question_chars: 500 })),
   askGoalConsultationQuestion: vi.fn(),
   getGoalConsultationHistory: vi.fn(() => Promise.resolve([])),
   deleteGoalConsultationHistoryItem: vi.fn(),

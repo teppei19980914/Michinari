@@ -8,7 +8,7 @@ import { HelpAssistantLauncher } from './HelpAssistantLauncher'
 
 vi.mock('../../api/helpAssistant', () => ({
   askHelpQuestion: vi.fn(),
-  getHelpAssistantLimits: vi.fn().mockResolvedValue({ max_question_chars: 300 }),
+  getHelpAssistantLimits: vi.fn().mockResolvedValue({ max_question_chars: 500 }),
 }))
 
 afterEach(() => {

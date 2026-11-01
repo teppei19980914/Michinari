@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | U1 | 使用アシスタント | ヘルプと同じ（GPT-5 mini（高速）`c9e542e1-a324-46d5-a02e-fe6bfaebf85a`、ナレッジなし）を流用。設定キーは新設 `ai.assistant_uid.goal_consultation` |
 | U2 | 画面入口 | 目標詳細画面（`GoalDetailPage.tsx`）のEXAM専用タブ「目標相談」を常設（ヘルプの全画面浮動ボタンとは別系統、視覚的な混同を避ける） |
-| U3 | 質問上限 | 300字（ヘルプと同じ）。設定キー `ai.goal_consultation_question_max_chars` |
+| U3 | 質問上限 | 300字（ヘルプと同じ）。設定キー `ai.goal_consultation_question_max_chars`（※2026-11-01: 利用者依頼により500字へ引き上げ。設計書データ構造編1.1改65・OPERATIONS「目標相談チャットの運用」参照。本行は決定当時の記録として変更しない） |
 | U4 | 回答上限 | 新設定キー `ai.goal_consultation_answer_max_chars`（既定値はヘルプの`ai.help_answer_max_chars`=2000字と同水準。具体的な初期値は§6で確定） |
 | U5 | 固定文言 | 設計の深掘りにより、「根拠なし」は独立した状態・固定文言にしない（U17参照）。「記録からはまだ判断できません。日々の記録を増やすと、より具体的な回答ができる可能性があります。」はプロンプトの指示文に埋め込み、根拠が無いときにAI自身がこの文で答える。画面側の固定文言は回答不可のみ：「この質問には回答できません。別の聞き方でお試しください。」（最終文言は§6で確定） |
 | U6 | 命名案 | `ai.assistant_uid.goal_consultation`／`ai.goal_consultation_folder_name`（既定値「ミチナリ_目標相談」）／`ai.goal_consultation_question_max_chars`／`ai.goal_consultation_answer_max_chars`／`AiPurpose.GOAL_CONSULTATION`／`ConversationScope.GOAL_CONSULTATION` |
@@ -150,7 +150,7 @@
 | Tampering | 利用者が`{{...}}`を使ってテンプレート変数を偽装する | `_substitute`の1回パス処理（既存の修正済み実装を再利用） |
 | Repudiation | 質問・回答の記録が残らず、後から確認できない | `ai_log`（`AiPurpose.GOAL_CONSULTATION`）へ記録（既存の仕組みをそのまま使う） |
 | Information Disclosure | 他目標・他利用者の記録が誤って混入する／出典が捏造されプロンプトに無い情報を見せかける | `goal_id`で厳密に絞った既存の`build_*`関数のみを使う。出典はプロンプトに実際に含めた日付・週のみ採用（U10） |
-| Denial of Service | 長大な質問・記録で応答が打ち切られる、または処理が重なり書き込みロックで他機能が失敗する | 質問300字上限、既存の段階的縮退（週次要約→生ログ）、`_REQUEST_LOCK`による直列化、AI送信区間は既存`serialize_writes()` |
+| Denial of Service | 長大な質問・記録で応答が打ち切られる、または処理が重なり書き込みロックで他機能が失敗する | 質問300字上限（※2026-11-01: 500字へ引き上げ。設計書データ構造編1.1改65参照。本行は決定当時の記録として変更しない）、既存の段階的縮退（週次要約→生ログ）、`_REQUEST_LOCK`による直列化、AI送信区間は既存`serialize_writes()` |
 | Elevation of Privilege | READING/WORK目標の利用者がAPIを直接叩いて目標相談機能を使う | サービス層でEXAM以外を`ValidationError`として拒否（画面のタブ非表示は補助的対策に過ぎない） |
 
 ## 6. 未決事項（実装時にすべて解消）

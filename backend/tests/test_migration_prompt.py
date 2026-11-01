@@ -837,3 +837,60 @@ def test_max_prompt_chars_migration_preserves_customized_value(tmp_path, monkeyp
         ).fetchone()
 
     assert row[0] == "12345"
+
+
+@pytest.mark.parametrize(
+    "key", ("ai.help_question_max_chars", "ai.goal_consultation_question_max_chars")
+)
+def test_question_max_chars_migration_updates_rows_at_old_default(tmp_path, monkeypatch, key):
+    """4e665f950a10: ヘルプAIアシスタント・目標相談チャットの質問上限の既定値引き上げ
+    （300→500、利用者依頼）は、現在値が旧既定値のままの行のみを更新する値一致ヒューリス
+    ティック（2ceb7aa212fcと同じ方針）。既定値のままの行は500へ更新されること。
+    """
+    db_path = tmp_path / f"question_max_chars_migration_at_old_default_{key}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("0ab58c423373")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO app_setting (key, value, value_type, updated_at) "
+            "VALUES (?, '300', 'INTEGER', '2026-01-01T00:00:00')",
+            (key,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT value FROM app_setting WHERE key = ?", (key,)
+        ).fetchone()
+
+    assert row[0] == "500"
+
+
+@pytest.mark.parametrize(
+    "key", ("ai.help_question_max_chars", "ai.goal_consultation_question_max_chars")
+)
+def test_question_max_chars_migration_preserves_customized_value(tmp_path, monkeypatch, key):
+    """利用者が既定値から変更済みの行（旧既定値300と一致しない）は上書きしないこと。"""
+    db_path = tmp_path / f"question_max_chars_migration_customized_{key}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("0ab58c423373")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO app_setting (key, value, value_type, updated_at) "
+            "VALUES (?, '120', 'INTEGER', '2026-01-01T00:00:00')",
+            (key,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT value FROM app_setting WHERE key = ?", (key,)
+        ).fetchone()
+
+    assert row[0] == "120"

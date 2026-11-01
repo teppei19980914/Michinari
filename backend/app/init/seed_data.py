@@ -166,7 +166,7 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     # （GPT-5 mini 高速）を既定値とする。ナレッジを持たないため、ヘルプ以外が混入しない。
     AI_ASSISTANT_UID_HELP: ("c9e542e1-a324-46d5-a02e-fe6bfaebf85a", AppSettingValueType.STRING),
     AI_HELP_FOLDER_NAME: ("ミチナリ_ヘルプ", AppSettingValueType.STRING),
-    AI_HELP_QUESTION_MAX_CHARS: ("300", AppSettingValueType.INTEGER),
+    AI_HELP_QUESTION_MAX_CHARS: ("500", AppSettingValueType.INTEGER),
     AI_HELP_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     #: 目標相談チャット（S09）。既定はヘルプ用と同じアシスタント（ナレッジなし、U1）。
     AI_ASSISTANT_UID_GOAL_CONSULTATION: (
@@ -174,7 +174,7 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         AppSettingValueType.STRING,
     ),
     AI_GOAL_CONSULTATION_FOLDER_NAME: ("ミチナリ_目標相談", AppSettingValueType.STRING),
-    AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS: ("300", AppSettingValueType.INTEGER),
+    AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS: ("500", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_HISTORY_TURNS: ("3", AppSettingValueType.INTEGER),
     # 添付ファイル機能（開発Todo_添付ファイル機能_v1.0、A7・A10・P1）。
