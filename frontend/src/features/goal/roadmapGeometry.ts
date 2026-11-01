@@ -132,6 +132,11 @@ function planRatioAt(points: RoadmapPointInput[], dateIso: string): number | nul
     const to = points[i + 1]
     if (dateIso >= from.date && dateIso <= to.date) {
       const span = daysBetween(from.date, to.date)
+      // dateIsoが区間[from.date, to.date]に入る最初の区間が必ずspan>0になる。重複日付の
+      // 区間（span<=0）があっても、そこへdateIsoが到達する前に必ずspan>0の区間で一致するため
+      // （日付昇順の前提、stepRatioAtと同じ前提）、ここは到達しない
+      // （CODING_RULES.md「除外可: 意図的に発生させにくい異常系」）。
+      /* v8 ignore next 3 */
       if (span <= 0) {
         return clampUnit(from.ratio)
       }
@@ -139,6 +144,10 @@ function planRatioAt(points: RoadmapPointInput[], dateIso: string): number | nul
       return clampUnit(from.ratio + (to.ratio - from.ratio) * progressed)
     }
   }
+  // 直前の2つの早期returnにより、ここに達する時点でdateIsoは必ずpoints[0].dateとlast.dateの
+  // 間にあり、日付昇順の点列であれば必ずどこかの区間が一致するため到達しない
+  // （CODING_RULES.md「除外可: 意図的に発生させにくい異常系」）。
+  /* v8 ignore next */
   return clampUnit(last.ratio)
 }
 
