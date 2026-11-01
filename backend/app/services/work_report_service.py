@@ -156,7 +156,10 @@ def period_display(period_type: RetrospectivePeriodType, period_key: str) -> str
     return _semiannual_period_display(period_key)
 
 
-def _semiannual_period_range(period_key: str) -> tuple[dt.date, dt.date]:
+def semiannual_period_range(period_key: str) -> tuple[dt.date, dt.date]:
+    """半期評価の対象期間（開始日・終了日）を返す（道のりマップ：開発Todo_道のりマップ_v1.0.md
+    §0 U9。仕事目標の道の起点・終点として roadmap_service・dashboard.py からも参照するため
+    公開関数化した）。"""
     year_text, half = period_key.split("-")
     year = int(year_text)
     if half == "H1":
@@ -382,7 +385,7 @@ def generate_semiannual_review(
     work_assignment = goal.work_assignment
     resolved_period_key = period_key or default_semiannual_period_key(today)
     target_period = _semiannual_period_display(resolved_period_key)
-    date_from, date_to = _semiannual_period_range(resolved_period_key)
+    date_from, date_to = semiannual_period_range(resolved_period_key)
 
     previous_row = get_work_report(
         session,

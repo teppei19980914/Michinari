@@ -197,20 +197,20 @@ def test_previous_semiannual_period_key():
 
 
 def test_semiannual_period_range_h1():
-    date_from, date_to = work_report_service._semiannual_period_range("2026-H1")
+    date_from, date_to = work_report_service.semiannual_period_range("2026-H1")
     assert date_from == dt.date(2026, 3, 1)
     assert date_to == dt.date(2026, 8, 31)
 
 
 def test_semiannual_period_range_h2_leap_year():
     """H2は翌年2月末日まで。2028年は閏年のため2月29日までとなる。"""
-    date_from, date_to = work_report_service._semiannual_period_range("2027-H2")
+    date_from, date_to = work_report_service.semiannual_period_range("2027-H2")
     assert date_from == dt.date(2027, 9, 1)
     assert date_to == dt.date(2028, 2, 29)
 
 
 def test_semiannual_period_range_h2_non_leap_year():
-    date_from, date_to = work_report_service._semiannual_period_range("2026-H2")
+    date_from, date_to = work_report_service.semiannual_period_range("2026-H2")
     assert date_from == dt.date(2026, 9, 1)
     assert date_to == dt.date(2027, 2, 28)
 

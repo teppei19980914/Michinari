@@ -121,7 +121,7 @@ def test_ask_rejects_question_over_limit(seeded_session, monkeypatch):
             goal=goal,
             today=_TODAY,
             conversation_id=conversation_id,
-            raw_question="あ" * 301,
+            raw_question="あ" * 501,
         )
 
 

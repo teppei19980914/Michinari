@@ -258,6 +258,7 @@
       "backToList": "Back to goal list",
       "tabs": {
         "basicInfo": "Basic info",
+        "roadmap": "Roadmap",
         "subjects": "Subjects",
         "materials": "Materials",
         "resourceAllocation": "Resource allocation",
@@ -271,6 +272,7 @@
       },
       "tabTooltips": {
         "basicInfo": "A tab to view and edit this goal's basic information, such as the exam name, start date, status, and notes. Use it to rename the goal or correct its start date.",
+        "roadmap": "A tab to view your path from start to goal as a diagram. It overlays the line you'd be on if everything went to plan with your actual progress, and marks when you replanned or received AI feedback.",
         "basicInfoReading": "A tab to view and edit this reading goal's basic information, such as the title, start date, status, and notes.",
         "basicInfoWork": "A tab to view and edit this work goal's basic information, such as the project name, start date, status, and notes.",
         "subjects": "A tab to set the exam date and passing score for each subject, for exams split into multiple subjects (such as certifications where each subject has its own exam date or passing score). Use it to add and edit subjects and manage each one's passing criteria.",
@@ -305,6 +307,34 @@
       },
       "resumeError": "Cannot resume because there is not enough free resource capacity",
       "completeDisabledHint": "Cannot complete because results are not all in. Please register exam results for every subject"
+    },
+    "roadmap": {
+      "empty": "There isn't enough information yet to draw the roadmap",
+      "startLabel": "Start",
+      "currentLabel": "Current position",
+      "goalLabel": "Goal",
+      "plannedLineLabel": "Planned line (if everything goes to plan)",
+      "actualLineLabel": "Actual progress",
+      "replanMarkLabel": "Replanned",
+      "feedbackMarkLabel": "Waypoint (day you received AI feedback)",
+      "bufferMarkLabel": "Buffer day",
+      "footprintLabel": "Footprint (record-only day)",
+      "openDetail": "View the detailed roadmap",
+      "summary": {
+        "exam": {
+          "delayed": "{{percent}}% overall, {{days}} day(s) behind schedule",
+          "onTrack": "{{percent}}% overall, on schedule",
+          "ahead": "{{percent}}% overall, {{days}} day(s) ahead of schedule",
+          "noForecast": "{{percent}}% overall"
+        },
+        "reading": {
+          "inProgress": "{{percent}}% of the way through"
+        },
+        "work": {
+          "inProgress": "{{percent}}% of the evaluation period has passed"
+        },
+        "achieved": "Goal achieved ({{percent}}%)"
+      }
     },
     "basicInfo": {
       "nameLabel": "Exam name",
@@ -1367,6 +1397,12 @@
         "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
         "p5": "A reading goal's detail screen has 4 tabs — \"Basic info,\" \"Book,\" \"Resource allocation,\" and \"Goal consultation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
         "p6": "A work goal's detail screen has 5 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" \"Semiannual review,\" and \"Goal consultation\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+      },
+      "roadmap": {
+        "title": "Roadmap",
+        "p1": "The dashboard's goal cards and the goal detail screen's \"Roadmap\" tab show your progress from start to goal as a diagram, drawn differently by goal type. A certification exam goal is drawn as a mountain: the peak is the day you finish taking every subject's exam, and the altitude is your overall progress rate (including every planned cycle, such as a 2nd or 3rd pass through a material). A reading goal is drawn as a road on a map: the road's length is the total page count, your current position is your current page, and the goal is the final page (finishing the book). Days with a record but no page entered are placed as footprints on the road. A work goal has no fixed quantity to reach, so it's drawn as a road toward the end of the current evaluation period (March-August or September-the following February), with the days you recorded piling up as footprints.",
+        "p2": "For certification exams, the diagram overlays the planned line (if everything went to plan) with your actual progress line, and marks the point where you replanned (from your replan history) as \"Replanned.\" Reading and work goals have no concept of a plan baseline, so this mark isn't shown for them. Days you received AI feedback are marked as waypoints; clicking one takes you to that day's daily report view. The diagram still works without waypoints if AI isn't configured or there's no feedback history yet.",
+        "p3": "Your current position shows a character icon that matches your status (only certification exams change icon for behind/on-schedule/ahead/buffer day; reading and work always show the same icon). Reaching the goal shows the achievement icon at the goal position. The dashboard shows a compact, read-only version that links to the goal detail screen; the \"Roadmap\" tab there shows the full version."
       },
       "goalConsultation": {
         "title": "Goal consultation chat",

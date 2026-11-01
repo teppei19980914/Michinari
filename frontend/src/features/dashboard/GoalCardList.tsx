@@ -7,6 +7,7 @@ import { formatPercent } from '../../utils/format'
 import type { DashboardRead } from '../../api/dashboard'
 import { resolveGoalCategoryIcon } from '../goal/goalCategoryBadge'
 import { resolveScheduleStatusIcon } from '../goal/scheduleStatus'
+import { GoalRoadmapMini } from '../goal/GoalRoadmapMini'
 
 function formatProgressRate(rate: number | null): string {
   return rate === null ? t('dashboard.goalCard.notAvailable') : formatPercent(rate)
@@ -48,6 +49,21 @@ function GoalCardHeader({ goal }: { goal: GoalCard }) {
   )
 }
 
+/** 道のりマップの縮小版（開発Todo_道のりマップ_v1.0.md §0 U2・U15）。3種別のカードで共通に
+ * 使う（GoalCardHeaderと同じ理由でDRY）。 */
+function GoalCardRoadmap({ goal }: { goal: GoalCard }) {
+  return (
+    <div className="mb-2">
+      <GoalRoadmapMini
+        category={goal.category}
+        progressRatio={goal.roadmap_progress_ratio ?? null}
+        isAchieved={goal.roadmap_is_achieved}
+        overrunDays={goal.roadmap_overrun_days ?? null}
+      />
+    </div>
+  )
+}
+
 /** 読書目標のカード内容（仕様書6.1、要件定義書R-71「ノルマではなく残日数・直近記録日・
  * 連続記録日数」）。完了予測日との乖離は表示しない（EXAM専用の計画管理のため）。 */
 function ReadingGoalCard({ goal }: { goal: GoalCard }) {
@@ -55,6 +71,7 @@ function ReadingGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
       <GoalCardHeader goal={goal} />
+      <GoalCardRoadmap goal={goal} />
       <dl className="space-y-1 text-sm text-text-muted">
         <div>{formatRemainingDaysReading(goal.remaining_days)}</div>
         {book && (
@@ -90,6 +107,7 @@ function WorkGoalCard({ goal }: { goal: GoalCard }) {
   return (
     <>
       <GoalCardHeader goal={goal} />
+      <GoalCardRoadmap goal={goal} />
       <dl className="space-y-1 text-sm text-text-muted">
         {workAssignment && (
           <>
@@ -152,6 +170,7 @@ function ExamGoalCard({ goal }: { goal: GoalCard }) {
         </div>
         {scheduleStatusIcon && <img src={scheduleStatusIcon} alt="" className="h-8 w-8 shrink-0" />}
       </div>
+      <GoalCardRoadmap goal={goal} />
       <dl className="space-y-1 text-sm text-text-muted">
         <div className="flex justify-between">
           <dt>{t('dashboard.goalCard.progressRate')}</dt>

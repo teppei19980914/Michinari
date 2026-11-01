@@ -24,6 +24,7 @@ from app.schemas.goal import (
 from app.schemas.load_profile import LoadProfileCreate, LoadProfileRead, LoadProfileUpdate
 from app.schemas.material import MaterialCreate, MaterialRead
 from app.schemas.resource import SlotAllocationRead, SlotAllocationUpdate
+from app.schemas.roadmap import GoalRoadmapRead, RoadmapFootprintRead, RoadmapPointRead
 from app.schemas.subject import (
     ExamResultRead,
     SubjectCreate,
@@ -45,6 +46,7 @@ from app.services import (
     goal_service_lifecycle,
     goal_service_load_profile,
     material_service,
+    roadmap_service,
     subject_service,
     work_member_service,
     work_service,
@@ -251,6 +253,41 @@ def get_baselines(goal_id: int, session: Session = Depends(get_db)) -> list[Plan
     goal = goal_service.get_goal(session, goal_id)
     baselines = goal_service.get_baselines(session, goal)
     return [PlanBaselineRead.model_validate(b) for b in baselines]
+
+
+def serialize_roadmap(roadmap: roadmap_service.Roadmap) -> GoalRoadmapRead:
+    return GoalRoadmapRead(
+        category=roadmap.category,
+        start_date=roadmap.start_date,
+        goal_date=roadmap.goal_date,
+        today_date=roadmap.today_date,
+        progress_ratio=roadmap.progress_ratio,
+        is_achieved=roadmap.is_achieved,
+        planned_points=[
+            RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.planned_points
+        ],
+        actual_points=[
+            RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.actual_points
+        ],
+        footprint_dates=[
+            RoadmapFootprintRead(date=f.date, has_input=f.has_input)
+            for f in roadmap.footprint_dates
+        ],
+        replan_marks=[RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.replan_marks],
+        feedback_marks=roadmap.feedback_marks,
+        buffer_dates=roadmap.buffer_dates,
+        overrun_days=roadmap.overrun_days,
+    )
+
+
+@router.get("/goals/{goal_id}/roadmap", response_model=GoalRoadmapRead)
+def get_goal_roadmap(goal_id: int, session: Session = Depends(get_db)) -> GoalRoadmapRead:
+    """道のりマップの詳細版（開発Todo_道のりマップ_v1.0.md §0 U1・U12・U15）。"""
+    goal = goal_service.get_goal(session, goal_id)
+    today = goal_service.resolve_today(session)
+    treat_holiday_as_buffer = goal_service.resolve_treat_holiday_as_buffer(session)
+    roadmap = roadmap_service.get_roadmap(session, goal, today, treat_holiday_as_buffer)
+    return serialize_roadmap(roadmap)
 
 
 # --- 試験科目 ---

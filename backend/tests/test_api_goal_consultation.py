@@ -162,7 +162,7 @@ def test_post_over_long_question_is_rejected(client, exam_goal, fake_ai):
 
     response = client.post(
         f"/api/v1/goals/{exam_goal.id}/consultation/questions",
-        json={"conversation_id": conversation_id, "question": "あ" * 301},
+        json={"conversation_id": conversation_id, "question": "あ" * 501},
     )
 
     assert response.status_code == 400
@@ -211,7 +211,7 @@ def test_get_limits_returns_question_limit(client, exam_goal, seeded_session):
     response = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/limits")
 
     assert response.status_code == 200
-    assert response.json() == {"max_question_chars": 300}
+    assert response.json() == {"max_question_chars": 500}
 
 
 def test_get_limits_reflects_app_setting(client, exam_goal, seeded_session):

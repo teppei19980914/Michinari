@@ -86,7 +86,7 @@ def test_post_empty_question_is_rejected(client, fake_ai):
 
 
 def test_post_over_long_question_is_rejected(client, fake_ai):
-    response = client.post("/api/v1/help-assistant/questions", json={"question": "あ" * 301})
+    response = client.post("/api/v1/help-assistant/questions", json={"question": "あ" * 501})
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -126,7 +126,7 @@ def test_get_limits_returns_question_limit(client, seeded_session):
     response = client.get("/api/v1/help-assistant/limits")
 
     assert response.status_code == 200
-    assert response.json() == {"max_question_chars": 300}
+    assert response.json() == {"max_question_chars": 500}
 
 
 def test_get_limits_reflects_app_setting(client, seeded_session):

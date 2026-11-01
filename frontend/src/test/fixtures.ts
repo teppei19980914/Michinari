@@ -230,6 +230,9 @@ export function makeGoalCard(
     forecast_deviation_days: 0,
     has_warning: false,
     has_forced_replan: false,
+    roadmap_progress_ratio: 0.3,
+    roadmap_is_achieved: false,
+    roadmap_overrun_days: 0,
     ...overrides,
   }
 }

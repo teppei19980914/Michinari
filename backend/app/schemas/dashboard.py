@@ -37,6 +37,10 @@ class GoalCardRead(BaseModel):
     持たないため元々Noneのまま。要件定義書R-74）。work_assignmentに仕事進捗の全体
     （経過日数・直近記録日・連続記録日数・直近の月次報告有無を含む）を格納する
     （実装フェーズ分割計画書Phase23、読書のDSH-06相当のDSH-07）。
+
+    roadmap_* は道のりマップの縮小版（開発Todo_道のりマップ_v1.0.md §0 U15）用の軽量フィールド。
+    線データ・目印データは返さず、既存のprogress_rate・forecast_deviation_daysを再利用する
+    （初期表示2秒要件を損なわない。重い算出はGET /goals/{id}/roadmapへ分離）。
     """
 
     goal_id: int
@@ -49,6 +53,9 @@ class GoalCardRead(BaseModel):
     has_forced_replan: bool
     book: BookRead | None = None
     work_assignment: WorkAssignmentRead | None = None
+    roadmap_progress_ratio: float | None = None
+    roadmap_is_achieved: bool = False
+    roadmap_overrun_days: float | None = None
 
 
 class GoalStatsRead(BaseModel):
