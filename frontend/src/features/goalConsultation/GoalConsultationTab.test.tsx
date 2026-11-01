@@ -39,7 +39,7 @@ const GOAL_ID = 42
 const CONVERSATION = { id: 1, title: '', created_at: '2026-01-01T00:00:00' }
 
 beforeEach(() => {
-  getGoalConsultationLimits.mockResolvedValue({ max_question_chars: 300 })
+  getGoalConsultationLimits.mockResolvedValue({ max_question_chars: 500 })
   getGoalConsultationHistory.mockResolvedValue([])
   deleteGoalConsultationHistoryItem.mockResolvedValue(undefined)
   getGoalConsultationConversations.mockResolvedValue([CONVERSATION])
@@ -186,10 +186,10 @@ describe('GoalConsultationTab', () => {
     await waitFor(() => expect(getGoalConsultationLimits).toHaveBeenCalled())
 
     fireEvent.change(screen.getByRole('textbox', { name: t('goalConsultation.placeholder') }), {
-      target: { value: 'あ'.repeat(301) },
+      target: { value: 'あ'.repeat(501) },
     })
 
-    expect(screen.getByText(t('goalConsultation.tooLong', { max: 300 }))).toBeTruthy()
+    expect(screen.getByText(t('goalConsultation.tooLong', { max: 500 }))).toBeTruthy()
     expect(isDisabled(screen.getByRole('button', { name: t('goalConsultation.send') }))).toBe(
       true,
     )

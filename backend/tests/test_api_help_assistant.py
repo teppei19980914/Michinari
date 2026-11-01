@@ -126,7 +126,7 @@ def test_get_limits_returns_question_limit(client, seeded_session):
     response = client.get("/api/v1/help-assistant/limits")
 
     assert response.status_code == 200
-    assert response.json() == {"max_question_chars": 300}
+    assert response.json() == {"max_question_chars": 500}
 
 
 def test_get_limits_reflects_app_setting(client, seeded_session):

@@ -15,7 +15,7 @@ const getHelpAssistantLimits = vi.hoisted(() => vi.fn())
 vi.mock('../../api/helpAssistant', () => ({ askHelpQuestion, getHelpAssistantLimits }))
 
 beforeEach(() => {
-  getHelpAssistantLimits.mockResolvedValue({ max_question_chars: 300 })
+  getHelpAssistantLimits.mockResolvedValue({ max_question_chars: 500 })
 })
 
 afterEach(() => {
@@ -118,12 +118,12 @@ describe('HelpAssistantDrawer', () => {
     renderWithProviders(<HelpAssistantDrawer onClose={() => {}} />)
     await waitFor(() => expect(getHelpAssistantLimits).toHaveBeenCalled())
 
-    // 301字を1字ずつ打つと時間がかかるため、値を一度に入れる（検証したいのは最終的な状態）
+    // 501字を1字ずつ打つと時間がかかるため、値を一度に入れる（検証したいのは最終的な状態）
     fireEvent.change(screen.getByRole('textbox', { name: t('helpAssistant.placeholder') }), {
-      target: { value: 'あ'.repeat(301) },
+      target: { value: 'あ'.repeat(501) },
     })
 
-    expect(screen.getByText(t('helpAssistant.tooLong', { max: 300 }))).toBeTruthy()
+    expect(screen.getByText(t('helpAssistant.tooLong', { max: 500 }))).toBeTruthy()
     expect(isDisabled(screen.getByRole('button', { name: t('helpAssistant.send') }))).toBe(true)
     expect(askHelpQuestion).not.toHaveBeenCalled()
   })
