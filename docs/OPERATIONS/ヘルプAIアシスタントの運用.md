@@ -25,5 +25,5 @@
 ### 利用上の注意
 
 - 回答には免責文（「AIの回答は誤る場合があります」）が常に表示される。
-- 質問の上限は300字（`ai.help_question_max_chars`）。回答の上限は2000字（`ai.help_answer_max_chars`）。
+- 質問の上限は500字（`ai.help_question_max_chars`。1.1改65で300→500へ引き上げ）。回答の上限は2000字（`ai.help_answer_max_chars`）。
 - 使用アシスタントは `ai.assistant_uid.help`（既定：GPT-5 mini（高速）、ナレッジなし）。変更は設定画面の「ヘルプ質問用アシスタント」から行う。

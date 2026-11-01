@@ -162,7 +162,7 @@ def test_post_over_long_question_is_rejected(client, exam_goal, fake_ai):
 
     response = client.post(
         f"/api/v1/goals/{exam_goal.id}/consultation/questions",
-        json={"conversation_id": conversation_id, "question": "あ" * 301},
+        json={"conversation_id": conversation_id, "question": "あ" * 501},
     )
 
     assert response.status_code == 400
