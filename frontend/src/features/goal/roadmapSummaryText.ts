@@ -40,3 +40,18 @@ export function buildRoadmapSummaryText(params: {
   }
   return t('goals.roadmap.summary.exam.noForecast', { percent })
 }
+
+/**
+ * 図の上に表示する要約文言（可視、`buildRoadmapSummaryText`と同じ値）のTailwindクラス。
+ * 遅れている資格試験目標のみ強調し、それ以外は本文色のまま据え置く（ForecastTab.tsxと
+ * 同じ「遅延のみ強調」の配色方針に揃える、CLAUDE.md DRYの原則）。
+ */
+export function resolveRoadmapStatusTextClass(params: {
+  category: GoalCategory
+  overrunDays: number | null
+}): string {
+  if (params.category === 'EXAM' && resolveScheduleStatus(params.overrunDays) === 'delayed') {
+    return 'text-danger-text'
+  }
+  return 'text-text-primary'
+}

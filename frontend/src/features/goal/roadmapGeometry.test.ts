@@ -137,4 +137,50 @@ describe('computeRoadmapLayout', () => {
 
     expect(layout.feedbackMarks).toEqual([])
   })
+
+  describe('plannedAtCurrent（計画線と実績線のズレ表示、仕様書13.8）', () => {
+    it('計画点が無い場合はnull（仕事目標、§0 U17）', () => {
+      const layout = computeRoadmapLayout(baseInput({ planned_points: [] }))
+      expect(layout.plannedAtCurrent).toBeNull()
+    })
+
+    it('本日が計画点の区間内なら線形補間する', () => {
+      const layout = computeRoadmapLayout(
+        baseInput({
+          today_date: '2026-01-06',
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+        }),
+      )
+      expect(layout.plannedAtCurrent).toBeCloseTo(0.5)
+    })
+
+    it('境界値: 本日が最初の計画点より前なら最初の点の比率に据え置く', () => {
+      const layout = computeRoadmapLayout(
+        baseInput({
+          today_date: '2026-01-01',
+          planned_points: [
+            { date: '2026-01-03', ratio: 0.1 },
+            { date: '2026-01-11', ratio: 1 },
+          ],
+        }),
+      )
+      expect(layout.plannedAtCurrent).toBeCloseTo(0.1)
+    })
+
+    it('境界値: 本日が最後の計画点より後なら最後の点の比率に据え置く', () => {
+      const layout = computeRoadmapLayout(
+        baseInput({
+          today_date: '2026-01-21',
+          planned_points: [
+            { date: '2026-01-01', ratio: 0 },
+            { date: '2026-01-09', ratio: 0.8 },
+          ],
+        }),
+      )
+      expect(layout.plannedAtCurrent).toBeCloseTo(0.8)
+    })
+  })
 })

@@ -46,6 +46,10 @@ export type RoadmapLayout = {
   /** 現在地。仕事目標はyに意味が無いため描画側は使わない（§0 U17、xのみ使う）。 */
   currentPosition: LayoutPoint
   goalPosition: LayoutPoint
+  /** 本日時点の計画線の比率（線形補間）。計画との差を図中で直接示すための値
+   * （仕様書13.8「計画線と実績線のズレ自体で表現する」）。計画点が1件も無い場合は`null`。
+   * 仕事目標は計画線の概念が無いため常に`null`（§0 U17）。 */
+  plannedAtCurrent: number | null
   replanMarks: LayoutMark[]
   feedbackMarks: LayoutTick[]
   bufferTicks: LayoutTick[]
@@ -109,6 +113,35 @@ function stepRatioAt(actualPoints: RoadmapPointInput[], dateIso: string): number
   return clampUnit(current)
 }
 
+/** 計画線上の、指定日時点の比率を線形補間で求める（実績線のような「記録が無い日は直前値を
+ * 保持する」階段状ではなく、計画は連続的に進む前提のため区間の両端を線形に結ぶ）。
+ * 範囲外（点列の最初より前／最後より後）は端の値で据え置く。点が無い場合は`null`。 */
+function planRatioAt(points: RoadmapPointInput[], dateIso: string): number | null {
+  if (points.length === 0) {
+    return null
+  }
+  if (dateIso <= points[0].date) {
+    return clampUnit(points[0].ratio)
+  }
+  const last = points[points.length - 1]
+  if (dateIso >= last.date) {
+    return clampUnit(last.ratio)
+  }
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const from = points[i]
+    const to = points[i + 1]
+    if (dateIso >= from.date && dateIso <= to.date) {
+      const span = daysBetween(from.date, to.date)
+      if (span <= 0) {
+        return clampUnit(from.ratio)
+      }
+      const progressed = daysBetween(from.date, dateIso) / span
+      return clampUnit(from.ratio + (to.ratio - from.ratio) * progressed)
+    }
+  }
+  return clampUnit(last.ratio)
+}
+
 function toFootprints(
   footprints: RoadmapFootprintInput[],
   actualPoints: RoadmapPointInput[],
@@ -142,6 +175,7 @@ export function computeRoadmapLayout(roadmap: RoadmapLayoutInput): RoadmapLayout
     startPosition: { x: 0, y: 0 },
     currentPosition: { x: timeFraction(roadmap.today_date, rangeStart, rangeEnd), y: currentY },
     goalPosition: { x: timeFraction(roadmap.goal_date, rangeStart, rangeEnd), y: 1 },
+    plannedAtCurrent: planRatioAt(roadmap.planned_points, roadmap.today_date),
     replanMarks: toMarks(roadmap.replan_marks, rangeStart, rangeEnd),
     feedbackMarks: toTicks(roadmap.feedback_marks, rangeStart, rangeEnd),
     bufferTicks: toTicks(roadmap.buffer_dates, rangeStart, rangeEnd),
