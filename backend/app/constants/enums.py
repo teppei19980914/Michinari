@@ -198,6 +198,32 @@ class HelpAnswerStatus(enum.StrEnum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class MilestoneType(enum.StrEnum):
+    """節目のお祝い（開発Todo_節目のお祝い_v1.0）の節目種別。
+
+    `CONSECUTIVE_DAYS`・`TOTAL_RECORD_DAYS`は3種別共通。他は種別固有
+    （`GoalCategory`との対応は`milestone_service_<category>.py`側が持つ）。
+    """
+
+    #: 連続記録日数（3種別共通。既存の統計サマリの定義をそのまま使う＝種別ごとに
+    #: 「何もしていない」記録・予備日の扱いが異なる非対称性を統一しない）。
+    CONSECUTIVE_DAYS = "CONSECUTIVE_DAYS"
+    #: 累計記録日数（3種別共通）。
+    TOTAL_RECORD_DAYS = "TOTAL_RECORD_DAYS"
+    #: 読書：累計ページ数。
+    READING_TOTAL_PAGES = "READING_TOTAL_PAGES"
+    #: 読書：読了した冊数。
+    READING_COMPLETED_BOOKS = "READING_COMPLETED_BOOKS"
+    #: 資格試験：教材1周完了（閾値を持たないイベント型。周回ごとに1件）。
+    EXAM_MATERIAL_CYCLE_COMPLETED = "EXAM_MATERIAL_CYCLE_COMPLETED"
+    #: 資格試験：目標全体の進捗率(%)。
+    EXAM_OVERALL_PROGRESS = "EXAM_OVERALL_PROGRESS"
+    #: 仕事：記録件数。
+    WORK_RECORD_COUNT = "WORK_RECORD_COUNT"
+    #: 仕事：評価期間を通して記録し続けたこと（閾値を持たないイベント型）。
+    WORK_EVALUATION_PERIOD_COMPLETED = "WORK_EVALUATION_PERIOD_COMPLETED"
+
+
 class GoalConsultationAnswerStatus(enum.StrEnum):
     """目標相談チャット（S09で資格目標向けに導入、S10で読書・仕事へ展開）の回答の状態
     （開発Todo U17）。

@@ -34,6 +34,16 @@ def get_bool(session: Session, key: str) -> bool:
     return _get_row(session, key).value.strip().lower() == "true"
 
 
+def get_int_list(session: Session, key: str) -> list[int]:
+    """カンマ区切りの整数文字列を昇順・重複除去したリストで返す（節目のお祝い機能、
+    開発Todo_節目のお祝い_v1.0 M3）。空文字列・空要素は無視する（運用で不正な値が
+    設定されても機能全体を止めないため）。
+    """
+    raw = _get_row(session, key).value
+    values = {int(part) for part in raw.split(",") if part.strip()}
+    return sorted(values)
+
+
 def is_english_locale(session: Session) -> bool:
     """`display.locale`が英語かどうか（日英i18n対応、2026-10）。
 

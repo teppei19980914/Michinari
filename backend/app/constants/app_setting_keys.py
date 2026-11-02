@@ -122,3 +122,21 @@ AI_ATTACHMENT_MAX_FILE_CHARS = "ai.attachment_max_file_chars"
 AI_ATTACHMENT_MAX_COUNT = "ai.attachment_max_count"
 #: アップロード時のPDFファイルサイズ上限（MB、P1）。
 AI_ATTACHMENT_MAX_UPLOAD_SIZE_MB = "ai.attachment_max_upload_size_mb"
+
+# 節目のお祝い（開発Todo_節目のお祝い_v1.0）。値はカンマ区切りの整数文字列
+# （`AppSettingValueType.STRING`。`setting_reader.get_int_list`で読む）。
+#: 3種別共通：連続記録日数の節目。
+MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS = "milestone.consecutive_days_thresholds"
+#: 3種別共通：累計記録日数の節目。
+MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS = "milestone.total_record_days_thresholds"
+#: 読書：累計ページ数の節目。
+MILESTONE_READING_TOTAL_PAGES_THRESHOLDS = "milestone.reading_total_pages_thresholds"
+#: 読書：読了冊数の節目。
+MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS = "milestone.reading_completed_books_thresholds"
+#: 資格試験：目標全体の進捗率(%)の節目。
+MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS = "milestone.exam_overall_progress_thresholds"
+#: 仕事：記録件数の節目。
+MILESTONE_WORK_RECORD_COUNT_THRESHOLDS = "milestone.work_record_count_thresholds"
+#: 起動時バックフィル（既存利用者の更新直後に節目のお祝いが大量表示されるのを防ぐ、M9）が
+#: 完了済みかどうか。`true`になった後は二度と実行しない。
+MILESTONE_BACKFILL_COMPLETED = "milestone.backfill_completed"

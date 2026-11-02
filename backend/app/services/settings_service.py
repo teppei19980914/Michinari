@@ -43,6 +43,12 @@ from app.constants.app_setting_keys import (
     DESKTOP_REMINDER_ONBOARDING_SHOWN,
     LOG_AI_ENABLED,
     LOG_RETENTION_DAYS,
+    MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS,
+    MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS,
+    MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS,
+    MILESTONE_READING_TOTAL_PAGES_THRESHOLDS,
+    MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
+    MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
@@ -167,6 +173,21 @@ class LogSettings:
 
 
 @dataclass(frozen=True)
+class MilestoneThresholdSettings:
+    """節目のお祝い（開発Todo_節目のお祝い_v1.0）の閾値。値はカンマ区切りの文字列
+    （`setting_reader.get_int_list`が整数リストへ変換する側で使う。設定画面は
+    文字列のまま編集する）。
+    """
+
+    consecutive_days_thresholds: str
+    total_record_days_thresholds: str
+    reading_total_pages_thresholds: str
+    reading_completed_books_thresholds: str
+    exam_overall_progress_thresholds: str
+    work_record_count_thresholds: str
+
+
+@dataclass(frozen=True)
 class AppSettings:
     ai_connection: AiConnectionSettings
     threshold: ThresholdSettings
@@ -174,6 +195,7 @@ class AppSettings:
     display: DisplaySettings
     desktop: DesktopSettings
     log: LogSettings
+    milestone_threshold: MilestoneThresholdSettings
 
 
 def get_app_settings(session: Session) -> AppSettings:
@@ -257,6 +279,26 @@ def get_app_settings(session: Session) -> AppSettings:
         ai_enabled=setting_reader.get_bool(session, LOG_AI_ENABLED),
         retention_days=setting_reader.get_int(session, LOG_RETENTION_DAYS),
     )
+    milestone_threshold = MilestoneThresholdSettings(
+        consecutive_days_thresholds=setting_reader.get_str(
+            session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS
+        ),
+        total_record_days_thresholds=setting_reader.get_str(
+            session, MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS
+        ),
+        reading_total_pages_thresholds=setting_reader.get_str(
+            session, MILESTONE_READING_TOTAL_PAGES_THRESHOLDS
+        ),
+        reading_completed_books_thresholds=setting_reader.get_str(
+            session, MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS
+        ),
+        exam_overall_progress_thresholds=setting_reader.get_str(
+            session, MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS
+        ),
+        work_record_count_thresholds=setting_reader.get_str(
+            session, MILESTONE_WORK_RECORD_COUNT_THRESHOLDS
+        ),
+    )
     return AppSettings(
         ai_connection=ai_connection,
         threshold=threshold,
@@ -264,6 +306,7 @@ def get_app_settings(session: Session) -> AppSettings:
         display=display,
         desktop=desktop,
         log=log,
+        milestone_threshold=milestone_threshold,
     )
 
 
@@ -417,6 +460,40 @@ def _update_log(session: Session, **fields: object) -> None:
         _set_number(session, LOG_RETENTION_DAYS, fields["retention_days"])
 
 
+def _parse_threshold_list(raw: str) -> str:
+    """節目のお祝い（開発Todo_節目のお祝い_v1.0 M3）の閾値設定を検証し、正規化した
+    カンマ区切り文字列（昇順・重複除去）で返す。設定画面からの編集を想定し、
+    空白混入や順序違いは許容するが、整数以外・空は拒否する。
+    """
+    parts = [part.strip() for part in raw.split(",")]
+    if any(not part for part in parts):
+        raise ValidationError("Milestone thresholds must be a comma-separated list of integers")
+    try:
+        values = {int(part) for part in parts}
+    except ValueError as exc:
+        raise ValidationError(
+            "Milestone thresholds must be a comma-separated list of integers"
+        ) from exc
+    if any(value <= 0 for value in values):
+        raise ValidationError("Milestone thresholds must be positive integers")
+    return ",".join(str(value) for value in sorted(values))
+
+
+def _update_milestone_threshold(session: Session, **fields: object) -> None:
+    key_by_field = {
+        "consecutive_days_thresholds": MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS,
+        "total_record_days_thresholds": MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
+        "reading_total_pages_thresholds": MILESTONE_READING_TOTAL_PAGES_THRESHOLDS,
+        "reading_completed_books_thresholds": MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS,
+        "exam_overall_progress_thresholds": MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS,
+        "work_record_count_thresholds": MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
+    }
+    for field, key in key_by_field.items():
+        value = fields.get(field)
+        if value is not None:
+            _set_str(session, key, _parse_threshold_list(value))
+
+
 def update_app_settings(
     session: Session,
     *,
@@ -426,6 +503,7 @@ def update_app_settings(
     display: dict | None = None,
     desktop: dict | None = None,
     log: dict | None = None,
+    milestone_threshold: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
         _update_ai_connection(session, **ai_connection)
@@ -439,6 +517,8 @@ def update_app_settings(
         _update_desktop(session, **desktop)
     if log:
         _update_log(session, **log)
+    if milestone_threshold:
+        _update_milestone_threshold(session, **milestone_threshold)
     session.flush()
     return get_app_settings(session)
 
