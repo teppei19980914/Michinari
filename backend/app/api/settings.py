@@ -15,6 +15,7 @@ from app.schemas.setting import (
     DesktopSettingsRead,
     DisplaySettingsRead,
     LogSettingsRead,
+    MilestoneThresholdSettingsRead,
     PromptDegradationSettingsRead,
     PromptTemplateRead,
     PromptTemplateUpdate,
@@ -34,6 +35,7 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         display=DisplaySettingsRead(**vars(settings.display)),
         desktop=DesktopSettingsRead(**vars(settings.desktop)),
         log=LogSettingsRead(**vars(settings.log)),
+        milestone_threshold=MilestoneThresholdSettingsRead(**vars(settings.milestone_threshold)),
     )
 
 
@@ -70,6 +72,7 @@ def update_settings(
         display=groups.get("display"),
         desktop=groups.get("desktop"),
         log=groups.get("log"),
+        milestone_threshold=groups.get("milestone_threshold"),
     )
     session.commit()
     return _serialize_settings(updated)

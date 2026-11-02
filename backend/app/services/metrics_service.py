@@ -92,6 +92,21 @@ def compute_progress_rate(progress: MaterialProgress) -> float:
     return progress.completed / progress.total_work
 
 
+def compute_goal_overall_progress_rate(
+    materials: list[Material], progresses: dict[int, MaterialProgress]
+) -> float | None:
+    """資格試験目標の全体進捗率（13.2「教材ごとの値の平均を目標単位の参考値として
+    表示する」）。教材が0件の場合は算出不能（None）。
+
+    `app/api/dashboard.py`のダッシュボードカードと節目のお祝い（開発Todo_節目のお祝い_v1.0
+    M12、`milestone_service_exam.py`）の両方が同じ算出を必要とするため共通化した
+    （CLAUDE.md DRYの原則）。
+    """
+    if not materials:
+        return None
+    return sum(compute_progress_rate(progresses[m.id]) for m in materials) / len(materials)
+
+
 def _logical_date_of_utc(changed_at: dt.datetime, boundary_hour: int) -> dt.date:
     """DBに保存されたUTCの日時を、端末のローカル時刻と日の境界（3.1）に従う論理日へ変換する。"""
     local = changed_at.replace(tzinfo=dt.UTC).astimezone().replace(tzinfo=None)

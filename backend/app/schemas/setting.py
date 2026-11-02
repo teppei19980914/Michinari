@@ -130,6 +130,40 @@ class LogSettingsUpdate(BaseModel):
     retention_days: int | None = Field(default=None, ge=1)
 
 
+#: 節目のお祝い（開発Todo_節目のお祝い_v1.0）の閾値一覧（カンマ区切りの正の整数）。
+#: 構造的な検証（数字とカンマのみ）はここで行い、重複除去・昇順への正規化は
+#: `settings_service._parse_threshold_list`が担う（CODING_RULES.md DRYの原則）。
+_THRESHOLD_LIST_PATTERN = r"^\d+(,\d+)*$"
+
+
+class MilestoneThresholdSettingsRead(BaseModel):
+    consecutive_days_thresholds: str
+    total_record_days_thresholds: str
+    reading_total_pages_thresholds: str
+    reading_completed_books_thresholds: str
+    exam_overall_progress_thresholds: str
+    work_record_count_thresholds: str
+
+
+class MilestoneThresholdSettingsUpdate(BaseModel):
+    consecutive_days_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
+    total_record_days_thresholds: str | None = Field(
+        default=None, pattern=_THRESHOLD_LIST_PATTERN
+    )
+    reading_total_pages_thresholds: str | None = Field(
+        default=None, pattern=_THRESHOLD_LIST_PATTERN
+    )
+    reading_completed_books_thresholds: str | None = Field(
+        default=None, pattern=_THRESHOLD_LIST_PATTERN
+    )
+    exam_overall_progress_thresholds: str | None = Field(
+        default=None, pattern=_THRESHOLD_LIST_PATTERN
+    )
+    work_record_count_thresholds: str | None = Field(
+        default=None, pattern=_THRESHOLD_LIST_PATTERN
+    )
+
+
 class AppSettingsRead(BaseModel):
     ai_connection: AiConnectionSettingsRead
     threshold: ThresholdSettingsRead
@@ -137,6 +171,7 @@ class AppSettingsRead(BaseModel):
     display: DisplaySettingsRead
     desktop: DesktopSettingsRead
     log: LogSettingsRead
+    milestone_threshold: MilestoneThresholdSettingsRead
 
 
 class AppSettingsUpdate(BaseModel):
@@ -146,6 +181,7 @@ class AppSettingsUpdate(BaseModel):
     display: DisplaySettingsUpdate | None = None
     desktop: DesktopSettingsUpdate | None = None
     log: LogSettingsUpdate | None = None
+    milestone_threshold: MilestoneThresholdSettingsUpdate | None = None
 
 
 class PromptTemplateRead(BaseModel):
