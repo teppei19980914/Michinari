@@ -496,6 +496,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/milestones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Milestones */
+        get: operations["list_milestones_api_v1_goals__goal_id__milestones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/milestones/pending-celebrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pending Celebrations */
+        get: operations["list_pending_celebrations_api_v1_goals__goal_id__milestones_pending_celebrations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/milestones/{milestone_id}/celebrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Celebrate Milestone */
+        post: operations["celebrate_milestone_api_v1_goals__goal_id__milestones__milestone_id__celebrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/work-members/{member_id}": {
         parameters: {
             query?: never;
@@ -2195,6 +2246,7 @@ export interface components {
             display: components["schemas"]["DisplaySettingsRead"];
             desktop: components["schemas"]["DesktopSettingsRead"];
             log: components["schemas"]["LogSettingsRead"];
+            milestone_threshold: components["schemas"]["MilestoneThresholdSettingsRead"];
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
@@ -2204,6 +2256,7 @@ export interface components {
             display?: components["schemas"]["DisplaySettingsUpdate"] | null;
             desktop?: components["schemas"]["DesktopSettingsUpdate"] | null;
             log?: components["schemas"]["LogSettingsUpdate"] | null;
+            milestone_threshold?: components["schemas"]["MilestoneThresholdSettingsUpdate"] | null;
         };
         /**
          * AttachmentLimitsRead
@@ -3173,7 +3226,8 @@ export interface components {
          * @description 目標の道のり（詳細版、資格=山、読書=地図上の道、仕事=足跡の積み上げ）。
          *
          *     カテゴリにより一部フィールドは常に空配列／nullになる（開発Todo §0 U7・U8・U10・U17）：
-         *     EXAM以外はreplan_marks・buffer_dates・overrun_daysが空／null、EXAMはfootprint_datesが
+         *     EXAM以外はreplan_marks・overrun_daysが空／null、buffer_datesは仕事目標のみ空
+         *     （予備日は仕様書13.5のとおり資格試験・読書目標が対象）、EXAMはfootprint_datesが
          *     常に空、WORKはplanned_points・actual_pointsが常に空。
          */
         GoalRoadmapRead: {
@@ -3709,6 +3763,62 @@ export interface components {
             required_environment?: components["schemas"]["Environment"] | null;
             quality_metric_type?: components["schemas"]["QualityMetricType"] | null;
         };
+        /** MilestoneAchievementRead */
+        MilestoneAchievementRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            milestone_type: components["schemas"]["MilestoneType"];
+            /** Milestone Key */
+            milestone_key: string;
+            /**
+             * Achieved At
+             * Format: date-time
+             */
+            achieved_at: string;
+            /** Celebrated At */
+            celebrated_at: string | null;
+        };
+        /** MilestoneThresholdSettingsRead */
+        MilestoneThresholdSettingsRead: {
+            /** Consecutive Days Thresholds */
+            consecutive_days_thresholds: string;
+            /** Total Record Days Thresholds */
+            total_record_days_thresholds: string;
+            /** Reading Total Pages Thresholds */
+            reading_total_pages_thresholds: string;
+            /** Reading Completed Books Thresholds */
+            reading_completed_books_thresholds: string;
+            /** Exam Overall Progress Thresholds */
+            exam_overall_progress_thresholds: string;
+            /** Work Record Count Thresholds */
+            work_record_count_thresholds: string;
+        };
+        /** MilestoneThresholdSettingsUpdate */
+        MilestoneThresholdSettingsUpdate: {
+            /** Consecutive Days Thresholds */
+            consecutive_days_thresholds?: string | null;
+            /** Total Record Days Thresholds */
+            total_record_days_thresholds?: string | null;
+            /** Reading Total Pages Thresholds */
+            reading_total_pages_thresholds?: string | null;
+            /** Reading Completed Books Thresholds */
+            reading_completed_books_thresholds?: string | null;
+            /** Exam Overall Progress Thresholds */
+            exam_overall_progress_thresholds?: string | null;
+            /** Work Record Count Thresholds */
+            work_record_count_thresholds?: string | null;
+        };
+        /**
+         * MilestoneType
+         * @description 節目のお祝い（開発Todo_節目のお祝い_v1.0）の節目種別。
+         *
+         *     `CONSECUTIVE_DAYS`・`TOTAL_RECORD_DAYS`は3種別共通。他は種別固有
+         *     （`GoalCategory`との対応は`milestone_service_<category>.py`側が持つ）。
+         * @enum {string}
+         */
+        MilestoneType: "CONSECUTIVE_DAYS" | "TOTAL_RECORD_DAYS" | "READING_TOTAL_PAGES" | "READING_COMPLETED_BOOKS" | "EXAM_MATERIAL_CYCLE_COMPLETED" | "EXAM_OVERALL_PROGRESS" | "WORK_RECORD_COUNT" | "WORK_EVALUATION_PERIOD_COMPLETED";
         /** MonthlyReportUpdateRequest */
         MonthlyReportUpdateRequest: {
             /** Target Goal Text */
@@ -5867,6 +5977,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaterialCycleProgressRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_milestones_api_v1_goals__goal_id__milestones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneAchievementRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pending_celebrations_api_v1_goals__goal_id__milestones_pending_celebrations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneAchievementRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    celebrate_milestone_api_v1_goals__goal_id__milestones__milestone_id__celebrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                milestone_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneAchievementRead"];
                 };
             };
             /** @description Validation Error */
