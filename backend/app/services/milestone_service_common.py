@@ -235,7 +235,7 @@ def backfill_achievements_if_needed(session: Session, today: dt.date) -> None:
         _record_new_achievements(session, goal.id, pending, achieved_at=now, celebrated_at=now)
 
     flag_row = session.get(AppSetting, MILESTONE_BACKFILL_COMPLETED)
-    if flag_row is None:
+    if flag_row is None:  # pragma: no cover (起動時シードが必ず先に投入するため到達しない)
         raise NotFoundError("AppSetting", MILESTONE_BACKFILL_COMPLETED)
     flag_row.value = "true"
     session.flush()

@@ -24,6 +24,8 @@ def test_get_app_settings_returns_seeded_defaults(seeded_session):
     assert settings.display.font_scale == "standard"
     assert settings.log.ai_enabled is True
     assert settings.log.retention_days == 90
+    assert settings.milestone_threshold.consecutive_days_thresholds == "3,7,14,30,50,100,200,365"
+    assert settings.milestone_threshold.work_record_count_thresholds == "10,50,100"
 
 
 def test_update_app_settings_partial_update_keeps_other_fields(seeded_session):
@@ -148,6 +150,55 @@ def test_update_app_settings_missing_row_raises_app_setting_not_found(seeded_ses
     seeded_session.flush()
     with pytest.raises(AppSettingNotFoundError):
         settings_service.update_app_settings(seeded_session, ai_connection={"host": "example.com"})
+
+
+def test_update_app_settings_normalizes_milestone_thresholds(seeded_session):
+    """重複・順序違い・空白混入を正規化（昇順・重複除去）する（開発Todo_節目のお祝い_v1.0 M3）。"""
+    updated = settings_service.update_app_settings(
+        seeded_session, milestone_threshold={"consecutive_days_thresholds": " 7, 3,3 ,14"}
+    )
+    assert updated.milestone_threshold.consecutive_days_thresholds == "3,7,14"
+
+
+def test_update_app_settings_rejects_non_integer_milestone_threshold(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(
+            seeded_session, milestone_threshold={"consecutive_days_thresholds": "3,abc"}
+        )
+
+
+def test_update_app_settings_rejects_empty_milestone_threshold_item(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(
+            seeded_session, milestone_threshold={"consecutive_days_thresholds": "3,,7"}
+        )
+
+
+def test_update_app_settings_rejects_non_positive_milestone_threshold(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(
+            seeded_session, milestone_threshold={"consecutive_days_thresholds": "0,3"}
+        )
+
+
+def test_update_app_settings_accepts_each_milestone_threshold_field_independently(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session,
+        milestone_threshold={
+            "total_record_days_thresholds": "1,2",
+            "reading_total_pages_thresholds": "10,20",
+            "reading_completed_books_thresholds": "1",
+            "exam_overall_progress_thresholds": "50",
+            "work_record_count_thresholds": "5",
+        },
+    )
+    assert updated.milestone_threshold.total_record_days_thresholds == "1,2"
+    assert updated.milestone_threshold.reading_total_pages_thresholds == "10,20"
+    assert updated.milestone_threshold.reading_completed_books_thresholds == "1"
+    assert updated.milestone_threshold.exam_overall_progress_thresholds == "50"
+    assert updated.milestone_threshold.work_record_count_thresholds == "5"
+    # 更新していないフィールドは既定値のまま。
+    assert updated.milestone_threshold.consecutive_days_thresholds == "3,7,14,30,50,100,200,365"
 
 
 def test_get_prompt_template_missing_row_raises_not_found(seeded_session):
