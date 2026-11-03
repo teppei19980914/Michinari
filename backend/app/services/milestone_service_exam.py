@@ -36,18 +36,14 @@ def detect_exam_milestones(session: Session, goal: Goal, today: dt.date) -> list
                 )
             )
 
-    overall_progress_rate = metrics_service.compute_goal_overall_progress_rate(
-        materials, progresses
+    # materials は上の早期returnで空リストを排除済みのため、ここでは必ずfloatが返る
+    # （compute_goal_overall_progress_rateがNoneを返すのはmaterialsが空の場合のみ）。
+    overall_progress_percent = (
+        metrics_service.compute_goal_overall_progress_rate(materials, progresses) * 100
     )
-    if overall_progress_rate is not None:
-        overall_progress_percent = overall_progress_rate * 100
-        thresholds = setting_reader.get_int_list(
-            session, MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS
-        )
-        for threshold in thresholds:
-            if overall_progress_percent >= threshold:
-                pending.append(
-                    PendingMilestone(MilestoneType.EXAM_OVERALL_PROGRESS, str(threshold))
-                )
+    thresholds = setting_reader.get_int_list(session, MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS)
+    for threshold in thresholds:
+        if overall_progress_percent >= threshold:
+            pending.append(PendingMilestone(MilestoneType.EXAM_OVERALL_PROGRESS, str(threshold)))
 
     return pending

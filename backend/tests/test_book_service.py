@@ -10,7 +10,7 @@ CLAUDE.md DRYの原則）。today はrecord_service等と同様に呼び出し�
 
 import datetime as dt
 
-from app.constants.enums import RecordState
+from app.constants.enums import GoalStatus, RecordState
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.record import DailyRecord, ReadingLog
@@ -169,3 +169,46 @@ def test_current_streak_ignores_other_books(db_session):
 
     assert progress.current_streak == 0
     assert progress.last_reading_date is None
+
+
+def test_count_completed_books_counts_closed_with_result_reading_goals_only(db_session):
+    """節目のお祝い機能向け（開発Todo_節目のお祝い_v1.0 M13）。読了＝CLOSED_WITH_RESULT、
+    進行中・一時停止中の読書目標や他種別の目標は数えない。"""
+    closed_goal = _make_reading_goal(db_session, name="読了済み")
+    closed_goal.status = GoalStatus.CLOSED_WITH_RESULT
+    _make_book(db_session, closed_goal)
+    active_goal = _make_reading_goal(db_session, name="進行中")
+    _make_book(db_session, active_goal)
+    db_session.flush()
+
+    assert book_service.count_completed_books(db_session) == 1
+
+
+def test_count_completed_books_is_zero_when_no_reading_goals(db_session):
+    assert book_service.count_completed_books(db_session) == 0
+
+
+def test_sum_cumulative_pages_read_uses_latest_page_per_book(db_session):
+    """各書籍の最新（日付降順の先頭）のcurrent_pageのみを合計する（get_book_progressと
+    同じ「1クエリで取得し先頭を採用」方式、開発Todo_節目のお祝い_v1.0 M13）。"""
+    goal_a = _make_reading_goal(db_session, name="読書目標A")
+    goal_b = _make_reading_goal(db_session, name="読書目標B")
+    book_a = _make_book(db_session, goal_a)
+    book_b = _make_book(db_session, goal_b)
+    _add_reading_log(db_session, book_a.id, dt.date(2026, 1, 1), current_page=50)
+    _add_reading_log(db_session, book_a.id, dt.date(2026, 1, 2), current_page=80)
+    _add_reading_log(db_session, book_b.id, dt.date(2026, 1, 3), current_page=120)
+
+    assert book_service.sum_cumulative_pages_read(db_session) == 200
+
+
+def test_sum_cumulative_pages_read_ignores_entries_without_a_page(db_session):
+    goal = _make_reading_goal(db_session)
+    book = _make_book(db_session, goal)
+    _add_reading_log(db_session, book.id, dt.date(2026, 1, 1), current_page=None)
+
+    assert book_service.sum_cumulative_pages_read(db_session) == 0
+
+
+def test_sum_cumulative_pages_read_is_zero_when_no_reading_logs(db_session):
+    assert book_service.sum_cumulative_pages_read(db_session) == 0
