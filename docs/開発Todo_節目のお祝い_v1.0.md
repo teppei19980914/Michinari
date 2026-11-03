@@ -20,7 +20,7 @@
 | M9 | 既存利用者への大量表示防止 | **Alembicマイグレーション自体には業務ロジックを持たせない**（既存の全マイグレーションがスキーマ変更のみという規約に合わせる）。代わりに`app_setting`の一度きりフラグ`milestone.backfill_completed`（BOOLEAN、既定`false`）を新設し、`main.py`の`bootstrap_database()`（`run_all(session)`の直後、既存の`ai_logger.purge_expired`と同じ起動時一括処理の位置）から`milestone_service_common.backfill_achievements_if_needed`を呼ぶ。フラグが`true`なら即return、`false`なら全目標の現在到達済み節目を通常判定と同じ関数で算出し`achieved_at`=`celebrated_at`=現在時刻でINSERTしてフラグを`true`にする（新規インストールでも目標0件のため実質無害に完了する） |
 | M10 | 一覧の設置場所 | **分析画面（Analyticsページ）に新規セクションを追加。ダッシュボードには置かない。** 理由：ダッシュボードは初期表示2秒以内の性能要件があり、節目一覧は「振り返り」用途で分析画面の役割に合致する |
 | M11 | 道のりマップへの重ね表示 | **本件のスコープ外とする（検討した上で見送り）。** 既存の`feedbackMarks`/`replanMarks`は道のりマップ専用のデータ構造（山・道・足跡それぞれの図形上の位置計算）であり、統合には追加設計が必要になる。後続の開発Todoとして切り出す候補として明記し、本件では分析画面の一覧のみを実装する |
-| M12 | データ管理・エクスポートJSONへの含有 | 新規テーブルは全データバックアップ/エクスポート（`Base.metadata`を動的に辿る既存方式）に自動的に含まれるため追加コード不要。`export.py`の`DATA_SCHEMA_VERSION`を`1.5`→`1.6`へ上げる。匿名化ナレッジエクスポート（AI向け、`export_service_*`）には**含めない**（AIの目標相談・日次フィードバックの文脈に不要なため） |
+| M12 | データ管理・エクスポートJSONへの含有 | 新規テーブルは全データバックアップ/エクスポート（`Base.metadata`を動的に辿る既存方式）に自動的に含まれるため追加コード不要。`backup_service.py`の`DATA_SCHEMA_VERSION`を`1.5`→`1.6`へ上げる。匿名化ナレッジエクスポート（AI向け、`export_service_*`）には**含めない**（AIの目標相談・日次フィードバックの文脈に不要なため） |
 | M13 | 累計ページ数・読了冊数のスコープ | **目標単位ではなく利用者の読書全体（lifetime）の累計とする。** `Book.goal_id`にUNIQUE制約があり1目標=1冊のため、「累計ページ数」「読了冊数」は1冊の範囲では意味が小さい（依頼文の閾値例`500・1000・3000…`は複数冊分を想定した値）。読了冊数＝`category=READING`かつ`status=CLOSED_WITH_RESULT`の目標数（`goal_service_lifecycle.py`の既存の「読了」概念と同じ）、累計ページ数＝全READING目標の書籍の現在ページの合計（`book_service.py`に`count_completed_books`・`sum_cumulative_pages_read`を新規追加）。**既知の簡略化**：`GoalMilestoneAchievement.goal_id`は到達を検知した「そのときに記録していた目標」に紐付ける（lifetime集計のため本来は特定の1目標に属さないが、スキーマを複雑にしない簡略化。分析画面の一覧はその目標の下にのみ表示される。§6リスクに記載） |
 | M14 | 資格「教材1周完了」の一意性 | `(goal_id, material_id, cycle_number)`を節目キーとし、`cycle_service`で`current_cycle`が増えた時点を検知する。同じ周回を二重に祝わないよう一意制約で保証する |
 | M15 | バックエンドのファイル分割方針 | `CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`は3種別共通（M1）のため`milestone_service_common.py`が判定も担う。種別固有の判定（読書のページ数/冊数、資格の周回/進捗率、仕事の件数/評価期間）は内容が大きく異なるため、置き場所ルール（CODING_RULES.md）の分割規約に従い`milestone_service_exam.py`／`milestone_service_reading.py`／`milestone_service_work.py`へ分ける（4ファイル構成） |
@@ -43,7 +43,7 @@
 | 起動時バックフィル | `app/main.py`（`bootstrap_database`）、`app/constants/app_setting_keys.py`（`MILESTONE_BACKFILL_COMPLETED`追加）、`app/init/seed_data.py`（既定値`false`を追加） | `run_all(session)`の直後で`milestone_service_common.backfill_achievements_if_needed`を呼ぶ（M9） |
 | 新規サービス | `app/services/milestone_service_common.py`（閾値パース、CRUD、未祝い一覧取得、祝い済み更新、バックフィル、`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`の判定＝`metrics_service.compute_consecutive_report_days`呼び出し＋`DailyRecord`の累計REPORTED件数カウント）／`milestone_service_exam.py`（`cycle_service`/`metrics_service`を使い教材1周完了・全体進捗率を判定）／`milestone_service_reading.py`（`book_service`を使い累計ページ数・読了冊数を判定）／`milestone_service_work.py`（`work_service`を使い記録件数・評価期間完走を判定） | 種別固有の判定ロジックを追加。共通部分は`milestone_service_common.py`が一括で担う |
 | 既存サービス拡張 | `app/services/book_service.py` | `count_completed_books`・`sum_cumulative_pages_read`追加（lifetime集計、M13） |
-| 既存サービス拡張 | `app/services/export.py` | `DATA_SCHEMA_VERSION`を`1.6`へ（M12） |
+| 既存サービス拡張 | `app/services/backup_service.py` | `DATA_SCHEMA_VERSION`を`1.6`へ（M12） |
 | 新規API | `app/schemas/milestone.py`、`app/api/milestones.py`（`GET /goals/{goal_id}/milestones`＝全履歴一覧、`GET /goals/{goal_id}/milestones/pending-celebrations`＝未お祝いの節目〈読み取りのみ、副作用なし〉、`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`＝お祝い済みにする）、`app/main.py`（登録） | 追加 |
 | 既存API拡張 | `app/api/records.py`（記録確定エンドポイント） | 記録確定の直後に新規到達節目を判定するトリガー呼び出しを追加（既存のレスポンスへ影響を与えず、別エンドポイントで取得させる設計のため変更は呼び出し追加のみ） |
 | テスト | `backend/tests/` | 新規（`test_milestone_service_*.py`、`test_api_milestones.py`、マイグレーションの適用テスト） |
@@ -106,7 +106,7 @@
 | 存在しない`goal_id`/`milestone_id`の指定による予期しない情報露出 | T/I | 既存の目標取得パターンに合わせ、存在しない場合はドメイン例外→404（他画面と同一のエラー変換経路） | `api/milestones.py` |
 | クライアントから`achieved_at`等の計算値を直接書き込めること | T | `POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`は`celebrated_at`のみサーバー側で更新し、他フィールドはリクエストボディで受け取らない（判定・算出はサーバー側の`milestone_service_*`のみが行う）。到達判定自体は`finalize`系POSTの副作用として行い、GETに副作用を持たせない | `api/milestones.py`、`api/records.py`、`schemas/milestone.py` |
 | 記録確定ごとの節目判定によるDoS相当の負荷増 | D | 既存のstreak/進捗算出関数を1回呼ぶのみで軽量。ダッシュボードの2秒要件には含めない（記録確定後の別エンドポイントでのみ発生） | `milestone_service_common.py` |
-| エクスポートJSON経由の情報漏洩 | I | 新規テーブルの内容は進捗情報のみで機密性は既存の目標データと同水準。既存の全データエクスポート（ローカルファイルのみ、外部送信なし）と同じ扱いとし追加対策なし（Accept） | `export.py` |
+| エクスポートJSON経由の情報漏洩 | I | 新規テーブルの内容は進捗情報のみで機密性は既存の目標データと同水準。既存の全データエクスポート（ローカルファイルのみ、外部送信なし）と同じ扱いとし追加対策なし（Accept） | `backup_service.py` |
 | なりすまし・否認 | S/R | ローカル単一利用者アプリのため対象外（Accept。既存の目標CRUDも同様の前提） | ― |
 
 受容したリスク：S（なりすまし）・R（否認）は、単一利用者・ローカル実行という既存アーキテクチャ全体の前提により対象外とする。
@@ -122,22 +122,22 @@
 
 ### 3.3 バックエンド実装
 
-- [ ] B-01 `enums.py`に`MilestoneType`追加
-- [ ] B-02 `app_setting_keys.py`に閾値6キー追加＋`seed_data.py`の初期値投入（既存DBにも不足分のみ投入される既存の仕組みに乗せる）
-- [ ] B-02b `setting_reader.py`に`get_int_list`追加。`settings_service.py`に`MilestoneThresholdSettings`を追加し`AppSettings`/`get_app_settings`/`update_app_settings`へ配線（カンマ区切りの検証：整数のみ・昇順・重複禁止）。`schemas/setting.py`にスキーマ追加
-- [ ] B-03 `models/milestone.py`：`GoalMilestoneAchievement`モデル
-- [ ] B-04 マイグレーション：`create_table`のみ（業務ロジックを持たせない、M9）
-- [ ] B-05 マイグレーションの適用テスト（既存データ＝他テーブルの既存行がある状態で適用し、エラーにならず既存行が保持されることを確認。新規テーブルのみの追加のため`CODING_RULES.md`の対象外だが、念のため確認する）
-- [ ] B-06 `milestone_service_common.py`：閾値パース、`GoalMilestoneAchievement`のCRUD、未祝い一覧取得、祝い済み更新、`backfill_achievements_if_needed`（起動時バックフィル、M9）、`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`の判定（3種別共通、`metrics_service.compute_consecutive_report_days`＋累計REPORTED件数カウント）
-- [ ] B-06b `app_setting_keys.py`に`MILESTONE_BACKFILL_COMPLETED`追加＋`seed_data.py`の初期値（`false`）投入、`main.py`の`bootstrap_database`から`backfill_achievements_if_needed`を呼ぶ配線＋テスト（既存目標がある状態での初回起動で大量表示されないことを検証）
-- [ ] B-07 `milestone_service_exam.py`：全体進捗率・教材1周完了の判定（連続/累計記録日数はB-06の共通判定を利用）
-- [ ] B-08 `milestone_service_reading.py`：累計ページ数・読了冊数の判定（連続/累計記録日数はB-06の共通判定を利用）
-- [ ] B-09 `milestone_service_work.py`：記録件数・評価期間完走の判定（連続/累計記録日数はB-06の共通判定を利用）
-- [ ] B-10 `book_service.py`に`count_completed_books`・`sum_cumulative_pages_read`追加（lifetime集計、M13）
-- [ ] B-11 `api/records.py`の3つのfinalize系POST（`finalize_record`／`finalize_reading_record`／`finalize_work_record`）から、既存の`session.commit()`より前に対象カテゴリのACTIVE目標それぞれへ`milestone_service_common.detect_and_record_new_achievements`を呼ぶ（GETには副作用を持たせない。確定処理自体のレスポンスは変えない）
-- [ ] B-12 `schemas/milestone.py`、`api/milestones.py`（`GET /goals/{goal_id}/milestones`＝全履歴、`GET /goals/{goal_id}/milestones/pending-celebrations`＝未お祝い〈読み取りのみ〉、`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`の3エンドポイント）、`main.py`登録
-- [ ] B-13 `export.py`の`DATA_SCHEMA_VERSION`を`1.6`へ
-- [ ] B-14 セキュリティテスト：他者の目標IDを指定した節目取得・お祝い済み更新の認可境界（目標の所有確認）
+- [x] B-01 `enums.py`に`MilestoneType`追加（2026-11-04）
+- [x] B-02 `app_setting_keys.py`に閾値6キー追加＋`seed_data.py`の初期値投入（既存DBにも不足分のみ投入される既存の仕組みに乗せる）（2026-11-04）
+- [x] B-02b `setting_reader.py`に`get_int_list`追加。`settings_service.py`に`MilestoneThresholdSettings`を追加し`AppSettings`/`get_app_settings`/`update_app_settings`へ配線（カンマ区切りの検証：整数のみ・昇順・重複禁止）。`schemas/setting.py`・`api/settings.py`にスキーマ・配線を追加（2026-11-04）
+- [x] B-03 `models/milestone.py`：`GoalMilestoneAchievement`モデル（2026-11-04）
+- [x] B-04 マイグレーション：`create_table`のみ（業務ロジックを持たせない、M9）。リビジョン`80bf9d322947`（2026-11-04）
+- [x] B-05 マイグレーションの適用確認（新規テーブルのみの追加のため`CODING_RULES.md`の「既存データに対する安全性」テストの対象外。セッション単位の`_migrated_database`フィクスチャが全テスト実行の都度`alembic upgrade head`を検証しており、本リビジョンを含むフルチェーンの適用に問題がないことを確認済み。専用の追加テストは書かない、2026-11-04）
+- [x] B-06 `milestone_service_common.py`：閾値パース、`GoalMilestoneAchievement`のCRUD、未祝い一覧取得、祝い済み更新、`backfill_achievements_if_needed`（起動時バックフィル、M9）、`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`の判定（3種別共通、`metrics_service.compute_consecutive_report_days`＋累計REPORTED件数カウント）。テスト`test_milestone_service_common.py`12件、カバレッジ100%（2026-11-04）
+- [x] B-06b `app_setting_keys.py`に`MILESTONE_BACKFILL_COMPLETED`追加＋`seed_data.py`の初期値（`false`）投入、`main.py`の`bootstrap_database`から`backfill_achievements_if_needed`を呼ぶ配線（既存目標がある状態での初回起動で大量表示されないことを`test_backfill_marks_existing_milestones_as_already_celebrated`で検証。配線自体は`client`フィクスチャ経由の全APIテストでTestClient起動時に実行され自動的にカバレッジへ含まれる）（2026-11-04）
+- [x] B-07 `milestone_service_exam.py`：全体進捗率・教材1周完了の判定（連続/累計記録日数はB-06の共通判定を利用）。テスト5件、カバレッジ100%（2026-11-04）
+- [x] B-08 `milestone_service_reading.py`：累計ページ数・読了冊数の判定（連続/累計記録日数はB-06の共通判定を利用）。テスト3件、カバレッジ100%（2026-11-04）
+- [x] B-09 `milestone_service_work.py`：記録件数・評価期間完走の判定（連続/累計記録日数はB-06の共通判定を利用）。テスト6件、カバレッジ100%（2026-11-04）
+- [x] B-10 `book_service.py`に`count_completed_books`・`sum_cumulative_pages_read`追加（lifetime集計、M13）。テスト5件追加（2026-11-04）
+- [x] B-11 `api/records.py`の3つのfinalize系POST（`finalize_record`／`finalize_reading_record`／`finalize_work_record`）から、既存の`session.commit()`より前に対象カテゴリのACTIVE目標それぞれへ`milestone_service_common.detect_and_record_new_achievements`を呼ぶ（GETには副作用を持たせない。確定処理自体のレスポンスは変えない）。既存のrecordsテスト44件が無回帰で通過することを確認（2026-11-04）
+- [x] B-12 `schemas/milestone.py`、`api/milestones.py`（`GET /goals/{goal_id}/milestones`＝全履歴、`GET /goals/{goal_id}/milestones/pending-celebrations`＝未お祝い〈読み取りのみ〉、`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`の3エンドポイント）、`main.py`登録。テスト`test_api_milestones.py`8件、カバレッジ100%（2026-11-04）
+- [x] B-13 `backup_service.py`の`DATA_SCHEMA_VERSION`を`1.6`へ（2026-11-04）
+- [x] B-14 セキュリティテスト：他者の目標IDを指定した節目取得・お祝い済み更新の認可境界（目標の所有確認）。`test_celebrate_rejects_milestone_belonging_to_another_goal`等で検証（2026-11-04）
 
 ### 3.4 フロントエンド実装
 
@@ -202,7 +202,7 @@
 | 記録確定の都度、節目判定でDBクエリが増え記録確定のレスポンスが遅くなる | 判定は既存のstreak/進捗算出関数の再利用のみ（N+1を避け、目標1件につき必要な集計を1回で取得）。ダッシュボードの初期表示（2秒以内要件）には判定を入れない（記録確定後の別エンドポイントでのみ発生） |
 | 複数の節目に同時到達した際にモーダルが連続表示され体験を損ねる | キュー方式（M6）で1件ずつ表示 |
 | カンマ区切り文字列のパース失敗（運用で不正な値を設定画面に入力） | `milestone_service_common.py`でパース失敗時は該当閾値を無視してログに記録し、機能全体を停止させない |
-| `DATA_SCHEMA_VERSION`更新漏れによる旧バージョンとの非互換エクスポート | `export.py`の改訂履歴コメントに追記し、テストで版数と`_IMPORTABLE_SCHEMA_VERSIONS`の整合を確認 |
+| `DATA_SCHEMA_VERSION`更新漏れによる旧バージョンとの非互換エクスポート | `backup_service.py`の改訂履歴コメントに追記し、テストで版数と`_IMPORTABLE_SCHEMA_VERSIONS`の整合を確認 |
 | 読書の累計ページ数・読了冊数（lifetime集計、M13）が「記録していた目標」に紐付くため、過去に読了した別の本（別目標）を見返しているときにその節目の記録が表示されない | 受容する（既知の簡略化。スキーマに`category`列やnullable `goal_id`を追加して利用者全体の節目として扱う案は本件の範囲外とし、後続の開発Todoの候補として記録） |
 
 ## 7. 完了の定義

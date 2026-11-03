@@ -761,6 +761,17 @@
       "warningRatioLabel": "Warning ratio (%)",
       "replanOverrunDaysLabel": "Forced replan overrun days"
     },
+    "milestoneThreshold": {
+      "title": "Milestone thresholds",
+      "description": "Enter a comma-separated list (e.g. 3,7,14).",
+      "consecutiveDaysThresholdsLabel": "Consecutive record days milestones (shared across all 3 categories)",
+      "totalRecordDaysThresholdsLabel": "Total record days milestones (shared across all 3 categories)",
+      "readingTotalPagesThresholdsLabel": "Reading: total pages milestones",
+      "readingCompletedBooksThresholdsLabel": "Reading: completed books milestones",
+      "examOverallProgressThresholdsLabel": "Exam: overall progress (%) milestones",
+      "workRecordCountThresholdsLabel": "Work: record count milestones",
+      "invalid": "Enter a comma-separated list of positive integers (e.g. 3,7,14)."
+    },
     "promptDegradation": {
       "title": "Prompt degradation",
       "maxPromptCharsLabel": "Input limit (characters)",
@@ -1207,6 +1218,45 @@
       "empty": "No comments",
       "newPlaceholder": "Enter a comment",
       "addButton": "Add"
+    }
+  },
+  "milestone": {
+    "celebration": {
+      "title": "Milestone reached",
+      "closeButton": "Close"
+    },
+    "message": {
+      "consecutiveDays": {
+        "one": "You've recorded for {{count}} day in a row.",
+        "other": "You've recorded for {{count}} days in a row."
+      },
+      "totalRecordDays": {
+        "one": "You've recorded for {{count}} day in total.",
+        "other": "You've recorded for {{count}} days in total."
+      },
+      "readingTotalPages": {
+        "one": "You've read {{count}} page so far.",
+        "other": "You've read {{count}} pages so far."
+      },
+      "readingCompletedBooks": {
+        "one": "You've finished {{count}} book so far.",
+        "other": "You've finished {{count}} books so far."
+      },
+      "examMaterialCycleCompleted": {
+        "one": "You've completed {{count}} full round of this material.",
+        "other": "You've completed {{count}} full rounds of this material."
+      },
+      "examOverallProgress": "Your overall progress has reached {{count}}%.",
+      "workRecordCount": {
+        "one": "You've logged {{count}} entry so far.",
+        "other": "You've logged {{count}} entries so far."
+      },
+      "workEvaluationPeriodCompleted": "You kept logging entries throughout the evaluation period."
+    },
+    "list": {
+      "title": "Milestones",
+      "empty": "No milestones recorded yet.",
+      "achievedAt": "Reached on {{date}}"
     }
   },
   "analytics": {
