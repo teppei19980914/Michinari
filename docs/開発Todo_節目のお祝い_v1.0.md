@@ -44,7 +44,7 @@
 | 新規サービス | `app/services/milestone_service_common.py`（閾値パース、CRUD、未祝い一覧取得、祝い済み更新、バックフィル、`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`の判定＝`metrics_service.compute_consecutive_report_days`呼び出し＋`DailyRecord`の累計REPORTED件数カウント）／`milestone_service_exam.py`（`cycle_service`/`metrics_service`を使い教材1周完了・全体進捗率を判定）／`milestone_service_reading.py`（`book_service`を使い累計ページ数・読了冊数を判定）／`milestone_service_work.py`（`work_service`を使い記録件数・評価期間完走を判定） | 種別固有の判定ロジックを追加。共通部分は`milestone_service_common.py`が一括で担う |
 | 既存サービス拡張 | `app/services/book_service.py` | `count_completed_books`・`sum_cumulative_pages_read`追加（lifetime集計、M13） |
 | 既存サービス拡張 | `app/services/export.py` | `DATA_SCHEMA_VERSION`を`1.6`へ（M12） |
-| 新規API | `app/schemas/milestone.py`、`app/api/milestones.py`（`GET /goals/{id}/milestones`＝一覧、`GET /milestones/pending-celebrations`＝未お祝いの節目、`POST /milestones/{id}/celebrate`＝お祝い済みにする）、`app/main.py`（登録） | 追加 |
+| 新規API | `app/schemas/milestone.py`、`app/api/milestones.py`（`GET /goals/{goal_id}/milestones`＝全履歴一覧、`GET /goals/{goal_id}/milestones/pending-celebrations`＝未お祝いの節目〈読み取りのみ、副作用なし〉、`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`＝お祝い済みにする）、`app/main.py`（登録） | 追加 |
 | 既存API拡張 | `app/api/records.py`（記録確定エンドポイント） | 記録確定の直後に新規到達節目を判定するトリガー呼び出しを追加（既存のレスポンスへ影響を与えず、別エンドポイントで取得させる設計のため変更は呼び出し追加のみ） |
 | テスト | `backend/tests/` | 新規（`test_milestone_service_*.py`、`test_api_milestones.py`、マイグレーションの適用テスト） |
 
@@ -99,12 +99,12 @@
 
 - [x] P-01 `/threat-model` でSTRIDE分析（新規APIエンドポイント・新規テーブルが対象、結果は直下に記載）
 
-**STRIDE分析結果（2026-11-02）**：本アプリはローカル単一利用者向け（`User`モデルが存在せず、マルチテナント境界が無い）。新規3エンドポイント（`GET /goals/{id}/milestones`・`GET /milestones/pending-celebrations`・`POST /milestones/{id}/celebrate`）は既存の目標CRUDと同じ信頼境界（ブラウザ↔localhost限定のFastAPI）に収まる。
+**STRIDE分析結果（2026-11-02）**：本アプリはローカル単一利用者向け（`User`モデルが存在せず、マルチテナント境界が無い）。新規3エンドポイント（`GET /goals/{goal_id}/milestones`・`GET /goals/{goal_id}/milestones/pending-celebrations`・`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`）は既存の目標CRUDと同じ信頼境界（ブラウザ↔localhost限定のFastAPI）に収まる。
 
 | 脅威 | カテゴリ | 対策 | 実装箇所 |
 | --- | --- | --- | --- |
 | 存在しない`goal_id`/`milestone_id`の指定による予期しない情報露出 | T/I | 既存の目標取得パターンに合わせ、存在しない場合はドメイン例外→404（他画面と同一のエラー変換経路） | `api/milestones.py` |
-| クライアントから`achieved_at`等の計算値を直接書き込めること | T | `POST /milestones/{id}/celebrate`は`celebrated_at`のみサーバー側で更新し、他フィールドはリクエストボディで受け取らない（判定・算出はサーバー側の`milestone_service_*`のみが行う） | `api/milestones.py`、`schemas/milestone.py` |
+| クライアントから`achieved_at`等の計算値を直接書き込めること | T | `POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`は`celebrated_at`のみサーバー側で更新し、他フィールドはリクエストボディで受け取らない（判定・算出はサーバー側の`milestone_service_*`のみが行う）。到達判定自体は`finalize`系POSTの副作用として行い、GETに副作用を持たせない | `api/milestones.py`、`api/records.py`、`schemas/milestone.py` |
 | 記録確定ごとの節目判定によるDoS相当の負荷増 | D | 既存のstreak/進捗算出関数を1回呼ぶのみで軽量。ダッシュボードの2秒要件には含めない（記録確定後の別エンドポイントでのみ発生） | `milestone_service_common.py` |
 | エクスポートJSON経由の情報漏洩 | I | 新規テーブルの内容は進捗情報のみで機密性は既存の目標データと同水準。既存の全データエクスポート（ローカルファイルのみ、外部送信なし）と同じ扱いとし追加対策なし（Accept） | `export.py` |
 | なりすまし・否認 | S/R | ローカル単一利用者アプリのため対象外（Accept。既存の目標CRUDも同様の前提） | ― |
@@ -134,8 +134,8 @@
 - [ ] B-08 `milestone_service_reading.py`：累計ページ数・読了冊数の判定（連続/累計記録日数はB-06の共通判定を利用）
 - [ ] B-09 `milestone_service_work.py`：記録件数・評価期間完走の判定（連続/累計記録日数はB-06の共通判定を利用）
 - [ ] B-10 `book_service.py`に`count_completed_books`・`sum_cumulative_pages_read`追加（lifetime集計、M13）
-- [ ] B-11 記録確定APIから新規到達節目の判定トリガーを呼び出す（確定処理のレスポンス自体は変えず、別途一覧取得で反映させる）
-- [ ] B-12 `schemas/milestone.py`、`api/milestones.py`（一覧・未お祝い取得・お祝い済み更新の3エンドポイント）、`main.py`登録
+- [ ] B-11 `api/records.py`の3つのfinalize系POST（`finalize_record`／`finalize_reading_record`／`finalize_work_record`）から、既存の`session.commit()`より前に対象カテゴリのACTIVE目標それぞれへ`milestone_service_common.detect_and_record_new_achievements`を呼ぶ（GETには副作用を持たせない。確定処理自体のレスポンスは変えない）
+- [ ] B-12 `schemas/milestone.py`、`api/milestones.py`（`GET /goals/{goal_id}/milestones`＝全履歴、`GET /goals/{goal_id}/milestones/pending-celebrations`＝未お祝い〈読み取りのみ〉、`POST /goals/{goal_id}/milestones/{milestone_id}/celebrate`の3エンドポイント）、`main.py`登録
 - [ ] B-13 `export.py`の`DATA_SCHEMA_VERSION`を`1.6`へ
 - [ ] B-14 セキュリティテスト：他者の目標IDを指定した節目取得・お祝い済み更新の認可境界（目標の所有確認）
 
@@ -163,12 +163,12 @@
 
 ## 4. 処理フロー（確定版）
 
-1. 記録確定（日次報告・読書ログ・仕事ログいずれか）の直後、フロントエンドが `GET /milestones/pending-celebrations?goal_id=...` を呼ぶ。
-2. バックエンドは`milestone_service_common.py`で3種別共通の`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`を判定し、対象目標のカテゴリに応じた`milestone_service_<category>.py`で種別固有の節目（`metrics_service`/`book_service`/`work_service`/`cycle_service`の既存算出関数を利用）を判定し、§4閾値一覧と比較する。
-3. 到達済みだが`GoalMilestoneAchievement`に未登録の節目があれば、`achieved_at`=現在時刻・`celebrated_at`=NULLで新規登録し、レスポンスに含める。
-4. フロントエンドは返された節目をキューに積み、1件ずつ`MilestoneCelebrationModal`で表示する（閾値の種別とカテゴリから`milestoneContent.ts`が文言・アイコンを解決）。
-5. 利用者がモーダルを閉じるたびに `POST /milestones/{id}/celebrate` を呼び、`celebrated_at`を記録する。キューの次の節目があれば表示する。
-6. 分析画面の「節目の記録」セクションは `GET /goals/{id}/milestones` で全履行済み節目（お祝い済み・未済問わず）を取得して一覧表示する。
+1. 記録確定（資格・読書・仕事いずれかの`finalize`系POST）が成功すると、既存の`session.commit()`の前に、対象カテゴリのACTIVE目標それぞれについて`milestone_service_common.detect_and_record_new_achievements`を呼ぶ（確定処理と同じトランザクション。確定処理自体のレスポンスは変えない）。
+2. この関数は`milestone_service_common.py`で3種別共通の`CONSECUTIVE_DAYS`/`TOTAL_RECORD_DAYS`を判定し、対象目標のカテゴリに応じた`milestone_service_<category>.py`で種別固有の節目（`metrics_service`/`book_service`/`work_service`/`cycle_service`の既存算出関数を利用）を判定し、§4閾値一覧と比較する。
+3. 到達済みだが`GoalMilestoneAchievement`に未登録の節目があれば、`achieved_at`=現在時刻・`celebrated_at`=NULLで新規登録する（finalize系POSTの副作用としてここで確定。以降のGETはこの結果を読むだけ）。
+4. フロントエンドは記録確定の成功後に`GET /goals/{goal_id}/milestones/pending-celebrations`（読み取りのみ、副作用なし）を呼び、返された節目をキューに積んで1件ずつ`MilestoneCelebrationModal`で表示する（閾値の種別とカテゴリから`milestoneContent.ts`が文言・アイコンを解決）。
+5. 利用者がモーダルを閉じるたびに `POST /goals/{goal_id}/milestones/{milestone_id}/celebrate` を呼び、`celebrated_at`を記録する。キューの次の節目があれば表示する。
+6. 分析画面の「節目の記録」セクションは `GET /goals/{goal_id}/milestones` で全履行済み節目（お祝い済み・未済問わず）を取得して一覧表示する。
 7. 起動時バックフィル（`bootstrap_database`、`milestone.backfill_completed`が`false`の間のみ）：全目標について現在到達している節目を一括算出し、`achieved_at`=`celebrated_at`=起動時刻で登録してフラグを`true`にする（以後の新規お祝いはこの初回起動より後に新たに到達する節目のみになる）。
 
 ### 閾値一覧（初期値、すべて`app_setting`の`AppSettingValueType.STRING`・カンマ区切り）

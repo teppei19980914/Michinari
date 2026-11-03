@@ -192,8 +192,8 @@ def test_default_semiannual_period_key(today, expected):
 
 
 def test_previous_semiannual_period_key():
-    assert work_report_service._previous_semiannual_period_key("2026-H1") == "2025-H2"
-    assert work_report_service._previous_semiannual_period_key("2026-H2") == "2026-H1"
+    assert work_report_service.previous_semiannual_period_key("2026-H1") == "2025-H2"
+    assert work_report_service.previous_semiannual_period_key("2026-H2") == "2026-H1"
 
 
 def test_semiannual_period_range_h1():
