@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.constants.domain import CONTEXT_CATEGORIES_BY_PURPOSE
-from app.constants.enums import AiPurpose
+from app.constants.enums import AiPurpose, GoalCategory
 from app.database import get_db
 from app.models.record import DailyRecord
 from app.schemas.record import (
@@ -44,6 +44,7 @@ from app.schemas.record import (
 from app.services import (
     daily_feedback_service,
     goal_service,
+    milestone_service_common,
     reading_feedback_service,
     record_service_common,
     record_service_exam,
@@ -250,6 +251,7 @@ def finalize_record(
         _to_diary_entry_items(payload.diary_entries),
         today,
     )
+    milestone_service_common.detect_and_record_for_category(session, GoalCategory.EXAM, today)
     session.commit()
     return _serialize_record(session, target_date, record)
 
@@ -265,6 +267,7 @@ def finalize_reading_record(
     record = record_service_reading.finalize_reading_record(
         session, target_date, _to_reading_log_items(payload.reading_logs), today
     )
+    milestone_service_common.detect_and_record_for_category(session, GoalCategory.READING, today)
     session.commit()
     return _serialize_record(session, target_date, record)
 
@@ -278,6 +281,7 @@ def finalize_work_record(
     record = record_service_work.finalize_work_record(
         session, target_date, _to_work_log_items(payload.work_logs), today
     )
+    milestone_service_common.detect_and_record_for_category(session, GoalCategory.WORK, today)
     session.commit()
     return _serialize_record(session, target_date, record)
 
