@@ -1,3 +1,4 @@
+import { Button } from '../../components/Button'
 import { Modal } from '../../components/Modal'
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion'
 import { CHARACTER_ICONS } from '../../constants/characterIcons'
@@ -54,13 +55,9 @@ export function MilestoneCelebrationModal({ milestone, onClose }: MilestoneCeleb
           <p className="text-center text-base font-medium text-text-primary">
             {resolveMilestoneMessage(milestone.achievement)}
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-          >
+          <Button type="button" onClick={onClose}>
             {t('milestone.celebration.closeButton')}
-          </button>
+          </Button>
         </div>
       )}
     </Modal>
