@@ -8,6 +8,7 @@ import {
   finalizeWorkRecord,
   type DailyRecordRead,
 } from '../../api/records'
+import type { GoalCategory } from '../../api/goals'
 import { invalidateDailyRecordCaches } from './invalidateDailyRecordCaches'
 import {
   isAllCategoriesReported,
@@ -42,6 +43,11 @@ export type ZeroRecordActionOptions = {
   presence: CategoryPresence
   /** 確定後に表示するトースト文言（日種別で決まる。resolveZeroRecordMessage）。 */
   message: string
+  /** カテゴリ別の目標ID（useDailyReportActionsのgoalIdsByCategory）。確定後の節目チェックに使う。 */
+  goalIdsByCategory: Record<GoalCategory, number | null>
+  /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0
+   * §4）。モーダル表示自体は呼び出し元（DailyReportPage）が持つキューが行う。 */
+  checkMilestones?: (goalId: number | null, category: GoalCategory) => void
 }
 
 /**
@@ -57,6 +63,8 @@ export function useZeroRecordAction({
   categories,
   presence,
   message,
+  goalIdsByCategory,
+  checkMilestones,
 }: ZeroRecordActionOptions): ZeroRecordAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -74,6 +82,9 @@ export function useZeroRecordAction({
     onSuccess: (record) => {
       invalidateDailyRecordCaches(queryClient, targetDate)
       showToast(message)
+      for (const category of categories) {
+        checkMilestones?.(goalIdsByCategory[category], category)
+      }
       if (record && isAllCategoriesReported(presence, toCategoryReportedState(record))) {
         navigate(ROUTES.dashboard)
       }

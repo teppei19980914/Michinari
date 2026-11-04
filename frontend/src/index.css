@@ -181,6 +181,27 @@ html {
   }
 }
 
+/* 節目のお祝い（開発Todo_節目のお祝い_v1.0 M7）：紙吹雪風のCSSオーバーレイ。新規イラストは
+   追加せず、既存のキャラクターアイコン＋この装飾のみで特別感を出す。要素自体を描画するか
+   どうかはJS側（usePrefersReducedMotion）で分岐するため、ここでは速度の制御のみを持つ。 */
+@keyframes milestone-confetti-fall {
+  0% {
+    transform: translateY(-10%) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(420%) rotate(360deg);
+    opacity: 0;
+  }
+}
+.milestone-confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 0.5rem;
+  height: 0.75rem;
+  animation: milestone-confetti-fall 2.2s ease-in forwards;
+}
+
 body {
   margin: 0;
   /* ページの地の色・既定文字色（UIリッチ化）。共通部品(Card等)だけでなく、画面本体の

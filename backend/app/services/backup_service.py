@@ -46,11 +46,16 @@ _BACKUP_NAME_PATTERN = re.compile(r"^backup_(\d{8}_\d{6})\.db$")
 #:      （添付ファイル機能、開発Todo_添付ファイル機能_v1.0）の追加。1.4以前の書き出しは
 #:      これら3テーブルを持たないため、インポート時は空に戻る（登録済み添付ファイルの
 #:      取り込みは対象外）。
-DATA_SCHEMA_VERSION = "1.5"
+#: 1.6: goal_milestone_achievement（節目のお祝い、開発Todo_節目のお祝い_v1.0）の追加。
+#:      1.5以前の書き出しはこのテーブルを持たないため、インポート時は空に戻る
+#:      （節目の履行履歴の取り込みは対象外。再度到達を判定した時点で新たに記録される）。
+DATA_SCHEMA_VERSION = "1.6"
 #: インポートで受け付ける版数。旧い版の書き出しは、テーブルや列が無いだけで形式は互換のため
 #: 受け入れる（欠けたテーブル・列は既定値で復元される。履歴は空になり、報告率の停止期間は
 #: 計算されない／相談履歴は空になる）。
-_IMPORTABLE_SCHEMA_VERSIONS = frozenset({"1.1", "1.2", "1.3", "1.4", DATA_SCHEMA_VERSION})
+_IMPORTABLE_SCHEMA_VERSIONS = frozenset(
+    {"1.1", "1.2", "1.3", "1.4", "1.5", DATA_SCHEMA_VERSION}
+)
 
 
 def database_path() -> Path:

@@ -60,6 +60,9 @@
 | POST | /goals/{id}/replan | 基準値を再設定（EXAMのみ） |
 | GET | /goals/{id}/baselines | リプラン履歴の取得（EXAMのみ） |
 | GET | /goals/{id}/roadmap | 道のりマップの詳細版（開発Todo「道のりマップ」v1.0、`GoalRoadmapRead`）。計画線・実績線・足跡・道標・リプラン目印・予備日・完了予測との乖離を、正規化された比率（0.0〜1.0）・日付で返す。新しい値はDBに保存せず、既存テーブル（教材・書籍・案件・AIフィードバック履歴等）から都度算出する（ロジック・プロンプト編25章） |
+| GET | /goals/{id}/milestones | 節目の履行履歴の全件（開発Todo「節目のお祝い」v1.0、1.1改64）。到達の新しい順。お祝い済み・未済を問わない（分析画面「節目の記録」用） |
+| GET | /goals/{id}/milestones/pending-celebrations | 未お祝い（`celebrated_at`がNULL）の節目。読み取りのみで、新たな到達判定は行わない（到達判定自体は記録確定のfinalize系POSTの副作用として行う） |
+| POST | /goals/{id}/milestones/{milestone_id}/celebrate | 指定した節目をお祝い済みにする（`celebrated_at`を現在時刻に更新） |
 
 **書籍（category=READINGの場合のみ）**
 

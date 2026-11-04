@@ -37,6 +37,7 @@ from app.api.goal_consultation import router as goal_consultation_router
 from app.api.goals import router as goals_router
 from app.api.help_assistant import router as help_assistant_router
 from app.api.materials import router as materials_router
+from app.api.milestones import router as milestones_router
 from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
@@ -55,6 +56,7 @@ from app.models.setting import AppSetting
 from app.services import (
     backup_service,
     goal_service,
+    milestone_service_common,
     recap_generation_service,
     weekly_summary_service,
 )
@@ -206,6 +208,7 @@ def bootstrap_database() -> None:
         run_all(session)
         today = goal_service.resolve_today(session)
         ai_logger.purge_expired(session, today)
+        milestone_service_common.backfill_achievements_if_needed(session, today)
         session.commit()
     finally:
         session.close()
@@ -229,6 +232,7 @@ def create_app() -> FastAPI:
     app.include_router(goals_router, prefix=API_V1_PREFIX)
     app.include_router(exam_templates_router, prefix=API_V1_PREFIX)
     app.include_router(materials_router, prefix=API_V1_PREFIX)
+    app.include_router(milestones_router, prefix=API_V1_PREFIX)
     app.include_router(work_members_router, prefix=API_V1_PREFIX)
     app.include_router(books_router, prefix=API_V1_PREFIX)
     app.include_router(recap_router, prefix=API_V1_PREFIX)

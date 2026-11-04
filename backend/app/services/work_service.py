@@ -144,3 +144,14 @@ def get_work_assignment_progress(
         current_streak=streak,
         has_recent_monthly_report=has_recent_monthly_report,
     )
+
+
+def count_work_records(session: Session, work_assignment: WorkAssignment) -> int:
+    """案件の記録件数（節目のお祝い機能向け、開発Todo_節目のお祝い_v1.0 M4）。
+
+    `WorkLog`の件数＝記録を確定した日数（1日1案件につき`WorkLog`は高々1件、
+    データ構造編5.4）。
+    """
+    return (
+        session.query(WorkLog.id).filter(WorkLog.work_assignment_id == work_assignment.id).count()
+    )
