@@ -15,6 +15,7 @@ import { ReplanHistoryTab } from '../features/analytics/ReplanHistoryTab'
 import { GrowthDescriptionTab } from '../features/analytics/GrowthDescriptionTab'
 import { ReadingLogHistoryTab } from '../features/analytics/ReadingLogHistoryTab'
 import { WorkLogHistoryTab } from '../features/analytics/WorkLogHistoryTab'
+import { MilestoneListTab } from '../features/analytics/MilestoneListTab'
 import {
   hasArchivedAnalyticsGoals,
   selectableAnalyticsGoals,
@@ -29,6 +30,7 @@ const EXAM_TABS = [
   { key: 'gantt', labelKey: 'analytics.tabs.gantt' },
   { key: 'replanHistory', labelKey: 'analytics.tabs.replanHistory' },
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
+  { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
 ] as const
 
 /** 読書目標（category=READING）は品質推移等の5タブ+リプラン履歴がMaterial（教材）に
@@ -36,12 +38,14 @@ const EXAM_TABS = [
 const READING_TABS = [
   { key: 'readingLog', labelKey: 'analytics.tabs.readingLog' },
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
+  { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
 ] as const
 
 /** 仕事目標（category=WORK）も読書と同じ理由で業務記録の一覧に置き換える（仕様書6.8補足）。 */
 const WORK_TABS = [
   { key: 'workLog', labelKey: 'analytics.tabs.workLog' },
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
+  { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
 ] as const
 
 type TabKey =
@@ -153,6 +157,9 @@ export function AnalyticsPage() {
 
       {activeTab === 'growthDescription' && selectedGoalId !== undefined && (
         <GrowthDescriptionTab goalId={selectedGoalId} goals={goals} />
+      )}
+      {activeTab === 'milestones' && selectedGoalId !== undefined && selectedGoal && (
+        <MilestoneListTab goalId={selectedGoalId} category={selectedGoal.category} />
       )}
     </div>
   )

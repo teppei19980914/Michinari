@@ -1274,7 +1274,8 @@
       "replanHistory": "Replan history",
       "growthDescription": "Growth notes",
       "readingLog": "Reading log",
-      "workLog": "Work log"
+      "workLog": "Work log",
+      "milestones": "Milestones"
     },
     "materialEmpty": "This goal has no active materials",
     "quality": {

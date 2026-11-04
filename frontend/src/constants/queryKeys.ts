@@ -38,11 +38,10 @@ export const QUERY_KEYS = {
   goal: (goalId: number | null) => ['goal', goalId] as const,
   goalSlotAllocations: (goalId: number) => ['goal-slot-allocations', goalId] as const,
   goalRoadmap: (goalId: number) => ['goal-roadmap', goalId] as const,
-  /** `goalMilestones()`の無効化で`goalMilestonesPending()`も無効化される
-   * （「前方一致に依存している組み合わせ」。お祝い済みに更新した直後、分析画面の一覧と
-   * モーダルのキューを両方最新化するため）。 */
+  /** 分析画面「節目の記録」一覧（開発Todo_節目のお祝い_v1.0）。未お祝いの節目はTanStack
+   * Queryのキャッシュを経由せず都度取得するため（useMilestoneCelebrationQueue）、
+   * 対応するキーは無い。 */
   goalMilestones: (goalId: number) => ['goal-milestones', goalId] as const,
-  goalMilestonesPending: (goalId: number) => ['goal-milestones', goalId, 'pending'] as const,
   materialSlotCheck: (materialId: number) => ['material-slot-check', materialId] as const,
   examTemplates: () => ['exam-templates'] as const,
 
