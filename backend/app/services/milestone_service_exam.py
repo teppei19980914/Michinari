@@ -13,11 +13,15 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS
 from app.constants.enums import MilestoneType
 from app.models.goal import Goal
-from app.services import cycle_service, material_service, metrics_service, setting_reader
-from app.services.milestone_service_common import PendingMilestone
+from app.services import cycle_service, material_service, metrics_service
+from app.services.milestone_service_common import PendingMilestone, threshold_milestones
 
 
 def detect_exam_milestones(session: Session, goal: Goal, today: dt.date) -> list[PendingMilestone]:
+    """資格試験目標の節目を判定する。`today`は他種別の判定関数と形を揺らせないための
+    引数で、ここでは使わない（教材1周完了・全体進捗率はいずれも日付に依存しない）。
+    有効な教材が1件も無い場合は空リストを返す。
+    """
     materials = material_service.list_active_materials(goal)
     if not materials:
         return []
@@ -41,9 +45,11 @@ def detect_exam_milestones(session: Session, goal: Goal, today: dt.date) -> list
     overall_progress_percent = (
         metrics_service.compute_goal_overall_progress_rate(materials, progresses) * 100
     )
-    thresholds = setting_reader.get_int_list(session, MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS)
-    for threshold in thresholds:
-        if overall_progress_percent >= threshold:
-            pending.append(PendingMilestone(MilestoneType.EXAM_OVERALL_PROGRESS, str(threshold)))
+    pending += threshold_milestones(
+        session,
+        MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS,
+        overall_progress_percent,
+        MilestoneType.EXAM_OVERALL_PROGRESS,
+    )
 
     return pending

@@ -222,3 +222,11 @@
   - 文書（要件定義書・仕様書・設計書データ構造編・設計書ロジック・プロンプト編・実装フェーズ分割計画書・OPERATIONS.md・README.md）を更新した。
   - §3の全チェックボックスのうちV-02〜V-04（実機確認）のみ未済。これらは判定ロジック自体は単体テストで検証済みだが、実際のブラウザ操作・既存DBコピーでの確認は利用者側の実機確認が必要（報告参照）。
   - 当初の調査（§1影響範囲フルスキャン）で判明した「連続日数の指標が2種類存在する」「読書・読了冊数がlifetime集計である」等の設計上の発見を§0 M1・M13の決定に反映し、依頼文の意図（既存の統計サマリに合わせる）を損なわない形で実装した。
+
+- 2026-11-05 コミット前チェック（観点別レビューエージェント5種並列実行）の結果反映
+  - vuln-scan.sh（OSV）：MEDIUM1件（`minimatch`、frontendのdevDependency、本機能と無関係の既存推移依存）のみ。CRITICAL/HIGHなし、対応不要と判断。
+  - injection-reviewer・label-checker：指摘なし（全DBアクセスがORM経由、画面文言は全てt()経由、ja.json/en.jsonのキー構造一致）。
+  - dry-reviewer（MEDIUM）：`milestone_service_common/_exam/_reading/_work.py`の6箇所で「閾値リストをループして比較する」同型パターンが重複。`milestone_service_common.py`に`threshold_milestones`ヘルパーを新設し6箇所を書き換えて解消。
+  - performance-reviewer（MEDIUM）：READING目標が複数ある場合、`detect_and_record_for_category`・`backfill_achievements_if_needed`のループ内で読書全体のlifetime集計（`sum_cumulative_pages_read`・`count_completed_books`、全件スキャン）が目標数だけ重複実行されていた。`milestone_service_reading.py`に`ReadingTotals`・`compute_reading_totals`を新設し、バッチ呼び出し元でループの前に1回だけ算出してから各目標の判定へ渡す方式に変更（回帰テスト2件追加）。
+  - style-reviewer（MEDIUM）：`detect_exam_milestones`・`detect_reading_milestones`・`detect_work_milestones`の3公開関数にdocstringが無かったため追記。
+  - 修正後、backend全体を再実行：2153件合格（新規6件追加）、カバレッジ100%、ruff 0件。フロントエンドは本ラウンドで変更なし（1508件合格・カバレッジ100%は前回確認のまま有効）。

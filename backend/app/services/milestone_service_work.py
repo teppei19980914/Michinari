@@ -15,8 +15,8 @@ from app.constants.app_setting_keys import MILESTONE_WORK_RECORD_COUNT_THRESHOLD
 from app.constants.enums import MilestoneType, RetrospectivePeriodType
 from app.models.goal import Goal
 from app.models.retrospective import GoalRetrospective
-from app.services import setting_reader, work_report_service, work_service
-from app.services.milestone_service_common import PendingMilestone
+from app.services import work_report_service, work_service
+from app.services.milestone_service_common import PendingMilestone, threshold_milestones
 
 
 def _monthly_keys_in_semiannual(period_key: str) -> list[str]:
@@ -50,16 +50,20 @@ def _recorded_every_month(session: Session, goal: Goal, period_key: str) -> bool
 
 
 def detect_work_milestones(session: Session, goal: Goal, today: dt.date) -> list[PendingMilestone]:
+    """仕事目標の節目を判定する。案件情報（`work_assignment`）が未登録の場合は空リストを
+    返す（記録件数・評価期間完走のいずれも案件情報を前提とするため）。
+    """
     work_assignment = goal.work_assignment
     if work_assignment is None:
         return []
 
-    pending: list[PendingMilestone] = []
-
     record_count = work_service.count_work_records(session, work_assignment)
-    for threshold in setting_reader.get_int_list(session, MILESTONE_WORK_RECORD_COUNT_THRESHOLDS):
-        if record_count >= threshold:
-            pending.append(PendingMilestone(MilestoneType.WORK_RECORD_COUNT, str(threshold)))
+    pending = threshold_milestones(
+        session,
+        MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
+        record_count,
+        MilestoneType.WORK_RECORD_COUNT,
+    )
 
     # 評価期間（直近に終了した半期）を通して月次報告を出し続けたことを祝う。進行中の
     # 半期（todayが属する期間）は対象外（期間が終わるまで「通して」出し続けたかどうかを
