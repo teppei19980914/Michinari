@@ -11,8 +11,12 @@ from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
+    from app.services import milestone_service_reading
 
 from app.constants.app_setting_keys import (
     MILESTONE_BACKFILL_COMPLETED,
@@ -55,35 +59,56 @@ def _count_total_record_days(session: Session, goal: Goal, today: dt.date) -> in
     )
 
 
+def threshold_milestones(
+    session: Session, key: str, current_value: int | float, milestone_type: MilestoneType
+) -> list[PendingMilestone]:
+    """`current_value`が設定キー`key`（カンマ区切りの閾値一覧）のいずれかの閾値以上であれば、
+    該当する閾値ごとに1件返す（種別ごとの判定関数から共通で呼ぶ、CODING_RULES.md①DRYの原則）。
+    """
+    return [
+        PendingMilestone(milestone_type, str(threshold))
+        for threshold in setting_reader.get_int_list(session, key)
+        if current_value >= threshold
+    ]
+
+
 def detect_common_milestones(
     session: Session, goal: Goal, today: dt.date
 ) -> list[PendingMilestone]:
     """3種別共通の節目（連続/累計記録日数）を判定する。閾値以上であれば、その閾値ごとに
     1件返す（既に`GoalMilestoneAchievement`にある分の除外は呼び出し元が行う）。
     """
-    pending: list[PendingMilestone] = []
-
     consecutive_days = metrics_service.compute_consecutive_report_days(
         session, goal, today, treat_holiday_as_buffer=True
     )
-    for threshold in setting_reader.get_int_list(session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS):
-        if consecutive_days >= threshold:
-            pending.append(PendingMilestone(MilestoneType.CONSECUTIVE_DAYS, str(threshold)))
-
     total_record_days = _count_total_record_days(session, goal, today)
-    for threshold in setting_reader.get_int_list(session, MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS):
-        if total_record_days >= threshold:
-            pending.append(PendingMilestone(MilestoneType.TOTAL_RECORD_DAYS, str(threshold)))
-
-    return pending
+    return threshold_milestones(
+        session,
+        MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS,
+        consecutive_days,
+        MilestoneType.CONSECUTIVE_DAYS,
+    ) + threshold_milestones(
+        session,
+        MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
+        total_record_days,
+        MilestoneType.TOTAL_RECORD_DAYS,
+    )
 
 
 def _detect_category_milestones(
-    session: Session, goal: Goal, today: dt.date
+    session: Session,
+    goal: Goal,
+    today: dt.date,
+    reading_totals: milestone_service_reading.ReadingTotals | None = None,
 ) -> list[PendingMilestone]:
     """種別固有の節目判定へディスパッチする（循環importを避けるため関数内でimportする。
     `milestone_service_<category>.py`はいずれも本モジュールの`PendingMilestone`/CRUDに
     依存するため、モジュール先頭でのimportは循環になる）。
+
+    `reading_totals`はREADING種別向けのlifetime集計（累計ページ数・読了冊数、利用者の
+    読書全体が対象）の事前計算結果。複数のREADING目標を1回のバッチ処理で判定する
+    呼び出し元（`detect_and_record_for_category`・`backfill_achievements_if_needed`）が、
+    目標数に関わらず集計を1回だけ行うために渡す（省略時はこの関数が都度算出する）。
     """
     from app.services import (
         milestone_service_exam,
@@ -94,7 +119,9 @@ def _detect_category_milestones(
     if goal.category == GoalCategory.EXAM:
         return milestone_service_exam.detect_exam_milestones(session, goal, today)
     if goal.category == GoalCategory.READING:
-        return milestone_service_reading.detect_reading_milestones(session, goal, today)
+        return milestone_service_reading.detect_reading_milestones(
+            session, goal, today, reading_totals
+        )
     return milestone_service_work.detect_work_milestones(session, goal, today)
 
 
@@ -146,13 +173,19 @@ def _record_new_achievements(
 
 
 def detect_and_record_new_achievements(
-    session: Session, goal: Goal, today: dt.date
+    session: Session,
+    goal: Goal,
+    today: dt.date,
+    reading_totals: milestone_service_reading.ReadingTotals | None = None,
 ) -> list[GoalMilestoneAchievement]:
     """記録確定の直後に呼ぶ（開発Todo_節目のお祝い_v1.0 §4）。新しく到達した節目を
     永続化（`celebrated_at=NULL`）し、作成した行を返す。
+
+    `reading_totals`は`_detect_category_milestones`と同じ（バッチ呼び出し元が複数の
+    READING目標にわたる集計を1回だけ行うために渡す。省略時はこの関数が都度算出する）。
     """
     pending = detect_common_milestones(session, goal, today) + _detect_category_milestones(
-        session, goal, today
+        session, goal, today, reading_totals
     )
     now = utcnow()
     return _record_new_achievements(session, goal.id, pending, achieved_at=now, celebrated_at=None)
@@ -169,14 +202,25 @@ def detect_and_record_for_category(
     docstring参照）ため、確定処理を呼んだ1目標だけでなく同カテゴリの全ACTIVE目標を
     対象にする。戻り値は使わない（新規到達の有無はGETで別途確認する、GETに副作用を
     持たせないため）。
+
+    READINGの場合、累計ページ数・読了冊数（利用者の読書全体が対象のlifetime集計）を
+    目標の数だけ繰り返し算出しないよう、ループの前に1回だけ算出して各目標の判定へ渡す
+    （performance-reviewer指摘、2026-11-05）。
     """
+    from app.services import milestone_service_reading
+
     goals = (
         session.query(Goal)
         .filter(Goal.category == category, Goal.status == GoalStatus.ACTIVE)
         .all()
     )
+    reading_totals = (
+        milestone_service_reading.compute_reading_totals(session)
+        if category == GoalCategory.READING
+        else None
+    )
     for goal in goals:
-        detect_and_record_new_achievements(session, goal, today)
+        detect_and_record_new_achievements(session, goal, today, reading_totals)
 
 
 def list_pending_celebrations(session: Session, goal_id: int) -> list[GoalMilestoneAchievement]:
@@ -223,14 +267,20 @@ def backfill_achievements_if_needed(session: Session, today: dt.date) -> None:
     `achieved_at`=`celebrated_at`=現在時刻で登録してフラグを立てる（新規インストールは
     目標0件のため実質無害に完了する）。`app/main.py`の`bootstrap_database`（シード投入の
     直後）から呼ぶ。
+
+    READINGのlifetime集計（累計ページ数・読了冊数）は全目標分をまとめて1回だけ算出する
+    （`detect_and_record_for_category`と同じ理由、performance-reviewer指摘2026-11-05）。
     """
     if setting_reader.get_bool(session, MILESTONE_BACKFILL_COMPLETED):
         return
 
+    from app.services import milestone_service_reading
+
+    reading_totals = milestone_service_reading.compute_reading_totals(session)
     now = utcnow()
     for goal in session.query(Goal).all():
         pending = detect_common_milestones(session, goal, today) + _detect_category_milestones(
-            session, goal, today
+            session, goal, today, reading_totals
         )
         _record_new_achievements(session, goal.id, pending, achieved_at=now, celebrated_at=now)
 

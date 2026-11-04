@@ -59,6 +59,27 @@ def _report(session, record_date, category=GoalCategory.EXAM):
     return record
 
 
+def test_threshold_milestones_returns_one_entry_per_threshold_reached(seeded_session):
+    _set_threshold(seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS, "3,7,14")
+
+    pending = svc.threshold_milestones(
+        seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS, 10, MilestoneType.CONSECUTIVE_DAYS
+    )
+
+    assert {p.milestone_key for p in pending} == {"3", "7"}
+
+
+def test_threshold_milestones_accepts_a_float_current_value(seeded_session):
+    """資格の全体進捗率(%)はfloatで渡されるため、int専用にしない。"""
+    _set_threshold(seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS, "25,50,75")
+
+    pending = svc.threshold_milestones(
+        seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS, 60.0, MilestoneType.CONSECUTIVE_DAYS
+    )
+
+    assert {p.milestone_key for p in pending} == {"25", "50"}
+
+
 def test_detect_common_milestones_returns_thresholds_at_or_below_current_value(seeded_session):
     _set_threshold(seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS, "3,7,14")
     _set_threshold(seeded_session, MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS, "2,5")
@@ -138,6 +159,55 @@ def test_detect_and_record_for_category_only_targets_active_goals_of_that_catego
         .count()
         == 0
     )
+
+
+def test_detect_and_record_for_category_computes_reading_totals_once(seeded_session, monkeypatch):
+    """performance-reviewer指摘（2026-11-05）の回帰テスト：READING目標が複数あっても、
+    利用者の読書全体を対象とするlifetime集計（累計ページ数・読了冊数）は1回だけ算出する。
+    """
+    from app.services import book_service
+
+    _make_goal(seeded_session, category=GoalCategory.READING, name="読書目標A")
+    _make_goal(seeded_session, category=GoalCategory.READING, name="読書目標B")
+    _make_goal(seeded_session, category=GoalCategory.READING, name="読書目標C")
+
+    call_count = 0
+    original = book_service.sum_cumulative_pages_read
+
+    def _counting_sum(session):
+        nonlocal call_count
+        call_count += 1
+        return original(session)
+
+    monkeypatch.setattr(book_service, "sum_cumulative_pages_read", _counting_sum)
+
+    svc.detect_and_record_for_category(seeded_session, GoalCategory.READING, dt.date(2026, 1, 1))
+
+    assert call_count == 1
+
+
+def test_backfill_computes_reading_totals_once_across_all_reading_goals(
+    seeded_session, monkeypatch
+):
+    """同上（起動時バックフィルも同じ対象）。"""
+    from app.services import book_service
+
+    _make_goal(seeded_session, category=GoalCategory.READING, name="読書目標A")
+    _make_goal(seeded_session, category=GoalCategory.READING, name="読書目標B")
+
+    call_count = 0
+    original = book_service.count_completed_books
+
+    def _counting_count(session):
+        nonlocal call_count
+        call_count += 1
+        return original(session)
+
+    monkeypatch.setattr(book_service, "count_completed_books", _counting_count)
+
+    svc.backfill_achievements_if_needed(seeded_session, dt.date(2026, 1, 1))
+
+    assert call_count == 1
 
 
 def test_list_pending_celebrations_excludes_already_celebrated(seeded_session):
