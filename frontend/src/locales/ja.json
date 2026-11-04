@@ -1205,7 +1205,8 @@
       "replanHistory": "リプラン履歴",
       "growthDescription": "成長記述",
       "readingLog": "読書記録",
-      "workLog": "業務記録"
+      "workLog": "業務記録",
+      "milestones": "節目の記録"
     },
     "materialEmpty": "この目標には有効な教材がありません",
     "quality": {

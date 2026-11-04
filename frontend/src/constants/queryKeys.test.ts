@@ -19,6 +19,8 @@ describe('QUERY_KEYS', () => {
     expect(QUERY_KEYS.goal(GOAL_ID)).toEqual(['goal', GOAL_ID])
     expect(QUERY_KEYS.goalSlotAllocations(GOAL_ID)).toEqual(['goal-slot-allocations', GOAL_ID])
     expect(QUERY_KEYS.materialSlotCheck(30)).toEqual(['material-slot-check', 30])
+    expect(QUERY_KEYS.goalRoadmap(GOAL_ID)).toEqual(['goal-roadmap', GOAL_ID])
+    expect(QUERY_KEYS.goalMilestones(GOAL_ID)).toEqual(['goal-milestones', GOAL_ID])
   })
 
   it('keeps a null goal id in the key so the disabled query can switch over untouched', () => {

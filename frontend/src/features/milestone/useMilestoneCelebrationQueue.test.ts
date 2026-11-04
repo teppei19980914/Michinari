@@ -39,6 +39,17 @@ describe('useMilestoneCelebrationQueue', () => {
     expect(result.current.current).toBeUndefined()
   })
 
+  it('silently ignores a failure while checking for new celebrations', async () => {
+    vi.mocked(milestonesApi.listPendingCelebrations).mockRejectedValue(new Error('network'))
+    const { result } = renderHook(() => useMilestoneCelebrationQueue())
+
+    await act(async () => {
+      await result.current.checkGoal(10, 'EXAM')
+    })
+
+    expect(result.current.current).toBeUndefined()
+  })
+
   it('enqueues pending celebrations fetched for the goal', async () => {
     vi.mocked(milestonesApi.listPendingCelebrations).mockResolvedValue([makeAchievement()])
     const { result } = renderHook(() => useMilestoneCelebrationQueue())

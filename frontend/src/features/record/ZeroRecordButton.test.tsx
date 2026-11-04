@@ -49,6 +49,7 @@ function renderButton(props: Partial<ZeroRecordButtonProps> = {}) {
             targetDate={TARGET_DATE}
             categories={['EXAM']}
             presence={presence}
+            goalIdsByCategory={{ EXAM: 1, READING: null, WORK: null }}
             {...props}
           />
         }
@@ -85,6 +86,7 @@ describe('ZeroRecordButton', () => {
         targetDate={TARGET_DATE}
         categories={[]}
         presence={{ hasExamCategory: false, hasReadingCategory: false, hasWorkCategory: false }}
+        goalIdsByCategory={{ EXAM: null, READING: null, WORK: null }}
       />,
     )
     expect(screen.queryByRole('button')).toBe(null)

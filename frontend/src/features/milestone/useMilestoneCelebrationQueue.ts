@@ -29,7 +29,15 @@ export function useMilestoneCelebrationQueue(): MilestoneCelebrationQueue {
       if (goalId == null) {
         return
       }
-      const pending = await listPendingCelebrations(goalId)
+      // 記録確定そのものは既に成功しているため、節目チェックの失敗（通信断等）を
+      // 利用者へエラーとして見せない（確定の成功を節目の有無で損なわない）。この回で
+      // 見つからなかった節目は、お祝い済みにするまでサーバー側に残るため次回確認できる。
+      let pending: MilestoneAchievement[]
+      try {
+        pending = await listPendingCelebrations(goalId)
+      } catch {
+        return
+      }
       if (pending.length === 0) {
         return
       }

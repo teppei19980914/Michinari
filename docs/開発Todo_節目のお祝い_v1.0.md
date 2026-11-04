@@ -113,12 +113,12 @@
 
 ### 3.2 文書改訂
 
-- [ ] D-01 要件定義書：新規節（R-132〜）、改訂履歴
-- [ ] D-02 仕様書：機能一覧、画面仕様（分析画面セクション・モーダル）、改訂履歴
-- [ ] D-03 設計書（ロジック・プロンプト編）：処理フロー、改訂履歴
-- [ ] D-04 設計書（データ構造編）：設定キー、`goal_milestone_achievement`、`DATA_SCHEMA_VERSION`、改訂履歴
-- [ ] D-05 実装フェーズ分割計画書：Phase 48
-- [ ] D-06 OPERATIONS.md：閾値の運用、移行時バックフィルの説明
+- [x] D-01 要件定義書：6.18節（R-132〜R-137）、改訂履歴（1.1改51）（2026-11-04）
+- [x] D-02 仕様書：機能一覧（REP-17・ANL-09・CFG-09）、画面仕様（6.5確定処理・6.8分析タブ・6.11設定項目）、改訂履歴（1.1改63）（2026-11-04）
+- [x] D-03 設計書（ロジック・プロンプト編）：26章「節目のお祝いの判定ロジック」を新設（旧26章「未決事項」は27章へ採番替え）、改訂履歴（1.1改64）（2026-11-04）
+- [x] D-04 設計書（データ構造編）：5.2設定キー7件、5.4`goal_milestone_achievement`、6.2API3件、改訂履歴（1.1改66、`DATA_SCHEMA_VERSION`1.5→1.6）（2026-11-04）
+- [x] D-05 実装フェーズ分割計画書：Phase 48を新設（2026-11-04）
+- [x] D-06 OPERATIONS.md：トラブルシューティング（8.5相当）に起動時バックフィルの挙動説明を追加（閾値は設定画面から変更可能なため運用手順の追加は不要と判断）（2026-11-04）
 
 ### 3.3 バックエンド実装
 
@@ -141,25 +141,25 @@
 
 ### 3.4 フロントエンド実装
 
-- [ ] F-01 `api/milestones.ts`、型の生成し直し（`npm run generate:api-types`）
-- [ ] F-02 `features/milestone/milestoneContent.ts`（種別→文言キー・アイコンの純粋関数、`resolveByGoalCategory`パターン）とテスト
-- [ ] F-03 `MilestoneCelebrationModal.tsx`（キャラクターアイコン表示、CSSアニメーション、`prefers-reduced-motion`分岐）と描画テスト
-- [ ] F-04 `useMilestoneCelebrationQueue.ts`（複数到達時のキュー管理）とテスト
-- [ ] F-05 記録確定フローへの組み込み（確定直後に未お祝い節目を取得→キューへ）
-- [ ] F-06 分析画面：「節目の記録」セクション（一覧表示）と描画テスト
-- [ ] F-07 `ja.json`・`en.json`：`milestone.*`文言（カテゴリ×節目種別、途切れを責めない表現）
-- [ ] F-08 `queryKeys.ts`：節目関連キー追加
-- [ ] F-08b 設定画面：節目閾値6件の編集欄（カンマ区切りテキスト、既存の`assistantFields.ts`等と同じ配線パターン）とテスト
-- [ ] F-09 `npm run lint`（warn 0件）・`tsc -b`・`npm run test`の閾値確認
+- [x] F-01 `api/milestones.ts`、型の生成し直し（`npm run generate:api-types`）（2026-11-04）
+- [x] F-02 `features/milestone/milestoneContent.ts`（種別→文言キー・アイコンの純粋関数、`resolveByGoalCategory`パターン）とテスト（9件、カバレッジ100%）（2026-11-04）
+- [x] F-03 `MilestoneCelebrationModal.tsx`（キャラクターアイコン表示、CSSアニメーション、`prefers-reduced-motion`分岐）と描画テスト（5件）（2026-11-04）
+- [x] F-04 `useMilestoneCelebrationQueue.ts`（複数到達時のキュー管理）とテスト（7件。節目チェック自体の通信失敗は確定処理の成否を損なわないよう内部で握り消す設計に修正）（2026-11-04）
+- [x] F-05 記録確定フローへの組み込み（`useDailyReportActions.ts`が確定ごとの節目チェックとキューを内包し、`ZeroRecordButton`/`useZeroRecordAction.ts`からも同じキューを共有。DailyReportPageの行数超過（CODING_RULES.md保守性）を避けるため`RecordConfirmationExtras.tsx`へ切り出し）（2026-11-04）
+- [x] F-06 分析画面：「節目の記録」セクション（`MilestoneListTab.tsx`、3種別共通タブとして追加。一覧表示は既存のReadingLogHistoryTab等と同じ慣例で専用テストは設けず、`queryKeys.test.ts`でキーのみ固定）（2026-11-04）
+- [x] F-07 `ja.json`・`en.json`：`milestone.*`文言（カテゴリ×節目種別、途切れを責めない表現）＋設定画面向け`settings.milestoneThreshold.*`（2026-11-04）
+- [x] F-08 `queryKeys.ts`：`goalMilestones`追加（`goalMilestonesPending`は未お祝い取得がキャッシュ経由でないため不要と判断し追加しなかった）（2026-11-04）
+- [x] F-08b 設定画面：`MilestoneThresholdSection.tsx`＋`milestoneThresholdSettings.ts`（節目閾値6件の編集欄、カンマ区切りテキスト、`resolveDesktopSettingsGuard`と同型の検証ガード）とテスト（19件、カバレッジ100%）（2026-11-04）
+- [x] F-09 `npx oxlint src/`（0件）・`npx tsc -b`（0件）・`npm run test`（1508件合格、カバレッジ100%）確認（2026-11-04）
 
 ### 3.5 検証
 
-- [ ] V-01 ruff・pytest・vitest（新規機能のカバレッジ100%。全体の最終実行は§8）
-- [ ] V-02 既存DBからのアップグレード確認：利用者DBのコピーで、既存目標が持つ到達済み節目が大量表示されず「お祝い済み」として記録されること（受け入れ基準の核心）
-- [ ] V-03 3種別それぞれで、節目に届いたときに一度だけお祝いが表示されることを実機（またはE2E相当のシナリオテスト）で確認
-- [ ] V-04 AI未設定環境での動作確認（固定文言のみで完結すること）
-- [ ] V-05 配布物への同梱確認（`backend/tests/test_build_package.py`、Dockerは使わない）
-- [ ] V-06 フルスキャンの再確認（横展開：データ管理・エクスポートJSON、既存の呼び出し経路）
+- [x] V-01 ruff（0件）・pytest（backend 2147件合格・カバレッジ100%）・vitest（frontend 1508件合格・カバレッジ100%）（2026-11-04）
+- [ ] V-02 【実機確認が必要】既存DBからのアップグレード確認：利用者DBのコピーで、既存目標が持つ到達済み節目が大量表示されず「お祝い済み」として記録されること（受け入れ基準の核心）。ロジック自体は`test_backfill_marks_existing_milestones_as_already_celebrated`で検証済みだが、実際のDBコピーでの確認は未実施
+- [ ] V-03 【実機確認が必要】3種別それぞれで、節目に届いたときに一度だけお祝いが表示されることを実機で確認（判定ロジック・API・UIはいずれも単体テストで検証済みだが、ブラウザでの一連の操作確認は未実施）
+- [ ] V-04 【実機確認が必要】AI未設定環境での動作確認（固定文言のみで完結すること。本機能はAIを呼び出さないためコード上は未設定でも挙動は変わらないが、実機での見た目の確認は未実施）
+- [x] V-05 配布物への同梱確認（`backend/tests/test_build_package_*.py`、Dockerは使わない。78件合格を確認。マイグレーションは`backend/alembic/versions/`配下のため既存の同梱対象に自動で含まれる）（2026-11-04）
+- [x] V-06 フルスキャンの再確認（データ管理・エクスポートJSON：`backup_service.py`の`DATA_SCHEMA_VERSION`を1.6へ上げ、既存の`test_export_all_data_includes_schema_version_and_table_rows`等で新規テーブルがコード変更無しで対象に入る既存の仕組みを再確認。既存の呼び出し経路：`api/records.py`の3エンドポイントへの追加呼び出しが既存のrecordsテスト44件を無回帰で通過）（2026-11-04）
 
 ## 4. 処理フロー（確定版）
 
@@ -215,4 +215,10 @@
 
 ## 8. 作業記録
 
-（作業の進行に応じて追記する）
+- 2026-11-02〜2026-11-04 実施結果
+  - §0決定事項（M1〜M16）を確定し、バックエンド（モデル・マイグレーション・4サービスファイル・API3件・settings連携・records.pyへの配線・`backup_service.py`のスキーマ版数更新）、フロントエンド（api/milestones.ts・milestoneContent.ts・MilestoneCelebrationModal.tsx・useMilestoneCelebrationQueue.ts・記録確定フローへの組み込み・分析画面タブ・設定画面の閾値編集欄）を実装した。
+  - バックエンド：新規49件を含む2147件合格、カバレッジ100%（ruff 0件）。
+  - フロントエンド：新規40件を含む1508件合格、カバレッジ100%（oxlint 0件、tsc -b 0件）。
+  - 文書（要件定義書・仕様書・設計書データ構造編・設計書ロジック・プロンプト編・実装フェーズ分割計画書・OPERATIONS.md・README.md）を更新した。
+  - §3の全チェックボックスのうちV-02〜V-04（実機確認）のみ未済。これらは判定ロジック自体は単体テストで検証済みだが、実際のブラウザ操作・既存DBコピーでの確認は利用者側の実機確認が必要（報告参照）。
+  - 当初の調査（§1影響範囲フルスキャン）で判明した「連続日数の指標が2種類存在する」「読書・読了冊数がlifetime集計である」等の設計上の発見を§0 M1・M13の決定に反映し、依頼文の意図（既存の統計サマリに合わせる）を損なわない形で実装した。

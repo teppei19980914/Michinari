@@ -7,12 +7,17 @@ import { useZeroRecordAction } from './useZeroRecordAction'
 import { resolveZeroRecordMessage } from './zeroRecordMessage'
 import type { CategoryPresence } from './categoryCompletion'
 import type { ZeroRecordCategory } from './resolveZeroRecordCategories'
+import type { GoalCategory } from '../../api/goals'
 
 export type ZeroRecordButtonProps = {
   targetDate: string
   /** ゼロ確定の対象カテゴリ（resolveZeroRecordCategories）。空なら何も表示しない。 */
   categories: ZeroRecordCategory[]
   presence: CategoryPresence
+  /** カテゴリ別の目標ID（useDailyReportActionsのgoalIdsByCategory）。 */
+  goalIdsByCategory: Record<GoalCategory, number | null>
+  /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0 §4）。 */
+  checkMilestones?: (goalId: number | null, category: GoalCategory) => void
 }
 
 /**
@@ -22,11 +27,24 @@ export type ZeroRecordButtonProps = {
  * 目標が無い日）。誤操作防止のため確定前に確認モーダルを挟む（GoalEndModal.tsxと同じ
  * 方針。確定は取り消せないため）。
  */
-export function ZeroRecordButton({ targetDate, categories, presence }: ZeroRecordButtonProps) {
+export function ZeroRecordButton({
+  targetDate,
+  categories,
+  presence,
+  goalIdsByCategory,
+  checkMilestones,
+}: ZeroRecordButtonProps) {
   const [open, setOpen] = useState(false)
   const dayTypeQuery = useDayType(targetDate)
   const message = resolveZeroRecordMessage(dayTypeQuery.data ?? 'PLAN')
-  const action = useZeroRecordAction({ targetDate, categories, presence, message })
+  const action = useZeroRecordAction({
+    targetDate,
+    categories,
+    presence,
+    message,
+    goalIdsByCategory,
+    checkMilestones,
+  })
 
   if (categories.length === 0) {
     return null

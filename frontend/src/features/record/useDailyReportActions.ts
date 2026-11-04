@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ROUTES } from '../../constants/routes'
 import { useToast } from '../../components/toastContext'
 import {
+  useMilestoneCelebrationQueue,
+  type MilestoneCelebrationQueue,
+} from '../milestone/useMilestoneCelebrationQueue'
+import {
   finalizeReadingRecord,
   finalizeRecord,
   finalizeWorkRecord,
@@ -37,6 +41,14 @@ export type CategoryActions = {
   messages: ChatMessageRead[]
 }
 
+/** 節目のお祝い（開発Todo_節目のお祝い_v1.0 §4）の、この画面向けの窓口。キュー自体は
+ * 本フックが保持し、ZeroRecordButton（別の確定経路）からも`checkGoal`を呼べるよう公開する。 */
+export type MilestoneCelebrationForPage = {
+  current: MilestoneCelebrationQueue['current']
+  checkGoal: MilestoneCelebrationQueue['checkGoal']
+  onDismiss: () => void
+}
+
 export type DailyReportActions = {
   exam: CategoryActions
   reading: CategoryActions
@@ -44,6 +56,7 @@ export type DailyReportActions = {
   /** 確定対象の目標ID（カテゴリ別）。ZeroRecordButton（複数カテゴリを一括確定）が
    * 確定後の節目チェックに使う（開発Todo_節目のお祝い_v1.0 §4）。 */
   goalIdsByCategory: Record<GoalCategory, number | null>
+  milestoneCelebration: MilestoneCelebrationForPage
 }
 
 export type DailyReportActionsOptions = {
@@ -54,9 +67,6 @@ export type DailyReportActionsOptions = {
   goalTabs: { showGoalSelector: boolean; selectedGoal: GoalRead | undefined }
   /** その日そのカテゴリに確定すべき目標があるか（resolveVisibleReportTargets）。 */
   presence: CategoryPresence
-  /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0
-   * §4）。モーダル表示自体は呼び出し元（DailyReportPage）が持つキューが行う。 */
-  checkMilestones?: (goalId: number | null, category: GoalCategory) => void
 }
 
 /** 各カテゴリ共通の引数。異なるのは送信先と積む下書きだけなので、それ以外をここにまとめる。 */
@@ -198,11 +208,23 @@ export function useDailyReportActions({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showApiError } = useToast()
+  const milestoneQueue = useMilestoneCelebrationQueue()
 
   // 対話・確定の対象goal_id。日次フィードバックを目標単位の会話へ分離したため（Phase26、
   // 未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を指しているかを解決する。
   const activeExamGoal = (queries.goals.data ?? []).find(
     (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
+  )
+  const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeExamGoal?.id ?? null)
+  const readingGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'READING',
+    queries.readingBooks.data?.[0]?.goal.id ?? null,
+  )
+  const workGoalId = resolveCategoryGoalId(
+    goalTabs,
+    'WORK',
+    queries.workAssignments.data?.[0]?.goal.id ?? null,
   )
 
   /** 確定後の共通処理。関連キャッシュを無効化し、表示対象の全カテゴリが確定済みになった場合のみ
@@ -214,28 +236,38 @@ export function useDailyReportActions({
       navigate(ROUTES.dashboard)
     }
   }
-  const shared = { targetDate, draft, onFinalized, onError: showApiError }
+  const shared = { targetDate, draft, onError: showApiError }
 
   return {
     exam: useExamActions({
       ...shared,
-      goalId: resolveCategoryGoalId(goalTabs, 'EXAM', activeExamGoal?.id ?? null),
+      goalId: examGoalId,
+      onFinalized: (record) => {
+        onFinalized(record)
+        milestoneQueue.checkGoal(examGoalId, 'EXAM')
+      },
     }),
     reading: useReadingActions({
       ...shared,
-      goalId: resolveCategoryGoalId(
-        goalTabs,
-        'READING',
-        queries.readingBooks.data?.[0]?.goal.id ?? null,
-      ),
+      goalId: readingGoalId,
+      onFinalized: (record) => {
+        onFinalized(record)
+        milestoneQueue.checkGoal(readingGoalId, 'READING')
+      },
     }),
     work: useWorkActions({
       ...shared,
-      goalId: resolveCategoryGoalId(
-        goalTabs,
-        'WORK',
-        queries.workAssignments.data?.[0]?.goal.id ?? null,
-      ),
+      goalId: workGoalId,
+      onFinalized: (record) => {
+        onFinalized(record)
+        milestoneQueue.checkGoal(workGoalId, 'WORK')
+      },
     }),
+    goalIdsByCategory: { EXAM: examGoalId, READING: readingGoalId, WORK: workGoalId },
+    milestoneCelebration: {
+      current: milestoneQueue.current,
+      checkGoal: milestoneQueue.checkGoal,
+      onDismiss: () => milestoneQueue.dismissCurrent(showApiError),
+    },
   }
 }

@@ -7,6 +7,7 @@ import { ExamReportSection } from '../features/record/ExamReportSection'
 import { ReadingReportSection } from '../features/record/ReadingReportSection'
 import { WorkReportSection } from '../features/record/WorkReportSection'
 import { WorkMemberSection } from '../features/record/WorkMemberSection'
+import { RecordConfirmationExtras } from '../features/record/RecordConfirmationExtras'
 import { toCategoryReportedState } from '../features/record/categoryCompletion'
 import { resolveDailyReportGuard } from '../features/record/resolveDailyReportGuard'
 import { resolveVisibleReportTargets } from '../features/record/resolveVisibleReportTargets'
@@ -16,7 +17,6 @@ import { useDailyReportDraft } from '../features/record/useDailyReportDraft'
 import { useDailyReportActions } from '../features/record/useDailyReportActions'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
-import { ZeroRecordButton } from '../features/record/ZeroRecordButton'
 
 /** SC-06 日次報告（仕様書6.5）。上段=実績入力+日記、下段=AI対話の2段構成。
  *
@@ -83,15 +83,15 @@ export function DailyReportPage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <h1 className="text-xl font-semibold text-text-primary">
-        {t('dailyReport.title', { date: targetDate })}
-      </h1>
+      <h1 className="text-xl font-semibold text-text-primary">{t('dailyReport.title', { date: targetDate })}</h1>
       <p className="text-sm text-text-faint">{t('dailyReport.estimatedDuration')}</p>
 
-      <ZeroRecordButton
+      <RecordConfirmationExtras
         targetDate={targetDate}
-        categories={zeroRecordCategories}
+        zeroRecordCategories={zeroRecordCategories}
         presence={targets.presence}
+        goalIdsByCategory={actions.goalIdsByCategory}
+        milestoneCelebration={actions.milestoneCelebration}
       />
 
       {showGoalSelector && (
