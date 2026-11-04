@@ -716,6 +716,17 @@
       "warningRatioLabel": "警告倍率（%）",
       "replanOverrunDaysLabel": "強制リプラン超過日数"
     },
+    "milestoneThreshold": {
+      "title": "節目の閾値",
+      "description": "カンマ区切りで入力してください（例：3,7,14）。",
+      "consecutiveDaysThresholdsLabel": "連続記録日数の節目（3種別共通）",
+      "totalRecordDaysThresholdsLabel": "累計記録日数の節目（3種別共通）",
+      "readingTotalPagesThresholdsLabel": "読書：累計ページ数の節目",
+      "readingCompletedBooksThresholdsLabel": "読書：読了冊数の節目",
+      "examOverallProgressThresholdsLabel": "資格試験：全体進捗率(%)の節目",
+      "workRecordCountThresholdsLabel": "仕事：記録件数の節目",
+      "invalid": "カンマ区切りの正の整数で入力してください（例：3,7,14）。"
+    },
     "promptDegradation": {
       "title": "プロンプト縮退",
       "maxPromptCharsLabel": "入力上限（文字数）",
@@ -1158,6 +1169,27 @@
       "addButton": "追加"
     }
   },
+  "milestone": {
+    "celebration": {
+      "title": "節目のお祝い",
+      "closeButton": "閉じる"
+    },
+    "message": {
+      "consecutiveDays": "{{count}}日間、連続で記録できました",
+      "totalRecordDays": "これまでに{{count}}日、記録を続けています",
+      "readingTotalPages": "これまでに{{count}}ページ、読み進めました",
+      "readingCompletedBooks": "これまでに{{count}}冊、読み終えました",
+      "examMaterialCycleCompleted": "教材を{{count}}周、完了しました",
+      "examOverallProgress": "目標全体の進捗が{{count}}%に達しました",
+      "workRecordCount": "これまでに{{count}}回、記録を続けています",
+      "workEvaluationPeriodCompleted": "評価期間を通して記録を続けました"
+    },
+    "list": {
+      "title": "節目の記録",
+      "empty": "まだ節目の記録はありません",
+      "achievedAt": "{{date}}に到達"
+    }
+  },
   "analytics": {
     "title": "分析",
     "showArchivedToggle": "アーカイブ済みを表示",
@@ -1173,7 +1205,8 @@
       "replanHistory": "リプラン履歴",
       "growthDescription": "成長記述",
       "readingLog": "読書記録",
-      "workLog": "業務記録"
+      "workLog": "業務記録",
+      "milestones": "節目の記録"
     },
     "materialEmpty": "この目標には有効な教材がありません",
     "quality": {

@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../api/client'
 import { getSettings } from '../api/settings'
 import { AiConnectionSection } from '../features/settings/AiConnectionSection'
 import { ThresholdSection } from '../features/settings/ThresholdSection'
+import { MilestoneThresholdSection } from '../features/settings/MilestoneThresholdSection'
 import { PromptDegradationSection } from '../features/settings/PromptDegradationSection'
 import { DisplaySection } from '../features/settings/DisplaySection'
 import { DesktopSection } from '../features/settings/DesktopSection'
@@ -44,6 +45,7 @@ export function SettingsPage() {
       </div>
       <AiConnectionSection settings={settings} />
       <ThresholdSection settings={settings} />
+      <MilestoneThresholdSection settings={settings} />
       <PromptDegradationSection settings={settings} />
       <DisplaySection settings={settings} />
       <DesktopSection settings={settings} />

@@ -5,6 +5,7 @@ import pytest
 from app.constants.app_setting_keys import (
     CALENDAR_DAY_BOUNDARY_HOUR,
     HOLIDAY_TREAT_AS_BUFFER,
+    MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
@@ -56,3 +57,26 @@ def test_is_english_locale_returns_true_when_set_to_english(seeded_session):
     seeded_session.flush()
 
     assert setting_reader.is_english_locale(seeded_session) is True
+
+
+def test_get_int_list_parses_sorted_unique_values(seeded_session):
+    row = seeded_session.get(AppSetting, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS)
+    row.value = "7,3,3,14"
+    seeded_session.flush()
+
+    assert setting_reader.get_int_list(seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS) == [
+        3,
+        7,
+        14,
+    ]
+
+
+def test_get_int_list_ignores_empty_parts(seeded_session):
+    row = seeded_session.get(AppSetting, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS)
+    row.value = "3,,7"
+    seeded_session.flush()
+
+    assert setting_reader.get_int_list(seeded_session, MILESTONE_CONSECUTIVE_DAYS_THRESHOLDS) == [
+        3,
+        7,
+    ]

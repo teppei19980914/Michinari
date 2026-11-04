@@ -38,6 +38,10 @@ export const QUERY_KEYS = {
   goal: (goalId: number | null) => ['goal', goalId] as const,
   goalSlotAllocations: (goalId: number) => ['goal-slot-allocations', goalId] as const,
   goalRoadmap: (goalId: number) => ['goal-roadmap', goalId] as const,
+  /** 分析画面「節目の記録」一覧（開発Todo_節目のお祝い_v1.0）。未お祝いの節目はTanStack
+   * Queryのキャッシュを経由せず都度取得するため（useMilestoneCelebrationQueue）、
+   * 対応するキーは無い。 */
+  goalMilestones: (goalId: number) => ['goal-milestones', goalId] as const,
   materialSlotCheck: (materialId: number) => ['material-slot-check', materialId] as const,
   examTemplates: () => ['exam-templates'] as const,
 

@@ -107,12 +107,7 @@ def _build_goal_card_and_stats(
             session, material, progresses[material.id].current_cycle
         )
 
-    progress_rate = (
-        sum(metrics_service.compute_progress_rate(progresses[m.id]) for m in materials)
-        / len(materials)
-        if materials
-        else None
-    )
+    progress_rate = metrics_service.compute_goal_overall_progress_rate(materials, progresses)
     deviations = [
         forecast.overrun_days
         for forecast in forecasts.values()

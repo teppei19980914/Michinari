@@ -234,3 +234,30 @@ def test_has_recent_monthly_report_ignores_anonymized_only(db_session):
     )
 
     assert progress.has_recent_monthly_report is False
+
+
+def test_count_work_records_counts_work_logs_for_the_assignment(db_session):
+    """節目のお祝い機能向け（開発Todo_節目のお祝い_v1.0 M4）。"""
+    goal = _make_work_goal(db_session)
+    work_assignment = _make_work_assignment(db_session, goal)
+    _add_work_log(db_session, work_assignment.id, dt.date(2026, 1, 1))
+    _add_work_log(db_session, work_assignment.id, dt.date(2026, 1, 2))
+
+    assert work_service.count_work_records(db_session, work_assignment) == 2
+
+
+def test_count_work_records_ignores_other_assignments(db_session):
+    goal_a = _make_work_goal(db_session, name="仕事目標A")
+    goal_b = _make_work_goal(db_session, name="仕事目標B")
+    assignment_a = _make_work_assignment(db_session, goal_a)
+    assignment_b = _make_work_assignment(db_session, goal_b)
+    _add_work_log(db_session, assignment_b.id, dt.date(2026, 1, 1))
+
+    assert work_service.count_work_records(db_session, assignment_a) == 0
+
+
+def test_count_work_records_is_zero_without_logs(db_session):
+    goal = _make_work_goal(db_session)
+    work_assignment = _make_work_assignment(db_session, goal)
+
+    assert work_service.count_work_records(db_session, work_assignment) == 0

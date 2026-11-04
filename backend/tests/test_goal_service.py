@@ -4,10 +4,18 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import BaselineReason, DayType, GoalCategory, GoalStatus, RecordState
+from app.constants.enums import (
+    BaselineReason,
+    DayType,
+    GoalCategory,
+    GoalStatus,
+    MilestoneType,
+    RecordState,
+)
 from app.models.book import Book
 from app.models.goal import Goal, GoalConsultationConversation, GoalConsultationLog
 from app.models.material import Material
+from app.models.milestone import GoalMilestoneAchievement
 from app.models.record import (
     ChatMessage,
     DailyGoalDiary,
@@ -559,3 +567,25 @@ def test_delete_goal_cascades_removes_goal_consultation_log(db_session):
 
     assert db_session.query(GoalConsultationConversation).count() == 0
     assert db_session.query(GoalConsultationLog).count() == 0
+
+
+def test_delete_goal_cascades_removes_milestone_achievements(db_session):
+    """節目の履行履歴（開発Todo_節目のお祝い_v1.0）は`goal_id`のON DELETE CASCADEで消える
+    （`goal_consultation_log`と同じ方式。目標削除後に別目標が同じ節目へ到達しても
+    `UniqueConstraint`に阻まれないことの確認でもある）。"""
+    goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    db_session.add(
+        GoalMilestoneAchievement(
+            goal_id=goal.id,
+            milestone_type=MilestoneType.CONSECUTIVE_DAYS,
+            milestone_key="7",
+            achieved_at=dt.datetime(2026, 1, 1),
+            celebrated_at=None,
+        )
+    )
+    db_session.flush()
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_goal(db_session, goal)
+
+    assert db_session.query(GoalMilestoneAchievement).count() == 0

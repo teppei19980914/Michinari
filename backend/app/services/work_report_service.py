@@ -143,7 +143,10 @@ def default_semiannual_period_key(today: dt.date) -> str:
     return f"{today.year - 1}-H2"
 
 
-def _previous_semiannual_period_key(period_key: str) -> str:
+def previous_semiannual_period_key(period_key: str) -> str:
+    """直前の半期のperiod_keyを返す（節目のお祝い機能向けに公開、開発Todo_節目のお祝い_v1.0
+    M4。`milestone_service_work.py`が「直近に終了した評価期間」を求めるために使う）。
+    """
     year_text, half = period_key.split("-")
     year = int(year_text)
     return f"{year - 1}-H2" if half == "H1" else f"{year}-H1"
@@ -391,7 +394,7 @@ def generate_semiannual_review(
         session,
         goal,
         period_type=RetrospectivePeriodType.SEMI_ANNUAL,
-        period_key=_previous_semiannual_period_key(resolved_period_key),
+        period_key=previous_semiannual_period_key(resolved_period_key),
         anonymized=anonymize,
     )
     target_goal_text = (

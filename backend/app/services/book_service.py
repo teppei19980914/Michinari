@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.constants.enums import GoalCategory
+from app.constants.enums import GoalCategory, GoalStatus
 from app.constants.sentinels import UNSET
 from app.models.book import Book
 from app.models.goal import Goal
@@ -162,3 +162,43 @@ def get_book_progress(session: Session, book: Book, today: dt.date) -> BookProgr
         current_page=current_page,
         progress_rate=progress_rate,
     )
+
+
+def count_completed_books(session: Session) -> int:
+    """読了した冊数（節目のお祝い機能向け、開発Todo_節目のお祝い_v1.0 M13）。
+
+    `Book.goal_id`にUNIQUE制約があり1目標=1冊のため、読書目標（category=READING）の
+    「読了」（status=CLOSED_WITH_RESULT、goal_service_lifecycle.pyの既存の確定概念と同じ）
+    件数がそのまま冊数になる。利用者の読書全体（lifetime）の累計であり、1目標の範囲では
+    意味が小さい（M13）。
+    """
+    return (
+        session.query(Goal.id)
+        .filter(Goal.category == GoalCategory.READING, Goal.status == GoalStatus.CLOSED_WITH_RESULT)
+        .count()
+    )
+
+
+def sum_cumulative_pages_read(session: Session) -> int:
+    """累計ページ数（節目のお祝い機能向け、開発Todo_節目のお祝い_v1.0 M13）。
+
+    利用者が持つ全READING目標の書籍について、各書籍の現在ページ（最新の記録時点）の
+    合計を返す。1冊分の算出（get_book_progressのcurrent_page）を全書籍へ拡張したもので、
+    get_book_progressと同じ「1クエリで取得し日付降順の先頭を採用」方式（N+1禁止、
+    CLAUDE.md）を踏襲する。
+    """
+    rows = (
+        session.query(ReadingLog.book_id, DailyRecord.record_date, ReadingLog.current_page)
+        .join(DailyRecord, ReadingLog.daily_record_id == DailyRecord.id)
+        .join(Book, ReadingLog.book_id == Book.id)
+        .join(Goal, Book.goal_id == Goal.id)
+        .filter(Goal.category == GoalCategory.READING)
+        .order_by(ReadingLog.book_id, DailyRecord.record_date.desc())
+        .all()
+    )
+    latest_page_by_book: dict[int, int] = {}
+    for book_id, _, current_page in rows:
+        if current_page is None or book_id in latest_page_by_book:
+            continue
+        latest_page_by_book[book_id] = current_page
+    return sum(latest_page_by_book.values())
