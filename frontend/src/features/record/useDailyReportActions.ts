@@ -12,7 +12,7 @@ import {
   type ChatMessageRead,
   type DailyRecordRead,
 } from '../../api/records'
-import type { GoalRead } from '../../api/goals'
+import type { GoalCategory, GoalRead } from '../../api/goals'
 import {
   isAllCategoriesReported,
   toCategoryReportedState,
@@ -41,6 +41,9 @@ export type DailyReportActions = {
   exam: CategoryActions
   reading: CategoryActions
   work: CategoryActions
+  /** 確定対象の目標ID（カテゴリ別）。ZeroRecordButton（複数カテゴリを一括確定）が
+   * 確定後の節目チェックに使う（開発Todo_節目のお祝い_v1.0 §4）。 */
+  goalIdsByCategory: Record<GoalCategory, number | null>
 }
 
 export type DailyReportActionsOptions = {
@@ -51,6 +54,9 @@ export type DailyReportActionsOptions = {
   goalTabs: { showGoalSelector: boolean; selectedGoal: GoalRead | undefined }
   /** その日そのカテゴリに確定すべき目標があるか（resolveVisibleReportTargets）。 */
   presence: CategoryPresence
+  /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0
+   * §4）。モーダル表示自体は呼び出し元（DailyReportPage）が持つキューが行う。 */
+  checkMilestones?: (goalId: number | null, category: GoalCategory) => void
 }
 
 /** 各カテゴリ共通の引数。異なるのは送信先と積む下書きだけなので、それ以外をここにまとめる。 */
