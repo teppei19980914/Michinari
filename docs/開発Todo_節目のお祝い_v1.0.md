@@ -230,3 +230,12 @@
   - performance-reviewer（MEDIUM）：READING目標が複数ある場合、`detect_and_record_for_category`・`backfill_achievements_if_needed`のループ内で読書全体のlifetime集計（`sum_cumulative_pages_read`・`count_completed_books`、全件スキャン）が目標数だけ重複実行されていた。`milestone_service_reading.py`に`ReadingTotals`・`compute_reading_totals`を新設し、バッチ呼び出し元でループの前に1回だけ算出してから各目標の判定へ渡す方式に変更（回帰テスト2件追加）。
   - style-reviewer（MEDIUM）：`detect_exam_milestones`・`detect_reading_milestones`・`detect_work_milestones`の3公開関数にdocstringが無かったため追記。
   - 修正後、backend全体を再実行：2153件合格（新規6件追加）、カバレッジ100%、ruff 0件。フロントエンドは本ラウンドで変更なし（1508件合格・カバレッジ100%は前回確認のまま有効）。
+
+- 2026-11-05 利用者依頼による再フルスキャン（要件取り込み・デグレ・横展開漏れの確認）
+  - 依頼文の全7要件・受け入れ基準3件・共通前提（AI未使用・外部送信なし・CLAUDE.md規約・Alembicマイグレーション・新規依存追加なし・ダッシュボード2秒要件・reduced-motion・バージョン不変）を1件ずつ再確認し、§0決定事項との対応に齟齬が無いことを確認した。
+  - `GET /records/{date}/progress`との関係：進捗のみ登録済みの日の「報告への昇格」（REP-07）は既存のfinalize系3エンドポイント自身が担っており、別経路は存在しないため節目判定の配線漏れは無い（`record_service_exam.finalize_record`等のdocstring「未入力/進捗のみ登録済 → 報告済」で確認）。
+  - 匿名化ナレッジエクスポート（`export_service_*.py`）が`Base.metadata`を汎用的に辿る方式ではなく専用スキーマを明示的に構築する実装であることをコード確認し、`goal_milestone_achievement`への参照が無い（＝M12の決定どおり含まれない）ことを確認した。
+  - **新たな欠落を1件発見し修正**：目標の完全削除時に`goal_milestone_achievement`がカスケード削除されることを確認する専用テストが無かった（他の全関連テーブルには`test_delete_goal_cascades_removes_*`系の専用テストが存在するのに対し、本テーブルのみ未検証だった）。`tests/test_goal_service.py`に`test_delete_goal_cascades_removes_milestone_achievements`を追加し、DB側の`ON DELETE CASCADE`（`PRAGMA foreign_keys=ON`が本番・テストとも有効、`app/database.py`で確認）により正しく削除されることを検証した。
+  - Alembicのheadが単一（`80bf9d322947`、分岐なし）であることを再確認。
+  - 修正後、backend全体を再実行：**2154件合格**（新規1件追加）、カバレッジ100%、ruff 0件。frontend全体を再実行：**1508件合格**、カバレッジ100%、oxlint/tsc -b 0件（変更なし）。
+  - 以上により、デグレ・横展開漏れは解消済みと判断。
