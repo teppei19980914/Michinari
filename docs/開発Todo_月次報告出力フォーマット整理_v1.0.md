@@ -79,12 +79,12 @@
 - [x] B-04 呼び出し箇所（`generate_monthly_report`等4箇所）の引数追従
 - [x] B-04b（当初のスキャン漏れ分）既存DBの`prompt_template`行を更新するAlembicマイグレーション（`fd8470506d29`）を追加、`test_migration_prompt.py`にテスト追加
 - [x] B-05 `test_work_report_service.py`：既存アサーションの更新、達成度が本文に含まれないことの新規テスト追加
-- [ ] B-06 `ruff check .`・`pytest`（カバレッジ100%）で確認（`ruff check .`は確認済み＝All checks passed。`pytest`はバックグラウンド実行中、結果待ち）
+- [x] B-06 `ruff check .`（All checks passed）・`pytest`（2158 passed, 0 failed、カバレッジ100%：stmt 9257/9257・branch 1708/1708）で確認。初回実行時に`test_seed_data.py::test_initial_prompt_templates_content_is_unchanged_by_the_file_split`が1件失敗（文面変更を検知する既存のハッシュガード）したため、意図した変更であることを確認したうえでハッシュ値を更新し再実行、全件成功を確認した
 
 ### 3.2 フロントエンド
 
 - [x] F-01 `ja.json`・`en.json`の`achievementScore.1`〜`5`ラベルを反転
-- [ ] F-02 `npx tsc -b`・`npx oxlint`・`npm run test`で確認（`tsc -b`・`oxlint`は確認済み＝0件。`npm run test`はバックグラウンド実行中、結果待ち）
+- [x] F-02 `npx tsc -b`（0件）・`npx oxlint`（0件）・`npm run test`（1508 passed、カバレッジ100%）で確認
 
 ### 3.3 ドキュメント改訂
 
@@ -94,4 +94,17 @@
 
 ### 3.4 完了後
 
-- [ ] E-01 本Todoの全項目をチェック済みにし、完了報告を追記する
+- [x] E-01 本Todoの全項目をチェック済みにし、完了報告を追記する
+
+## 4. 完了報告（2026-11-06）
+
+全項目完了。最終確認結果：
+
+- backend `ruff check .`：All checks passed!
+- backend `pytest`：2158 passed, 0 failed。カバレッジ100%（stmt 9257/9257・branch 1708/1708）
+- frontend `npx tsc -b`：0件
+- frontend `npx oxlint`：0件
+- frontend `npm run test`：1508 passed（176 files）。カバレッジ100%（Statements/Branches/Funcs/Lines）
+- 依存関係ファイル（`pyproject.toml`・`package.json`等）は変更していないため、OSV脆弱性スキャンの対象範囲に変化は無い
+
+当初のスキャン（§1）で見落としていた影響範囲を実装中に1件発見し、本Todoの§1.1・3.1へ追記して対応済み（既存DBの`prompt_template`初期文面はPythonコードの文面変更だけでは更新されないため、Alembicマイグレーション`fd8470506d29`が必要だった）。
