@@ -217,20 +217,21 @@ def _render_monthly_body(
     target_month: str,
     business_summary: str,
     target_goal_text: str,
-    achievement_score: int | None,
     achievement_reflection: str,
     next_goal_text: str,
     report_notes: str,
 ) -> str:
-    score_text = str(achievement_score) if achievement_score is not None else ""
+    """達成度は本文に含めない（開発Todo「月次報告出力フォーマット整理」決定事項D1）。
+    `achievement_score`自体はDB列・編集画面では維持するが、ダウンロード対象の本文からは
+    除外する。見出しは既存フォームの入力欄ラベル（`ja.json`の`goals.workReport.*Label`）と
+    一致させた`【】`形式とする（決定事項D3）。"""
     return (
         f"# 月次報告（{target_month}）\n\n"
-        f"## 業務内容（案件内容）\n{business_summary}\n\n"
-        f"## 当月の目標\n{target_goal_text}\n\n"
-        f"## 目標がどの程度達成されたか\n{score_text}\n\n"
-        f"## 目標の達成状況と進捗に関する振り返り\n{achievement_reflection}\n\n"
-        f"## 来月の目標\n{next_goal_text}\n\n"
-        f"## 報告・連絡事項\n{report_notes}"
+        f"【この期間の目標】\n{target_goal_text}\n\n"
+        f"【業務内容（案件内容）】\n{business_summary}\n\n"
+        f"【目標の達成状況と進捗に関する振り返り】\n{achievement_reflection}\n\n"
+        f"【来月の目標】\n{next_goal_text}\n\n"
+        f"【報告・連絡事項】\n{report_notes}"
     )
 
 
@@ -239,18 +240,18 @@ def _render_semiannual_body(
     target_period: str,
     business_summary: str,
     target_goal_text: str,
-    achievement_score: int | None,
     achievement_reflection: str,
     next_goal_text: str,
 ) -> str:
-    score_text = str(achievement_score) if achievement_score is not None else ""
+    """月次報告と同じ方針（達成度を本文から除外、見出しを`【】`形式に統一。決定事項D1・D2・
+    D3）。「この期間の目標」はフォームの共通ラベルに合わせ、月次報告と同一の見出し文言とする
+    （従来の「当該半期の目標」から統一）。"""
     return (
         f"# 半期評価（{target_period}）\n\n"
-        f"## 業務内容（案件内容）\n{business_summary}\n\n"
-        f"## 当該半期の目標\n{target_goal_text}\n\n"
-        f"## 目標がどの程度達成されたか\n{score_text}\n\n"
-        f"## 目標の達成状況と進捗に関する振り返り\n{achievement_reflection}\n\n"
-        f"## 次半期の目標\n{next_goal_text}"
+        f"【この期間の目標】\n{target_goal_text}\n\n"
+        f"【業務内容（案件内容）】\n{business_summary}\n\n"
+        f"【目標の達成状況と進捗に関する振り返り】\n{achievement_reflection}\n\n"
+        f"【次半期の目標】\n{next_goal_text}"
     )
 
 
@@ -365,7 +366,6 @@ def generate_monthly_report(
         target_month=target_month,
         business_summary=business_summary,
         target_goal_text=target_goal_text,
-        achievement_score=achievement_score,
         achievement_reflection=achievement_reflection,
         next_goal_text=next_goal_text,
         report_notes=report_notes,
@@ -485,7 +485,6 @@ def generate_semiannual_review(
         target_period=target_period,
         business_summary=business_summary,
         target_goal_text=target_goal_text,
-        achievement_score=achievement_score,
         achievement_reflection=achievement_reflection,
         next_goal_text=next_goal_text,
     )
@@ -541,7 +540,6 @@ def update_monthly_report(
         target_month=_monthly_period_display(period_key),
         business_summary=retrospective.business_summary or "",
         target_goal_text=retrospective.target_goal_text or "",
-        achievement_score=retrospective.achievement_score,
         achievement_reflection=retrospective.achievement_reflection or "",
         next_goal_text=retrospective.next_goal_text or "",
         report_notes=retrospective.report_notes or "",
@@ -590,7 +588,6 @@ def update_semiannual_review(
         target_period=_semiannual_period_display(period_key),
         business_summary=retrospective.business_summary or "",
         target_goal_text=retrospective.target_goal_text or "",
-        achievement_score=retrospective.achievement_score,
         achievement_reflection=retrospective.achievement_reflection or "",
         next_goal_text=retrospective.next_goal_text or "",
     )
