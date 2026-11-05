@@ -422,11 +422,11 @@
       "businessSummaryLabel": "Work content (project details)",
       "achievementScoreLabel": "How much of the goal was achieved",
       "achievementScore": {
-        "1": "1 (121% or more achieved)",
-        "2": "2 (101–120% achieved)",
+        "1": "1 (0–59% achieved)",
+        "2": "2 (60–84% achieved)",
         "3": "3 (85–100% achieved)",
-        "4": "4 (60–84% achieved)",
-        "5": "5 (0–59% achieved)"
+        "4": "4 (101–120% achieved)",
+        "5": "5 (121% or more achieved)"
       },
       "achievementReflectionLabel": "Reflection on goal achievement and progress",
       "nextGoalTextLabelMonthly": "Goal for next month",

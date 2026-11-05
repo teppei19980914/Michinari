@@ -30,6 +30,7 @@
 | AI応答パース契約 | `_MONTHLY_HEADINGS`／`_SEMIANNUAL_HEADINGS`／`_parse_sections`／`_parse_achievement_score` | **変更なし**（`##`見出しでの抽出、達成度の列格納ロジックは従来どおり維持。D3により本文の見出し表記とパース契約を分離する） |
 | 呼び出し側 | `generate_monthly_report`／`generate_semiannual_review`／`update_monthly_report`／`update_semiannual_review` | `_render_*_body`呼び出しの引数変更（achievement_scoreを渡さなくなる）に追従。`retrospective.achievement_score`へのDB格納自体は変更なし |
 | テスト | `backend/tests/test_work_report_service.py` | 本文アサーション（`## 目標がどの程度達成されたか\n3`等）を新フォーマットへ更新。達成度が本文に含まれないことを確認するテストを追加 |
+| **マイグレーション（実装中に発見、当初のスキャン漏れ）** | `backend/alembic/versions/fd8470506d29_*.py`（新規）、`backend/tests/test_migration_prompt.py` | `seed_prompt_templates`は`purpose`が既存ならINSERTしない一度きりの処理のため、既存インストール済みDBの`prompt_template`行はPythonコード側の文面変更だけでは更新されない（f7c3e9a1b5d6等の既存前例と同じ構造）。`is_customized=False`の行のみ新文面へ更新するAlembicマイグレーションを追加し、`test_migration_prompt.py`に非カスタマイズ時の更新・カスタマイズ時の不変を確認するテストを追加した |
 
 ### 1.2 フロントエンド
 
@@ -72,23 +73,24 @@
 
 ### 3.1 バックエンド
 
-- [ ] B-01 `prompt_texts_work.py`：`GOAL_RETROSPECTIVE_WORK_MONTHLY`の達成度基準表を反転、「：」区切りルールを各節に追記
-- [ ] B-02 `prompt_texts_work.py`：`GOAL_RETROSPECTIVE_WORK_SEMIANNUAL`に同様の変更
-- [ ] B-03 `work_report_service.py`：`_render_monthly_body`／`_render_semiannual_body`を新フォーマットへ変更（達成度除外・`【】`見出し・新順序・半期の見出し文言統一）
-- [ ] B-04 呼び出し箇所（`generate_monthly_report`等4箇所）の引数追従
-- [ ] B-05 `test_work_report_service.py`：既存アサーションの更新、達成度が本文に含まれないことの新規テスト追加
-- [ ] B-06 `ruff check .`・`pytest`（カバレッジ100%）で確認
+- [x] B-01 `prompt_texts_work.py`：`GOAL_RETROSPECTIVE_WORK_MONTHLY`の達成度基準表を反転、「：」区切りルールを各節に追記
+- [x] B-02 `prompt_texts_work.py`：`GOAL_RETROSPECTIVE_WORK_SEMIANNUAL`に同様の変更
+- [x] B-03 `work_report_service.py`：`_render_monthly_body`／`_render_semiannual_body`を新フォーマットへ変更（達成度除外・`【】`見出し・新順序・半期の見出し文言統一）
+- [x] B-04 呼び出し箇所（`generate_monthly_report`等4箇所）の引数追従
+- [x] B-04b（当初のスキャン漏れ分）既存DBの`prompt_template`行を更新するAlembicマイグレーション（`fd8470506d29`）を追加、`test_migration_prompt.py`にテスト追加
+- [x] B-05 `test_work_report_service.py`：既存アサーションの更新、達成度が本文に含まれないことの新規テスト追加
+- [ ] B-06 `ruff check .`・`pytest`（カバレッジ100%）で確認（`ruff check .`は確認済み＝All checks passed。`pytest`はバックグラウンド実行中、結果待ち）
 
 ### 3.2 フロントエンド
 
-- [ ] F-01 `ja.json`・`en.json`の`achievementScore.1`〜`5`ラベルを反転
-- [ ] F-02 `npx tsc -b`・`npx oxlint`・`npm run test`で確認（既存テストに影響が無いことの確認のみ）
+- [x] F-01 `ja.json`・`en.json`の`achievementScore.1`〜`5`ラベルを反転
+- [ ] F-02 `npx tsc -b`・`npx oxlint`・`npm run test`で確認（`tsc -b`・`oxlint`は確認済み＝0件。`npm run test`はバックグラウンド実行中、結果待ち）
 
 ### 3.3 ドキュメント改訂
 
-- [ ] D-01 要件定義書：R-78改訂、改訂履歴1.1（改52）
-- [ ] D-02 仕様書：SC-03（6.2）更新、改訂履歴1.1（改64）
-- [ ] D-03 設計書（ロジック・プロンプト編）：17.9・17.10・22.6更新、改訂履歴1.1（改65）
+- [x] D-01 要件定義書：R-78改訂、改訂履歴1.1（改52）
+- [x] D-02 仕様書：SC-03（6.2）更新、改訂履歴1.1（改64）
+- [x] D-03 設計書（ロジック・プロンプト編）：17.9・17.10・22.6更新、改訂履歴1.1（改65）
 
 ### 3.4 完了後
 
