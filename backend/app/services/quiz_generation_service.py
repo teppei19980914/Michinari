@@ -33,17 +33,25 @@ from app.services import (
 _logger = logging.getLogger(__name__)
 
 _BLOCK_SEPARATOR = re.compile(r"^\s*===\s*$", re.MULTILINE)
-_FIELD_PATTERN = re.compile(
-    r"問題:\s*(?P<question>.+?)\s*\n"
-    r"選択肢1:\s*(?P<choice1>.+?)\s*\n"
-    r"選択肢2:\s*(?P<choice2>.+?)\s*\n"
-    r"選択肢3:\s*(?P<choice3>.+?)\s*\n"
-    r"選択肢4:\s*(?P<choice4>.+?)\s*\n"
-    r"正解:\s*(?P<correct>[1-4])\s*\n"
-    r"解説:\s*(?P<explanation>.+?)\s*\n"
-    r"出典:\s*(?P<citation>\d{4}-\d{2}-\d{2})",
-    re.DOTALL,
+#: 1ブロック分（問題文〜出典まで）を一括でマッチする正規表現。各フィールドは1行想定
+#: のため`[^\n]+?`（改行を跨がない非貪欲）で区切り、`re.DOTALL`は使わない。`.+?`を
+#: `re.DOTALL`配下で連鎖させると、区切りリテラルと同じ文字列が入力中に繰り返し出現した
+#: 場合に破滅的バックトラッキング（ReDoS、CWE-1333）が発生する（セキュリティレビューで
+#: 実測確認。入力はAI応答であり、プロンプトに展開される利用者の報告本文を経由した
+#: 間接プロンプトインジェクションの影響を受けうるため信頼できない外部入力として扱う）。
+_QUESTION_BLOCK_PATTERN = re.compile(
+    r"問題:[ \t]*(?P<question>[^\n]+?)[ \t]*\n"
+    r"選択肢1:[ \t]*(?P<choice1>[^\n]+?)[ \t]*\n"
+    r"選択肢2:[ \t]*(?P<choice2>[^\n]+?)[ \t]*\n"
+    r"選択肢3:[ \t]*(?P<choice3>[^\n]+?)[ \t]*\n"
+    r"選択肢4:[ \t]*(?P<choice4>[^\n]+?)[ \t]*\n"
+    r"正解:[ \t]*(?P<correct>[1-4])[ \t]*\n"
+    r"解説:[ \t]*(?P<explanation>[^\n]+?)[ \t]*\n"
+    r"出典:[ \t]*(?P<citation>\d{4}-\d{2}-\d{2})"
 )
+#: 1問として非現実的な長さのブロックは正規表現に通さず破棄する（ReDoS対策の多層防御。
+#: 上記のパターン変更で構造的には解消済みだが、想定外の入力に対する保険として残す）。
+_MAX_BLOCK_CHARS = 2000
 
 
 def _parse_blocks(
@@ -54,7 +62,9 @@ def _parse_blocks(
     """
     parsed: list[dict] = []
     for block in _BLOCK_SEPARATOR.split(response_text):
-        match = _FIELD_PATTERN.search(block)
+        if len(block) > _MAX_BLOCK_CHARS:
+            continue
+        match = _QUESTION_BLOCK_PATTERN.search(block)
         if match is None:
             continue
         citation_date = dt.date.fromisoformat(match.group("citation"))

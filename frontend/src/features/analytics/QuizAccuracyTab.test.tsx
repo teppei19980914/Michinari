@@ -35,6 +35,20 @@ describe('QuizAccuracyTab', () => {
     expect(await screen.findByText(t('analytics.quizAccuracy.empty'))).toBeDefined()
   })
 
+  it('does not show the weak themes card when there are none', async () => {
+    getQuizAccuracyAnalytics.mockResolvedValue({
+      trend: [
+        { period_start: '2026-03-09', period_end: '2026-03-15', answer_count: 2, correct_count: 2 },
+      ],
+      weak_themes: [],
+    })
+    renderWithProviders(<QuizAccuracyTab goalId={1} />)
+
+    await screen.findByText(t('analytics.quizAccuracy.trendTitle'))
+
+    expect(screen.queryByText(t('analytics.quizAccuracy.weakThemesTitle'))).toBeNull()
+  })
+
   it('shows the weekly trend and weak themes', async () => {
     getQuizAccuracyAnalytics.mockResolvedValue({
       trend: [

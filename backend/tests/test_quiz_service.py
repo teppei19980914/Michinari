@@ -132,6 +132,7 @@ def test_record_answer_incorrect_resets_to_first_interval(seeded_session):
     quiz_service.record_answer(seeded_session, question, False)
 
     assert question.interval_index == 0
+    assert question.next_due_date == question.last_answered_at.date() + dt.timedelta(days=1)
     log = seeded_session.scalar(
         select(QuizAnswerLog).where(QuizAnswerLog.question_id == question.id)
     )

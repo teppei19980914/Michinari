@@ -199,6 +199,28 @@
 | ダッシュボード初期表示 | 既存の性能要件（2秒以内）を維持すること（AI呼び出しを伴わないことを計測で確認） |
 | AI呼び出し失敗時の影響範囲 | ダッシュボード・記録機能に影響しないこと（起動時バッチの例外握り潰しを確認） |
 
+## 5.1 観点別レビュー（コミット前チェック、2026-11-06実施）
+
+`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`xss-reviewer`・`test-coverage-reviewer`・`performance-reviewer`を並列実行。検出事項と対応:
+
+| # | エージェント | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | injection-reviewer | **CRITICAL** | `quiz_generation_service._FIELD_PATTERN`の`.+?`連鎖＋`re.DOTALL`によるReDoS（CWE-1333）。実測で入力約1KB・n=16の繰り返しで3.6秒、増加率からn=40〜50（AI応答として非現実的でない量）で数時間停止と推定。発火経路はAI応答（間接プロンプトインジェクション・AIの反復出力故障モードを想定、信頼できない外部入力） | 修正済み：`[^\n]+?`＋`re.DOTALL`除去で構造的に解消、`_MAX_BLOCK_CHARS`（2000字）の多層防御を追加、`_FIELD_PATTERN`→`_QUESTION_BLOCK_PATTERN`に改名。回帰テスト`test_parse_blocks_does_not_hang_on_adversarial_repetition`を追加（1秒以内に完了することを確認） |
+| 2 | dry-reviewer | HIGH | `quiz_generation_service._send`と`recap_generation_service._send`がほぼ同一コードを複製（`_ASSISTANT_KEY_BY_CATEGORY`も含む） | 修正済み：`app/services/theme_ai_dispatch.py`を新設し`send_theme_scoped_prompt`に共通化。両ファイルの`_send`は薄いラッパーに縮小 |
+| 3 | dry-reviewer | MEDIUM | 「月曜始まりの週開始日」計算が`analytics_service`（新規）・`weekly_summary_service._week_start_of`・`metrics_service._bucket_start`の3箇所に重複 | 部分対応：`weekly_summary_service._week_start_of`を`week_start_of`として公開関数化し、`analytics_service.compute_quiz_accuracy_trend`はこれを呼ぶよう修正。`metrics_service`側の既存重複は本機能のスコープ外として見送り |
+| 4 | dry-reviewer | MEDIUM | フロントの`formatAccuracyPercent`が既存`utils/format.ts`の`formatPercent`と同じ計算式を再実装 | 修正済み：`formatAccuracyPercent`は`formatPercent`に委譲するラッパーへ変更 |
+| 5 | label-checker | 該当 | `QuizAccuracyTab.tsx`の全角括弧「（」「）」がJSXへ直書き（ゼロハードコーディング違反） | 修正済み：`analytics.quizAccuracy.fractionLabel`をja.json/en.jsonへ追加し置換 |
+| 6 | xss-reviewer | MEDIUM | `MarkdownText`の「生HTMLを解釈しないためXSSにならない」という安全性主張に対する回帰テストが無い | 対応済み：`MarkdownText.test.tsx`にXSS回帰テスト2件（`<img onerror>`・`javascript:`リンク）を追加 |
+| 7 | test-coverage-reviewer | HIGH | `RecapThemeDetailPage.tsx`のクイズ生成連携（成功/0件/失敗の3分岐）がページファイルのカバレッジ除外設定の陰で実質無検証 | 修正済み：`RecapThemeDetailPage.test.tsx`に3テスト追加（生成成功トースト、0件時トースト、確認キャンセル→実行→失敗時のエラー表示） |
+| 8 | test-coverage-reviewer | MEDIUM | 生成数の上限（`question_count`切り詰め）が未検証 | 修正済み：有効ブロック5件→採用3件を確認するテストを追加 |
+| 9 | test-coverage-reviewer | MEDIUM | 不正解時の`next_due_date`更新が未検証 | 修正済み：既存テストへアサート追加 |
+| 10 | test-coverage-reviewer | MEDIUM | `QuizAccuracyTab`の「trend有り・weak_themes無し」分岐が未検証 | 修正済み：テスト追加 |
+| 11 | test-coverage-reviewer | LOW | `DashboardPage`→`QuizTodaySection`の`today_quiz_count`受け渡しの結合テストが無い | 修正済み：`DashboardPage.test.tsx`に2テスト追加 |
+| 12 | style-reviewer | LOW | `frontend/src/api/quiz.ts`の`answerQuiz`にJSDocが無く他2関数と不統一 | 修正済み：JSDoc追加 |
+| 13 | performance-reviewer | — | 問題なし（N+1なし、AI呼び出しなし）。ダッシュボード応答時間の実測は未実施（コードレビューのみ） | §3.4 V-08（実機確認）で利用者に実測を依頼 |
+
+全修正後、関連テストファイルを再実行し合格・回帰無しを確認済み（§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |

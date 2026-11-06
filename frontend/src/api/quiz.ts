@@ -10,6 +10,7 @@ export function getTodayQuiz(): Promise<QuizQuestion[]> {
   return apiClient.get<QuizQuestion[]>('/quiz/today')
 }
 
+/** 選択した選択肢で解答を送信し、正誤・解説・出典・次回出題予定日を返す。 */
 export function answerQuiz(questionId: number, choiceIndex: number): Promise<QuizAnswerResult> {
   return apiClient.post<QuizAnswerResult>(`/quiz/${questionId}/answer`, {
     choice_index: choiceIndex,
