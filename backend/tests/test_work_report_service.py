@@ -275,7 +275,19 @@ def test_generate_monthly_report_parses_sections_into_columns(seeded_session, mo
     assert retrospective.report_notes == "特になし"
     assert retrospective.edited_at is None
     assert "# 月次報告（2026年8月）" in retrospective.body
-    assert "## 目標がどの程度達成されたか\n3" in retrospective.body
+    assert "目標がどの程度達成されたか" not in retrospective.body
+    assert retrospective.body.index("【この期間の目標】") < retrospective.body.index(
+        "【業務内容（案件内容）】"
+    )
+    assert retrospective.body.index("【業務内容（案件内容）】") < retrospective.body.index(
+        "【目標の達成状況と進捗に関する振り返り】"
+    )
+    assert retrospective.body.index(
+        "【目標の達成状況と進捗に関する振り返り】"
+    ) < retrospective.body.index("【来月の目標】")
+    assert retrospective.body.index("【来月の目標】") < retrospective.body.index(
+        "【報告・連絡事項】"
+    )
 
 
 def test_generate_monthly_report_includes_weekly_summary_and_excludes_its_raw_logs(
@@ -396,6 +408,17 @@ def test_generate_semiannual_review_parses_sections_into_columns(seeded_session,
     assert retrospective.next_goal_text == "新機能の設計を開始する。"
     assert retrospective.report_notes is None
     assert "# 半期評価（2026年3月〜8月）" in retrospective.body
+    assert "目標がどの程度達成されたか" not in retrospective.body
+    assert "報告・連絡事項" not in retrospective.body
+    assert retrospective.body.index("【この期間の目標】") < retrospective.body.index(
+        "【業務内容（案件内容）】"
+    )
+    assert retrospective.body.index("【業務内容（案件内容）】") < retrospective.body.index(
+        "【目標の達成状況と進捗に関する振り返り】"
+    )
+    assert retrospective.body.index(
+        "【目標の達成状況と進捗に関する振り返り】"
+    ) < retrospective.body.index("【次半期の目標】")
 
 
 def test_generate_semiannual_review_includes_weekly_summary_and_excludes_its_raw_logs(
@@ -496,7 +519,7 @@ def test_update_monthly_report_edits_existing_row_in_place(seeded_session, monke
     assert updated.achievement_reflection == "修正後の振り返り"
     assert updated.report_notes == "修正後の報告連絡事項"
     assert updated.edited_at is not None
-    assert "## 目標がどの程度達成されたか\n5" in updated.body
+    assert "目標がどの程度達成されたか" not in updated.body
     assert "修正後の業務内容要約" in updated.body
     assert "修正後の振り返り" in updated.body
     assert "修正後の報告連絡事項" in updated.body
