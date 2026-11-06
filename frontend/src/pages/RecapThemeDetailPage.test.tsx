@@ -20,6 +20,9 @@ vi.mock('../api/recap', () => ({
   rebuildRecapTheme,
 }))
 
+const generateThemeQuiz = vi.hoisted(() => vi.fn())
+vi.mock('../api/quiz', () => ({ generateThemeQuiz }))
+
 function makeDetail(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     id: 1,
@@ -28,6 +31,7 @@ function makeDetail(overrides: Partial<Record<string, unknown>> = {}) {
     body: '・SMTP（2026-03-09）',
     updated_at: '2026-03-10T00:00:00',
     entries: [{ source_kind: 'DIARY', record_date: '2026-03-09', text: 'SMTPの役割' }],
+    quiz_question_count: 0,
     ...overrides,
   }
 }
@@ -129,5 +133,50 @@ describe('RecapThemeDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: t('recapTheme.rebuildButton') }))
 
     await waitFor(() => expect(rebuildRecapTheme).toHaveBeenCalledWith(1))
+  })
+
+  it('generates the quiz and shows a success toast when questions were created', async () => {
+    const user = userEvent.setup()
+    getRecapTheme.mockResolvedValue(makeDetail({ quiz_question_count: 0 }))
+    generateThemeQuiz.mockResolvedValue({ created: 2 })
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: t('recapTheme.quizGenerateButton') }),
+    )
+
+    await waitFor(() => expect(generateThemeQuiz).toHaveBeenCalledWith(1))
+    expect(await screen.findByText(t('recapTheme.quizGenerateSucceeded', { count: 2 }))).toBeDefined()
+  })
+
+  it('shows the no-questions-created toast when generation yields nothing', async () => {
+    const user = userEvent.setup()
+    getRecapTheme.mockResolvedValue(makeDetail({ quiz_question_count: 0 }))
+    generateThemeQuiz.mockResolvedValue({ created: 0 })
+    renderPage()
+
+    await user.click(
+      await screen.findByRole('button', { name: t('recapTheme.quizGenerateButton') }),
+    )
+
+    expect(await screen.findByText(t('recapTheme.quizGenerateSucceededNone'))).toBeDefined()
+  })
+
+  it('regenerates only after confirmation when a quiz already exists, and reports a failure', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    getRecapTheme.mockResolvedValue(makeDetail({ quiz_question_count: 3 }))
+    generateThemeQuiz.mockRejectedValue(new Error('生成失敗'))
+    renderPage()
+    const button = await screen.findByRole('button', {
+      name: t('recapTheme.quizRegenerateButton'),
+    })
+
+    await user.click(button)
+    expect(generateThemeQuiz).not.toHaveBeenCalled()
+
+    await user.click(button)
+    await waitFor(() => expect(generateThemeQuiz).toHaveBeenCalledWith(1))
+    expect(await screen.findByText('生成失敗')).toBeDefined()
   })
 })

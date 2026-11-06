@@ -317,3 +317,20 @@ describe('DashboardPage の記録リマインド到達性案内（開発Todo リ
     expect(screen.queryByText(t('dashboard.autostartBanner.description'))).toBeNull()
   })
 })
+
+describe('DashboardPage の今日の復習（開発Todo_復習クイズ_v1.0）', () => {
+  it('passes today_quiz_count through to the quiz section', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ today_quiz_count: 2 }))
+    renderWithProviders(<DashboardPage />)
+
+    expect(await screen.findByText(t('quiz.dashboardCount', { count: 2 }))).toBeDefined()
+  })
+
+  it('shows nothing when there is nothing due today', async () => {
+    getDashboard.mockResolvedValue(makeDashboard({ today_quiz_count: 0 }))
+    renderWithProviders(<DashboardPage />)
+
+    await screen.findByText(t('dashboard.title'))
+    expect(screen.queryByText(t('quiz.dashboardTitle'))).toBeNull()
+  })
+})

@@ -1,6 +1,7 @@
 """復習クイズのAI生成のテスト（AI送信はモックで検証する）。"""
 
 import datetime as dt
+import time
 
 import pytest
 from sqlalchemy import select
@@ -78,6 +79,33 @@ def test_generate_for_theme_discards_malformed_block(seeded_session, monkeypatch
     assert created == 0
 
 
+def test_parse_blocks_does_not_hang_on_adversarial_repetition(seeded_session, monkeypatch):
+    """セキュリティレビューで確認されたReDoS（CWE-1333）の回帰テスト。
+
+    `選択肢1:`等の区切りリテラルを含む行を大量に繰り返す応答（利用者の報告本文を経由した
+    間接プロンプトインジェクション、またはAIの反復出力の故障モードを想定）を渡しても、
+    破滅的バックトラッキングで無限に近い時間停止しないことを確認する（1秒以内に完了）。
+    改修前のパターン（`.+?`の連鎖＋`re.DOTALL`）ではn=16で3.6秒、増加率からn=40〜50で
+    数時間停止すると実測されていた。
+    """
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    # `_MAX_BLOCK_CHARS`(2000)の多層防御だけに頼らず、正規表現自体が安全であることを
+    # 確認するため、その内側に収まる長さで全フィールドのリテラルを繰り返す（出典行は
+    # 置かず、最終的にマッチ全体を失敗させて最後までバックトラッキングを試みさせる）。
+    repeat_unit = "選択肢1: x\n選択肢2: x\n選択肢3: x\n選択肢4: x\n正解: 1\n解説: x\n"
+    adversarial = "問題: q\n" + repeat_unit * 25
+    assert len(adversarial) < 2000
+    stub_quiz_ai(monkeypatch, adversarial)
+
+    started = time.monotonic()
+    created = quiz_generation_service.generate_for_theme(seeded_session, goal, theme)
+    elapsed = time.monotonic() - started
+
+    assert created == 0
+    assert elapsed < 1.0
+
+
 def test_generate_for_theme_keeps_valid_blocks_and_drops_invalid_ones(seeded_session, monkeypatch):
     goal = make_exam_goal(seeded_session)
     theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
@@ -87,6 +115,20 @@ def test_generate_for_theme_keeps_valid_blocks_and_drops_invalid_ones(seeded_ses
     created = quiz_generation_service.generate_for_theme(seeded_session, goal, theme)
 
     assert created == 1
+
+
+def test_generate_for_theme_caps_created_count_at_questions_per_theme(seeded_session, monkeypatch):
+    """AIが`quiz.questions_per_theme`（既定3）を超える有効な問題を返しても、採用数は
+    設定を超えない（開発Todo §5「1テーマからの生成数」の基準）。"""
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    response = "\n===\n".join(_valid_block() for _ in range(5))
+    stub_quiz_ai(monkeypatch, response)
+
+    created = quiz_generation_service.generate_for_theme(seeded_session, goal, theme)
+
+    assert created == 3
+    assert seeded_session.query(QuizQuestion).count() == 3
 
 
 def test_generate_for_theme_without_entries_does_nothing(seeded_session, monkeypatch):
