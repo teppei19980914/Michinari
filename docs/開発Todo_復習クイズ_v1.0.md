@@ -248,7 +248,8 @@
 
 - 2026-11-06 実施結果（最終）
   - バックエンド全体：2,203件合格、カバレッジ100%（文9,791・分岐1,738、いずれも欠落0）。ruff 0件。
-  - フロントエンド全体：182ファイル／1,541件合格、カバレッジ100%（文・分岐・関数・行）。oxlint 0件、`tsc -b` 0件、production build成功（新規ページ・新規ルートを含め1,417モジュール変換、既存のチャンクサイズ警告のみで新規エラーなし）。
+  - フロントエンド全体：182ファイル／1,542件合格、カバレッジ100%（文・分岐・関数・行）。oxlint 0件、`tsc -b` 0件、production build成功（新規ページ・新規ルートを含め1,417モジュール変換、既存のチャンクサイズ警告のみで新規エラーなし）。
+  - **レビュー後の追加修正**：要件6（AI未設定時の表示）がダッシュボードの非表示のみでは不十分と判明（`/quiz`へ直接遷移すると意味不明な完了表示が出る不具合）。`QuizPage.tsx`に`useAiConfigured`／`AiUnconfiguredNotice`を追加し修正（F-02参照）。仕様書6.1.6も合わせて修正。
   - OSVスキャン（`vuln-scan.sh`）：既知の脆弱性0件（新規依存ライブラリは追加していない）。
   - 観点別レビュー（§5.1）：dry/style/label/injection/xss/test-coverage/performanceの7エージェントを実行。**CRITICAL 1件（ReDoS、CWE-1333、実測確認）を検出・修正済み**。HIGH 2件（recap/quiz間の`_send`重複→`theme_ai_dispatch.py`へ共通化、フロントのクイズ生成分岐が未テスト→`RecapThemeDetailPage.test.tsx`に3テスト追加）・MEDIUM多数（詳細は§5.1表）も全て対応済み。
   - 実機確認：実サーバ（uvicorn）を実際の利用者DB（`data/michinari.db`）に対して起動し、`GET /dashboard`（`today_quiz_count=0`を確認）・`GET /quiz/today`（`[]`）・`GET /goals/1/recap-themes`（`[]`、まだ振り返りバッチが実行されていないため空が正しい）が正常応答することを確認。フロントエンドはproduction buildの成功のみ確認（ブラウザ操作ツールが本環境に無く、画面を実際にクリックしての確認は未実施）。
