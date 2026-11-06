@@ -10,10 +10,28 @@ const getTodayQuiz = vi.hoisted(() => vi.fn())
 const answerQuiz = vi.hoisted(() => vi.fn())
 vi.mock('../api/quiz', () => ({ getTodayQuiz, answerQuiz }))
 
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../api/ai', () => ({ getAiStatus }))
+
 describe('QuizPage', () => {
   beforeEach(() => {
     getTodayQuiz.mockReset()
     answerQuiz.mockReset()
+    getAiStatus.mockReset()
+    getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
+  })
+
+  it('shows the AI-required notice instead of the quiz session when AI is not configured', async () => {
+    getAiStatus.mockResolvedValue({
+      authenticated: false,
+      model_status: {},
+      login_in_progress: false,
+    })
+    getTodayQuiz.mockResolvedValue([])
+    renderWithProviders(<QuizPage />)
+
+    expect(await screen.findByText(t('quiz.aiRequiredDescription'))).toBeDefined()
+    expect(screen.queryByText(t('quiz.completedTitle'))).toBeNull()
   })
 
   it('shows the loading text while fetching', () => {
