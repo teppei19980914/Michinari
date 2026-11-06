@@ -79,6 +79,18 @@ def test_generate_for_theme_discards_malformed_block(seeded_session, monkeypatch
     assert created == 0
 
 
+def test_generate_for_theme_discards_block_exceeding_the_max_length(seeded_session, monkeypatch):
+    """`_MAX_BLOCK_CHARS`超のブロックは正規表現に通さず破棄する（ReDoS対策の多層防御）。"""
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    oversized = _valid_block() + "\n解説の余談: " + "あ" * quiz_generation_service._MAX_BLOCK_CHARS
+    stub_quiz_ai(monkeypatch, oversized)
+
+    created = quiz_generation_service.generate_for_theme(seeded_session, goal, theme)
+
+    assert created == 0
+
+
 def test_parse_blocks_does_not_hang_on_adversarial_repetition(seeded_session, monkeypatch):
     """セキュリティレビューで確認されたReDoS（CWE-1333）の回帰テスト。
 
