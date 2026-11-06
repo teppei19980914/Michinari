@@ -1725,6 +1725,7 @@
     }
   },
   "quiz": {
+    "aiRequiredDescription": "復習クイズは、書き留めた記録からAIが問題を作る機能です。AIの接続設定を行うと使えるようになります。",
     "dashboardTitle": "今日の復習",
     "dashboardCount": "{{count}}問",
     "startButton": "復習する",
