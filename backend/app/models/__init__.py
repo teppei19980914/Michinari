@@ -13,6 +13,7 @@ from app.models.goal import (
 )
 from app.models.material import Material, MaterialSubject, PlanBaseline
 from app.models.milestone import GoalMilestoneAchievement
+from app.models.quiz import QuizAnswerLog, QuizQuestion
 from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import (
     ChatMessage,
@@ -82,4 +83,6 @@ __all__ = [
     "ChatMessageAttachment",
     "GoalConsultationLogAttachment",
     "GoalMilestoneAchievement",
+    "QuizQuestion",
+    "QuizAnswerLog",
 ]

@@ -59,16 +59,15 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-05で
-    `GOAL_RETROSPECTIVE_WORK_MONTHLY`/`_SEMIANNUAL`の達成度スケールを反転（5が最高評価・
-    1が最低評価）し、自由記述の各節へ「：」区切りで複数項目を列記するルールを追加した
-    ことに伴う（開発Todo_月次報告出力フォーマット整理_v1.0）。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-06で
+    `QUIZ_GENERATE`（復習クイズ生成、開発Todo_復習クイズ_v1.0）のプロンプト本文を
+    `prompt_texts_common.py`へ追加したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "6e775337bd05c2ec68882c842935de2b98a6882179df3b8529d2f811ed394f94"
+    assert digest == "583623d401e7a4d4ded6e87e8d61e88a7a8ab303838f3f468b122cf4412951f0"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

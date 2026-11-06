@@ -254,6 +254,9 @@ def test_export_all_data_includes_schema_version_and_table_rows(full_schema_db):
     assert data["tables"]["goal_consultation_log"] == []
     # S11で追加した goal_consultation_conversation も同様（開発Todo v1.2 W6）。
     assert data["tables"]["goal_consultation_conversation"] == []
+    # 復習クイズ（quiz_question・quiz_answer_log）も同様（開発Todo_復習クイズ_v1.0）。
+    assert data["tables"]["quiz_question"] == []
+    assert data["tables"]["quiz_answer_log"] == []
 
 
 def test_export_all_data_round_trips_goal_consultation_log_rows(full_schema_db):

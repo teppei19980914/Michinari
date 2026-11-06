@@ -15,6 +15,7 @@ import { AttachmentManagementPage } from './pages/AttachmentManagementPage'
 import { ExamGoalWizardPage } from './pages/ExamGoalWizardPage'
 import { GoalDetailPage } from './pages/GoalDetailPage'
 import { RecapThemeDetailPage } from './pages/RecapThemeDetailPage'
+import { QuizPage } from './pages/QuizPage'
 import { ExamResultPage } from './pages/ExamResultPage'
 import { KnowledgeExportPage } from './pages/KnowledgeExportPage'
 import { ResourceSettingsPage } from './pages/ResourceSettingsPage'
@@ -66,6 +67,7 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.goalNewExam} element={<ExamGoalWizardPage />} />
       <Route path={ROUTE_PATTERNS.goalDetail} element={<GoalDetailPage />} />
       <Route path={ROUTE_PATTERNS.recapTheme} element={<RecapThemeDetailPage />} />
+      <Route path={ROUTE_PATTERNS.quiz} element={<QuizPage />} />
       <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
       <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />
       <Route path={ROUTE_PATTERNS.attachments} element={<AttachmentManagementPage />} />

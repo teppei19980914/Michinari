@@ -199,6 +199,7 @@ export function makeDashboard(overrides: Partial<DashboardRead> = {}): Dashboard
     // 各案内の表示を検証するテストは明示的にtrueへ上書きすること。
     show_reminder_onboarding_prompt: false,
     show_reminder_autostart_banner: false,
+    today_quiz_count: 0,
     ...overrides,
   }
 }

@@ -18,7 +18,7 @@
 
 | # | 決定 | 理由 |
 | --- | --- | --- |
-| D1 | テーブルは2つ：`quiz_question`（問題本体＋現在の間隔進行状態を1行に持つ。1:1のため分割しない）、`quiz_answer_log`（回答履歴、分析用） | `recap_theme` の「本文＋状態を1テーブル」方式に合わせる。間隔進行専用テーブルを分けると結合が増えるだけで利点がない |
+| D1 | テーブルは2つ：`quiz_question`（問題本体＋現在の間隔進行状態＋`last_answered_at`〈NULL=未出題〉を1行に持つ。1:1のため分割しない）、`quiz_answer_log`（回答履歴、分析用） | `recap_theme` の「本文＋状態を1テーブル」方式に合わせる。間隔進行専用テーブルを分けると結合が増えるだけで利点がない。`last_answered_at`は実装時に追加：U3（テーマ変更・目標アーカイブ削除時）は全行削除、利用者操作「作り直す」は未出題のみ削除、という2つの削除範囲を区別する必要があり、`interval_index`だけでは「未出題」と「不正解で0に戻った行」を判別できないため |
 | D2 | 選択肢は4列（`choice_1`〜`choice_4` + `correct_choice_index`） | 本コードベースにJSON列の前例が無い（確認済み、既存モデルはすべて素朴な型）。4択固定（要件2）のため列数固定で十分 |
 | D3 | `quiz_question.theme_id` は `recap_theme.id` への `ForeignKey(ondelete="CASCADE")` のみを持つ（`goal_id` は持たない） | `recap_theme` が既に `goal_id` へCASCADEを持つため、目標削除→テーマ削除→クイズ削除の連鎖で十分。`recap_entry` のような直接の `goal_id` 重複列は、クイズでは目標単位の直接検索が無いため不要（CLAUDE.md DRYの原則：不要な列を増やさない） |
 | D4 | `quiz_answer_log.theme_id` は `recap_theme.id` へCASCADE、`question_id` は `quiz_question.id` へ `ondelete="SET NULL"`（nullable） | テーマの改名・再構築で `quiz_question` 行を削除しても（U3）、分析画面の正答率推移（要件5）はテーマ単位で継続して見られる必要があるため、履歴はテーマに紐付け、問題個体への参照は失われてもよい（`SET NULL`）。テーマが統合で消える場合（`merge_themes` のsource）は履歴もCASCADEで消える（U3の対象にテーマ統合を含めたことと整合） |
@@ -50,7 +50,7 @@
 | 新規サービス | `app/services/quiz_service.py`（出題選択・解答記録・間隔の進行計算・テーマ変更時の削除。AI非依存、`recap_service.py` 相当）、`app/services/quiz_generation_service.py`（AI呼び出しによる生成・出典検証・破棄、`recap_generation_service.py` 相当） | 追加 |
 | 既存サービスへの連携 | `app/services/recap_service.py`（`rename_theme:269-273`・`merge_themes:276-`）にテーマ変更時のクイズ削除フックを追加、または呼び出し元（API層）でトランザクションをまとめて呼ぶ | 要実装時に判断（関数内で直接呼ぶと循環import の恐れがあるため、呼び出し元から明示的に両方呼ぶ方式を優先検討） |
 | 起動時バッチ | `app/main.py:287-298` の `run_ai_startup_tasks()`、`recap_generation_service.run_all` の直後 | `quiz_generation_service.run_all` 呼び出しを追加（要件1:4、D12） |
-| 新規API | `app/api/quiz.py`（`GET /quiz/today`・`POST /quiz/{id}/answer`・`POST /themes/{theme_id}/quiz/generate`・`GET /quiz/config`）、`app/schemas/quiz.py`、`app/main.py`（`include_router` 登録） | 追加 |
+| 新規API | `app/api/quiz.py`（`GET /quiz/today`・`POST /quiz/{id}/answer`・`POST /themes/{theme_id}/quiz/generate`）、`app/schemas/quiz.py`、`app/main.py`（`include_router` 登録）。AI未設定時の判定は既存の`useAiConfigured`／`GET /ai-status`を再利用し専用エンドポイントは設けない | 追加 |
 | ダッシュボード | `app/api/dashboard.py:246-327` の `get_dashboard()`・`DashboardRead` スキーマ | 「今日の復習N問」フィールド追加（DB読み取りのみ、AI呼び出しなし。`_build_weekly_digest` 171-209行と同方針） |
 | 分析 | `app/api/analytics.py`・`app/services/analytics_service.py` | 新規エンドポイント（正答率推移・苦手テーマ） |
 | テスト | `backend/tests/`（フラット構成。新規 `test_quiz_service.py`・`test_quiz_generation_service.py`・`test_api_quiz.py`・`tests/quiz_helpers.py`〈`recap_helpers.py` 相当〉） | 追加 |
@@ -114,37 +114,37 @@
 
 ### 3.1 文書改訂
 
-- [ ] D-01 要件定義書：新節、改訂履歴
-- [ ] D-02 仕様書：画面仕様（ダッシュボード・テーマ詳細・分析）、AI連携一覧、設定、改訂履歴
-- [ ] D-03 設計書（ロジック・プロンプト編）：処理フロー、プロンプト、出典検証、STRIDE、改訂履歴
-- [ ] D-04 設計書（データ構造編）：`quiz_question`・`quiz_answer_log`、設定キー、改訂履歴
-- [ ] D-05 実装フェーズ分割計画書：Phase49、index.md
-- [ ] D-06 README.md：機能一覧への追記
-- [ ] D-07 脅威モデル（STRIDE）：`/threat-model` を実施し、結果を設計書へ反映（CLAUDE.md「コミット前チェック」新機能の必須事項）
+- [x] D-01 要件定義書：新節（2026-11-06、6.19 R-138〜R-147、改訂履歴1.1改53）
+- [x] D-02 仕様書：画面仕様（2026-11-06、6.1.6・6.8）、AI連携一覧（8.1 AI-18）、機能一覧（DSH-09・ANL-10）、改訂履歴1.1改65
+- [x] D-03 設計書（ロジック・プロンプト編）：処理フロー・プロンプト・出典検証（2026-11-06、17.15新設、改訂履歴1.1改66）。STRIDEはD-07で別途実施
+- [x] D-04 設計書（データ構造編）：`quiz_question`・`quiz_answer_log`、改訂履歴（2026-11-06、5.4追加、改訂履歴1.1改67）
+- [x] D-05 実装フェーズ分割計画書：Phase49、index.md（2026-11-06）
+- [x] D-06 README.md：機能一覧への追記（2026-11-06、「すべての種類に共通する機能」表に追加）
+- [x] D-07 脅威モデル（STRIDE）：実施し設計書へ反映（2026-11-06、17.15.1新設。単一利用者ローカル運用のため認可境界の脅威は限定的、出典検証〈T・I〉とバッチの呼び出し頻度制御〈D〉が主な対策）
 
 ### 3.2 バックエンド実装
 
-- [ ] B-01 列挙・設定キーの追加（`AiPurpose.QUIZ_GENERATE`・`ConversationScope.QUIZ_GENERATE`、設定キー3件）
-- [ ] B-02 `quiz_question`・`quiz_answer_log` モデル（D1〜D4）、マイグレーション（`create_table` のみ、head=`fd8470506d29`）、マイグレーション適用テスト
-- [ ] B-03 `backup_service.py`：`DATA_SCHEMA_VERSION` 1.7へ、`_IMPORTABLE_SCHEMA_VERSIONS` 更新（D13）
-- [ ] B-04 シード：`app_setting` 既定値3件、`prompt_template`（`QUIZ_GENERATE` 本文、D9・D10・D11の契約を満たす指示文）
-- [ ] B-05 `quiz_service.py`：出題選択（`next_due_date <= today` かつ日次上限）、解答記録（正解→次の間隔へ進める、不正解→最初の間隔へ戻す）、テーマ変更時の削除（改名・統合・再構築フック、U3・D12）
-- [ ] B-06 `quiz_generation_service.py`：対象テーマの選定（D12：未生成テーマのみ、バッチ）、入力組み立て（D9）、AI送信（recap方式の`_send`相当）、出力解析・出典検証・個別破棄（D10・D11）、生成結果の保存
-- [ ] B-07 `main.py`：`run_ai_startup_tasks()` に `quiz_generation_service.run_all` 追加（recap呼び出しの直後）
-- [ ] B-08 API：`GET /quiz/today`・`POST /quiz/{id}/answer`・`POST /themes/{theme_id}/quiz/generate`（手動生成・作り直す、U2②）・`GET /quiz/config`（AI未設定時表示用）。エラーはドメイン例外→既存のエラー変換
-- [ ] B-09 ダッシュボード：`DashboardRead` へ「今日の復習N問」フィールド追加、`get_dashboard()` でDB集計のみ実装（AI呼び出し禁止、2秒以内の性能要件を維持）
-- [ ] B-10 分析：正答率推移・苦手テーマの集計API（`analytics_service.py`）
-- [ ] B-11 セキュリティテスト：選択肢・解説文へのプロンプト注入耐性、出典偽装（実在しない日付での検証突破試行）、不正な `question_id` での解答記録試行（認可境界・存在しないID）
+- [x] B-01 列挙・設定キーの追加（2026-11-06、`AiPurpose.QUIZ_GENERATE`・`ConversationScope.QUIZ_GENERATE`、設定キー3件）
+- [x] B-02 `quiz_question`・`quiz_answer_log` モデル（D1〜D4）、マイグレーション（2026-11-06、`fa5a81543844_quiz_tables.py`、head=`fd8470506d29`→`fa5a81543844`、`create_table` のみ、実DBへの適用確認済み。自動生成時の不要な`alter_column`〈既存enum列、native_enum=Falseのため実害なし〉は削除済み）。実装中に設計を見直し、`quiz_question.last_answered_at`（NULL=未出題）を追加（U3の「テーマ変更時は全行削除」と、利用者操作「作り直す」の「未出題のみ削除」を区別するため必要と判明。Todo §0 D1に追記）
+- [x] B-03 `backup_service.py`：`DATA_SCHEMA_VERSION` 1.7へ、`_IMPORTABLE_SCHEMA_VERSIONS` 更新（2026-11-06、D13）
+- [x] B-04 シード：`app_setting` 既定値3件、`prompt_template`（2026-11-06、`QUIZ_GENERATE` 本文、D9・D10・D11の契約を満たす指示文。`prompt_texts_common.py`に追加）
+- [x] B-05 `quiz_service.py`：出題選択（`next_due_date <= today` かつ日次上限）、解答記録（正解→次の間隔へ進める、不正解→最初の間隔へ戻す）、テーマ変更時の削除（2026-11-06、`delete_questions_for_theme`。`app/api/recap.py`のrename/merge/rebuildへフック済み）
+- [x] B-06 `quiz_generation_service.py`：対象テーマの選定（D12：未生成テーマのみ、バッチ）、入力組み立て（D9）、AI送信（recap方式の`_send`相当）、出力解析・出典検証・個別破棄（D10・D11）、生成結果の保存（2026-11-06）。`recap_generation_service._chunk_by_chars`を`recap_service.chunk_by_chars`へ移設し共有（DRY、既存recapテスト50件で回帰無し確認済み）
+- [x] B-07 `main.py`：`run_ai_startup_tasks()` に `quiz_generation_service.run_all` 追加（2026-11-06、recap呼び出しの直後）
+- [x] B-08 API：`GET /quiz/today`・`POST /quiz/{id}/answer`・`POST /themes/{theme_id}/quiz/generate`（手動生成・作り直す、U2②）を実装（2026-11-06）。**設計変更**：`GET /quiz/config`は実装しない。フロントに既存の全画面共通フック`useAiConfigured`（`GET /ai-status`）があり、新規AI未設定時専用エンドポイントは不要と判明（既存の仕組みに従うというCLAUDE.mdの原則により、重複実装を避けた）。合わせて`RecapThemeSummaryRead`・`RecapThemeDetailRead`に`quiz_question_count`を追加（テーマ詳細の「作る」／「作り直す」表示分け用、N+1にならないよう`quiz_service.count_questions_by_theme`で一括取得）
+- [x] B-09 ダッシュボード：`DashboardRead` へ `today_quiz_count` フィールド追加、`get_dashboard()` でDB集計のみ実装（2026-11-06、AI呼び出しなし）
+- [x] B-10 分析：正答率推移・苦手テーマの集計API（2026-11-06、`analytics_service.compute_quiz_accuracy_trend`・`compute_quiz_theme_accuracy`、`GET /analytics/quiz-accuracy`）
+- [x] B-11 セキュリティテスト：出典偽装（実在しない日付での検証突破）・形式不正ブロックの破棄・存在しない`question_id`/`theme_id`での404を`test_quiz_generation_service.py`・`test_api_quiz.py`でカバー（2026-11-06）。選択肢・解説文はAI生成文の表示のみでユーザー自由入力ではないため、フロント側のMarkdownText（生HTML非解釈）で対応（F-02）
 
 ### 3.3 フロントエンド実装
 
-- [ ] F-01 `api/quiz.ts`、型の生成し直し（`npm run generate:api-types`）
-- [ ] F-02 `features/quiz/` の出題カード・解答UI・結果表示・AI未設定時の案内（純粋関数とテストを分離）
-- [ ] F-03 ダッシュボード「今日の復習N問」セクション（`DashboardPage.tsx`）
-- [ ] F-04 テーマ詳細ページに「クイズを作る／作り直す」ボタン追加
-- [ ] F-05 分析画面：`QuizAccuracyTab.tsx`（既存タブと同列、`chartColors.ts` 等の既存ユーティリティを再利用）
-- [ ] F-06 `ja.json`・`en.json`：`quiz` 名前空間（文言のロケール外部化、CLAUDE.mdゼロハードコーディング）
-- [ ] F-07 `npm run lint`（oxlint 0件）・`npx tsc -b`（0件）・`npm run test`（vitest、カバレッジ100%）
+- [x] F-01 `api/quiz.ts`、型の生成し直し（2026-11-06、`npm run generate:api-types`）
+- [x] F-02 `features/quiz/` の出題カード（`QuizSession.tsx`）・解答UI・結果表示（2026-11-06）。**設計変更**：AI未設定時の専用案内は作らず、既存の`AiUnconfiguredNotice`／`useAiConfigured`パターンをダッシュボード・テーマ詳細の既存ボタンがそのまま踏襲する（B-08の設計変更と同じ理由）。純粋関数は`quizProgress.ts`に分離
+- [x] F-03 ダッシュボード「今日の復習N問」セクション（2026-11-06、`QuizTodaySection.tsx`、`DashboardPage.tsx`に配置。目標タブに依存しない全体値のため直近4週間カレンダーと同じ非依存の位置に置いた）
+- [x] F-04 テーマ詳細ページに「クイズを作る／作り直す」ボタン追加（2026-11-06、既存の`RecapThemeEditCard.tsx`を拡張。別カードを新設せず関連操作をまとめた）
+- [x] F-05 分析画面：`QuizAccuracyTab.tsx`（2026-11-06、既存タブと同列）。**設計変更**：正答率推移は折れ線グラフ（recharts）ではなく、週別・テーマ別の一覧表示（Card+リスト）とした。理由：データが少ない利用開始直後は折れ線の情報量が乏しく、既存の`MilestoneListTab`等も一覧表示で統一感があるため。将来データ量が増えた場合はグラフ化を検討（dataviz skillの手順に従う）
+- [x] F-06 `ja.json`・`en.json`：`quiz` 名前空間・`recapTheme.quiz*`・`analytics.quizAccuracy`（2026-11-06、キー集合の一致を確認済み）
+- [x] F-07 `npm run lint`（2026-11-06、oxlint 0件）・`npx tsc -b`（0件）・`npm run test`（vitest、182ファイル/1533件合格、カバレッジ100%）
 
 ### 3.4 検証
 

@@ -39,6 +39,7 @@ from app.services import (
     goal_service,
     material_service,
     metrics_service,
+    quiz_service,
     quota_service,
     record_service_common,
     record_service_exam,
@@ -324,4 +325,5 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
         weekly_digests=weekly_digests,
         show_reminder_onboarding_prompt=reminder_onboarding_flags.show_reminder_onboarding_prompt,
         show_reminder_autostart_banner=reminder_onboarding_flags.show_reminder_autostart_banner,
+        today_quiz_count=len(quiz_service.get_due_questions(session, today)),
     )

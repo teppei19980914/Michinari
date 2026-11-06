@@ -132,3 +132,5 @@ class DashboardRead(BaseModel):
     weekly_digests: list[WeeklyDigestRead]
     show_reminder_onboarding_prompt: bool
     show_reminder_autostart_banner: bool
+    #: 今日の復習クイズの件数（1日の上限まで、開発Todo_復習クイズ_v1.0）。
+    today_quiz_count: int
