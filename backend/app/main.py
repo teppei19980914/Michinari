@@ -38,6 +38,7 @@ from app.api.goals import router as goals_router
 from app.api.help_assistant import router as help_assistant_router
 from app.api.materials import router as materials_router
 from app.api.milestones import router as milestones_router
+from app.api.quiz import router as quiz_router
 from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
@@ -57,6 +58,7 @@ from app.services import (
     backup_service,
     goal_service,
     milestone_service_common,
+    quiz_generation_service,
     recap_generation_service,
     weekly_summary_service,
 )
@@ -236,6 +238,7 @@ def create_app() -> FastAPI:
     app.include_router(work_members_router, prefix=API_V1_PREFIX)
     app.include_router(books_router, prefix=API_V1_PREFIX)
     app.include_router(recap_router, prefix=API_V1_PREFIX)
+    app.include_router(quiz_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
@@ -296,6 +299,7 @@ def run_ai_startup_tasks() -> None:
         today = goal_service.resolve_today(session)
         weekly_summary_service.run_retroactive_generation(session, today)
         recap_generation_service.run_all(session, today)
+        quiz_generation_service.run_all(session)
     finally:
         session.close()
 

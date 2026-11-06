@@ -12,9 +12,13 @@ type RecapThemeEditCardProps = {
   onRename: (name: string) => void
   onMerge: (targetThemeId: number) => void
   onRebuild: () => void
+  quizQuestionCount: number
+  isGeneratingQuiz: boolean
+  onGenerateQuiz: () => void
 }
 
-/** テーマの改名・統合・再構築（仕様書6.1.3）。統合と再構築は確認を挟む（統合元は削除されるため）。 */
+/** テーマの改名・統合・再構築・復習クイズの作成（仕様書6.1.3・6.1.6）。統合・再構築・
+ * クイズの作り直しは確認を挟む（統合元の削除、未出題クイズの削除を伴うため）。 */
 export function RecapThemeEditCard({
   themeName,
   mergeCandidates,
@@ -22,6 +26,9 @@ export function RecapThemeEditCard({
   onRename,
   onMerge,
   onRebuild,
+  quizQuestionCount,
+  isGeneratingQuiz,
+  onGenerateQuiz,
 }: RecapThemeEditCardProps) {
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [mergeTargetId, setMergeTargetId] = useState<number | ''>('')
@@ -76,7 +83,7 @@ export function RecapThemeEditCard({
           </Button>
         </div>
       </label>
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
         <Button
           variant="secondary"
           disabled={isSaving}
@@ -87,6 +94,19 @@ export function RecapThemeEditCard({
           }}
         >
           {t('recapTheme.rebuildButton')}
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={isSaving || isGeneratingQuiz}
+          onClick={() => {
+            if (quizQuestionCount === 0 || window.confirm(t('recapTheme.quizRegenerateConfirm'))) {
+              onGenerateQuiz()
+            }
+          }}
+        >
+          {quizQuestionCount === 0
+            ? t('recapTheme.quizGenerateButton')
+            : t('recapTheme.quizRegenerateButton')}
         </Button>
       </div>
     </Card>

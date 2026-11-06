@@ -164,3 +164,24 @@ class WorkLogEntryRead(BaseModel):
 
     record_date: dt.date
     body: str
+
+
+class QuizAccuracyPointRead(BaseModel):
+    period_start: dt.date
+    period_end: dt.date
+    answer_count: int
+    correct_count: int
+
+
+class QuizThemeAccuracyRead(BaseModel):
+    theme_id: int
+    theme_name: str
+    answer_count: int
+    correct_count: int
+
+
+class QuizAccuracyAnalyticsRead(BaseModel):
+    """GET /analytics/quiz-accuracy（仕様書6.8「クイズ正答率」タブ、資格試験・読書向け）。"""
+
+    trend: list[QuizAccuracyPointRead]
+    weak_themes: list[QuizThemeAccuracyRead]

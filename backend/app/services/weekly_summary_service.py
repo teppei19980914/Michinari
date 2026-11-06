@@ -96,8 +96,12 @@ class _CategorySpec:
     effective_start_date: Callable[[Session, Goal], dt.date]
 
 
-def _week_start_of(log_date: dt.date) -> dt.date:
-    """ログの日付が属する週の開始日（月曜）を返す（15.1「月曜日を週の開始日」）。"""
+def week_start_of(log_date: dt.date) -> dt.date:
+    """ログの日付が属する週の開始日（月曜）を返す（15.1「月曜日を週の開始日」）。
+
+    復習クイズの正答率推移（analytics_service.compute_quiz_accuracy_trend）も同じ
+    週定義を使うため公開関数とする（CODING_RULES.md DRYの原則、開発Todo_復習クイズ_v1.0）。
+    """
     return log_date - dt.timedelta(days=log_date.weekday())
 
 
@@ -106,7 +110,7 @@ def _bucket_goal_ids_by_week(rows: Iterable[tuple[int, dt.date]]) -> dict[dt.dat
     で、カテゴリごとのクエリ関数から共通して使う）。"""
     buckets: dict[dt.date, set[int]] = {}
     for goal_id, log_date in rows:
-        buckets.setdefault(_week_start_of(log_date), set()).add(goal_id)
+        buckets.setdefault(week_start_of(log_date), set()).add(goal_id)
     return buckets
 
 
@@ -258,7 +262,7 @@ def list_pending_weeks(session: Session, today: dt.date) -> list[PendingWeek]:
     earliest_start = _earliest_effective_start_date(session)
     if earliest_start is None:
         return []
-    earliest_week_start = _week_start_of(earliest_start)
+    earliest_week_start = week_start_of(earliest_start)
     last_week_start = last_sunday - dt.timedelta(days=6)
     if earliest_week_start > last_week_start:
         return []
@@ -321,7 +325,7 @@ def invalidate_week(session: Session, goal: Goal, record_date: dt.date) -> None:
     anonymizedが基準にする_non_anonymized_weeks_queryからこの週が外れ、古い匿名化版だけが
     更新されずエクスポートに出続けてしまうため（データ構造編7.3、開発Todo S06 D3・D4）。
     """
-    week_start = _week_start_of(record_date)
+    week_start = week_start_of(record_date)
     session.query(WeeklySummary).filter(
         WeeklySummary.goal_id == goal.id, WeeklySummary.week_start_date == week_start
     ).delete()

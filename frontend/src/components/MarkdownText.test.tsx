@@ -27,4 +27,22 @@ describe('MarkdownText', () => {
     expect(wrapper?.className).toContain('text-sm')
     expect(wrapper?.className).toContain('text-text-primary')
   })
+
+  it('does not render raw HTML embedded in AI-generated text (XSS regression)', () => {
+    const { container } = render(
+      <MarkdownText text='<img src=x onerror="window.__xss=true">' className="text-sm" />,
+    )
+
+    expect(container.querySelector('img')).toBeNull()
+    expect((window as { __xss?: boolean }).__xss).toBeUndefined()
+  })
+
+  it('neutralizes a javascript: link scheme in AI-generated text (XSS regression)', () => {
+    const { container } = render(
+      <MarkdownText text="[click](javascript:alert(1))" className="text-sm" />,
+    )
+
+    const anchor = container.querySelector('a')
+    expect(anchor?.getAttribute('href') ?? '').not.toMatch(/^javascript:/)
+  })
 })

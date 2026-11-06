@@ -668,6 +668,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/quiz/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today Quiz
+         * @description 今日出題すべきクイズ（間隔が来たもの、1日の上限まで）を返す。
+         */
+        get: operations["get_today_quiz_api_v1_quiz_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/quiz/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer Quiz
+         * @description 解答を記録し、正誤・解説・出典・次回出題予定日を返す。
+         */
+        post: operations["answer_quiz_api_v1_quiz__question_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/themes/{theme_id}/quiz/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Theme Quiz
+         * @description テーマのクイズを作る・作り直す（利用者操作）。未出題分のみ削除してから生成する。
+         */
+        post: operations["generate_theme_quiz_api_v1_themes__theme_id__quiz_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/resources/slots": {
         parameters: {
             query?: never;
@@ -1745,6 +1805,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/quiz-accuracy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Quiz Accuracy Analytics
+         * @description 資格試験・読書目標向けの分析タブ「クイズ正答率」（開発Todo_復習クイズ_v1.0、仕様書6.8）。
+         *
+         *     解答履歴が1件も無い場合は空（trend・weak_themesとも空配列）を返す（エラーとしない）。
+         */
+        get: operations["get_quiz_accuracy_analytics_api_v1_analytics_quiz_accuracy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subjects/{subject_id}/result": {
         parameters: {
             query?: never;
@@ -2210,7 +2292,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2612,6 +2694,8 @@ export interface components {
             show_reminder_onboarding_prompt: boolean;
             /** Show Reminder Autostart Banner */
             show_reminder_autostart_banner: boolean;
+            /** Today Quiz Count */
+            today_quiz_count: number;
         };
         /** DayBoundaryHourRead */
         DayBoundaryHourRead: {
@@ -3979,6 +4063,89 @@ export interface components {
             points: components["schemas"]["QualityTrendPointRead"][];
         };
         /**
+         * QuizAccuracyAnalyticsRead
+         * @description GET /analytics/quiz-accuracy（仕様書6.8「クイズ正答率」タブ、資格試験・読書向け）。
+         */
+        QuizAccuracyAnalyticsRead: {
+            /** Trend */
+            trend: components["schemas"]["QuizAccuracyPointRead"][];
+            /** Weak Themes */
+            weak_themes: components["schemas"]["QuizThemeAccuracyRead"][];
+        };
+        /** QuizAccuracyPointRead */
+        QuizAccuracyPointRead: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Answer Count */
+            answer_count: number;
+            /** Correct Count */
+            correct_count: number;
+        };
+        /** QuizAnswerRequest */
+        QuizAnswerRequest: {
+            /** Choice Index */
+            choice_index: number;
+        };
+        /** QuizAnswerResultRead */
+        QuizAnswerResultRead: {
+            /** Is Correct */
+            is_correct: boolean;
+            /** Correct Choice Index */
+            correct_choice_index: number;
+            /** Explanation */
+            explanation: string;
+            /**
+             * Citation Date
+             * Format: date
+             */
+            citation_date: string;
+            /**
+             * Next Due Date
+             * Format: date
+             */
+            next_due_date: string;
+        };
+        /** QuizGenerateResultRead */
+        QuizGenerateResultRead: {
+            /** Created */
+            created: number;
+        };
+        /**
+         * QuizQuestionRead
+         * @description 出題用（正解・解説・出典は含めない。事前に見えると解答にならないため）。
+         */
+        QuizQuestionRead: {
+            /** Id */
+            id: number;
+            /** Theme Id */
+            theme_id: number;
+            /** Theme Name */
+            theme_name: string;
+            /** Question Text */
+            question_text: string;
+            /** Choices */
+            choices: string[];
+        };
+        /** QuizThemeAccuracyRead */
+        QuizThemeAccuracyRead: {
+            /** Theme Id */
+            theme_id: number;
+            /** Theme Name */
+            theme_name: string;
+            /** Answer Count */
+            answer_count: number;
+            /** Correct Count */
+            correct_count: number;
+        };
+        /**
          * QuotaItemRead
          * @description 日次記録画面（SC-06/SC-07）の実績入力行に必要な教材情報（仕様書6.5）。
          *
@@ -4105,6 +4272,8 @@ export interface components {
             updated_at: string;
             /** Entries */
             entries: components["schemas"]["RecapThemeEntryRead"][];
+            /** Quiz Question Count */
+            quiz_question_count: number;
         };
         /** RecapThemeEntryRead */
         RecapThemeEntryRead: {
@@ -4140,6 +4309,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Quiz Question Count */
+            quiz_question_count: number;
         };
         /**
          * RecordState
@@ -6377,6 +6548,92 @@ export interface operations {
             };
         };
     };
+    get_today_quiz_api_v1_quiz_today_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizQuestionRead"][];
+                };
+            };
+        };
+    };
+    answer_quiz_api_v1_quiz__question_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizAnswerResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_theme_quiz_api_v1_themes__theme_id__quiz_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                theme_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizGenerateResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_slots_api_v1_resources_slots_get: {
         parameters: {
             query?: never;
@@ -8272,6 +8529,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkLogEntryRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_quiz_accuracy_analytics_api_v1_analytics_quiz_accuracy_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizAccuracyAnalyticsRead"];
                 };
             };
             /** @description Validation Error */

@@ -442,3 +442,46 @@ def test_work_log_analytics_404_when_goal_not_found(client):
     response = client.get("/api/v1/analytics/work-logs?goal_id=999999")
 
     assert response.status_code == 404
+
+
+def test_quiz_accuracy_analytics_returns_trend_and_weak_themes(seeded_session, client):
+    from app.models.quiz import QuizAnswerLog
+    from tests.diary_helpers import make_exam_goal
+    from tests.recap_helpers import seed_theme
+
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    seeded_session.add(
+        QuizAnswerLog(
+            theme_id=theme.id,
+            question_id=None,
+            is_correct=False,
+            answered_at=dt.datetime(2026, 3, 9, 10),
+        )
+    )
+    seeded_session.commit()
+
+    response = client.get(f"/api/v1/analytics/quiz-accuracy?goal_id={goal.id}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["trend"][0]["answer_count"] == 1
+    assert body["weak_themes"][0]["theme_name"] == "メール関連"
+    assert body["weak_themes"][0]["correct_count"] == 0
+
+
+def test_quiz_accuracy_analytics_empty_when_no_answers(seeded_session, client):
+    from tests.diary_helpers import make_exam_goal
+
+    goal = make_exam_goal(seeded_session)
+
+    response = client.get(f"/api/v1/analytics/quiz-accuracy?goal_id={goal.id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"trend": [], "weak_themes": []}
+
+
+def test_quiz_accuracy_analytics_404_when_goal_not_found(client):
+    response = client.get("/api/v1/analytics/quiz-accuracy?goal_id=999999")
+
+    assert response.status_code == 404

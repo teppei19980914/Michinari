@@ -14,17 +14,12 @@ from collections import defaultdict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ai import conversation as ai_conversation
-from app.ai import orchestration as ai_orchestration
-from app.ai import prompt_builder
 from app.constants.app_setting_keys import (
-    AI_ASSISTANT_UID_WEEKLY_SUMMARY,
-    AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     RECAP_BODY_MAX_CHARS,
     RECAP_CLASSIFY_CHUNK_CHARS,
     RECAP_MIN_RETENTION_RATIO,
 )
-from app.constants.enums import AiPurpose, ConversationScope, GoalCategory
+from app.constants.enums import AiPurpose, ConversationScope
 from app.constants.recap import (
     RECAP_BODY_EMPTY_PLACEHOLDER,
     RECAP_CONVERSATION_TITLE_PREFIX,
@@ -32,16 +27,16 @@ from app.constants.recap import (
 )
 from app.models.goal import Goal
 from app.models.recap import RecapTheme
-from app.services import ai_context_exam, ai_context_reading, recap_service, setting_reader
-from app.services.exceptions import RecapBodyRejectedError, RecapPromptTooLongError
+from app.services import (
+    ai_context_exam,
+    ai_context_reading,
+    recap_service,
+    setting_reader,
+    theme_ai_dispatch,
+)
+from app.services.exceptions import RecapBodyRejectedError
 
 _logger = logging.getLogger(__name__)
-
-#: 目標種別ごとの既存アシスタント（新しい設定項目は増やさない。週次要約用を流用する）。
-_ASSISTANT_KEY_BY_CATEGORY = {
-    GoalCategory.EXAM: AI_ASSISTANT_UID_WEEKLY_SUMMARY,
-    GoalCategory.READING: AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
-}
 
 
 def run_for_goal(session: Session, goal: Goal, today: dt.date) -> int:
@@ -61,7 +56,7 @@ def run_for_goal(session: Session, goal: Goal, today: dt.date) -> int:
     texts = [t for t in recap_service.entry_texts(session, entries) if t.text.strip()]
     chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
     classified = 0
-    for chunk in _chunk_by_chars(texts, chunk_budget):
+    for chunk in recap_service.chunk_by_chars(texts, chunk_budget):
         response = _send(
             session,
             goal,
@@ -79,20 +74,6 @@ def run_for_goal(session: Session, goal: Goal, today: dt.date) -> int:
         session.commit()
         classified += len(classification)
     return classified
-
-
-def _chunk_by_chars(texts: list[recap_service.EntryText], budget: int):
-    """報告本文を、合計文字数が予算を超えないよう順に区切る（1件が予算を超える場合は単独）。"""
-    chunk: list[recap_service.EntryText] = []
-    size = 0
-    for item in texts:
-        if chunk and size + len(item.text) > budget:
-            yield chunk
-            chunk, size = [], 0
-        chunk.append(item)
-        size += len(item.text)
-    if chunk:
-        yield chunk
 
 
 def _existing_theme_lines(session: Session, goal: Goal) -> str:
@@ -161,7 +142,7 @@ def rebuild_theme(session: Session, goal: Goal, theme: RecapTheme) -> None:
         return
     budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
     body = ""
-    for chunk in _chunk_by_chars(texts, budget):
+    for chunk in recap_service.chunk_by_chars(texts, budget):
         body = _next_body(session, goal, theme.name, f"theme-{theme.id}", body, chunk)
     theme.body = body
 
@@ -204,29 +185,15 @@ def _send(
     *,
     scope_key: str,
 ) -> str:
-    template_body = ai_orchestration.load_template_body(session, purpose)
-    max_chars = ai_orchestration.get_max_prompt_chars(session)
-    built = prompt_builder.build_simple(template_body, variables, max_chars)
-    if built.was_truncated:
-        raise RecapPromptTooLongError(f"prompt exceeds the limit: {purpose}")
-    assistant_uid = setting_reader.get_str(session, _ASSISTANT_KEY_BY_CATEGORY[goal.category])
-    conversation = ai_conversation.ensure_conversation(
+    return theme_ai_dispatch.send_theme_scoped_prompt(
         session,
-        goal=goal,
-        scope=ConversationScope.RECAP,
+        goal,
+        purpose,
+        ConversationScope.RECAP,
+        variables,
         scope_key=scope_key,
-        assistant_uid=assistant_uid,
         title=f"{RECAP_CONVERSATION_TITLE_PREFIX} {scope_key}",
     )
-    result = ai_orchestration.send_and_log(
-        session,
-        purpose=purpose,
-        conversation=conversation,
-        prompt_text=built.text,
-        prompt_chars=built.prompt_chars,
-        was_truncated=built.was_truncated,
-    )
-    return result.response_text
 
 
 def run_all(session: Session, today: dt.date) -> int:

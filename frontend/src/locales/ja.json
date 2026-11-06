@@ -787,7 +787,8 @@
         "HELP_ASSISTANT": "ヘルプ質問",
         "GOAL_CONSULTATION": "目標相談",
         "GOAL_CONSULTATION_READING": "目標相談（読書）",
-        "GOAL_CONSULTATION_WORK": "目標相談（仕事）"
+        "GOAL_CONSULTATION_WORK": "目標相談（仕事）",
+        "QUIZ_GENERATE": "復習クイズ生成"
       }
     },
     "log": {
@@ -1206,7 +1207,8 @@
       "growthDescription": "成長記述",
       "readingLog": "読書記録",
       "workLog": "業務記録",
-      "milestones": "節目の記録"
+      "milestones": "節目の記録",
+      "quizAccuracy": "クイズ正答率"
     },
     "materialEmpty": "この目標には有効な教材がありません",
     "quality": {
@@ -1269,6 +1271,14 @@
     },
     "workLog": {
       "empty": "業務記録はまだありません"
+    },
+    "quizAccuracy": {
+      "empty": "クイズの解答履歴はまだありません",
+      "trendTitle": "正答率の推移（週別）",
+      "weakThemesTitle": "苦手なテーマ",
+      "accuracyLabel": "正答率",
+      "weekRangeLabel": "{{start}}〜{{end}}",
+      "fractionLabel": "（{{correct}}/{{total}}）"
     }
   },
   "helpAssistant": {
@@ -1702,11 +1712,28 @@
     "mergeConfirm": "このテーマを統合先へまとめ、このテーマを削除します。よろしいですか？",
     "rebuildButton": "再構築",
     "rebuildConfirm": "紐付く報告の原文から本文を作り直します。AIを使うため時間がかかります。よろしいですか？",
+    "quizGenerateButton": "クイズを作る",
+    "quizRegenerateButton": "クイズを作り直す",
+    "quizRegenerateConfirm": "未出題のクイズを削除して作り直します。すでに解答した分は残ります。よろしいですか？",
+    "quizGenerateSucceeded": "{{count}}問のクイズを作成しました",
+    "quizGenerateSucceededNone": "クイズを作成できませんでした。記録が少ないか、出典を確認できる問題がありませんでした",
     "entriesTitle": "紐付く報告",
     "entriesEmpty": "紐付く報告はありません",
     "sourceKind": {
       "DIARY": "資格試験の日記",
       "READING": "読書の想起記録"
     }
+  },
+  "quiz": {
+    "dashboardTitle": "今日の復習",
+    "dashboardCount": "{{count}}問",
+    "startButton": "復習する",
+    "backToDashboard": "ダッシュボードへ戻る",
+    "correctLabel": "正解",
+    "incorrectLabel": "不正解",
+    "nextButton": "次の問題",
+    "completedTitle": "今日の復習は完了しました",
+    "citationLabel": "出典: {{date}}",
+    "progressLabel": "{{current}}/{{total}}問"
   }
 }

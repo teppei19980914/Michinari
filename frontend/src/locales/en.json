@@ -832,7 +832,8 @@
         "HELP_ASSISTANT": "Help question",
         "GOAL_CONSULTATION": "Goal consultation",
         "GOAL_CONSULTATION_READING": "Goal consultation (reading)",
-        "GOAL_CONSULTATION_WORK": "Goal consultation (work)"
+        "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
+        "QUIZ_GENERATE": "Review quiz generation"
       }
     },
     "log": {
@@ -1275,7 +1276,8 @@
       "growthDescription": "Growth notes",
       "readingLog": "Reading log",
       "workLog": "Work log",
-      "milestones": "Milestones"
+      "milestones": "Milestones",
+      "quizAccuracy": "Quiz accuracy"
     },
     "materialEmpty": "This goal has no active materials",
     "quality": {
@@ -1341,6 +1343,14 @@
     },
     "workLog": {
       "empty": "No work records yet"
+    },
+    "quizAccuracy": {
+      "empty": "No quiz answer history yet",
+      "trendTitle": "Accuracy trend (weekly)",
+      "weakThemesTitle": "Weak themes",
+      "accuracyLabel": "Accuracy",
+      "weekRangeLabel": "{{start}} - {{end}}",
+      "fractionLabel": " ({{correct}}/{{total}})"
     }
   },
   "helpAssistant": {
@@ -1780,11 +1790,34 @@
     "mergeConfirm": "This will consolidate this theme into the destination and delete this theme. Are you sure?",
     "rebuildButton": "Rebuild",
     "rebuildConfirm": "This rebuilds the body from the original text of linked reports. It uses AI, so it may take a while. Are you sure?",
+    "quizGenerateButton": "Create quiz",
+    "quizRegenerateButton": "Recreate quiz",
+    "quizRegenerateConfirm": "This deletes unanswered quiz questions and creates new ones. Already-answered questions are kept. Are you sure?",
+    "quizGenerateSucceeded": {
+      "one": "Created {{count}} quiz question",
+      "other": "Created {{count}} quiz questions"
+    },
+    "quizGenerateSucceededNone": "Could not create a quiz. There may be too few records, or no question could be verified against a source.",
     "entriesTitle": "Linked reports",
     "entriesEmpty": "No linked reports",
     "sourceKind": {
       "DIARY": "Certification exam diary",
       "READING": "Reading recall record"
     }
+  },
+  "quiz": {
+    "dashboardTitle": "Today's review",
+    "dashboardCount": {
+      "one": "{{count}} question",
+      "other": "{{count}} questions"
+    },
+    "startButton": "Start review",
+    "backToDashboard": "Back to dashboard",
+    "correctLabel": "Correct",
+    "incorrectLabel": "Incorrect",
+    "nextButton": "Next question",
+    "completedTitle": "Today's review is complete",
+    "citationLabel": "Source: {{date}}",
+    "progressLabel": "{{current}} / {{total}}"
   }
 }

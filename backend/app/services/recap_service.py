@@ -134,6 +134,25 @@ def collect_pending_entries(
     )
 
 
+def chunk_by_chars(texts: list[EntryText], budget: int):
+    """報告本文を、合計文字数が予算を超えないよう順に区切る（1件が予算を超える場合は単独）。
+
+    recap・復習クイズ（開発Todo_復習クイズ_v1.0）の両方のAI呼び出しで使う共通処理
+    （CLAUDE.md DRYの原則。元は`recap_generation_service._chunk_by_chars`だったものを
+    本モジュールへ移設）。
+    """
+    chunk: list[EntryText] = []
+    size = 0
+    for item in texts:
+        if chunk and size + len(item.text) > budget:
+            yield chunk
+            chunk, size = [], 0
+        chunk.append(item)
+        size += len(item.text)
+    if chunk:
+        yield chunk
+
+
 def entry_texts(session: Session, entries: list[RecapEntry]) -> list[EntryText]:
     """分類・要約に渡す報告本文を、種類ごとに一括取得して返す（1件ずつ問い合わせない）。"""
     diary_ids = [e.source_id for e in entries if e.source_kind is RecapSourceKind.DIARY]

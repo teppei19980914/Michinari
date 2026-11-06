@@ -8,18 +8,21 @@ cycle_service・metrics_service・speed_service・baseline_service等、既存�
 import datetime as dt
 from dataclasses import dataclass
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory
 from app.models.book import Book
 from app.models.goal import Goal
 from app.models.material import Material
+from app.models.quiz import QuizAnswerLog
+from app.models.recap import RecapTheme
 from app.models.record import ChatMessage, DailyRecord, ReadingLog, WorkLog
 from app.models.work import WorkAssignment
 from app.services import calendar_service
 from app.services.cycle_service import ProgressPoint
 from app.services.exceptions import NotFoundError, ValidationError
+from app.services.weekly_summary_service import week_start_of
 
 #: 成長記述タブ（日次フィードバックのAI応答）のカテゴリとpurposeの対応（Phase26）。
 _GROWTH_DESCRIPTION_PURPOSE_BY_CATEGORY = {
@@ -222,3 +225,71 @@ def list_work_log_entries(session: Session, work_assignment: WorkAssignment) -> 
         .all()
     )
     return [WorkLogEntry(record_date=row[0], body=row[1]) for row in rows]
+
+
+@dataclass(frozen=True)
+class QuizAccuracyPoint:
+    """分析画面「クイズ正答率」タブの週単位の推移点（開発Todo_復習クイズ_v1.0、仕様書6.8）。"""
+
+    period_start: dt.date
+    period_end: dt.date
+    answer_count: int
+    correct_count: int
+
+
+@dataclass(frozen=True)
+class QuizThemeAccuracy:
+    """テーマ別の正答率（「苦手なテーマ」表示用、正答率の低い順に返す）。"""
+
+    theme_id: int
+    theme_name: str
+    answer_count: int
+    correct_count: int
+
+
+def compute_quiz_accuracy_trend(session: Session, goal: Goal) -> list[QuizAccuracyPoint]:
+    """goalの復習クイズの解答履歴を、月曜始まりの週ごとに集計する（古い週から順）。"""
+    rows = session.execute(
+        select(QuizAnswerLog.answered_at, QuizAnswerLog.is_correct)
+        .join(RecapTheme, RecapTheme.id == QuizAnswerLog.theme_id)
+        .where(RecapTheme.goal_id == goal.id)
+        .order_by(QuizAnswerLog.answered_at)
+    ).all()
+    buckets: dict[dt.date, list[bool]] = {}
+    for answered_at, is_correct in rows:
+        week_start = week_start_of(answered_at.date())
+        buckets.setdefault(week_start, []).append(is_correct)
+    return [
+        QuizAccuracyPoint(
+            period_start=week_start,
+            period_end=week_start + dt.timedelta(days=6),
+            answer_count=len(values),
+            correct_count=sum(values),
+        )
+        for week_start, values in sorted(buckets.items())
+    ]
+
+
+def compute_quiz_theme_accuracy(session: Session, goal: Goal) -> list[QuizThemeAccuracy]:
+    """テーマ別の正答率を、低い順（苦手なテーマが先頭）に返す。1件も解答していないテーマは
+    対象外（分母が無く正答率を定義できないため）。
+    """
+    rows = session.execute(
+        select(
+            RecapTheme.id,
+            RecapTheme.name,
+            func.count(QuizAnswerLog.id),
+            func.sum(QuizAnswerLog.is_correct),
+        )
+        .join(QuizAnswerLog, QuizAnswerLog.theme_id == RecapTheme.id)
+        .where(RecapTheme.goal_id == goal.id)
+        .group_by(RecapTheme.id, RecapTheme.name)
+    ).all()
+    themes = [
+        QuizThemeAccuracy(
+            theme_id=row[0], theme_name=row[1], answer_count=row[2], correct_count=row[3] or 0
+        )
+        for row in rows
+    ]
+    themes.sort(key=lambda t: t.correct_count / t.answer_count)
+    return themes
