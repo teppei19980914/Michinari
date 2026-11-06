@@ -219,7 +219,7 @@
 | 12 | style-reviewer | LOW | `frontend/src/api/quiz.ts`の`answerQuiz`にJSDocが無く他2関数と不統一 | 修正済み：JSDoc追加 |
 | 13 | performance-reviewer | — | 問題なし（N+1なし、AI呼び出しなし）。ダッシュボード応答時間の実測は未実施（コードレビューのみ） | §3.4 V-08（実機確認）で利用者に実測を依頼 |
 
-全修正後、関連テストファイルを再実行し合格・回帰無しを確認済み（§8参照）。
+全修正後、関連テストファイルを再実行し合格・回帰無しを確認済み（§8参照）。ReDoS修正で追加した長さ上限ガード（`_MAX_BLOCK_CHARS`超のブロック破棄）自体のテストが当初漏れていたため（カバレッジ98%で検出）、`test_generate_for_theme_discards_block_exceeding_the_max_length`を追加し100%へ復帰。OSVスキャン（`vuln-scan.sh`）実行、既知の脆弱性0件（新規依存追加なし）。
 
 ## 6. 既知のリスクと対策
 
