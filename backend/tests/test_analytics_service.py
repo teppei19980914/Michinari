@@ -305,3 +305,68 @@ def test_assign_growth_description_goal_rejects_unrelated_purpose(db_session):
 def test_get_chat_message_raises_not_found_for_unknown_id(db_session):
     with pytest.raises(NotFoundError):
         analytics_service.get_chat_message(db_session, 999999)
+
+
+def _make_recap_theme(db_session, goal, name="テーマ"):
+    from app.models.recap import RecapTheme
+
+    theme = RecapTheme(goal_id=goal.id, name=name, body="本文")
+    db_session.add(theme)
+    db_session.flush()
+    return theme
+
+
+def _add_quiz_answer(db_session, theme, *, is_correct, answered_at):
+    from app.models.quiz import QuizAnswerLog
+
+    db_session.add(
+        QuizAnswerLog(
+            theme_id=theme.id, question_id=None, is_correct=is_correct, answered_at=answered_at
+        )
+    )
+    db_session.flush()
+
+
+def test_compute_quiz_accuracy_trend_groups_by_week(db_session):
+    goal = _make_goal(db_session)
+    theme = _make_recap_theme(db_session, goal)
+    _add_quiz_answer(db_session, theme, is_correct=True, answered_at=dt.datetime(2026, 3, 9, 10))
+    _add_quiz_answer(db_session, theme, is_correct=False, answered_at=dt.datetime(2026, 3, 10, 10))
+    _add_quiz_answer(db_session, theme, is_correct=True, answered_at=dt.datetime(2026, 3, 16, 10))
+
+    trend = analytics_service.compute_quiz_accuracy_trend(db_session, goal)
+
+    assert len(trend) == 2
+    assert trend[0].period_start == dt.date(2026, 3, 9)  # 月曜始まり
+    assert trend[0].answer_count == 2
+    assert trend[0].correct_count == 1
+    assert trend[1].period_start == dt.date(2026, 3, 16)
+    assert trend[1].answer_count == 1
+    assert trend[1].correct_count == 1
+
+
+def test_compute_quiz_accuracy_trend_empty_when_no_answers(db_session):
+    goal = _make_goal(db_session)
+    assert analytics_service.compute_quiz_accuracy_trend(db_session, goal) == []
+
+
+def test_compute_quiz_theme_accuracy_sorts_weakest_first(db_session):
+    goal = _make_goal(db_session)
+    weak = _make_recap_theme(db_session, goal, "苦手テーマ")
+    strong = _make_recap_theme(db_session, goal, "得意テーマ")
+    _add_quiz_answer(db_session, weak, is_correct=False, answered_at=dt.datetime(2026, 3, 9, 10))
+    _add_quiz_answer(db_session, weak, is_correct=False, answered_at=dt.datetime(2026, 3, 10, 10))
+    _add_quiz_answer(db_session, strong, is_correct=True, answered_at=dt.datetime(2026, 3, 9, 10))
+
+    result = analytics_service.compute_quiz_theme_accuracy(db_session, goal)
+
+    assert [t.theme_name for t in result] == ["苦手テーマ", "得意テーマ"]
+    assert result[0].answer_count == 2
+    assert result[0].correct_count == 0
+
+
+def test_compute_quiz_theme_accuracy_excludes_themes_with_no_answers(db_session):
+    goal = _make_goal(db_session)
+    _make_recap_theme(db_session, goal, "未解答テーマ")
+
+    assert analytics_service.compute_quiz_theme_accuracy(db_session, goal) == []

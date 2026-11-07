@@ -111,6 +111,7 @@ def test_dashboard_returns_empty_lists_when_no_active_goals(client, seeded_sessi
         "weekly_digests": [],
         "show_reminder_onboarding_prompt": True,
         "show_reminder_autostart_banner": True,
+        "today_quiz_count": 0,
     }
 
 
@@ -512,3 +513,33 @@ def test_goal_remaining_days_none_when_no_exam_subjects():
     goal = Goal(name="科目未登録", start_date=TODAY, status=GoalStatus.ACTIVE)
 
     assert _goal_remaining_days(goal, TODAY) is None
+
+
+def test_dashboard_today_quiz_count_reflects_due_questions(seeded_session, client):
+    """復習クイズ（開発Todo_復習クイズ_v1.0）：間隔が来た件数をAI呼び出し無しで返す。"""
+    from app.models.quiz import QuizQuestion
+    from tests.diary_helpers import make_exam_goal
+    from tests.recap_helpers import seed_theme
+
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    seeded_session.add(
+        QuizQuestion(
+            theme_id=theme.id,
+            question_text="問題文",
+            choice_1="A",
+            choice_2="B",
+            choice_3="C",
+            choice_4="D",
+            correct_choice_index=0,
+            explanation="解説",
+            citation_date=dt.date(2026, 3, 9),
+            interval_index=0,
+            next_due_date=TODAY,
+        )
+    )
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["today_quiz_count"] == 1

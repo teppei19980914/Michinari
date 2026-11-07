@@ -236,3 +236,83 @@ def test_rebuild_without_reports_leaves_the_body_unchanged(seeded_session, clien
 
 def test_rebuild_unknown_theme_returns_404(client):
     assert client.post("/api/v1/recap-themes/999999/rebuild").status_code == 404
+
+
+def _make_quiz_question(session, theme_id):
+    from app.models.quiz import QuizQuestion
+
+    question = QuizQuestion(
+        theme_id=theme_id,
+        question_text="問題文",
+        choice_1="A",
+        choice_2="B",
+        choice_3="C",
+        choice_4="D",
+        correct_choice_index=0,
+        explanation="解説",
+        citation_date=dt.date(2026, 3, 9),
+        interval_index=0,
+        next_due_date=dt.date(2026, 3, 9),
+    )
+    session.add(question)
+    session.commit()
+    return question
+
+
+def test_list_includes_quiz_question_count(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    _make_quiz_question(seeded_session, theme.id)
+
+    response = client.get(f"/api/v1/goals/{goal.id}/recap-themes")
+
+    assert response.json()[0]["quiz_question_count"] == 1
+
+
+def test_detail_includes_quiz_question_count(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+
+    response = client.get(f"/api/v1/recap-themes/{theme.id}")
+
+    assert response.json()["quiz_question_count"] == 0
+
+
+def test_rename_deletes_existing_quiz_questions(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール", "本文", [dt.date(2026, 3, 9)])
+    _make_quiz_question(seeded_session, theme.id)
+
+    response = client.patch(f"/api/v1/recap-themes/{theme.id}", json={"name": "メール関連"})
+
+    assert response.status_code == 200, response.text
+    assert response.json()["quiz_question_count"] == 0
+
+
+def test_rebuild_deletes_existing_quiz_questions(seeded_session, client, monkeypatch):
+    from tests.recap_helpers import _all_ids_to, _stub_ai
+
+    goal = make_exam_goal(seeded_session)
+    theme = _seed_theme(seeded_session, goal, "メール関連", "古い本文", [dt.date(2026, 3, 9)])
+    _make_quiz_question(seeded_session, theme.id)
+    _stub_ai(monkeypatch, classify=_all_ids_to("x"), body=lambda m: "・再構築した本文")
+
+    response = client.post(f"/api/v1/recap-themes/{theme.id}/rebuild")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["quiz_question_count"] == 0
+
+
+def test_merge_deletes_quiz_questions_of_both_source_and_target(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    source = _seed_theme(seeded_session, goal, "メール", "SMTP", [dt.date(2026, 3, 9)])
+    target = _seed_theme(seeded_session, goal, "メール関連", "DKIM", [dt.date(2026, 3, 10)])
+    _make_quiz_question(seeded_session, source.id)
+    _make_quiz_question(seeded_session, target.id)
+
+    response = client.post(
+        f"/api/v1/recap-themes/{source.id}/merge", json={"target_theme_id": target.id}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["quiz_question_count"] == 0

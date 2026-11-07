@@ -15,7 +15,7 @@ from app.schemas.recap import (
     RecapThemeRename,
     RecapThemeSummaryRead,
 )
-from app.services import goal_service, recap_generation_service, recap_service
+from app.services import goal_service, quiz_service, recap_generation_service, recap_service
 
 router = APIRouter(tags=["recap"])
 
@@ -31,17 +31,24 @@ def _detail(session: Session, theme) -> RecapThemeDetailRead:
             RecapThemeEntryRead(source_kind=e.source_kind, record_date=e.record_date, text=e.text)
             for e in recap_service.theme_entries(session, theme)
         ],
+        quiz_question_count=quiz_service.count_questions_for_theme(session, theme.id),
     )
 
 
 @router.get("/goals/{goal_id}/recap-themes", response_model=list[RecapThemeSummaryRead])
 def list_recap_themes(goal_id: int, session: Session = Depends(get_db)):
     goal = goal_service.get_goal(session, goal_id)
+    themes = recap_service.list_themes(session, goal)
+    quiz_counts = quiz_service.count_questions_by_theme(session, [t.id for t in themes])
     return [
         RecapThemeSummaryRead(
-            id=t.id, name=t.name, entry_count=t.entry_count, updated_at=t.updated_at
+            id=t.id,
+            name=t.name,
+            entry_count=t.entry_count,
+            updated_at=t.updated_at,
+            quiz_question_count=quiz_counts.get(t.id, 0),
         )
-        for t in recap_service.list_themes(session, goal)
+        for t in themes
     ]
 
 
@@ -57,6 +64,10 @@ def rename_recap_theme(
 ):
     theme = recap_service.get_theme(session, theme_id)
     recap_service.rename_theme(session, theme, payload.name)
+    # 改名で内容の対応関係が変わるため、既存のクイズは作り直す対象とする（開発Todo
+    # 復習クイズ v1.0 §0 U3。goal削除等と同じCASCADEではなく改名はtheme_id不変のため
+    # ここで明示的に削除する）。
+    quiz_service.delete_questions_for_theme(session, theme.id, only_unanswered=False)
     session.commit()
     return _detail(session, theme)
 
@@ -65,6 +76,9 @@ def rename_recap_theme(
 def merge_recap_theme(theme_id: int, payload: RecapThemeMerge, session: Session = Depends(get_db)):
     source = recap_service.get_theme(session, theme_id)
     target = recap_service.get_theme(session, payload.target_theme_id)
+    # sourceのクイズはmerge_themesのsession.delete(source)に伴うDB側CASCADEで削除される。
+    # targetは行自体が残るため、ここで明示的に削除する（開発Todo 復習クイズ v1.0 §0 U3）。
+    quiz_service.delete_questions_for_theme(session, target.id, only_unanswered=False)
     merged = recap_service.merge_themes(session, source, target)
     session.commit()
     return _detail(session, merged)
@@ -75,5 +89,8 @@ def rebuild_recap_theme(theme_id: int, session: Session = Depends(get_db)):
     theme = recap_service.get_theme(session, theme_id)
     goal = session.get(Goal, theme.goal_id)
     recap_generation_service.rebuild_theme(session, goal, theme)
+    # 本文が作り直されるため、既存のクイズは古い内容のまま出題し続けないよう削除する
+    # （開発Todo 復習クイズ v1.0 §0 U3）。
+    quiz_service.delete_questions_for_theme(session, theme.id, only_unanswered=False)
     session.commit()
     return _detail(session, theme)

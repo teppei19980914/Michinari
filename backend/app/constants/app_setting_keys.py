@@ -140,3 +140,12 @@ MILESTONE_WORK_RECORD_COUNT_THRESHOLDS = "milestone.work_record_count_thresholds
 #: 起動時バックフィル（既存利用者の更新直後に節目のお祝いが大量表示されるのを防ぐ、M9）が
 #: 完了済みかどうか。`true`になった後は二度と実行しない。
 MILESTONE_BACKFILL_COMPLETED = "milestone.backfill_completed"
+
+# 復習クイズ（開発Todo_復習クイズ_v1.0）。テーマ累積（資格試験・読書）からAIが生成するクイズ。
+#: 1テーマから生成するクイズの問題数。
+QUIZ_QUESTIONS_PER_THEME = "quiz.questions_per_theme"
+#: 間隔を空けた出題の間隔日数（カンマ区切りの整数文字列。`setting_reader.get_int_list`で読む）。
+#: 正解で次の間隔へ進め、不正解で最初（先頭）の間隔へ戻す。
+QUIZ_INTERVAL_DAYS = "quiz.interval_days"
+#: 1日に出題するクイズの件数の上限。
+QUIZ_DAILY_LIMIT = "quiz.daily_limit"
