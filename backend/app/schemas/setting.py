@@ -164,6 +164,23 @@ class MilestoneThresholdSettingsUpdate(BaseModel):
     )
 
 
+#: 1年前の今日（開発Todo_1年前の今日_v1.0）の候補（カンマ区切りの正の整数、何か月前か）。
+#: 検証方針はmilestone threshold（直上）と同じ：構造的な検証（数字とカンマのみ）はここで
+#: 行い、重複除去・昇順への正規化は`settings_service._parse_threshold_list`が担う。
+class OnThisDaySettingsRead(BaseModel):
+    enabled: bool
+    candidate_months_ago: str
+    show_probability: float
+    body_preview_chars: int
+
+
+class OnThisDaySettingsUpdate(BaseModel):
+    enabled: bool | None = None
+    candidate_months_ago: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
+    show_probability: float | None = Field(default=None, ge=0.0, le=1.0)
+    body_preview_chars: int | None = Field(default=None, ge=1)
+
+
 class AppSettingsRead(BaseModel):
     ai_connection: AiConnectionSettingsRead
     threshold: ThresholdSettingsRead
@@ -172,6 +189,7 @@ class AppSettingsRead(BaseModel):
     desktop: DesktopSettingsRead
     log: LogSettingsRead
     milestone_threshold: MilestoneThresholdSettingsRead
+    on_this_day: OnThisDaySettingsRead
 
 
 class AppSettingsUpdate(BaseModel):
@@ -182,6 +200,7 @@ class AppSettingsUpdate(BaseModel):
     desktop: DesktopSettingsUpdate | None = None
     log: LogSettingsUpdate | None = None
     milestone_threshold: MilestoneThresholdSettingsUpdate | None = None
+    on_this_day: OnThisDaySettingsUpdate | None = None
 
 
 class PromptTemplateRead(BaseModel):
