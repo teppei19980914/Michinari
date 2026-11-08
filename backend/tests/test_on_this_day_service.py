@@ -14,7 +14,8 @@ from app.models.goal import Goal
 from app.models.record import DailyGoalDiary, DailyRecord, ReadingLog, WorkLog
 from app.models.setting import AppSetting
 from app.models.work import WorkAssignment
-from app.services import goal_service, on_this_day_service as svc
+from app.services import goal_service
+from app.services import on_this_day_service as svc
 
 TODAY = dt.date(2026, 11, 8)
 
@@ -203,7 +204,10 @@ class TestBuildOnThisDayEntry:
         _set_setting(seeded_session, ON_THIS_DAY_BODY_PREVIEW_CHARS, "5")
         goal = _make_goal(seeded_session, category=GoalCategory.EXAM)
         _make_exam_diary(
-            seeded_session, goal.id, svc.subtract_months(TODAY, 12), diary_learned="あいうえおかきくけこ"
+            seeded_session,
+            goal.id,
+            svc.subtract_months(TODAY, 12),
+            diary_learned="あいうえおかきくけこ",
         )
 
         entry = svc.build_on_this_day_entry(seeded_session, TODAY)
@@ -256,6 +260,52 @@ class TestBuildOnThisDayEntry:
         seeded_session.flush()
 
         assert svc.build_on_this_day_entry(seeded_session, TODAY) is None
+
+    def test_excludes_reading_entry_with_empty_recall_body(self, seeded_session):
+        """進捗のみ登録（R-17）では recall_body="" の行が作られる（record_service_reading.py）。
+        数値のみの登録を記録本文として扱わないことを確認する。"""
+        _enable_always_show(seeded_session, months_ago="12")
+        goal = _make_goal(seeded_session, category=GoalCategory.READING)
+        _make_reading_candidate(
+            seeded_session, goal.id, svc.subtract_months(TODAY, 12), recall_body=""
+        )
+
+        assert svc.build_on_this_day_entry(seeded_session, TODAY) is None
+
+    def test_excludes_work_entry_with_empty_body(self, seeded_session):
+        """進捗のみ登録（R-17）では body="" の行が作られる（record_service_work.py）。"""
+        _enable_always_show(seeded_session, months_ago="12")
+        goal = _make_goal(seeded_session, category=GoalCategory.WORK)
+        _make_work_candidate(seeded_session, goal.id, svc.subtract_months(TODAY, 12), body="")
+
+        assert svc.build_on_this_day_entry(seeded_session, TODAY) is None
+
+    def test_includes_archived_reading_goal(self, seeded_session):
+        _enable_always_show(seeded_session, months_ago="12")
+        goal = _make_goal(
+            seeded_session,
+            category=GoalCategory.READING,
+            status=GoalStatus.PAUSED,
+            archived_at=dt.datetime(2026, 10, 1),
+        )
+        _make_reading_candidate(seeded_session, goal.id, svc.subtract_months(TODAY, 12))
+
+        entry = svc.build_on_this_day_entry(seeded_session, TODAY)
+
+        assert entry is not None
+        assert entry.goal_id == goal.id
+
+    def test_includes_closed_work_goal(self, seeded_session):
+        _enable_always_show(seeded_session, months_ago="12")
+        goal = _make_goal(
+            seeded_session, category=GoalCategory.WORK, status=GoalStatus.CLOSED_WITHOUT_RESULT
+        )
+        _make_work_candidate(seeded_session, goal.id, svc.subtract_months(TODAY, 12))
+
+        entry = svc.build_on_this_day_entry(seeded_session, TODAY)
+
+        assert entry is not None
+        assert entry.goal_id == goal.id
 
     def test_selection_is_deterministic_across_multiple_candidates(self, seeded_session):
         _enable_always_show(seeded_session, months_ago="1,12")
