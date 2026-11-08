@@ -4,15 +4,19 @@ import userEvent from '@testing-library/user-event'
 import { t } from '../../locales/t'
 import { RecapThemeEditCard } from './RecapThemeEditCard'
 
-const candidates = [{ id: 2, name: '認証', entry_count: 1, updated_at: '2026-03-10T00:00:00' }]
+const candidates = [
+  { id: 2, name: '認証', entry_count: 1, updated_at: '2026-03-10T00:00:00', quiz_question_count: 0 },
+]
 
 function renderCard(overrides: Partial<Parameters<typeof RecapThemeEditCard>[0]> = {}) {
-  const handlers = { onRename: vi.fn(), onMerge: vi.fn(), onRebuild: vi.fn() }
+  const handlers = { onRename: vi.fn(), onMerge: vi.fn(), onRebuild: vi.fn(), onGenerateQuiz: vi.fn() }
   render(
     <RecapThemeEditCard
       themeName="メール関連"
       mergeCandidates={candidates}
       isSaving={false}
+      quizQuestionCount={0}
+      isGeneratingQuiz={false}
       {...handlers}
       {...overrides}
     />,
@@ -108,6 +112,39 @@ describe('RecapThemeEditCard', () => {
     expect(
       (screen.getByRole('button', { name: t('recapTheme.rebuildButton') }) as HTMLButtonElement)
         .disabled,
+    ).toBe(true)
+  })
+
+  it('generates without confirmation when no quiz exists yet', async () => {
+    const user = userEvent.setup()
+    const { onGenerateQuiz } = renderCard({ quizQuestionCount: 0 })
+
+    await user.click(screen.getByRole('button', { name: t('recapTheme.quizGenerateButton') }))
+
+    expect(onGenerateQuiz).toHaveBeenCalledTimes(1)
+  })
+
+  it('regenerates only after confirmation when a quiz already exists', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    const { onGenerateQuiz } = renderCard({ quizQuestionCount: 3 })
+    const button = screen.getByRole('button', { name: t('recapTheme.quizRegenerateButton') })
+
+    await user.click(button)
+    expect(onGenerateQuiz).not.toHaveBeenCalled()
+    await user.click(button)
+    expect(onGenerateQuiz).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables the quiz button while generating', () => {
+    renderCard({ isGeneratingQuiz: true })
+
+    expect(
+      (
+        screen.getByRole('button', {
+          name: t('recapTheme.quizGenerateButton'),
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true)
   })
 })

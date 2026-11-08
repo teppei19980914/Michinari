@@ -41,6 +41,9 @@ from app.schemas.analytics import (
     QualityAnalyticsRead,
     QualityTrendPointRead,
     QualityTrendSeriesRead,
+    QuizAccuracyAnalyticsRead,
+    QuizAccuracyPointRead,
+    QuizThemeAccuracyRead,
     ReadingLogEntryRead,
     SpeedAnalyticsRead,
     SpeedTrendPointRead,
@@ -301,3 +304,36 @@ def get_work_log_analytics(
         return []
     entries = analytics_service.list_work_log_entries(session, goal.work_assignment)
     return [WorkLogEntryRead(record_date=e.record_date, body=e.body) for e in entries]
+
+
+@router.get("/analytics/quiz-accuracy", response_model=QuizAccuracyAnalyticsRead)
+def get_quiz_accuracy_analytics(
+    goal_id: int, session: Session = Depends(get_db)
+) -> QuizAccuracyAnalyticsRead:
+    """資格試験・読書目標向けの分析タブ「クイズ正答率」（開発Todo_復習クイズ_v1.0、仕様書6.8）。
+
+    解答履歴が1件も無い場合は空（trend・weak_themesとも空配列）を返す（エラーとしない）。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    trend = analytics_service.compute_quiz_accuracy_trend(session, goal)
+    weak_themes = analytics_service.compute_quiz_theme_accuracy(session, goal)
+    return QuizAccuracyAnalyticsRead(
+        trend=[
+            QuizAccuracyPointRead(
+                period_start=p.period_start,
+                period_end=p.period_end,
+                answer_count=p.answer_count,
+                correct_count=p.correct_count,
+            )
+            for p in trend
+        ],
+        weak_themes=[
+            QuizThemeAccuracyRead(
+                theme_id=t.theme_id,
+                theme_name=t.theme_name,
+                answer_count=t.answer_count,
+                correct_count=t.correct_count,
+            )
+            for t in weak_themes
+        ],
+    )

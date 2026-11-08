@@ -11,6 +11,7 @@ export type GrowthDescriptionEntryRead = components['schemas']['GrowthDescriptio
 export type GrowthDescriptionAssignRequest = components['schemas']['GrowthDescriptionAssignRequest']
 export type ReadingLogEntryRead = components['schemas']['ReadingLogEntryRead']
 export type WorkLogEntryRead = components['schemas']['WorkLogEntryRead']
+export type QuizAccuracyAnalyticsRead = components['schemas']['QuizAccuracyAnalyticsRead']
 
 export function getQualityAnalytics(
   goalId: number,
@@ -62,4 +63,8 @@ export function getReadingLogAnalytics(goalId: number): Promise<ReadingLogEntryR
 
 export function getWorkLogAnalytics(goalId: number): Promise<WorkLogEntryRead[]> {
   return apiClient.get<WorkLogEntryRead[]>(`/analytics/work-logs?goal_id=${goalId}`)
+}
+
+export function getQuizAccuracyAnalytics(goalId: number): Promise<QuizAccuracyAnalyticsRead> {
+  return apiClient.get<QuizAccuracyAnalyticsRead>(`/analytics/quiz-accuracy?goal_id=${goalId}`)
 }
