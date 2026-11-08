@@ -10,7 +10,7 @@
 | # | 決定 | 値・理由 |
 | --- | --- | --- |
 | V1 | 候補期間の既定値 | 依頼文の例示そのもの：**1年前（12か月前）・半年前（6か月前）・1か月前（1か月前）** の3件。`app_setting`（`on_this_day.candidate_months_ago`、カンマ区切り昇順int文字列、既存の`setting_reader.get_int_list`をそのまま再利用、新規パース処理は不要） |
-| V2 | 「Nか月前」の日付計算 | 新規ヘルパー`on_this_day_service.subtract_months(base, months)`：年・月を減算し、対象月にその日が存在しない場合（うるう年2/29・月末31日等）は`calendar.monthrange`でその月の最終日にクランプする。新規依存ライブラリ（`dateutil`等）は追加しない（CLAUDE.md「新しい依存ライブラリは原則追加しない」、既存コードにも`dateutil`は無い） |
+| V2 | 「Nか月前」の日付計算 | 新規ヘルパー`on_this_day_service.subtract_months(base, months)`：年・月を減算し、対象月にその日が存在しない場合（うるう年2/29・月末31日等）は`calendar.monthrange`でその月の最終日にクランプする。新規依存ライブラリ（`dateutil`等）は追加しない（依頼文の前提「新しい依存ライブラリは原則追加しない」、既存コードにも`dateutil`は無い） |
 | V3 | 表示するか否かの決定方式 | **確率方式**を採用（`on_this_day.show_probability`、FLOAT、既定`0.3`＝30%）。既存の「頻度」系設定（通知時刻等）は時刻ベースでこの用途に転用できないため新設。後述V4のハッシュ値と比較するだけの単純な判定にする |
 | V4 | 決定的な判定アルゴリズム | `hashlib.sha256(f"on_this_day:{today.isoformat()}".encode()).hexdigest()`の先頭16進8バイトを整数化し`/ 2**64`で`[0, 1)`に正規化した値を使う。Python組込みの`hash()`は`PYTHONHASHSEED`でプロセスごとに変わるため**使用不可**（新規実装、既存コードに類例なし）。同日に複数回呼んでも常に同じ値になることをテストで保証し、「再読み込みで変わらない」要件（受け入れ基準）を満たす。DBへの保存は行わない（CLAUDE.mdの「都度算出」の精神に合わせる。費用の高いAI生成物を再利用する`daily_message`とは性質が異なるため同じ保存方式は採らない） |
 | V5 | 複数の候補日がヒットした場合の選定 | 候補（オフセット×ヒットした日×カテゴリ×目標）をすべて列挙し、`f"{record_date}:{category}:{goal_id}"`をキーに同じsha256方式で値を振って最小値の1件を選ぶ（決定的タイブレーク、同日は常に同じ1件になる） |
@@ -41,7 +41,7 @@
 | 新規サービス | `app/services/on_this_day_service.py` | `subtract_months`（月差分・クランプ）、`resolve_show_today`（確率判定）、`build_on_this_day`（候補日のまとめ取得→3カテゴリJOIN→決定的選定→`OnThisDayRead`組み立て、enabled=falseなら即None） |
 | 新規スキーマ | `app/schemas/dashboard.py` | `OnThisDayRead`（`record_date`・`goal_id`・`goal_name`・`category`・`excerpt`・`months_ago`）を追加し、`DashboardRead`に`on_this_day: OnThisDayRead | None`を追加 |
 | 既存API拡張 | `app/api/dashboard.py`（`get_dashboard`、315〜328行目付近） | `on_this_day_service.build_on_this_day(session, today)`の呼び出しを追加し、`DashboardRead`へ`on_this_day`を渡す。既存の`active_goals`（`ai_context_common.list_active_goals`、ACTIVE限定）は使わず、本機能専用に全状態の目標をJOINする |
-| テスト | `backend/tests/` | 新規`test_on_this_day_service.py`（決定性・候補日・うるう年・月末・論理日境界・アーカイブ/クローズ対象・削除対象外・空本文除外）、既存`test_api_dashboard.py`・`test_settings_service.py`・`test_api_settings.py`への追加 |
+| テスト | `backend/tests/` | 新規`test_on_this_day_service.py`（決定性・候補日・うるう年・月末・論理日境界・アーカイブ/クローズ対象・削除対象外・空本文除外）、既存`test_api_dashboard.py`・`test_settings_service.py`への追加。`test_api_settings.py`は変更しない（既存の`MilestoneThresholdSettings`追加時も同様で、設定グループ追加のAPI層テストはサービス層側の辞書ベーステストで代替する運用が定着しているため、test-coverage-reviewerレビューで確認済み、2026-11-09） |
 
 ### 1.2 フロントエンド
 
@@ -164,7 +164,7 @@
 - 削除済み目標の記録が候補に出てこないこと、アーカイブ済み・クローズ済み目標の記録は候補に出ること
 - 進捗のみ登録（本文なし）の日は候補にならないこと
 - `on_this_day.enabled=false`で常に非表示になること
-- ダッシュボードのレスポンス時間が既存の性能要件（2秒以内）を壊さないこと（追加クエリが1〜数回に収まることをテストで確認）
+- ダッシュボードのレスポンス時間が既存の性能要件（2秒以内）を壊さないこと（追加クエリが候補日のまとめ取得×3カテゴリの計3クエリに収まる設計であることをコードレビューで確認。SQL発行回数を計測する専用テストユーティリティは本プロジェクトに存在しないため新設しない。performance-reviewerレビューで同設計を確認済み、2026-11-09）
 - フロントエンド：`months_ago`の境界値（1, 6, 12, 13, 24等）でラベルが正しく出ること、`on_this_day`がnullの場合にセクション自体が非表示になること
 
 ## 6. 既知のリスクと対策

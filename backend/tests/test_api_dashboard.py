@@ -544,3 +544,33 @@ def test_dashboard_today_quiz_count_reflects_due_questions(seeded_session, clien
     body = client.get("/api/v1/dashboard").json()
 
     assert body["today_quiz_count"] == 1
+
+
+def test_dashboard_includes_on_this_day_entry_when_a_past_record_matches(
+    seeded_session, client
+):
+    """1年前の今日（開発Todo_1年前の今日_v1.0）：GET /dashboardのレスポンスに実際の値が
+    乗ることを確認する（サービス層の単体テストだけでは、OnThisDayEntryからOnThisDayRead
+    への変換・JSONシリアライズは検証できない）。"""
+    from app.models.setting import AppSetting
+    from app.services import on_this_day_service
+    from tests.diary_helpers import finalize_diary, make_exam_goal
+
+    seeded_session.query(AppSetting).filter_by(key="on_this_day.show_probability").update(
+        {"value": "1.0"}
+    )
+    goal = make_exam_goal(seeded_session, name="資格目標A")
+    target_date = on_this_day_service.subtract_months(TODAY, 1)
+    finalize_diary(seeded_session, goal, target_date, diary_learned="1ヶ月前に学んだこと")
+    seeded_session.commit()
+
+    body = client.get("/api/v1/dashboard").json()
+
+    assert body["on_this_day"] == {
+        "record_date": target_date.isoformat(),
+        "goal_id": goal.id,
+        "goal_name": "資格目標A",
+        "category": "EXAM",
+        "excerpt": "1ヶ月前に学んだこと",
+        "months_ago": 1,
+    }

@@ -57,9 +57,9 @@ class _Candidate:
 def subtract_months(base: dt.date, months: int) -> dt.date:
     """基準日からmonthsヶ月前の日付を返す。
 
-    対象月にその日が存在しない場合（うるう年の2/29、各月末）は、`dateutil`等の新規
-    依存を追加せず（CLAUDE.md「新しい依存ライブラリは原則追加しない」）、その月の
-    最終日にクランプする（例：3/31の1ヶ月前は2/28または2/29）。
+    対象月にその日が存在しない場合（うるう年の2/29、各月末）は、その月の最終日に
+    クランプする（例：3/31の1ヶ月前は2/28または2/29）。既存コードにも`dateutil`等の
+    日付計算ライブラリは無く、本機能単独のために新規依存を追加しない方針とした。
     """
     total_months = base.month - 1 - months
     year = base.year + total_months // 12
