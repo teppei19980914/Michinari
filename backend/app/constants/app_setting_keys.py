@@ -149,3 +149,14 @@ QUIZ_QUESTIONS_PER_THEME = "quiz.questions_per_theme"
 QUIZ_INTERVAL_DAYS = "quiz.interval_days"
 #: 1日に出題するクイズの件数の上限。
 QUIZ_DAILY_LIMIT = "quiz.daily_limit"
+
+# 1年前の今日（開発Todo_1年前の今日_v1.0）。ダッシュボードに過去の同じ日の記録をときどき表示する。
+#: 表示するかどうかの大本の切替。falseの間は常に非表示。
+ON_THIS_DAY_ENABLED = "on_this_day.enabled"
+#: 候補とする「何か月前」のリスト（カンマ区切りの整数文字列、昇順。
+#: `setting_reader.get_int_list`で読む）。
+ON_THIS_DAY_CANDIDATE_MONTHS_AGO = "on_this_day.candidate_months_ago"
+#: 1日あたりの表示確率（0.0〜1.0）。日付から決定的に算出するため、同日は常に同じ結果になる。
+ON_THIS_DAY_SHOW_PROBABILITY = "on_this_day.show_probability"
+#: 記録本文の抜粋の文字数上限。
+ON_THIS_DAY_BODY_PREVIEW_CHARS = "on_this_day.body_preview_chars"

@@ -112,6 +112,7 @@ def test_dashboard_returns_empty_lists_when_no_active_goals(client, seeded_sessi
         "show_reminder_onboarding_prompt": True,
         "show_reminder_autostart_banner": True,
         "today_quiz_count": 0,
+        "on_this_day": None,
     }
 
 

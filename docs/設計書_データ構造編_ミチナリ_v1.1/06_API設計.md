@@ -32,6 +32,8 @@
 
 目標カードは、道のりマップの縮小版（開発Todo「道のりマップ」v1.0、仕様書6.1.5）用に`roadmap_progress_ratio`（進捗比率、既存のprogress_rateを再利用。WORKのみ評価期間に対する経過日数の割合）・`roadmap_is_achieved`（達成フラグ）・`roadmap_overrun_days`（完了予測との乖離、EXAMのみ算出）の3フィールドを含む。線データ・足跡・道標等の詳細な点列は持たず、詳細版（`GET /goals/{id}/roadmap`）を開いたときに別途取得する。これにより新規データ取得をダッシュボード初期表示（2秒要件）から分離する。
 
+`on_this_day`（`OnThisDayRead | null`、開発Todo「1年前の今日」v1.0、仕様書6.1.7）は、過去の同じ日の記録を1件表示するための値。`record_date`・`goal_id`・`goal_name`・`category`・`excerpt`・`months_ago`を持つ。`on_this_day_service.build_on_this_day_entry`が、`on_this_day.enabled`・`on_this_day.show_probability`・`on_this_day.candidate_months_ago`・`on_this_day.body_preview_chars`（いずれも`app_setting`）とサーバーの論理日から都度決定的に算出し、新規テーブルへの保存は行わない。表示しない日・候補が無い日は`null`。目標に紐づかないアプリ全体の値のため`goal_cards`配列には含めない（`has_ever_reported_record`・`weekly_digests`と同じトップレベル配置）。削除済み目標の記録は、目標の完全削除時にカスケード削除（`goal_service.delete_goal`）されDBに残らないため追加の除外フィルタなしで対象外となり、アーカイブ済み・クローズ済みの目標の記録は論理フラグのみで物理データが残るため対象に含まれる。
+
 **資格試験テンプレート**（1.1改23、実装フェーズ分割計画書Phase38）
 
 | メソッド | パス | 概要 |
