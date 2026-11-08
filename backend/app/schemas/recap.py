@@ -15,6 +15,8 @@ class RecapThemeSummaryRead(BaseModel):
     name: str
     entry_count: int
     updated_at: dt.datetime
+    #: 復習クイズの生成済み件数（0＝未生成、開発Todo_復習クイズ_v1.0）。
+    quiz_question_count: int
 
 
 class RecapThemeEntryRead(BaseModel):
@@ -30,6 +32,8 @@ class RecapThemeDetailRead(BaseModel):
     body: str
     updated_at: dt.datetime
     entries: list[RecapThemeEntryRead]
+    #: 復習クイズの生成済み件数（0＝未生成、開発Todo_復習クイズ_v1.0）。
+    quiz_question_count: int
 
 
 class RecapThemeRename(BaseModel):

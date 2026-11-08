@@ -69,6 +69,9 @@ from app.constants.app_setting_keys import (
     MILESTONE_READING_TOTAL_PAGES_THRESHOLDS,
     MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
     MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
+    QUIZ_DAILY_LIMIT,
+    QUIZ_INTERVAL_DAYS,
+    QUIZ_QUESTIONS_PER_THEME,
     RECAP_BODY_MAX_CHARS,
     RECAP_CLASSIFY_CHUNK_CHARS,
     RECAP_MIN_RETENTION_RATIO,
@@ -239,12 +242,17 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS: ("25,50,75", AppSettingValueType.STRING),
     MILESTONE_WORK_RECORD_COUNT_THRESHOLDS: ("10,50,100", AppSettingValueType.STRING),
     MILESTONE_BACKFILL_COMPLETED: ("false", AppSettingValueType.BOOLEAN),
+    # 復習クイズ（開発Todo_復習クイズ_v1.0）。
+    QUIZ_QUESTIONS_PER_THEME: ("3", AppSettingValueType.INTEGER),
+    QUIZ_INTERVAL_DAYS: ("1,3,7,14,30", AppSettingValueType.STRING),
+    QUIZ_DAILY_LIMIT: ("5", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.DAILY_FEEDBACK: prompt_texts_exam.DAILY_FEEDBACK,
     AiPurpose.RECAP_CLASSIFY: prompt_texts_common.RECAP_CLASSIFY,
     AiPurpose.RECAP_THEME_BODY: prompt_texts_common.RECAP_THEME_BODY,
+    AiPurpose.QUIZ_GENERATE: prompt_texts_common.QUIZ_GENERATE,
     AiPurpose.WEEKLY_SUMMARY: prompt_texts_exam.WEEKLY_SUMMARY,
     AiPurpose.DAILY_MESSAGE: prompt_texts_common.DAILY_MESSAGE,
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts_exam.GOAL_RETROSPECTIVE,

@@ -78,8 +78,10 @@ export const QUERY_KEYS = {
   analyticsReadingLogs: (goalId: number) => ['analytics', 'reading-logs', goalId] as const,
   analyticsSpeed: (goalId: number) => ['analytics', 'speed', goalId] as const,
   analyticsWorkLogs: (goalId: number) => ['analytics', 'work-logs', goalId] as const,
+  analyticsQuizAccuracy: (goalId: number) => ['analytics', 'quiz-accuracy', goalId] as const,
   recapThemes: (goalId: number) => ['recapThemes', goalId] as const,
   recapTheme: (themeId: number) => ['recapTheme', themeId] as const,
+  todayQuiz: () => ['todayQuiz'] as const,
 
   // --- 振り返り（retrospective が retrospectiveView の前方一致になる） ---
   retrospective: (goalId: number) => ['retrospective', goalId] as const,

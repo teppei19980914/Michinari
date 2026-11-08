@@ -13,6 +13,7 @@ import {
   renameRecapTheme,
   type RecapThemeDetail,
 } from '../api/recap'
+import { generateThemeQuiz } from '../api/quiz'
 import { RecapThemeEditCard } from '../features/recap/RecapThemeEditCard'
 import { RecapThemeEntriesCard } from '../features/recap/RecapThemeEntriesCard'
 import { QUERY_KEYS } from '../constants/queryKeys'
@@ -79,6 +80,20 @@ function RecapThemeDetailContent({ theme }: { theme: RecapThemeDetail }) {
     onError: showApiError,
   })
 
+  const generateQuizMutation = useMutation({
+    mutationFn: () => generateThemeQuiz(theme.id),
+    meta: { overlay: 'saving' },
+    onSuccess: (result) => {
+      invalidate()
+      showToast(
+        result.created > 0
+          ? t('recapTheme.quizGenerateSucceeded', { count: result.created })
+          : t('recapTheme.quizGenerateSucceededNone')
+      )
+    },
+    onError: showApiError,
+  })
+
   const mergeCandidates = (siblingsQuery.data ?? []).filter((item) => item.id !== theme.id)
   const isSaving = renameMutation.isPending || mergeMutation.isPending || rebuildMutation.isPending
 
@@ -102,6 +117,9 @@ function RecapThemeDetailContent({ theme }: { theme: RecapThemeDetail }) {
         onRename={(name) => renameMutation.mutate(name)}
         onMerge={(targetThemeId) => mergeMutation.mutate(targetThemeId)}
         onRebuild={() => rebuildMutation.mutate()}
+        quizQuestionCount={theme.quiz_question_count}
+        isGeneratingQuiz={generateQuizMutation.isPending}
+        onGenerateQuiz={() => generateQuizMutation.mutate()}
       />
       <RecapThemeEntriesCard entries={theme.entries} />
     </div>
