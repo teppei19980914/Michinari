@@ -49,6 +49,10 @@ from app.constants.app_setting_keys import (
     MILESTONE_READING_TOTAL_PAGES_THRESHOLDS,
     MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
     MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
+    ON_THIS_DAY_BODY_PREVIEW_CHARS,
+    ON_THIS_DAY_CANDIDATE_MONTHS_AGO,
+    ON_THIS_DAY_ENABLED,
+    ON_THIS_DAY_SHOW_PROBABILITY,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
@@ -188,6 +192,21 @@ class MilestoneThresholdSettings:
 
 
 @dataclass(frozen=True)
+class OnThisDaySettings:
+    """1年前の今日（開発Todo_1年前の今日_v1.0）のダッシュボード表示に関する設定。
+
+    candidate_months_agoはカンマ区切りの文字列（`setting_reader.get_int_list`が
+    整数リストへ変換する側で使う。設定画面は文字列のまま編集する、milestone_thresholdと
+    同じ方式）。
+    """
+
+    enabled: bool
+    candidate_months_ago: str
+    show_probability: float
+    body_preview_chars: int
+
+
+@dataclass(frozen=True)
 class AppSettings:
     ai_connection: AiConnectionSettings
     threshold: ThresholdSettings
@@ -196,6 +215,7 @@ class AppSettings:
     desktop: DesktopSettings
     log: LogSettings
     milestone_threshold: MilestoneThresholdSettings
+    on_this_day: OnThisDaySettings
 
 
 def get_app_settings(session: Session) -> AppSettings:
@@ -299,6 +319,12 @@ def get_app_settings(session: Session) -> AppSettings:
             session, MILESTONE_WORK_RECORD_COUNT_THRESHOLDS
         ),
     )
+    on_this_day = OnThisDaySettings(
+        enabled=setting_reader.get_bool(session, ON_THIS_DAY_ENABLED),
+        candidate_months_ago=setting_reader.get_str(session, ON_THIS_DAY_CANDIDATE_MONTHS_AGO),
+        show_probability=setting_reader.get_float(session, ON_THIS_DAY_SHOW_PROBABILITY),
+        body_preview_chars=setting_reader.get_int(session, ON_THIS_DAY_BODY_PREVIEW_CHARS),
+    )
     return AppSettings(
         ai_connection=ai_connection,
         threshold=threshold,
@@ -307,6 +333,7 @@ def get_app_settings(session: Session) -> AppSettings:
         desktop=desktop,
         log=log,
         milestone_threshold=milestone_threshold,
+        on_this_day=on_this_day,
     )
 
 
@@ -494,6 +521,21 @@ def _update_milestone_threshold(session: Session, **fields: object) -> None:
             _set_str(session, key, _parse_threshold_list(value))
 
 
+def _update_on_this_day(session: Session, **fields: object) -> None:
+    if fields.get("enabled") is not None:
+        _set_bool(session, ON_THIS_DAY_ENABLED, fields["enabled"])
+    if fields.get("candidate_months_ago") is not None:
+        _set_str(
+            session,
+            ON_THIS_DAY_CANDIDATE_MONTHS_AGO,
+            _parse_threshold_list(fields["candidate_months_ago"]),
+        )
+    if fields.get("show_probability") is not None:
+        _set_number(session, ON_THIS_DAY_SHOW_PROBABILITY, fields["show_probability"])
+    if fields.get("body_preview_chars") is not None:
+        _set_number(session, ON_THIS_DAY_BODY_PREVIEW_CHARS, fields["body_preview_chars"])
+
+
 def update_app_settings(
     session: Session,
     *,
@@ -504,6 +546,7 @@ def update_app_settings(
     desktop: dict | None = None,
     log: dict | None = None,
     milestone_threshold: dict | None = None,
+    on_this_day: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
         _update_ai_connection(session, **ai_connection)
@@ -519,6 +562,8 @@ def update_app_settings(
         _update_log(session, **log)
     if milestone_threshold:
         _update_milestone_threshold(session, **milestone_threshold)
+    if on_this_day:
+        _update_on_this_day(session, **on_this_day)
     session.flush()
     return get_app_settings(session)
 

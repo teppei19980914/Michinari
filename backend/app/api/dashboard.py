@@ -29,6 +29,7 @@ from app.schemas.dashboard import (
     GoalCardRead,
     GoalStatsRead,
     MaterialSpeedRead,
+    OnThisDayRead,
     TodayQuotaEntryRead,
     WeeklyDigestRead,
 )
@@ -39,6 +40,7 @@ from app.services import (
     goal_service,
     material_service,
     metrics_service,
+    on_this_day_service,
     quiz_service,
     quota_service,
     record_service_common,
@@ -311,6 +313,19 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     available_slot_names = [slot.name for slot in slots_by_weekday.get(today.weekday(), [])]
 
     reminder_onboarding_flags = settings_service.resolve_reminder_onboarding_flags(session)
+    on_this_day_entry = on_this_day_service.build_on_this_day_entry(session, today)
+    on_this_day = (
+        OnThisDayRead(
+            record_date=on_this_day_entry.record_date,
+            goal_id=on_this_day_entry.goal_id,
+            goal_name=on_this_day_entry.goal_name,
+            category=on_this_day_entry.category,
+            excerpt=on_this_day_entry.excerpt,
+            months_ago=on_this_day_entry.months_ago,
+        )
+        if on_this_day_entry is not None
+        else None
+    )
 
     return DashboardRead(
         logical_date=today,
@@ -326,4 +341,5 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
         show_reminder_onboarding_prompt=reminder_onboarding_flags.show_reminder_onboarding_prompt,
         show_reminder_autostart_banner=reminder_onboarding_flags.show_reminder_autostart_banner,
         today_quiz_count=len(quiz_service.get_due_questions(session, today)),
+        on_this_day=on_this_day,
     )

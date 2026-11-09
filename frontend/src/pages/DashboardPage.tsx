@@ -15,6 +15,7 @@ import { StatsSummary } from '../features/dashboard/StatsSummary'
 import { WeeklyDigestSection } from '../features/dashboard/WeeklyDigestSection'
 import { RecapThemeSection } from '../features/dashboard/RecapThemeSection'
 import { RecentActivityCalendarSection } from '../features/dashboard/RecentActivityCalendarSection'
+import { OnThisDaySection } from '../features/dashboard/OnThisDaySection'
 import { QuizTodaySection } from '../features/dashboard/QuizTodaySection'
 import { AutostartBanner } from '../features/dashboard/AutostartBanner'
 import { ReminderOnboardingPrompt } from '../features/desktop/ReminderOnboardingPrompt'
@@ -122,6 +123,7 @@ export function DashboardPage() {
       )}
       <QuizTodaySection count={dashboard.today_quiz_count} />
       <RecentActivityCalendarSection today={dashboard.logical_date} />
+      <OnThisDaySection onThisDay={dashboard.on_this_day} />
     </div>
   )
 }

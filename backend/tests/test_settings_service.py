@@ -201,6 +201,41 @@ def test_update_app_settings_accepts_each_milestone_threshold_field_independentl
     assert updated.milestone_threshold.consecutive_days_thresholds == "3,7,14,30,50,100,200,365"
 
 
+def test_get_app_settings_returns_on_this_day_defaults(seeded_session):
+    """開発Todo_1年前の今日_v1.0 §0 V1〜V3、V12。"""
+    settings = settings_service.get_app_settings(seeded_session)
+    assert settings.on_this_day.enabled is True
+    assert settings.on_this_day.candidate_months_ago == "1,6,12"
+    assert settings.on_this_day.show_probability == 0.3
+    assert settings.on_this_day.body_preview_chars == 100
+
+
+def test_update_app_settings_updates_on_this_day_fields_independently(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session,
+        on_this_day={"enabled": False, "show_probability": 0.5, "body_preview_chars": 50},
+    )
+    assert updated.on_this_day.enabled is False
+    assert updated.on_this_day.show_probability == 0.5
+    assert updated.on_this_day.body_preview_chars == 50
+    # 更新していないフィールドは既定値のまま。
+    assert updated.on_this_day.candidate_months_ago == "1,6,12"
+
+
+def test_update_app_settings_normalizes_on_this_day_candidate_months_ago(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session, on_this_day={"candidate_months_ago": " 12, 1,1 ,6"}
+    )
+    assert updated.on_this_day.candidate_months_ago == "1,6,12"
+
+
+def test_update_app_settings_rejects_non_integer_on_this_day_candidate(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(
+            seeded_session, on_this_day={"candidate_months_ago": "1,abc"}
+        )
+
+
 def test_get_prompt_template_missing_row_raises_not_found(seeded_session):
     seeded_session.query(PromptTemplate).filter(
         PromptTemplate.purpose == AiPurpose.DAILY_FEEDBACK.value

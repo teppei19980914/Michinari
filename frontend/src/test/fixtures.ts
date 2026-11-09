@@ -200,6 +200,7 @@ export function makeDashboard(overrides: Partial<DashboardRead> = {}): Dashboard
     show_reminder_onboarding_prompt: false,
     show_reminder_autostart_banner: false,
     today_quiz_count: 0,
+    on_this_day: null,
     ...overrides,
   }
 }

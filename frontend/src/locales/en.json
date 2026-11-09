@@ -171,6 +171,19 @@
       "title": "Last 4 weeks",
       "viewCalendarLink": "View calendar"
     },
+    "onThisDay": {
+      "title": "On this day",
+      "goalLabel": "{{goalName}} ({{periodLabel}})",
+      "yearsAgo": {
+        "one": "{{count}} year ago",
+        "other": "{{count}} years ago"
+      },
+      "halfYearAgo": "Half a year ago",
+      "monthsAgo": {
+        "one": "{{count}} month ago",
+        "other": "{{count}} months ago"
+      }
+    },
     "recapThemes": {
       "title": "This week's recap (by theme)",
       "empty": "No themes yet. Once your daily report's learnings are classified, they'll appear here",
@@ -771,6 +784,17 @@
       "examOverallProgressThresholdsLabel": "Exam: overall progress (%) milestones",
       "workRecordCountThresholdsLabel": "Work: record count milestones",
       "invalid": "Enter a comma-separated list of positive integers (e.g. 3,7,14)."
+    },
+    "onThisDay": {
+      "title": "On this day",
+      "description": "Occasionally show records from the same day in the past on the dashboard.",
+      "enabledLabel": "Show past records",
+      "candidateMonthsAgoLabel": "Candidates (months ago, comma-separated, e.g. 1,6,12)",
+      "candidateMonthsAgoInvalid": "Enter a comma-separated list of positive integers (e.g. 1,6,12).",
+      "showProbabilityLabel": "Show probability (0 to 1)",
+      "showProbabilityInvalid": "Enter a number between 0 and 1.",
+      "bodyPreviewCharsLabel": "Excerpt length (characters)",
+      "bodyPreviewCharsInvalid": "Enter a positive integer."
     },
     "promptDegradation": {
       "title": "Prompt degradation",
