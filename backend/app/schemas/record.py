@@ -162,6 +162,11 @@ class DailyRecordRead(BaseModel):
     reading_reported_at: dt.datetime | None
     work_record_state: RecordState | None
     work_reported_at: dt.datetime | None
+    #: 気分スタンプ（ひとこと記録モードで入力した日のみ値を持つ、開発Todo
+    #: 「ひとこと記録」v1.0）。カテゴリに触れていない・気分を入力していない日はNone。
+    exam_mood: int | None
+    reading_mood: int | None
+    work_mood: int | None
     diary_entries: list[DiaryEntryRead]
     study_logs: list[StudyLogRead]
     reading_logs: list[ReadingLogRead]
@@ -188,6 +193,10 @@ class FinalizeRequest(BaseModel):
 
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
+    #: ひとこと記録モードの気分スタンプ（5段階固定、開発Todo「ひとこと記録」v1.0 決定事項
+    #: D1）。通常モードではNone。範囲検証はrecord_service_common.upsert_mood（サーバ側の
+    #: 最終判定）と同じ1〜5。
+    mood: int | None = Field(default=None, ge=1, le=5)
 
 
 class ReadingFinalizeRequest(BaseModel):
@@ -196,6 +205,7 @@ class ReadingFinalizeRequest(BaseModel):
     """
 
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
+    mood: int | None = Field(default=None, ge=1, le=5)
 
 
 class WorkFinalizeRequest(BaseModel):
@@ -204,6 +214,7 @@ class WorkFinalizeRequest(BaseModel):
     """
 
     work_logs: list[WorkLogInput] = Field(default_factory=list)
+    mood: int | None = Field(default=None, ge=1, le=5)
 
 
 class PreviousEntryRead(BaseModel):
@@ -259,6 +270,9 @@ class ChatRequest(BaseModel):
     diary_entries: list[DiaryEntryInput] = Field(default_factory=list)
     #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
     attachment_ids: list[int] = Field(default_factory=list)
+    #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0）での対話か。Trueの場合、短文用
+    #: プロンプト（AiPurpose.DAILY_FEEDBACK_BRIEF系）を使う。既定はFalse（通常モード）。
+    quick_mode: bool = False
 
 
 class ChatResponse(BaseModel):
@@ -283,6 +297,8 @@ class ReadingChatRequest(BaseModel):
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
     #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
     attachment_ids: list[int] = Field(default_factory=list)
+    #: ChatRequest.quick_modeと同じ（開発Todo「ひとこと記録」v1.0）。
+    quick_mode: bool = False
 
 
 class WorkChatRequest(BaseModel):
@@ -297,6 +313,8 @@ class WorkChatRequest(BaseModel):
     work_logs: list[WorkLogInput] = Field(default_factory=list)
     #: 利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1、goal非依存の共通プール）。
     attachment_ids: list[int] = Field(default_factory=list)
+    #: ChatRequest.quick_modeと同じ（開発Todo「ひとこと記録」v1.0）。
+    quick_mode: bool = False
 
 
 class DailyMessageRead(BaseModel):

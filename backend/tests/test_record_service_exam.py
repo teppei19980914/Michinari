@@ -11,7 +11,13 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import Environment, GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import (
+    Environment,
+    GoalCategory,
+    GoalStatus,
+    QualityMetricType,
+    RecordState,
+)
 from app.models.material import Material
 from app.models.record import DailyRecord, WeeklySummary
 from app.models.resource import ResourceSlot
@@ -262,6 +268,34 @@ def test_finalize_record_rejects_already_reported(seeded_session):
 
     with pytest.raises(ImmutableRecordError):
         record_service_exam.finalize_record(seeded_session, today, [], [], today)
+
+
+def test_finalize_record_with_quick_mode_allows_empty_items_and_saves_mood(seeded_session):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q1）：教材実績が0件でも確定でき、
+    気分スタンプが保存されること。"""
+    today = dt.date(2026, 3, 10)
+
+    record = record_service_exam.finalize_record(seeded_session, today, [], [], today, mood=4)
+
+    assert record.exam_record_state == RecordState.REPORTED
+    moods = record_service_common.get_moods_by_category(seeded_session, record)
+    assert moods[GoalCategory.EXAM] == 4
+
+
+def test_finalize_record_without_mood_creates_no_mood_row(seeded_session):
+    today = dt.date(2026, 3, 10)
+
+    record = record_service_exam.finalize_record(seeded_session, today, [], [], today)
+
+    moods = record_service_common.get_moods_by_category(seeded_session, record)
+    assert moods == {}
+
+
+def test_finalize_record_rejects_mood_out_of_range(seeded_session):
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service_exam.finalize_record(seeded_session, today, [], [], today, mood=6)
 
 
 def test_finalize_record_promotes_progress_only_record(seeded_session):

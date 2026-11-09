@@ -23,6 +23,7 @@ from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder, question_safety
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
@@ -61,6 +62,8 @@ class ReadingChatOutcome:
     daily_record: DailyRecord
     assistant_message: ChatMessage
     was_truncated: bool
+    #: daily_feedback_service.ChatOutcome.purposeと同じ（開発Todo「ひとこと記録」v1.0）。
+    purpose: AiPurpose = AiPurpose.DAILY_FEEDBACK_READING
 
 
 def send_reading_feedback(
@@ -72,6 +75,7 @@ def send_reading_feedback(
     message: str | None,
     reading_log_items: list[ReadingLogItem],
     attachment_ids: list[int] | None = None,
+    quick_mode: bool = False,
 ) -> ReadingChatOutcome:
     """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/reading-chat）。
 
@@ -79,7 +83,24 @@ def send_reading_feedback(
     （＝1冊）のみを対象とする（未決事項L-07の解消方針転換）。
 
     `attachment_ids`は利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1・A8）。
+
+    `quick_mode`はひとこと記録モード（開発Todo「ひとこと記録」v1.0）での対話か。
+    daily_feedback_service.send_daily_feedbackのquick_modeと同じ考え方（設計書
+    ロジック・プロンプト編17.6.1）。
     """
+    purpose = (
+        AiPurpose.DAILY_FEEDBACK_READING_BRIEF if quick_mode else AiPurpose.DAILY_FEEDBACK_READING
+    )
+    scope = (
+        ConversationScope.DAILY_FEEDBACK_READING_BRIEF
+        if quick_mode
+        else ConversationScope.DAILY_FEEDBACK_READING
+    )
+    assistant_uid_key = (
+        AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF
+        if quick_mode
+        else AI_ASSISTANT_UID_DAILY_FEEDBACK_READING
+    )
     if target_date > today:
         raise ValidationError("Cannot start an AI conversation for a future date")
 
@@ -119,7 +140,7 @@ def send_reading_feedback(
         session.query(ChatMessage)
         .filter(
             ChatMessage.daily_record_id == record.id,
-            ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK_READING,
+            ChatMessage.purpose == purpose,
             ChatMessage.goal_id == goal.id,
         )
         .order_by(ChatMessage.sequence)
@@ -168,7 +189,7 @@ def send_reading_feedback(
         conversation_history=history,
     )
 
-    template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK_READING)
+    template_body = ai_orchestration.load_template_body(session, purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     # S04決定事項D1・D9：当日の入力（想起・対話）は縮退しない。過去の記録を全て削っても
     # 上限を超える場合は、切り詰めずに送信を中止する（NewtonX利用ナレッジ「切り詰めない」）。
@@ -176,11 +197,11 @@ def send_reading_feedback(
         raise DailyFeedbackPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
     build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
-    assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING)
+    assistant_uid = setting_reader.get_str(session, assistant_uid_key)
     conversation = ai_conversation.ensure_conversation(
         session,
         goal=goal,
-        scope=ConversationScope.DAILY_FEEDBACK_READING,
+        scope=scope,
         scope_key=target_date.isoformat(),
         assistant_uid=assistant_uid,
         title=f"{target_date.isoformat()} 読書日次報告（{goal.name}）",
@@ -188,7 +209,7 @@ def send_reading_feedback(
 
     send_result = ai_orchestration.send_and_log(
         session,
-        purpose=AiPurpose.DAILY_FEEDBACK_READING,
+        purpose=purpose,
         conversation=conversation,
         prompt_text=build_result.text,
         prompt_chars=build_result.prompt_chars,
@@ -199,7 +220,7 @@ def send_reading_feedback(
         session,
         daily_record_id=record.id,
         goal_id=goal.id,
-        purpose=AiPurpose.DAILY_FEEDBACK_READING,
+        purpose=purpose,
         message=message,
         response_text=send_result.response_text,
         attachment_ids=attachment_ids,
@@ -209,4 +230,5 @@ def send_reading_feedback(
         daily_record=record,
         assistant_message=assistant_message,
         was_truncated=build_result.was_truncated,
+        purpose=purpose,
     )

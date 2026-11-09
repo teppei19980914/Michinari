@@ -788,7 +788,10 @@
         "GOAL_CONSULTATION": "目標相談",
         "GOAL_CONSULTATION_READING": "目標相談（読書）",
         "GOAL_CONSULTATION_WORK": "目標相談（仕事）",
-        "QUIZ_GENERATE": "復習クイズ生成"
+        "QUIZ_GENERATE": "復習クイズ生成",
+        "DAILY_FEEDBACK_BRIEF": "日次報告フィードバック（ひとこと記録・資格）",
+        "DAILY_FEEDBACK_READING_BRIEF": "日次報告フィードバック（ひとこと記録・読書）",
+        "DAILY_FEEDBACK_WORK_BRIEF": "日次報告フィードバック（ひとこと記録・仕事）"
       }
     },
     "log": {

@@ -41,6 +41,7 @@ from app.services.record_service_common import (
     _total_minutes,
     _validate_slot_minutes,
     get_daily_record,
+    upsert_mood,
 )
 
 #: 主観的手応え（1〜5）→ 品質指標（20〜100）の変換表（ロジック・プロンプト編14.1）。
@@ -247,11 +248,14 @@ def finalize_record(
     items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
     today: dt.date,
+    mood: int | None = None,
 ) -> DailyRecord:
     """資格勉強（EXAM）の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
     読書・仕事の確定状態には影響しない（仕様変更2026-09-05: カテゴリごとに独立して
-    確定できるようにする）。
+    確定できるようにする）。`items`が空でも成立する（ひとこと記録モード、開発Todo
+    「ひとこと記録」v1.0 Q1。従来の「ゼロ記録」ボタンと同じ経路）。`mood`はひとこと記録
+    モードの気分スタンプ（Q1〜Q7の決定事項、record_service_common.upsert_mood参照）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.EXAM)
@@ -260,6 +264,7 @@ def finalize_record(
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)
     _apply_diary_entries(session, record, diary_entries)
+    upsert_mood(session, record, GoalCategory.EXAM, mood)
     _set_category_state(record, GoalCategory.EXAM, RecordState.REPORTED)
     session.flush()
     return record

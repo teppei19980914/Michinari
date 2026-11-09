@@ -13,7 +13,7 @@ from app.models.goal import Goal
 from app.models.record import WeeklySummary
 from app.models.work import WorkAssignment
 from app.services import record_service_common, record_service_work
-from app.services.exceptions import ImmutableRecordError, NotFoundError
+from app.services.exceptions import ImmutableRecordError, NotFoundError, ValidationError
 from app.services.record_service_work import WorkLogItem
 from tests.weekly_summary_helpers import make_weekly_summary as _make_weekly_summary
 
@@ -119,6 +119,31 @@ def test_finalize_work_record_persists_work_log(seeded_session):
     assert record.work_record_state == RecordState.REPORTED
     assert record.exam_record_state is None
     assert len(record.work_logs) == 1
+
+
+def test_finalize_work_record_saves_mood(seeded_session):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の気分スタンプが保存されること。"""
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service_work.finalize_work_record(
+        seeded_session, today, [_work_log(work_assignment.id)], today, mood=5
+    )
+
+    moods = record_service_common.get_moods_by_category(seeded_session, record)
+    assert moods[GoalCategory.WORK] == 5
+
+
+def test_finalize_work_record_rejects_mood_out_of_range(seeded_session):
+    goal = _make_work_goal(seeded_session)
+    work_assignment = _make_work_assignment(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service_work.finalize_work_record(
+            seeded_session, today, [_work_log(work_assignment.id)], today, mood=10
+        )
 
 
 def test_finalize_work_record_allows_work_log_without_study_or_diary(seeded_session):
