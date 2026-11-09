@@ -27,6 +27,7 @@ from app.services.record_service_common import (
     _total_minutes,
     _validate_slot_minutes,
     get_daily_record,
+    upsert_mood,
 )
 
 
@@ -139,10 +140,13 @@ def finalize_reading_record(
     target_date: dt.date,
     items: list[ReadingLogItem],
     today: dt.date,
+    mood: int | None = None,
 ) -> DailyRecord:
     """読書の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
-    資格勉強・仕事の確定状態には影響しない（仕様変更2026-09-05）。
+    資格勉強・仕事の確定状態には影響しない（仕様変更2026-09-05）。`mood`はひとこと記録
+    モードの気分スタンプ（開発Todo「ひとこと記録」v1.0、record_service_common.
+    upsert_mood参照）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.READING)
@@ -150,6 +154,7 @@ def finalize_reading_record(
 
     record = record or _create_record(session, target_date)
     _apply_reading_logs(session, record, items)
+    upsert_mood(session, record, GoalCategory.READING, mood)
     _set_category_state(record, GoalCategory.READING, RecordState.REPORTED)
     session.flush()
     return record

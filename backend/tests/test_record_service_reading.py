@@ -8,7 +8,7 @@ import datetime as dt
 
 import pytest
 
-from app.constants.enums import Environment, RecordState
+from app.constants.enums import Environment, GoalCategory, RecordState
 from app.models.record import WeeklySummary
 from app.models.resource import ResourceSlot
 from app.services import record_service_common, record_service_reading
@@ -16,6 +16,7 @@ from app.services.exceptions import (
     CurrentPageExceedsTotalPagesError,
     ImmutableRecordError,
     NotFoundError,
+    ValidationError,
 )
 from app.services.record_service_reading import ReadingLogItem
 from tests import reading_helpers
@@ -160,6 +161,31 @@ def test_finalize_reading_record_persists_reading_log(seeded_session):
     assert record.reading_record_state == RecordState.REPORTED
     assert record.exam_record_state is None
     assert len(record.reading_logs) == 1
+
+
+def test_finalize_reading_record_saves_mood(seeded_session):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の気分スタンプが保存されること。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    record = record_service_reading.finalize_reading_record(
+        seeded_session, today, [_reading_log(book.id)], today, mood=2
+    )
+
+    moods = record_service_common.get_moods_by_category(seeded_session, record)
+    assert moods[GoalCategory.READING] == 2
+
+
+def test_finalize_reading_record_rejects_mood_out_of_range(seeded_session):
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    today = dt.date(2026, 3, 10)
+
+    with pytest.raises(ValidationError):
+        record_service_reading.finalize_reading_record(
+            seeded_session, today, [_reading_log(book.id)], today, mood=0
+        )
 
 
 def test_finalize_reading_record_allows_reading_log_without_diary(seeded_session):

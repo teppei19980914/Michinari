@@ -519,3 +519,40 @@ class TestHasAnyReportedRecord:
         db_session.flush()
 
         assert record_service_common.has_any_reported_record(db_session) is True
+
+
+class TestUpsertMood:
+    """気分スタンプ（ひとこと記録モード、開発Todo「ひとこと記録」v1.0）。"""
+
+    def test_does_nothing_when_mood_is_none(self, db_session):
+        record = record_service_common.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+
+        record_service_common.upsert_mood(db_session, record, GoalCategory.EXAM, None)
+
+        assert record_service_common.get_moods_by_category(db_session, record) == {}
+
+    @pytest.mark.parametrize("mood_value", [0, 6, -1])
+    def test_rejects_out_of_range_values(self, db_session, mood_value: int):
+        record = record_service_common.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+
+        with pytest.raises(ValidationError):
+            record_service_common.upsert_mood(db_session, record, GoalCategory.EXAM, mood_value)
+
+    def test_categories_are_independent(self, db_session):
+        record = record_service_common.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+
+        record_service_common.upsert_mood(db_session, record, GoalCategory.EXAM, 2)
+        record_service_common.upsert_mood(db_session, record, GoalCategory.READING, 5)
+
+        moods = record_service_common.get_moods_by_category(db_session, record)
+        assert moods == {GoalCategory.EXAM: 2, GoalCategory.READING: 5}
+
+    def test_upsert_overwrites_the_same_category_instead_of_duplicating(self, db_session):
+        record = record_service_common.ensure_daily_record(db_session, dt.date(2026, 9, 13))
+
+        record_service_common.upsert_mood(db_session, record, GoalCategory.WORK, 1)
+        record_service_common.upsert_mood(db_session, record, GoalCategory.WORK, 4)
+
+        assert record_service_common.get_moods_by_category(db_session, record) == {
+            GoalCategory.WORK: 4
+        }

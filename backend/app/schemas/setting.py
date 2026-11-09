@@ -31,6 +31,10 @@ class AiConnectionSettingsRead(BaseModel):
     assistant_uid_evaluation_report_work: str
     assistant_uid_help: str
     assistant_uid_goal_consultation: str
+    #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）用の短文プロンプト専用アシスタント。
+    assistant_uid_daily_feedback_brief: str
+    assistant_uid_daily_feedback_reading_brief: str
+    assistant_uid_daily_feedback_work_brief: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -55,6 +59,9 @@ class AiConnectionSettingsUpdate(BaseModel):
     assistant_uid_evaluation_report_work: str | None = None
     assistant_uid_help: str | None = None
     assistant_uid_goal_consultation: str | None = None
+    assistant_uid_daily_feedback_brief: str | None = None
+    assistant_uid_daily_feedback_reading_brief: str | None = None
+    assistant_uid_daily_feedback_work_brief: str | None = None
     folder_prefix: str | None = Field(default=None, min_length=1)
     timeout_seconds: int | None = Field(default=None, ge=1)
     min_interval_seconds: int | None = Field(default=None, ge=0)
@@ -181,6 +188,29 @@ class OnThisDaySettingsUpdate(BaseModel):
     body_preview_chars: int | None = Field(default=None, ge=1)
 
 
+class QuickRecordSettingsRead(BaseModel):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の設定。
+
+    `last_mode_*`・`voice_hint_dismissed`は設定画面には出さない内部状態（desktopの
+    `reminder_onboarding_shown`等と同じ位置づけ）だが、同じ`PATCH /settings`経路で
+    読み書きできるようにし、新規の保存APIを増やさない（CLAUDE.md DRYの原則）。
+    """
+
+    note_max_chars: int
+    last_mode_exam: str
+    last_mode_reading: str
+    last_mode_work: str
+    voice_hint_dismissed: bool
+
+
+class QuickRecordSettingsUpdate(BaseModel):
+    note_max_chars: int | None = Field(default=None, ge=1)
+    last_mode_exam: str | None = None
+    last_mode_reading: str | None = None
+    last_mode_work: str | None = None
+    voice_hint_dismissed: bool | None = None
+
+
 class AppSettingsRead(BaseModel):
     ai_connection: AiConnectionSettingsRead
     threshold: ThresholdSettingsRead
@@ -190,6 +220,7 @@ class AppSettingsRead(BaseModel):
     log: LogSettingsRead
     milestone_threshold: MilestoneThresholdSettingsRead
     on_this_day: OnThisDaySettingsRead
+    quick_record: QuickRecordSettingsRead
 
 
 class AppSettingsUpdate(BaseModel):
@@ -201,6 +232,7 @@ class AppSettingsUpdate(BaseModel):
     log: LogSettingsUpdate | None = None
     milestone_threshold: MilestoneThresholdSettingsUpdate | None = None
     on_this_day: OnThisDaySettingsUpdate | None = None
+    quick_record: QuickRecordSettingsUpdate | None = None
 
 
 class PromptTemplateRead(BaseModel):
