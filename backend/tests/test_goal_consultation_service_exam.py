@@ -224,6 +224,26 @@ def test_ask_returns_answered_with_verified_citations(seeded_session, monkeypatc
     assert "[記録:" not in answer.text
 
 
+def test_ask_strips_leading_assistant_label_from_answer(seeded_session, monkeypatch):
+    """{{conversation_history}}の見出し（【AI】）をAIが書き出しに模倣しても、画面には
+    出さない（prompt_builder.strip_assistant_label参照、2026-11-08）。"""
+    goal = _make_exam_goal_with_records(seeded_session)
+    FakeAi(monkeypatch, (f"【AI】{_DEFAULT_RESPONSE}",))
+
+    conversation_id = _make_conversation(seeded_session, goal)
+    answer = service.ask(
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="この後何を勉強すべき？",
+    )
+
+    assert answer.status is GoalConsultationAnswerStatus.ANSWERED
+    assert not answer.text.startswith("【AI】")
+    assert answer.text.startswith("## 記録から言えること")
+
+
 def test_ask_drops_citation_dates_outside_the_prompt(seeded_session, monkeypatch):
     """プロンプトに実際に含めていない日付を自称しても、根拠として採用しない（開発Todo U10）。"""
     goal = _make_exam_goal_with_records(seeded_session)

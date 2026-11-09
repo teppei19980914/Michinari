@@ -257,6 +257,46 @@ def test_send_daily_feedback_first_turn_has_no_user_message_row(seeded_session, 
     assert outcome.was_truncated is False
 
 
+def test_send_daily_feedback_strips_leading_assistant_label_from_response(
+    seeded_session, monkeypatch
+):
+    """{{conversation_history}}の見出し（【AI】）をAIが書き出しに模倣しても、画面には
+    出さない（prompt_builder.strip_assistant_label参照、2026-11-08）。"""
+    goal = _make_goal(seeded_session)
+    material = _make_material(seeded_session, goal)
+    _stub_send_message(monkeypatch, response="【AI】こんにちは")
+
+    outcome = daily_feedback_service.send_daily_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        study_log_items=[
+            StudyLogItem(
+                material_id=material.id,
+                slot_minutes={1: 30},
+                amount_completed=10.0,
+                cycle_number=1,
+                quality_value=None,
+            )
+        ],
+        diary_entries=[
+            DiaryEntryItem(
+                goal_id=goal.id, diary_body="今日は頑張った", diary_learned="過去問を解いた"
+            )
+        ],
+    )
+
+    messages = (
+        seeded_session.query(ChatMessage)
+        .filter_by(daily_record_id=outcome.daily_record.id)
+        .order_by(ChatMessage.sequence)
+        .all()
+    )
+    assert messages[0].content == "こんにちは"
+
+
 def test_send_daily_feedback_followup_turn_adds_user_and_assistant_messages(
     seeded_session, monkeypatch
 ):

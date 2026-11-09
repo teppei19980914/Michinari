@@ -173,6 +173,10 @@ def _interpret(
     if parsed is None:
         return GoalConsultationAnswer(GoalConsultationAnswerStatus.UNAVAILABLE, "", (), ())
     body, cited_dates, cited_weeks = parsed
+    # {{conversation_history}}の見出し（【AI】）をAIが書き出しに模倣することがあるため、
+    # 表示・保存する前に取り除く（prompt_builder.strip_assistant_label、
+    # record_service_common.append_feedback_turnと同じ理由）。
+    body = prompt_builder.strip_assistant_label(body)
     max_chars = setting_reader.get_int(session, AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS)
     too_long = len(body) > max_chars
     if not body or too_long or question_safety.contains_forbidden_term(session, body):
