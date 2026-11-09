@@ -626,3 +626,27 @@ def test_build_simple_leaves_undefined_placeholders_untouched():
     )
 
     assert result.text == "A:x B:{{unknown}}"
+
+
+# --- strip_assistant_label ---
+# {{conversation_history}}で見せる自分の過去発言の見出し（【AI】）をAIが新しい回答の
+# 書き出しに模倣することがあるため、表示前に取り除く（2026-11-08、読書の日次報告
+# フィードバックで実機確認）。
+
+
+def test_strip_assistant_label_removes_leading_label():
+    assert prompt_builder.strip_assistant_label("【AI】こんにちは") == "こんにちは"
+
+
+def test_strip_assistant_label_removes_leading_label_with_surrounding_whitespace():
+    assert prompt_builder.strip_assistant_label("\n\n【AI】  こんにちは") == "こんにちは"
+
+
+def test_strip_assistant_label_leaves_text_without_label_unchanged():
+    assert prompt_builder.strip_assistant_label("こんにちは") == "こんにちは"
+
+
+def test_strip_assistant_label_leaves_mid_text_occurrence_unchanged():
+    """文頭以外（本文中）に偶然同じ文字列が現れても取り除かない（誤爆防止）。"""
+    text = "この対話は【AI】による応答です"
+    assert prompt_builder.strip_assistant_label(text) == text
