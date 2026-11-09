@@ -219,6 +219,33 @@ def test_send_reading_feedback_first_turn_has_no_user_message_row(seeded_session
     assert outcome.was_truncated is False
 
 
+def test_send_reading_feedback_strips_leading_assistant_label_from_response(
+    seeded_session, monkeypatch
+):
+    """{{conversation_history}}の見出し（【AI】）をAIが書き出しに模倣しても、画面には
+    出さない（prompt_builder.strip_assistant_label参照、2026-11-08）。"""
+    goal = _make_reading_goal(seeded_session)
+    book = _make_book(seeded_session, goal)
+    _stub_send_message(monkeypatch, response="【AI】こんにちは")
+
+    outcome = reading_feedback_service.send_reading_feedback(
+        seeded_session,
+        goal_id=goal.id,
+        target_date=dt.date(2026, 8, 24),
+        today=dt.date(2026, 8, 24),
+        message=None,
+        reading_log_items=[_reading_log(book.id)],
+    )
+
+    messages = (
+        seeded_session.query(ChatMessage)
+        .filter_by(daily_record_id=outcome.daily_record.id)
+        .order_by(ChatMessage.sequence)
+        .all()
+    )
+    assert messages[0].content == "こんにちは"
+
+
 def test_send_reading_feedback_followup_turn_adds_user_and_assistant_messages(
     seeded_session, monkeypatch
 ):
