@@ -105,6 +105,21 @@ class WeeklyDigestRead(BaseModel):
     total_minutes: int | None
 
 
+class OnThisDayRead(BaseModel):
+    """1年前の今日（開発Todo_1年前の今日_v1.0）。アプリ全体の値（goal_idに依存しない、
+    目標タブの切り替えに影響されない）として1件のみ返す。month_agoから「どのくらい前か」の
+    表示文言（「1年前」「半年前」等）を組み立てるのはフロントエンド（ゼロハードコーディング、
+    CODING_RULES.md「画面文言はロケールファイルへ」）。
+    """
+
+    record_date: dt.date
+    goal_id: int
+    goal_name: str
+    category: GoalCategory
+    excerpt: str
+    months_ago: int
+
+
 class DashboardRead(BaseModel):
     """データ構造編6.2「GET /dashboard: ダッシュボードに必要な全情報を一括取得」。
 
@@ -134,3 +149,5 @@ class DashboardRead(BaseModel):
     show_reminder_autostart_banner: bool
     #: 今日の復習クイズの件数（1日の上限まで、開発Todo_復習クイズ_v1.0）。
     today_quiz_count: int
+    #: 1年前の今日（開発Todo_1年前の今日_v1.0）。表示しない日・候補が無い日はNone。
+    on_this_day: OnThisDayRead | None

@@ -144,6 +144,13 @@
       "title": "直近4週間",
       "viewCalendarLink": "カレンダーを見る"
     },
+    "onThisDay": {
+      "title": "1年前の今日",
+      "goalLabel": "{{goalName}}（{{periodLabel}}）",
+      "yearsAgo": "{{count}}年前",
+      "halfYearAgo": "半年前",
+      "monthsAgo": "{{count}}か月前"
+    },
     "recapThemes": {
       "title": "今週の振り返り（テーマ別）",
       "empty": "まだテーマはありません。日次報告の学んだことが分類されると、ここに表示されます",
@@ -726,6 +733,17 @@
       "examOverallProgressThresholdsLabel": "資格試験：全体進捗率(%)の節目",
       "workRecordCountThresholdsLabel": "仕事：記録件数の節目",
       "invalid": "カンマ区切りの正の整数で入力してください（例：3,7,14）。"
+    },
+    "onThisDay": {
+      "title": "1年前の今日",
+      "description": "過去の同じ日の記録を、ダッシュボードにときどき表示します。",
+      "enabledLabel": "過去の記録を表示する",
+      "candidateMonthsAgoLabel": "候補（何か月前か、カンマ区切り。例：1,6,12）",
+      "candidateMonthsAgoInvalid": "カンマ区切りの正の整数で入力してください（例：1,6,12）。",
+      "showProbabilityLabel": "表示する確率（0〜1）",
+      "showProbabilityInvalid": "0以上1以下の数値を入力してください。",
+      "bodyPreviewCharsLabel": "記録本文の抜粋の文字数",
+      "bodyPreviewCharsInvalid": "1以上の整数を入力してください。"
     },
     "promptDegradation": {
       "title": "プロンプト縮退",

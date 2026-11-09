@@ -2329,6 +2329,7 @@ export interface components {
             desktop: components["schemas"]["DesktopSettingsRead"];
             log: components["schemas"]["LogSettingsRead"];
             milestone_threshold: components["schemas"]["MilestoneThresholdSettingsRead"];
+            on_this_day: components["schemas"]["OnThisDaySettingsRead"];
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
@@ -2339,6 +2340,7 @@ export interface components {
             desktop?: components["schemas"]["DesktopSettingsUpdate"] | null;
             log?: components["schemas"]["LogSettingsUpdate"] | null;
             milestone_threshold?: components["schemas"]["MilestoneThresholdSettingsUpdate"] | null;
+            on_this_day?: components["schemas"]["OnThisDaySettingsUpdate"] | null;
         };
         /**
          * AttachmentLimitsRead
@@ -2696,6 +2698,7 @@ export interface components {
             show_reminder_autostart_banner: boolean;
             /** Today Quiz Count */
             today_quiz_count: number;
+            on_this_day: components["schemas"]["OnThisDayRead"] | null;
         };
         /** DayBoundaryHourRead */
         DayBoundaryHourRead: {
@@ -3917,6 +3920,51 @@ export interface components {
             next_goal_text?: string | null;
             /** Report Notes */
             report_notes?: string | null;
+        };
+        /**
+         * OnThisDayRead
+         * @description 1年前の今日（開発Todo_1年前の今日_v1.0）。アプリ全体の値（goal_idに依存しない、
+         *     目標タブの切り替えに影響されない）として1件のみ返す。month_agoから「どのくらい前か」の
+         *     表示文言（「1年前」「半年前」等）を組み立てるのはフロントエンド（ゼロハードコーディング、
+         *     CODING_RULES.md「画面文言はロケールファイルへ」）。
+         */
+        OnThisDayRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Goal Id */
+            goal_id: number;
+            /** Goal Name */
+            goal_name: string;
+            category: components["schemas"]["GoalCategory"];
+            /** Excerpt */
+            excerpt: string;
+            /** Months Ago */
+            months_ago: number;
+        };
+        /** OnThisDaySettingsRead */
+        OnThisDaySettingsRead: {
+            /** Enabled */
+            enabled: boolean;
+            /** Candidate Months Ago */
+            candidate_months_ago: string;
+            /** Show Probability */
+            show_probability: number;
+            /** Body Preview Chars */
+            body_preview_chars: number;
+        };
+        /** OnThisDaySettingsUpdate */
+        OnThisDaySettingsUpdate: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Candidate Months Ago */
+            candidate_months_ago?: string | null;
+            /** Show Probability */
+            show_probability?: number | null;
+            /** Body Preview Chars */
+            body_preview_chars?: number | null;
         };
         /**
          * PassingScoreType
