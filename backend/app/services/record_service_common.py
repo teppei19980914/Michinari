@@ -23,6 +23,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
+from app.ai import prompt_builder
 from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory, RecordState
 from app.models.attachment import ChatMessageAttachment
 from app.models.base import utcnow
@@ -116,7 +117,9 @@ def append_feedback_turn(
         goal_id=goal_id,
         purpose=purpose,
         role=ChatRole.ASSISTANT,
-        content=response_text,
+        # {{conversation_history}}の見出し（【AI】）をAIが書き出しに模倣することがあるため、
+        # 画面に表示・保存する前に取り除く（prompt_builder.strip_assistant_label参照）。
+        content=prompt_builder.strip_assistant_label(response_text),
         sequence=next_sequence,
     )
     session.add(assistant_message)

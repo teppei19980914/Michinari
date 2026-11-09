@@ -139,6 +139,12 @@ _NO_CONVERSATION_TEXT = "（本日はまだ対話していません）"
 #: 公開する（開発Todo_添付ファイル機能_v1.0、CODING_RULES.md①DRY）。
 NO_ATTACHMENTS_TEXT = "（添付ファイルは選択されていません）"
 _CHAT_ROLE_LABELS = {ChatRole.USER: "学習者", ChatRole.ASSISTANT: "AI"}
+#: format_conversation_historyが過去のAI発言に付ける見出しそのもの。{{conversation_history}}
+#: 経由でこの見出し付きの自分の過去発言を毎回見せられるため、AIが新しい回答の書き出しに
+#: 同じ見出しを模倣して付けてしまうことがある（2026-11-08、読書の日次報告フィードバックの
+#: 2往復目以降で実機確認。ユーザー体験として話し相手がAIだと意識させる文言を画面に出したく
+#: ないため、strip_assistant_labelで応答保存前に取り除く）。
+_ASSISTANT_LABEL_PREFIX = f"【{_CHAT_ROLE_LABELS[ChatRole.ASSISTANT]}】"
 
 
 def _format_materials(entries: list[MaterialStatusEntry], collapsed_count: int) -> str:
@@ -156,6 +162,20 @@ def format_conversation_history(turns: list[ChatTurn]) -> str:
     if not turns:
         return _NO_CONVERSATION_TEXT
     return "\n".join(f"【{_CHAT_ROLE_LABELS[turn.role]}】{turn.content}" for turn in turns)
+
+
+def strip_assistant_label(text: str) -> str:
+    """応答の先頭に`format_conversation_history`と同じ見出し（`【AI】`）が付いていれば
+    取り除く（会話継続する全用途＝DAILY_FEEDBACK・DAILY_FEEDBACK_READING・
+    DAILY_FEEDBACK_WORK・GOAL_CONSULTATION系で共通、CLAUDE.md DRYの原則）。
+
+    一致判定は文頭のみ（前後の空白を除いた完全一致）とし、本文中に偶然同じ文字列が
+    現れた場合は取り除かない。一致しなければ元のテキストをそのまま返す。
+    """
+    stripped = text.lstrip()
+    if stripped.startswith(_ASSISTANT_LABEL_PREFIX):
+        return stripped[len(_ASSISTANT_LABEL_PREFIX) :].lstrip()
+    return text
 
 
 def _join_dated_entries(entries: list[DatedLogEntry], empty_text: str) -> str:
