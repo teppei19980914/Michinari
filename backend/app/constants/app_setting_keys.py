@@ -62,6 +62,11 @@ AI_GOAL_CONSULTATION_HISTORY_TURNS = "ai.goal_consultation_history_turns"
 #: 日次報告フィードバックへ観点提案の追加指示（S-4 4-3）を注入する閾値。この件数未満の
 #: 確定済み記録しか無い学習者には、AIが傾向を断定せず複数の観点から問いかけるよう促す。
 AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"
+#: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）用の短文プロンプト専用アシスタント。
+#: 既存のDAILY_FEEDBACK系とは別のNewtonXアシスタントUID（会話・文脈を分離するため）。
+AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF = "ai.assistant_uid.daily_feedback_brief"
+AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF = "ai.assistant_uid.daily_feedback_reading_brief"
+AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF = "ai.assistant_uid.daily_feedback_work_brief"
 #: NewtonXへ送るプロンプト末尾に追記する応答言語の指示文（日英i18n対応、2026-10）。
 #: `display.locale`に応じてどちらを使うかを`orchestration.send_and_log`が選ぶ。
 #: `prompt_template`には置かない（設定画面のテンプレート編集一覧に無条件で表示されて
@@ -149,3 +154,15 @@ QUIZ_QUESTIONS_PER_THEME = "quiz.questions_per_theme"
 QUIZ_INTERVAL_DAYS = "quiz.interval_days"
 #: 1日に出題するクイズの件数の上限。
 QUIZ_DAILY_LIMIT = "quiz.daily_limit"
+
+# ひとこと記録モード（開発Todo「ひとこと記録」v1.0）。気分スタンプ＋1行メモだけで
+# 日次報告を確定できるモード。
+#: 1行メモの最大文字数（サーバ側バリデーション、D3）。
+QUICK_RECORD_NOTE_MAX_CHARS = "quick_record.note_max_chars"
+#: カテゴリ別「最後に使ったモード」（Q3）。値は`RecordInputMode`の文字列（NORMAL/QUICK）。
+QUICK_RECORD_LAST_MODE_EXAM = "quick_record.last_mode.exam"
+QUICK_RECORD_LAST_MODE_READING = "quick_record.last_mode.reading"
+QUICK_RECORD_LAST_MODE_WORK = "quick_record.last_mode.work"
+#: 音声入力ヒント（Win+H案内）を閉じたか（Q5、日記欄・想起欄・業務内容欄・ひとこと欄の
+#: 4箇所共通）。閉じた後は二度と出さない。
+QUICK_RECORD_VOICE_HINT_DISMISSED = "quick_record.voice_hint_dismissed"

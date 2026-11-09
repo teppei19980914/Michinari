@@ -19,6 +19,7 @@ from app.schemas.setting import (
     PromptDegradationSettingsRead,
     PromptTemplateRead,
     PromptTemplateUpdate,
+    QuickRecordSettingsRead,
     ThresholdSettingsRead,
 )
 from app.services import settings_service
@@ -36,6 +37,7 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         desktop=DesktopSettingsRead(**vars(settings.desktop)),
         log=LogSettingsRead(**vars(settings.log)),
         milestone_threshold=MilestoneThresholdSettingsRead(**vars(settings.milestone_threshold)),
+        quick_record=QuickRecordSettingsRead(**vars(settings.quick_record)),
     )
 
 
@@ -73,6 +75,7 @@ def update_settings(
         desktop=groups.get("desktop"),
         log=groups.get("log"),
         milestone_threshold=groups.get("milestone_threshold"),
+        quick_record=groups.get("quick_record"),
     )
     session.commit()
     return _serialize_settings(updated)

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.constants.domain import CONTEXT_CATEGORIES_BY_PURPOSE
-from app.constants.enums import AiPurpose, GoalCategory
+from app.constants.enums import GoalCategory
 from app.database import get_db
 from app.models.record import DailyRecord
 from app.schemas.record import (
@@ -160,6 +160,9 @@ def _serialize_record(
             reading_reported_at=None,
             work_record_state=None,
             work_reported_at=None,
+            exam_mood=None,
+            reading_mood=None,
+            work_mood=None,
             diary_entries=[],
             study_logs=[],
             reading_logs=[],
@@ -169,6 +172,7 @@ def _serialize_record(
         )
 
     diary_entries = record_service_exam.get_diary_entries(session, record)
+    moods = record_service_common.get_moods_by_category(session, record)
     return DailyRecordRead(
         record_date=target_date,
         exam_record_state=record.exam_record_state,
@@ -177,6 +181,9 @@ def _serialize_record(
         reading_reported_at=record.reading_reported_at,
         work_record_state=record.work_record_state,
         work_reported_at=record.work_reported_at,
+        exam_mood=moods.get(GoalCategory.EXAM),
+        reading_mood=moods.get(GoalCategory.READING),
+        work_mood=moods.get(GoalCategory.WORK),
         diary_entries=[
             DiaryEntryRead(
                 goal_id=entry.goal_id,
@@ -250,6 +257,7 @@ def finalize_record(
         _to_study_log_items(payload.study_logs),
         _to_diary_entry_items(payload.diary_entries),
         today,
+        mood=payload.mood,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.EXAM, today)
     session.commit()
@@ -265,7 +273,7 @@ def finalize_reading_record(
     """
     today = goal_service.resolve_today(session)
     record = record_service_reading.finalize_reading_record(
-        session, target_date, _to_reading_log_items(payload.reading_logs), today
+        session, target_date, _to_reading_log_items(payload.reading_logs), today, mood=payload.mood
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.READING, today)
     session.commit()
@@ -279,7 +287,7 @@ def finalize_work_record(
     """仕事の報告を確定する。資格勉強・読書の確定状態には影響しない。"""
     today = goal_service.resolve_today(session)
     record = record_service_work.finalize_work_record(
-        session, target_date, _to_work_log_items(payload.work_logs), today
+        session, target_date, _to_work_log_items(payload.work_logs), today, mood=payload.mood
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.WORK, today)
     session.commit()
@@ -303,13 +311,14 @@ def chat(
         study_log_items=_to_study_log_items(payload.study_logs),
         diary_entries=_to_diary_entry_items(payload.diary_entries),
         attachment_ids=payload.attachment_ids,
+        quick_mode=payload.quick_mode,
     )
     session.commit()
     return ChatResponse(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
-        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK],
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[outcome.purpose],
     )
 
 
@@ -330,13 +339,14 @@ def reading_chat(
         message=payload.message,
         reading_log_items=_to_reading_log_items(payload.reading_logs),
         attachment_ids=payload.attachment_ids,
+        quick_mode=payload.quick_mode,
     )
     session.commit()
     return ChatResponse(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
-        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK_READING],
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[outcome.purpose],
     )
 
 
@@ -357,13 +367,14 @@ def work_chat(
         message=payload.message,
         work_log_items=_to_work_log_items(payload.work_logs),
         attachment_ids=payload.attachment_ids,
+        quick_mode=payload.quick_mode,
     )
     session.commit()
     return ChatResponse(
         record=_serialize_record(session, target_date, outcome.daily_record),
         assistant_message=ChatMessageRead.model_validate(outcome.assistant_message),
         was_truncated=outcome.was_truncated,
-        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[AiPurpose.DAILY_FEEDBACK_WORK],
+        context_categories=CONTEXT_CATEGORIES_BY_PURPOSE[outcome.purpose],
     )
 
 

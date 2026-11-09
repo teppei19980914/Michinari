@@ -29,4 +29,14 @@ CONTEXT_CATEGORIES_BY_PURPOSE: dict[AiPurpose, list[str]] = {
     ],
     AiPurpose.DAILY_FEEDBACK_READING: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
     AiPurpose.DAILY_FEEDBACK_WORK: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
+    # ひとこと記録モード（開発Todo「ひとこと記録」v1.0）。コンテキスト構築処理は非BRIEF版と
+    # 同じものを再利用するため、カテゴリ集合も同じ（17.2.1/17.6.1/17.8.1）。
+    AiPurpose.DAILY_FEEDBACK_BRIEF: [
+        "GOAL_INFO",
+        "TODAY_RECORD",
+        "WEEKLY_SUMMARY",
+        "MATERIAL_PROGRESS",
+    ],
+    AiPurpose.DAILY_FEEDBACK_READING_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
+    AiPurpose.DAILY_FEEDBACK_WORK_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
 }
