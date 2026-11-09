@@ -10,8 +10,11 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_EVALUATION_REPORT_WORK,
     AI_ASSISTANT_UID_GOAL_CONSULTATION,
@@ -73,6 +76,11 @@ from app.constants.app_setting_keys import (
     ON_THIS_DAY_CANDIDATE_MONTHS_AGO,
     ON_THIS_DAY_ENABLED,
     ON_THIS_DAY_SHOW_PROBABILITY,
+    QUICK_RECORD_LAST_MODE_EXAM,
+    QUICK_RECORD_LAST_MODE_READING,
+    QUICK_RECORD_LAST_MODE_WORK,
+    QUICK_RECORD_NOTE_MAX_CHARS,
+    QUICK_RECORD_VOICE_HINT_DISMISSED,
     QUIZ_DAILY_LIMIT,
     QUIZ_INTERVAL_DAYS,
     QUIZ_QUESTIONS_PER_THEME,
@@ -86,7 +94,7 @@ from app.constants.app_setting_keys import (
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
-from app.constants.enums import AiPurpose, AppSettingValueType, DayType
+from app.constants.enums import AiPurpose, AppSettingValueType, DayType, RecordInputMode
 from app.init import prompt_texts_common, prompt_texts_exam, prompt_texts_reading, prompt_texts_work
 from app.models.ai import AiForbiddenTerm
 from app.models.goal import Goal
@@ -187,6 +195,21 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
         AppSettingValueType.STRING,
     ),
+    #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）の短文用アシスタント。既定は
+    #: ヘルプ・目標相談と同じアシスタント（ナレッジなし、高速。実機での個別選定は未検証のため
+    #: 「要確認」。実環境確認後に上書きする運用は他の用途と同じ）。
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF: (
+        "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
+        AppSettingValueType.STRING,
+    ),
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF: (
+        "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
+        AppSettingValueType.STRING,
+    ),
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF: (
+        "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
+        AppSettingValueType.STRING,
+    ),
     AI_GOAL_CONSULTATION_FOLDER_NAME: ("ミチナリ_目標相談", AppSettingValueType.STRING),
     AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS: ("500", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
@@ -255,6 +278,12 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     ON_THIS_DAY_CANDIDATE_MONTHS_AGO: ("1,6,12", AppSettingValueType.STRING),
     ON_THIS_DAY_SHOW_PROBABILITY: ("0.3", AppSettingValueType.FLOAT),
     ON_THIS_DAY_BODY_PREVIEW_CHARS: ("100", AppSettingValueType.INTEGER),
+    # ひとこと記録モード（開発Todo「ひとこと記録」v1.0）。
+    QUICK_RECORD_NOTE_MAX_CHARS: ("200", AppSettingValueType.INTEGER),
+    QUICK_RECORD_LAST_MODE_EXAM: (RecordInputMode.NORMAL.value, AppSettingValueType.STRING),
+    QUICK_RECORD_LAST_MODE_READING: (RecordInputMode.NORMAL.value, AppSettingValueType.STRING),
+    QUICK_RECORD_LAST_MODE_WORK: (RecordInputMode.NORMAL.value, AppSettingValueType.STRING),
+    QUICK_RECORD_VOICE_HINT_DISMISSED: ("false", AppSettingValueType.BOOLEAN),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
@@ -279,6 +308,9 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.GOAL_CONSULTATION: prompt_texts_exam.GOAL_CONSULTATION,
     AiPurpose.GOAL_CONSULTATION_READING: prompt_texts_reading.GOAL_CONSULTATION_READING,
     AiPurpose.GOAL_CONSULTATION_WORK: prompt_texts_work.GOAL_CONSULTATION_WORK,
+    AiPurpose.DAILY_FEEDBACK_BRIEF: prompt_texts_exam.DAILY_FEEDBACK_BRIEF,
+    AiPurpose.DAILY_FEEDBACK_READING_BRIEF: prompt_texts_reading.DAILY_FEEDBACK_READING_BRIEF,
+    AiPurpose.DAILY_FEEDBACK_WORK_BRIEF: prompt_texts_work.DAILY_FEEDBACK_WORK_BRIEF,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

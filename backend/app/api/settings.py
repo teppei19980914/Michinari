@@ -20,6 +20,7 @@ from app.schemas.setting import (
     PromptDegradationSettingsRead,
     PromptTemplateRead,
     PromptTemplateUpdate,
+    QuickRecordSettingsRead,
     ThresholdSettingsRead,
 )
 from app.services import settings_service
@@ -38,6 +39,7 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         log=LogSettingsRead(**vars(settings.log)),
         milestone_threshold=MilestoneThresholdSettingsRead(**vars(settings.milestone_threshold)),
         on_this_day=OnThisDaySettingsRead(**vars(settings.on_this_day)),
+        quick_record=QuickRecordSettingsRead(**vars(settings.quick_record)),
     )
 
 
@@ -76,6 +78,7 @@ def update_settings(
         log=groups.get("log"),
         milestone_threshold=groups.get("milestone_threshold"),
         on_this_day=groups.get("on_this_day"),
+        quick_record=groups.get("quick_record"),
     )
     session.commit()
     return _serialize_settings(updated)
