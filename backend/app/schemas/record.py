@@ -10,6 +10,7 @@ import datetime as dt
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.constants.domain import MOOD_MAX_VALUE, MOOD_MIN_VALUE
 from app.constants.enums import AiPurpose, ChatRole, QualityMetricType, RecordState
 
 
@@ -196,7 +197,7 @@ class FinalizeRequest(BaseModel):
     #: ひとこと記録モードの気分スタンプ（5段階固定、開発Todo「ひとこと記録」v1.0 決定事項
     #: D1）。通常モードではNone。範囲検証はrecord_service_common.upsert_mood（サーバ側の
     #: 最終判定）と同じ1〜5。
-    mood: int | None = Field(default=None, ge=1, le=5)
+    mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
 
 
 class ReadingFinalizeRequest(BaseModel):
@@ -205,7 +206,7 @@ class ReadingFinalizeRequest(BaseModel):
     """
 
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
-    mood: int | None = Field(default=None, ge=1, le=5)
+    mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
 
 
 class WorkFinalizeRequest(BaseModel):
@@ -214,7 +215,7 @@ class WorkFinalizeRequest(BaseModel):
     """
 
     work_logs: list[WorkLogInput] = Field(default_factory=list)
-    mood: int | None = Field(default=None, ge=1, le=5)
+    mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
 
 
 class PreviousEntryRead(BaseModel):

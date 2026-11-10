@@ -374,6 +374,17 @@ class TestQuickRecordSettingsApi:
         # 指定していない項目は元のまま。
         assert body["quick_record"]["last_mode_reading"] == "NORMAL"
 
+    def test_patch_updates_note_max_chars_without_touching_voice_hint(self, client):
+        """`voice_hint_dismissed`を指定しない更新でも成立すること。"""
+        response = client.patch(
+            "/api/v1/settings", json={"quick_record": {"note_max_chars": 150}}
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["quick_record"]["note_max_chars"] == 150
+        assert body["quick_record"]["voice_hint_dismissed"] is False
+
     def test_patch_rejects_an_unknown_last_mode(self, client):
         """サービス層のドメイン例外がAPI層でエラーコードへ変換されること（技術選定書7.3）。"""
         response = client.patch(

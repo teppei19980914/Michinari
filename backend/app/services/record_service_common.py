@@ -24,6 +24,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.ai import prompt_builder
+from app.constants.domain import MOOD_MAX_VALUE, MOOD_MIN_VALUE
 from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory, RecordState
 from app.models.attachment import ChatMessageAttachment
 from app.models.base import utcnow
@@ -332,11 +333,6 @@ def _ensure_finalizable_date(target_date: dt.date, today: dt.date) -> None:
         raise ValidationError("Cannot finalize a report for a future date")
     if target_date < today - dt.timedelta(days=1):
         raise BackdateLimitExceededError(target_date, today)
-
-
-#: 気分スタンプの段階数（開発Todo「ひとこと記録」v1.0 決定事項D1、5段階固定）。
-MOOD_MIN_VALUE = 1
-MOOD_MAX_VALUE = 5
 
 
 def upsert_mood(
