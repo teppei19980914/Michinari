@@ -13,6 +13,12 @@ MIN_SPEED_SAMPLE_COUNT = 3
 # 完了予測日の反復打ち切り日数（ロジック・プロンプト編 10.1）。
 FORECAST_ITERATION_CAP_DAYS = 365
 
+# 気分スタンプの段階数（開発Todo「ひとこと記録」v1.0 決定事項D1、5段階固定）。
+# schemas/record.py（API層の範囲検証）とservices/record_service_common.py（サーバ側の
+# 最終判定）の両方から参照するため、どちらにも依存しないここへ置く（CLAUDE.md DRYの原則）。
+MOOD_MIN_VALUE = 1
+MOOD_MAX_VALUE = 5
+
 # 「AIが参照した情報」（非エンジニア向け、AI対話の送信内容を種別で示す機能）で用途ごとに
 # 返すカテゴリ集合。プロンプトは常に全項目を埋め込む設計（データが無くても「まだ〜
 # ありません」という文言が入る、app/ai/prompt_builder.py）ため、実際の値を都度見て動的に
