@@ -485,3 +485,49 @@ def test_quiz_accuracy_analytics_404_when_goal_not_found(client):
     response = client.get("/api/v1/analytics/quiz-accuracy?goal_id=999999")
 
     assert response.status_code == 404
+
+
+# --- 気分の推移タブ（ひとこと記録モード、開発Todo「ひとこと記録」v1.0 要件5） ---
+
+
+def test_mood_analytics_returns_entries_oldest_first(seeded_session, client):
+    """気分はdaily_record_mood（カテゴリ別、目標非依存）のため、/finalizeはgoal_idを
+    取らない（資格勉強の確定は日単位・カテゴリ単位）。goal_idはカテゴリ解決にのみ使う。
+    """
+    from tests.diary_helpers import make_exam_goal
+
+    goal = make_exam_goal(seeded_session)
+    yesterday = (TODAY - dt.timedelta(days=1)).isoformat()
+
+    client.post(
+        f"/api/v1/records/{yesterday}/finalize",
+        json={"study_logs": [], "diary_entries": [], "mood": 2},
+    )
+    client.post(
+        "/api/v1/records/" + TODAY.isoformat() + "/finalize",
+        json={"study_logs": [], "diary_entries": [], "mood": 5},
+    )
+
+    response = client.get(f"/api/v1/analytics/mood?goal_id={goal.id}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [e["record_date"] for e in body] == [yesterday, TODAY.isoformat()]
+    assert [e["mood_value"] for e in body] == [2, 5]
+
+
+def test_mood_analytics_empty_when_no_mood_recorded(seeded_session, client):
+    from tests.diary_helpers import make_exam_goal
+
+    goal = make_exam_goal(seeded_session)
+
+    response = client.get(f"/api/v1/analytics/mood?goal_id={goal.id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+
+
+def test_mood_analytics_404_when_goal_not_found(client):
+    response = client.get("/api/v1/analytics/mood?goal_id=999999")
+
+    assert response.status_code == 404

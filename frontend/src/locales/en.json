@@ -857,7 +857,10 @@
         "GOAL_CONSULTATION": "Goal consultation",
         "GOAL_CONSULTATION_READING": "Goal consultation (reading)",
         "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
-        "QUIZ_GENERATE": "Review quiz generation"
+        "QUIZ_GENERATE": "Review quiz generation",
+        "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
+        "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
+        "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)"
       }
     },
     "log": {

@@ -18,6 +18,7 @@ from app.ai import orchestration as ai_orchestration
 from app.ai import prompt_builder, question_safety
 from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
@@ -50,6 +51,10 @@ class ChatOutcome:
     daily_record: DailyRecord
     assistant_message: ChatMessage
     was_truncated: bool
+    #: 実際に使われた用途（DAILY_FEEDBACK or DAILY_FEEDBACK_BRIEF）。API層が
+    #: 「AIが参照した情報」表示用のcontext_categoriesを求めるのに使う（開発Todo
+    #: 「ひとこと記録」v1.0、CONTEXT_CATEGORIES_BY_PURPOSE参照）。
+    purpose: AiPurpose = AiPurpose.DAILY_FEEDBACK
 
 
 def send_daily_feedback(
@@ -62,6 +67,7 @@ def send_daily_feedback(
     study_log_items: list[StudyLogItem],
     diary_entries: list[DiaryEntryItem],
     attachment_ids: list[int] | None = None,
+    quick_mode: bool = False,
 ) -> ChatOutcome:
     """AI対話を1往復実行する（データ構造編6.2 POST /records/{date}/chat）。
 
@@ -70,7 +76,20 @@ def send_daily_feedback(
 
     `attachment_ids`は利用者が選択した添付ファイル（開発Todo_添付ファイル機能_v1.0 A1・A8、
     goal非依存の共通プール）。存在しないIDは`NotFoundError`。
+
+    `quick_mode`はひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）での対話か。Trueの
+    場合、短文用の用途（AiPurpose.DAILY_FEEDBACK_BRIEF）・会話（ConversationScope.
+    DAILY_FEEDBACK_BRIEF）・アシスタント（AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF）を使う。
+    注入変数・コンテキスト構築処理は通常モードと全く同じものを再利用し、prompt_templateの
+    本文のみが異なる（設計書 ロジック・プロンプト編17.2.1）。
     """
+    purpose = AiPurpose.DAILY_FEEDBACK_BRIEF if quick_mode else AiPurpose.DAILY_FEEDBACK
+    scope = (
+        ConversationScope.DAILY_FEEDBACK_BRIEF if quick_mode else ConversationScope.DAILY_FEEDBACK
+    )
+    assistant_uid_key = (
+        AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF if quick_mode else AI_ASSISTANT_UID_DAILY_FEEDBACK
+    )
     if target_date > today:
         raise ValidationError("Cannot start an AI conversation for a future date")
 
@@ -106,7 +125,7 @@ def send_daily_feedback(
         session.query(ChatMessage)
         .filter(
             ChatMessage.daily_record_id == record.id,
-            ChatMessage.purpose == AiPurpose.DAILY_FEEDBACK,
+            ChatMessage.purpose == purpose,
             ChatMessage.goal_id == goal.id,
         )
         .order_by(ChatMessage.sequence)
@@ -170,17 +189,17 @@ def send_daily_feedback(
         nonce=nonce,
     )
 
-    template_body = ai_orchestration.load_template_body(session, AiPurpose.DAILY_FEEDBACK)
+    template_body = ai_orchestration.load_template_body(session, purpose)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     build_result = prompt_builder.build_daily_feedback(template_body, context, max_chars)
     if build_result.exhausted:
         raise DailyFeedbackPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
 
-    assistant_uid = setting_reader.get_str(session, AI_ASSISTANT_UID_DAILY_FEEDBACK)
+    assistant_uid = setting_reader.get_str(session, assistant_uid_key)
     conversation = ai_conversation.ensure_conversation(
         session,
         goal=goal,
-        scope=ConversationScope.DAILY_FEEDBACK,
+        scope=scope,
         scope_key=target_date.isoformat(),
         assistant_uid=assistant_uid,
         title=f"{target_date.isoformat()} 日次報告（{goal.name}）",
@@ -188,7 +207,7 @@ def send_daily_feedback(
 
     send_result = ai_orchestration.send_and_log(
         session,
-        purpose=AiPurpose.DAILY_FEEDBACK,
+        purpose=purpose,
         conversation=conversation,
         prompt_text=build_result.text,
         prompt_chars=build_result.prompt_chars,
@@ -199,7 +218,7 @@ def send_daily_feedback(
         session,
         daily_record_id=record.id,
         goal_id=goal.id,
-        purpose=AiPurpose.DAILY_FEEDBACK,
+        purpose=purpose,
         message=message,
         response_text=send_result.response_text,
         attachment_ids=attachment_ids,
@@ -209,4 +228,5 @@ def send_daily_feedback(
         daily_record=record,
         assistant_message=assistant_message,
         was_truncated=build_result.was_truncated,
+        purpose=purpose,
     )

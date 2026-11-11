@@ -55,6 +55,15 @@ class RecordState(enum.StrEnum):
     REPORTED = "REPORTED"
 
 
+class RecordInputMode(enum.StrEnum):
+    """日次報告の入力方式（開発Todo「ひとこと記録」v1.0）。カテゴリ別に「最後に使った
+    モード」をapp_settingへ記憶し、次回表示時の既定モードに使う（Q3）。
+    """
+
+    NORMAL = "NORMAL"
+    QUICK = "QUICK"
+
+
 class ChatRole(enum.StrEnum):
     USER = "USER"
     ASSISTANT = "ASSISTANT"
@@ -104,6 +113,13 @@ class AiPurpose(enum.StrEnum):
     GOAL_CONSULTATION_READING = "GOAL_CONSULTATION_READING"
     GOAL_CONSULTATION_WORK = "GOAL_CONSULTATION_WORK"
     QUIZ_GENERATE = "QUIZ_GENERATE"
+    #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）で確定した日の日次報告
+    #: フィードバック。注入変数・コンテキスト構築は各カテゴリの非BRIEF版と同じ
+    #: （prompt_builder.build_daily_feedback／build_with_degradable_entriesをそのまま再利用し、
+    #: prompt_templateの本文のみ差し替える）。会話・assistant_uidは非BRIEF版と分離する。
+    DAILY_FEEDBACK_BRIEF = "DAILY_FEEDBACK_BRIEF"
+    DAILY_FEEDBACK_READING_BRIEF = "DAILY_FEEDBACK_READING_BRIEF"
+    DAILY_FEEDBACK_WORK_BRIEF = "DAILY_FEEDBACK_WORK_BRIEF"
 
 
 class ConversationScope(enum.StrEnum):
@@ -125,6 +141,10 @@ class ConversationScope(enum.StrEnum):
     GOAL_CONSULTATION_READING = "GOAL_CONSULTATION_READING"
     GOAL_CONSULTATION_WORK = "GOAL_CONSULTATION_WORK"
     QUIZ_GENERATE = "QUIZ_GENERATE"
+    #: AiPurposeの同名定数と対になるひとこと記録モード用の会話スコープ（17.2.1/17.6.1/17.8.1）。
+    DAILY_FEEDBACK_BRIEF = "DAILY_FEEDBACK_BRIEF"
+    DAILY_FEEDBACK_READING_BRIEF = "DAILY_FEEDBACK_READING_BRIEF"
+    DAILY_FEEDBACK_WORK_BRIEF = "DAILY_FEEDBACK_WORK_BRIEF"
 
 
 class WorkMemberGender(enum.StrEnum):

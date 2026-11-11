@@ -160,6 +160,34 @@ def test_finalize_endpoint_marks_reported_and_reflects_in_today(client):
     assert today_response.json()["record_state"] == "REPORTED"
 
 
+def test_finalize_endpoint_accepts_quick_mode_with_mood_and_no_items(client):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q1）：実績0件＋気分だけで確定できる。"""
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={"study_logs": [], "diary_entries": [], "mood": 3},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["exam_record_state"] == "REPORTED"
+    assert body["exam_mood"] == 3
+    assert body["reading_mood"] is None
+
+
+def test_finalize_endpoint_rejects_mood_out_of_range(client):
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={"study_logs": [], "diary_entries": [], "mood": 6},
+    )
+
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_finalize_endpoint_rejects_backdate_beyond_yesterday(client):
     two_days_ago = (dt.date.today() - dt.timedelta(days=2)).isoformat()
 

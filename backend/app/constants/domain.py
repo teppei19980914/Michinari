@@ -13,6 +13,12 @@ MIN_SPEED_SAMPLE_COUNT = 3
 # 完了予測日の反復打ち切り日数（ロジック・プロンプト編 10.1）。
 FORECAST_ITERATION_CAP_DAYS = 365
 
+# 気分スタンプの段階数（開発Todo「ひとこと記録」v1.0 決定事項D1、5段階固定）。
+# schemas/record.py（API層の範囲検証）とservices/record_service_common.py（サーバ側の
+# 最終判定）の両方から参照するため、どちらにも依存しないここへ置く（CLAUDE.md DRYの原則）。
+MOOD_MIN_VALUE = 1
+MOOD_MAX_VALUE = 5
+
 # 「AIが参照した情報」（非エンジニア向け、AI対話の送信内容を種別で示す機能）で用途ごとに
 # 返すカテゴリ集合。プロンプトは常に全項目を埋め込む設計（データが無くても「まだ〜
 # ありません」という文言が入る、app/ai/prompt_builder.py）ため、実際の値を都度見て動的に
@@ -29,4 +35,14 @@ CONTEXT_CATEGORIES_BY_PURPOSE: dict[AiPurpose, list[str]] = {
     ],
     AiPurpose.DAILY_FEEDBACK_READING: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
     AiPurpose.DAILY_FEEDBACK_WORK: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
+    # ひとこと記録モード（開発Todo「ひとこと記録」v1.0）。コンテキスト構築処理は非BRIEF版と
+    # 同じものを再利用するため、カテゴリ集合も同じ（17.2.1/17.6.1/17.8.1）。
+    AiPurpose.DAILY_FEEDBACK_BRIEF: [
+        "GOAL_INFO",
+        "TODAY_RECORD",
+        "WEEKLY_SUMMARY",
+        "MATERIAL_PROGRESS",
+    ],
+    AiPurpose.DAILY_FEEDBACK_READING_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
+    AiPurpose.DAILY_FEEDBACK_WORK_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
 }

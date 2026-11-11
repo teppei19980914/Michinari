@@ -23,6 +23,7 @@ from app.services.record_service_common import (
     _get_previous_entry,
     _set_category_state,
     get_daily_record,
+    upsert_mood,
 )
 
 
@@ -112,10 +113,13 @@ def finalize_work_record(
     target_date: dt.date,
     items: list[WorkLogItem],
     today: dt.date,
+    mood: int | None = None,
 ) -> DailyRecord:
     """仕事の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
-    資格勉強・読書の確定状態には影響しない（仕様変更2026-09-05）。
+    資格勉強・読書の確定状態には影響しない（仕様変更2026-09-05）。`mood`はひとこと記録
+    モードの気分スタンプ（開発Todo「ひとこと記録」v1.0、record_service_common.
+    upsert_mood参照）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.WORK)
@@ -123,6 +127,7 @@ def finalize_work_record(
 
     record = record or _create_record(session, target_date)
     _apply_work_logs(session, record, items)
+    upsert_mood(session, record, GoalCategory.WORK, mood)
     _set_category_state(record, GoalCategory.WORK, RecordState.REPORTED)
     session.flush()
     return record
