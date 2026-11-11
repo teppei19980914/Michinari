@@ -78,6 +78,46 @@ def test_patch_settings_updates_reading_assistant_uids(client):
     )
 
 
+def test_get_settings_includes_quick_record_brief_assistant_uids(client):
+    """ひとこと記録モード用の短文プロンプト専用アシスタント（開発Todo「ひとこと記録」
+    v1.0 Q2）が設定画面から変更可能であること（仕様書6.11）。"""
+    response = client.get("/api/v1/settings")
+    assert response.status_code == 200
+    body = response.json()
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_brief"]
+        == "c9e542e1-a324-46d5-a02e-fe6bfaebf85a"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_reading_brief"]
+        == "c9e542e1-a324-46d5-a02e-fe6bfaebf85a"
+    )
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_work_brief"]
+        == "c9e542e1-a324-46d5-a02e-fe6bfaebf85a"
+    )
+
+
+def test_patch_settings_updates_quick_record_brief_assistant_uids(client):
+    response = client.patch(
+        "/api/v1/settings",
+        json={
+            "ai_connection": {
+                "assistant_uid_daily_feedback_brief": "uid-brief",
+                "assistant_uid_daily_feedback_reading_brief": "uid-reading-brief",
+                "assistant_uid_daily_feedback_work_brief": "uid-work-brief",
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ai_connection"]["assistant_uid_daily_feedback_brief"] == "uid-brief"
+    assert (
+        body["ai_connection"]["assistant_uid_daily_feedback_reading_brief"] == "uid-reading-brief"
+    )
+    assert body["ai_connection"]["assistant_uid_daily_feedback_work_brief"] == "uid-work-brief"
+
+
 def test_get_settings_includes_perspective_suggestion_min_records(client):
     """観点提案の追加指示（S-4 4-3）を注入する閾値が設定画面から変更可能であること
     （仕様書6.11「全ての設定項目を画面上から変更可能」）。"""
@@ -298,6 +338,67 @@ class TestDesktopSettingsApi:
 
         body = client.get("/api/v1/settings").json()
         assert body["desktop"]["notification_time"] == "21:00"
+
+
+class TestQuickRecordSettingsApi:
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の設定（SC-11）。"""
+
+    def test_get_returns_the_quick_record_group(self, client):
+        body = client.get("/api/v1/settings").json()
+
+        assert body["quick_record"] == {
+            "note_max_chars": 200,
+            "last_mode_exam": "NORMAL",
+            "last_mode_reading": "NORMAL",
+            "last_mode_work": "NORMAL",
+            "voice_hint_dismissed": False,
+        }
+
+    def test_patch_updates_the_quick_record_group(self, client):
+        response = client.patch(
+            "/api/v1/settings",
+            json={
+                "quick_record": {
+                    "note_max_chars": 280,
+                    "last_mode_exam": "QUICK",
+                    "voice_hint_dismissed": True,
+                }
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["quick_record"]["note_max_chars"] == 280
+        assert body["quick_record"]["last_mode_exam"] == "QUICK"
+        assert body["quick_record"]["voice_hint_dismissed"] is True
+        # 指定していない項目は元のまま。
+        assert body["quick_record"]["last_mode_reading"] == "NORMAL"
+
+    def test_patch_updates_note_max_chars_without_touching_voice_hint(self, client):
+        """`voice_hint_dismissed`を指定しない更新でも成立すること。"""
+        response = client.patch(
+            "/api/v1/settings", json={"quick_record": {"note_max_chars": 150}}
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["quick_record"]["note_max_chars"] == 150
+        assert body["quick_record"]["voice_hint_dismissed"] is False
+
+    def test_patch_rejects_an_unknown_last_mode(self, client):
+        """サービス層のドメイン例外がAPI層でエラーコードへ変換されること（技術選定書7.3）。"""
+        response = client.patch(
+            "/api/v1/settings", json={"quick_record": {"last_mode_work": "UNKNOWN"}}
+        )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    def test_patch_keeps_the_stored_value_when_rejected(self, client):
+        client.patch("/api/v1/settings", json={"quick_record": {"last_mode_work": "UNKNOWN"}})
+
+        body = client.get("/api/v1/settings").json()
+        assert body["quick_record"]["last_mode_work"] == "NORMAL"
 
 
 def test_every_ai_purpose_has_a_frontend_message():

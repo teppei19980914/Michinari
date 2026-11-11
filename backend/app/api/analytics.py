@@ -36,6 +36,7 @@ from app.schemas.analytics import (
     MaterialProgressTrendRead,
     MaterialQualityTrendRead,
     MaterialSpeedTrendRead,
+    MoodTrendPointRead,
     ProgressAnalyticsRead,
     ProgressPointRead,
     QualityAnalyticsRead,
@@ -304,6 +305,24 @@ def get_work_log_analytics(
         return []
     entries = analytics_service.list_work_log_entries(session, goal.work_assignment)
     return [WorkLogEntryRead(record_date=e.record_date, body=e.body) for e in entries]
+
+
+@router.get("/analytics/mood", response_model=list[MoodTrendPointRead])
+def get_mood_analytics(
+    goal_id: int, session: Session = Depends(get_db)
+) -> list[MoodTrendPointRead]:
+    """分析画面「気分の推移」タブ（ひとこと記録モード、開発Todo「ひとこと記録」v1.0 要件5）。
+
+    気分は目標ではなくカテゴリ（EXAM/READING/WORK）に紐づく（daily_record_mood）ため、
+    goal_idから目標のカテゴリを解決し、そのカテゴリの気分推移を古い順に返す（同じカテゴリの
+    複数目標で同じ推移が表示される。他の分析タブと同じくgoal_idで呼ぶ既存の呼び出し規約に
+    合わせるための設計、開発Todo §1.1）。気分を1件も入力していない場合は空配列を返す。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    entries = analytics_service.list_mood_trend_entries(session, goal.category)
+    return [
+        MoodTrendPointRead(record_date=e.record_date, mood_value=e.mood_value) for e in entries
+    ]
 
 
 @router.get("/analytics/quiz-accuracy", response_model=QuizAccuracyAnalyticsRead)

@@ -14,8 +14,11 @@ from sqlalchemy.orm import Session
 from app.constants.app_setting_keys import (
     AI_API_BASE_URL,
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_READING,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK,
+    AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF,
     AI_ASSISTANT_UID_DAILY_MESSAGE,
     AI_ASSISTANT_UID_EVALUATION_REPORT_WORK,
     AI_ASSISTANT_UID_GOAL_CONSULTATION,
@@ -53,6 +56,11 @@ from app.constants.app_setting_keys import (
     ON_THIS_DAY_CANDIDATE_MONTHS_AGO,
     ON_THIS_DAY_ENABLED,
     ON_THIS_DAY_SHOW_PROBABILITY,
+    QUICK_RECORD_LAST_MODE_EXAM,
+    QUICK_RECORD_LAST_MODE_READING,
+    QUICK_RECORD_LAST_MODE_WORK,
+    QUICK_RECORD_NOTE_MAX_CHARS,
+    QUICK_RECORD_VOICE_HINT_DISMISSED,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
 )
@@ -71,7 +79,7 @@ from app.constants.app_setting_keys import (
 from app.constants.app_setting_keys import (
     DISPLAY_THEME as _DISPLAY_THEME,
 )
-from app.constants.enums import AiPurpose, Granularity
+from app.constants.enums import AiPurpose, Granularity, RecordInputMode
 from app.init.seed_data import INITIAL_PROMPT_TEMPLATES
 from app.models.setting import AppSetting, PromptTemplate
 from app.services import notification_service, setting_reader
@@ -89,6 +97,8 @@ _ALLOWED_FONT_SCALES = frozenset({"small", "standard", "large"})
 #: 分析画面の粒度（仕様書6.8「日別・週別・月別で切替表示」）。Phase9のGranularity Enumと
 #: 同じ値を許容する（CLAUDE.md DRYの原則、値の重複を避けるためEnumの値をそのまま使う）。
 _ALLOWED_GRANULARITIES = frozenset(g.value for g in Granularity)
+#: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q3）の「最後に使ったモード」の許容値。
+_ALLOWED_RECORD_INPUT_MODES = frozenset(m.value for m in RecordInputMode)
 
 
 def _set_str(session: Session, key: str, value: str) -> None:
@@ -126,6 +136,9 @@ class AiConnectionSettings:
     assistant_uid_evaluation_report_work: str
     assistant_uid_help: str
     assistant_uid_goal_consultation: str
+    assistant_uid_daily_feedback_brief: str
+    assistant_uid_daily_feedback_reading_brief: str
+    assistant_uid_daily_feedback_work_brief: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -207,6 +220,19 @@ class OnThisDaySettings:
 
 
 @dataclass(frozen=True)
+class QuickRecordSettings:
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の設定。DesktopSettingsと同じく、
+    内部状態（`last_mode_*`・`voice_hint_dismissed`）も同じ`PATCH /settings`経路で扱う。
+    """
+
+    note_max_chars: int
+    last_mode_exam: str
+    last_mode_reading: str
+    last_mode_work: str
+    voice_hint_dismissed: bool
+
+
+@dataclass(frozen=True)
 class AppSettings:
     ai_connection: AiConnectionSettings
     threshold: ThresholdSettings
@@ -216,6 +242,7 @@ class AppSettings:
     log: LogSettings
     milestone_threshold: MilestoneThresholdSettings
     on_this_day: OnThisDaySettings
+    quick_record: QuickRecordSettings
 
 
 def get_app_settings(session: Session) -> AppSettings:
@@ -261,6 +288,15 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_help=setting_reader.get_str(session, AI_ASSISTANT_UID_HELP),
         assistant_uid_goal_consultation=setting_reader.get_str(
             session, AI_ASSISTANT_UID_GOAL_CONSULTATION
+        ),
+        assistant_uid_daily_feedback_brief=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF
+        ),
+        assistant_uid_daily_feedback_reading_brief=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF
+        ),
+        assistant_uid_daily_feedback_work_brief=setting_reader.get_str(
+            session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF
         ),
         folder_prefix=setting_reader.get_str(session, AI_FOLDER_PREFIX),
         timeout_seconds=setting_reader.get_int(session, AI_TIMEOUT_SECONDS),
@@ -325,6 +361,13 @@ def get_app_settings(session: Session) -> AppSettings:
         show_probability=setting_reader.get_float(session, ON_THIS_DAY_SHOW_PROBABILITY),
         body_preview_chars=setting_reader.get_int(session, ON_THIS_DAY_BODY_PREVIEW_CHARS),
     )
+    quick_record = QuickRecordSettings(
+        note_max_chars=setting_reader.get_int(session, QUICK_RECORD_NOTE_MAX_CHARS),
+        last_mode_exam=setting_reader.get_str(session, QUICK_RECORD_LAST_MODE_EXAM),
+        last_mode_reading=setting_reader.get_str(session, QUICK_RECORD_LAST_MODE_READING),
+        last_mode_work=setting_reader.get_str(session, QUICK_RECORD_LAST_MODE_WORK),
+        voice_hint_dismissed=setting_reader.get_bool(session, QUICK_RECORD_VOICE_HINT_DISMISSED),
+    )
     return AppSettings(
         ai_connection=ai_connection,
         threshold=threshold,
@@ -334,6 +377,7 @@ def get_app_settings(session: Session) -> AppSettings:
         log=log,
         milestone_threshold=milestone_threshold,
         on_this_day=on_this_day,
+        quick_record=quick_record,
     )
 
 
@@ -393,6 +437,9 @@ def _update_ai_connection(session: Session, **fields: object) -> None:
         "assistant_uid_evaluation_report_work": AI_ASSISTANT_UID_EVALUATION_REPORT_WORK,
         "assistant_uid_help": AI_ASSISTANT_UID_HELP,
         "assistant_uid_goal_consultation": AI_ASSISTANT_UID_GOAL_CONSULTATION,
+        "assistant_uid_daily_feedback_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
+        "assistant_uid_daily_feedback_reading_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF,
+        "assistant_uid_daily_feedback_work_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF,
         "folder_prefix": AI_FOLDER_PREFIX,
     }
     number_key_by_field = {
@@ -536,6 +583,25 @@ def _update_on_this_day(session: Session, **fields: object) -> None:
         _set_number(session, ON_THIS_DAY_BODY_PREVIEW_CHARS, fields["body_preview_chars"])
 
 
+def _update_quick_record(session: Session, **fields: object) -> None:
+    if fields.get("note_max_chars") is not None:
+        _set_number(session, QUICK_RECORD_NOTE_MAX_CHARS, fields["note_max_chars"])
+    mode_key_by_field = {
+        "last_mode_exam": QUICK_RECORD_LAST_MODE_EXAM,
+        "last_mode_reading": QUICK_RECORD_LAST_MODE_READING,
+        "last_mode_work": QUICK_RECORD_LAST_MODE_WORK,
+    }
+    for field, key in mode_key_by_field.items():
+        value = fields.get(field)
+        if value is not None:
+            if value not in _ALLOWED_RECORD_INPUT_MODES:
+                allowed = sorted(_ALLOWED_RECORD_INPUT_MODES)
+                raise ValidationError(f"Record input mode must be one of: {allowed}")
+            _set_str(session, key, value)
+    if fields.get("voice_hint_dismissed") is not None:
+        _set_bool(session, QUICK_RECORD_VOICE_HINT_DISMISSED, fields["voice_hint_dismissed"])
+
+
 def update_app_settings(
     session: Session,
     *,
@@ -547,6 +613,7 @@ def update_app_settings(
     log: dict | None = None,
     milestone_threshold: dict | None = None,
     on_this_day: dict | None = None,
+    quick_record: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
         _update_ai_connection(session, **ai_connection)
@@ -564,6 +631,8 @@ def update_app_settings(
         _update_milestone_threshold(session, **milestone_threshold)
     if on_this_day:
         _update_on_this_day(session, **on_this_day)
+    if quick_record:
+        _update_quick_record(session, **quick_record)
     session.flush()
     return get_app_settings(session)
 

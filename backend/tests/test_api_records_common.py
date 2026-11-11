@@ -108,6 +108,9 @@ def test_get_record_for_unentered_date_returns_empty_structure(client):
     assert body["exam_record_state"] is None
     assert body["reading_record_state"] is None
     assert body["work_record_state"] is None
+    assert body["exam_mood"] is None
+    assert body["reading_mood"] is None
+    assert body["work_mood"] is None
     assert body["study_logs"] == []
     assert body["comments"] == []
     assert body["diary_entries"] == []

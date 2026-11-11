@@ -25,7 +25,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.elements import ColumnElement
 
-from app.constants.enums import AiPurpose, ChatRole, ExamResultType, RecordState
+from app.constants.enums import AiPurpose, ChatRole, ExamResultType, GoalCategory, RecordState
 from app.models.base import Base, CreatedAtMixin, TimestampMixin, utcnow
 
 if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には到達しない)
@@ -78,6 +78,9 @@ class DailyRecord(CreatedAtMixin, Base):
         back_populates="daily_record", cascade="all, delete-orphan"
     )
     diary_entries: Mapped[list["DailyGoalDiary"]] = relationship(
+        back_populates="daily_record", cascade="all, delete-orphan"
+    )
+    moods: Mapped[list["DailyRecordMood"]] = relationship(
         back_populates="daily_record", cascade="all, delete-orphan"
     )
 
@@ -312,6 +315,33 @@ class DailyGoalDiary(CreatedAtMixin, Base):
 
     daily_record: Mapped["DailyRecord"] = relationship(back_populates="diary_entries")
     goal: Mapped["Goal | None"] = relationship(back_populates="diary_entries")
+
+
+class DailyRecordMood(CreatedAtMixin, Base):
+    """気分スタンプ（開発Todo「ひとこと記録」v1.0）。ひとこと記録モードで確定した日に、
+    カテゴリ（EXAM/READING/WORK）ごとに0〜1件持つ。3カテゴリ横断の新規1テーブルとする
+    （既存のdaily_goal_diary・reading_log・work_logのいずれにも列を追加しない。
+    開発Todo §1.1「変更する箇所」の判断）。mood_valueは1〜5の整数（サービス層で検証）。
+    """
+
+    __tablename__ = "daily_record_mood"
+    __table_args__ = (
+        UniqueConstraint(
+            "daily_record_id", "category", name="uq_daily_record_mood_record_category"
+        ),
+        Index("ix_daily_record_mood_daily_record_id", "daily_record_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    daily_record_id: Mapped[int] = mapped_column(
+        ForeignKey("daily_record.id", ondelete="CASCADE"), nullable=False
+    )
+    category: Mapped[GoalCategory] = mapped_column(
+        Enum(GoalCategory, native_enum=False, validate_strings=True), nullable=False
+    )
+    mood_value: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    daily_record: Mapped["DailyRecord"] = relationship(back_populates="moods")
 
 
 def diary_text_expr() -> ColumnElement[str]:

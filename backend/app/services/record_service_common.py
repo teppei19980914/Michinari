@@ -24,6 +24,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.ai import prompt_builder
+from app.constants.domain import MOOD_MAX_VALUE, MOOD_MIN_VALUE
 from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory, RecordState
 from app.models.attachment import ChatMessageAttachment
 from app.models.base import utcnow
@@ -31,6 +32,7 @@ from app.models.record import (
     ChatMessage,
     DailyGoalDiary,
     DailyRecord,
+    DailyRecordMood,
     ReadingLog,
     ReadingLogSlotTime,
     RecordComment,
@@ -331,6 +333,39 @@ def _ensure_finalizable_date(target_date: dt.date, today: dt.date) -> None:
         raise ValidationError("Cannot finalize a report for a future date")
     if target_date < today - dt.timedelta(days=1):
         raise BackdateLimitExceededError(target_date, today)
+
+
+def upsert_mood(
+    session: Session, record: DailyRecord, category: GoalCategory, mood_value: int | None
+) -> None:
+    """気分スタンプを保存する（ひとこと記録モード、開発Todo「ひとこと記録」v1.0）。
+
+    `mood_value`がNoneなら何もしない（通常モードは気分の入力自体を持たないため、
+    省略時に行を作らない）。カテゴリ別に0〜1件（daily_record_mood.uq_daily_record_mood_
+    record_category）。
+    """
+    if mood_value is None:
+        return
+    if not (MOOD_MIN_VALUE <= mood_value <= MOOD_MAX_VALUE):
+        raise ValidationError(f"Mood value must be between {MOOD_MIN_VALUE} and {MOOD_MAX_VALUE}")
+    mood = (
+        session.query(DailyRecordMood)
+        .filter(DailyRecordMood.daily_record_id == record.id, DailyRecordMood.category == category)
+        .first()
+    )
+    if mood is None:
+        mood = DailyRecordMood(daily_record_id=record.id, category=category)
+        session.add(mood)
+    mood.mood_value = mood_value
+    session.flush()
+
+
+def get_moods_by_category(session: Session, record: DailyRecord) -> dict[GoalCategory, int]:
+    """日次記録に紐づく気分スタンプを、カテゴリ別の辞書で返す（API層のDailyRecordRead
+    組み立てで使用。触れていないカテゴリはキーを持たない）。
+    """
+    rows = session.query(DailyRecordMood).filter(DailyRecordMood.daily_record_id == record.id).all()
+    return {row.category: row.mood_value for row in rows}
 
 
 def register_progress(

@@ -96,6 +96,25 @@ def test_finalize_reading_endpoint_persists_reading_log(client):
     assert fetched["reading_logs"][0]["recall_body"] == "読了に向けた想起"
 
 
+def test_finalize_reading_endpoint_accepts_mood(client):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の気分スタンプが保存されること。"""
+    _goal, book = _make_active_reading_goal_with_book(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/reading-finalize",
+        json={
+            "reading_logs": [{"book_id": book["id"], "recall_body": "一言だけの想起"}],
+            "mood": 1,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["reading_mood"] == 1
+    assert body["exam_mood"] is None
+
+
 def test_register_progress_endpoint_rejects_unknown_book(client):
     target = dt.date.today().isoformat()
 

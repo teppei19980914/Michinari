@@ -345,3 +345,22 @@ def test_finalize_record_with_work_log(client):
     progress = client.get(f"/api/v1/goals/{goal['id']}").json()["work_assignment"]
     assert progress["last_work_date"] == target
     assert progress["current_streak"] == 1
+
+
+def test_finalize_record_with_work_log_and_mood(client):
+    """ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の気分スタンプが保存されること。"""
+    goal = _make_activatable_work_goal(client)
+    client.post(f"/api/v1/goals/{goal['id']}/activate")
+    work_assignment_id = client.get(f"/api/v1/goals/{goal['id']}").json()["work_assignment"]["id"]
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/work-finalize",
+        json={
+            "work_logs": [{"work_assignment_id": work_assignment_id, "body": "業務内容A"}],
+            "mood": 5,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["work_mood"] == 5
