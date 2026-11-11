@@ -166,6 +166,15 @@ class WorkLogEntryRead(BaseModel):
     body: str
 
 
+class MoodTrendPointRead(BaseModel):
+    """GET /analytics/mood（ひとこと記録モード「気分の推移」タブ、開発Todo
+    「ひとこと記録」v1.0 要件5）。
+    """
+
+    record_date: dt.date
+    mood_value: int
+
+
 class QuizAccuracyPointRead(BaseModel):
     period_start: dt.date
     period_end: dt.date

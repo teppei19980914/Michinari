@@ -17,7 +17,7 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.quiz import QuizAnswerLog
 from app.models.recap import RecapTheme
-from app.models.record import ChatMessage, DailyRecord, ReadingLog, WorkLog
+from app.models.record import ChatMessage, DailyRecord, DailyRecordMood, ReadingLog, WorkLog
 from app.models.work import WorkAssignment
 from app.services import calendar_service
 from app.services.cycle_service import ProgressPoint
@@ -225,6 +225,33 @@ def list_work_log_entries(session: Session, work_assignment: WorkAssignment) -> 
         .all()
     )
     return [WorkLogEntry(record_date=row[0], body=row[1]) for row in rows]
+
+
+@dataclass(frozen=True)
+class MoodTrendEntry:
+    """分析画面「気分の推移」タブの1件（ひとこと記録モード、開発Todo「ひとこと記録」
+    v1.0 要件5）。気分はdaily_record_mood（カテゴリ別、目標非依存）に保存されるため、
+    読書記録・業務記録タブ（book/work_assignment単位）とは異なりcategory単位で取得する。
+    """
+
+    record_date: dt.date
+    mood_value: int
+
+
+def list_mood_trend_entries(session: Session, category: GoalCategory) -> list[MoodTrendEntry]:
+    """指定カテゴリの気分スタンプを、記録日の古い順に全件列挙する（折れ線表示用）。
+
+    気分を1件も入力していない利用者には空配列を返す（エラーとしない、list_reading_log_
+    entries等と同じ方針）。
+    """
+    rows = (
+        session.query(DailyRecord.record_date, DailyRecordMood.mood_value)
+        .join(DailyRecordMood, DailyRecordMood.daily_record_id == DailyRecord.id)
+        .filter(DailyRecordMood.category == category)
+        .order_by(DailyRecord.record_date.asc())
+        .all()
+    )
+    return [MoodTrendEntry(record_date=row[0], mood_value=row[1]) for row in rows]
 
 
 @dataclass(frozen=True)
