@@ -23,6 +23,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_HELP,
+    AI_ASSISTANT_UID_SUMMARY_CARD,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
@@ -45,6 +46,7 @@ from app.constants.app_setting_keys import (
     AI_MAX_RETRIES,
     AI_MIN_INTERVAL_SECONDS,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
+    AI_SUMMARY_CARD_FOLDER_NAME,
     AI_TENANT_ID,
     AI_TIMEOUT_SECONDS,
     BACKUP_RETENTION_COUNT,
@@ -210,6 +212,14 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
         "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
         AppSettingValueType.STRING,
     ),
+    #: ふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0 U10）。既定はヘルプ・
+    #: 目標相談と同じアシスタント（短文の要約・一般化という低負荷タスクのため、ナレッジを
+    #: 持たない標準モデルで十分）。3カテゴリで共通の1設定を使う。
+    AI_ASSISTANT_UID_SUMMARY_CARD: (
+        "c9e542e1-a324-46d5-a02e-fe6bfaebf85a",
+        AppSettingValueType.STRING,
+    ),
+    AI_SUMMARY_CARD_FOLDER_NAME: ("ミチナリ_まとめ", AppSettingValueType.STRING),
     AI_GOAL_CONSULTATION_FOLDER_NAME: ("ミチナリ_目標相談", AppSettingValueType.STRING),
     AI_GOAL_CONSULTATION_QUESTION_MAX_CHARS: ("500", AppSettingValueType.INTEGER),
     AI_GOAL_CONSULTATION_ANSWER_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
@@ -311,6 +321,9 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.DAILY_FEEDBACK_BRIEF: prompt_texts_exam.DAILY_FEEDBACK_BRIEF,
     AiPurpose.DAILY_FEEDBACK_READING_BRIEF: prompt_texts_reading.DAILY_FEEDBACK_READING_BRIEF,
     AiPurpose.DAILY_FEEDBACK_WORK_BRIEF: prompt_texts_work.DAILY_FEEDBACK_WORK_BRIEF,
+    AiPurpose.SUMMARY_CARD_SENTENCE: prompt_texts_exam.SUMMARY_CARD_SENTENCE,
+    AiPurpose.SUMMARY_CARD_SENTENCE_READING: prompt_texts_reading.SUMMARY_CARD_SENTENCE_READING,
+    AiPurpose.SUMMARY_CARD_SENTENCE_WORK: prompt_texts_work.SUMMARY_CARD_SENTENCE_WORK,
 }
 
 # 曜日既定値：月〜金=PLAN、土日=BUFFER（設計書 データ構造編 5.2）。OFFは既定値にしない。

@@ -230,6 +230,8 @@
 | GET | /goals/{id}/knowledge-export/preview | エクスポート内容のプレビュー |
 | POST | /goals/{id}/knowledge-export | ナレッジエクスポートの実行 |
 | GET | /goals/{id}/knowledge-export/progress | 匿名化実行中の進捗取得（ポーリング用） |
+| GET | /goals/{id}/summary-card | ふりかえりまとめ・共有カードの集計取得（`date_from`・`date_to`で期間指定。記録日数・最長連続記録日数・テーマ頻度〈EXAM/READINGのみ〉・達成した節目・道のりマップ用進捗比率。AI呼び出しなし） |
+| POST | /goals/{id}/summary-card/sentence | ふりかえりまとめの一文をAIに生成させる（`date_from`・`date_to`で期間指定。利用者の明示操作時のみ呼ぶ。結果は永続化しない） |
 
 `POST /goals/{id}/knowledge-export` のリクエストには、含める項目のリストと匿名化の有無、出力形式を指定する。匿名化時は複数回のAI呼び出し（週次要約1件ずつ＋総括レポート）を伴いブロッキングするため、`GET /goals/{id}/knowledge-export/progress` をポーリングして進捗（完了件数／合計件数）を表示する（実装フェーズ分割計画書Phase10注意点）。進捗はプロセス内メモリで保持し、DBには保存しない。読書目標（category=READING）では週次要約が存在しないため、匿名化時のAI呼び出しは読了レポートの再生成のみとなる。仕事目標（category=WORK）も週次要約を持たないため、匿名化時のAI呼び出しは対象goalに紐づく全`goal_retrospective`（period_type問わず、すなわち生成済みの月次報告・半期評価の全件）の再生成となる。
 

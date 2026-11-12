@@ -734,6 +734,7 @@
         "evaluationReportWork": "AI evaluation report assistant (work)",
         "helpAssistant": "Help question assistant",
         "goalConsultation": "Goal consultation assistant",
+        "summaryCard": "Summary card sentence assistant",
         "loading": "Fetching assistant list…",
         "loadFailed": "Could not fetch the assistant list"
       },
@@ -860,7 +861,10 @@
         "QUIZ_GENERATE": "Review quiz generation",
         "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
         "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
-        "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)"
+        "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)",
+        "SUMMARY_CARD_SENTENCE": "Summary card sentence generation (exam)",
+        "SUMMARY_CARD_SENTENCE_READING": "Summary card sentence generation (reading)",
+        "SUMMARY_CARD_SENTENCE_WORK": "Summary card sentence generation (work)"
       }
     },
     "log": {

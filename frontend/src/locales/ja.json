@@ -683,6 +683,7 @@
         "evaluationReportWork": "AI評価レポート用アシスタント（仕事）",
         "helpAssistant": "ヘルプ質問用アシスタント",
         "goalConsultation": "目標相談用アシスタント",
+        "summaryCard": "ふりかえりまとめ一文用アシスタント",
         "loading": "アシスタント一覧を取得しています…",
         "loadFailed": "アシスタント一覧を取得できませんでした"
       },
@@ -809,7 +810,10 @@
         "QUIZ_GENERATE": "復習クイズ生成",
         "DAILY_FEEDBACK_BRIEF": "日次報告フィードバック（ひとこと記録・資格）",
         "DAILY_FEEDBACK_READING_BRIEF": "日次報告フィードバック（ひとこと記録・読書）",
-        "DAILY_FEEDBACK_WORK_BRIEF": "日次報告フィードバック（ひとこと記録・仕事）"
+        "DAILY_FEEDBACK_WORK_BRIEF": "日次報告フィードバック（ひとこと記録・仕事）",
+        "SUMMARY_CARD_SENTENCE": "ふりかえりまとめ一文生成（資格）",
+        "SUMMARY_CARD_SENTENCE_READING": "ふりかえりまとめ一文生成（読書）",
+        "SUMMARY_CARD_SENTENCE_WORK": "ふりかえりまとめ一文生成（仕事）"
       }
     },
     "log": {
