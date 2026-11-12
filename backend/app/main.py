@@ -43,6 +43,7 @@ from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
 from app.api.settings import router as settings_router
+from app.api.summary_card import router as summary_card_router
 from app.api.system_info import router as system_info_router
 from app.api.work_members import router as work_members_router
 from app.config import BACKEND_DIR, REPO_ROOT, get_settings, resolve_bundled_path
@@ -253,6 +254,7 @@ def create_app() -> FastAPI:
     app.include_router(closure_router, prefix=API_V1_PREFIX)
     app.include_router(export_router, prefix=API_V1_PREFIX)
     app.include_router(data_router, prefix=API_V1_PREFIX)
+    app.include_router(summary_card_router, prefix=API_V1_PREFIX)
     app.include_router(system_info_router, prefix=API_V1_PREFIX)
     app.include_router(client_logs_router, prefix=API_V1_PREFIX)
 

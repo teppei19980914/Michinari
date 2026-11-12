@@ -59,16 +59,16 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-09で
-    `DAILY_FEEDBACK_BRIEF`・`DAILY_FEEDBACK_READING_BRIEF`・`DAILY_FEEDBACK_WORK_BRIEF`
-    （ひとこと記録モード用の短文バリエーション、開発Todo「ひとこと記録」v1.0 Q2、
-    設計書 ロジック・プロンプト編17.2.1/17.6.1/17.8.1）のプロンプト本文を追加したことに伴う。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-11で
+    `SUMMARY_CARD_SENTENCE`・`SUMMARY_CARD_SENTENCE_READING`・`SUMMARY_CARD_SENTENCE_WORK`
+    （ふりかえりまとめ・共有カードのAI一文生成、開発Todo「まとめと共有カード」v1.0、
+    設計書 ロジック・プロンプト編28.4）のプロンプト本文を追加したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "85ddbc18ee1e9eaf46e95b8824ef053e84fec82a04543c0d7fdcc499f20db505"
+    assert digest == "015ff35fd7467b6cd4df9a9b9b9193de04117a3b501deaa5209f6e66ca888787"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

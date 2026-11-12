@@ -295,6 +295,86 @@ def test_consecutive_report_days_broken_by_unreported_plan_day(db_session):
     assert count == 2  # 1/4, 1/5のみ
 
 
+def test_longest_consecutive_report_days_zero_when_date_to_before_start_date(db_session):
+    """境界値: 期間の終了日が目標の開始日より前の場合に例外が発生しないこと。"""
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 10))
+
+    count = metrics_service.compute_longest_consecutive_report_days(
+        db_session, goal, dt.date(2026, 1, 1), dt.date(2026, 1, 5), treat_holiday_as_buffer=True
+    )
+
+    assert count == 0
+
+
+def test_longest_consecutive_report_days_zero_when_date_to_before_date_from(db_session):
+    """境界値: date_from > date_to（不正な範囲）の場合に例外が発生しないこと。"""
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 1))
+
+    count = metrics_service.compute_longest_consecutive_report_days(
+        db_session, goal, dt.date(2026, 1, 10), dt.date(2026, 1, 5), treat_holiday_as_buffer=True
+    )
+
+    assert count == 0
+
+
+def test_longest_consecutive_report_days_finds_earlier_longer_run(db_session):
+    """期間内の最長区間を返すこと（直近の区間が最長ではない場合でも、過去の長い区間を検出する）。
+
+    compute_consecutive_report_days（直近todayから遡る現在値のみ）では再現できない、
+    「過去に最長だった区間」を本関数で再算出する必要があることの検証
+    （開発Todo「まとめと共有カード」v1.0 調査結果）。
+    """
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 1))
+    _override(db_session, dt.date(2026, 1, 1), dt.date(2026, 1, 10), DayType.PLAN)
+    # 1/1〜1/5: 5日間の連続報告（最長区間）
+    for day in range(1, 6):
+        _make_record(db_session, dt.date(2026, 1, day), RecordState.REPORTED)
+    # 1/6は無報告のPLAN日 -> 連続が途切れる
+    # 1/7〜1/8: 2日間の連続報告（最長区間より短い、直近の区間）
+    _make_record(db_session, dt.date(2026, 1, 7), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 8), RecordState.REPORTED)
+
+    count = metrics_service.compute_longest_consecutive_report_days(
+        db_session, goal, dt.date(2026, 1, 1), dt.date(2026, 1, 10), treat_holiday_as_buffer=True
+    )
+
+    assert count == 5
+
+
+def test_longest_consecutive_report_days_not_broken_by_buffer_or_off(db_session):
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 1))
+    _override(db_session, dt.date(2026, 1, 1), dt.date(2026, 1, 5), DayType.PLAN)
+    db_session.flush()
+    override_buffer = db_session.get(CalendarDayOverride, dt.date(2026, 1, 3))
+    override_buffer.day_type = DayType.BUFFER
+    _make_record(db_session, dt.date(2026, 1, 1), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 2), RecordState.REPORTED)
+    # 1/3はBUFFER日で無報告（連続を中断しない）
+    _make_record(db_session, dt.date(2026, 1, 4), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 5), RecordState.REPORTED)
+
+    count = metrics_service.compute_longest_consecutive_report_days(
+        db_session, goal, dt.date(2026, 1, 1), dt.date(2026, 1, 5), treat_holiday_as_buffer=True
+    )
+
+    assert count == 4  # 1/3(バッファ、無報告)を除いた報告日数
+
+
+def test_longest_consecutive_report_days_scan_starts_at_goal_start_date(db_session):
+    """date_fromが目標の開始日より前の場合、開始日から走査すること（開始日前は記録が存在しえない）。"""
+    goal = _make_goal(db_session, start_date=dt.date(2026, 1, 5))
+    _override(db_session, dt.date(2026, 1, 5), dt.date(2026, 1, 7), DayType.PLAN)
+    _make_record(db_session, dt.date(2026, 1, 5), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 6), RecordState.REPORTED)
+    _make_record(db_session, dt.date(2026, 1, 7), RecordState.REPORTED)
+
+    count = metrics_service.compute_longest_consecutive_report_days(
+        db_session, goal, dt.date(2026, 1, 1), dt.date(2026, 1, 7), treat_holiday_as_buffer=True
+    )
+
+    assert count == 3
+
+
 def test_replan_count_excludes_initial_reason(db_session):
     goal = _make_goal(db_session)
     material = _make_material(db_session, goal.id)
