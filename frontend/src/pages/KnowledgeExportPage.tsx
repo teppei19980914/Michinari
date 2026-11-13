@@ -22,7 +22,30 @@ import {
   RetrospectiveSection,
   WorkRetrospectivesNote,
 } from '../features/export/RetrospectiveSection'
+import { SummaryCardSection } from '../features/summaryCard/SummaryCardSection'
+import { closedGoalPeriod } from '../features/summaryCard/summaryCardPeriod'
+import type { GoalDetailRead } from '../api/goals'
 import { QUERY_KEYS } from '../constants/queryKeys'
+
+/** 目標完了時のふりかえりまとめ・共有カード（仕様書6.10「仕事目標の場合もWorkRetrospectives
+ * Noteの下に同じ構成で表示」）。クローズ日（`closed_at`）が無ければ表示しない
+ * （`CLOSED_WITH_RESULT`では通常必ず設定されるが、念のため防御する）。 */
+function ClosedGoalSummaryCard({ goal }: { goal: GoalDetailRead }) {
+  // 完了（CLOSED_WITH_RESULT）の目標のみ対象（仕様書6.10）。既存の判定関数を再利用し、
+  // 独自の状態判定は作らない（開発Todo「まとめと共有カード」v1.0 §1.4、CLAUDE.md DRYの原則）。
+  if (!canGenerateRetrospective(goal.status) || !goal.closed_at) {
+    return null
+  }
+  return (
+    <SummaryCardSection
+      goalId={goal.id}
+      goalName={goal.name}
+      category={goal.category}
+      mode="fixed"
+      fixedPeriod={closedGoalPeriod(goal.start_date, goal.closed_at)}
+    />
+  )
+}
 
 /** 匿名化の実行中の進捗（完了件数／総数）。進行中のときだけ表示する。 */
 function ExportProgressNote({
@@ -107,6 +130,7 @@ export function KnowledgeExportPage() {
           canGenerate={canGenerateRetrospective(goal.status)}
         />
       )}
+      <ClosedGoalSummaryCard goal={goal} />
       <ExportSummaryCard
         content={previewMutation.data ?? exportMutation.data}
         isReading={isReading}

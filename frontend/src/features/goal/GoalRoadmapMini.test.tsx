@@ -33,4 +33,20 @@ describe('GoalRoadmapMini', () => {
     )
     expect(container.querySelector('svg')).toBeTruthy()
   })
+
+  it('sizeを指定すると、className方式ではなく明示的なwidth/height属性になる（ふりかえりまとめ・共有カードでのラスタライズ用）', () => {
+    const { container } = render(
+      <GoalRoadmapMini
+        category="EXAM"
+        progressRatio={0.4}
+        isAchieved={false}
+        overrunDays={null}
+        size={{ width: 160, height: 38 }}
+      />,
+    )
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('width')).toBe('160')
+    expect(svg?.getAttribute('height')).toBe('38')
+    expect(svg?.getAttribute('class')).toBeNull()
+  })
 })

@@ -1794,5 +1794,31 @@
     "completedTitle": "今日の復習は完了しました",
     "citationLabel": "出典: {{date}}",
     "progressLabel": "{{current}}/{{total}}問"
+  },
+  "summaryCard": {
+    "title": "ふりかえりまとめ・共有カード",
+    "previewAlt": "{{name}}のふりかえりまとめカード",
+    "labels": {
+      "recordDays": "記録日数",
+      "longestConsecutiveDays": "最長の連続記録日数",
+      "topTheme": "いちばん多く書いたテーマ",
+      "milestones": "達成した節目",
+      "aiSentence": "AIが選んだ一言",
+      "roadmap": "道のりマップ"
+    },
+    "unit": {
+      "days": "{{count}}日"
+    },
+    "visibilityTitle": "表示する項目",
+    "periodFromLabel": "開始日",
+    "periodToLabel": "終了日",
+    "periodPresetThisYear": "今年",
+    "fixedPeriodNote": "対象期間：目標の開始日〜クローズ日（変更できません。期間を変えたい場合は目標詳細の「ふりかえりまとめ・共有カード」をご利用ください）",
+    "generateSentenceButton": "AIに一文を選んでもらう",
+    "saveButton": "PNGとして保存",
+    "copyButton": "クリップボードにコピー",
+    "copySucceeded": "クリップボードにコピーしました",
+    "saveSucceeded": "PNGとして保存しました",
+    "copyUnsupportedNote": "お使いの環境ではクリップボードへの画像コピーに対応していません。PNG保存をご利用ください"
   }
 }

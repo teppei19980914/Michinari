@@ -91,6 +91,10 @@ export default defineConfig({
         // 添付ファイル機能（開発Todo_添付ファイル機能_v1.0）。どのファイルが選択されて
         // 送信されるかを決める部品のため、同じ方針で含める。
         'src/features/attachment/AttachmentPicker.tsx',
+        // ふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0）。期間の決定・
+        // 表示トグル・AI未設定時の分岐・保存/コピー操作の有効無効を持つため同じ方針で含める。
+        'src/features/summaryCard/SummaryCardPreview.tsx',
+        'src/features/summaryCard/SummaryCardSection.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',

@@ -207,6 +207,8 @@
 
 `GET /records/{date}/previous-diary`・`/previous-reading-log`・`/previous-work-log`（1.1（改22））は、記述欄の「前回はこう書いていました」ヒント表示専用の読み取りAPIである。それぞれ対象（goal_id／book_id／work_assignment_id）を必須クエリパラメータとして受け取り、対象日より前で本文のある直近1件の`record_date`・本文を返す（該当が無ければ`null`。存在確認をエラーにしない設計は、フロントの「前回の記録が無い場合は表示しない」という任意表示の性質に合わせたもの）。空文字/NULLの本文（`daily_goal_diary.diary_body`は任意入力のため空文字の行がありうる）は「前回」として提示する意味がないため対象から除く。
 
+**ひとこと記録モード（開発Todo「ひとこと記録」v1.0）**：`/chat`・`/reading-chat`・`/work-chat`は`quick_mode`（真偽値、既定false）を受け取る。trueの場合、短文用の`AiPurpose.DAILY_FEEDBACK_BRIEF`系（5.4参照）でAI対話を行う。`/finalize`・`/reading-finalize`・`/work-finalize`は`mood`（1〜5の整数またはnull、既定null）を受け取り、`daily_record_mood`へ保存する（カテゴリごとに高々1件、5.4参照）。`GET /records/{date}`等の応答にも`exam_mood`／`reading_mood`／`work_mood`（1〜5の整数またはnull）を含める。1行メモ自体は専用フィールドを設けず、既存の`diary_learned`（資格試験）・`free_text`（読書・仕事）へそのまま保存する（新規のリクエスト/レスポンスフィールドを増やさない、CODING_RULES.md DRYの原則）。
+
 **AI対話エンドポイントの分離について**：データ構造編1.1（改4）時点では「`POST /records/{date}/chat` を目標ごとに独立した会話として扱う（category別にAiPurposeを切り替える）」としていたが、実装時（Phase16）に既存の`/chat`（DAILY_FEEDBACK、goal_id=NULLで複数の資格試験目標を1回答に集約する設計。16.3）とは別エンドポイント `POST /records/{date}/reading-chat`（DAILY_FEEDBACK_READING）に分離した。1回のHTTP呼び出しでcategoryを跨いで多重応答させる設計は複雑さに見合わないため、「用途ごとに会話を分離する」既存方針（16.3）をエンドポイント単位でも踏襲した。仕事目標のAI対話（`POST /records/{date}/work-chat`、DAILY_FEEDBACK_WORK）も同じ設計思想で、読書と対称の別エンドポイントとして新設する。
 
 **分析**
@@ -218,6 +220,7 @@
 | GET | /analytics/forecast | 完了予測と乖離 |
 | GET | /analytics/speed | 実効速度推移（周回別） |
 | GET | /analytics/gantt | ガントチャート用データ |
+| GET | /analytics/mood | 気分の推移（ひとこと記録モード、開発Todo「ひとこと記録」v1.0 B-06）。他の分析タブと同じ`goal_id`クエリで呼び出し、内部で`goal.category`へ解決する。気分はカテゴリ単位（goal非依存）のため、同カテゴリの別目標を指定しても結果は同じになる |
 
 **完了処理とエクスポート**
 
