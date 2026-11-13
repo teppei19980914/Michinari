@@ -1887,6 +1887,7 @@
   },
   "summaryCard": {
     "title": "Recap & Share Card",
+    "openButton": "Open Recap & Share Card",
     "previewAlt": "Recap card for {{name}}",
     "labels": {
       "recordDays": "Record days",

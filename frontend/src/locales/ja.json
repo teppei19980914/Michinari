@@ -1797,6 +1797,7 @@
   },
   "summaryCard": {
     "title": "ふりかえりまとめ・共有カード",
+    "openButton": "ふりかえりまとめ・共有カードを開く",
     "previewAlt": "{{name}}のふりかえりまとめカード",
     "labels": {
       "recordDays": "記録日数",

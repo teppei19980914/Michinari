@@ -24,6 +24,7 @@ export function createDefaultVisibility(): SummaryCardVisibility {
   }
 }
 
+/** 指定キーのみを更新した新しいVisibilityを返す（イミュータブル、Reactのstate更新で使う）。 */
 export function toggleVisibility(
   current: SummaryCardVisibility,
   key: SummaryCardItemKey,

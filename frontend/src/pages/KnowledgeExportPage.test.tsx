@@ -39,6 +39,10 @@ vi.mock('../api/export', () => ({
   getKnowledgeExportProgress,
 }))
 
+const getSummaryCard = vi.hoisted(() => vi.fn())
+const generateSummaryCardSentence = vi.hoisted(() => vi.fn())
+vi.mock('../api/summaryCard', () => ({ getSummaryCard, generateSummaryCardSentence }))
+
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useParams: () => ({ goalId: String(GOAL_ID) }),
@@ -91,6 +95,13 @@ beforeEach(() => {
   })
   getKnowledgeExportProgress.mockResolvedValue({ in_progress: false, completed: 0, total: 0 })
   getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
+  getSummaryCard.mockResolvedValue({
+    record_days: 20,
+    longest_consecutive_days: 7,
+    top_theme_name: null,
+    milestones: [],
+    roadmap: { progress_ratio: 1, is_achieved: true, overrun_days: null },
+  })
 })
 
 afterEach(() => {
@@ -410,5 +421,34 @@ describe('KnowledgeExportPage の総括レポート', () => {
       screen.queryByRole('button', { name: t('knowledgeExport.retrospective.generateButton') }),
     ).toBe(null)
     expect(getRetrospective).not.toHaveBeenCalled()
+  })
+})
+
+describe('KnowledgeExportPage のふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0）', () => {
+  it('完了（CLOSED_WITH_RESULT）かつクローズ日があるときのみ、開始日〜クローズ日で表示する', async () => {
+    await renderPage({ status: 'CLOSED_WITH_RESULT', closed_at: '2026-10-20T09:00:00+00:00' })
+
+    expect(await screen.findByText(t('summaryCard.title'))).toBeTruthy()
+    await waitFor(() =>
+      expect(getSummaryCard).toHaveBeenCalledWith(GOAL_ID, '2026-09-01', '2026-10-20'),
+    )
+    // 固定期間のため、SC-03の期間編集欄（カレンダー入力）は出さない。
+    expect(screen.queryByLabelText(t('summaryCard.periodFromLabel'))).toBeNull()
+  })
+
+  it('完了していない目標では表示しない', async () => {
+    await renderPage({ status: 'ACTIVE', closed_at: null })
+
+    await screen.findByText(t('knowledgeExport.retrospective.requiresCompletedHint'))
+    expect(screen.queryByText(t('summaryCard.title'))).toBeNull()
+    expect(getSummaryCard).not.toHaveBeenCalled()
+  })
+
+  it('完了済みでもクローズ日が無い場合は表示しない（データ不整合への防御）', async () => {
+    await renderPage({ status: 'CLOSED_WITH_RESULT', closed_at: null })
+
+    await screen.findByText(RETROSPECTIVE_BODY)
+    expect(screen.queryByText(t('summaryCard.title'))).toBeNull()
+    expect(getSummaryCard).not.toHaveBeenCalled()
   })
 })

@@ -2,8 +2,8 @@ import { useRef, useState, type RefObject } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
-import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
+import { DateRangeFields } from '../../components/DateRangeFields'
 import { useToast } from '../../components/toastContext'
 import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
 import { useAiConfigured } from '../../hooks/useAiConfigured'
@@ -53,24 +53,14 @@ function PeriodControls({
       >
         {t('summaryCard.periodPresetThisYear')}
       </Button>
-      <label className="flex flex-col gap-1 text-sm text-text-secondary">
-        {t('summaryCard.periodFromLabel')}
-        <Input
-          type="date"
-          value={period.dateFrom}
-          max={period.dateTo}
-          onChange={(e) => onChange({ ...period, dateFrom: e.target.value })}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm text-text-secondary">
-        {t('summaryCard.periodToLabel')}
-        <Input
-          type="date"
-          value={period.dateTo}
-          min={period.dateFrom}
-          onChange={(e) => onChange({ ...period, dateTo: e.target.value })}
-        />
-      </label>
+      <DateRangeFields
+        dateFrom={period.dateFrom}
+        dateTo={period.dateTo}
+        fromLabel={t('summaryCard.periodFromLabel')}
+        toLabel={t('summaryCard.periodToLabel')}
+        onChangeFrom={(value) => onChange({ ...period, dateFrom: value })}
+        onChangeTo={(value) => onChange({ ...period, dateTo: value })}
+      />
     </div>
   )
 }
