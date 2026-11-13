@@ -43,6 +43,10 @@ export function ReadingReportSection({
   isReported,
   quickNoteMaxChars,
 }: ReadingReportSectionProps) {
+  // 呼び出し元（DailyReportPage）はtargets.showReadingSection（booksが1件以上あることが
+  // 前提）のときのみ本コンポーネントを描画するため、booksが空になる分岐は到達しない
+  // 防御的分岐（OPERATIONS.md「到達不能な防御的分岐」、WorkMemberSection.tsxと同じ方針）。
+  /* v8 ignore next */
   const quickNoteBookId = targets.books[0]?.id ?? null
   return (
     <CategoryReportSection
@@ -62,8 +66,13 @@ export function ReadingReportSection({
       editor={
         <>
           <RecordModeToggle mode={draft.readingMode} onChange={draft.setReadingMode} />
+          {/* v8 ignore next -- quickNoteBookIdがnullになる分岐は上記と同じ理由で到達しない */}
           {draft.readingMode === 'QUICK' && quickNoteBookId !== null && (
             <QuickRecordFields
+              // readingLogValues[quickNoteBookId]も、useDailyReportDraftのhydrateが
+              // 着手中の全書籍分を必ず作るため、quickNoteBookIdが着手中の書籍IDである限り
+              // 未定義にはならない（同じ理由で到達しない防御的分岐）。
+              /* v8 ignore next */
               note={draft.readingLogValues[quickNoteBookId]?.freeText ?? ''}
               onChangeNote={(value) =>
                 draft.setReadingLogValues((current) =>
