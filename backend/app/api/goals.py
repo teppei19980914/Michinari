@@ -266,9 +266,7 @@ def serialize_roadmap(roadmap: roadmap_service.Roadmap) -> GoalRoadmapRead:
         planned_points=[
             RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.planned_points
         ],
-        actual_points=[
-            RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.actual_points
-        ],
+        actual_points=[RoadmapPointRead(date=p.date, ratio=p.ratio) for p in roadmap.actual_points],
         footprint_dates=[
             RoadmapFootprintRead(date=f.date, has_input=f.has_input)
             for f in roadmap.footprint_dates

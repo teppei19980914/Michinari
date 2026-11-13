@@ -482,9 +482,7 @@ _WEEK_CHAT_PROMPT_PURPOSES = (
 
 
 @pytest.mark.parametrize("purpose", _WEEK_CHAT_PROMPT_PURPOSES)
-def test_week_chat_prompt_migration_updates_non_customized_template(
-    tmp_path, monkeypatch, purpose
-):
+def test_week_chat_prompt_migration_updates_non_customized_template(tmp_path, monkeypatch, purpose):
     """S08 G5（9d3d5631a940）: 資格・読書・仕事の週次要約へ{{week_chat}}（週内のAIとの対話の
     うち利用者本人の発言）を追加するマイグレーションを、既存データがある状態への適用として
     検証する。is_customized=False（利用者が未編集）のテンプレートは、{{week_chat}}を含む
@@ -513,9 +511,7 @@ def test_week_chat_prompt_migration_updates_non_customized_template(
 
 
 @pytest.mark.parametrize("purpose", _WEEK_CHAT_PROMPT_PURPOSES)
-def test_week_chat_prompt_migration_preserves_customized_template(
-    tmp_path, monkeypatch, purpose
-):
+def test_week_chat_prompt_migration_preserves_customized_template(tmp_path, monkeypatch, purpose):
     """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
     （9d3d5631a940）でも上書きしないこと。"""
     db_path = tmp_path / f"week_chat_prompt_migration_customized_{purpose}.db"
@@ -763,9 +759,7 @@ def test_attachment_prompt_migration_updates_non_customized_template(
 
 
 @pytest.mark.parametrize("purpose", _ATTACHMENT_PROMPT_PURPOSES)
-def test_attachment_prompt_migration_preserves_customized_template(
-    tmp_path, monkeypatch, purpose
-):
+def test_attachment_prompt_migration_preserves_customized_template(tmp_path, monkeypatch, purpose):
     """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
     （0ab58c423373）でも上書きしないこと。"""
     db_path = tmp_path / f"attachment_prompt_migration_customized_{purpose}.db"
@@ -862,9 +856,7 @@ def test_question_max_chars_migration_updates_rows_at_old_default(tmp_path, monk
     migration_helpers.upgrade_to("head")
 
     with migration_helpers.sqlite_connection(db_path) as connection:
-        row = connection.execute(
-            "SELECT value FROM app_setting WHERE key = ?", (key,)
-        ).fetchone()
+        row = connection.execute("SELECT value FROM app_setting WHERE key = ?", (key,)).fetchone()
 
     assert row[0] == "500"
 
@@ -889,9 +881,7 @@ def test_question_max_chars_migration_preserves_customized_value(tmp_path, monke
     migration_helpers.upgrade_to("head")
 
     with migration_helpers.sqlite_connection(db_path) as connection:
-        row = connection.execute(
-            "SELECT value FROM app_setting WHERE key = ?", (key,)
-        ).fetchone()
+        row = connection.execute("SELECT value FROM app_setting WHERE key = ?", (key,)).fetchone()
 
     assert row[0] == "120"
 

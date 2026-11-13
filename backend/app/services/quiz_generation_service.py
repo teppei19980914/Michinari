@@ -54,9 +54,7 @@ _QUESTION_BLOCK_PATTERN = re.compile(
 _MAX_BLOCK_CHARS = 2000
 
 
-def _parse_blocks(
-    response_text: str, valid_dates: frozenset[dt.date]
-) -> list[dict]:
+def _parse_blocks(response_text: str, valid_dates: frozenset[dt.date]) -> list[dict]:
     """応答を`===`で分割し、ブロックごとに検証する。形式不正・出典が実在しないブロックは
     個別に破棄する（1ブロックの不正でバッチ全体を無効にしない。設計書17.15参照）。
     """

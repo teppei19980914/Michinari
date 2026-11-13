@@ -376,9 +376,7 @@ class TestQuickRecordSettingsApi:
 
     def test_patch_updates_note_max_chars_without_touching_voice_hint(self, client):
         """`voice_hint_dismissed`を指定しない更新でも成立すること。"""
-        response = client.patch(
-            "/api/v1/settings", json={"quick_record": {"note_max_chars": 150}}
-        )
+        response = client.patch("/api/v1/settings", json={"quick_record": {"note_max_chars": 150}})
 
         assert response.status_code == 200, response.text
         body = response.json()

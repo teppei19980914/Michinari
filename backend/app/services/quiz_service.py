@@ -97,9 +97,7 @@ def record_answer(session: Session, question: QuizQuestion, is_correct: bool) ->
     return question
 
 
-def delete_questions_for_theme(
-    session: Session, theme_id: int, *, only_unanswered: bool
-) -> None:
+def delete_questions_for_theme(session: Session, theme_id: int, *, only_unanswered: bool) -> None:
     """テーマに紐づく`quiz_question`を削除する（`quiz_answer_log`は削除しない）。
 
     `only_unanswered=True`（利用者操作「作り直す」）は未出題（`last_answered_at`が

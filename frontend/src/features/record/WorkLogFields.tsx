@@ -4,6 +4,7 @@ import { Textarea } from '../../components/Textarea'
 import type { WorkAssignmentRead } from '../../api/goals'
 import { PreviousEntryHint } from './PreviousEntryHint'
 import { usePreviousWorkLogEntry } from './usePreviousEntryQueries'
+import { VoiceInputHint } from './VoiceInputHint'
 import { getWorkLogQuestions, type WorkLogFormValue } from './workLogForm'
 
 type WorkLogFieldsProps = {
@@ -89,7 +90,9 @@ function WorkLogFieldsCard({
           />
         </label>
       ))}
-      <p className="mt-2 text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
+      <div className="mt-2">
+        <VoiceInputHint />
+      </div>
       <label className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
         {t('dailyReport.workLog.bodyLabel')}
         <Textarea

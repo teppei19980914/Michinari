@@ -12,6 +12,7 @@ Revises: 0ab58c423373
 Create Date: 2026-11-01 12:21:35.712495
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,8 +20,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '4e665f950a10'
-down_revision: Union[str, Sequence[str], None] = '0ab58c423373'
+revision: str = "4e665f950a10"
+down_revision: Union[str, Sequence[str], None] = "0ab58c423373"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -34,8 +35,7 @@ def upgrade() -> None:
     for key in _KEYS:
         op.execute(
             sa.text(
-                "UPDATE app_setting SET value = :new_value "
-                "WHERE key = :key AND value = :old_value"
+                "UPDATE app_setting SET value = :new_value WHERE key = :key AND value = :old_value"
             ).bindparams(new_value=_NEW_DEFAULT, old_value=_OLD_DEFAULT, key=key)
         )
 
@@ -45,7 +45,6 @@ def downgrade() -> None:
     for key in _KEYS:
         op.execute(
             sa.text(
-                "UPDATE app_setting SET value = :old_value "
-                "WHERE key = :key AND value = :new_value"
+                "UPDATE app_setting SET value = :old_value WHERE key = :key AND value = :new_value"
             ).bindparams(old_value=_OLD_DEFAULT, new_value=_NEW_DEFAULT, key=key)
         )

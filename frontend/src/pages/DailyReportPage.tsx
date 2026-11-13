@@ -1,6 +1,8 @@
 import { Navigate, useParams } from 'react-router-dom'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
+import type { DailyRecordRead, QuotaItemRead } from '../api/records'
+import type { ActiveReadingBook, ActiveWorkAssignment } from '../api/goals'
 import { ROUTES } from '../constants/routes'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { ExamReportSection } from '../features/record/ExamReportSection'
@@ -10,12 +12,19 @@ import { WorkMemberSection } from '../features/record/WorkMemberSection'
 import { RecordConfirmationExtras } from '../features/record/RecordConfirmationExtras'
 import { toCategoryReportedState } from '../features/record/categoryCompletion'
 import { resolveDailyReportGuard } from '../features/record/resolveDailyReportGuard'
-import { resolveVisibleReportTargets } from '../features/record/resolveVisibleReportTargets'
+import {
+  resolveVisibleReportTargets,
+  type VisibleReportTargets,
+} from '../features/record/resolveVisibleReportTargets'
 import { resolveZeroRecordCategories } from '../features/record/resolveZeroRecordCategories'
 import { useDailyReportData } from '../features/record/useDailyReportData'
-import { useDailyReportDraft } from '../features/record/useDailyReportDraft'
-import { useDailyReportActions } from '../features/record/useDailyReportActions'
+import { useDailyReportDraft, type DailyReportDraft } from '../features/record/useDailyReportDraft'
+import {
+  useDailyReportActions,
+  type DailyReportActions,
+} from '../features/record/useDailyReportActions'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
+import { useQuickRecordSettings } from '../features/record/useQuickRecordSettings'
 import { useUnsavedChangesWarning } from '../features/record/useUnsavedChangesWarning'
 
 /** SC-06 日次報告（仕様書6.5）。上段=実績入力+日記、下段=AI対話の2段構成。
@@ -42,7 +51,8 @@ export function DailyReportPage() {
   const { queries, slotNames } = useDailyReportData(targetDate)
   const { reportableGoals, showGoalSelector, selectedGoalId, setSelectedGoalId, selectedGoal } =
     useGoalReportTabs(queries.goals.data ?? [])
-  const draft = useDailyReportDraft(`daily-report:${targetDate}`, queries)
+  const { lastModes, quickNoteMaxChars } = useQuickRecordSettings()
+  const draft = useDailyReportDraft(`daily-report:${targetDate}`, queries, lastModes)
   useUnsavedChangesWarning(draft.hasUnsavedInput)
 
   const targets = resolveVisibleReportTargets({
@@ -102,6 +112,52 @@ export function DailyReportPage() {
         />
       )}
 
+      <DailyReportSections
+        targetDate={targetDate}
+        record={record}
+        quota={quota}
+        targets={targets}
+        draft={draft}
+        slotNames={slotNames}
+        actions={actions}
+        reported={reported}
+        quickNoteMaxChars={quickNoteMaxChars}
+        readingBooks={queries.readingBooks.data ?? []}
+        workAssignments={queries.workAssignments.data ?? []}
+      />
+    </div>
+  )
+}
+
+/** カテゴリ別セクションの描画切り出し（DailyReportPage本体が100行制限に収まるよう分割。
+ * ロジック自体は変えていない）。 */
+function DailyReportSections({
+  targetDate,
+  record,
+  quota,
+  targets,
+  draft,
+  slotNames,
+  actions,
+  reported,
+  quickNoteMaxChars,
+  readingBooks,
+  workAssignments,
+}: {
+  targetDate: string
+  record: DailyRecordRead
+  quota: QuotaItemRead[]
+  targets: VisibleReportTargets
+  draft: DailyReportDraft
+  slotNames: Map<number, string>
+  actions: DailyReportActions
+  reported: ReturnType<typeof toCategoryReportedState>
+  quickNoteMaxChars: number
+  readingBooks: ActiveReadingBook[]
+  workAssignments: ActiveWorkAssignment[]
+}) {
+  return (
+    <>
       {targets.showExamSection && (
         <ExamReportSection
           targetDate={targetDate}
@@ -112,6 +168,7 @@ export function DailyReportPage() {
           slotNames={slotNames}
           actions={actions.exam}
           isReported={reported.isExamReported}
+          quickNoteMaxChars={quickNoteMaxChars}
         />
       )}
 
@@ -119,12 +176,13 @@ export function DailyReportPage() {
         <ReadingReportSection
           targetDate={targetDate}
           record={record}
-          readingBooks={queries.readingBooks.data ?? []}
+          readingBooks={readingBooks}
           targets={targets}
           draft={draft}
           slotNames={slotNames}
           actions={actions.reading}
           isReported={reported.isReadingReported}
+          quickNoteMaxChars={quickNoteMaxChars}
         />
       )}
 
@@ -132,17 +190,16 @@ export function DailyReportPage() {
         <WorkReportSection
           targetDate={targetDate}
           record={record}
-          workAssignments={queries.workAssignments.data ?? []}
+          workAssignments={workAssignments}
           targets={targets}
           draft={draft}
           actions={actions.work}
           isReported={reported.isWorkReported}
+          quickNoteMaxChars={quickNoteMaxChars}
         />
       )}
 
-      {targets.showWorkSection && (
-        <WorkMemberSection workAssignments={queries.workAssignments.data ?? []} />
-      )}
-    </div>
+      {targets.showWorkSection && <WorkMemberSection workAssignments={workAssignments} />}
+    </>
   )
 }

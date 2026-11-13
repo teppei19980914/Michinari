@@ -49,9 +49,7 @@ def _make_daily_record(session, record_date):
 
 def _make_exam_diary(session, goal_id, record_date, *, diary_learned="学んだこと本文"):
     record = _make_daily_record(session, record_date)
-    diary = DailyGoalDiary(
-        daily_record_id=record.id, goal_id=goal_id, diary_learned=diary_learned
-    )
+    diary = DailyGoalDiary(daily_record_id=record.id, goal_id=goal_id, diary_learned=diary_learned)
     session.add(diary)
     session.flush()
     return diary

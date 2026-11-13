@@ -125,9 +125,7 @@ def _detect_category_milestones(
     return milestone_service_work.detect_work_milestones(session, goal, today)
 
 
-def _existing_keys(
-    session: Session, goal_id: int, milestone_type: MilestoneType
-) -> set[str]:
+def _existing_keys(session: Session, goal_id: int, milestone_type: MilestoneType) -> set[str]:
     rows = (
         session.query(GoalMilestoneAchievement.milestone_key)
         .filter(

@@ -50,7 +50,9 @@ def build_minimal_pdf(text: str) -> bytes:
         b"<</Type/Page/Parent 2 0 R/Resources<</Font<</F1 4 0 R>>>>"
         b"/MediaBox[0 0 300 300]/Contents 5 0 R>>",
         b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>",
-        b"<</Length " + str(len(content_stream)).encode() + b">>\nstream\n"
+        b"<</Length "
+        + str(len(content_stream)).encode()
+        + b">>\nstream\n"
         + content_stream
         + b"\nendstream",
     ]

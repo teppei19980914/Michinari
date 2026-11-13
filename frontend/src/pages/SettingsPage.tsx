@@ -8,6 +8,7 @@ import { AiConnectionSection } from '../features/settings/AiConnectionSection'
 import { ThresholdSection } from '../features/settings/ThresholdSection'
 import { MilestoneThresholdSection } from '../features/settings/MilestoneThresholdSection'
 import { OnThisDaySettingsSection } from '../features/settings/OnThisDaySettingsSection'
+import { QuickRecordSettingsSection } from '../features/settings/QuickRecordSettingsSection'
 import { PromptDegradationSection } from '../features/settings/PromptDegradationSection'
 import { DisplaySection } from '../features/settings/DisplaySection'
 import { DesktopSection } from '../features/settings/DesktopSection'
@@ -48,6 +49,7 @@ export function SettingsPage() {
       <ThresholdSection settings={settings} />
       <MilestoneThresholdSection settings={settings} />
       <OnThisDaySettingsSection settings={settings} />
+      <QuickRecordSettingsSection settings={settings} />
       <PromptDegradationSection settings={settings} />
       <DisplaySection settings={settings} />
       <DesktopSection settings={settings} />

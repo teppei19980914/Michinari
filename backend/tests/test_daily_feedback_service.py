@@ -718,9 +718,7 @@ def test_send_daily_feedback_saves_attachment_link_on_user_message(seeded_sessio
         .one()
     )
     link = (
-        seeded_session.query(ChatMessageAttachment)
-        .filter_by(chat_message_id=user_message.id)
-        .one()
+        seeded_session.query(ChatMessageAttachment).filter_by(chat_message_id=user_message.id).one()
     )
     assert link.attachment_id == attachment.id
 

@@ -65,9 +65,7 @@ class GoalConsultationLogAttachment(Base):
         UniqueConstraint(
             "goal_consultation_log_id", "attachment_id", name="uq_goal_consultation_log_attachment"
         ),
-        Index(
-            "ix_goal_consultation_log_attachment_attachment_id", "attachment_id"
-        ),
+        Index("ix_goal_consultation_log_attachment_attachment_id", "attachment_id"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
