@@ -105,25 +105,25 @@ Phase 51。作業は `dev/2026-11-11`（`origin/main` 2.8.0 から作成）で�
 
 ### 3.3 フロントエンド実装
 
-- [ ] F-01 `api/summaryCard.ts`、型の生成し直し（`npm run generate:api-types`）
-- [ ] F-02 `features/summaryCard/`：期間選択の純粋関数とテスト（既定期間の算出、プリセット切替）
-- [ ] F-03 `features/summaryCard/`：カード項目の表示/非表示トグル状態とテスト
-- [ ] F-04 `features/summaryCard/`：SVGカード構築の純粋関数とテスト（`GoalRoadmapMini`の埋め込み、AI未設定時・節目0件時・テーマ0件時の省略表示）
-- [ ] F-05 `features/summaryCard/`：SVG→PNG変換・クリップボードコピーのユーティリティとテスト（フォント読み込み待ち、非対応環境のフォールバック）
-- [ ] F-06 `SummaryCardSection`コンポーネントと描画テスト（プレビュー表示、AI一文生成ボタンの明示操作、保存・コピーボタン）
-- [ ] F-07 `pages/GoalDetailPage.tsx`・`pages/KnowledgeExportPage.tsx`への組み込みと描画テスト
-- [ ] F-08 設定画面：`assistantFields.ts`の追加、フィクスチャ更新
-- [ ] F-09 `ja.json`／`en.json`：`summaryCard.*`一式
-- [ ] F-10 `npm run lint`（oxlint 0件）・`npx tsc -b`（0件）・`npm run test`（カバレッジ100%）
+- [x] F-01 `api/summaryCard.ts`、型の生成し直し（`npm run generate:api-types`）（2026-11-13。型自体は本セッション前半で再生成済みで`api.d.ts`に反映されていたことを確認し、クライアント関数`getSummaryCard`/`generateSummaryCardSentence`を新規作成）
+- [x] F-02 `features/summaryCard/`：期間選択の純粋関数とテスト（既定期間の算出、プリセット切替）（2026-11-13、`summaryCardPeriod.ts`：`defaultOpenPeriod`・`closedGoalPeriod`）
+- [x] F-03 `features/summaryCard/`：カード項目の表示/非表示トグル状態とテスト（2026-11-13、`summaryCardVisibility.ts`）
+- [x] F-04 `features/summaryCard/`：SVGカード構築の純粋関数とテスト（`GoalRoadmapMini`の埋め込み、AI未設定時・節目0件時・テーマ0件時の省略表示）（2026-11-13、`summaryCardLayout.ts`（行の組み立て）＋`SummaryCardPreview.tsx`（SVG描画）。`GoalRoadmapMini`は固定ピクセル寸法で埋め込めるよう`size`propを追加（既存のダッシュボード用途は無変更））
+- [x] F-05 `features/summaryCard/`：SVG→PNG変換・クリップボードコピーのユーティリティとテスト（フォント読み込み待ち、非対応環境のフォールバック）（2026-11-13、`summaryCardImage.ts`）
+- [x] F-06 `SummaryCardSection`コンポーネントと描画テスト（プレビュー表示、AI一文生成ボタンの明示操作、保存・コピーボタン）（2026-11-13）
+- [x] F-07 `pages/GoalDetailPage.tsx`・`pages/KnowledgeExportPage.tsx`への組み込みと描画テスト（2026-11-13。期間指定モードは`GoalDetailPage`が表示するタブ本体`features/goal/BasicInfoTab.tsx`（仕様書6.2「基本情報タブ」）へ組み込んだ。目標完了時モードは`KnowledgeExportPage.tsx`へ組み込み、既存の`canGenerateRetrospective`判定を再利用（§1.4、独自の状態判定は作らない））
+- [x] F-08 設定画面：`assistantFields.ts`の追加、フィクスチャ更新（2026-11-13。`assistant_uid_summary_card`は本セッション前半で追加済みだったことを確認）
+- [x] F-09 `ja.json`／`en.json`：`summaryCard.*`一式（2026-11-13、`localeKeyUsage.test.ts`でja/en一致を確認）
+- [x] F-10 `npm run lint`（oxlint 0件）・`npx tsc -b`（0件）・`npm run test`（カバレッジ100%）（2026-11-13、全203ファイル1651件合格、Statements/Branches/Functions/Lines全て100%）
 
 ### 3.4 検証
 
-- [ ] V-01 ruff・pytest・vitest（新規機能のカバレッジ100%。全体の最終実行は§9）
-- [ ] V-02 既存DBからのアップグレード確認（スキーマ変更なしのため影響なしのはずだが、起動確認で裏付ける）
-- [ ] V-03 実機テスト：3種別（EXAM/READING/WORK）×目標完了時／期間指定の各組み合わせでカード生成→PNG保存→クリップボードコピーを確認
-- [ ] V-04 実機テスト：AI未設定時でもカードが生成できることを確認
-- [ ] V-05 配布物への同梱確認（新規の静的資産追加は想定なしのため、既存のビルド構成で問題ないことを`backend/tests/test_build_package.py`で確認）
-- [ ] V-06 フルスキャンの再確認（横展開：§1.4の各項目が実装に反映されているか）
+- [x] V-01 ruff・pytest・vitest（新規機能のカバレッジ100%。全体の最終実行は§9）（2026-11-13、backend: ruff All checks passed・pytest全件合格・カバレッジ100%。frontend: vitest 1651 passed（203ファイル）・カバレッジ100%）
+- [x] V-02 既存DBからのアップグレード確認（スキーマ変更なしのため影響なしのはずだが、起動確認で裏付ける）（2026-11-13。本機能自体は新規テーブル・新規カラムを持たず（§0 U4、都度算出・非永続化）、スキーマ変更なし。同セッションで別途発見した`daily_record_mood`（ひとこと記録モード）の`DATA_SCHEMA_VERSION`更新漏れは本機能と無関係だが、`pytest -k "backup or data"`（98 passed）で退行が無いことを確認済み）
+- [ ] V-03 実機テスト：3種別（EXAM/READING/WORK）×目標完了時／期間指定の各組み合わせでカード生成→PNG保存→クリップボードコピーを確認：**利用者による実機確認が必要**（自動テストでは検証できない範囲）
+- [ ] V-04 実機テスト：AI未設定時でもカードが生成できることを確認：**利用者による実機確認が必要**
+- [x] V-05 配布物への同梱確認（新規の静的資産追加は想定なしのため、既存のビルド構成で問題ないことを`backend/tests/test_build_package.py`で確認）（2026-11-13。ファイル分割により実体は`test_build_package_*.py`4ファイルへ分割済み（2026-10時点、本機能とは無関係）。フロントエンドはVite標準ビルド対象に新規ファイルも自動的に含まれ、バックエンドの配布物同梱ロジックへの変更は不要なため、既存のテストで確認充足と判断）
+- [x] V-06 フルスキャンの再確認（横展開：§1.4の各項目が実装に反映されているか）（2026-11-13。レビューエージェント（dry/style/label/xss/secret/test-coverage/performance）を並列起動して確認（§9参照）。状態判定は`canGenerateRetrospective`を再利用（独自判定なし）。AI未設定時は既存の`useAiConfigured`／`AiUnconfiguredNotice`パターンをそのまま適用）
 
 ## 4. 処理フロー（確定版）
 
@@ -165,3 +165,7 @@ Phase 51。作業は `dev/2026-11-11`（`origin/main` 2.8.0 から作成）で�
 （作業の進行に応じて追記する）
 
 - 2026-11-11：工程1（前提資料読込・ベースライン記録）・工程2（フルスキャン）完了。backend/frontendともテスト全green（詳細は§2）。工程3として本Todoを作成。未決定だった2論点（期間指定の対象範囲、AI一文の生成方式）は利用者確認により確定（§0 U2・U5）。作業ブランチは`dev/2026-11-08`の分岐問題を検出したため`main`起点の`dev/2026-11-11`へ変更済み。
+- 2026-11-11：バックエンド実装完了（B-01〜B-09、§3.2）。`metrics_service.compute_longest_consecutive_report_days`・`summary_card_service`・2エンドポイント・匿名化テストを実装。文書改訂（D-01〜D-05、§1.3）も完了。
+- 2026-11-11〜13：OpenAPI型再生成（F-01前段）の作業中に、無関係の既存機能「ひとこと記録モード」（開発Todo別紙）のフロントエンド未実装分に起因するTypeScriptコンパイルエラー群を検出。利用者確認の結果「この作業の中でフロント実装も合わせて完成させる」との回答を得たため、本機能のフロントエンド実装（F-02〜F-10）に着手する前に、ひとこと記録モードのフロント実装を完成させる作業を同一セッション内で先に行った（詳細は当該開発Todoの§8）。
+- 2026-11-13：F-01〜F-10を完了。`api/summaryCard.ts`、`features/summaryCard/`配下に`summaryCardPeriod.ts`・`summaryCardVisibility.ts`・`summaryCardLayout.ts`・`SummaryCardPreview.tsx`・`summaryCardImage.ts`・`SummaryCardSection.tsx`を新規作成。`GoalRoadmapMini.tsx`へ固定ピクセル寸法用の`size`propを追加（SVGラスタライズ時にTailwindクラスが引き継がれない問題への対応、既存呼び出し元は無変更）。`milestoneContent.ts`の`resolveMilestoneMessage`引数型を`Pick<MilestoneAchievement, 'milestone_type' | 'milestone_key'>`へ緩和し、`SummaryCardMilestoneRead`からも呼べるようにした（DRYの原則）。期間指定モードは`features/goal/BasicInfoTab.tsx`（`GoalDetailPage`の基本情報タブ）、目標完了時モードは`KnowledgeExportPage.tsx`（既存の`canGenerateRetrospective`判定を再利用）へ組み込み。最終確認：`oxlint` 0件、`tsc -b` エラー0件、`vitest run --coverage` 1651 passed（203ファイル）・カバレッジ100%。
+- 2026-11-13：V-01・V-02・V-05・V-06を完了。backend `ruff check .` → All checks passed、`pytest --cov=app` → 全件合格・カバレッジ100%（詳細後述）。V-03・V-04（実機テスト）は利用者による確認が必要なため未完了のまま残す。
