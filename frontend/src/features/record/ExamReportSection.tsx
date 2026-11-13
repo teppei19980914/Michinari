@@ -48,6 +48,11 @@ export function ExamReportSection({
   isReported,
   quickNoteMaxChars,
 }: ExamReportSectionProps) {
+  // 呼び出し元（DailyReportPage）はtargets.showExamSection（diaryGoalsが1件以上あること
+  // が前提）のときのみ本コンポーネントを描画するため、diaryGoalsが空になる分岐は
+  // 到達しない防御的分岐（OPERATIONS.md「到達不能な防御的分岐」、WorkMemberSection.tsxと
+  // 同じ方針）。
+  /* v8 ignore next */
   const quickNoteGoalId = targets.diaryGoals[0]?.id ?? null
   return (
     <CategoryReportSection
@@ -70,8 +75,14 @@ export function ExamReportSection({
       editor={
         <>
           <RecordModeToggle mode={draft.examMode} onChange={draft.setExamMode} />
+          {/* v8 ignore next -- quickNoteGoalIdがnullになる分岐は上記と同じ理由で到達しない */}
           {draft.examMode === 'QUICK' && quickNoteGoalId !== null ? (
             <QuickRecordFields
+              // diaryValues[quickNoteGoalId]も、useDailyReportDraftのhydrateが着手中の
+              // 全EXAM目標分を必ず作る（diaryForm.initDiaryFormValues）ため、
+              // quickNoteGoalIdが着手中の目標IDである限り未定義にはならない（同じ理由で
+              // 到達しない防御的分岐）。
+              /* v8 ignore next */
               note={draft.diaryValues[quickNoteGoalId]?.diaryLearned ?? ''}
               onChangeNote={(value) =>
                 draft.setDiaryValues((current) =>

@@ -393,42 +393,8 @@ export function useDailyReportDraft(
       ...current,
       chatMessages: applySetStateAction(action, current.chatMessages),
     }))
-  const setExamMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      examMood: applySetStateAction(action, current.examMood),
-    }))
-  const setReadingMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      readingMood: applySetStateAction(action, current.readingMood),
-    }))
-  const setWorkMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      workMood: applySetStateAction(action, current.workMood),
-    }))
-  // 利用者がモードを手動で切り替えた場合も該当カテゴリのhydratedフラグを立てる。設定
-  // （最後に使ったモード）の取得が遅れて後から届いても、既に行った手動操作を上書きしない
-  // ようにするため（2026-11、useHydrateModeOnceとの競合を回避）。
-  const setExamMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      examModeHydrated: true,
-      examMode: applySetStateAction(action, current.examMode),
-    }))
-  const setReadingMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      readingModeHydrated: true,
-      readingMode: applySetStateAction(action, current.readingMode),
-    }))
-  const setWorkMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
-    store.setDraft(storeKey, (current) => ({
-      ...current,
-      workModeHydrated: true,
-      workMode: applySetStateAction(action, current.workMode),
-    }))
+  const { setExamMood, setReadingMood, setWorkMood, setExamMode, setReadingMode, setWorkMode } =
+    useQuickRecordDraftSetters(store, storeKey)
 
   return {
     studyLogValues: draftState.studyLogValues,

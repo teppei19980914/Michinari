@@ -42,6 +42,11 @@ export function WorkReportSection({
   isReported,
   quickNoteMaxChars,
 }: WorkReportSectionProps) {
+  // 呼び出し元（DailyReportPage）はtargets.showWorkSection（workAssignmentsが1件以上ある
+  // ことが前提）のときのみ本コンポーネントを描画するため、workAssignmentsが空になる分岐は
+  // 到達しない防御的分岐（OPERATIONS.md「到達不能な防御的分岐」、WorkMemberSection.tsxと
+  // 同じ方針）。
+  /* v8 ignore next */
   const quickNoteAssignmentId = targets.workAssignments[0]?.id ?? null
   return (
     <CategoryReportSection
@@ -61,8 +66,13 @@ export function WorkReportSection({
       editor={
         <>
           <RecordModeToggle mode={draft.workMode} onChange={draft.setWorkMode} />
+          {/* v8 ignore next -- quickNoteAssignmentIdがnullになる分岐は上記と同じ理由で到達しない */}
           {draft.workMode === 'QUICK' && quickNoteAssignmentId !== null && (
             <QuickRecordFields
+              // workLogValues[quickNoteAssignmentId]も、useDailyReportDraftのhydrateが
+              // 着手中の全案件分を必ず作るため、quickNoteAssignmentIdが着手中の案件IDで
+              // ある限り未定義にはならない（同じ理由で到達しない防御的分岐）。
+              /* v8 ignore next */
               note={draft.workLogValues[quickNoteAssignmentId]?.freeText ?? ''}
               onChangeNote={(value) =>
                 draft.setWorkLogValues((current) =>
