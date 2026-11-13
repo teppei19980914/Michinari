@@ -81,4 +81,22 @@ describe('buildSummaryCardTextLines', () => {
     const milestonesLine = lines.find((line) => line.key === 'milestones')
     expect(milestonesLine).toMatchObject({ values: ['7日間、連続で記録できました'] })
   })
+
+  it('節目が複数件のとき、全件分の文言を順序通り持つ', () => {
+    const lines = buildSummaryCardTextLines({
+      aggregate: {
+        ...AGGREGATE,
+        milestones: [
+          { milestone_type: 'CONSECUTIVE_DAYS', milestone_key: '7', achieved_at: '2026-10-01T00:00:00Z' },
+          { milestone_type: 'TOTAL_RECORD_DAYS', milestone_key: '30', achieved_at: '2026-10-15T00:00:00Z' },
+        ],
+      },
+      visibility: createDefaultVisibility(),
+      sentence: null,
+    })
+    const milestonesLine = lines.find((line) => line.key === 'milestones')
+    expect(milestonesLine).toMatchObject({
+      values: ['7日間、連続で記録できました', 'これまでに30日、記録を続けています'],
+    })
+  })
 })

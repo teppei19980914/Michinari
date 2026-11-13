@@ -3,8 +3,8 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { format, subDays } from 'date-fns'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
-import { Input } from '../../components/Input'
 import { Button } from '../../components/Button'
+import { DateRangeFields } from '../../components/DateRangeFields'
 import { useToast } from '../../components/toastContext'
 import { apiErrorMessage } from '../../api/client'
 import { getToday } from '../../api/records'
@@ -84,24 +84,14 @@ export function LogExportSection() {
         ))}
       </div>
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          {t('systemInfo.logExport.fromLabel')}
-          <Input
-            type="date"
-            value={dateFrom}
-            max={dateTo}
-            onChange={(e) => setRange({ from: e.target.value, to: dateTo })}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-text-secondary">
-          {t('systemInfo.logExport.toLabel')}
-          <Input
-            type="date"
-            value={dateTo}
-            min={dateFrom}
-            onChange={(e) => setRange({ from: dateFrom, to: e.target.value })}
-          />
-        </label>
+        <DateRangeFields
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          fromLabel={t('systemInfo.logExport.fromLabel')}
+          toLabel={t('systemInfo.logExport.toLabel')}
+          onChangeFrom={(value) => setRange({ from: value, to: dateTo })}
+          onChangeTo={(value) => setRange({ from: dateFrom, to: value })}
+        />
         <Button
           disabled={mutation.isPending}
           onClick={() => mutation.mutate({ from: dateFrom, to: dateTo })}

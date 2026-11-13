@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.ai import client as ai_client
@@ -23,6 +24,7 @@ from app.constants.app_setting_keys import (
 )
 from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, RecordState
 from app.models.goal import Goal
+from app.models.recap import RecapEntry, RecapTheme, RecapThemeLink
 from app.models.record import DailyRecord
 from app.services import (
     ai_context_common,
@@ -32,7 +34,6 @@ from app.services import (
     goal_service,
     metrics_service,
     milestone_service_common,
-    recap_service,
     record_service_common,
     roadmap_service,
     setting_reader,
@@ -73,21 +74,32 @@ def _top_theme_name(
 ) -> str | None:
     """いちばん多く書いたテーマ（EXAM/READINGのみ、§0 U7）。期間内の件数が最大のテーマ名を返す。
 
-    件数が同じテーマが複数ある場合は`recap_service.list_themes`の順（本文の更新日時の
+    件数が同じテーマが複数ある場合は`recap_service.list_themes`と同じ順序（本文の更新日時の
     新しい順）で最初に見つかったものを採用する（決定的な順序、CLAUDE.mdの都度算出方針）。
+    テーマ件数分のクエリ（N+1、`recap_service.get_theme`/`theme_entry_rows`を毎テーマ呼ぶ）を
+    避け、1クエリの集計で求める（パフォーマンスレビュー指摘、2026-11-13。本関数が目標詳細
+    画面の既定タブ表示時に毎回呼ばれるようになったため修正）。
     """
     if goal.category == GoalCategory.WORK:
         return None
-    best_name: str | None = None
-    best_count = 0
-    for theme_summary in recap_service.list_themes(session, goal):
-        theme = recap_service.get_theme(session, theme_summary.id)
-        rows = recap_service.theme_entry_rows(session, theme)
-        count = sum(1 for entry in rows if date_from <= entry.record_date <= date_to)
-        if count > best_count:
-            best_count = count
-            best_name = theme_summary.name
-    return best_name
+    row = session.execute(
+        select(RecapTheme.name)
+        .join(RecapThemeLink, RecapThemeLink.theme_id == RecapTheme.id)
+        .join(RecapEntry, RecapEntry.id == RecapThemeLink.entry_id)
+        .where(
+            RecapTheme.goal_id == goal.id,
+            RecapEntry.record_date >= date_from,
+            RecapEntry.record_date <= date_to,
+        )
+        .group_by(RecapTheme.id, RecapTheme.name, RecapTheme.updated_at)
+        .order_by(
+            func.count(RecapEntry.id).desc(),
+            RecapTheme.updated_at.desc(),
+            RecapTheme.id.desc(),
+        )
+        .limit(1)
+    ).first()
+    return row[0] if row is not None else None
 
 
 def get_summary(

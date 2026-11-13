@@ -137,4 +137,11 @@ describe('isClipboardImageCopySupported / copyPngBlobToClipboard', () => {
       'Clipboard image copy is not supported in this environment',
     )
   })
+
+  it('navigator.clipboard.writeはあるがClipboardItemが無い環境でもfalseを返す（古いブラウザの組み合わせ）', () => {
+    vi.stubGlobal('ClipboardItem', undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { write: vi.fn() } })
+
+    expect(isClipboardImageCopySupported()).toBe(false)
+  })
 })

@@ -22,8 +22,10 @@ const HEADER_HEIGHT = 64
 const LINE_HEIGHT = 24
 const ROADMAP_HEIGHT = 56
 
-/** テキスト行1件が占める縦幅（見出し＋値、節目は値が複数件になるため加算する）。 */
-function lineHeight(line: SummaryCardTextLine): number {
+/** テキスト行1件が占める縦幅（見出し＋値、節目は値が複数件になるため加算する）。モジュール
+ * 定数`LINE_HEIGHT`（1行分の行高）とは明確に区別する名前にする（スタイルレビュー指摘、
+ * 2026-11-13。大文字/小文字の違いだけの名前は呼び出し元を読むときに混同しやすい）。 */
+function lineBlockHeight(line: SummaryCardTextLine): number {
   const valueCount = line.key === 'milestones' ? Math.max(1, line.values.length) : 1
   return LINE_HEIGHT * (1 + valueCount)
 }
@@ -34,7 +36,7 @@ function labelPositions(lines: SummaryCardTextLine[], startY: number): number[] 
   const positions: number[] = []
   lines.reduce((y, line) => {
     positions.push(y)
-    return y + lineHeight(line)
+    return y + lineBlockHeight(line)
   }, startY)
   return positions
 }
@@ -69,7 +71,7 @@ export function SummaryCardPreview({
 }: SummaryCardPreviewProps) {
   const textLines = buildSummaryCardTextLines({ aggregate, visibility, sentence })
   const roadmapVisible = visibility.roadmap
-  const bodyHeight = textLines.reduce((sum, line) => sum + lineHeight(line), 0)
+  const bodyHeight = textLines.reduce((sum, line) => sum + lineBlockHeight(line), 0)
   const height =
     PADDING * 2 + HEADER_HEIGHT + bodyHeight + (roadmapVisible ? ROADMAP_HEIGHT : 0)
 
