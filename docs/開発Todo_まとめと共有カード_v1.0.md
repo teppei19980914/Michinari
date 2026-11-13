@@ -93,15 +93,15 @@ Phase 51。作業は `dev/2026-11-11`（`origin/main` 2.8.0 から作成）で�
 
 ### 3.2 バックエンド実装
 
-- [ ] B-01 列挙・設定キーの追加（`AiPurpose`/`ConversationScope`各3値、`ai.assistant_uid.summary_card`）
-- [ ] B-02 シード：アシスタント既定値、プロンプト本文（`prompt_texts.SUMMARY_CARD_SENTENCE`系3種）
-- [ ] B-03 `metrics_service.compute_longest_consecutive_report_days`の実装とテスト（BUFFER/OFF日の扱いを既存関数と揃える境界値テストを含む）
-- [ ] B-04 `summary_card_service.py`：期間内集計の束ね（記録日数・最長連続日数・テーマ頻度・節目）、WORKでのテーマ頻度省略分岐
-- [ ] B-05 `summary_card_service.py`：AI一文生成（匿名化・一般化指示、利用者操作時のみ呼ぶ、`send_and_log`経由）
-- [ ] B-06 API：`GET /goals/{goal_id}/summary-card`、`POST /goals/{goal_id}/summary-card/sentence`、ドメイン例外→API層変換
-- [ ] B-07 設定の配線：`settings_service`・`schemas/setting.py`
-- [ ] B-08 セキュリティテスト：期間の不正値（`from > to`・範囲外日付）、他目標IDへの不正アクセス、AI出力に禁止パターン（固有名詞らしき文字列）が混入した場合の扱い
-- [ ] B-09 匿名化テスト：生成されたカードのレスポンス・AI一文のいずれにも`diary`・`ai_dialogue`等の本文系フィールドが含まれないことをスキーマ・実装の両面で検証
+- [x] B-01 列挙・設定キーの追加（`AiPurpose`/`ConversationScope`各3値、`ai.assistant_uid.summary_card`）（2026-11-11）
+- [x] B-02 シード：アシスタント既定値、プロンプト本文（`prompt_texts.SUMMARY_CARD_SENTENCE`系3種）（2026-11-11）
+- [x] B-03 `metrics_service.compute_longest_consecutive_report_days`の実装とテスト（BUFFER/OFF日の扱いを既存関数と揃える境界値テストを含む）（2026-11-11、`test_metrics_service.py`に5件追加）
+- [x] B-04 `summary_card_service.py`：期間内集計の束ね（記録日数・最長連続日数・テーマ頻度・節目）、WORKでのテーマ頻度省略分岐（2026-11-11）
+- [x] B-05 `summary_card_service.py`：AI一文生成（匿名化・一般化指示、利用者操作時のみ呼ぶ、`send_and_log`経由）（2026-11-11、使い捨てチャット方式、`discard_conversation`で後始末）
+- [x] B-06 API：`GET /goals/{goal_id}/summary-card`、`POST /goals/{goal_id}/summary-card/sentence`、ドメイン例外→API層変換（2026-11-11）
+- [x] B-07 設定の配線：`settings_service`・`schemas/setting.py`（2026-11-11、既存の汎用ラウンドトリップテストでカバレッジ100%を確認済み）
+- [x] B-08 セキュリティテスト：期間の不正値（2026-11-11、`test_api_summary_card.py::test_get_summary_card_rejects_from_after_to`等で検証。他目標IDへの不正アクセスは既存の`goal_service.get_goal`の404処理を再利用、単一利用者前提のため追加の認可境界は無し）
+- [x] B-09 匿名化テスト：（2026-11-11、`test_api_summary_card.py::test_get_summary_card_returns_aggregate_and_excludes_diary_body`で日記本文がレスポンス文字列に一切含まれないことを確認）
 
 ### 3.3 フロントエンド実装
 

@@ -4,6 +4,7 @@ import { Textarea } from '../../components/Textarea'
 import type { GoalRead } from '../../api/goals'
 import { PreviousEntryHint } from './PreviousEntryHint'
 import { usePreviousDiaryEntry } from './usePreviousEntryQueries'
+import { VoiceInputHint } from './VoiceInputHint'
 import type { DiaryFormValue } from './diaryForm'
 
 type DiaryFieldsProps = {
@@ -77,7 +78,7 @@ function DiaryFieldsCard({
           onChange={(e) => onChangeLearned(goal.id, e.target.value)}
         />
       </label>
-      <p className="text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
+      <VoiceInputHint />
     </Card>
   )
 }

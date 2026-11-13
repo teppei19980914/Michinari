@@ -734,6 +734,9 @@
         "evaluationReportWork": "AI evaluation report assistant (work)",
         "helpAssistant": "Help question assistant",
         "goalConsultation": "Goal consultation assistant",
+        "dailyFeedbackBrief": "Daily report feedback assistant (quick record, exam)",
+        "dailyFeedbackReadingBrief": "Daily report feedback assistant (quick record, reading)",
+        "dailyFeedbackWorkBrief": "Daily report feedback assistant (quick record, work)",
         "summaryCard": "Summary card sentence assistant",
         "loading": "Fetching assistant list…",
         "loadFailed": "Could not fetch the assistant list"
@@ -796,6 +799,12 @@
       "showProbabilityInvalid": "Enter a number between 0 and 1.",
       "bodyPreviewCharsLabel": "Excerpt length (characters)",
       "bodyPreviewCharsInvalid": "Enter a positive integer."
+    },
+    "quickRecord": {
+      "title": "Quick record mode",
+      "description": "Settings for the mode that lets you finalize a daily record with just a mood stamp and a one-line note.",
+      "noteMaxCharsLabel": "Maximum characters for the quick note",
+      "noteMaxCharsInvalid": "Enter a positive integer."
     },
     "promptDegradation": {
       "title": "Prompt degradation",
@@ -1194,7 +1203,26 @@
       "title": "Team members ({{workName}})"
     },
     "confirmedBadge": "Finalized",
-    "minutesOptionalNotice": "You can leave time spent blank (leave every time slot field empty). If left blank, that day is excluded from effective speed calculations"
+    "minutesOptionalNotice": "You can leave time spent blank (leave every time slot field empty). If left blank, that day is excluded from effective speed calculations",
+    "quickRecord": {
+      "modeToggle": {
+        "normal": "Regular input",
+        "quick": "Quick record"
+      },
+      "numbersSkippedNotice": "Numeric results are not recorded",
+      "moodLabel": "Today's mood",
+      "moodStamps": {
+        "1": "😞 Very bad",
+        "2": "🙁 Bad",
+        "3": "😐 Okay",
+        "4": "🙂 Good",
+        "5": "😄 Very good"
+      },
+      "noteLabel": "Quick note",
+      "notePlaceholder": "Sum up your day in one line",
+      "noteCounter": "{{current}}/{{max}} characters"
+    },
+    "voiceInputHintDismiss": "Dismiss"
   },
   "progressOnly": {
     "title": "Progress only ({{date}})",
@@ -1308,7 +1336,8 @@
       "readingLog": "Reading log",
       "workLog": "Work log",
       "milestones": "Milestones",
-      "quizAccuracy": "Quiz accuracy"
+      "quizAccuracy": "Quiz accuracy",
+      "mood": "Mood trend"
     },
     "materialEmpty": "This goal has no active materials",
     "quality": {
@@ -1382,6 +1411,10 @@
       "accuracyLabel": "Accuracy",
       "weekRangeLabel": "{{start}} - {{end}}",
       "fractionLabel": " ({{correct}}/{{total}})"
+    },
+    "mood": {
+      "empty": "No mood stamp records yet",
+      "trendTitle": "Mood trend"
     }
   },
   "helpAssistant": {

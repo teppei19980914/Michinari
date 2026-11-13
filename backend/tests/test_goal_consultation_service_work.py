@@ -131,8 +131,13 @@ def test_ask_includes_member_characteristics_in_prompt(seeded_session, monkeypat
 def test_ask_uses_fallback_text_when_work_assignment_is_not_registered(seeded_session, monkeypatch):
     """WorkAssignmentTabで案件情報を入力する前（WORK目標作成直後）でも質疑は成立する。"""
     goal = _make_work_goal(seeded_session)
-    FakeAi(monkeypatch, ("## 記録から言えること\n記録からはまだ判断できません。\n"
-                         "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",))
+    FakeAi(
+        monkeypatch,
+        (
+            "## 記録から言えること\n記録からはまだ判断できません。\n"
+            "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",
+        ),
+    )
 
     conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(

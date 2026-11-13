@@ -250,9 +250,7 @@ def build_daily_feedback(
             text = render()
 
     if len(text) > max_chars:
-        return BuildResult(
-            text=text, prompt_chars=len(text), was_truncated=True, exhausted=True
-        )
+        return BuildResult(text=text, prompt_chars=len(text), was_truncated=True, exhausted=True)
 
     return BuildResult(text=text, prompt_chars=len(text), was_truncated=was_truncated)
 

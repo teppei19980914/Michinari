@@ -228,9 +228,7 @@ def test_build_past_record_entries_excludes_raw_entries_covered_by_summary(seede
         raw_entries=raw_entries,
     )
 
-    assert [entry.record_date for entry in result.weekly_summary_entries] == [
-        dt.date(2026, 7, 6)
-    ]
+    assert [entry.record_date for entry in result.weekly_summary_entries] == [dt.date(2026, 7, 6)]
     assert [entry.record_date for entry in result.raw_entries] == [dt.date(2026, 7, 15)]
 
 

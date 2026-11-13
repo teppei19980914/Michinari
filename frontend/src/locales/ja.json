@@ -683,6 +683,9 @@
         "evaluationReportWork": "AI評価レポート用アシスタント（仕事）",
         "helpAssistant": "ヘルプ質問用アシスタント",
         "goalConsultation": "目標相談用アシスタント",
+        "dailyFeedbackBrief": "日次報告フィードバック用アシスタント（ひとこと記録・資格）",
+        "dailyFeedbackReadingBrief": "日次報告フィードバック用アシスタント（ひとこと記録・読書）",
+        "dailyFeedbackWorkBrief": "日次報告フィードバック用アシスタント（ひとこと記録・仕事）",
         "summaryCard": "ふりかえりまとめ一文用アシスタント",
         "loading": "アシスタント一覧を取得しています…",
         "loadFailed": "アシスタント一覧を取得できませんでした"
@@ -745,6 +748,12 @@
       "showProbabilityInvalid": "0以上1以下の数値を入力してください。",
       "bodyPreviewCharsLabel": "記録本文の抜粋の文字数",
       "bodyPreviewCharsInvalid": "1以上の整数を入力してください。"
+    },
+    "quickRecord": {
+      "title": "ひとこと記録モード",
+      "description": "気分スタンプと1行メモだけで日次記録を確定できるモードの設定です。",
+      "noteMaxCharsLabel": "1行メモの最大文字数",
+      "noteMaxCharsInvalid": "1以上の整数を入力してください。"
     },
     "promptDegradation": {
       "title": "プロンプト縮退",
@@ -1137,7 +1146,26 @@
       "title": "チームメンバー（{{workName}}）"
     },
     "confirmedBadge": "確定済み",
-    "minutesOptionalNotice": "投下時間は未入力にできます（時間枠の欄をすべて空欄にする）。未入力の場合、当該日は実効速度の算出対象から除外されます"
+    "minutesOptionalNotice": "投下時間は未入力にできます（時間枠の欄をすべて空欄にする）。未入力の場合、当該日は実効速度の算出対象から除外されます",
+    "quickRecord": {
+      "modeToggle": {
+        "normal": "通常入力",
+        "quick": "ひとこと記録"
+      },
+      "numbersSkippedNotice": "数値実績は記録されません",
+      "moodLabel": "今日の気分",
+      "moodStamps": {
+        "1": "😞 とても悪い",
+        "2": "🙁 悪い",
+        "3": "😐 普通",
+        "4": "🙂 良い",
+        "5": "😄 とても良い"
+      },
+      "noteLabel": "ひとこと",
+      "notePlaceholder": "今日をひとことで",
+      "noteCounter": "{{current}}/{{max}}文字"
+    },
+    "voiceInputHintDismiss": "閉じる"
   },
   "progressOnly": {
     "title": "進捗のみ登録（{{date}}）",
@@ -1233,7 +1261,8 @@
       "readingLog": "読書記録",
       "workLog": "業務記録",
       "milestones": "節目の記録",
-      "quizAccuracy": "クイズ正答率"
+      "quizAccuracy": "クイズ正答率",
+      "mood": "気分の推移"
     },
     "materialEmpty": "この目標には有効な教材がありません",
     "quality": {
@@ -1304,6 +1333,10 @@
       "accuracyLabel": "正答率",
       "weekRangeLabel": "{{start}}〜{{end}}",
       "fractionLabel": "（{{correct}}/{{total}}）"
+    },
+    "mood": {
+      "empty": "気分スタンプの記録はまだありません",
+      "trendTitle": "気分の推移"
     }
   },
   "helpAssistant": {

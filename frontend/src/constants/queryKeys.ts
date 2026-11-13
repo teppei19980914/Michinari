@@ -79,6 +79,7 @@ export const QUERY_KEYS = {
   analyticsSpeed: (goalId: number) => ['analytics', 'speed', goalId] as const,
   analyticsWorkLogs: (goalId: number) => ['analytics', 'work-logs', goalId] as const,
   analyticsQuizAccuracy: (goalId: number) => ['analytics', 'quiz-accuracy', goalId] as const,
+  analyticsMood: (goalId: number) => ['analytics', 'mood', goalId] as const,
   recapThemes: (goalId: number) => ['recapThemes', goalId] as const,
   recapTheme: (themeId: number) => ['recapTheme', themeId] as const,
   todayQuiz: () => ['todayQuiz'] as const,

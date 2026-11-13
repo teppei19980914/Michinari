@@ -36,9 +36,7 @@ def build_context(session: Session, goal: Goal, today: dt.date) -> CategoryConte
     else:
         members = work_member_service.list_active_members(work_assignment)
         fixed_variables = {
-            "work_summary": ai_context_work.build_retrospective_work_summary_text(
-                work_assignment
-            ),
+            "work_summary": ai_context_work.build_retrospective_work_summary_text(work_assignment),
             "work_progress": ai_context_work.build_work_progress_summary(
                 session, [work_assignment], today
             ),

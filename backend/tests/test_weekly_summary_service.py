@@ -136,9 +136,7 @@ def test_list_pending_weeks_finds_goal_with_logs_in_completed_week(seeded_sessio
     material = _make_material(seeded_session, goal)
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 火曜
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(pending) == 1
     assert pending[0].goal.id == goal.id
@@ -209,9 +207,7 @@ def test_list_pending_weeks_includes_reading_goals_with_recall_logs(seeded_sessi
     """
     reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 18))
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(pending) == 1
     assert pending[0].goal.id == reading_goal.id
@@ -225,9 +221,7 @@ def test_list_pending_weeks_includes_work_goals_with_work_logs(seeded_session):
     """
     work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 18))
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(pending) == 1
     assert pending[0].goal.id == work_goal.id
@@ -244,9 +238,7 @@ def test_list_pending_weeks_covers_three_categories_in_the_same_week(seeded_sess
     reading_goal, _book = _make_reading_goal_with_recall(seeded_session, dt.date(2026, 8, 19))
     work_goal, _work_assignment = _make_work_goal_with_log(seeded_session, dt.date(2026, 8, 20))
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert {item.goal.id for item in pending} == {exam_goal.id, reading_goal.id, work_goal.id}
 
@@ -265,9 +257,7 @@ def test_list_pending_weeks_excludes_already_generated(seeded_session):
     )
     seeded_session.flush()
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert pending == []
 
@@ -275,9 +265,7 @@ def test_list_pending_weeks_excludes_already_generated(seeded_session):
 def test_list_pending_weeks_excludes_weeks_without_logs(seeded_session):
     _make_goal(seeded_session)
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert pending == []
 
@@ -289,9 +277,7 @@ def test_list_pending_weeks_reaches_back_to_goal_start_date(seeded_session):
     material = _make_material(seeded_session, goal)
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 7, 21))  # 5週間前
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(pending) == 1
     assert pending[0].week_start == dt.date(2026, 7, 20)
@@ -305,9 +291,7 @@ def test_list_pending_weeks_orders_newest_week_first(seeded_session):
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 7, 21))  # 5週間前
     _make_daily_record_with_log(seeded_session, material, dt.date(2026, 8, 18))  # 直近週
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert [item.week_start for item in pending] == [dt.date(2026, 8, 17), dt.date(2026, 7, 20)]
 
@@ -345,9 +329,7 @@ def test_list_pending_weeks_reading_reaches_back_to_book_start_date(seeded_sessi
     )
     seeded_session.flush()
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert len(pending) == 1
     assert pending[0].goal.id == reading_goal.id
@@ -355,9 +337,7 @@ def test_list_pending_weeks_reading_reaches_back_to_book_start_date(seeded_sessi
 
 
 def test_list_pending_weeks_returns_empty_when_no_goals(seeded_session):
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert pending == []
 
@@ -368,9 +348,7 @@ def test_list_pending_weeks_returns_empty_when_goal_started_this_week(seeded_ses
     seeded_session.add(goal)
     seeded_session.flush()
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
 
     assert pending == []
 
@@ -475,16 +453,13 @@ def test_invalidate_week_makes_the_week_pending_again(seeded_session):
     )
     seeded_session.flush()
     assert (
-        weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
-        == []
+        weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24)) == []
     )
 
     weekly_summary_service.invalidate_week(seeded_session, goal, dt.date(2026, 8, 18))
     seeded_session.flush()
 
-    pending = weekly_summary_service.list_pending_weeks(
-        seeded_session, today=dt.date(2026, 8, 24)
-    )
+    pending = weekly_summary_service.list_pending_weeks(seeded_session, today=dt.date(2026, 8, 24))
     assert len(pending) == 1
     assert pending[0].goal.id == goal.id
     assert pending[0].week_start == dt.date(2026, 8, 17)
@@ -847,9 +822,10 @@ def test_run_retroactive_generation_picks_up_remaining_weeks_on_next_run(
 
     assert first_run == 1
     assert second_run == 1
-    assert {
-        row.week_start_date for row in seeded_session.query(WeeklySummary).all()
-    } == {dt.date(2026, 8, 17), dt.date(2026, 8, 3)}
+    assert {row.week_start_date for row in seeded_session.query(WeeklySummary).all()} == {
+        dt.date(2026, 8, 17),
+        dt.date(2026, 8, 3),
+    }
 
 
 # --- generate_for_week（匿名化版、Phase10） ---

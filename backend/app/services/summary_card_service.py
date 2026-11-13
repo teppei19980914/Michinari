@@ -150,9 +150,7 @@ def _resolve_category_context(
     return purpose, scope, entries
 
 
-def generate_sentence(
-    session: Session, goal: Goal, *, date_from: dt.date, date_to: dt.date
-) -> str:
+def generate_sentence(session: Session, goal: Goal, *, date_from: dt.date, date_to: dt.date) -> str:
     """AIが選んだ印象的な一文を生成する（利用者の明示操作時のみ呼ぶ、28.2手順3）。
 
     記録を要約・一般化した新しい一文のみを返す（逐語引用はしない、要件定義書R-157）。

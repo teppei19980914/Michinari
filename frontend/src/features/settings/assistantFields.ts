@@ -64,6 +64,18 @@ export const ASSISTANT_FIELDS = [
     labelKey: 'settings.aiConnection.assistant.goalConsultation',
   },
   {
+    field: 'assistant_uid_daily_feedback_brief',
+    labelKey: 'settings.aiConnection.assistant.dailyFeedbackBrief',
+  },
+  {
+    field: 'assistant_uid_daily_feedback_reading_brief',
+    labelKey: 'settings.aiConnection.assistant.dailyFeedbackReadingBrief',
+  },
+  {
+    field: 'assistant_uid_daily_feedback_work_brief',
+    labelKey: 'settings.aiConnection.assistant.dailyFeedbackWorkBrief',
+  },
+  {
     field: 'assistant_uid_summary_card',
     labelKey: 'settings.aiConnection.assistant.summaryCard',
   },

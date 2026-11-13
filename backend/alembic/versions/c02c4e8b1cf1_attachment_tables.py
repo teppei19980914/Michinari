@@ -9,6 +9,7 @@ Revises: 6f982ca649bb
 Create Date: 2026-10-25 14:32:39.020309
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -16,8 +17,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c02c4e8b1cf1'
-down_revision: Union[str, Sequence[str], None] = '6f982ca649bb'
+revision: str = "c02c4e8b1cf1"
+down_revision: Union[str, Sequence[str], None] = "6f982ca649bb"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -42,9 +43,7 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["chat_message_id"], ["chat_message.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["attachment_id"], ["attachment.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "chat_message_id", "attachment_id", name="uq_chat_message_attachment"
-        ),
+        sa.UniqueConstraint("chat_message_id", "attachment_id", name="uq_chat_message_attachment"),
     )
     op.create_index(
         "ix_chat_message_attachment_attachment_id",
@@ -85,9 +84,7 @@ def downgrade() -> None:
     )
     op.drop_table("goal_consultation_log_attachment")
 
-    op.drop_index(
-        "ix_chat_message_attachment_attachment_id", table_name="chat_message_attachment"
-    )
+    op.drop_index("ix_chat_message_attachment_attachment_id", table_name="chat_message_attachment")
     op.drop_table("chat_message_attachment")
 
     op.drop_table("attachment")

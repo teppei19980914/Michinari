@@ -282,9 +282,7 @@ def build_member_summary_text(session: Session, members: list[WorkMember]) -> st
     _apply_characteristics`）のため、ここでの追加の同意チェックは不要。"""
     if not members:
         return "（対象メンバーはいません）"
-    return "\n\n".join(
-        build_evaluation_member_summary_text(session, member) for member in members
-    )
+    return "\n\n".join(build_evaluation_member_summary_text(session, member) for member in members)
 
 
 def build_evaluation_feedback_history_entries(session: Session, goal: Goal) -> list[DatedLogEntry]:

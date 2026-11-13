@@ -156,9 +156,7 @@ class MilestoneThresholdSettingsRead(BaseModel):
 
 class MilestoneThresholdSettingsUpdate(BaseModel):
     consecutive_days_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
-    total_record_days_thresholds: str | None = Field(
-        default=None, pattern=_THRESHOLD_LIST_PATTERN
-    )
+    total_record_days_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
     reading_total_pages_thresholds: str | None = Field(
         default=None, pattern=_THRESHOLD_LIST_PATTERN
     )
@@ -168,9 +166,7 @@ class MilestoneThresholdSettingsUpdate(BaseModel):
     exam_overall_progress_thresholds: str | None = Field(
         default=None, pattern=_THRESHOLD_LIST_PATTERN
     )
-    work_record_count_thresholds: str | None = Field(
-        default=None, pattern=_THRESHOLD_LIST_PATTERN
-    )
+    work_record_count_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
 
 
 #: 1年前の今日（開発Todo_1年前の今日_v1.0）の候補（カンマ区切りの正の整数、何か月前か）。

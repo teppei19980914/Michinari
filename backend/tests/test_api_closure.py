@@ -385,8 +385,8 @@ def test_generate_retrospective_on_exam_goal_degrades_weekly_summary_before_rece
 
     # 週次要約のエントリ1件だけを外せば収まる境界値（外すと{{weekly_summaries}}は
     # NO_WEEKLY_SUMMARIES_TEXTに置き換わるため、その差分だけ短くなる）。
-    length_after_dropping_weekly = full_length - len(weekly_entry_text) + len(
-        NO_WEEKLY_SUMMARIES_TEXT
+    length_after_dropping_weekly = (
+        full_length - len(weekly_entry_text) + len(NO_WEEKLY_SUMMARIES_TEXT)
     )
     setting.value = str(length_after_dropping_weekly + 3)
     seeded_session.flush()
