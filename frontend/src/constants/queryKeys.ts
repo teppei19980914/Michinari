@@ -79,6 +79,7 @@ export const QUERY_KEYS = {
   analyticsSpeed: (goalId: number) => ['analytics', 'speed', goalId] as const,
   analyticsWorkLogs: (goalId: number) => ['analytics', 'work-logs', goalId] as const,
   analyticsQuizAccuracy: (goalId: number) => ['analytics', 'quiz-accuracy', goalId] as const,
+  analyticsMood: (goalId: number) => ['analytics', 'mood', goalId] as const,
   recapThemes: (goalId: number) => ['recapThemes', goalId] as const,
   recapTheme: (themeId: number) => ['recapTheme', themeId] as const,
   todayQuiz: () => ['todayQuiz'] as const,
@@ -88,6 +89,10 @@ export const QUERY_KEYS = {
   retrospectiveView: (goalId: number, anonymize: boolean) =>
     ['retrospective', goalId, anonymize] as const,
   knowledgeExportProgress: (goalId: number) => ['knowledgeExportProgress', goalId] as const,
+  /** ふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0）。期間を変えると
+   * 再取得が必要なため、キーへ期間を含める。 */
+  summaryCard: (goalId: number, dateFrom: string, dateTo: string) =>
+    ['summaryCard', goalId, dateFrom, dateTo] as const,
 
   // --- 仕事目標の定期報告（workReport が workReportPeriod の前方一致になる） ---
   workReport: (kind: WorkReportKind, goalId: number) => ['workReport', kind, goalId] as const,

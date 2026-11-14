@@ -67,6 +67,10 @@ AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS = "ai.perspective_suggestion_min_records"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF = "ai.assistant_uid.daily_feedback_brief"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF = "ai.assistant_uid.daily_feedback_reading_brief"
 AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF = "ai.assistant_uid.daily_feedback_work_brief"
+#: ふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0）のAI一文生成。
+#: ヘルプ・目標相談と同一の低負荷用途のため、3カテゴリ共通の1キーとする（DRYの原則）。
+AI_ASSISTANT_UID_SUMMARY_CARD = "ai.assistant_uid.summary_card"
+AI_SUMMARY_CARD_FOLDER_NAME = "ai.summary_card_folder_name"
 #: NewtonXへ送るプロンプト末尾に追記する応答言語の指示文（日英i18n対応、2026-10）。
 #: `display.locale`に応じてどちらを使うかを`orchestration.send_and_log`が選ぶ。
 #: `prompt_template`には置かない（設定画面のテンプレート編集一覧に無条件で表示されて

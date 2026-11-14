@@ -13,14 +13,35 @@ import { BasicInfoTab } from './BasicInfoTab'
 const updateGoal = vi.hoisted(() => vi.fn())
 vi.mock('../../api/goals', () => ({ updateGoal }))
 
+const getToday = vi.hoisted(() => vi.fn())
+vi.mock('../../api/records', () => ({ getToday }))
+
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../../api/ai', () => ({ getAiStatus }))
+
+const getSummaryCard = vi.hoisted(() => vi.fn())
+const generateSummaryCardSentence = vi.hoisted(() => vi.fn())
+vi.mock('../../api/summaryCard', () => ({ getSummaryCard, generateSummaryCardSentence }))
+
 const saveButton = () => screen.getByRole('button', { name: t('common.action.save') })
 const startDateInput = () =>
   screen.getByLabelText<HTMLInputElement>(t('goals.basicInfo.startDateLabel'))
 const memoInput = () => screen.getByLabelText<HTMLTextAreaElement>(t('goals.basicInfo.memoLabel'))
+const openSummaryCardButton = () =>
+  screen.getByRole('button', { name: t('summaryCard.openButton') })
 
 beforeEach(() => {
   vi.clearAllMocks()
   updateGoal.mockResolvedValue(makeGoalDetail())
+  getToday.mockResolvedValue({ logical_date: '2026-11-13', record_state: null })
+  getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
+  getSummaryCard.mockResolvedValue({
+    record_days: 1,
+    longest_consecutive_days: 1,
+    top_theme_name: null,
+    milestones: [],
+    roadmap: { progress_ratio: 0, is_achieved: false, overrun_days: null },
+  })
 })
 
 afterEach(() => {
@@ -97,5 +118,29 @@ describe('BasicInfoTab の送信内容', () => {
 
     await waitFor(() => expect(updateGoal).toHaveBeenCalledOnce())
     expect(updateGoal.mock.calls[0][1]).toMatchObject({ start_date: '2026-08-15' })
+  })
+})
+
+describe('ふりかえりまとめ・共有カード（開発Todo「まとめと共有カード」v1.0）', () => {
+  it('開くまで集計を取得しない（パフォーマンスレビュー指摘、2026-11-13）', () => {
+    renderWithProviders(<BasicInfoTab goal={makeGoalDetail()} readOnly={false} />)
+
+    expect(openSummaryCardButton()).toBeTruthy()
+    expect(getToday).not.toHaveBeenCalled()
+    expect(getSummaryCard).not.toHaveBeenCalled()
+  })
+
+  it('開くと、その目標のID・名前・種別でカードを取得する', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(
+      <BasicInfoTab goal={makeGoalDetail({ category: 'READING' })} readOnly={false} />,
+    )
+
+    await user.click(openSummaryCardButton())
+
+    await waitFor(() =>
+      expect(getSummaryCard).toHaveBeenCalledWith(GOAL_ID, '2026-01-01', '2026-11-13'),
+    )
+    expect(await screen.findByText(t('summaryCard.title'))).toBeTruthy()
   })
 })

@@ -23,9 +23,7 @@ class GoalConsultationConversationEntry:
 
 
 def _to_entry(row: GoalConsultationConversation) -> GoalConsultationConversationEntry:
-    return GoalConsultationConversationEntry(
-        id=row.id, title=row.title, created_at=row.created_at
-    )
+    return GoalConsultationConversationEntry(id=row.id, title=row.title, created_at=row.created_at)
 
 
 def create(session: Session, goal: Goal, title: str) -> GoalConsultationConversationEntry:

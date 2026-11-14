@@ -1805,6 +1805,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/mood": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Mood Analytics
+         * @description 分析画面「気分の推移」タブ（ひとこと記録モード、開発Todo「ひとこと記録」v1.0 要件5）。
+         *
+         *     気分は目標ではなくカテゴリ（EXAM/READING/WORK）に紐づく（daily_record_mood）ため、
+         *     goal_idから目標のカテゴリを解決し、そのカテゴリの気分推移を古い順に返す（同じカテゴリの
+         *     複数目標で同じ推移が表示される。他の分析タブと同じくgoal_idで呼ぶ既存の呼び出し規約に
+         *     合わせるための設計、開発Todo §1.1）。気分を1件も入力していない場合は空配列を返す。
+         */
+        get: operations["get_mood_analytics_api_v1_analytics_mood_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/analytics/quiz-accuracy": {
         parameters: {
             query?: never;
@@ -2103,6 +2128,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/summary-card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Summary Card */
+        get: operations["get_summary_card_api_v1_goals__goal_id__summary_card_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/summary-card/sentence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Summary Card Sentence */
+        post: operations["generate_summary_card_sentence_api_v1_goals__goal_id__summary_card_sentence_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/system-info": {
         parameters: {
             query?: never;
@@ -2218,6 +2277,14 @@ export interface components {
             assistant_uid_help: string;
             /** Assistant Uid Goal Consultation */
             assistant_uid_goal_consultation: string;
+            /** Assistant Uid Daily Feedback Brief */
+            assistant_uid_daily_feedback_brief: string;
+            /** Assistant Uid Daily Feedback Reading Brief */
+            assistant_uid_daily_feedback_reading_brief: string;
+            /** Assistant Uid Daily Feedback Work Brief */
+            assistant_uid_daily_feedback_work_brief: string;
+            /** Assistant Uid Summary Card */
+            assistant_uid_summary_card: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -2263,6 +2330,14 @@ export interface components {
             assistant_uid_help?: string | null;
             /** Assistant Uid Goal Consultation */
             assistant_uid_goal_consultation?: string | null;
+            /** Assistant Uid Daily Feedback Brief */
+            assistant_uid_daily_feedback_brief?: string | null;
+            /** Assistant Uid Daily Feedback Reading Brief */
+            assistant_uid_daily_feedback_reading_brief?: string | null;
+            /** Assistant Uid Daily Feedback Work Brief */
+            assistant_uid_daily_feedback_work_brief?: string | null;
+            /** Assistant Uid Summary Card */
+            assistant_uid_summary_card?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -2292,7 +2367,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2330,6 +2405,7 @@ export interface components {
             log: components["schemas"]["LogSettingsRead"];
             milestone_threshold: components["schemas"]["MilestoneThresholdSettingsRead"];
             on_this_day: components["schemas"]["OnThisDaySettingsRead"];
+            quick_record: components["schemas"]["QuickRecordSettingsRead"];
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
@@ -2341,6 +2417,7 @@ export interface components {
             log?: components["schemas"]["LogSettingsUpdate"] | null;
             milestone_threshold?: components["schemas"]["MilestoneThresholdSettingsUpdate"] | null;
             on_this_day?: components["schemas"]["OnThisDaySettingsUpdate"] | null;
+            quick_record?: components["schemas"]["QuickRecordSettingsUpdate"] | null;
         };
         /**
          * AttachmentLimitsRead
@@ -2528,6 +2605,11 @@ export interface components {
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
             /** Attachment Ids */
             attachment_ids?: number[];
+            /**
+             * Quick Mode
+             * @default false
+             */
+            quick_mode: boolean;
         };
         /** ChatResponse */
         ChatResponse: {
@@ -2642,6 +2724,12 @@ export interface components {
             work_record_state: components["schemas"]["RecordState"] | null;
             /** Work Reported At */
             work_reported_at: string | null;
+            /** Exam Mood */
+            exam_mood: number | null;
+            /** Reading Mood */
+            reading_mood: number | null;
+            /** Work Mood */
+            work_mood: number | null;
             /** Diary Entries */
             diary_entries: components["schemas"]["DiaryEntryRead"][];
             /** Study Logs */
@@ -2934,6 +3022,8 @@ export interface components {
             study_logs?: components["schemas"]["StudyLogInput"][];
             /** Diary Entries */
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
+            /** Mood */
+            mood?: number | null;
         };
         /**
          * ForecastAnalyticsRead
@@ -3922,6 +4012,20 @@ export interface components {
             report_notes?: string | null;
         };
         /**
+         * MoodTrendPointRead
+         * @description GET /analytics/mood（ひとこと記録モード「気分の推移」タブ、開発Todo
+         *     「ひとこと記録」v1.0 要件5）。
+         */
+        MoodTrendPointRead: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Mood Value */
+            mood_value: number;
+        };
+        /**
          * OnThisDayRead
          * @description 1年前の今日（開発Todo_1年前の今日_v1.0）。アプリ全体の値（goal_idに依存しない、
          *     目標タブの切り替えに影響されない）として1件のみ返す。month_agoから「どのくらい前か」の
@@ -4111,6 +4215,39 @@ export interface components {
             points: components["schemas"]["QualityTrendPointRead"][];
         };
         /**
+         * QuickRecordSettingsRead
+         * @description ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の設定。
+         *
+         *     `last_mode_*`・`voice_hint_dismissed`は設定画面には出さない内部状態（desktopの
+         *     `reminder_onboarding_shown`等と同じ位置づけ）だが、同じ`PATCH /settings`経路で
+         *     読み書きできるようにし、新規の保存APIを増やさない（CLAUDE.md DRYの原則）。
+         */
+        QuickRecordSettingsRead: {
+            /** Note Max Chars */
+            note_max_chars: number;
+            /** Last Mode Exam */
+            last_mode_exam: string;
+            /** Last Mode Reading */
+            last_mode_reading: string;
+            /** Last Mode Work */
+            last_mode_work: string;
+            /** Voice Hint Dismissed */
+            voice_hint_dismissed: boolean;
+        };
+        /** QuickRecordSettingsUpdate */
+        QuickRecordSettingsUpdate: {
+            /** Note Max Chars */
+            note_max_chars?: number | null;
+            /** Last Mode Exam */
+            last_mode_exam?: string | null;
+            /** Last Mode Reading */
+            last_mode_reading?: string | null;
+            /** Last Mode Work */
+            last_mode_work?: string | null;
+            /** Voice Hint Dismissed */
+            voice_hint_dismissed?: boolean | null;
+        };
+        /**
          * QuizAccuracyAnalyticsRead
          * @description GET /analytics/quiz-accuracy（仕様書6.8「クイズ正答率」タブ、資格試験・読書向け）。
          */
@@ -4238,6 +4375,11 @@ export interface components {
             reading_logs?: components["schemas"]["ReadingLogInput"][];
             /** Attachment Ids */
             attachment_ids?: number[];
+            /**
+             * Quick Mode
+             * @default false
+             */
+            quick_mode: boolean;
         };
         /**
          * ReadingFinalizeRequest
@@ -4247,6 +4389,8 @@ export interface components {
         ReadingFinalizeRequest: {
             /** Reading Logs */
             reading_logs?: components["schemas"]["ReadingLogInput"][];
+            /** Mood */
+            mood?: number | null;
         };
         /**
          * ReadingLogEntryRead
@@ -4717,6 +4861,43 @@ export interface components {
             /** Passing Score Max */
             passing_score_max?: number | null;
         };
+        /** SummaryCardMilestoneRead */
+        SummaryCardMilestoneRead: {
+            milestone_type: components["schemas"]["MilestoneType"];
+            /** Milestone Key */
+            milestone_key: string;
+            /**
+             * Achieved At
+             * Format: date-time
+             */
+            achieved_at: string;
+        };
+        /** SummaryCardRead */
+        SummaryCardRead: {
+            /** Record Days */
+            record_days: number;
+            /** Longest Consecutive Days */
+            longest_consecutive_days: number;
+            /** Top Theme Name */
+            top_theme_name: string | null;
+            /** Milestones */
+            milestones: components["schemas"]["SummaryCardMilestoneRead"][];
+            roadmap: components["schemas"]["SummaryCardRoadmapRead"];
+        };
+        /** SummaryCardRoadmapRead */
+        SummaryCardRoadmapRead: {
+            /** Progress Ratio */
+            progress_ratio: number;
+            /** Is Achieved */
+            is_achieved: boolean;
+            /** Overrun Days */
+            overrun_days: number | null;
+        };
+        /** SummaryCardSentenceRead */
+        SummaryCardSentenceRead: {
+            /** Sentence */
+            sentence: string;
+        };
         /** SystemInfoRead */
         SystemInfoRead: {
             /** App Version */
@@ -4887,6 +5068,11 @@ export interface components {
             work_logs?: components["schemas"]["WorkLogInput"][];
             /** Attachment Ids */
             attachment_ids?: number[];
+            /**
+             * Quick Mode
+             * @default false
+             */
+            quick_mode: boolean;
         };
         /** WorkEvaluationReportGenerateRequest */
         WorkEvaluationReportGenerateRequest: {
@@ -4938,6 +5124,8 @@ export interface components {
         WorkFinalizeRequest: {
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
+            /** Mood */
+            mood?: number | null;
         };
         /**
          * WorkLogEntryRead
@@ -8590,6 +8778,37 @@ export interface operations {
             };
         };
     };
+    get_mood_analytics_api_v1_analytics_mood_get: {
+        parameters: {
+            query: {
+                goal_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoodTrendPointRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_quiz_accuracy_analytics_api_v1_analytics_quiz_accuracy_get: {
         parameters: {
             query: {
@@ -9294,6 +9513,74 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_summary_card_api_v1_goals__goal_id__summary_card_get: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryCardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_summary_card_sentence_api_v1_goals__goal_id__summary_card_sentence_post: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryCardSentenceRead"];
+                };
             };
             /** @description Validation Error */
             422: {

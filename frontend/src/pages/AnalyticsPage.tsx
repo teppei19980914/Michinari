@@ -17,6 +17,7 @@ import { ReadingLogHistoryTab } from '../features/analytics/ReadingLogHistoryTab
 import { WorkLogHistoryTab } from '../features/analytics/WorkLogHistoryTab'
 import { MilestoneListTab } from '../features/analytics/MilestoneListTab'
 import { QuizAccuracyTab } from '../features/analytics/QuizAccuracyTab'
+import { MoodTrendTab } from '../features/analytics/MoodTrendTab'
 import {
   hasArchivedAnalyticsGoals,
   selectableAnalyticsGoals,
@@ -33,6 +34,7 @@ const EXAM_TABS = [
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
   { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
   { key: 'quizAccuracy', labelKey: 'analytics.tabs.quizAccuracy' },
+  { key: 'mood', labelKey: 'analytics.tabs.mood' },
 ] as const
 
 /** 読書目標（category=READING）は品質推移等の5タブ+リプラン履歴がMaterial（教材）に
@@ -42,13 +44,17 @@ const READING_TABS = [
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
   { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
   { key: 'quizAccuracy', labelKey: 'analytics.tabs.quizAccuracy' },
+  { key: 'mood', labelKey: 'analytics.tabs.mood' },
 ] as const
 
-/** 仕事目標（category=WORK）も読書と同じ理由で業務記録の一覧に置き換える（仕様書6.8補足）。 */
+/** 仕事目標（category=WORK）も読書と同じ理由で業務記録の一覧に置き換える（仕様書6.8補足）。
+ * クイズ正答率は資格試験・読書のみ対象だが、気分の推移は3種別共通（開発Todo
+ * 「ひとこと記録」v1.0）のため仕事目標にも表示する。 */
 const WORK_TABS = [
   { key: 'workLog', labelKey: 'analytics.tabs.workLog' },
   { key: 'growthDescription', labelKey: 'analytics.tabs.growthDescription' },
   { key: 'milestones', labelKey: 'analytics.tabs.milestones' },
+  { key: 'mood', labelKey: 'analytics.tabs.mood' },
 ] as const
 
 type TabKey =
@@ -166,6 +172,9 @@ export function AnalyticsPage() {
       )}
       {activeTab === 'quizAccuracy' && selectedGoalId !== undefined && (
         <QuizAccuracyTab goalId={selectedGoalId} />
+      )}
+      {activeTab === 'mood' && selectedGoalId !== undefined && (
+        <MoodTrendTab goalId={selectedGoalId} />
       )}
     </div>
   )

@@ -332,9 +332,7 @@ def test_delete_conversation_on_another_goal_returns_not_found(client, exam_goal
 
 
 def test_delete_conversation_on_missing_id_returns_not_found(client, exam_goal):
-    response = client.delete(
-        f"/api/v1/goals/{exam_goal.id}/consultation/conversations/999999"
-    )
+    response = client.delete(f"/api/v1/goals/{exam_goal.id}/consultation/conversations/999999")
 
     assert response.status_code == 404
 
@@ -396,9 +394,7 @@ def test_delete_history_item_removes_it(client, exam_goal, fake_ai):
     )
     [entry] = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json()
 
-    response = client.delete(
-        f"/api/v1/goals/{exam_goal.id}/consultation/history/{entry['id']}"
-    )
+    response = client.delete(f"/api/v1/goals/{exam_goal.id}/consultation/history/{entry['id']}")
 
     assert response.status_code == 204
     assert client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json() == []
@@ -415,9 +411,7 @@ def test_delete_history_item_on_another_goal_returns_not_found(
     )
     [entry] = client.get(f"/api/v1/goals/{exam_goal.id}/consultation/history").json()
 
-    response = client.delete(
-        f"/api/v1/goals/{reading_goal.id}/consultation/history/{entry['id']}"
-    )
+    response = client.delete(f"/api/v1/goals/{reading_goal.id}/consultation/history/{entry['id']}")
 
     assert response.status_code == 404
 

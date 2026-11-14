@@ -27,6 +27,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_MONTHLY,
     AI_ASSISTANT_UID_GOAL_RETROSPECTIVE_WORK_SEMIANNUAL,
     AI_ASSISTANT_UID_HELP,
+    AI_ASSISTANT_UID_SUMMARY_CARD,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_READING,
     AI_ASSISTANT_UID_WEEKLY_SUMMARY_WORK,
@@ -139,6 +140,7 @@ class AiConnectionSettings:
     assistant_uid_daily_feedback_brief: str
     assistant_uid_daily_feedback_reading_brief: str
     assistant_uid_daily_feedback_work_brief: str
+    assistant_uid_summary_card: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -298,6 +300,7 @@ def get_app_settings(session: Session) -> AppSettings:
         assistant_uid_daily_feedback_work_brief=setting_reader.get_str(
             session, AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF
         ),
+        assistant_uid_summary_card=setting_reader.get_str(session, AI_ASSISTANT_UID_SUMMARY_CARD),
         folder_prefix=setting_reader.get_str(session, AI_FOLDER_PREFIX),
         timeout_seconds=setting_reader.get_int(session, AI_TIMEOUT_SECONDS),
         min_interval_seconds=setting_reader.get_int(session, AI_MIN_INTERVAL_SECONDS),
@@ -440,6 +443,7 @@ def _update_ai_connection(session: Session, **fields: object) -> None:
         "assistant_uid_daily_feedback_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
         "assistant_uid_daily_feedback_reading_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_READING_BRIEF,
         "assistant_uid_daily_feedback_work_brief": AI_ASSISTANT_UID_DAILY_FEEDBACK_WORK_BRIEF,
+        "assistant_uid_summary_card": AI_ASSISTANT_UID_SUMMARY_CARD,
         "folder_prefix": AI_FOLDER_PREFIX,
     }
     number_key_by_field = {

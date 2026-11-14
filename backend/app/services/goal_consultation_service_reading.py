@@ -31,9 +31,7 @@ def build_context(session: Session, goal: Goal, today: dt.date) -> CategoryConte
     else:
         fixed_variables = {
             "book_summary": ai_context_reading.build_retrospective_book_summary_text(book),
-            "reading_metrics": ai_context_reading.build_reading_overall_metrics_text(
-                session, book
-            ),
+            "reading_metrics": ai_context_reading.build_reading_overall_metrics_text(session, book),
         }
         raw_entries = ai_context_reading.build_recent_recalls_entries(
             session, [book], goal.start_date, today

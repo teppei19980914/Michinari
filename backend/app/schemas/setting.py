@@ -35,6 +35,7 @@ class AiConnectionSettingsRead(BaseModel):
     assistant_uid_daily_feedback_brief: str
     assistant_uid_daily_feedback_reading_brief: str
     assistant_uid_daily_feedback_work_brief: str
+    assistant_uid_summary_card: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -62,6 +63,7 @@ class AiConnectionSettingsUpdate(BaseModel):
     assistant_uid_daily_feedback_brief: str | None = None
     assistant_uid_daily_feedback_reading_brief: str | None = None
     assistant_uid_daily_feedback_work_brief: str | None = None
+    assistant_uid_summary_card: str | None = None
     folder_prefix: str | None = Field(default=None, min_length=1)
     timeout_seconds: int | None = Field(default=None, ge=1)
     min_interval_seconds: int | None = Field(default=None, ge=0)
@@ -154,9 +156,7 @@ class MilestoneThresholdSettingsRead(BaseModel):
 
 class MilestoneThresholdSettingsUpdate(BaseModel):
     consecutive_days_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
-    total_record_days_thresholds: str | None = Field(
-        default=None, pattern=_THRESHOLD_LIST_PATTERN
-    )
+    total_record_days_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
     reading_total_pages_thresholds: str | None = Field(
         default=None, pattern=_THRESHOLD_LIST_PATTERN
     )
@@ -166,9 +166,7 @@ class MilestoneThresholdSettingsUpdate(BaseModel):
     exam_overall_progress_thresholds: str | None = Field(
         default=None, pattern=_THRESHOLD_LIST_PATTERN
     )
-    work_record_count_thresholds: str | None = Field(
-        default=None, pattern=_THRESHOLD_LIST_PATTERN
-    )
+    work_record_count_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
 
 
 #: 1年前の今日（開発Todo_1年前の今日_v1.0）の候補（カンマ区切りの正の整数、何か月前か）。

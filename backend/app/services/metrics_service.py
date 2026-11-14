@@ -244,6 +244,57 @@ def compute_consecutive_report_days(
     return count
 
 
+def compute_longest_consecutive_report_days(
+    session: Session,
+    goal: Goal,
+    date_from: dt.date,
+    date_to: dt.date,
+    treat_holiday_as_buffer: bool,
+) -> int:
+    """指定期間内で最長の連続記録日数を算出する（ふりかえりまとめ・共有カード、28.3）。
+
+    compute_consecutive_report_days（13.4、直近today基準の現在値のみ）と同じ
+    「BUFFER/OFF日は報告がなくても連続を中断しない」定義を踏襲し、期間の先頭から末尾まで
+    走査して最大の連続区間を返す（節目のお祝いのCONSECUTIVE_DAYS到達履歴は閾値到達時点
+    のみを記録するため、閾値の間隔より短い区間の最長値は再現できず、本関数での再算出が
+    必要。開発Todo「まとめと共有カード」v1.0調査結果）。
+    """
+    if date_to < date_from or date_to < goal.start_date:
+        return 0
+    scan_start = max(date_from, goal.start_date)
+
+    day_types = calendar_service.resolve_day_types(
+        session, scan_start, date_to, treat_holiday_as_buffer
+    )
+    reported_dates = {
+        row[0]
+        for row in session.query(DailyRecord.record_date).filter(
+            DailyRecord.record_date >= scan_start,
+            DailyRecord.record_date <= date_to,
+            record_service_common.category_state_column(goal.category) == RecordState.REPORTED,
+        )
+    }
+    stopped = compute_non_reporting_dates(session, goal, scan_start, date_to)
+
+    longest = 0
+    current = 0
+    current_date = scan_start
+    while current_date <= date_to:
+        if current_date in reported_dates:
+            current += 1
+        elif current_date in stopped or day_types.get(current_date) in (
+            DayType.BUFFER,
+            DayType.OFF,
+        ):
+            pass
+        else:
+            current = 0
+        longest = max(longest, current)
+        current_date += dt.timedelta(days=1)
+
+    return longest
+
+
 @dataclass(frozen=True)
 class StudySummary:
     """総投下時間・学習日数の集計結果（総括レポート・ナレッジエクスポート双方の

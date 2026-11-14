@@ -73,9 +73,7 @@ def test_get_due_questions_excludes_non_active_goals(seeded_session):
 
 
 def test_get_due_questions_excludes_work_goals(seeded_session):
-    goal = Goal(
-        name="仕事", category=GoalCategory.WORK, start_date=TODAY, status=GoalStatus.ACTIVE
-    )
+    goal = Goal(name="仕事", category=GoalCategory.WORK, start_date=TODAY, status=GoalStatus.ACTIVE)
     seeded_session.add(goal)
     seeded_session.flush()
     theme = _make_theme(seeded_session, goal)

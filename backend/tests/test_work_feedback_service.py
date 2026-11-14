@@ -618,9 +618,7 @@ def test_send_work_feedback_includes_selected_attachment_text_in_prompt(
     assert "this is a work specification document long enough for the check" in calls[0]["message"]
 
 
-def test_send_work_feedback_raises_not_found_for_missing_attachment_id(
-    seeded_session, monkeypatch
-):
+def test_send_work_feedback_raises_not_found_for_missing_attachment_id(seeded_session, monkeypatch):
     goal = _make_work_goal(seeded_session)
     _make_work_assignment(seeded_session, goal)
     _stub_send_message(monkeypatch)

@@ -22,8 +22,14 @@ function parseCycleNumber(milestoneKey: string): number {
 }
 
 /** 節目の種別・値から、お祝い文言を解決する（「続いていること」を褒める表現のみ。
- * 途切れたことを責める表現は使わない、依頼文の受け入れ基準）。 */
-export function resolveMilestoneMessage(achievement: MilestoneAchievement): string {
+ * 途切れたことを責める表現は使わない、依頼文の受け入れ基準）。
+ *
+ * 引数は`milestone_type`・`milestone_key`のみに絞っている（`Pick`）。ふりかえりまとめ・
+ * 共有カード（開発Todo「まとめと共有カード」v1.0）の`SummaryCardMilestoneRead`は`id`・
+ * `goal_id`を持たないため、両方の型から呼べるようにするための緩和（CLAUDE.md DRYの原則）。 */
+export function resolveMilestoneMessage(
+  achievement: Pick<MilestoneAchievement, 'milestone_type' | 'milestone_key'>,
+): string {
   const count = Number(achievement.milestone_key)
   switch (achievement.milestone_type) {
     case 'CONSECUTIVE_DAYS':

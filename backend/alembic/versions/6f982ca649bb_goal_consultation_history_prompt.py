@@ -9,6 +9,7 @@ Revises: 13d2faa51317
 Create Date: 2026-10-24 10:39:29.688691
 
 """
+
 from datetime import UTC, datetime
 from typing import Sequence, Union
 
@@ -17,8 +18,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '6f982ca649bb'
-down_revision: Union[str, Sequence[str], None] = '13d2faa51317'
+revision: str = "6f982ca649bb"
+down_revision: Union[str, Sequence[str], None] = "13d2faa51317"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
