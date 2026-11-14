@@ -86,9 +86,7 @@ def register(session: Session, *, file_name: str, content: bytes) -> Attachment:
     if len(content) == 0:
         raise ValidationError("Uploaded file is empty")
     if len(content) > max_upload_bytes:
-        raise ValidationError(
-            f"Uploaded file must be {limits.max_upload_size_mb}MB or smaller"
-        )
+        raise ValidationError(f"Uploaded file must be {limits.max_upload_size_mb}MB or smaller")
 
     current_count = session.query(Attachment).count()
     if current_count >= limits.max_count:
@@ -98,9 +96,7 @@ def register(session: Session, *, file_name: str, content: bytes) -> Attachment:
     if len(extracted_text) < _MIN_EXTRACTED_TEXT_CHARS:
         raise AttachmentExtractionFailedError()
     if len(extracted_text) > limits.max_file_chars:
-        raise ValidationError(
-            f"Extracted text must be {limits.max_file_chars} characters or fewer"
-        )
+        raise ValidationError(f"Extracted text must be {limits.max_file_chars} characters or fewer")
     if contains_forbidden_term(session, extracted_text) or contains_forbidden_term(
         session, file_name
     ):
@@ -173,9 +169,7 @@ def build_attachment_block(session: Session, attachments: list[Attachment]) -> s
         if contains_forbidden_term(session, attachment.extracted_text) or contains_forbidden_term(
             session, attachment.file_name
         ):
-            raise ValidationError(
-                f"Attachment(id={attachment.id}) contains a forbidden term"
-            )
+            raise ValidationError(f"Attachment(id={attachment.id}) contains a forbidden term")
     # 区切り（<<<ATTACHMENTS-{{nonce}}>>>等）の偽造を防ぐため、山括弧を全角化する
     # （question_safety.DELIMITER_REPLACEMENTS、nonceと併用する二重の防御。P11）。
     # file_nameは利用者がアップロード時に指定するため、本文と同様に偽造対象になりうる。

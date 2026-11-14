@@ -16,6 +16,8 @@ import {
 } from './readingLogForm'
 import { hasAnyWorkLogInput, initWorkLogFormValues, type WorkLogFormValue } from './workLogForm'
 import { hasAnyDiaryInput, initDiaryFormValues, type DiaryFormValue } from './diaryForm'
+import type { MoodValue } from './moodStamps'
+import { resolveInitialRecordInputMode, type RecordInputMode } from './recordInputMode'
 
 type IncomingDraftValues = {
   studyLogValues: Record<number, StudyLogFormValue>
@@ -166,6 +168,103 @@ function useMergeNewlyCreatedEntries(
   ])
 }
 
+/** `quick_record.last_mode_*`（app_setting、文字列）。設定取得後に初期表示モードへ
+ * 反映する（useHydrateModeOnce）。 */
+export type QuickRecordLastModes = {
+  exam: string
+  reading: string
+  work: string
+}
+
+/** カテゴリ別の入力方式を、設定の「最後に使ったモード」から1回だけ初期化する
+ * （開発Todo「ひとこと記録」v1.0 決定事項Q3）。recordDataのhydrateとは取得タイミングが
+ * 異なる（設定は別クエリ）ため、独立した`*ModeHydrated`フラグで1回きりを保証する。
+ * カテゴリごとに個別のフラグを見るのは、利用者が1カテゴリだけ先に手動切替した場合でも
+ * 他カテゴリは設定からの初期化を受けられるようにするため。 */
+function useHydrateModeOnce(
+  store: ReturnType<typeof useDraftStore>,
+  storeKey: string,
+  modeHydrated: { exam: boolean; reading: boolean; work: boolean },
+  lastModes: QuickRecordLastModes | undefined,
+): void {
+  useEffect(() => {
+    if (!lastModes || (modeHydrated.exam && modeHydrated.reading && modeHydrated.work)) {
+      return
+    }
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      examModeHydrated: true,
+      readingModeHydrated: true,
+      workModeHydrated: true,
+      examMode: current.examModeHydrated
+        ? current.examMode
+        : resolveInitialRecordInputMode(lastModes.exam),
+      readingMode: current.readingModeHydrated
+        ? current.readingMode
+        : resolveInitialRecordInputMode(lastModes.reading),
+      workMode: current.workModeHydrated
+        ? current.workMode
+        : resolveInitialRecordInputMode(lastModes.work),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeHydrated.exam, modeHydrated.reading, modeHydrated.work, lastModes, storeKey])
+}
+
+/** ひとこと記録モードの気分・入力方式6種の更新関数をまとめる（useDailyReportDraft本体の
+ * 1関数100行の上限〈CODING_RULES.md「保守性（複雑度）」〉のために切り出した）。 */
+type QuickRecordDraftSetters = {
+  setExamMood: Dispatch<SetStateAction<MoodValue | null>>
+  setReadingMood: Dispatch<SetStateAction<MoodValue | null>>
+  setWorkMood: Dispatch<SetStateAction<MoodValue | null>>
+  setExamMode: Dispatch<SetStateAction<RecordInputMode>>
+  setReadingMode: Dispatch<SetStateAction<RecordInputMode>>
+  setWorkMode: Dispatch<SetStateAction<RecordInputMode>>
+}
+
+function useQuickRecordDraftSetters(
+  store: ReturnType<typeof useDraftStore>,
+  storeKey: string,
+): QuickRecordDraftSetters {
+  const setExamMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      examMood: applySetStateAction(action, current.examMood),
+    }))
+  const setReadingMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      readingMood: applySetStateAction(action, current.readingMood),
+    }))
+  const setWorkMood: Dispatch<SetStateAction<MoodValue | null>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      workMood: applySetStateAction(action, current.workMood),
+    }))
+  // 利用者がモードを手動で切り替えた場合も該当カテゴリのhydratedフラグを立てる。設定
+  // （最後に使ったモード）の取得が遅れて後から届いても、既に行った手動操作を上書きしない
+  // ようにするため（2026-11、useHydrateModeOnceとの競合を回避）。
+  const setExamMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      examModeHydrated: true,
+      examMode: applySetStateAction(action, current.examMode),
+    }))
+  const setReadingMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      readingModeHydrated: true,
+      readingMode: applySetStateAction(action, current.readingMode),
+    }))
+  const setWorkMode: Dispatch<SetStateAction<RecordInputMode>> = (action) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      workModeHydrated: true,
+      workMode: applySetStateAction(action, current.workMode),
+    }))
+
+  return { setExamMood, setReadingMood, setWorkMood, setExamMode, setReadingMode, setWorkMode }
+}
+
 export type DailyReportDraft = {
   studyLogValues: Record<number, StudyLogFormValue>
   setStudyLogValues: Dispatch<SetStateAction<Record<number, StudyLogFormValue>>>
@@ -179,6 +278,19 @@ export type DailyReportDraft = {
   setChatMessages: Dispatch<SetStateAction<ChatMessageRead[]>>
   /** 未確定カテゴリに入力が残っているか（離脱警告の判定に使う）。 */
   hasUnsavedInput: boolean
+  /** ひとこと記録モード（開発Todo「ひとこと記録」v1.0）の気分スタンプ・入力方式。 */
+  examMood: MoodValue | null
+  setExamMood: Dispatch<SetStateAction<MoodValue | null>>
+  readingMood: MoodValue | null
+  setReadingMood: Dispatch<SetStateAction<MoodValue | null>>
+  workMood: MoodValue | null
+  setWorkMood: Dispatch<SetStateAction<MoodValue | null>>
+  examMode: RecordInputMode
+  setExamMode: Dispatch<SetStateAction<RecordInputMode>>
+  readingMode: RecordInputMode
+  setReadingMode: Dispatch<SetStateAction<RecordInputMode>>
+  workMode: RecordInputMode
+  setWorkMode: Dispatch<SetStateAction<RecordInputMode>>
 }
 
 /**
@@ -221,10 +333,13 @@ export type DailyReportDraft = {
  *
  * @param storeKey 下書きを一意に識別するキー（画面種別+対象日）
  * @param queries 下書きの初期値の元になる取得結果
+ * @param lastModes カテゴリ別の「最後に使ったモード」（`quick_record.last_mode_*`）。
+ * SC-07（進捗のみ登録）はひとこと記録モードを持たないため省略できる。
  */
 export function useDailyReportDraft(
   storeKey: string,
   queries: DailyRecordQueries,
+  lastModes?: QuickRecordLastModes,
 ): DailyReportDraft {
   const store = useDraftStore()
   const draftState = store.getDraft(storeKey)
@@ -232,6 +347,16 @@ export function useDailyReportDraft(
 
   useHydrateDraftOnce(store, storeKey, draftState.hydrated, queries)
   useMergeNewlyCreatedEntries(store, storeKey, draftState, queries)
+  useHydrateModeOnce(
+    store,
+    storeKey,
+    {
+      exam: draftState.examModeHydrated,
+      reading: draftState.readingModeHydrated,
+      work: draftState.workModeHydrated,
+    },
+    lastModes,
+  )
 
   // 確定済みカテゴリの下書きが残っていても、既にサーバへ反映済みのため警告対象にしない。
   const { isExamReported, isReadingReported, isWorkReported } = toCategoryReportedState(recordData)
@@ -268,6 +393,8 @@ export function useDailyReportDraft(
       ...current,
       chatMessages: applySetStateAction(action, current.chatMessages),
     }))
+  const { setExamMood, setReadingMood, setWorkMood, setExamMode, setReadingMode, setWorkMode } =
+    useQuickRecordDraftSetters(store, storeKey)
 
   return {
     studyLogValues: draftState.studyLogValues,
@@ -281,5 +408,17 @@ export function useDailyReportDraft(
     chatMessages: draftState.chatMessages,
     setChatMessages,
     hasUnsavedInput,
+    examMood: draftState.examMood,
+    setExamMood,
+    readingMood: draftState.readingMood,
+    setReadingMood,
+    workMood: draftState.workMood,
+    setWorkMood,
+    examMode: draftState.examMode,
+    setExamMode,
+    readingMode: draftState.readingMode,
+    setReadingMode,
+    workMode: draftState.workMode,
+    setWorkMode,
   }
 }

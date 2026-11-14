@@ -15,7 +15,7 @@
  * のコメントを参照）。本ファイルの目的は振る舞いの回帰検知であり、網羅率の担保は判定ロジック
  * を切り出した.ts側で行う。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -136,6 +136,9 @@ function buildRecord(overrides: Partial<DailyRecordRead> = {}): DailyRecordRead 
     exam_reported_at: null,
     reading_reported_at: null,
     work_reported_at: null,
+    exam_mood: null,
+    reading_mood: null,
+    work_mood: null,
     diary_entries: [],
     study_logs: [],
     reading_logs: [],
@@ -225,6 +228,13 @@ function renderPage(targetDate: string = LOGICAL_DATE) {
 /** 目標タブ（GoalTabBar）はカテゴリ名と目標名を連結したラベルを持つ。 */
 function getGoalTab(goalName: string) {
   return screen.getByRole('button', { name: new RegExp(goalName) })
+}
+
+/** カテゴリ別セクション内の要素を取得する（3カテゴリとも「ひとこと記録」等の同じ文言の
+ * ボタンを持つため、見出しから`<section>`を特定して絞り込む。CategoryReportSection.tsx参照）。 */
+function getCategorySection(titleText: string) {
+  const heading = screen.getByText(titleText)
+  return within(heading.closest('section') as HTMLElement)
 }
 
 async function waitForTitle() {
@@ -822,5 +832,91 @@ describe('DailyReportPage', () => {
 
     expect(await screen.findByText('前回はここまで進めた')).toBeTruthy()
     expect(screen.getByText(t('dailyReport.previousEntry.label'))).toBeTruthy()
+  })
+
+  describe('ひとこと記録モード（開発Todo「ひとこと記録」v1.0）', () => {
+    it('switches the exam category to quick record mode and sends the mood and note on finalize', async () => {
+      const user = userEvent.setup()
+      vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(buildRecord())
+      renderPage()
+      await waitForTitle()
+
+      const section = getCategorySection(t('dailyReport.studyLog.title'))
+      await user.click(
+        section.getByRole('button', { name: t('dailyReport.quickRecord.modeToggle.quick') }),
+      )
+      await user.click(section.getByText(t('dailyReport.quickRecord.moodStamps.4')))
+      await user.type(
+        section.getByLabelText(t('dailyReport.quickRecord.noteLabel')),
+        '今日は順調',
+      )
+      await user.click(
+        screen.getByRole('button', { name: t('dailyReport.studyLog.finalizeButton') }),
+      )
+
+      await waitFor(() =>
+        expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(
+          LOGICAL_DATE,
+          expect.objectContaining({
+            mood: 4,
+            diary_entries: [expect.objectContaining({ diary_learned: '今日は順調' })],
+          }),
+        ),
+      )
+    })
+
+    it('switches the reading category to quick record mode and sends the mood and note on finalize', async () => {
+      const user = userEvent.setup()
+      vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(buildRecord())
+      renderPage()
+      await waitForTitle()
+      await user.click(getGoalTab(READING_GOAL_NAME))
+
+      const section = getCategorySection(t('dailyReport.readingLog.title'))
+      await user.click(
+        section.getByRole('button', { name: t('dailyReport.quickRecord.modeToggle.quick') }),
+      )
+      await user.click(section.getByText(t('dailyReport.quickRecord.moodStamps.2')))
+      await user.type(section.getByLabelText(t('dailyReport.quickRecord.noteLabel')), '少しだけ読めた')
+      await user.click(
+        screen.getByRole('button', { name: t('dailyReport.readingLog.finalizeButton') }),
+      )
+
+      await waitFor(() =>
+        expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(
+          LOGICAL_DATE,
+          expect.objectContaining({
+            mood: 2,
+            reading_logs: [expect.objectContaining({ recall_body: '少しだけ読めた' })],
+          }),
+        ),
+      )
+    })
+
+    it('switches the work category to quick record mode and sends the mood and note on finalize', async () => {
+      const user = userEvent.setup()
+      vi.mocked(recordsApi.finalizeWorkRecord).mockResolvedValue(buildRecord())
+      renderPage()
+      await waitForTitle()
+      await user.click(getGoalTab(WORK_GOAL_NAME))
+
+      const section = getCategorySection(t('dailyReport.workLog.title'))
+      await user.click(
+        section.getByRole('button', { name: t('dailyReport.quickRecord.modeToggle.quick') }),
+      )
+      await user.click(section.getByText(t('dailyReport.quickRecord.moodStamps.5')))
+      await user.type(section.getByLabelText(t('dailyReport.quickRecord.noteLabel')), '順調に進んだ')
+      await user.click(screen.getByRole('button', { name: t('dailyReport.workLog.finalizeButton') }))
+
+      await waitFor(() =>
+        expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(
+          LOGICAL_DATE,
+          expect.objectContaining({
+            mood: 5,
+            work_logs: [expect.objectContaining({ body: '順調に進んだ' })],
+          }),
+        ),
+      )
+    })
   })
 })

@@ -16,6 +16,7 @@ import {
   type ChatMessageRead,
   type DailyRecordRead,
 } from '../../api/records'
+import { updateSettings } from '../../api/settings'
 import type { GoalCategory, GoalRead } from '../../api/goals'
 import {
   isAllCategoriesReported,
@@ -33,6 +34,7 @@ import { buildStudyLogPayload } from './studyLogForm'
 import { buildReadingLogPayload } from './readingLogForm'
 import { buildWorkLogPayload } from './workLogForm'
 import { buildDiaryEntriesPayload } from './diaryForm'
+import type { RecordInputMode } from './recordInputMode'
 
 /** 1カテゴリ分の操作（AI対話・確定）と、そのカテゴリに属する対話履歴。 */
 export type CategoryActions = {
@@ -78,6 +80,19 @@ type CategoryOptions = {
   onError: (error: unknown) => void
 }
 
+/** 確定時に使った入力方式を「最後に使ったモード」（開発Todo「ひとこと記録」v1.0 決定事項Q3、
+ * §4.1手順4）へ書き戻す。失敗しても確定処理自体は成功させる（表示の初期値が次回も
+ * 直前のままになるだけで、記録そのものには影響しないため）。 */
+function persistExamLastMode(mode: RecordInputMode): void {
+  updateSettings({ quick_record: { last_mode_exam: mode } }).catch(() => undefined)
+}
+function persistReadingLastMode(mode: RecordInputMode): void {
+  updateSettings({ quick_record: { last_mode_reading: mode } }).catch(() => undefined)
+}
+function persistWorkLastMode(mode: RecordInputMode): void {
+  updateSettings({ quick_record: { last_mode_work: mode } }).catch(() => undefined)
+}
+
 function useExamActions({
   targetDate,
   draft,
@@ -95,16 +110,21 @@ function useExamActions({
         study_logs: buildStudyLogPayload(draft.studyLogValues),
         diary_entries: buildDiaryEntriesPayload(draft.diaryValues),
         attachment_ids: attachmentIds,
+        quick_mode: draft.examMode === 'QUICK',
       }),
     setMessages: draft.setChatMessages,
     onError,
   })
   const finalize = useCategoryFinalize({
-    finalizeRequest: () =>
-      finalizeRecord(targetDate, {
+    finalizeRequest: async () => {
+      const record = await finalizeRecord(targetDate, {
         study_logs: buildStudyLogPayload(draft.studyLogValues),
         diary_entries: buildDiaryEntriesPayload(draft.diaryValues),
-      }),
+        mood: draft.examMode === 'QUICK' ? draft.examMood : null,
+      })
+      persistExamLastMode(draft.examMode)
+      return record
+    },
     onFinalized,
     onError,
   })
@@ -132,15 +152,20 @@ function useReadingActions({
         message,
         reading_logs: buildReadingLogPayload(draft.readingLogValues),
         attachment_ids: attachmentIds,
+        quick_mode: draft.readingMode === 'QUICK',
       }),
     setMessages: draft.setChatMessages,
     onError,
   })
   const finalize = useCategoryFinalize({
-    finalizeRequest: () =>
-      finalizeReadingRecord(targetDate, {
+    finalizeRequest: async () => {
+      const record = await finalizeReadingRecord(targetDate, {
         reading_logs: buildReadingLogPayload(draft.readingLogValues),
-      }),
+        mood: draft.readingMode === 'QUICK' ? draft.readingMood : null,
+      })
+      persistReadingLastMode(draft.readingMode)
+      return record
+    },
     onFinalized,
     onError,
   })
@@ -168,15 +193,20 @@ function useWorkActions({
         message,
         work_logs: buildWorkLogPayload(draft.workLogValues),
         attachment_ids: attachmentIds,
+        quick_mode: draft.workMode === 'QUICK',
       }),
     setMessages: draft.setChatMessages,
     onError,
   })
   const finalize = useCategoryFinalize({
-    finalizeRequest: () =>
-      finalizeWorkRecord(targetDate, {
+    finalizeRequest: async () => {
+      const record = await finalizeWorkRecord(targetDate, {
         work_logs: buildWorkLogPayload(draft.workLogValues),
-      }),
+        mood: draft.workMode === 'QUICK' ? draft.workMood : null,
+      })
+      persistWorkLastMode(draft.workMode)
+      return record
+    },
     onFinalized,
     onError,
   })

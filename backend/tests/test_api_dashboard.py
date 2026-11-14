@@ -546,9 +546,7 @@ def test_dashboard_today_quiz_count_reflects_due_questions(seeded_session, clien
     assert body["today_quiz_count"] == 1
 
 
-def test_dashboard_includes_on_this_day_entry_when_a_past_record_matches(
-    seeded_session, client
-):
+def test_dashboard_includes_on_this_day_entry_when_a_past_record_matches(seeded_session, client):
     """1年前の今日（開発Todo_1年前の今日_v1.0）：GET /dashboardのレスポンスに実際の値が
     乗ることを確認する（サービス層の単体テストだけでは、OnThisDayEntryからOnThisDayRead
     への変換・JSONシリアライズは検証できない）。"""

@@ -78,8 +78,13 @@ def test_ask_answers_reading_goal_with_book_context(seeded_session, monkeypatch)
 def test_ask_uses_fallback_text_when_book_is_not_registered(seeded_session, monkeypatch):
     """BookTabで書籍情報を入力する前（READING目標作成直後）でも質疑は成立する。"""
     goal = reading_helpers.make_reading_goal(seeded_session)
-    fake = FakeAi(monkeypatch, ("## 記録から言えること\n記録からはまだ判断できません。\n"
-                                "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",))
+    fake = FakeAi(
+        monkeypatch,
+        (
+            "## 記録から言えること\n記録からはまだ判断できません。\n"
+            "## 一般的な助言\n基礎から整理しましょう。\n[根拠: なし]",
+        ),
+    )
 
     conversation_id = _make_conversation(seeded_session, goal)
     answer = service.ask(

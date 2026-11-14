@@ -55,9 +55,7 @@ def test_generate_for_theme_saves_valid_question(seeded_session, monkeypatch):
     assert question.interval_index == 0
 
 
-def test_generate_for_theme_discards_block_with_invalid_citation_date(
-    seeded_session, monkeypatch
-):
+def test_generate_for_theme_discards_block_with_invalid_citation_date(seeded_session, monkeypatch):
     goal = make_exam_goal(seeded_session)
     theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
     # 2026-03-10はこのチャンクに実際には含まれていない日付（偽の出典）。

@@ -12,6 +12,7 @@ Revises: 4e665f950a10
 Create Date: 2026-11-02 00:00:00.000000
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,8 +20,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '80bf9d322947'
-down_revision: Union[str, Sequence[str], None] = '4e665f950a10'
+revision: str = "80bf9d322947"
+down_revision: Union[str, Sequence[str], None] = "4e665f950a10"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -67,7 +68,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index(
-        "ix_goal_milestone_achievement_goal_id", table_name="goal_milestone_achievement"
-    )
+    op.drop_index("ix_goal_milestone_achievement_goal_id", table_name="goal_milestone_achievement")
     op.drop_table("goal_milestone_achievement")

@@ -320,9 +320,7 @@ def get_mood_analytics(
     """
     goal = goal_service.get_goal(session, goal_id)
     entries = analytics_service.list_mood_trend_entries(session, goal.category)
-    return [
-        MoodTrendPointRead(record_date=e.record_date, mood_value=e.mood_value) for e in entries
-    ]
+    return [MoodTrendPointRead(record_date=e.record_date, mood_value=e.mood_value) for e in entries]
 
 
 @router.get("/analytics/quiz-accuracy", response_model=QuizAccuracyAnalyticsRead)

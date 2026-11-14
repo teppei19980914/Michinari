@@ -16,7 +16,7 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { DailyReportDraftProvider } from './dailyReportDraftStore'
-import { useDailyReportDraft } from './useDailyReportDraft'
+import { useDailyReportDraft, type QuickRecordLastModes } from './useDailyReportDraft'
 import type { DailyRecordQueries } from './useDailyRecordQueries'
 import { makeBook, makeGoal, makeWorkAssignment } from '../../test/fixtures'
 import type { DailyRecordRead, QuotaItemRead } from '../../api/records'
@@ -38,6 +38,9 @@ function buildRecord(overrides: Partial<DailyRecordRead> = {}): DailyRecordRead 
     exam_reported_at: null,
     reading_reported_at: null,
     work_reported_at: null,
+    exam_mood: null,
+    reading_mood: null,
+    work_mood: null,
     diary_entries: [],
     study_logs: [],
     reading_logs: [],
@@ -233,5 +236,64 @@ describe('useDailyReportDraft（hydrate後に新規作成された項目のマ�
     expect(result.current.readingLogValues).toBe(valuesAfterHydrate.reading)
     expect(result.current.workLogValues).toBe(valuesAfterHydrate.work)
     expect(result.current.diaryValues).toBe(valuesAfterHydrate.diary)
+  })
+})
+
+describe('useDailyReportDraft（ひとこと記録モードの気分・入力方式、開発Todo「ひとこと記録」v1.0）', () => {
+  function setupWithLastModes(lastModes?: QuickRecordLastModes) {
+    return renderHook(
+      ({ modes }: { modes: QuickRecordLastModes | undefined }) =>
+        useDailyReportDraft(STORE_KEY, buildQueries(), modes),
+      { wrapper, initialProps: { modes: lastModes } },
+    )
+  }
+
+  it('defaults every category to NORMAL mode and null mood before settings load', () => {
+    const { result } = setupWithLastModes(undefined)
+
+    expect(result.current.examMode).toBe('NORMAL')
+    expect(result.current.readingMode).toBe('NORMAL')
+    expect(result.current.workMode).toBe('NORMAL')
+    expect(result.current.examMood).toBe(null)
+  })
+
+  it('initializes each category mode from the last-used settings once they load', () => {
+    const { result, rerender } = setupWithLastModes(undefined)
+
+    act(() => {
+      rerender({ modes: { exam: 'QUICK', reading: 'NORMAL', work: 'QUICK' } })
+    })
+
+    expect(result.current.examMode).toBe('QUICK')
+    expect(result.current.readingMode).toBe('NORMAL')
+    expect(result.current.workMode).toBe('QUICK')
+  })
+
+  it('does not override a mode the user already toggled once last modes load', () => {
+    const { result, rerender } = setupWithLastModes(undefined)
+
+    act(() => {
+      result.current.setExamMode('QUICK')
+    })
+    act(() => {
+      rerender({ modes: { exam: 'NORMAL', reading: 'NORMAL', work: 'NORMAL' } })
+    })
+
+    // 初期化は1回きりのため、設定取得前に利用者が切り替えた値を上書きしない。
+    expect(result.current.examMode).toBe('QUICK')
+  })
+
+  it('updates the mood for each category independently', () => {
+    const { result } = setupWithLastModes(undefined)
+
+    act(() => {
+      result.current.setExamMood(4)
+      result.current.setReadingMood(2)
+      result.current.setWorkMood(5)
+    })
+
+    expect(result.current.examMood).toBe(4)
+    expect(result.current.readingMood).toBe(2)
+    expect(result.current.workMood).toBe(5)
   })
 })

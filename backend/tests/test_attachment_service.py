@@ -252,9 +252,7 @@ def test_build_attachment_block_rejects_forbidden_term_added_after_registration(
     attachment = attachment_service.register(
         seeded_session,
         file_name="a.pdf",
-        content=build_minimal_pdf(
-            "this document content is completely harmless and safe text"
-        ),
+        content=build_minimal_pdf("this document content is completely harmless and safe text"),
     )
     _add_term(seeded_session, "harmless")
 

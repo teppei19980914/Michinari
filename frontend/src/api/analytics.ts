@@ -12,6 +12,7 @@ export type GrowthDescriptionAssignRequest = components['schemas']['GrowthDescri
 export type ReadingLogEntryRead = components['schemas']['ReadingLogEntryRead']
 export type WorkLogEntryRead = components['schemas']['WorkLogEntryRead']
 export type QuizAccuracyAnalyticsRead = components['schemas']['QuizAccuracyAnalyticsRead']
+export type MoodTrendPointRead = components['schemas']['MoodTrendPointRead']
 
 export function getQualityAnalytics(
   goalId: number,
@@ -67,4 +68,11 @@ export function getWorkLogAnalytics(goalId: number): Promise<WorkLogEntryRead[]>
 
 export function getQuizAccuracyAnalytics(goalId: number): Promise<QuizAccuracyAnalyticsRead> {
   return apiClient.get<QuizAccuracyAnalyticsRead>(`/analytics/quiz-accuracy?goal_id=${goalId}`)
+}
+
+/** 気分の推移タブ（開発Todo「ひとこと記録」v1.0 要件5）。気分はgoalではなくカテゴリに
+ * 紐づくため、同カテゴリの別目標でも同じ結果になる（既存の呼び出し規約に合わせてgoal_idで
+ * 指定する）。 */
+export function getMoodAnalytics(goalId: number): Promise<MoodTrendPointRead[]> {
+  return apiClient.get<MoodTrendPointRead[]>(`/analytics/mood?goal_id=${goalId}`)
 }

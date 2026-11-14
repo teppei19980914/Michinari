@@ -398,9 +398,7 @@ def test_reading_roadmap_buffer_dates_included(db_session):
 
 
 def _make_work_assignment(db_session, goal_id, start_date=dt.date(2026, 1, 1)) -> WorkAssignment:
-    assignment = WorkAssignment(
-        goal_id=goal_id, expected_content="案件内容", start_date=start_date
-    )
+    assignment = WorkAssignment(goal_id=goal_id, expected_content="案件内容", start_date=start_date)
     db_session.add(assignment)
     db_session.flush()
     return assignment
@@ -479,12 +477,18 @@ def test_work_roadmap_has_no_planned_or_actual_points(db_session):
 
 
 def test_compute_elapsed_ratio_clamps_between_0_and_1():
-    assert roadmap_service.compute_elapsed_ratio(
-        dt.date(2026, 3, 1), dt.date(2026, 8, 31), dt.date(2026, 3, 1)
-    ) == 0.0
-    assert roadmap_service.compute_elapsed_ratio(
-        dt.date(2026, 3, 1), dt.date(2026, 8, 31), dt.date(2026, 8, 31)
-    ) == 1.0
+    assert (
+        roadmap_service.compute_elapsed_ratio(
+            dt.date(2026, 3, 1), dt.date(2026, 8, 31), dt.date(2026, 3, 1)
+        )
+        == 0.0
+    )
+    assert (
+        roadmap_service.compute_elapsed_ratio(
+            dt.date(2026, 3, 1), dt.date(2026, 8, 31), dt.date(2026, 8, 31)
+        )
+        == 1.0
+    )
 
 
 def test_compute_elapsed_ratio_handles_zero_length_period():
@@ -500,9 +504,7 @@ def test_date_range_returns_empty_when_from_is_after_to():
 
 
 def test_ratio_series_returns_empty_when_total_work_is_zero():
-    assert (
-        roadmap_service._ratio_series([], 0.0, dt.date(2026, 1, 1), dt.date(2026, 1, 5)) == {}
-    )
+    assert roadmap_service._ratio_series([], 0.0, dt.date(2026, 1, 1), dt.date(2026, 1, 5)) == {}
 
 
 def test_extend_to_range_pads_zero_before_first_and_holds_after_last():

@@ -12,6 +12,12 @@ export type GoalRoadmapMiniProps = {
   progressRatio: number | null
   isAchieved: boolean
   overrunDays: number | null
+  /** 固定ピクセル寸法で描画する場合に指定する（ふりかえりまとめ・共有カード、開発Todo
+   * 「まとめと共有カード」v1.0）。SVGをXMLSerializerで文字列化してラスタライズする際、
+   * Tailwindクラス（既定の`h-6 w-full`）はスタイルシートを持たないスタンドアロンSVGには
+   * 適用されないため、CSSに依存しない明示的なwidth/height属性へ切り替える。省略時は
+   * 従来のダッシュボード用途（className方式）のまま変えない。 */
+  size?: { width: number; height: number }
 }
 
 const VIEW_WIDTH = 100
@@ -29,6 +35,7 @@ export function GoalRoadmapMini({
   progressRatio,
   isAchieved,
   overrunDays,
+  size,
 }: GoalRoadmapMiniProps) {
   const ratio = Math.min(1, Math.max(0, progressRatio ?? 0))
   const summaryText = buildRoadmapSummaryText({
@@ -45,7 +52,12 @@ export function GoalRoadmapMini({
   const currentX = ratio * VIEW_WIDTH
 
   return (
-    <svg viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`} role="img" aria-label={summaryText} className="h-6 w-full">
+    <svg
+      viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+      role="img"
+      aria-label={summaryText}
+      {...(size ? { width: size.width, height: size.height } : { className: 'h-6 w-full' })}
+    >
       <line
         x1={0}
         y1={ROAD_Y}

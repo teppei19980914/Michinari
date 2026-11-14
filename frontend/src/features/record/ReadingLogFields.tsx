@@ -5,6 +5,7 @@ import { Textarea } from '../../components/Textarea'
 import type { BookRead } from '../../api/goals'
 import { PreviousEntryHint } from './PreviousEntryHint'
 import { usePreviousReadingLogEntry } from './usePreviousEntryQueries'
+import { VoiceInputHint } from './VoiceInputHint'
 import { SlotMinutesFields } from './SlotMinutesFields'
 import type { SlotMinutesFormValue } from './slotMinutesForm'
 import { getReadingLogQuestions, type ReadingLogFormValue } from './readingLogForm'
@@ -108,7 +109,9 @@ function ReadingLogFieldsCard({
           />
         </label>
       ))}
-      <p className="mt-2 text-xs text-text-disabled">{t('dailyReport.voiceInputHint')}</p>
+      <div className="mt-2">
+        <VoiceInputHint />
+      </div>
       <label className="mt-2 flex flex-col gap-1 text-xs text-text-muted">
         {t('dailyReport.readingLog.recallLabel')}
         <Textarea

@@ -34,7 +34,9 @@ def upgrade() -> None:
         sa.Column("question", sa.Text(), nullable=False),
         sa.Column(
             "answer_status",
-            sa.Enum(*_ANSWER_STATUS_ENUM_VALUES, name="goalconsultationanswerstatus", native_enum=False),
+            sa.Enum(
+                *_ANSWER_STATUS_ENUM_VALUES, name="goalconsultationanswerstatus", native_enum=False
+            ),
             nullable=False,
         ),
         sa.Column("answer_body", sa.Text(), nullable=False),

@@ -114,9 +114,7 @@ def _collect_candidates(session: Session, candidate_dates: set[dt.date]) -> list
             diary_body != "",
         )
     ):
-        candidates.append(
-            _Candidate(record_date, goal_id, goal_name, GoalCategory.EXAM, body)
-        )
+        candidates.append(_Candidate(record_date, goal_id, goal_name, GoalCategory.EXAM, body))
 
     for record_date, goal_id, goal_name, body in (
         session.query(DailyRecord.record_date, Book.goal_id, Goal.name, ReadingLog.recall_body)
@@ -128,9 +126,7 @@ def _collect_candidates(session: Session, candidate_dates: set[dt.date]) -> list
             ReadingLog.recall_body != "",
         )
     ):
-        candidates.append(
-            _Candidate(record_date, goal_id, goal_name, GoalCategory.READING, body)
-        )
+        candidates.append(_Candidate(record_date, goal_id, goal_name, GoalCategory.READING, body))
 
     for record_date, goal_id, goal_name, body in (
         session.query(DailyRecord.record_date, WorkAssignment.goal_id, Goal.name, WorkLog.body)
@@ -142,9 +138,7 @@ def _collect_candidates(session: Session, candidate_dates: set[dt.date]) -> list
             WorkLog.body != "",
         )
     ):
-        candidates.append(
-            _Candidate(record_date, goal_id, goal_name, GoalCategory.WORK, body)
-        )
+        candidates.append(_Candidate(record_date, goal_id, goal_name, GoalCategory.WORK, body))
 
     return candidates
 
