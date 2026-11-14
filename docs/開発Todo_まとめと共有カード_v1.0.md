@@ -89,7 +89,7 @@ Phase 51。作業は `dev/2026-11-11`（`origin/main` 2.8.0 から作成）で�
 - [x] D-03 設計書（ロジック・プロンプト編）：処理フロー、プロンプト3種、検証、STRIDE、改訂履歴（2026-11-11、28章新設、旧28章「未決事項」を29章へ採番替え、改69）
 - [x] D-04 設計書（データ構造編）：設定キー、`AiPurpose`/`ConversationScope`、改訂履歴（2026-11-11、改69）
 - [x] D-05 実装フェーズ分割計画書：Phase 51（2026-11-11、改30）
-- [x] D-06 OPERATIONS.md：必要性を判断（2026-11-11、新規の運用手順は無いため追記不要と判断。既存のPAT/release手順に変更なし）
+- [x] D-06 OPERATIONS.md：必要性を判断（2026-11-11、PAT/release手順への影響は無いと判断。ただし2026-11-13、Stop Hookの最終チェックで「AI一文生成の使い捨てチャット・フォルダ運用（ヘルプ・目標相談と同型）」の記載漏れを発見し、`OPERATIONS/ふりかえりまとめ・共有カードの運用.md`を新設して追記。README.mdの「すべての種類に共通する機能」表にも本機能・ひとこと記録モードの行を追加した）
 
 ### 3.2 バックエンド実装
 
@@ -179,3 +179,5 @@ Phase 51。作業は `dev/2026-11-11`（`origin/main` 2.8.0 から作成）で�
   - **dry-reviewer（MEDIUM）**：日付範囲ピッカー（開始日/終了日2入力、min/max相互参照）が`LogExportSection.tsx`と`SummaryCardSection.tsx`で同型実装（2件目でDRY原則の共通化閾値に達する）。→ `components/DateRangeFields.tsx`を新設し両箇所から利用するよう置き換え。
   - **label-checker・secret-reviewer・xss-reviewer**：指摘事項なし。
   - 全修正後、backend（`ruff check .` All checks passed、`pytest --cov=app` 2293 passed・カバレッジ100%）・frontend（`oxlint` 0件、`tsc -b` 0件、`vitest run --coverage` 1658 passed・203ファイル・カバレッジ100%）を再確認。
+- 2026-11-13：mainへPR #134としてマージ（merge commit 151efa9）。ブランチ`dev/2026-11-11`は削除せず、次回セッション開始時の自動判定に委ねる。
+- 2026-11-14：マージ後のStop Hook最終チェックで、D-06（OPERATIONS.md）の判断が不十分だったことが判明。AI一文生成が既存のヘルプ・目標相談と同じ「使い捨てチャット＋フォルダ」パターン（手動削除が必要になりうる運用）を使っているにもかかわらず、その運用手順が`OPERATIONS.md`に記載されていなかった。`docs/OPERATIONS/ふりかえりまとめ・共有カードの運用.md`を新設し索引へ追加。あわせて`README.md`「すべての種類に共通する機能」表へ本機能とひとこと記録モードの行を追加（これも同様に未反映だった）。
