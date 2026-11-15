@@ -1,8 +1,4 @@
-/** 復習クイズの進行状況の純粋関数（テスト容易性のためJSXから分離、CODING_RULES.md）。 */
-export function isLastQuestion(currentIndex: number, totalCount: number): boolean {
-  return currentIndex >= totalCount - 1
-}
-
-export function nextIndex(currentIndex: number): number {
-  return currentIndex + 1
-}
+/** 復習クイズの進行状況（テスト容易性のためJSXから分離、CODING_RULES.md）。
+ * 問題集（単語帳）と共通の判定のため`utils/sessionProgress.ts`へ切り出し済み、
+ * ここでは既存の呼び出し元（QuizSession.tsx）との互換のため re-export する。 */
+export { isLastQuestion, nextIndex } from '../../utils/sessionProgress'

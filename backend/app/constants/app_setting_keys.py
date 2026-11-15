@@ -181,3 +181,19 @@ QUICK_RECORD_LAST_MODE_WORK = "quick_record.last_mode.work"
 #: 音声入力ヒント（Win+H案内）を閉じたか（Q5、日記欄・想起欄・業務内容欄・ひとこと欄の
 #: 4箇所共通）。閉じた後は二度と出さない。
 QUICK_RECORD_VOICE_HINT_DISMISSED = "quick_record.voice_hint_dismissed"
+
+# 単語帳（開発Todo_単語帳_v1.0 要件A）。資格試験の目標に紐づくAI非依存の問題集。
+#: 用語の最大文字数（`quick_record.note_max_chars`と同じ、短い語句相当）。
+VOCAB_TERM_MAX_CHARS = "vocab.term_max_chars"
+#: 意味の最大文字数（`ai.help_answer_max_chars`等と同じ、説明文相当）。
+VOCAB_MEANING_MAX_CHARS = "vocab.meaning_max_chars"
+#: 1つの単語帳に登録できるカード数の上限。
+VOCAB_DECK_MAX_CARDS = "vocab.deck_max_cards"
+#: 一括登録（貼り付け）で一度に取り込める行数の上限。
+VOCAB_IMPORT_MAX_ROWS = "vocab.import_max_rows"
+#: 出題セッションの問題数の既定値。
+VOCAB_SESSION_DEFAULT_QUESTIONS = "vocab.session_default_questions"
+#: 出題セッションの問題数の上限。
+VOCAB_SESSION_MAX_QUESTIONS = "vocab.session_max_questions"
+#: 「苦手」絞り込みの正答率しきい値（%、これ未満が対象）。
+VOCAB_WEAK_ACCURACY_PERCENT = "vocab.weak_accuracy_percent"

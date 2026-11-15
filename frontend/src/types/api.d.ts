@@ -2223,6 +2223,201 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/vocab-decks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Vocab Decks */
+        get: operations["list_vocab_decks_api_v1_goals__goal_id__vocab_decks_get"];
+        put?: never;
+        /** Create Vocab Deck */
+        post: operations["create_vocab_deck_api_v1_goals__goal_id__vocab_decks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/vocab-decks/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Reorder Vocab Decks */
+        put: operations["reorder_vocab_decks_api_v1_goals__goal_id__vocab_decks_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Vocab Deck */
+        get: operations["get_vocab_deck_api_v1_vocab_decks__deck_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Vocab Deck */
+        delete: operations["delete_vocab_deck_api_v1_vocab_decks__deck_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Vocab Deck */
+        patch: operations["update_vocab_deck_api_v1_vocab_decks__deck_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Vocab Cards */
+        get: operations["list_vocab_cards_api_v1_vocab_decks__deck_id__cards_get"];
+        put?: never;
+        /** Create Vocab Card */
+        post: operations["create_vocab_card_api_v1_vocab_decks__deck_id__cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-cards/{card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Vocab Card */
+        delete: operations["delete_vocab_card_api_v1_vocab_cards__card_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Vocab Card */
+        patch: operations["update_vocab_card_api_v1_vocab_cards__card_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/vocab-cards/{card_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Check Vocab Card */
+        patch: operations["check_vocab_card_api_v1_vocab_cards__card_id__check_patch"];
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}/cards/import-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Vocab Import */
+        post: operations["preview_vocab_import_api_v1_vocab_decks__deck_id__cards_import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}/cards/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Vocab Import */
+        post: operations["confirm_vocab_import_api_v1_vocab_decks__deck_id__cards_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Vocab Deck */
+        get: operations["export_vocab_deck_api_v1_vocab_decks__deck_id__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-decks/{deck_id}/quiz-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Vocab Quiz Session
+         * @description 問題集の出題セッションを開始する。サーバーにセッション自体は保存しない。
+         */
+        post: operations["start_vocab_quiz_session_api_v1_vocab_decks__deck_id__quiz_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vocab-cards/{card_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Vocab Card */
+        post: operations["answer_vocab_card_api_v1_vocab_cards__card_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4971,6 +5166,225 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VocabAnswerRequest */
+        VocabAnswerRequest: {
+            mode: components["schemas"]["VocabQuizMode"];
+            /** Self Judged Correct */
+            self_judged_correct?: boolean | null;
+            /** Answer Text */
+            answer_text?: string | null;
+            /** Selected Card Id */
+            selected_card_id?: number | null;
+        };
+        /** VocabAnswerResultRead */
+        VocabAnswerResultRead: {
+            /** Is Correct */
+            is_correct: boolean;
+        };
+        /** VocabCardCheckRequest */
+        VocabCardCheckRequest: {
+            /** Is Checked */
+            is_checked: boolean;
+        };
+        /** VocabCardCreateRequest */
+        VocabCardCreateRequest: {
+            /** Term */
+            term: string;
+            /** Meaning */
+            meaning: string;
+            /** Aliases */
+            aliases?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** VocabCardRead */
+        VocabCardRead: {
+            /** Id */
+            id: number;
+            /** Deck Id */
+            deck_id: number;
+            /** Term */
+            term: string;
+            /** Meaning */
+            meaning: string;
+            /** Aliases */
+            aliases: string | null;
+            /** Note */
+            note: string | null;
+            /** Is Checked */
+            is_checked: boolean;
+            /** Display Order */
+            display_order: number;
+            /** Correct Count */
+            correct_count: number;
+            /** Incorrect Count */
+            incorrect_count: number;
+            /** Accuracy Percent */
+            accuracy_percent: number | null;
+            /** Consecutive Incorrect */
+            consecutive_incorrect: number;
+            /** Last Answered At */
+            last_answered_at: string | null;
+        };
+        /** VocabCardUpdateRequest */
+        VocabCardUpdateRequest: {
+            /** Term */
+            term?: string | null;
+            /** Meaning */
+            meaning?: string | null;
+            /** Aliases */
+            aliases?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** VocabDeckCreateRequest */
+        VocabDeckCreateRequest: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+        };
+        /** VocabDeckRead */
+        VocabDeckRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Use In Ai */
+            use_in_ai: boolean;
+            /** Display Order */
+            display_order: number;
+            /** Card Count */
+            card_count: number;
+        };
+        /** VocabDeckReorderRequest */
+        VocabDeckReorderRequest: {
+            /** Ordered Deck Ids */
+            ordered_deck_ids: number[];
+        };
+        /** VocabDeckUpdateRequest */
+        VocabDeckUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Use In Ai */
+            use_in_ai?: boolean | null;
+        };
+        /** VocabExportRead */
+        VocabExportRead: {
+            /** Text */
+            text: string;
+        };
+        /** VocabImportConfirmRead */
+        VocabImportConfirmRead: {
+            /** Created Count */
+            created_count: number;
+        };
+        /** VocabImportConfirmRequest */
+        VocabImportConfirmRequest: {
+            /** Rows */
+            rows: components["schemas"]["VocabImportConfirmRow"][];
+        };
+        /** VocabImportConfirmRow */
+        VocabImportConfirmRow: {
+            /** Term */
+            term: string;
+            /** Meaning */
+            meaning: string;
+            /** Aliases */
+            aliases?: string | null;
+            /** Note */
+            note?: string | null;
+        };
+        /** VocabImportErrorRead */
+        VocabImportErrorRead: {
+            /** Line Number */
+            line_number: number;
+            /** Reason */
+            reason: string;
+        };
+        /** VocabImportPreviewRead */
+        VocabImportPreviewRead: {
+            /** Rows */
+            rows: components["schemas"]["VocabImportRowRead"][];
+            /** Errors */
+            errors: components["schemas"]["VocabImportErrorRead"][];
+            /** Duplicate Count */
+            duplicate_count: number;
+        };
+        /** VocabImportPreviewRequest */
+        VocabImportPreviewRequest: {
+            /** Text */
+            text: string;
+        };
+        /** VocabImportRowRead */
+        VocabImportRowRead: {
+            /** Line Number */
+            line_number: number;
+            /** Term */
+            term: string;
+            /** Meaning */
+            meaning: string;
+            /** Aliases */
+            aliases: string | null;
+            /** Note */
+            note: string | null;
+        };
+        /**
+         * VocabQuizMode
+         * @description 単語帳の問題集（開発Todo_単語帳_v1.0 要件A）の出題形式。AIは使わない。
+         *
+         *     `FLASH_*`はカードをめくる形式（答えを見た後に自分で判定）、`TYPED_*`は入力式
+         *     （サーバー側で判定）、`CHOICE_*`は4択（誤答選択肢は同じ単語帳の他カードから生成）。
+         * @enum {string}
+         */
+        VocabQuizMode: "FLASH_TERM_TO_MEANING" | "FLASH_MEANING_TO_TERM" | "TYPED_MEANING_TO_TERM" | "CHOICE_TERM_TO_MEANING" | "CHOICE_MEANING_TO_TERM";
+        /** VocabQuizOptionRead */
+        VocabQuizOptionRead: {
+            /** Card Id */
+            card_id: number;
+            /** Text */
+            text: string;
+        };
+        /** VocabQuizQuestionRead */
+        VocabQuizQuestionRead: {
+            /** Card Id */
+            card_id: number;
+            /** Prompt */
+            prompt: string;
+            /** Reveal */
+            reveal?: string | null;
+            /** Options */
+            options?: components["schemas"]["VocabQuizOptionRead"][] | null;
+        };
+        /** VocabQuizSessionRead */
+        VocabQuizSessionRead: {
+            /** Questions */
+            questions: components["schemas"]["VocabQuizQuestionRead"][];
+            /** Excluded Count */
+            excluded_count: number;
+        };
+        /** VocabQuizSessionRequest */
+        VocabQuizSessionRequest: {
+            mode: components["schemas"]["VocabQuizMode"];
+            /**
+             * Filter
+             * @default ALL
+             */
+            filter: string;
+            /**
+             * Order
+             * @default RANDOM
+             */
+            order: string;
+            /** Question Count */
+            question_count: number;
         };
         /**
          * WeeklyDigestRead
@@ -9664,6 +10078,551 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vocab_decks_api_v1_goals__goal_id__vocab_decks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabDeckRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_vocab_deck_api_v1_goals__goal_id__vocab_decks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabDeckCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabDeckRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_vocab_decks_api_v1_goals__goal_id__vocab_decks_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabDeckReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_vocab_deck_api_v1_vocab_decks__deck_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabDeckRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_vocab_deck_api_v1_vocab_decks__deck_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_vocab_deck_api_v1_vocab_decks__deck_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabDeckUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabDeckRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vocab_cards_api_v1_vocab_decks__deck_id__cards_get: {
+        parameters: {
+            query?: {
+                filter?: string;
+                sort?: string;
+            };
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabCardRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_vocab_card_api_v1_vocab_decks__deck_id__cards_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabCardCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabCardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_vocab_card_api_v1_vocab_cards__card_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_vocab_card_api_v1_vocab_cards__card_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabCardUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabCardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_vocab_card_api_v1_vocab_cards__card_id__check_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabCardCheckRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabCardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_vocab_import_api_v1_vocab_decks__deck_id__cards_import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabImportPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabImportPreviewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_vocab_import_api_v1_vocab_decks__deck_id__cards_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabImportConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabImportConfirmRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_vocab_deck_api_v1_vocab_decks__deck_id__export_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabExportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_vocab_quiz_session_api_v1_vocab_decks__deck_id__quiz_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabQuizSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabQuizSessionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_vocab_card_api_v1_vocab_cards__card_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabAnswerResultRead"];
+                };
             };
             /** @description Validation Error */
             422: {

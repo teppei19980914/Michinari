@@ -5,6 +5,7 @@
     "bookshelf": "Bookshelf",
     "calendar": "Calendar",
     "analytics": "Analytics",
+    "vocab": "Vocabulary",
     "settings": "Settings",
     "help": "Help"
   },
@@ -276,6 +277,7 @@
         "materials": "Materials",
         "resourceAllocation": "Resource allocation",
         "loadProfile": "Load profile",
+        "vocab": "Vocabulary",
         "book": "Book",
         "workAssignment": "Project info",
         "monthlyReport": "Monthly report",
@@ -292,6 +294,7 @@
         "materials": "A tab to register the materials you use to study (textbooks, workbooks, etc.) and manage their links to subjects, planned cycles, and amounts. Use it to add new materials or set the information used to calculate your daily quota.",
         "resourceAllocation": "A tab to set the time (in minutes) allocated to this goal within each time slot. When you're working on multiple goals at once, allocations are controlled so their total never exceeds the time slot's length, preventing goals from competing for the same slot.",
         "loadProfile": "A tab to set a load coefficient (baseline 1.0) for a specific period, when you want to increase or decrease your daily study volume for that period only. Use it to reduce load during busy periods or increase it during a final push.",
+        "vocab": "A tab to register exam terms as flashcard decks and quiz yourself on them (flip cards, typed answers, or 4-choice) to check your understanding. You can edit and quiz yourself at any time, regardless of the goal's status (including archived, abandoned, or completed goals).",
         "book": "A tab to register the title, author, total pages, and target completion date, and check your reading progress (days remaining, last recorded date, current streak, page progress). Total pages is required (to display page progress). When you finish reading, choose \"Mark as complete\" from the goal detail actions (a finished reading goal is shown as \"Finished\").",
         "workAssignment": "A tab to register the client, expected work content, start date, team members, and roles, and check your work progress (elapsed days, last recorded date, current streak).",
         "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
@@ -1517,11 +1520,19 @@
       "goals": {
         "title": "Goal list / goal detail editing",
         "p1": "The \"Goals\" screen lists every registered goal. Choosing a type (certification exam, reading, or work) from \"Create new goal\" lets you create reading and work goals instantly, while certification exam goals use a wizard: pick a preset exam template or enter the exam name directly, then set the exam date, materials, and study hours in order (templates cannot be added or edited). Selecting a goal takes you to its details/edit screen. If you forget how to use the app, or on first launch, you can reopen the welcome screen from the link on the Help screen.",
-        "p2": "A certification exam goal's detail screen has 6 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), \"Load profile\" (load coefficient per period), and \"Goal consultation\" (ask the AI free-form questions grounded in your accumulated records; see the \"Goal consultation chat\" section for details). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
+        "p2": "A certification exam goal's detail screen has 7 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), \"Load profile\" (load coefficient per period), \"Vocabulary\" (register terms and quiz yourself with a non-AI question set; see the \"Vocabulary\" section for details), and \"Goal consultation\" (ask the AI free-form questions grounded in your accumulated records; see the \"Goal consultation chat\" section for details). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
         "p3": "The goal's action area shows \"Start,\" \"Pause,\" \"Resume,\" \"Mark as complete,\" or \"Abandon,\" depending on its status. After completing or abandoning, the goal becomes read-only; a completed or abandoned goal can be reverted with \"Resume\" to continue it. A certification exam goal cannot be completed until results are in for every subject.",
         "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
         "p5": "A reading goal's detail screen has 4 tabs — \"Basic info,\" \"Book,\" \"Resource allocation,\" and \"Goal consultation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
         "p6": "A work goal's detail screen has 5 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" \"Semiannual review,\" and \"Goal consultation\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+      },
+      "vocab": {
+        "title": "Vocabulary",
+        "p1": "A vocabulary deck is a glossary tied to a certification exam goal. You can reach it from the \"Vocabulary\" entry in the global nav, or from the \"Vocabulary\" tab on the goal detail screen. You can register terms yourself at any time, independent of how many daily reports you've accumulated. You can view, edit, and quiz yourself even if the goal is archived, abandoned, or completed.",
+        "p2": "A goal can have multiple vocabulary decks. Add, edit, and delete cards (term, meaning, aliases, note) within a deck, and mark them checked. The card list can be sorted (registration order, lowest accuracy first, most incorrect first, longest wrong streak first) and filtered (checked only, ever answered wrong, currently on a wrong streak, weak, unanswered). Each card shows its correct/incorrect counts, accuracy (\"—\" if unanswered), current wrong streak, and last-answered date (scores are never stored — they're computed fresh each time).",
+        "p3": "You can bulk-add cards by pasting a table copied from Excel or similar (tab-separated; rows without a tab are treated as comma-separated). Columns are \"term, meaning, aliases (optional, separated by |), note (optional).\" Before confirming, you can preview the rows to import, any error rows, and any rows that duplicate an existing term in the deck; duplicates are skipped on confirm. You can also export a deck as tab-separated text.",
+        "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 cards). Choose the format, filter, order (random, weakest first, registration order), and number of questions before starting. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
+        "p5": "Vocabulary decks are not included in the knowledge export."
       },
       "roadmap": {
         "title": "Roadmap",
@@ -1828,6 +1839,9 @@
     "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
     "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
     "DAILY_FEEDBACK_PROMPT_TOO_LONG": "Today's input exceeds the character limit and could not be sent. Please shorten it and try again",
+    "VOCAB_DECK_GOAL_CATEGORY": "Vocabulary decks can only be created for exam goals",
+    "VOCAB_IMPORT_TOO_MANY_ROWS": "The number of rows exceeds the import limit. Please reduce the number of rows and try again",
+    "VOCAB_DECK_CARD_LIMIT_EXCEEDED": "This deck has reached its card limit",
     "NOT_FOUND": "The requested data could not be found. Please reload the page and try again",
     "AI_AUTH_REQUIRED": "The AI connection has been lost. Please regenerate your Personal Access Token and reconnect on the Settings screen",
     "AI_CONFIG_ERROR": "The AI connection settings are incorrect. Please check the Settings screen",
@@ -1884,6 +1898,98 @@
     "completedTitle": "Today's review is complete",
     "citationLabel": "Source: {{date}}",
     "progressLabel": "{{current}} / {{total}}"
+  },
+  "vocab": {
+    "home": {
+      "title": "Vocabulary",
+      "description": "Vocabulary decks belong to exam goals. Pick a goal to go to its Vocabulary tab.",
+      "empty": "You don't have any exam goals yet. Create one from the goals list."
+    },
+    "deckList": {
+      "nameLabel": "Deck name",
+      "descriptionLabel": "Description (optional)",
+      "empty": "No vocabulary decks yet",
+      "cardCount": {
+        "one": "{{count}} card",
+        "other": "{{count}} cards"
+      },
+      "useInAiOffBadge": "Not used by AI",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "addTitle": "Add a vocabulary deck"
+    },
+    "deckDetail": {
+      "backToGoal": "Back to goal detail",
+      "startQuizButton": "Start quiz",
+      "useInAiLabel": "Use in today's review and AI feedback",
+      "useInAiDescription": "This deck's terms are used when generating today's review questions and in AI feedback.",
+      "termLabel": "Term",
+      "meaningLabel": "Meaning",
+      "aliasesLabel": "Aliases (optional)",
+      "aliasesHint": "Separate multiple aliases with new lines",
+      "noteLabel": "Note (optional)",
+      "checkedLabel": "Checked",
+      "statsLine": "{{correct}} correct · {{incorrect}} incorrect · {{accuracy}} accuracy · {{streak}} in a row wrong",
+      "cardsEmpty": "No cards yet",
+      "addCardTitle": "Add a card",
+      "filterLabel": "Filter",
+      "filterOptions": {
+        "ALL": "All",
+        "CHECKED": "Checked only",
+        "EVER_WRONG": "Ever answered wrong",
+        "CONSECUTIVE_WRONG": "Currently on a wrong streak",
+        "WEAK": "Weak",
+        "UNANSWERED": "Unanswered"
+      },
+      "sortLabel": "Sort",
+      "sortOptions": {
+        "REGISTERED": "Registration order",
+        "ACCURACY_ASC": "Lowest accuracy first",
+        "INCORRECT_COUNT_DESC": "Most incorrect first",
+        "CONSECUTIVE_WRONG_DESC": "Longest wrong streak first"
+      },
+      "bulkImportTitle": "Bulk add (paste)",
+      "bulkImportPlaceholder": "Paste a table copied from Excel etc. (tab-separated. Columns: term, meaning, aliases (optional, separated by |), note (optional))",
+      "bulkImportPreviewButton": "Preview",
+      "bulkImportSummary": "{{rowCount}} rows to import / {{errorCount}} errors / {{duplicateCount}} duplicates",
+      "bulkImportErrorRow": "Line {{line}}: {{reason}}",
+      "bulkImportConfirmButton": "Add these cards",
+      "exportButton": "Export (tab-separated text)"
+    },
+    "quiz": {
+      "modeLabel": "Question format",
+      "modeOptions": {
+        "FLASH_TERM_TO_MEANING": "Flip cards (term → meaning)",
+        "FLASH_MEANING_TO_TERM": "Flip cards (meaning → term)",
+        "TYPED_MEANING_TO_TERM": "Typed answer (meaning → term)",
+        "CHOICE_TERM_TO_MEANING": "4-choice (term → meaning)",
+        "CHOICE_MEANING_TO_TERM": "4-choice (meaning → term)"
+      },
+      "choiceUnavailableNotice": "4-choice is only available when the deck has 4 or more cards",
+      "orderLabel": "Order",
+      "orderOptions": {
+        "RANDOM": "Random",
+        "WEAK_ORDER": "Weakest first",
+        "REGISTERED": "Registration order"
+      },
+      "questionCountLabel": "Number of questions",
+      "startButton": "Start quiz",
+      "revealButton": "Show answer",
+      "knewItButton": "I knew it",
+      "didntKnowButton": "I didn't know it",
+      "answerInputLabel": "Your answer",
+      "submitButton": "Submit",
+      "correctLabel": "Correct",
+      "incorrectLabel": "Incorrect",
+      "nextButton": "Next question",
+      "progressLabel": "{{current}} / {{total}}",
+      "completedTitle": "Quiz complete",
+      "scoreLabel": "{{correct}} / {{total}} correct",
+      "wrongTermsTitle": "Terms you got wrong",
+      "checkWrongButton": "Check all wrong terms",
+      "backToDeckButton": "Back to deck",
+      "noQuestionsNotice": "No questions are available for these conditions"
+    }
   },
   "summaryCard": {
     "title": "Recap & Share Card",

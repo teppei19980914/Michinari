@@ -272,6 +272,27 @@
 
 各リクエストには相関ID（`X-Request-Id`ヘッダ、12桁の16進数）を発行し、同一リクエストで出力される全てのログ行（アクセスログ・業務エラー・未分類例外）へ自動的に付与する（`logging.setLogRecordFactory`によるプロセス全体への注入、ハンドラ単位の`logging.Filter`では`caplog`等の別ハンドラに乗らないため採用しない）。フロントはレスポンスの`X-Request-Id`ヘッダを`ApiError.requestId`として保持し、エラー表示の詳細欄に「エラーID」として表示する。
 
+**単語帳（SC-22、開発Todo_単語帳_v1.0 要件A、AI非依存）**
+
+| メソッド | パス | 概要 |
+| --- | --- | --- |
+| GET | /goals/{goal_id}/vocab-decks | 目標に紐づく単語帳一覧（表示順） |
+| POST | /goals/{goal_id}/vocab-decks | 単語帳を作成する。対象goalが資格試験（EXAM）以外なら`VOCAB_DECK_GOAL_CATEGORY`（400） |
+| PUT | /goals/{goal_id}/vocab-decks/order | 単語帳の表示順を一括更新する |
+| GET | /vocab-decks/{deck_id} | 単語帳詳細 |
+| PATCH | /vocab-decks/{deck_id} | 単語帳の名前・説明・`use_in_ai`を更新する |
+| DELETE | /vocab-decks/{deck_id} | 単語帳を削除する（カード・解答履歴もCASCADEで削除） |
+| GET | /vocab-decks/{deck_id}/cards | カード一覧。`filter`・`sort`クエリパラメータで絞り込み・並び替え |
+| POST | /vocab-decks/{deck_id}/cards | カードを追加する。デッキの上限超過は`VOCAB_DECK_CARD_LIMIT_EXCEEDED`（400） |
+| PATCH | /vocab-cards/{card_id} | カードの用語・意味・別名・補足を更新する |
+| PATCH | /vocab-cards/{card_id}/check | カードのチェック状態を切り替える |
+| DELETE | /vocab-cards/{card_id} | カードを削除する |
+| POST | /vocab-decks/{deck_id}/cards/import-preview | 一括登録のプレビュー（取り込む件数・エラー行・重複件数） |
+| POST | /vocab-decks/{deck_id}/cards/import | プレビューで確定した行をカードとして一括登録する |
+| GET | /vocab-decks/{deck_id}/export | 単語帳をタブ区切りテキストで書き出す |
+| POST | /vocab-decks/{deck_id}/quiz-sessions | 出題セッションを開始する（サーバーにセッション自体は保存しない） |
+| POST | /vocab-cards/{card_id}/answer | 単語帳の問題集での解答を記録する（`vocab_answer_log`へ追加。今日の復習の解答履歴とは別） |
+
 **その他**
 
 | メソッド | パス | 概要 |
@@ -298,6 +319,9 @@
 | EXAM_RESULTS_INCOMPLETE | 409 | 受験結果が揃っていない資格試験目標の完了要求（確認では解消しない。完了ボタンは結果が揃うまで無効化する。1.1改32。旧 CLOSE_CONFIRMATION_REQUIRED は確認要求の廃止に伴い置換） |
 | DATABASE_BUSY | 503 | SQLiteの書き込みロック待ちタイムアウト（AI生成や起動時の自動処理と保存が重なった場合）。再試行で解消しうる（1.1改32） |
 | BACKDATE_LIMIT_EXCEEDED | 400 | 遡及入力の期限超過 |
+| VOCAB_DECK_GOAL_CATEGORY | 400 | 単語帳を資格試験以外の目標へ作成しようとした（開発Todo_単語帳_v1.0 要件A） |
+| VOCAB_IMPORT_TOO_MANY_ROWS | 400 | 単語帳の一括登録が`vocab.import_max_rows`を超える行数を送った |
+| VOCAB_DECK_CARD_LIMIT_EXCEEDED | 400 | 単語帳のカード数が`vocab.deck_max_cards`を超える |
 | NOT_FOUND | 404 | 対象が存在しない |
 | AI_AUTH_REQUIRED | 401 | AI基盤の認証が必要 |
 | AI_CONFIG_ERROR | 400 | AI連携の設定不備 |
