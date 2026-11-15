@@ -273,3 +273,17 @@ class GoalConsultationAnswerStatus(enum.StrEnum):
     ANSWERED = "ANSWERED"
     #: 禁止語・長すぎる回答・出力形式の解釈失敗など、回答を表示できない。
     UNAVAILABLE = "UNAVAILABLE"
+
+
+class VocabQuizMode(enum.StrEnum):
+    """単語帳の問題集（開発Todo_単語帳_v1.0 要件A）の出題形式。AIは使わない。
+
+    `FLASH_*`はカードをめくる形式（答えを見た後に自分で判定）、`TYPED_*`は入力式
+    （サーバー側で判定）、`CHOICE_*`は4択（誤答選択肢は同じ単語帳の他カードから生成）。
+    """
+
+    FLASH_TERM_TO_MEANING = "FLASH_TERM_TO_MEANING"
+    FLASH_MEANING_TO_TERM = "FLASH_MEANING_TO_TERM"
+    TYPED_MEANING_TO_TERM = "TYPED_MEANING_TO_TERM"
+    CHOICE_TERM_TO_MEANING = "CHOICE_TERM_TO_MEANING"
+    CHOICE_MEANING_TO_TERM = "CHOICE_MEANING_TO_TERM"

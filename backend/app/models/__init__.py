@@ -38,6 +38,7 @@ from app.models.setting import (
     Holiday,
     PromptTemplate,
 )
+from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
 from app.models.work import WorkAssignment
 
 __all__ = [
@@ -85,4 +86,7 @@ __all__ = [
     "GoalMilestoneAchievement",
     "QuizQuestion",
     "QuizAnswerLog",
+    "VocabDeck",
+    "VocabCard",
+    "VocabAnswerLog",
 ]

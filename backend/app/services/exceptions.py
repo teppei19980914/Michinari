@@ -243,3 +243,33 @@ class DailyFeedbackPromptTooLongError(DomainError):
     当日の入力を切り詰めると情報が失われるため、送信せず中止する
     （S04、RecapPromptTooLongErrorと同じ考え方）。
     """
+
+
+class VocabDeckGoalCategoryError(DomainError):
+    """単語帳は資格試験（EXAM）の目標にのみ作成できる（開発Todo_単語帳_v1.0 §0 U1）。"""
+
+    def __init__(self, goal_id: int) -> None:
+        self.goal_id = goal_id
+        super().__init__(f"Goal(id={goal_id}) is not an exam goal; vocab decks require EXAM")
+
+
+class VocabImportTooManyRowsError(DomainError):
+    """単語帳の一括登録（貼り付け）で、取り込み対象の行数が`vocab.import_max_rows`を超えた場合。
+
+    行数のまま送られてくる解析前のテキストを無制限に処理すると、巨大な入力による負荷が
+    かかるため（/threat-model DoS対策）、件数で早期に拒否する。
+    """
+
+    def __init__(self, row_count: int, max_rows: int) -> None:
+        self.row_count = row_count
+        self.max_rows = max_rows
+        super().__init__(f"Import has {row_count} rows, which exceeds the limit of {max_rows}")
+
+
+class VocabDeckCardLimitExceededError(DomainError):
+    """単語帳へのカード追加（単体・一括登録とも）で`vocab.deck_max_cards`を超える場合。"""
+
+    def __init__(self, deck_id: int, max_cards: int) -> None:
+        self.deck_id = deck_id
+        self.max_cards = max_cards
+        super().__init__(f"VocabDeck(id={deck_id}) would exceed the card limit of {max_cards}")

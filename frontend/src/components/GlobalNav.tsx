@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: ROUTES.bookshelf, labelKey: 'nav.bookshelf' },
   { to: ROUTES.calendar, labelKey: 'nav.calendar' },
   { to: ROUTES.analytics, labelKey: 'nav.analytics' },
+  { to: ROUTES.vocab, labelKey: 'nav.vocab' },
   { to: ROUTES.settings, labelKey: 'nav.settings' },
   { to: ROUTES.help, labelKey: 'nav.help' },
 ] as const

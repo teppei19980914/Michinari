@@ -1,0 +1,604 @@
+"""単語帳（開発Todo_単語帳_v1.0 要件A）のデッキ/カードCRUD・一括登録・成績集計・
+出題選択・判定。AI呼び出しは一切含まない（要件A §0 U2）。
+
+成績（正答数・誤答数・正答率・連続誤答数・最終解答日）は保存せず、`vocab_answer_log`
+から都度算出する（開発Todo §0 U6）。複数カード分はまとめて1回のクエリで取得し、
+Python側で集計することでN+1を回避する（`compute_card_stats`）。
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import random
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import datetime
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.ai.question_safety import normalize_for_match
+from app.constants.app_setting_keys import (
+    VOCAB_DECK_MAX_CARDS,
+    VOCAB_IMPORT_MAX_ROWS,
+    VOCAB_MEANING_MAX_CHARS,
+    VOCAB_TERM_MAX_CHARS,
+)
+from app.constants.enums import GoalCategory, VocabQuizMode
+from app.models.base import utcnow
+from app.models.goal import Goal
+from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
+from app.services import setting_reader
+from app.services.exceptions import (
+    NotFoundError,
+    ValidationError,
+    VocabDeckCardLimitExceededError,
+    VocabDeckGoalCategoryError,
+    VocabImportTooManyRowsError,
+)
+
+#: カタカナ→ひらがな変換表（Unicode符号点のオフセット、「ァ」(U+30A1)〜「ヶ」(U+30F6)が
+#: 対応するひらがなへ60移動した位置にある範囲のみ変換する）。
+_KATAKANA_START = ord("ァ")
+_KATAKANA_END = ord("ヶ")
+_KATAKANA_TO_HIRAGANA_OFFSET = ord("ぁ") - ord("ァ")
+
+
+def normalize_for_vocab_match(text: str) -> str:
+    """単語帳の用語照合用に正規化する（`normalize_for_match`に加えてカタカナをひらがなへ
+    統一する）。既存の禁止語判定（`question_safety.normalize_for_match`）の挙動は変えず、
+    別関数として追加する（利用者プロンプトの明示指示）。
+    """
+    normalized = normalize_for_match(text)
+    return "".join(
+        chr(ord(ch) + _KATAKANA_TO_HIRAGANA_OFFSET)
+        if _KATAKANA_START <= ord(ch) <= _KATAKANA_END
+        else ch
+        for ch in normalized
+    )
+
+
+# ---------------------------------------------------------------------------
+# デッキCRUD
+# ---------------------------------------------------------------------------
+
+
+def get_deck(session: Session, deck_id: int) -> VocabDeck:
+    deck = session.get(VocabDeck, deck_id)
+    if deck is None:
+        raise NotFoundError("VocabDeck", deck_id)
+    return deck
+
+
+def list_decks_for_goal(session: Session, goal_id: int) -> list[VocabDeck]:
+    return list(
+        session.scalars(
+            select(VocabDeck)
+            .where(VocabDeck.goal_id == goal_id)
+            .order_by(VocabDeck.display_order, VocabDeck.id)
+        ).all()
+    )
+
+
+def _next_display_order(session: Session, column, condition) -> int:
+    """`column`の最大値+1を返す（0件なら0）。`len(既存件数)`による採番は、中間の行が
+    削除された後に既存のdisplay_orderと衝突しうるため使わない（dry-reviewerレビューで
+    検出、2026-11-15。`material_service.create_material`と同じ`max+1`方式）。
+    """
+    current_max = session.query(func.max(column)).filter(condition).scalar()
+    return 0 if current_max is None else current_max + 1
+
+
+def create_deck(session: Session, goal: Goal, *, name: str, description: str | None) -> VocabDeck:
+    """単語帳を作成する。対象goalが資格試験（EXAM）以外なら拒否する（開発Todo §0 U1）。"""
+    if goal.category != GoalCategory.EXAM:
+        raise VocabDeckGoalCategoryError(goal.id)
+    next_order = _next_display_order(session, VocabDeck.display_order, VocabDeck.goal_id == goal.id)
+    deck = VocabDeck(
+        goal_id=goal.id,
+        name=name,
+        description=description,
+        use_in_ai=True,
+        display_order=next_order,
+    )
+    session.add(deck)
+    session.flush()
+    return deck
+
+
+def update_deck(
+    session: Session,
+    deck: VocabDeck,
+    *,
+    name: str | None = None,
+    description: str | None = None,
+    use_in_ai: bool | None = None,
+) -> VocabDeck:
+    if name is not None:
+        deck.name = name
+    if description is not None:
+        deck.description = description
+    if use_in_ai is not None:
+        deck.use_in_ai = use_in_ai
+    session.flush()
+    return deck
+
+
+def delete_deck(session: Session, deck: VocabDeck) -> None:
+    session.delete(deck)
+    session.flush()
+
+
+def reorder_decks(session: Session, goal: Goal, ordered_deck_ids: list[int]) -> None:
+    """渡された順序でデッキの`display_order`を振り直す。対象の目標に属さないデッキが
+    含まれる場合は拒否する（`material_service`のsubject所有関係検証と同じ考え方）。
+    """
+    decks = list_decks_for_goal(session, goal.id)
+    decks_by_id = {deck.id: deck for deck in decks}
+    if set(ordered_deck_ids) != set(decks_by_id):
+        raise ValidationError("ordered_deck_ids must contain exactly this goal's deck ids")
+    for index, deck_id in enumerate(ordered_deck_ids):
+        decks_by_id[deck_id].display_order = index
+    session.flush()
+
+
+# ---------------------------------------------------------------------------
+# カードCRUD
+# ---------------------------------------------------------------------------
+
+
+def get_card(session: Session, card_id: int) -> VocabCard:
+    card = session.get(VocabCard, card_id)
+    if card is None:
+        raise NotFoundError("VocabCard", card_id)
+    return card
+
+
+def list_cards_for_deck(session: Session, deck_id: int) -> list[VocabCard]:
+    return list(
+        session.scalars(
+            select(VocabCard)
+            .where(VocabCard.deck_id == deck_id)
+            .order_by(VocabCard.display_order, VocabCard.id)
+        ).all()
+    )
+
+
+def count_cards_by_deck(session: Session, deck_ids: list[int]) -> dict[int, int]:
+    """複数デッキのカード件数を1回の問い合わせで返す（デッキ一覧表示用、N+1禁止。
+    `quiz_service.count_questions_by_theme`と同じ方針、performance-reviewerレビューで
+    検出、2026-11-15）。
+    """
+    if not deck_ids:
+        return {}
+    rows = session.execute(
+        select(VocabCard.deck_id, func.count(VocabCard.id))
+        .where(VocabCard.deck_id.in_(deck_ids))
+        .group_by(VocabCard.deck_id)
+    ).all()
+    return dict(rows)
+
+
+def _validate_card_fields(session: Session, term: str, meaning: str) -> None:
+    term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
+    meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
+    if not term.strip():
+        raise ValidationError("term must not be empty")
+    if len(term) > term_max:
+        raise ValidationError(f"term must be {term_max} characters or fewer")
+    if not meaning.strip():
+        raise ValidationError("meaning must not be empty")
+    if len(meaning) > meaning_max:
+        raise ValidationError(f"meaning must be {meaning_max} characters or fewer")
+
+
+def _ensure_deck_card_capacity(
+    session: Session, deck_id: int, *, current_count: int, adding: int
+) -> None:
+    max_cards = setting_reader.get_int(session, VOCAB_DECK_MAX_CARDS)
+    if current_count + adding > max_cards:
+        raise VocabDeckCardLimitExceededError(deck_id, max_cards)
+
+
+def create_card(
+    session: Session,
+    deck: VocabDeck,
+    *,
+    term: str,
+    meaning: str,
+    aliases: str | None = None,
+    note: str | None = None,
+) -> VocabCard:
+    _validate_card_fields(session, term, meaning)
+    existing_cards = list_cards_for_deck(session, deck.id)
+    _ensure_deck_card_capacity(session, deck.id, current_count=len(existing_cards), adding=1)
+    next_order = max((c.display_order for c in existing_cards), default=-1) + 1
+    card = VocabCard(
+        deck_id=deck.id,
+        term=term,
+        meaning=meaning,
+        aliases=aliases,
+        note=note,
+        is_checked=False,
+        display_order=next_order,
+    )
+    session.add(card)
+    session.flush()
+    return card
+
+
+def update_card(
+    session: Session,
+    card: VocabCard,
+    *,
+    term: str | None = None,
+    meaning: str | None = None,
+    aliases: str | None = None,
+    note: str | None = None,
+) -> VocabCard:
+    _validate_card_fields(
+        session,
+        term if term is not None else card.term,
+        meaning if meaning is not None else card.meaning,
+    )
+    if term is not None:
+        card.term = term
+    if meaning is not None:
+        card.meaning = meaning
+    if aliases is not None:
+        card.aliases = aliases
+    if note is not None:
+        card.note = note
+    session.flush()
+    return card
+
+
+def set_card_checked(session: Session, card: VocabCard, is_checked: bool) -> VocabCard:
+    card.is_checked = is_checked
+    session.flush()
+    return card
+
+
+def delete_card(session: Session, card: VocabCard) -> None:
+    session.delete(card)
+    session.flush()
+
+
+# ---------------------------------------------------------------------------
+# 成績集計（都度算出、N+1禁止）
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class VocabCardStats:
+    correct_count: int
+    incorrect_count: int
+    accuracy_percent: float | None
+    consecutive_incorrect: int
+    last_answered_at: datetime | None
+
+
+_EMPTY_STATS = VocabCardStats(
+    correct_count=0,
+    incorrect_count=0,
+    accuracy_percent=None,
+    consecutive_incorrect=0,
+    last_answered_at=None,
+)
+
+
+def compute_card_stats(session: Session, card_ids: list[int]) -> dict[int, VocabCardStats]:
+    """複数カードの成績を1回のクエリでまとめて算出する（N+1禁止）。
+
+    SQLiteのウィンドウ関数に依存せず、1回のSELECTで取得した全解答行をPython側で
+    カードごとに走査して集計する（移植性・可読性を優先、本コードベースにウィンドウ関数の
+    前例が無いため）。並び順は`answered_at`に`id`を第2キーとして付与する（CODING_RULES.md
+    「タイムスタンプでの並び替え」）。
+    """
+    if not card_ids:
+        return {}
+    rows = session.execute(
+        select(VocabAnswerLog.card_id, VocabAnswerLog.is_correct, VocabAnswerLog.answered_at)
+        .where(VocabAnswerLog.card_id.in_(card_ids))
+        .order_by(VocabAnswerLog.card_id, VocabAnswerLog.answered_at, VocabAnswerLog.id)
+    ).all()
+    grouped: dict[int, list[tuple[bool, datetime]]] = defaultdict(list)
+    for card_id, is_correct, answered_at in rows:
+        grouped[card_id].append((is_correct, answered_at))
+
+    stats: dict[int, VocabCardStats] = {}
+    for card_id in card_ids:
+        logs = grouped.get(card_id)
+        if not logs:
+            stats[card_id] = _EMPTY_STATS
+            continue
+        correct = sum(1 for is_correct, _ in logs if is_correct)
+        incorrect = len(logs) - correct
+        streak = 0
+        for is_correct, _ in reversed(logs):
+            if is_correct:
+                break
+            streak += 1
+        stats[card_id] = VocabCardStats(
+            correct_count=correct,
+            incorrect_count=incorrect,
+            accuracy_percent=correct / len(logs) * 100,
+            consecutive_incorrect=streak,
+            last_answered_at=logs[-1][1],
+        )
+    return stats
+
+
+def record_answer(session: Session, card: VocabCard, mode: VocabQuizMode, is_correct: bool) -> None:
+    """単語帳の問題集での解答を記録する（今日の復習〈要件B〉の解答はここに記録しない）。"""
+    session.add(
+        VocabAnswerLog(card_id=card.id, mode=mode, is_correct=is_correct, answered_at=utcnow())
+    )
+    session.flush()
+
+
+# ---------------------------------------------------------------------------
+# 一括登録（貼り付け）・エクスポート
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class VocabImportRow:
+    line_number: int
+    term: str
+    meaning: str
+    aliases: str | None
+    note: str | None
+
+
+@dataclass
+class VocabImportError:
+    line_number: int
+    reason: str
+
+
+@dataclass
+class VocabImportPreview:
+    rows: list[VocabImportRow]
+    errors: list[VocabImportError]
+    duplicate_line_numbers: list[int]
+
+
+def _split_import_line(line: str) -> list[str]:
+    delimiter = "\t" if "\t" in line else ","
+    return next(csv.reader([line], delimiter=delimiter))
+
+
+def parse_bulk_import(session: Session, deck: VocabDeck, text: str) -> VocabImportPreview:
+    """貼り付けテキストを解析し、取り込み前のプレビューを返す。
+
+    列は「用語・意味・別名（任意、`|`区切り）・補足（任意）」。タブ区切り、タブが無い行は
+    カンマ区切りとして扱う（利用者プロンプトの明示指示）。`csv`モジュールのみを使い、
+    正規表現の連鎖は行わない（ReDoS対策）。
+    """
+    term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
+    meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
+    import_max_rows = setting_reader.get_int(session, VOCAB_IMPORT_MAX_ROWS)
+
+    raw_lines = [line for line in text.splitlines() if line.strip()]
+    if len(raw_lines) > import_max_rows:
+        raise VocabImportTooManyRowsError(len(raw_lines), import_max_rows)
+
+    rows: list[VocabImportRow] = []
+    errors: list[VocabImportError] = []
+    for line_number, raw_line in enumerate(raw_lines, start=1):
+        fields = _split_import_line(raw_line)
+        term = fields[0].strip() if len(fields) > 0 else ""
+        meaning = fields[1].strip() if len(fields) > 1 else ""
+        aliases = fields[2].strip() if len(fields) > 2 and fields[2].strip() else None
+        note = fields[3].strip() if len(fields) > 3 and fields[3].strip() else None
+        if not term:
+            errors.append(VocabImportError(line_number, "term is empty"))
+            continue
+        if not meaning:
+            errors.append(VocabImportError(line_number, "meaning is empty"))
+            continue
+        if len(term) > term_max:
+            errors.append(VocabImportError(line_number, f"term exceeds {term_max} characters"))
+            continue
+        if len(meaning) > meaning_max:
+            errors.append(
+                VocabImportError(line_number, f"meaning exceeds {meaning_max} characters")
+            )
+            continue
+        rows.append(VocabImportRow(line_number, term, meaning, aliases, note))
+
+    existing_keys = {
+        normalize_for_vocab_match(card.term) for card in list_cards_for_deck(session, deck.id)
+    }
+    seen_keys: set[str] = set()
+    duplicate_line_numbers: list[int] = []
+    deduped_rows: list[VocabImportRow] = []
+    for row in rows:
+        key = normalize_for_vocab_match(row.term)
+        if key in existing_keys or key in seen_keys:
+            duplicate_line_numbers.append(row.line_number)
+            continue
+        seen_keys.add(key)
+        deduped_rows.append(row)
+
+    return VocabImportPreview(deduped_rows, errors, duplicate_line_numbers)
+
+
+def confirm_bulk_import(session: Session, deck: VocabDeck, rows: list[VocabImportRow]) -> int:
+    """プレビューで確定した行をカードとして登録する。重複・エラー行は呼び出し側
+    （`parse_bulk_import`の結果）で既に除かれている前提だが、`parse_bulk_import`を経由せず
+    このAPIへ直接送られた行も想定し、行数・文字数はここでも再検証する（信頼境界を
+    クライアントで止めない。injection-reviewerレビューで検出、2026-11-15）。
+    """
+    import_max_rows = setting_reader.get_int(session, VOCAB_IMPORT_MAX_ROWS)
+    if len(rows) > import_max_rows:
+        raise VocabImportTooManyRowsError(len(rows), import_max_rows)
+    for row in rows:
+        _validate_card_fields(session, row.term, row.meaning)
+    existing_cards = list_cards_for_deck(session, deck.id)
+    _ensure_deck_card_capacity(
+        session, deck.id, current_count=len(existing_cards), adding=len(rows)
+    )
+    next_order = max((c.display_order for c in existing_cards), default=-1) + 1
+    for offset, row in enumerate(rows):
+        session.add(
+            VocabCard(
+                deck_id=deck.id,
+                term=row.term,
+                meaning=row.meaning,
+                aliases=row.aliases,
+                note=row.note,
+                is_checked=False,
+                display_order=next_order + offset,
+            )
+        )
+    session.flush()
+    return len(rows)
+
+
+def export_deck(session: Session, deck: VocabDeck) -> str:
+    """単語帳をタブ区切りテキストへ書き出す（用語・意味・別名・補足の4列）。"""
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
+    for card in list_cards_for_deck(session, deck.id):
+        writer.writerow([card.term, card.meaning, card.aliases or "", card.note or ""])
+    return buffer.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# 出題選択・判定
+# ---------------------------------------------------------------------------
+
+
+def is_weak_card(stats: VocabCardStats, weak_accuracy_percent: float) -> bool:
+    return stats.accuracy_percent is not None and stats.accuracy_percent < weak_accuracy_percent
+
+
+def filter_cards(
+    cards: list[VocabCard],
+    stats_by_card: dict[int, VocabCardStats],
+    *,
+    filter_key: str,
+    weak_accuracy_percent: float,
+) -> list[VocabCard]:
+    """絞り込み（全件／チェック付きのみ／一度でも間違えた／連続して間違えている／苦手／
+    未解答）を適用する。"""
+    if filter_key == "ALL":
+        return cards
+    if filter_key == "CHECKED":
+        return [card for card in cards if card.is_checked]
+    if filter_key == "EVER_WRONG":
+        return [card for card in cards if stats_by_card[card.id].incorrect_count > 0]
+    if filter_key == "CONSECUTIVE_WRONG":
+        return [card for card in cards if stats_by_card[card.id].consecutive_incorrect >= 1]
+    if filter_key == "WEAK":
+        return [
+            card for card in cards if is_weak_card(stats_by_card[card.id], weak_accuracy_percent)
+        ]
+    if filter_key == "UNANSWERED":
+        return [
+            card
+            for card in cards
+            if stats_by_card[card.id].correct_count + stats_by_card[card.id].incorrect_count == 0
+        ]
+    raise ValidationError(f"Unknown filter: {filter_key}")
+
+
+def sort_cards(
+    cards: list[VocabCard], stats_by_card: dict[int, VocabCardStats], *, sort_key: str
+) -> list[VocabCard]:
+    """並び順（登録順／正答率の低い順／誤答数の多い順／連続誤答数の多い順）を適用する。"""
+    if sort_key == "REGISTERED":
+        return sorted(cards, key=lambda card: (card.display_order, card.id))
+    if sort_key == "ACCURACY_ASC":
+        # 未解答（正答率なし）は末尾へ（苦手かどうか判定できないため、低い順の先頭には置かない）。
+        return sorted(
+            cards,
+            key=lambda card: (
+                stats_by_card[card.id].accuracy_percent is None,
+                stats_by_card[card.id].accuracy_percent or 0,
+            ),
+        )
+    if sort_key == "INCORRECT_COUNT_DESC":
+        return sorted(cards, key=lambda card: -stats_by_card[card.id].incorrect_count)
+    if sort_key == "CONSECUTIVE_WRONG_DESC":
+        return sorted(cards, key=lambda card: -stats_by_card[card.id].consecutive_incorrect)
+    raise ValidationError(f"Unknown sort: {sort_key}")
+
+
+def select_session_cards(
+    cards: list[VocabCard],
+    stats_by_card: dict[int, VocabCardStats],
+    *,
+    order_key: str,
+    question_count: int,
+    rng: random.Random | None = None,
+) -> list[VocabCard]:
+    """出題セッション用の並び順（ランダム／苦手順／登録順）を適用し、問題数で切り詰める。"""
+    rng = rng or random.Random()
+    if order_key == "RANDOM":
+        shuffled = list(cards)
+        rng.shuffle(shuffled)
+        ordered = shuffled
+    elif order_key == "WEAK_ORDER":
+        ordered = sorted(
+            cards,
+            key=lambda card: (
+                -stats_by_card[card.id].consecutive_incorrect,
+                stats_by_card[card.id].accuracy_percent
+                if stats_by_card[card.id].accuracy_percent is not None
+                else 100.0,
+            ),
+        )
+    elif order_key == "REGISTERED":
+        ordered = sorted(cards, key=lambda card: (card.display_order, card.id))
+    else:
+        raise ValidationError(f"Unknown order: {order_key}")
+    return ordered[:question_count]
+
+
+def judge_typed_answer(card: VocabCard, answer: str) -> bool:
+    """入力式（意味→用語）の解答を判定する。用語か別名のいずれかと一致したら正解。"""
+    normalized_answer = normalize_for_vocab_match(answer)
+    if normalized_answer == normalize_for_vocab_match(card.term):
+        return True
+    for alias in (card.aliases or "").splitlines():
+        if alias.strip() and normalized_answer == normalize_for_vocab_match(alias):
+            return True
+    return False
+
+
+def build_choice_option_ids(
+    deck_cards: list[VocabCard],
+    target_card: VocabCard,
+    *,
+    field: str,
+    rng: random.Random | None = None,
+) -> list[int] | None:
+    """4択の選択肢カードID（出題カード自身を含む、シャッフル済み）を組み立てる。
+    `field`は"term"または"meaning"（表示する欄）。
+
+    同じ単語帳の他カードから、正規化後に出題カードと重複しない3件を選ぶ。足りない場合は
+    Noneを返す（呼び出し側はこのカードを出題から外し、除外件数を数える）。
+    """
+    rng = rng or random.Random()
+    target_key = normalize_for_vocab_match(getattr(target_card, field))
+    candidates = [
+        card
+        for card in deck_cards
+        if card.id != target_card.id
+        and normalize_for_vocab_match(getattr(card, field)) != target_key
+    ]
+    # 候補内で正規化後に重複する値は1件に絞る（同じ選択肢が2回出るのを防ぐ）。
+    unique_candidates: dict[str, VocabCard] = {}
+    for card in candidates:
+        key = normalize_for_vocab_match(getattr(card, field))
+        unique_candidates.setdefault(key, card)
+    if len(unique_candidates) < 3:
+        return None
+    distractors = rng.sample(list(unique_candidates.values()), 3)
+    option_cards = [*distractors, target_card]
+    rng.shuffle(option_cards)
+    return [card.id for card in option_cards]

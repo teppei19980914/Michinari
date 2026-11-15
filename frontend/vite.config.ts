@@ -95,6 +95,15 @@ export default defineConfig({
         // 表示トグル・AI未設定時の分岐・保存/コピー操作の有効無効を持つため同じ方針で含める。
         'src/features/summaryCard/SummaryCardPreview.tsx',
         'src/features/summaryCard/SummaryCardSection.tsx',
+        // 単語帳（開発Todo_単語帳_v1.0 要件A）。CRUD・一括登録・出題判定の送信内容を
+        // 決める部品のため、既存のタブ・フォーム類と同じ方針で含める。
+        'src/features/vocab/VocabDeckListTab.tsx',
+        'src/features/vocab/VocabDeckHeader.tsx',
+        'src/features/vocab/VocabCardList.tsx',
+        'src/features/vocab/VocabImportExportPanel.tsx',
+        'src/features/vocab/VocabQuizSetupForm.tsx',
+        'src/features/vocab/VocabQuizQuestionView.tsx',
+        'src/features/vocab/VocabQuizSummaryView.tsx',
       ],
       exclude: [
         'src/**/*.test.ts',
