@@ -474,6 +474,33 @@ def test_parse_bulk_import_parses_tab_separated_rows(seeded_session):
     assert preview.duplicate_line_numbers == []
 
 
+def test_parse_bulk_import_converts_pipe_separated_aliases_to_newline_separated(seeded_session):
+    """一括登録の別名欄は`|`区切り（利用者プロンプトの明示指示）だが、保存形式は改行区切り
+    （`judge_typed_answer`が`splitlines()`で読む）。変換を忘れると一括登録した別名が
+    入力式判定で1本の文字列としてしか一致しなくなる不具合があったため固定する
+    （再フルスキャンで検出、2026-11-15）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    preview = vocab_service.parse_bulk_import(seeded_session, deck, "用語\t意味\t別名A|別名B|別名C")
+
+    assert preview.rows[0].aliases == "別名A\n別名B\n別名C"
+
+
+def test_bulk_imported_alias_matches_in_typed_answer_judging(seeded_session):
+    """一括登録→確定したカードの別名（元は`|`区切り）が、入力式の解答判定で
+    個別に一致すること（登録から判定までの通し動作確認）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    preview = vocab_service.parse_bulk_import(seeded_session, deck, "用語\t意味\t別名A|別名B")
+    vocab_service.confirm_bulk_import(seeded_session, deck, preview.rows)
+    card = vocab_service.list_cards_for_deck(seeded_session, deck.id)[0]
+
+    assert vocab_service.judge_typed_answer(card, "別名A") is True
+    assert vocab_service.judge_typed_answer(card, "別名B") is True
+    assert vocab_service.judge_typed_answer(card, "別名A|別名B") is False
+
+
 def test_parse_bulk_import_falls_back_to_comma_when_no_tab(seeded_session):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)
