@@ -95,6 +95,13 @@ from app.constants.app_setting_keys import (
     SUMMARY_RETROACTIVE_MAX_PER_RUN,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
+    VOCAB_DECK_MAX_CARDS,
+    VOCAB_IMPORT_MAX_ROWS,
+    VOCAB_MEANING_MAX_CHARS,
+    VOCAB_SESSION_DEFAULT_QUESTIONS,
+    VOCAB_SESSION_MAX_QUESTIONS,
+    VOCAB_TERM_MAX_CHARS,
+    VOCAB_WEAK_ACCURACY_PERCENT,
 )
 from app.constants.enums import AiPurpose, AppSettingValueType, DayType, RecordInputMode
 from app.init import prompt_texts_common, prompt_texts_exam, prompt_texts_reading, prompt_texts_work
@@ -294,6 +301,14 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     QUICK_RECORD_LAST_MODE_READING: (RecordInputMode.NORMAL.value, AppSettingValueType.STRING),
     QUICK_RECORD_LAST_MODE_WORK: (RecordInputMode.NORMAL.value, AppSettingValueType.STRING),
     QUICK_RECORD_VOICE_HINT_DISMISSED: ("false", AppSettingValueType.BOOLEAN),
+    # 単語帳（開発Todo_単語帳_v1.0 要件A）。
+    VOCAB_TERM_MAX_CHARS: ("200", AppSettingValueType.INTEGER),
+    VOCAB_MEANING_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
+    VOCAB_DECK_MAX_CARDS: ("2000", AppSettingValueType.INTEGER),
+    VOCAB_IMPORT_MAX_ROWS: ("500", AppSettingValueType.INTEGER),
+    VOCAB_SESSION_DEFAULT_QUESTIONS: ("10", AppSettingValueType.INTEGER),
+    VOCAB_SESSION_MAX_QUESTIONS: ("100", AppSettingValueType.INTEGER),
+    VOCAB_WEAK_ACCURACY_PERCENT: ("70", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {

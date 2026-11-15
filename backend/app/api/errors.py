@@ -36,6 +36,9 @@ from app.services.exceptions import (
     ResourceAllocationExceededError,
     ResourceAllocationRequiredError,
     ValidationError,
+    VocabDeckCardLimitExceededError,
+    VocabDeckGoalCategoryError,
+    VocabImportTooManyRowsError,
     WorkAssignmentAlreadyExistsError,
     WorkMemberHasEvaluationReportsError,
 )
@@ -79,6 +82,12 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ),
     NotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     AppSettingNotFoundError: (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR"),
+    VocabDeckGoalCategoryError: (status.HTTP_400_BAD_REQUEST, "VOCAB_DECK_GOAL_CATEGORY"),
+    VocabImportTooManyRowsError: (status.HTTP_400_BAD_REQUEST, "VOCAB_IMPORT_TOO_MANY_ROWS"),
+    VocabDeckCardLimitExceededError: (
+        status.HTTP_400_BAD_REQUEST,
+        "VOCAB_DECK_CARD_LIMIT_EXCEEDED",
+    ),
     # AI連携（ロジック・プロンプト編16.6の対応表）。
     AiAuthRequiredError: (status.HTTP_401_UNAUTHORIZED, "AI_AUTH_REQUIRED"),
     AiConfigError: (status.HTTP_400_BAD_REQUEST, "AI_CONFIG_ERROR"),

@@ -21,6 +21,7 @@ import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
+import { VocabDeckListTab } from '../features/vocab/VocabDeckListTab'
 import { GoalConsultationTab } from '../features/goalConsultation/GoalConsultationTab'
 import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
@@ -62,6 +63,11 @@ const EXAM_TABS = [
     key: 'loadProfile',
     labelKey: 'goals.detail.tabs.loadProfile',
     tooltipKey: 'goals.detail.tabTooltips.loadProfile',
+  },
+  {
+    key: 'vocab',
+    labelKey: 'goals.detail.tabs.vocab',
+    tooltipKey: 'goals.detail.tabTooltips.vocab',
   },
   {
     key: 'goalConsultation',
@@ -430,6 +436,9 @@ function GoalDetailTabContent({
           {activeTab === 'subjects' && <SubjectsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'materials' && <MaterialsTab goal={goal} readOnly={isReadOnly} />}
           {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
+          {/* 単語帳は目標の状態に関わらず常に編集・出題できるため、他タブと異なり
+              isReadOnlyを渡さない（開発Todo_単語帳_v1.0 §0 U1）。 */}
+          {activeTab === 'vocab' && <VocabDeckListTab goalId={goal.id} />}
         </>
       )}
       {/* 目標相談は資格・読書・仕事の3種別で共通のため（S10、開発Todo v1.1 V1）、

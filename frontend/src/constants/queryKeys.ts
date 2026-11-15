@@ -84,6 +84,13 @@ export const QUERY_KEYS = {
   recapTheme: (themeId: number) => ['recapTheme', themeId] as const,
   todayQuiz: () => ['todayQuiz'] as const,
 
+  // --- 単語帳（開発Todo_単語帳_v1.0 要件A。vocabCardsがvocabCardsFilteredの前方一致になる）---
+  vocabDecks: (goalId: number) => ['vocab-decks', goalId] as const,
+  vocabDeck: (deckId: number) => ['vocab-deck', deckId] as const,
+  vocabCards: (deckId: number) => ['vocab-cards', deckId] as const,
+  vocabCardsFiltered: (deckId: number, filter: string, sort: string) =>
+    ['vocab-cards', deckId, filter, sort] as const,
+
   // --- 振り返り（retrospective が retrospectiveView の前方一致になる） ---
   retrospective: (goalId: number) => ['retrospective', goalId] as const,
   retrospectiveView: (goalId: number, anonymize: boolean) =>

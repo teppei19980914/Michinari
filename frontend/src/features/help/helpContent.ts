@@ -40,6 +40,17 @@ export const HELP_SECTIONS: HelpSection[] = [
     ],
   },
   {
+    id: 'vocab',
+    titleKey: 'help.sections.vocab.title',
+    bodyKeys: [
+      'help.sections.vocab.p1',
+      'help.sections.vocab.p2',
+      'help.sections.vocab.p3',
+      'help.sections.vocab.p4',
+      'help.sections.vocab.p5',
+    ],
+  },
+  {
     id: 'roadmap',
     titleKey: 'help.sections.roadmap.title',
     bodyKeys: ['help.sections.roadmap.p1', 'help.sections.roadmap.p2', 'help.sections.roadmap.p3'],
