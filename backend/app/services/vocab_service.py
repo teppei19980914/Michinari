@@ -370,12 +370,23 @@ def _split_import_line(line: str) -> list[str]:
     return next(csv.reader([line], delimiter=delimiter))
 
 
+def _parse_import_aliases(raw: str) -> str | None:
+    """一括登録の別名欄（`|`区切り、利用者プロンプトの明示指示）を、保存形式（改行区切り、
+    `judge_typed_answer`が`splitlines()`で読む形式）へ変換する。変換を忘れると、一括登録した
+    別名が入力式の判定で1本の文字列としてしか一致しなくなる（横展開チェックで検出）。
+    """
+    aliases = [part.strip() for part in raw.split("|") if part.strip()]
+    return "\n".join(aliases) if aliases else None
+
+
 def parse_bulk_import(session: Session, deck: VocabDeck, text: str) -> VocabImportPreview:
     """貼り付けテキストを解析し、取り込み前のプレビューを返す。
 
     列は「用語・意味・別名（任意、`|`区切り）・補足（任意）」。タブ区切り、タブが無い行は
     カンマ区切りとして扱う（利用者プロンプトの明示指示）。`csv`モジュールのみを使い、
-    正規表現の連鎖は行わない（ReDoS対策）。
+    正規表現の連鎖は行わない（ReDoS対策）。別名は入力時の`|`区切りから保存形式（改行区切り）
+    へ`_parse_import_aliases`で変換する（横展開チェックで検出：変換を忘れると入力式判定の
+    別名一致が機能しなくなる）。
     """
     term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
     meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
@@ -391,7 +402,7 @@ def parse_bulk_import(session: Session, deck: VocabDeck, text: str) -> VocabImpo
         fields = _split_import_line(raw_line)
         term = fields[0].strip() if len(fields) > 0 else ""
         meaning = fields[1].strip() if len(fields) > 1 else ""
-        aliases = fields[2].strip() if len(fields) > 2 and fields[2].strip() else None
+        aliases = _parse_import_aliases(fields[2]) if len(fields) > 2 else None
         note = fields[3].strip() if len(fields) > 3 and fields[3].strip() else None
         if not term:
             errors.append(VocabImportError(line_number, "term is empty"))
