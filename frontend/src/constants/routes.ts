@@ -27,6 +27,9 @@ export const ROUTE_PATTERNS = {
   dailyReportView: '/records/:date/view',
   recapTheme: '/recap-themes/:themeId',
   quiz: '/quiz',
+  vocab: '/vocab',
+  vocabDeck: '/vocab/:deckId',
+  vocabQuiz: '/vocab/:deckId/quiz',
   help: '/help',
 } as const
 
@@ -52,5 +55,8 @@ export const ROUTES = {
   dailyReportView: (date: string) => `/records/${date}/view`,
   recapTheme: (themeId: number) => `/recap-themes/${themeId}`,
   quiz: ROUTE_PATTERNS.quiz,
+  vocab: ROUTE_PATTERNS.vocab,
+  vocabDeck: (deckId: number) => `/vocab/${deckId}`,
+  vocabQuiz: (deckId: number) => `/vocab/${deckId}/quiz`,
   help: ROUTE_PATTERNS.help,
 } as const
