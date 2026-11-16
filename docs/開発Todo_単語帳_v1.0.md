@@ -229,13 +229,13 @@
 - [x] B-B03 `quiz_block_parsing.py`新設（共通ブロック解析）、`quiz_generation_service._parse_blocks`を縮小（既存テスト無変更で合格）
 - [x] B-B04 `recap_service.chunk_by_chars`の型ヒントをProtocol化
 - [x] B-B05 `vocab_service.build_glossary_reference`（参考用語の共通組み立て関数、テスト11件）
-- [ ] B-B06 `vocab_quiz_generation_service.py`：対象カード選定・AI送信・検証・保存・`run_all`/`generate_for_deck`
+- [x] B-B06 `vocab_quiz_generation_service.py`：対象カード選定・AI送信・検証・保存・`run_all`/`generate_for_deck`（テスト18件、カバレッジ100%）
 - [x] B-B07 `quiz_generation_service.generate_for_theme`：nonce生成・`{{glossary_reference}}`注入（テスト3件、DELIMITER_REPLACEMENTS検証含む）
 - [x] B-B08 `quiz_service.get_due_questions`：2ソース合算＋日付・ID由来ハッシュ順（テスト6件追加、既存daily_limit挙動は変更なし）
 - [x] B-B09 `quiz_service.record_answer`・`delete_questions_for_vocab_card`（テスト2件追加）
 - [ ] B-B10 API：`app/api/vocab.py`（デッキのクイズ生成エンドポイント、カード編集時のクイズ削除フック）、`app/schemas/quiz.py`（出所種別・単語帳名）
-- [ ] B-B11 `main.py`：起動時バッチへ`vocab_quiz_generation_service.run_all`追加
-- [ ] B-B12 セキュリティテスト：実在しないカードID・根拠のない問題・選択肢重複・敵対的な繰り返し入力（1秒以内）・禁止語を含むカードの除外
+- [x] B-B11 `main.py`：起動時バッチへ`vocab_quiz_generation_service.run_all`追加（quiz_generation_service.run_allの直後）
+- [x] B-B12 セキュリティテスト：実在しないカードID・根拠のない問題・選択肢重複・敵対的な繰り返し入力（1秒以内）・禁止語を含むカードの除外（test_vocab_quiz_generation_service.pyに実装済み、B-B06で実施）
 
 #### 3.B.2 フロントエンド実装
 - [ ] B-F01 `api/quiz.ts`・型再生成（`npm run generate:api-types`）

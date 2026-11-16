@@ -2418,6 +2418,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vocab-decks/{deck_id}/quiz/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Vocab Deck Quiz
+         * @description 単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B B-U5）。
+         *
+         *     `use_in_ai=False`のデッキは何も作らない（`vocab_quiz_generation_service.generate_for_deck`
+         *     側の判定）。`quiz.questions_per_theme`等と同じく、作り直し（既存の未出題分の削除）は
+         *     行わない点がテーマ由来と異なる（カードごとに1問までのため、まだ問題を持たないカードの
+         *     分だけを追加で作る設計、B-U5）。
+         */
+        post: operations["generate_vocab_deck_quiz_api_v1_vocab_decks__deck_id__quiz_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2562,7 +2587,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -4474,7 +4499,11 @@ export interface components {
             /** Choice Index */
             choice_index: number;
         };
-        /** QuizAnswerResultRead */
+        /**
+         * QuizAnswerResultRead
+         * @description 解答結果。出所に応じて出典の表示が異なる（テーマ由来＝`citation_date`、単語帳由来＝
+         *     `vocab_deck_id`・`vocab_deck_name`、画面はこちらで「単語帳で確認する」リンクを出す）。
+         */
         QuizAnswerResultRead: {
             /** Is Correct */
             is_correct: boolean;
@@ -4483,10 +4512,16 @@ export interface components {
             /** Explanation */
             explanation: string;
             /**
-             * Citation Date
-             * Format: date
+             * Source
+             * @enum {string}
              */
-            citation_date: string;
+            source: "theme" | "vocab";
+            /** Citation Date */
+            citation_date?: string | null;
+            /** Vocab Deck Id */
+            vocab_deck_id?: number | null;
+            /** Vocab Deck Name */
+            vocab_deck_name?: string | null;
             /**
              * Next Due Date
              * Format: date
@@ -4501,14 +4536,25 @@ export interface components {
         /**
          * QuizQuestionRead
          * @description 出題用（正解・解説・出典は含めない。事前に見えると解答にならないため）。
+         *
+         *     出所に応じて`theme_*`／`vocab_deck_*`のどちらか一方のみが入る（他方はNone）。
          */
         QuizQuestionRead: {
             /** Id */
             id: number;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "theme" | "vocab";
             /** Theme Id */
-            theme_id: number;
+            theme_id?: number | null;
             /** Theme Name */
-            theme_name: string;
+            theme_name?: string | null;
+            /** Vocab Deck Id */
+            vocab_deck_id?: number | null;
+            /** Vocab Deck Name */
+            vocab_deck_name?: string | null;
             /** Question Text */
             question_text: string;
             /** Choices */
@@ -10622,6 +10668,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VocabAnswerResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_vocab_deck_quiz_api_v1_vocab_decks__deck_id__quiz_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizGenerateResultRead"];
                 };
             };
             /** @description Validation Error */

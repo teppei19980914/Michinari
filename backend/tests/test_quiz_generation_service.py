@@ -68,6 +68,22 @@ def test_generate_for_theme_discards_block_with_invalid_citation_date(seeded_ses
     assert seeded_session.scalars(select(QuizQuestion)).all() == []
 
 
+def test_generate_for_theme_discards_block_with_non_date_citation_format(
+    seeded_session, monkeypatch
+):
+    """出典が日付の形式でない場合（例：単語帳由来の「#カードID」形式）は、
+    `dt.date.fromisoformat`が`ValueError`を送出し、そのブロックのみ個別に破棄すること
+    （B-D4、出典の正規表現制約を共通化で緩めた副作用への対応）。"""
+    goal = make_exam_goal(seeded_session)
+    theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])
+    stub_quiz_ai(monkeypatch, _valid_block("#5"))
+
+    created = quiz_generation_service.generate_for_theme(seeded_session, goal, theme)
+
+    assert created == 0
+    assert seeded_session.scalars(select(QuizQuestion)).all() == []
+
+
 def test_generate_for_theme_discards_malformed_block(seeded_session, monkeypatch):
     goal = make_exam_goal(seeded_session)
     theme = seed_theme(seeded_session, goal, "メール関連", "本文", [dt.date(2026, 3, 9)])

@@ -1808,6 +1808,9 @@
     "nextButton": "次の問題",
     "completedTitle": "今日の復習は完了しました",
     "citationLabel": "出典: {{date}}",
+    "vocabSourceHeader": "単語帳『{{deckName}}』",
+    "vocabCitationLabel": "出典: 単語帳『{{deckName}}』の用語",
+    "viewInVocabDeckLink": "単語帳で確認する",
     "progressLabel": "{{current}}/{{total}}問"
   },
   "vocab": {
