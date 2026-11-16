@@ -233,16 +233,16 @@
 - [x] B-B07 `quiz_generation_service.generate_for_theme`：nonce生成・`{{glossary_reference}}`注入（テスト3件、DELIMITER_REPLACEMENTS検証含む）
 - [x] B-B08 `quiz_service.get_due_questions`：2ソース合算＋日付・ID由来ハッシュ順（テスト6件追加、既存daily_limit挙動は変更なし）
 - [x] B-B09 `quiz_service.record_answer`・`delete_questions_for_vocab_card`（テスト2件追加）
-- [ ] B-B10 API：`app/api/vocab.py`（デッキのクイズ生成エンドポイント、カード編集時のクイズ削除フック）、`app/schemas/quiz.py`（出所種別・単語帳名）
+- [x] B-B10 API：`app/api/vocab.py`（デッキのクイズ生成エンドポイント、カード編集時のクイズ削除フック）、`app/schemas/quiz.py`（出所種別・単語帳名）。`vocab_service.get_deck_info_for_cards`新設（N+1禁止）
 - [x] B-B11 `main.py`：起動時バッチへ`vocab_quiz_generation_service.run_all`追加（quiz_generation_service.run_allの直後）
 - [x] B-B12 セキュリティテスト：実在しないカードID・根拠のない問題・選択肢重複・敵対的な繰り返し入力（1秒以内）・禁止語を含むカードの除外（test_vocab_quiz_generation_service.pyに実装済み、B-B06で実施）
 
 #### 3.B.2 フロントエンド実装
-- [ ] B-F01 `api/quiz.ts`・型再生成（`npm run generate:api-types`）
-- [ ] B-F02 `QuizSession.tsx`：出所に応じた出典表示、単語帳由来の「単語帳で確認する」リンク
-- [ ] B-F03 `VocabDeckHeader.tsx`：「今日の復習の問題を作る」ボタン
-- [ ] B-F04 `ja.json`/`en.json`文言追加
-- [ ] B-F05 lint・tsc・test
+- [x] B-F01 `api/quiz.ts`・型再生成（`npm run generate:api-types`）、`api/vocab.ts`に`generateVocabDeckQuiz`追加
+- [x] B-F02 `QuizSession.tsx`：出所に応じた出典表示（`SourceHeader`/`CitationFooter`）、単語帳由来の「単語帳で確認する」リンク
+- [x] B-F03 `VocabDeckHeader.tsx`：「今日の復習の問題を作る」ボタン。1関数100行上限のため`VocabDeckAiSection.tsx`・`VocabDeckNameSection.tsx`へ分割（CODING_RULES.md「保守性」）
+- [x] B-F04 `ja.json`/`en.json`文言追加（`quiz.*`・`vocab.deckDetail.*`・AiPurpose表示名）
+- [x] B-F05 lint（oxlint 0件）・tsc（0件）・test（217ファイル/1744件合格、カバレッジ100%）
 
 #### 3.B.3 検証
 - [ ] B-V01 ruff・pytest・vitest（カバレッジ100%、§2.1との比較）

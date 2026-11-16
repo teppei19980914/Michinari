@@ -1927,6 +1927,12 @@
       "startQuizButton": "Start quiz",
       "useInAiLabel": "Use in today's review and AI feedback",
       "useInAiDescription": "This deck's terms are used when generating today's review questions and in AI feedback.",
+      "generateQuizButton": "Create today's review questions",
+      "quizGenerateSucceeded": {
+        "one": "Created {{count}} question for today's review",
+        "other": "Created {{count}} questions for today's review"
+      },
+      "quizGenerateSucceededNone": "Could not create any questions. There may be no cards without a question yet, or none could be verified against their evidence.",
       "termLabel": "Term",
       "meaningLabel": "Meaning",
       "aliasesLabel": "Aliases (optional)",

@@ -8,7 +8,11 @@ import type { VocabDeck } from '../../api/vocab'
 
 const updateVocabDeck = vi.hoisted(() => vi.fn())
 const deleteVocabDeck = vi.hoisted(() => vi.fn())
-vi.mock('../../api/vocab', () => ({ updateVocabDeck, deleteVocabDeck }))
+const generateVocabDeckQuiz = vi.hoisted(() => vi.fn())
+vi.mock('../../api/vocab', () => ({ updateVocabDeck, deleteVocabDeck, generateVocabDeckQuiz }))
+
+const getAiStatus = vi.hoisted(() => vi.fn())
+vi.mock('../../api/ai', () => ({ getAiStatus }))
 
 function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
   return {
@@ -27,6 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   updateVocabDeck.mockResolvedValue(makeDeck())
   deleteVocabDeck.mockResolvedValue(undefined)
+  getAiStatus.mockResolvedValue({ authenticated: true, model_status: {}, login_in_progress: false })
 })
 
 afterEach(() => {
@@ -84,6 +89,51 @@ describe('VocabDeckHeader のAI利用切替', () => {
     await user.click(screen.getByRole('checkbox'))
 
     await waitFor(() => expect(updateVocabDeck).toHaveBeenCalledWith(1, { use_in_ai: false }))
+  })
+})
+
+describe('VocabDeckHeader の今日の復習の問題作り', () => {
+  it('shows the AI-unconfigured notice instead of the button when AI is not configured', async () => {
+    getAiStatus.mockResolvedValue({
+      authenticated: false,
+      model_status: {},
+      login_in_progress: false,
+    })
+    renderWithProviders(<VocabDeckHeader deck={makeDeck()} />)
+
+    expect(await screen.findByText(t('aiUnconfigured.message'))).toBeDefined()
+    expect(
+      screen.queryByRole('button', { name: t('vocab.deckDetail.generateQuizButton') }),
+    ).toBeNull()
+  })
+
+  it('shows a toast with the created count on success', async () => {
+    const user = userEvent.setup()
+    generateVocabDeckQuiz.mockResolvedValue({ created: 3 })
+    renderWithProviders(<VocabDeckHeader deck={makeDeck()} />)
+
+    await user.click(
+      await screen.findByRole('button', { name: t('vocab.deckDetail.generateQuizButton') }),
+    )
+
+    expect(generateVocabDeckQuiz).toHaveBeenCalledWith(1)
+    expect(
+      await screen.findByText(t('vocab.deckDetail.quizGenerateSucceeded', { count: 3 })),
+    ).toBeDefined()
+  })
+
+  it('shows a toast saying nothing was created when created is zero', async () => {
+    const user = userEvent.setup()
+    generateVocabDeckQuiz.mockResolvedValue({ created: 0 })
+    renderWithProviders(<VocabDeckHeader deck={makeDeck()} />)
+
+    await user.click(
+      await screen.findByRole('button', { name: t('vocab.deckDetail.generateQuizButton') }),
+    )
+
+    expect(
+      await screen.findByText(t('vocab.deckDetail.quizGenerateSucceededNone')),
+    ).toBeDefined()
   })
 })
 
