@@ -1011,8 +1011,17 @@ def test_quiz_generate_prompt_migration_downgrade_removes_glossary_reference(tmp
     db_path = tmp_path / "quiz_generate_prompt_migration_downgrade.db"
     monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
 
+    migration_helpers.upgrade_to("1bd06141379f")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('QUIZ_GENERATE', '旧文面（{{glossary_reference}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
     migration_helpers.upgrade_to("head")
-    migration_helpers.upgrade_to("1bd06141379f")
+    migration_helpers.downgrade_to("1bd06141379f")
 
     with migration_helpers.sqlite_connection(db_path) as connection:
         row = connection.execute(

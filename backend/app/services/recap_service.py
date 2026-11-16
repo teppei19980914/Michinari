@@ -9,6 +9,7 @@ import datetime as dt
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Protocol
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
@@ -134,14 +135,22 @@ def collect_pending_entries(
     )
 
 
-def chunk_by_chars(texts: list[EntryText], budget: int):
-    """報告本文を、合計文字数が予算を超えないよう順に区切る（1件が予算を超える場合は単独）。
-
-    recap・復習クイズ（開発Todo_復習クイズ_v1.0）の両方のAI呼び出しで使う共通処理
-    （CLAUDE.md DRYの原則。元は`recap_generation_service._chunk_by_chars`だったものを
-    本モジュールへ移設）。
+class _HasText(Protocol):
+    """`chunk_by_chars`が要求する最小の形（`.text`のみ）。`EntryText`のほか、単語帳由来の
+    クイズ生成（開発Todo_単語帳_v1.0 要件B）が渡すカード用のテキスト項目もこれを満たす。
     """
-    chunk: list[EntryText] = []
+
+    text: str
+
+
+def chunk_by_chars(texts: list[_HasText], budget: int):
+    """本文を、合計文字数が予算を超えないよう順に区切る（1件が予算を超える場合は単独）。
+
+    recap・復習クイズ（開発Todo_復習クイズ_v1.0）・単語帳由来のクイズ生成（開発Todo_
+    単語帳_v1.0 要件B）のAI呼び出しで使う共通処理（CLAUDE.md DRYの原則。元は
+    `recap_generation_service._chunk_by_chars`だったものを本モジュールへ移設）。
+    """
+    chunk: list[_HasText] = []
     size = 0
     for item in texts:
         if chunk and size + len(item.text) > budget:

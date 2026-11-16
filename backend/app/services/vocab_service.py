@@ -18,7 +18,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ai.question_safety import normalize_for_match
+from app.ai.question_safety import contains_forbidden_term, normalize_for_match
 from app.constants.app_setting_keys import (
     VOCAB_DECK_MAX_CARDS,
     VOCAB_IMPORT_MAX_ROWS,
@@ -613,3 +613,76 @@ def build_choice_option_ids(
     option_cards = [*distractors, target_card]
     rng.shuffle(option_cards)
     return [card.id for card in option_cards]
+
+
+# ---------------------------------------------------------------------------
+# AI連携: 参考用語の組み立て（開発Todo_単語帳_v1.0 要件B B-U6）
+# ---------------------------------------------------------------------------
+
+#: 参考用語が無い場合の表示（資格試験以外の目標、対象カードが無い場合）。
+NO_GLOSSARY_REFERENCE_TEXT = "（なし）"
+
+
+def vocab_match_keys(card: VocabCard) -> list[str]:
+    """カードの用語・別名を正規化したキー一覧（`normalize_for_vocab_match`適用後）。
+
+    参考用語の組み立て（`build_glossary_reference`）・単語帳由来クイズの根拠検証
+    （`vocab_quiz_generation_service`、出典カードの用語または別名が問題文・正解の
+    選択肢に含まれるかの判定）の両方で使う共通処理（CLAUDE.md DRYの原則）。
+    """
+    keys = [normalize_for_vocab_match(card.term)]
+    keys.extend(
+        normalize_for_vocab_match(alias)
+        for alias in (card.aliases or "").splitlines()
+        if alias.strip()
+    )
+    return [key for key in keys if key]
+
+
+def _format_glossary_line(card: VocabCard) -> str:
+    """「・用語（別名1、別名2）: 意味」の形式（別名が無ければ括弧を省略、B-D11）。"""
+    aliases = [alias.strip() for alias in (card.aliases or "").splitlines() if alias.strip()]
+    if aliases:
+        return f"・{card.term}（{'、'.join(aliases)}）: {card.meaning}"
+    return f"・{card.term}: {card.meaning}"
+
+
+def build_glossary_reference(
+    session: Session, goal: Goal, texts: list[str], *, max_chars: int
+) -> str:
+    """参考用語（学習者が単語帳に登録した意味）を、与えられた文章群に用語または別名が
+    含まれるカードから組み立てる（B-U6、テーマ由来クイズ生成の{{glossary_reference}}）。
+
+    資格試験以外の目標・対象カードが無い場合は`NO_GLOSSARY_REFERENCE_TEXT`（「（なし）」）
+    を返す。禁止語を含むカードは除外する（vocab_quiz_generation_serviceと共通の方針）。
+    マッチ対象の文章群（`texts`）・文字数予算（`max_chars`）を引数化し、要件C（日次
+    フィードバック・目標相談への注入）でも再利用できる共通関数とする（利用者プロンプトの
+    明示指示）。カードの並び順（デッキ表示順→カード表示順）は固定とし、要件Cで異なる
+    並び順が必要になった場合はそのとき拡張する（B-D14、スコープの最小化）。
+    """
+    if goal.category != GoalCategory.EXAM:
+        return NO_GLOSSARY_REFERENCE_TEXT
+    deck_ids = [deck.id for deck in list_decks_for_goal(session, goal.id) if deck.use_in_ai]
+    if not deck_ids:
+        return NO_GLOSSARY_REFERENCE_TEXT
+    cards = list(
+        session.scalars(
+            select(VocabCard)
+            .where(VocabCard.deck_id.in_(deck_ids))
+            .order_by(VocabCard.deck_id, VocabCard.display_order, VocabCard.id)
+        ).all()
+    )
+    normalized_texts = [normalize_for_vocab_match(text) for text in texts]
+    lines: list[str] = []
+    total_chars = 0
+    for card in cards:
+        if contains_forbidden_term(session, f"{card.term} {card.meaning} {card.aliases or ''}"):
+            continue
+        if not any(key in text for key in vocab_match_keys(card) for text in normalized_texts):
+            continue
+        line = _format_glossary_line(card)
+        if lines and total_chars + len(line) > max_chars:
+            break
+        lines.append(line)
+        total_chars += len(line)
+    return "\n".join(lines) if lines else NO_GLOSSARY_REFERENCE_TEXT

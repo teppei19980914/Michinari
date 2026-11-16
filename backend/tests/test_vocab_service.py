@@ -13,6 +13,7 @@ from app.constants.app_setting_keys import (
     VOCAB_TERM_MAX_CHARS,
 )
 from app.constants.enums import VocabQuizMode
+from app.models.ai import AiForbiddenTerm
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
 from app.services import vocab_service
 from app.services.exceptions import (
@@ -1042,3 +1043,153 @@ def test_build_choice_option_ids_returns_none_when_not_enough_distractors(seeded
     )
 
     assert option_ids is None
+
+
+# ---------------------------------------------------------------------------
+# build_glossary_reference（開発Todo_単語帳_v1.0 要件B B-U6）
+# ---------------------------------------------------------------------------
+
+
+def test_build_glossary_reference_includes_card_matching_term_in_text(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == "・SMTP: メール送信の仕組み"
+
+
+def test_build_glossary_reference_includes_card_matching_alias(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(
+        seeded_session,
+        deck,
+        term="簡易メール転送プロトコル",
+        meaning="SMTPの日本語名",
+        aliases="SMTP",
+    )
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == "・簡易メール転送プロトコル（SMTP）: SMTPの日本語名"
+
+
+def test_build_glossary_reference_joins_multiple_aliases_with_japanese_comma(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="用語A", meaning="意味A", aliases="別名1\n別名2")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["用語Aについて"], max_chars=2000
+    )
+
+    assert result == "・用語A（別名1、別名2）: 意味A"
+
+
+def test_build_glossary_reference_matches_ignoring_width_case_and_whitespace(seeded_session):
+    """全角半角・大小文字・空白の違いを無視して一致すること（normalize_for_vocab_match）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="ＳＭＴＰ", meaning="メール送信の仕組み")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["today smtp was covered"], max_chars=2000
+    )
+
+    assert result == "・ＳＭＴＰ: メール送信の仕組み"
+
+
+def test_build_glossary_reference_matches_ignoring_katakana_hiragana_difference(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="ダイアグラム", meaning="図")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["だいあぐらむを描いた"], max_chars=2000
+    )
+
+    assert result == "・ダイアグラム: 図"
+
+
+def test_build_glossary_reference_excludes_non_matching_card(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はDNSについて学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
+def test_build_glossary_reference_excludes_card_from_deck_with_use_in_ai_false(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal, use_in_ai=False)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
+def test_build_glossary_reference_excludes_card_from_other_goal(seeded_session):
+    goal_a = make_exam_goal(seeded_session, name="目標A")
+    goal_b = make_exam_goal(seeded_session, name="目標B")
+    deck_b = make_deck(seeded_session, goal_b)
+    make_card(seeded_session, deck_b, term="SMTP", meaning="目標Bの単語帳の意味")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal_a, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
+def test_build_glossary_reference_returns_no_glossary_text_for_reading_goal(seeded_session):
+    goal = make_reading_goal(seeded_session)
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
+def test_build_glossary_reference_excludes_card_containing_forbidden_term(seeded_session):
+    seeded_session.add(AiForbiddenTerm(term="きんし語", enabled=True, note=None))
+    seeded_session.flush()
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="きんし語を含む意味")
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日はSMTPについて学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
+def test_build_glossary_reference_truncates_by_line_unit_within_max_chars(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="短い意味1", display_order=0)
+    make_card(seeded_session, deck, term="DNS", meaning="短い意味2", display_order=1)
+    first_line = "・SMTP: 短い意味1"
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session,
+        goal,
+        ["SMTPとDNSについて学んだ"],
+        max_chars=len(first_line),
+    )
+
+    assert result == first_line

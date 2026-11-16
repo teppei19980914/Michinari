@@ -57,6 +57,7 @@
 | B-D11 | 参考用語（{{glossary_reference}}）の行フォーマットは「・用語（別名1、別名2）: 意味」。別名が無い場合は「・用語: 意味」（括弧を省略） | 利用者プロンプトの書式「・用語（別名）: 意味」に対し、複数別名時の連結方法とゼロ別名時の省略規則を明確化する必要があったための補足決定 |
 | B-D12 | `{{glossary_reference}}`・`{{nonce}}`を追加する`QUIZ_GENERATE`テンプレート改訂は、既存の`{{entries}}`（報告本文）側にはnonce区切りを追加しない（現状維持） | スコープの最小化。報告本文への区切り強化は既存機能（復習クイズ要件A相当）の挙動変更であり、本Todo（単語帳由来の新規データ経路の保護）の範囲外。将来必要なら別Todoで検討する |
 | B-D13 | `vocab_quiz_generation_service`の対象は「ACTIVEな資格試験の目標」に限定する（`ai_context_exam.list_active_exam_goals`を再利用、読書は呼ばない） | 単語帳はEXAM専用（要件A U1）であり、vocab_deckがREADING/WORK目標に存在しえないため、カテゴリ絞り込みは安全側の防御的チェックとして追加する（通常は空集合になるだけ） |
+| B-D14 | `vocab_service.build_glossary_reference`のカード並び順（デッキ表示順→カード表示順）は固定とし、要件C向けの可変化は行わない。マッチ対象の文章群・文字数予算のみを引数化する | 利用者プロンプトは「カードの選び方（絞り込み・並び順）と文字数の予算を引数で受け取る」よう明示しているが、要件Bの時点では並び順を変える具体的な要求が無いため、過剰な一般化（CLAUDE.md「設計しない」原則）を避け、要件C着手時に必要なら拡張する |
 
 
 
@@ -223,15 +224,15 @@
 - [x] B-01 `/threat-model`実施（STRIDE、§5.2へ記録、2026-11-15）
 
 #### 3.B.1 バックエンド実装
-- [ ] B-B01 列挙・設定キーの追加（`VOCAB_QUIZ_GENERATE`、`vocab.quiz_cards_per_startup`・`vocab.quiz_reference_max_chars`）
-- [ ] B-B02 `quiz_question`/`quiz_answer_log`のマイグレーション（CHECK制約、`batch_alter_table`、既存データでのupgrade/downgradeテスト）。`QUIZ_GENERATE`プロンプト本文更新を同梱
-- [ ] B-B03 `quiz_block_parsing.py`新設（共通ブロック解析）、`quiz_generation_service._parse_blocks`を縮小（既存テスト無変更で合格）
-- [ ] B-B04 `recap_service.chunk_by_chars`の型ヒントをProtocol化
-- [ ] B-B05 `vocab_service.build_glossary_reference`（参考用語の共通組み立て関数）
+- [x] B-B01 列挙・設定キーの追加（`VOCAB_QUIZ_GENERATE`、`vocab.quiz_cards_per_startup`・`vocab.quiz_reference_max_chars`）
+- [x] B-B02 `quiz_question`/`quiz_answer_log`のマイグレーション（CHECK制約、`batch_alter_table`、既存データでのupgrade/downgradeテスト、`a0c24f1a0f15`）。`QUIZ_GENERATE`プロンプト本文更新を同梱
+- [x] B-B03 `quiz_block_parsing.py`新設（共通ブロック解析）、`quiz_generation_service._parse_blocks`を縮小（既存テスト無変更で合格）
+- [x] B-B04 `recap_service.chunk_by_chars`の型ヒントをProtocol化
+- [x] B-B05 `vocab_service.build_glossary_reference`（参考用語の共通組み立て関数、テスト11件）
 - [ ] B-B06 `vocab_quiz_generation_service.py`：対象カード選定・AI送信・検証・保存・`run_all`/`generate_for_deck`
-- [ ] B-B07 `quiz_generation_service.generate_for_theme`：nonce生成・`{{glossary_reference}}`注入
-- [ ] B-B08 `quiz_service.get_due_questions`：2ソース合算＋日付・ID由来ハッシュ順（既存daily_limit挙動の固定テストを先に追加してから変更）
-- [ ] B-B09 `quiz_service.record_answer`・`delete_questions_for_vocab_card`
+- [x] B-B07 `quiz_generation_service.generate_for_theme`：nonce生成・`{{glossary_reference}}`注入（テスト3件、DELIMITER_REPLACEMENTS検証含む）
+- [x] B-B08 `quiz_service.get_due_questions`：2ソース合算＋日付・ID由来ハッシュ順（テスト6件追加、既存daily_limit挙動は変更なし）
+- [x] B-B09 `quiz_service.record_answer`・`delete_questions_for_vocab_card`（テスト2件追加）
 - [ ] B-B10 API：`app/api/vocab.py`（デッキのクイズ生成エンドポイント、カード編集時のクイズ削除フック）、`app/schemas/quiz.py`（出所種別・単語帳名）
 - [ ] B-B11 `main.py`：起動時バッチへ`vocab_quiz_generation_service.run_all`追加
 - [ ] B-B12 セキュリティテスト：実在しないカードID・根拠のない問題・選択肢重複・敵対的な繰り返し入力（1秒以内）・禁止語を含むカードの除外

@@ -867,7 +867,7 @@ def test_vocab_quiz_integration_migration_downgrade_deletes_vocab_sourced_rows(
             "VALUES (2, NULL, 1, 2, 1, '2026-01-02T00:00:00', '2026-01-02T00:00:00')"
         )
 
-    migration_helpers.upgrade_to("1bd06141379f")
+    migration_helpers.downgrade_to("1bd06141379f")
 
     with migration_helpers.sqlite_connection(db_path) as connection:
         remaining_questions = connection.execute(
