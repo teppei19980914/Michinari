@@ -180,6 +180,22 @@ def count_cards_by_deck(session: Session, deck_ids: list[int]) -> dict[int, int]
     return dict(rows)
 
 
+def get_deck_info_for_cards(session: Session, card_ids: list[int]) -> dict[int, tuple[int, str]]:
+    """複数カードの単語帳ID・名前を1回の問い合わせで返す（`card_id → (deck_id, deck_name)`）。
+
+    今日の復習（開発Todo_単語帳_v1.0 要件B）が単語帳由来の問題の出所表示・「単語帳で
+    確認する」リンクに使う（N+1禁止、`count_cards_by_deck`と同じ方針）。
+    """
+    if not card_ids:
+        return {}
+    rows = session.execute(
+        select(VocabCard.id, VocabDeck.id, VocabDeck.name)
+        .join(VocabDeck, VocabDeck.id == VocabCard.deck_id)
+        .where(VocabCard.id.in_(card_ids))
+    ).all()
+    return {card_id: (deck_id, deck_name) for card_id, deck_id, deck_name in rows}
+
+
 def _validate_card_fields(session: Session, term: str, meaning: str) -> None:
     term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
     meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)

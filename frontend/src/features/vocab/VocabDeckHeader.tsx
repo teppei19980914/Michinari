@@ -7,15 +7,23 @@ import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
 import { Textarea } from '../../components/Textarea'
+import { AiUnconfiguredNotice } from '../../components/AiUnconfiguredNotice'
 import { useToast } from '../../components/toastContext'
-import { deleteVocabDeck, updateVocabDeck, type VocabDeck } from '../../api/vocab'
+import {
+  deleteVocabDeck,
+  generateVocabDeckQuiz,
+  updateVocabDeck,
+  type VocabDeck,
+} from '../../api/vocab'
+import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
 /** 単語帳詳細の見出し（名前・説明の編集、AI利用の切替、削除）。 */
 export function VocabDeckHeader({ deck }: { deck: VocabDeck }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showApiError, showToast } = useToast()
+  const aiConfigured = useAiConfigured()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(deck.name)
   const [description, setDescription] = useState(deck.description ?? '')
@@ -36,6 +44,18 @@ export function VocabDeckHeader({ deck }: { deck: VocabDeck }) {
     mutationFn: () => deleteVocabDeck(deck.id),
     meta: { overlay: 'deleting' },
     onSuccess: () => navigate(ROUTES.goalDetail(deck.goal_id)),
+    onError: showApiError,
+  })
+  const generateQuizMutation = useMutation({
+    mutationFn: () => generateVocabDeckQuiz(deck.id),
+    meta: { overlay: 'saving' },
+    onSuccess: (result) => {
+      showToast(
+        result.created > 0
+          ? t('vocab.deckDetail.quizGenerateSucceeded', { count: result.created })
+          : t('vocab.deckDetail.quizGenerateSucceededNone'),
+      )
+    },
     onError: showApiError,
   })
 

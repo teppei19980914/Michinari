@@ -1898,6 +1898,9 @@
     "nextButton": "Next question",
     "completedTitle": "Today's review is complete",
     "citationLabel": "Source: {{date}}",
+    "vocabSourceHeader": "Vocabulary deck \"{{deckName}}\"",
+    "vocabCitationLabel": "Source: term from vocabulary deck \"{{deckName}}\"",
+    "viewInVocabDeckLink": "View in vocabulary deck",
     "progressLabel": "{{current}} / {{total}}"
   },
   "vocab": {

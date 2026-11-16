@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { QuizGenerateResult } from './quiz'
 import type { components } from '../types/api.d.ts'
 
 export type VocabDeck = components['schemas']['VocabDeckRead']
@@ -118,4 +119,10 @@ export function answerVocabCard(
   },
 ): Promise<VocabAnswerResult> {
   return apiClient.post<VocabAnswerResult>(`/vocab-cards/${cardId}/answer`, payload)
+}
+
+/** 単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B）。
+ * まだ問題を持たないカードの分だけを作る（既存の未出題分の削除は行わない）。 */
+export function generateVocabDeckQuiz(deckId: number): Promise<QuizGenerateResult> {
+  return apiClient.post<QuizGenerateResult>(`/vocab-decks/${deckId}/quiz/generate`)
 }
