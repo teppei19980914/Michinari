@@ -11,9 +11,11 @@ from app.models.goal import Goal
 from app.models.quiz import QuizAnswerLog, QuizQuestion
 from app.models.recap import RecapTheme
 from app.models.setting import AppSetting
+from app.models.vocab import VocabAnswerLog
 from app.services import quiz_service
 from app.services.exceptions import NotFoundError
 from tests.diary_helpers import make_exam_goal
+from tests.vocab_helpers import make_card, make_deck
 
 TODAY = dt.date(2026, 3, 20)
 
@@ -44,6 +46,28 @@ def _make_question(
         correct_choice_index=1,
         explanation="解説",
         citation_date=dt.date(2026, 3, 9),
+        interval_index=interval_index,
+        next_due_date=next_due_date,
+        last_answered_at=last_answered_at,
+    )
+    session.add(question)
+    session.flush()
+    return question
+
+
+def _make_vocab_question(
+    session, card, *, next_due_date, interval_index=0, last_answered_at=None
+) -> QuizQuestion:
+    question = QuizQuestion(
+        vocab_card_id=card.id,
+        question_text="問題文",
+        choice_1="A",
+        choice_2="B",
+        choice_3="C",
+        choice_4="D",
+        correct_choice_index=1,
+        explanation="解説",
+        citation_date=None,
         interval_index=interval_index,
         next_due_date=next_due_date,
         last_answered_at=last_answered_at,
@@ -92,6 +116,71 @@ def test_get_due_questions_respects_daily_limit(seeded_session):
     assert len(quiz_service.get_due_questions(seeded_session, TODAY)) == 2
 
 
+def test_get_due_questions_includes_vocab_sourced_questions(seeded_session):
+    """単語帳由来の問題も、テーマ由来と同じ絞り込み・間隔ルールで出題対象になること（B-U1）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    vocab_question = _make_vocab_question(seeded_session, card, next_due_date=TODAY)
+
+    result = quiz_service.get_due_questions(seeded_session, TODAY)
+
+    assert [q.id for q in result] == [vocab_question.id]
+
+
+def test_get_due_questions_mixes_theme_and_vocab_sources(seeded_session):
+    """期日を迎えた問題は、出所（テーマ／単語帳）を区別せず両方が出題対象になること（B-U2）。"""
+    goal = make_exam_goal(seeded_session)
+    theme = _make_theme(seeded_session, goal)
+    theme_question = _make_question(seeded_session, theme, next_due_date=TODAY)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    vocab_question = _make_vocab_question(seeded_session, card, next_due_date=TODAY)
+
+    result = quiz_service.get_due_questions(seeded_session, TODAY)
+
+    assert {q.id for q in result} == {theme_question.id, vocab_question.id}
+
+
+def test_get_due_questions_excludes_vocab_question_when_deck_use_in_ai_is_false(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal, use_in_ai=False)
+    card = make_card(seeded_session, deck)
+    _make_vocab_question(seeded_session, card, next_due_date=TODAY)
+
+    assert quiz_service.get_due_questions(seeded_session, TODAY) == []
+
+
+def test_get_due_questions_excludes_vocab_question_from_non_active_goal(seeded_session):
+    goal = make_exam_goal(seeded_session, status=GoalStatus.PAUSED)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    _make_vocab_question(seeded_session, card, next_due_date=TODAY)
+
+    assert quiz_service.get_due_questions(seeded_session, TODAY) == []
+
+
+def test_get_due_questions_order_is_stable_within_the_same_day_and_changes_the_next_day(
+    seeded_session,
+):
+    """出題順は日付とIDから作るハッシュ値の順（B-U2）。同じ日は並びが変わらず、翌日は変わる。"""
+    goal = make_exam_goal(seeded_session)
+    theme = _make_theme(seeded_session, goal)
+    for _ in range(10):
+        _make_question(seeded_session, theme, next_due_date=TODAY)
+    _set_setting(seeded_session, QUIZ_DAILY_LIMIT, "100")
+
+    order_today_first = [q.id for q in quiz_service.get_due_questions(seeded_session, TODAY)]
+    order_today_second = [q.id for q in quiz_service.get_due_questions(seeded_session, TODAY)]
+    order_tomorrow = [
+        q.id for q in quiz_service.get_due_questions(seeded_session, TODAY + dt.timedelta(days=1))
+    ]
+
+    assert order_today_first == order_today_second
+    assert sorted(order_today_first) == sorted(order_tomorrow)
+    assert order_today_first != order_tomorrow
+
+
 def test_record_answer_correct_advances_interval_and_logs(seeded_session):
     goal = make_exam_goal(seeded_session)
     theme = _make_theme(seeded_session, goal)
@@ -135,6 +224,40 @@ def test_record_answer_incorrect_resets_to_first_interval(seeded_session):
         select(QuizAnswerLog).where(QuizAnswerLog.question_id == question.id)
     )
     assert log.is_correct is False
+
+
+def test_record_answer_for_vocab_sourced_question_logs_vocab_card_id_not_theme(seeded_session):
+    """単語帳由来の解答は`quiz_answer_log.vocab_card_id`へ記録し、`theme_id`はNULLのまま。
+    単語帳の成績（vocab_answer_log）には記録しない（B-U3）。
+    """
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    question = _make_vocab_question(seeded_session, card, next_due_date=TODAY)
+
+    quiz_service.record_answer(seeded_session, question, True)
+
+    log = seeded_session.scalar(
+        select(QuizAnswerLog).where(QuizAnswerLog.question_id == question.id)
+    )
+    assert log.theme_id is None
+    assert log.vocab_card_id == card.id
+    assert seeded_session.scalars(select(VocabAnswerLog)).all() == []
+
+
+def test_delete_questions_for_vocab_card_removes_only_that_cards_questions(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card_a = make_card(seeded_session, deck, term="A")
+    card_b = make_card(seeded_session, deck, term="B")
+    question_a = _make_vocab_question(seeded_session, card_a, next_due_date=TODAY)
+    question_b = _make_vocab_question(seeded_session, card_b, next_due_date=TODAY)
+
+    quiz_service.delete_questions_for_vocab_card(seeded_session, card_a.id)
+
+    remaining = seeded_session.scalars(select(QuizQuestion)).all()
+    assert [q.id for q in remaining] == [question_b.id]
+    assert seeded_session.get(QuizQuestion, question_a.id) is None
 
 
 def test_delete_questions_for_theme_only_unanswered_keeps_answered(seeded_session):
