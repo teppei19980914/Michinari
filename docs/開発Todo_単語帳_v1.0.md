@@ -245,10 +245,10 @@
 - [x] B-F05 lint（oxlint 0件）・tsc（0件）・test（217ファイル/1744件合格、カバレッジ100%）
 
 #### 3.B.3 検証
-- [x] B-V01 ruff・pytest・vitest（2026-11-17実施。バックエンド2,479件合格・カバレッジ100%〈文10,738・分岐1,992〉・ruff 0件。フロントエンド217ファイル/1,744件合格・カバレッジ100%・oxlint 0件・tsc 0件。§2.1比較：既存テストは1件も壊れていない〈バックエンド+52件、フロントエンド+6件、いずれも要件Bの新規テストによる想定どおりの増加〉）
-- [ ] B-V02 既存DBからのアップグレード確認（実利用者DB退避コピー）
-- [ ] B-V03 観点別レビュー（起動条件に該当するエージェントを並列実行）
-- [ ] B-V04 実機確認手順の提示
+- [x] B-V01 ruff・pytest・vitest（2026-11-17実施、2026-11-18にレビュー対応後再実行。バックエンド2,491件合格・カバレッジ100%〈文10,765・分岐1,998〉・ruff 0件。フロントエンド217ファイル/1,744件合格・カバレッジ100%・oxlint 0件・tsc 0件。§2.1比較：既存テストは1件も壊れていない）
+- [x] B-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、§8参照）
+- [x] B-V03 観点別レビュー（2026-11-17実施、7エージェント並列。HIGH4件・MEDIUM6件・LOW4件検出、§5.3参照。2026-11-18に全HIGH・大半のMEDIUMを修正済み）
+- [x] B-V04 実機確認手順の提示（報告メッセージに記載）
 
 #### 3.B.4 文書改訂
 - [x] B-D01 要件定義書：6.23へR-177〜R-184追記、改訂履歴1.1改58（2026-11-17）
@@ -372,6 +372,32 @@
 ### 設計書への反映
 STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/`の該当章（単語帳由来の出題ロジック改訂）へ転記する（文書改訂B-D01〜D07で実施）。
 
+## 5.3 観点別レビュー（コミット前チェック、要件B、2026-11-17実施）
+
+`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`xss-reviewer`・`test-coverage-reviewer`・`performance-reviewer`を並列実行。検出事項と対応:
+
+| # | エージェント | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | dry-reviewer | **HIGH** | 禁止語チェック対象テキストの組み立て（`f"{term} {meaning} {aliases}"`）が`vocab_service.build_glossary_reference`・`vocab_quiz_generation_service._generate_for_cards`の2箇所に一字一句重複 | 修正済み：`question_safety.py`に`list_enabled_forbidden_term_keys`・`contains_any_forbidden_term`を新設し、両箇所がこの2関数を共有する形に統一（performance-reviewer#1と合わせて対応） |
+| 2 | performance-reviewer | **HIGH** | `contains_forbidden_term`がカード1枚ごとに`ai_forbidden_term`を再クエリするN+1（`build_glossary_reference`・`_generate_for_cards`の両方） | 修正済み：上記1と同時に対応。呼び出し元がループの外で`list_enabled_forbidden_term_keys`を1回だけ呼び、`contains_any_forbidden_term`で都度判定する方式へ変更 |
+| 3 | test-coverage-reviewer | **HIGH** | `VocabCard`削除が`quiz_question`/`quiz_answer_log`までCASCADE削除することが未検証 | 修正済み：`test_vocab_service.py`に`test_delete_card_cascades_to_quiz_question_and_answer_log`を追加 |
+| 4 | test-coverage-reviewer | **HIGH** | 目標削除が`vocab_deck`→`vocab_card`→`quiz_question`/`quiz_answer_log`までCASCADE削除することが未検証（既存のテーマ由来チェーンも実は未検証だったことも判明） | 修正済み：`test_goal_service.py`に`test_delete_goal_cascades_removes_vocab_deck_card_and_quiz_rows`を追加。ORM relationship未定義のテーブルはSQLAlchemyのアイデンティティマップが更新されないため`.get()`ではなく`.expire_all()`＋`.query().count()`で検証する必要があることも判明し、テストに反映 |
+| 5 | test-coverage-reviewer | MEDIUM〜HIGH | `quiz_question`のCHECK制約（出所の排他性、テーマ由来の出典日付必須）自体が未検証 | 修正済み：`test_models_crud.py`に`IntegrityError`を検証する4テストを追加（両方セット・両方NULL・テーマのみで出典日付NULL・単語帳由来の正常系） |
+| 6 | injection-reviewer | MEDIUM | 単語帳カードのterm/meaningに制御文字（改行等）の検証が無く、AIへ送る「1カード=1行」形式の構造を崩せる（他カードの行を偽装できる） | 修正済み：入力検証ではなくAI送信用フォーマット関数側で対応（データとしての改行保存は妨げない）。`vocab_service.flatten_for_single_line`を新設し、`_format_card_line`（単語帳由来）・`_format_glossary_line`（参考用語）の両方で改行等を空白へ変換してから埋め込む。回帰テスト2件を追加 |
+| 7 | injection-reviewer | LOW | `build_glossary_reference`が`DELIMITER_REPLACEMENTS`を自前で適用せず呼び出し側任せで、将来の呼び出し元が付与を忘れると区切り偽造の余地が生まれる | 修正済み：`_format_glossary_line`内で山括弧の全角化を直接行う「デフォルトで安全」な実装へ変更。呼び出し元（`quiz_generation_service.generate_for_theme`）の`.translate(...)`は不要になったため削除。回帰テスト1件を追加 |
+| 8 | dry-reviewer | MEDIUM | 別名（aliases）のパース処理が`vocab_match_keys`・`_format_glossary_line`・`_format_card_line`の3箇所に重複（2箇所は完全一致） | 修正済み：`vocab_service.split_aliases`を新設し3箇所から共有 |
+| 9 | dry-reviewer | MEDIUM | 単語帳AI対象判定（`use_in_ai=True`・ACTIVE・EXAM）の3条件が`quiz_service._due_vocab_questions`・`vocab_quiz_generation_service._candidate_cards_query`に重複 | 修正済み：`vocab_service.ai_eligible_deck_conditions()`を新設し両箇所で共有 |
+| 10 | performance-reviewer | MEDIUM | `build_glossary_reference`がテーマ生成のチャンクごとに同じデッキ・カード一覧を再取得（テーマ数×チャンク数回の重複クエリ） | 修正済み：`vocab_service.eligible_glossary_cards`を新設し、`quiz_generation_service.generate_for_theme`がループの外で1回だけ呼んで`cards`引数へ渡す方式に変更（`forbidden_keys`も同様にキャッシュ） |
+| 11 | performance-reviewer | LOW | `vocab_quiz_generation_service.run_all`がデッキ数分だけ`get_deck`/`get_goal`を個別取得（N+1） | 修正済み：デッキID集合・目標ID集合でそれぞれ1回の`IN`クエリへ一括化 |
+| 12 | style-reviewer | MEDIUM | `vocab_match_keys`が同ファイルの他の公開関数（動詞_対象形式）と命名パターンが不整合 | 修正済み：`build_vocab_match_keys`へリネーム（呼び出し元2箇所も追従） |
+| 13 | style-reviewer | LOW | `quiz_service._due_theme_questions`に、対になる`_due_vocab_questions`と異なりdocstringが無い | 修正済み：一行docstringを追加 |
+| 14 | test-coverage-reviewer | MEDIUM | `vocab.quiz_cards_per_startup`・`quiz.daily_limit`・`build_glossary_reference`の`max_chars`のいずれも「ちょうどの境界（成功側）」が未検証（超過側のみ） | 修正済み：3箇所にちょうどの境界で成功することを確認するテストを追加 |
+| 15 | style-reviewer | LOW | `quiz_generation_service._MAX_BLOCK_CHARS`が別モジュール（`quiz_block_parsing`）の非公開定数をモジュール外から再参照している | 対応不要と判断（既存テストが`quiz_generation_service._MAX_BLOCK_CHARS`を直接参照するための意図的な橋渡しであり、コメントで理由を明記済み。実害は小さいためそのまま残す） |
+| — | label-checker / xss-reviewer | — | 指摘なし（ハードコード文言・XSS対策のいずれも既存方針に合致） | 対応不要 |
+| — | dry-reviewer | LOW | フロントエンドの「クイズを作る」`useMutation`パターンが`VocabDeckHeader.tsx`・`RecapThemeDetailPage.tsx`で同形重複 | 対応不要と判断（引数化すると抽象化過多になるため見送り、レビュー自身もその判断を支持） |
+
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,491件合格、カバレッジ100%、ruff 0件。§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |
@@ -381,6 +407,10 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 | 用語・意味のXSS | プレーンテキスト表示のみ、生HTMLを解釈する仕組みを使わない（xss-reviewerで確認済み） |
 | DATA_SCHEMA_VERSIONの食い違い | フルスキャンで実際値を確認し1.9へ正しく更新（D5） |
 | デッキ一覧のN+1・表示順の衝突 | performance-reviewer・dry-reviewerで検出し修正済み（§5.1 #2・#5） |
+| 禁止語チェックのN+1（カード1枚ごとの再クエリ） | `question_safety.list_enabled_forbidden_term_keys`で1回だけ取得し共有する方式へ変更（§5.3 #1・#2） |
+| 単語帳カードの改行による「1カード=1行」プロンプト構造の偽装 | `vocab_service.flatten_for_single_line`で改行等を空白へ変換してから埋め込む（§5.3 #6） |
+| `build_glossary_reference`の区切り全角化が呼び出し元依存 | 関数自身が`DELIMITER_REPLACEMENTS`を適用する「デフォルトで安全」な実装へ変更（§5.3 #7） |
+| カード削除・目標削除時の単語帳由来クイズのCASCADE連鎖が未検証 | `test_vocab_service.py`・`test_goal_service.py`に回帰テストを追加（§5.3 #3・#4） |
 
 ## 7. 完了の定義
 
@@ -389,6 +419,15 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - §5の基準を満たすか、未達の場合は理由と対応を§8に記録する。→ 達成
 - 文書（§1.3）が実装と一致する。→ 達成
 - §2のベースラインと比較し、既存テストが1件も壊れていないこと。→ 達成（後述§8参照）
+
+### 7.B 要件Bの完了の定義
+
+- §3.B（B-B01〜B-B12・B-F01〜B-F05・B-V01〜B-V04・B-D01〜D07）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文10,765・分岐1,998〉、フロントエンド100%）
+- §2.1のベースラインと比較し、既存の復習クイズ・単語帳（要件A）のテストが1件も壊れていないこと。→ 達成
+- `/threat-model`を実装前に実施し、設計書へ反映したこと。→ 達成（§5.2、設計書17.15.1・17.16.1）
+- 観点別レビュー（§5.3）でHIGH以上の指摘を全て修正したこと。→ 達成
+- 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・単語帳CRUD・今日の復習の出題（空であることを含む）を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
 
 ## 8. 作業記録
 
@@ -403,3 +442,9 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-15（最終）：全体最終テスト実行。バックエンド2,425件合格／カバレッジ100%（文10,519・分岐1,938、欠落0）、ruff 0件。フロントエンド217ファイル／1,738件合格／カバレッジ100%（文・分岐・関数・行）、oxlint 0件、`tsc -b` 0件。ベースライン（§2）との比較：既存テストは1件も壊れていない（バックエンド+132件、フロントエンド+14ファイル・+80件。いずれも単語帳機能の新規テストによる意図どおりの増加）。
 
 - 2026-11-16：利用者の依頼により再フルスキャンを実施し、元の要件（決定事項・機能一覧・新規app_setting・完了条件）と実装を1件ずつ照合した。**不具合を1件検出**：一括登録（貼り付け）の別名欄は利用者プロンプトの明示指示で`|`区切りだが、保存形式（`judge_typed_answer`が`splitlines()`で読む改行区切り）への変換を行っていなかった（既存テストは別名1件のみのケースで、複数別名の分割を検証していなかったため検出されなかった）。`vocab_service._parse_import_aliases`を新設して修正し、一括登録→入力式判定の通し動作確認テスト2件を追加（`test_parse_bulk_import_converts_pipe_separated_aliases_to_newline_separated`・`test_bulk_imported_alias_matches_in_typed_answer_judging`）。他の決定事項・機能・設定項目・完了条件は実装と一致していることを確認し、デグレ・横展開漏れは検出されなかった。修正後、バックエンド全件再実行（2,425件合格、カバレッジ100%、ruff 0件）。以上により、要件Aの完了条件（§7）を満たしたと判断する。要件B〜E（今日の復習統合・AI注入・用語提案・習得可視化）は別セッションで着手する。
+
+- 2026-11-15〜17：要件Bの開発着手。要件Aの完了検証（§0.3）、影響範囲の確定（§1.5）、ベースライン再計測（§2.1、バックエンド2,427件／フロントエンド217ファイル・1,738件）を実施してから着手。`/threat-model`を実装前に実施（§5.2）。バックエンド（マイグレーション`a0c24f1a0f15`、`quiz_block_parsing.py`・`vocab_quiz_generation_service.py`新設、`quiz_service`・`quiz_generation_service`・`vocab_service`・API層の改修）、フロントエンド（`QuizSession.tsx`の出所分岐、`VocabDeckHeader.tsx`からの`VocabDeckAiSection.tsx`・`VocabDeckNameSection.tsx`切り出し）を実装。ドキュメント7件（B-D01〜D07）を更新。全体最終テスト実行：バックエンド2,479件合格・カバレッジ100%（文10,738・分岐1,992）・ruff 0件、フロントエンド217ファイル・1,744件合格・カバレッジ100%・oxlint 0件・tsc 0件。既存の復習クイズ・単語帳（要件A）のテストは1件も壊れていない。
+
+- 2026-11-17：コミット前チェックとして観点別レビュー7エージェント（dry-reviewer・style-reviewer・label-checker・injection-reviewer・xss-reviewer・test-coverage-reviewer・performance-reviewer）を並列実行（詳細は§5.3）。HIGH 4件・MEDIUM〜HIGH 1件・MEDIUM 5件・LOW 4件を検出。
+
+- 2026-11-18：§5.3で検出した指摘に対応。HIGH全件（禁止語チェックのDRY違反兼N+1、カード削除・目標削除のCASCADE未検証、CHECK制約自体の未検証）と、大半のMEDIUM（別名パース・AI対象条件の重複、`build_glossary_reference`のチャンク毎重複クエリ、単語帳カードの改行による1行形式偽装、`build_glossary_reference`の区切り全角化の呼び出し元依存、`vocab_match_keys`の命名不整合、3設定値のちょうど境界未検証）を修正。LOW 2件（`_MAX_BLOCK_CHARS`の橋渡し変数、フロントのミューテーションパターン重複）は対応不要と判断（理由は§5.3に記録）。新規テスト14件を追加。修正後、バックエンド全件再実行：2,491件合格・カバレッジ100%（文10,765・分岐1,998、欠落0）・ruff 0件。既存テストは1件も壊れていない。実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`a0c24f1a0f15`、要件A・Bの2マイグレーションを通し適用）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・単語帳デッキ作成・カード追加・`GET /quiz/today`（空配列、AIがまだクイズを生成していないため想定どおり）をAPI経由で確認。AIへの実送信（クイズ生成）は本検証では意図的に行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一）。OSVスキャン（`vuln-scan.sh`）実行：既知の脆弱性1件（`picomatch`〈devDependency〉、CVSS 8.7、修正版未公開、本セッションでは依存関係を変更していないため既存の状態、利用者へ報告）。以上により、要件Bの完了条件（§7.B）を満たしたと判断する。要件C〜E（AI注入・用語提案・習得可視化）は別セッションで着手する。

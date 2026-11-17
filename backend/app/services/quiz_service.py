@@ -20,7 +20,7 @@ from app.models.goal import Goal
 from app.models.quiz import QuizAnswerLog, QuizQuestion
 from app.models.recap import RecapTheme
 from app.models.vocab import VocabCard, VocabDeck
-from app.services import setting_reader
+from app.services import setting_reader, vocab_service
 from app.services.exceptions import NotFoundError
 
 #: 出題対象の目標種別（テーマ累積・仕様書6.1.3と同じ、仕事は対象外）。
@@ -35,6 +35,7 @@ def get_question(session: Session, question_id: int) -> QuizQuestion:
 
 
 def _due_theme_questions(session: Session, today: dt.date) -> list[QuizQuestion]:
+    """テーマ由来の出題対象（ACTIVEな資格試験・読書の目標のみ）。"""
     return list(
         session.scalars(
             select(QuizQuestion)
@@ -59,9 +60,7 @@ def _due_vocab_questions(session: Session, today: dt.date) -> list[QuizQuestion]
             .join(Goal, Goal.id == VocabDeck.goal_id)
             .where(
                 QuizQuestion.next_due_date <= today,
-                VocabDeck.use_in_ai.is_(True),
-                Goal.status == GoalStatus.ACTIVE,
-                Goal.category == GoalCategory.EXAM,
+                *vocab_service.ai_eligible_deck_conditions(),
             )
         ).all()
     )

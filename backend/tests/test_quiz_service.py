@@ -116,6 +116,20 @@ def test_get_due_questions_respects_daily_limit(seeded_session):
     assert len(quiz_service.get_due_questions(seeded_session, TODAY)) == 2
 
 
+def test_get_due_questions_succeeds_when_candidates_exactly_meet_the_daily_limit(seeded_session):
+    """候補件数＝`quiz.daily_limit`のちょうどの境界で、全件が出題対象になること（超過側しか
+    検証していなかった既存テストの境界補完、test-coverage-reviewerレビューで検出、
+    2026-11-18）。"""
+    goal = make_exam_goal(seeded_session)
+    theme = _make_theme(seeded_session, goal)
+    questions = [_make_question(seeded_session, theme, next_due_date=TODAY) for _ in range(2)]
+    _set_setting(seeded_session, QUIZ_DAILY_LIMIT, "2")
+
+    result = quiz_service.get_due_questions(seeded_session, TODAY)
+
+    assert {q.id for q in result} == {q.id for q in questions}
+
+
 def test_get_due_questions_includes_vocab_sourced_questions(seeded_session):
     """単語帳由来の問題も、テーマ由来と同じ絞り込み・間隔ルールで出題対象になること（B-U1）。"""
     goal = make_exam_goal(seeded_session)
