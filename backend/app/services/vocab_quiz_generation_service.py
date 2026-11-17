@@ -28,24 +28,22 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai import question_safety
-from app.ai.question_safety import contains_forbidden_term
 from app.constants.app_setting_keys import (
     RECAP_CLASSIFY_CHUNK_CHARS,
     VOCAB_QUIZ_CARDS_PER_STARTUP,
 )
-from app.constants.enums import AiPurpose, ConversationScope, GoalCategory, GoalStatus
+from app.constants.enums import AiPurpose, ConversationScope
 from app.models.goal import Goal
 from app.models.quiz import QuizQuestion
 from app.models.vocab import VocabCard, VocabDeck
 from app.services import (
-    goal_service,
     quiz_block_parsing,
     recap_service,
     setting_reader,
     theme_ai_dispatch,
     vocab_service,
 )
-from app.services.vocab_service import normalize_for_vocab_match, vocab_match_keys
+from app.services.vocab_service import build_vocab_match_keys, normalize_for_vocab_match
 
 _logger = logging.getLogger(__name__)
 
@@ -66,15 +64,24 @@ def _format_card_line(card: VocabCard) -> str:
 
     別名が無ければ「／別名」部分を省略する（2フィールドのみ）。複数別名は「、」で連結する
     （B-D10）。山括弧は全角化し、区切り（<<<CARDS-{{nonce}}>>>）を偽造できないようにする
-    （question_safety.DELIMITER_REPLACEMENTS、プロンプト注入対策）。
+    （question_safety.DELIMITER_REPLACEMENTS、プロンプト注入対策）。改行等は「1カード=1行」の
+    構造を崩すため空白へ変換する（`vocab_service.flatten_for_single_line`、injection-reviewer
+    レビューで検出、2026-11-17）。
     """
-    term = card.term.translate(question_safety.DELIMITER_REPLACEMENTS)
-    meaning = card.meaning.translate(question_safety.DELIMITER_REPLACEMENTS)
+    term = vocab_service.flatten_for_single_line(card.term).translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
+    meaning = vocab_service.flatten_for_single_line(card.meaning).translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
     line = f"#{card.id} {term}／{meaning}"
-    aliases = [alias.strip() for alias in (card.aliases or "").splitlines() if alias.strip()]
+    aliases = vocab_service.split_aliases(card)
     if aliases:
         joined = "、".join(
-            alias.translate(question_safety.DELIMITER_REPLACEMENTS) for alias in aliases
+            vocab_service.flatten_for_single_line(alias).translate(
+                question_safety.DELIMITER_REPLACEMENTS
+            )
+            for alias in aliases
         )
         line += f"／{joined}"
     return line
@@ -90,9 +97,7 @@ def _candidate_cards_query(deck_ids: list[int] | None = None):
         .join(VocabDeck, VocabDeck.id == VocabCard.deck_id)
         .join(Goal, Goal.id == VocabDeck.goal_id)
         .where(
-            VocabDeck.use_in_ai.is_(True),
-            Goal.status == GoalStatus.ACTIVE,
-            Goal.category == GoalCategory.EXAM,
+            *vocab_service.ai_eligible_deck_conditions(),
             ~VocabCard.id.in_(
                 select(QuizQuestion.vocab_card_id).where(QuizQuestion.vocab_card_id.is_not(None))
             ),
@@ -123,7 +128,7 @@ def _validate_block(
     evidence_text = normalize_for_vocab_match(
         f"{block.question_text} {block.choices[block.correct_choice_index]}"
     )
-    if not any(key in evidence_text for key in vocab_match_keys(card)):
+    if not any(key in evidence_text for key in build_vocab_match_keys(card)):
         return None
     return card_id, block
 
@@ -144,10 +149,13 @@ def _generate_for_cards(
     session: Session, goal: Goal, deck: VocabDeck, cards: list[VocabCard]
 ) -> int:
     """渡されたカード群（既に対象・上限の絞り込み済み）から問題を作る。戻り値は採用数。"""
+    forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
     eligible = [
         card
         for card in cards
-        if not contains_forbidden_term(session, f"{card.term} {card.meaning} {card.aliases or ''}")
+        if not question_safety.contains_any_forbidden_term(
+            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+        )
     ]
     if not eligible:
         return 0
@@ -225,10 +233,23 @@ def run_all(session: Session) -> int:
     for card in cards:
         cards_by_deck[card.deck_id].append(card)
 
+    # デッキ・目標をあらかじめ1回ずつの問い合わせで取得する（デッキ数分の個別取得によるN+1を
+    # 避ける、performance-reviewerレビューで検出、2026-11-17。get_deck_info_for_cardsと同じ
+    # 「1回の問い合わせで辞書化」方針）。
+    deck_ids = list(cards_by_deck.keys())
+    decks_by_id = {
+        deck.id: deck
+        for deck in session.scalars(select(VocabDeck).where(VocabDeck.id.in_(deck_ids))).all()
+    }
+    goal_ids = {deck.goal_id for deck in decks_by_id.values()}
+    goals_by_id = {
+        goal.id: goal for goal in session.scalars(select(Goal).where(Goal.id.in_(goal_ids))).all()
+    }
+
     total = 0
     for deck_id, deck_cards in cards_by_deck.items():
-        deck = vocab_service.get_deck(session, deck_id)
-        goal = goal_service.get_goal(session, deck.goal_id)
+        deck = decks_by_id[deck_id]
+        goal = goals_by_id[deck.goal_id]
         try:
             total += _generate_for_cards(session, goal, deck, deck_cards)
             session.commit()

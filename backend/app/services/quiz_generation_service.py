@@ -100,13 +100,25 @@ def generate_for_theme(session: Session, goal: Goal, theme: RecapTheme) -> int:
     chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
     question_count = setting_reader.get_int(session, QUIZ_QUESTIONS_PER_THEME)
     glossary_max_chars = setting_reader.get_int(session, VOCAB_QUIZ_REFERENCE_MAX_CHARS)
+    # チャンクごとに同じデッキ・カード一覧・禁止語一覧を再取得しないよう、ループの外で
+    # 1回だけ取得して渡す（performance-reviewerレビューで検出、2026-11-17）。
+    glossary_cards = vocab_service.eligible_glossary_cards(session, goal)
+    glossary_forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
     created = 0
     for chunk in recap_service.chunk_by_chars(texts, chunk_budget):
         valid_dates = frozenset(t.record_date for t in chunk)
         nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+        # build_glossary_referenceが区切りの全角化（DELIMITER_REPLACEMENTS）を内部で
+        # 適用するため、ここでの再適用は不要（injection-reviewerレビューでの指摘を受け、
+        # 呼び出し元任せにしない「デフォルトで安全」な実装へ変更、2026-11-17）。
         glossary_reference = vocab_service.build_glossary_reference(
-            session, goal, [t.text for t in chunk], max_chars=glossary_max_chars
-        ).translate(question_safety.DELIMITER_REPLACEMENTS)
+            session,
+            goal,
+            [t.text for t in chunk],
+            max_chars=glossary_max_chars,
+            cards=glossary_cards,
+            forbidden_keys=glossary_forbidden_keys,
+        )
         response = _send(
             session,
             goal,
