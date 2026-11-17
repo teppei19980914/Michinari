@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import io
 import random
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,14 +19,15 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ai.question_safety import contains_forbidden_term, normalize_for_match
+from app.ai import question_safety
+from app.ai.question_safety import normalize_for_match
 from app.constants.app_setting_keys import (
     VOCAB_DECK_MAX_CARDS,
     VOCAB_IMPORT_MAX_ROWS,
     VOCAB_MEANING_MAX_CHARS,
     VOCAB_TERM_MAX_CHARS,
 )
-from app.constants.enums import GoalCategory, VocabQuizMode
+from app.constants.enums import GoalCategory, GoalStatus, VocabQuizMode
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
