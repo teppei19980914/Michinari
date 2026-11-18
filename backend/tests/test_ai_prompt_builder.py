@@ -27,7 +27,8 @@ _TEMPLATE = (
     "スロット:{{slot_summary}}\n"
     "バッファ:{{buffer_usage_rate}}\n"
     "実績:{{today_logs}}\n"
-    "学び:{{diary_learned}}"
+    "学び:{{diary_learned}}\n"
+    "用語:{{glossary}}"
 )
 
 
@@ -111,6 +112,30 @@ def test_build_daily_feedback_substitutes_perspective_suggestion():
         max_chars=100000,
     )
     assert filled_result.text == "観点:複数の観点から問いかけてください"
+
+
+def test_build_daily_feedback_substitutes_glossary():
+    """開発Todo_単語帳_v1.0 要件C: {{glossary}}がそのまま差し込まれること。"""
+    context = _context(glossary="・SMTP: メール送信の仕組み［正答率 60%（3/5）］")
+
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, max_chars=100000)
+
+    assert "・SMTP: メール送信の仕組み［正答率 60%（3/5）］" in result.text
+
+
+def test_build_daily_feedback_does_not_drop_glossary():
+    """開発Todo_単語帳_v1.0 要件C（C-D7）: {{glossary}}は自分の予算
+    （vocab.feedback_max_chars）で上限が決まる固定変数のため、段階的縮退の対象にしない。"""
+    context = _context(
+        weekly_summary_entries=[_log_entry(dt.date(2026, 7, 6), "週の要約" * 50)],
+        glossary="登録した用語" * 50,
+    )
+    full_len = len(prompt_builder.build_daily_feedback(_TEMPLATE, context, 10**9).text)
+
+    result = prompt_builder.build_daily_feedback(_TEMPLATE, context, full_len - 50)
+
+    assert "登録した用語" * 50 in result.text
+    assert "週の要約" not in result.text  # 用語より先に過去の記録が削られる
 
 
 def test_build_daily_feedback_stage1_drops_oldest_weekly_summary_first():

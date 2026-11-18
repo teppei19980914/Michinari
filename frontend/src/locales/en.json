@@ -1168,7 +1168,8 @@
         "GOAL_INFO": "Goal info",
         "TODAY_RECORD": "Today's record",
         "WEEKLY_SUMMARY": "Weekly summary",
-        "MATERIAL_PROGRESS": "Material progress"
+        "MATERIAL_PROGRESS": "Material progress",
+        "VOCAB_GLOSSARY": "Registered terms"
       },
       "privacyNotice": "Only records on this PC are sent. Nothing is stored externally"
     },

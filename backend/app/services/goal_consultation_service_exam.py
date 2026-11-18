@@ -8,22 +8,28 @@ import datetime as dt
 
 from sqlalchemy.orm import Session
 
+from app.constants.app_setting_keys import VOCAB_FEEDBACK_MAX_CHARS
 from app.constants.enums import AiPurpose
 from app.models.goal import Goal
-from app.services import ai_context_exam
+from app.services import ai_context_exam, setting_reader, vocab_service
 from app.services.goal_consultation_service_common import CategoryContext
 
 
 def build_context(session: Session, goal: Goal, today: dt.date) -> CategoryContext:
     """{{goal_summary}}・{{exam_results}}・{{material_summary}}・{{quality_trend}}・
-    {{replan_history}}と{{recent_logs}}の生ログを組み立てる。"""
+    {{replan_history}}・{{glossary}}（単語帳の参考用語、開発Todo_単語帳_v1.0 要件C）と
+    {{recent_logs}}の生ログを組み立てる。"""
     materials = [material for material in goal.materials if material.is_active]
+    glossary_max_chars = setting_reader.get_int(session, VOCAB_FEEDBACK_MAX_CHARS)
     fixed_variables = {
         "goal_summary": ai_context_exam.build_goal_summary([goal], today),
         "exam_results": ai_context_exam.build_exam_results_text(session, goal),
         "material_summary": ai_context_exam.build_material_summary_text(session, materials),
         "quality_trend": ai_context_exam.build_quality_trend_text(session, materials),
         "replan_history": ai_context_exam.build_replan_history_text(session, goal),
+        "glossary": vocab_service.build_glossary_overview(
+            session, goal, max_chars=glossary_max_chars
+        ),
     }
     raw_entries = ai_context_exam.build_recent_study_entries(session, goal, goal.start_date, today)
     return CategoryContext(

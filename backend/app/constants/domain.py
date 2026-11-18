@@ -32,6 +32,9 @@ CONTEXT_CATEGORIES_BY_PURPOSE: dict[AiPurpose, list[str]] = {
         "TODAY_RECORD",
         "WEEKLY_SUMMARY",
         "MATERIAL_PROGRESS",
+        # 単語帳の参考用語（開発Todo_単語帳_v1.0 要件C）。単語帳はEXAM専用（要件A U1）の
+        # ため、資格試験（DAILY_FEEDBACK/_BRIEF）にのみ追加する（READING/WORKには無い）。
+        "VOCAB_GLOSSARY",
     ],
     AiPurpose.DAILY_FEEDBACK_READING: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
     AiPurpose.DAILY_FEEDBACK_WORK: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
@@ -42,6 +45,7 @@ CONTEXT_CATEGORIES_BY_PURPOSE: dict[AiPurpose, list[str]] = {
         "TODAY_RECORD",
         "WEEKLY_SUMMARY",
         "MATERIAL_PROGRESS",
+        "VOCAB_GLOSSARY",
     ],
     AiPurpose.DAILY_FEEDBACK_READING_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
     AiPurpose.DAILY_FEEDBACK_WORK_BRIEF: ["GOAL_INFO", "TODAY_RECORD", "WEEKLY_SUMMARY"],
