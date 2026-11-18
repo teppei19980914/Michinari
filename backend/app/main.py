@@ -62,6 +62,7 @@ from app.services import (
     milestone_service_common,
     quiz_generation_service,
     recap_generation_service,
+    vocab_quiz_generation_service,
     weekly_summary_service,
 )
 
@@ -304,6 +305,7 @@ def run_ai_startup_tasks() -> None:
         weekly_summary_service.run_retroactive_generation(session, today)
         recap_generation_service.run_all(session, today)
         quiz_generation_service.run_all(session)
+        vocab_quiz_generation_service.run_all(session)
     finally:
         session.close()
 

@@ -1,21 +1,25 @@
-"""復習クイズのAI生成（開発Todo_復習クイズ_v1.0、設計書ロジック・プロンプト編17.15）。
+"""復習クイズのAI生成（開発Todo_復習クイズ_v1.0、設計書ロジック・プロンプト編17.15。
+開発Todo_単語帳_v1.0 要件B B-U6で参考用語を追加）。
 
 起動時バッチ（main.run_ai_startup_tasks、recap_generation_service.run_allの直後）から
 呼ばれる。テーマの本文・紐づく報告一覧を入力にAIへ送り、出典（報告の日付）がその回の
 生成に実際に使った日付集合に含まれるものだけを採用する。1ブロック（1問）の不正で
-バッチ全体を無効にしない。
+バッチ全体を無効にしない。資格試験の目標では、報告に用語・別名が出てくる単語帳カードの
+意味を参考用語（{{glossary_reference}}）として併せて渡す（出典は変わらず報告の日付のまま）。
 """
 
 import datetime as dt
 import logging
-import re
+import secrets
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai import question_safety
 from app.constants.app_setting_keys import (
     QUIZ_QUESTIONS_PER_THEME,
     RECAP_CLASSIFY_CHUNK_CHARS,
+    VOCAB_QUIZ_REFERENCE_MAX_CHARS,
 )
 from app.constants.enums import AiPurpose, ConversationScope
 from app.models.goal import Goal
@@ -24,61 +28,41 @@ from app.models.recap import RecapTheme
 from app.services import (
     ai_context_exam,
     ai_context_reading,
+    quiz_block_parsing,
     quiz_service,
     recap_service,
     setting_reader,
     theme_ai_dispatch,
+    vocab_service,
 )
 
 _logger = logging.getLogger(__name__)
 
-_BLOCK_SEPARATOR = re.compile(r"^\s*===\s*$", re.MULTILINE)
-#: 1ブロック分（問題文〜出典まで）を一括でマッチする正規表現。各フィールドは1行想定
-#: のため`[^\n]+?`（改行を跨がない非貪欲）で区切り、`re.DOTALL`は使わない。`.+?`を
-#: `re.DOTALL`配下で連鎖させると、区切りリテラルと同じ文字列が入力中に繰り返し出現した
-#: 場合に破滅的バックトラッキング（ReDoS、CWE-1333）が発生する（セキュリティレビューで
-#: 実測確認。入力はAI応答であり、プロンプトに展開される利用者の報告本文を経由した
-#: 間接プロンプトインジェクションの影響を受けうるため信頼できない外部入力として扱う）。
-_QUESTION_BLOCK_PATTERN = re.compile(
-    r"問題:[ \t]*(?P<question>[^\n]+?)[ \t]*\n"
-    r"選択肢1:[ \t]*(?P<choice1>[^\n]+?)[ \t]*\n"
-    r"選択肢2:[ \t]*(?P<choice2>[^\n]+?)[ \t]*\n"
-    r"選択肢3:[ \t]*(?P<choice3>[^\n]+?)[ \t]*\n"
-    r"選択肢4:[ \t]*(?P<choice4>[^\n]+?)[ \t]*\n"
-    r"正解:[ \t]*(?P<correct>[1-4])[ \t]*\n"
-    r"解説:[ \t]*(?P<explanation>[^\n]+?)[ \t]*\n"
-    r"出典:[ \t]*(?P<citation>\d{4}-\d{2}-\d{2})"
-)
-#: 1問として非現実的な長さのブロックは正規表現に通さず破棄する（ReDoS対策の多層防御。
-#: 上記のパターン変更で構造的には解消済みだが、想定外の入力に対する保険として残す）。
-_MAX_BLOCK_CHARS = 2000
+#: 他モジュール（テスト）が`quiz_generation_service._MAX_BLOCK_CHARS`として参照するため、
+#: 共通モジュールの定数をこの名前空間へも引き込む（B-D3、既存テストは変更しない）。
+_MAX_BLOCK_CHARS = quiz_block_parsing._MAX_BLOCK_CHARS
 
 
 def _parse_blocks(response_text: str, valid_dates: frozenset[dt.date]) -> list[dict]:
-    """応答を`===`で分割し、ブロックごとに検証する。形式不正・出典が実在しないブロックは
-    個別に破棄する（1ブロックの不正でバッチ全体を無効にしない。設計書17.15参照）。
+    """共通解析（`quiz_block_parsing`）の結果から、出典（報告の日付）を検証する。
+
+    出典が実在する日付の形式でない、またはその回に実際に送った日付集合に含まれない
+    ブロックは個別に破棄する（1ブロックの不正でバッチ全体を無効にしない。設計書17.15参照）。
     """
     parsed: list[dict] = []
-    for block in _BLOCK_SEPARATOR.split(response_text):
-        if len(block) > _MAX_BLOCK_CHARS:
+    for block in quiz_block_parsing.parse_question_blocks(response_text):
+        try:
+            citation_date = dt.date.fromisoformat(block.citation_raw)
+        except ValueError:
             continue
-        match = _QUESTION_BLOCK_PATTERN.search(block)
-        if match is None:
-            continue
-        citation_date = dt.date.fromisoformat(match.group("citation"))
         if citation_date not in valid_dates:
             continue
         parsed.append(
             {
-                "question_text": match.group("question").strip(),
-                "choices": [
-                    match.group("choice1").strip(),
-                    match.group("choice2").strip(),
-                    match.group("choice3").strip(),
-                    match.group("choice4").strip(),
-                ],
-                "correct_choice_index": int(match.group("correct")) - 1,
-                "explanation": match.group("explanation").strip(),
+                "question_text": block.question_text,
+                "choices": block.choices,
+                "correct_choice_index": block.correct_choice_index,
+                "explanation": block.explanation,
                 "citation_date": citation_date,
             }
         )
@@ -115,9 +99,26 @@ def generate_for_theme(session: Session, goal: Goal, theme: RecapTheme) -> int:
         return 0
     chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
     question_count = setting_reader.get_int(session, QUIZ_QUESTIONS_PER_THEME)
+    glossary_max_chars = setting_reader.get_int(session, VOCAB_QUIZ_REFERENCE_MAX_CHARS)
+    # チャンクごとに同じデッキ・カード一覧・禁止語一覧を再取得しないよう、ループの外で
+    # 1回だけ取得して渡す（performance-reviewerレビューで検出、2026-11-17）。
+    glossary_cards = vocab_service.eligible_glossary_cards(session, goal)
+    glossary_forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
     created = 0
     for chunk in recap_service.chunk_by_chars(texts, chunk_budget):
         valid_dates = frozenset(t.record_date for t in chunk)
+        nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+        # build_glossary_referenceが区切りの全角化（DELIMITER_REPLACEMENTS）を内部で
+        # 適用するため、ここでの再適用は不要（injection-reviewerレビューでの指摘を受け、
+        # 呼び出し元任せにしない「デフォルトで安全」な実装へ変更、2026-11-17）。
+        glossary_reference = vocab_service.build_glossary_reference(
+            session,
+            goal,
+            [t.text for t in chunk],
+            max_chars=glossary_max_chars,
+            cards=glossary_cards,
+            forbidden_keys=glossary_forbidden_keys,
+        )
         response = _send(
             session,
             goal,
@@ -127,6 +128,8 @@ def generate_for_theme(session: Session, goal: Goal, theme: RecapTheme) -> int:
                 "theme_body": theme.body,
                 "entries": "\n".join(f"#{t.entry_id}（{t.record_date}）: {t.text}" for t in chunk),
                 "question_count": str(question_count),
+                "glossary_reference": glossary_reference,
+                "nonce": nonce,
             },
             scope_key=f"theme-{theme.id}",
         )
@@ -164,7 +167,9 @@ def _themes_without_quiz(session: Session, goal: Goal) -> list[RecapTheme]:
             select(RecapTheme)
             .where(
                 RecapTheme.goal_id == goal.id,
-                ~RecapTheme.id.in_(select(QuizQuestion.theme_id).distinct()),
+                ~RecapTheme.id.in_(
+                    select(QuizQuestion.theme_id).where(QuizQuestion.theme_id.is_not(None))
+                ),
             )
             .order_by(RecapTheme.id)
         ).all()

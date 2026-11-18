@@ -871,6 +871,7 @@
         "GOAL_CONSULTATION_READING": "Goal consultation (reading)",
         "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
         "QUIZ_GENERATE": "Review quiz generation",
+        "VOCAB_QUIZ_GENERATE": "Review quiz generation (vocabulary deck)",
         "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
         "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
         "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)",
@@ -1515,7 +1516,8 @@
         "p1": "This is the first screen shown when you open the app. It shows \"Today's message\" (a short AI-generated message), today's status (not entered / progress only / reported), today's quota, warning banners, goal cards, and summary stats (consecutive days reported, recent report rate, buffer day usage rate, effective speed).",
         "p2": "The \"Today's report\" button takes you to the daily report screen. Clicking a warning banner or goal card takes you to that goal's details/edit screen. You can also go to the analytics screen from the stats cards.",
         "p3": "If you have 2 or more active goals, a goal tab appears at the top of the screen, letting you select one goal at a time (the same approach as the daily report screen). Today's message, warning banners, today's quota, goal cards, and summary stats show only the selected goal's data. Today's status isn't tied to a goal, so it's shared regardless of which goal tab is selected.",
-        "p4": "If you have an active certification exam or reading goal, \"This week's recap (by theme)\" is also shown. The AI classifies your diary and recall records into multiple themes and automatically builds up each theme's body over time (not available for work). Clicking a theme name takes you to its detail screen, where you can rename the theme, merge it into another theme, or have the AI rebuild its body."
+        "p4": "If you have an active certification exam or reading goal, \"This week's recap (by theme)\" is also shown. The AI classifies your diary and recall records into multiple themes and automatically builds up each theme's body over time (not available for work). Clicking a theme name takes you to its detail screen, where you can rename the theme, merge it into another theme, or have the AI rebuild its body.",
+        "p5": "Once your recap themes or vocabulary decks (certification exams use both; reading uses themes only) build up, \"Today's review\" starts arriving. You answer AI-generated 4-choice quizzes at spaced intervals, which helps you retain what you've learned through active recall. The \"Review\" button takes you to the question screen, where you see whether you were right or wrong along with the explanation and source right away. The section doesn't appear on days with no questions due."
       },
       "goals": {
         "title": "Goal list / goal detail editing",
@@ -1532,7 +1534,8 @@
         "p2": "A goal can have multiple vocabulary decks. Add, edit, and delete cards (term, meaning, aliases, note) within a deck, and mark them checked. The card list can be sorted (registration order, lowest accuracy first, most incorrect first, longest wrong streak first) and filtered (checked only, ever answered wrong, currently on a wrong streak, weak, unanswered). Each card shows its correct/incorrect counts, accuracy (\"—\" if unanswered), current wrong streak, and last-answered date (scores are never stored — they're computed fresh each time).",
         "p3": "You can bulk-add cards by pasting a table copied from Excel or similar (tab-separated; rows without a tab are treated as comma-separated). Columns are \"term, meaning, aliases (optional, separated by |), note (optional).\" Before confirming, you can preview the rows to import, any error rows, and any rows that duplicate an existing term in the deck; duplicates are skipped on confirm. You can also export a deck as tab-separated text.",
         "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 cards). Choose the format, filter, order (random, weakest first, registration order), and number of questions before starting. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
-        "p5": "Vocabulary decks are not included in the knowledge export."
+        "p5": "Vocabulary decks are not included in the knowledge export.",
+        "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's terms. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a card's term, meaning, or aliases recreates that card's question. While AI isn't configured, the button is replaced with a link to the settings screen."
       },
       "roadmap": {
         "title": "Roadmap",
@@ -1897,6 +1900,9 @@
     "nextButton": "Next question",
     "completedTitle": "Today's review is complete",
     "citationLabel": "Source: {{date}}",
+    "vocabSourceHeader": "Vocabulary deck \"{{deckName}}\"",
+    "vocabCitationLabel": "Source: term from vocabulary deck \"{{deckName}}\"",
+    "viewInVocabDeckLink": "View in vocabulary deck",
     "progressLabel": "{{current}} / {{total}}"
   },
   "vocab": {
@@ -1923,6 +1929,12 @@
       "startQuizButton": "Start quiz",
       "useInAiLabel": "Use in today's review and AI feedback",
       "useInAiDescription": "This deck's terms are used when generating today's review questions and in AI feedback.",
+      "generateQuizButton": "Create today's review questions",
+      "quizGenerateSucceeded": {
+        "one": "Created {{count}} question for today's review",
+        "other": "Created {{count}} questions for today's review"
+      },
+      "quizGenerateSucceededNone": "Could not create any questions. There may be no cards without a question yet, or none could be verified against their evidence.",
       "termLabel": "Term",
       "meaningLabel": "Meaning",
       "aliasesLabel": "Aliases (optional)",

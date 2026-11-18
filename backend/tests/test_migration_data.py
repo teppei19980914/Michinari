@@ -759,3 +759,131 @@ def test_goal_consultation_conversation_migration_without_existing_logs_creates_
         ).fetchone()[0]
 
     assert conversations == 0
+
+
+def test_vocab_quiz_integration_migration_preserves_existing_theme_rows(tmp_path, monkeypatch):
+    """既存データがある状態で a0c24f1a0f15 を適用できること（CODING_RULES.md）。
+
+    既存のテーマ由来のquiz_question・quiz_answer_logは、theme_id/citation_dateが
+    NOT NULLのまま・vocab_card_idがNULLのまま保持されること（開発Todo_単語帳_v1.0 要件B）。
+    """
+    db_path = tmp_path / "vocab_quiz_integration_migration_preserve.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("1bd06141379f")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO recap_theme (id, goal_id, name, body, updated_at, created_at) "
+            "VALUES (1, 1, 'テーマA', '本文', '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_question (id, theme_id, question_text, choice_1, choice_2, "
+            "choice_3, choice_4, correct_choice_index, explanation, citation_date, "
+            "interval_index, next_due_date, last_answered_at, created_at) "
+            "VALUES (1, 1, '問題文', '選択肢1', '選択肢2', '選択肢3', '選択肢4', 0, '解説', "
+            "'2026-01-01', 0, '2026-01-02', NULL, '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_answer_log (id, theme_id, question_id, is_correct, answered_at, "
+            "created_at) "
+            "VALUES (1, 1, 1, 1, '2026-01-02T00:00:00', '2026-01-02T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        question = connection.execute(
+            "SELECT theme_id, vocab_card_id, citation_date FROM quiz_question WHERE id = 1"
+        ).fetchone()
+        answer_log = connection.execute(
+            "SELECT theme_id, vocab_card_id FROM quiz_answer_log WHERE id = 1"
+        ).fetchone()
+
+    assert question == (1, None, "2026-01-01")
+    assert answer_log == (1, None)
+
+
+def test_vocab_quiz_integration_migration_downgrade_deletes_vocab_sourced_rows(
+    tmp_path, monkeypatch
+):
+    """単語帳由来の行（vocab_card_id IS NOT NULL）は旧スキーマに表現できないため、
+    downgradeで削除してからNOT NULLへ戻すこと（開発Todo_単語帳_v1.0 要件B の明示指示）。
+    テーマ由来の行は削除されず、downgrade後もNOT NULLのまま保持されること。
+    """
+    db_path = tmp_path / "vocab_quiz_integration_migration_downgrade.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO recap_theme (id, goal_id, name, body, updated_at, created_at) "
+            "VALUES (1, 1, 'テーマA', '本文', '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '単語帳A', NULL, 1, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_card (id, deck_id, term, meaning, aliases, note, is_checked, "
+            "display_order, updated_at, created_at) "
+            "VALUES (1, 1, '用語A', '意味A', NULL, NULL, 0, 0, '2026-01-01T00:00:00', "
+            "'2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_question (id, theme_id, vocab_card_id, question_text, choice_1, "
+            "choice_2, choice_3, choice_4, correct_choice_index, explanation, citation_date, "
+            "interval_index, next_due_date, last_answered_at, created_at) "
+            "VALUES (1, 1, NULL, 'テーマ由来の問題', '選択肢1', '選択肢2', '選択肢3', '選択肢4', "
+            "0, '解説', '2026-01-01', 0, '2026-01-02', NULL, '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_question (id, theme_id, vocab_card_id, question_text, choice_1, "
+            "choice_2, choice_3, choice_4, correct_choice_index, explanation, citation_date, "
+            "interval_index, next_due_date, last_answered_at, created_at) "
+            "VALUES (2, NULL, 1, '単語帳由来の問題', '選択肢1', '選択肢2', '選択肢3', '選択肢4', "
+            "0, '解説', NULL, 0, '2026-01-02', NULL, '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_answer_log (id, theme_id, vocab_card_id, question_id, is_correct, "
+            "answered_at, created_at) "
+            "VALUES (1, 1, NULL, 1, 1, '2026-01-02T00:00:00', '2026-01-02T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO quiz_answer_log (id, theme_id, vocab_card_id, question_id, is_correct, "
+            "answered_at, created_at) "
+            "VALUES (2, NULL, 1, 2, 1, '2026-01-02T00:00:00', '2026-01-02T00:00:00')"
+        )
+
+    migration_helpers.downgrade_to("1bd06141379f")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        remaining_questions = connection.execute(
+            "SELECT id, theme_id FROM quiz_question"
+        ).fetchall()
+        remaining_answer_logs = connection.execute(
+            "SELECT id, theme_id FROM quiz_answer_log"
+        ).fetchall()
+        question_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(quiz_question)").fetchall()
+        }
+        answer_log_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(quiz_answer_log)").fetchall()
+        }
+
+    assert remaining_questions == [(1, 1)]
+    assert remaining_answer_logs == [(1, 1)]
+    assert "vocab_card_id" not in question_columns
+    assert "vocab_card_id" not in answer_log_columns

@@ -950,3 +950,82 @@ def test_work_report_scale_prompt_migration_preserves_customized_template(
         ).fetchone()
 
     assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_quiz_generate_prompt_migration_updates_non_customized_template(tmp_path, monkeypatch):
+    """a0c24f1a0f15: 復習クイズ生成（QUIZ_GENERATE）へ単語帳の参考用語
+    （{{glossary_reference}}）を追加するマイグレーションを、既存データがある状態への適用
+    として検証する（開発Todo_単語帳_v1.0 要件B B-U6）。is_customized=False（利用者が未編集）
+    のテンプレートは、{{glossary_reference}}を含む新文面へ更新されること。
+    """
+    db_path = tmp_path / "quiz_generate_prompt_migration_non_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("1bd06141379f")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('QUIZ_GENERATE', '旧文面（{{glossary_reference}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'QUIZ_GENERATE'"
+        ).fetchone()
+
+    assert "{{glossary_reference}}" in row[0]
+    assert "<<<GLOSSARY-{{nonce}}>>>" in row[0]
+
+
+def test_quiz_generate_prompt_migration_preserves_customized_template(tmp_path, monkeypatch):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （a0c24f1a0f15）でも上書きしないこと。"""
+    db_path = tmp_path / "quiz_generate_prompt_migration_customized.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("1bd06141379f")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('QUIZ_GENERATE', 'ユーザーがカスタマイズした文面', 1, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'QUIZ_GENERATE'"
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+def test_quiz_generate_prompt_migration_downgrade_removes_glossary_reference(tmp_path, monkeypatch):
+    """downgradeは{{glossary_reference}}を含まない旧文面へ戻すこと（is_customized=Falseのみ）。"""
+    db_path = tmp_path / "quiz_generate_prompt_migration_downgrade.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("1bd06141379f")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES ('QUIZ_GENERATE', '旧文面（{{glossary_reference}}を含まない）', 0, "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+    migration_helpers.downgrade_to("1bd06141379f")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = 'QUIZ_GENERATE'"
+        ).fetchone()
+
+    assert "{{glossary_reference}}" not in row[0]

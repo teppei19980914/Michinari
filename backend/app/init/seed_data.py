@@ -98,6 +98,8 @@ from app.constants.app_setting_keys import (
     VOCAB_DECK_MAX_CARDS,
     VOCAB_IMPORT_MAX_ROWS,
     VOCAB_MEANING_MAX_CHARS,
+    VOCAB_QUIZ_CARDS_PER_STARTUP,
+    VOCAB_QUIZ_REFERENCE_MAX_CHARS,
     VOCAB_SESSION_DEFAULT_QUESTIONS,
     VOCAB_SESSION_MAX_QUESTIONS,
     VOCAB_TERM_MAX_CHARS,
@@ -309,6 +311,9 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     VOCAB_SESSION_DEFAULT_QUESTIONS: ("10", AppSettingValueType.INTEGER),
     VOCAB_SESSION_MAX_QUESTIONS: ("100", AppSettingValueType.INTEGER),
     VOCAB_WEAK_ACCURACY_PERCENT: ("70", AppSettingValueType.INTEGER),
+    # 単語帳（開発Todo_単語帳_v1.0 要件B）。今日の復習への統合。
+    VOCAB_QUIZ_CARDS_PER_STARTUP: ("20", AppSettingValueType.INTEGER),
+    VOCAB_QUIZ_REFERENCE_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
@@ -316,6 +321,7 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.RECAP_CLASSIFY: prompt_texts_common.RECAP_CLASSIFY,
     AiPurpose.RECAP_THEME_BODY: prompt_texts_common.RECAP_THEME_BODY,
     AiPurpose.QUIZ_GENERATE: prompt_texts_common.QUIZ_GENERATE,
+    AiPurpose.VOCAB_QUIZ_GENERATE: prompt_texts_exam.VOCAB_QUIZ_GENERATE,
     AiPurpose.WEEKLY_SUMMARY: prompt_texts_exam.WEEKLY_SUMMARY,
     AiPurpose.DAILY_MESSAGE: prompt_texts_common.DAILY_MESSAGE,
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts_exam.GOAL_RETROSPECTIVE,

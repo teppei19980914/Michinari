@@ -32,17 +32,32 @@ def normalize_for_match(text: str) -> str:
     return WHITESPACE_PATTERN.sub("", unicodedata.normalize("NFKC", text)).lower()
 
 
+def list_enabled_forbidden_term_keys(session: Session) -> list[str]:
+    """有効な禁止語を正規化済みキーの一覧で返す（空の語は除く）。
+
+    ループ内で複数回判定する呼び出し元（開発Todo_単語帳_v1.0 要件B、カード1枚ごとの
+    禁止語判定）は、ループの外で本関数を1回だけ呼び、`contains_any_forbidden_term`で
+    都度判定することでN+1（カードごとの`ai_forbidden_term`再クエリ）を避ける
+    （performance-reviewerレビューで検出、2026-11-17）。
+    """
+    terms = session.query(AiForbiddenTerm).filter(AiForbiddenTerm.enabled.is_(True)).all()
+    return [key for term in terms if (key := normalize_for_match(term.term))]
+
+
+def contains_any_forbidden_term(text: str, forbidden_keys: list[str]) -> bool:
+    """`list_enabled_forbidden_term_keys`で事前取得したキー一覧を使って判定する（照合は正規化後）。"""
+    normalized = normalize_for_match(text)
+    return any(key in normalized for key in forbidden_keys)
+
+
 def contains_forbidden_term(session: Session, text: str) -> bool:
     """有効な禁止語（`ai_forbidden_term`）を含むかを返す（照合は正規化後）。
 
     禁止語はヘルプAIアシスタント・目標相談チャットで共有する（カテゴリ区別なし、開発Todo U9）。
-    語が空の行は照合に使わない。
+    語が空の行は照合に使わない。1回だけの判定用（ループ内で使う場合は
+    `list_enabled_forbidden_term_keys`＋`contains_any_forbidden_term`を使う）。
     """
-    normalized = normalize_for_match(text)
-    terms = session.query(AiForbiddenTerm).filter(AiForbiddenTerm.enabled.is_(True)).all()
-    return any(
-        key and key in normalized for key in (normalize_for_match(term.term) for term in terms)
-    )
+    return contains_any_forbidden_term(text, list_enabled_forbidden_term_keys(session))
 
 
 def sanitize_question(raw: str, max_chars: int) -> str:
