@@ -1536,7 +1536,8 @@
         "p3": "You can bulk-add cards by pasting a table copied from Excel or similar (tab-separated; rows without a tab are treated as comma-separated). Columns are \"term, meaning, aliases (optional, separated by |), note (optional).\" Before confirming, you can preview the rows to import, any error rows, and any rows that duplicate an existing term in the deck; duplicates are skipped on confirm. You can also export a deck as tab-separated text.",
         "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 cards). Choose the format, filter, order (random, weakest first, registration order), and number of questions before starting. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
         "p5": "Vocabulary decks are not included in the knowledge export.",
-        "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's terms. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a card's term, meaning, or aliases recreates that card's question. While AI isn't configured, the button is replaced with a link to the settings screen."
+        "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's terms. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a card's term, meaning, or aliases recreates that card's question. While AI isn't configured, the button is replaced with a link to the settings screen.",
+        "p7": "Terms from decks with that toggle on are also passed as reference information to the daily report feedback and goal consultation chat (certification exams only), ordered by priority — checked first, then longest wrong streak, then lowest accuracy, then unanswered, then everything else — along with their accuracy. The AI only mentions a term, with its accuracy, when it's relevant to today's record or your question (it won't list unrelated terms). This means you can still get feedback grounded in your registered terms even during a stretch with few daily reports."
       },
       "roadmap": {
         "title": "Roadmap",
@@ -1548,7 +1549,8 @@
         "title": "Goal consultation chat",
         "p1": "The \"Goal consultation\" tab on the goal details screen lets you ask the AI free-form questions grounded in your accumulated records (results, diary, recall records, work records, weekly summaries, etc., depending on the goal's type). It's separate from the AI dialogue in the daily report — rather than feedback on your daily results, it's for consulting about how to approach your studying, reading, or work itself (for example, what to study next, how it relates to a book you read earlier, or recent trends in your work challenges). It's available for certification exam, reading, and work goals alike.",
         "p2": "You're not limited to a single question — you can continue the conversation within the same tab (answers take the recent exchange into account). Past questions and answers can be reviewed and deleted from \"Consultation history.\" Each answer ends with the dates/weeks of the records it was based on (or \"Basis: none\" if there weren't any).",
-        "p3": "If you have registered attachments, you can select them when sending a question so the AI's answer takes their content into account (see the \"Attachments\" section below for details on attachments). Attaching past exam questions, sample answers, or grading comments lets you get specific advice based on them."
+        "p3": "If you have registered attachments, you can select them when sending a question so the AI's answer takes their content into account (see the \"Attachments\" section below for details on attachments). Attaching past exam questions, sample answers, or grading comments lets you get specific advice based on them.",
+        "p4": "For certification exam goals, terms from vocabulary decks with \"Use in today's review and AI feedback\" turned on are also passed as reference information, along with their accuracy. The answer only reflects a term, with its accuracy, when it's relevant to your question."
       },
       "attachment": {
         "title": "Attachments",
@@ -1578,7 +1580,8 @@
         "p2": "\"Progress only\" is a simplified version that enters only your results. Input fields appear for each active category (certification exam, reading, work), and a single \"Register\" records them all at once (a category that's already been reported won't show, since it can't be changed). Time spent can be left blank (leave every time slot field empty), in which case that day is excluded from effective speed calculations. There is no diary or AI dialogue.",
         "p3": "\"View daily report\" shows a finalized past report read-only, letting you check your results, diary, and AI dialogue history, and add comments only.",
         "p4": "If you have an active reading goal, the same screen shows a separate \"Today's reading recall\" field and AI dialogue, apart from the certification exam ones (only the recall text is required; numeric results are optional). The only page field is \"Current page\" — you don't need to enter how many pages you read that day. Current page is used only for the on-screen progress display and isn't evaluated by the AI. Reading's AI dialogue is saved as a separate conversation from the certification exam's.",
-        "p5": "If you have an active work goal, the same screen shows separate work record fields and AI dialogue, apart from certification exam and reading. Enter today's work record text per project (there are no fields for time spent or daily quota), then finalize after the AI dialogue. The list of registered team members is also shown on the same screen (view only; add/edit from the \"Project info\" tab on the goal details screen)."
+        "p5": "If you have an active work goal, the same screen shows separate work record fields and AI dialogue, apart from certification exam and reading. Enter today's work record text per project (there are no fields for time spent or daily quota), then finalize after the AI dialogue. The list of registered team members is also shown on the same screen (view only; add/edit from the \"Project info\" tab on the goal details screen).",
+        "p6": "For certification exam AI dialogue, terms you've registered in vocabulary decks (the ones with \"Use in today's review and AI feedback\" turned on), along with their accuracy, are also passed as reference information. Expanding \"What the AI used\" shows a \"Registered terms\" entry (shown for every certification exam report, even if you haven't registered any vocabulary terms)."
       },
       "analytics": {
         "title": "Analytics",
@@ -1633,6 +1636,7 @@
               "today_logs": "Today's results by material (time spent, amount completed, cycle, quality metric)",
               "diary_body": "Previous diary entry (legacy input; empty for new entries)",
               "diary_learned": "What you learned / understood today",
+              "glossary": "Vocabulary reference terms (priority order: checked, then longest wrong streak, then lowest accuracy, then unanswered, then everything else, with accuracy)",
               "weekly_summaries": "Recent weekly summaries",
               "conversation_history": "Earlier turns in today's dialogue",
               "attachments": "The content of attachments the user selected (past exam questions, sample answers, grading comments, etc.)",
@@ -1766,6 +1770,7 @@
               "material_summary": "Per material: total amount, planned cycles, actual cycles, time spent",
               "quality_trend": "Quality metric trend (by cycle, aggregated monthly)",
               "replan_history": "Replan history (date, reason, quota before/after, remaining amount and days at that time)",
+              "glossary": "Vocabulary reference terms (priority order: checked, then longest wrong streak, then lowest accuracy, then unanswered, then everything else, with accuracy)",
               "weekly_summaries": "Generated weekly summaries (for long periods, used in place of raw logs for earlier periods)",
               "recent_logs": "Records (raw logs) for periods without a weekly summary yet",
               "conversation_history": "This conversation's recent exchanges (up to the configured number of turns)",
