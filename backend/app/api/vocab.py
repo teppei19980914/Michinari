@@ -16,6 +16,7 @@ from app.constants.app_setting_keys import (
 from app.constants.enums import VocabQuizMode
 from app.database import get_db
 from app.models.vocab import VocabCard, VocabDeck
+from app.schemas.quiz import QuizGenerateResultRead
 from app.schemas.vocab import (
     VocabAnswerRequest,
     VocabAnswerResultRead,
@@ -39,7 +40,13 @@ from app.schemas.vocab import (
     VocabQuizSessionRead,
     VocabQuizSessionRequest,
 )
-from app.services import goal_service, setting_reader, vocab_service
+from app.services import (
+    goal_service,
+    quiz_service,
+    setting_reader,
+    vocab_quiz_generation_service,
+    vocab_service,
+)
 from app.services.exceptions import ValidationError
 
 router = APIRouter(tags=["vocab"])
@@ -190,6 +197,7 @@ def update_vocab_card(
         aliases=payload.aliases,
         note=payload.note,
     )
+    quiz_service.delete_questions_for_vocab_card(session, card.id)
     session.commit()
     stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
     return _card_read(card, stats)
@@ -362,3 +370,21 @@ def answer_vocab_card(
     vocab_service.record_answer(session, card, payload.mode, is_correct)
     session.commit()
     return VocabAnswerResultRead(is_correct=is_correct)
+
+
+@router.post("/vocab-decks/{deck_id}/quiz/generate", response_model=QuizGenerateResultRead)
+def generate_vocab_deck_quiz(
+    deck_id: int, session: Session = Depends(get_db)
+) -> QuizGenerateResultRead:
+    """単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B B-U5）。
+
+    `use_in_ai=False`のデッキは何も作らない（`vocab_quiz_generation_service.generate_for_deck`
+    側の判定）。`quiz.questions_per_theme`等と同じく、作り直し（既存の未出題分の削除）は
+    行わない点がテーマ由来と異なる（カードごとに1問までのため、まだ問題を持たないカードの
+    分だけを追加で作る設計、B-U5）。
+    """
+    deck = vocab_service.get_deck(session, deck_id)
+    goal = goal_service.get_goal(session, deck.goal_id)
+    created = vocab_quiz_generation_service.generate_for_deck(session, goal, deck)
+    session.commit()
+    return QuizGenerateResultRead(created=created)

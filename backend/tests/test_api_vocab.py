@@ -1,9 +1,13 @@
-"""単語帳APIのテスト（開発Todo_単語帳_v1.0 要件A）。"""
+"""単語帳APIのテスト（開発Todo_単語帳_v1.0 要件A・要件B）。"""
+
+import datetime as dt
 
 from app.constants.app_setting_keys import VOCAB_IMPORT_MAX_ROWS
 from app.constants.enums import VocabQuizMode
+from app.models.quiz import QuizQuestion
 from app.services import vocab_service
 from tests.diary_helpers import make_exam_goal
+from tests.quiz_helpers import stub_quiz_ai
 from tests.vocab_helpers import make_card, make_deck, make_reading_goal, set_setting
 
 # ---------------------------------------------------------------------------
@@ -620,3 +624,70 @@ def test_answer_vocab_card_does_not_affect_todays_quiz_tables(seeded_session, cl
     )
 
     assert seeded_session.query(QuizAnswerLog).count() == 0
+
+
+def test_update_vocab_card_deletes_its_quiz_questions(seeded_session, client):
+    """用語・意味・別名を編集したら、そのカードを出典とする今日の復習の問題を削除すること
+    （開発Todo_単語帳_v1.0 要件B。古い内容のまま出題し続けない）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="元の用語")
+    seeded_session.add(
+        QuizQuestion(
+            vocab_card_id=card.id,
+            question_text="問題文",
+            choice_1="A",
+            choice_2="B",
+            choice_3="C",
+            choice_4="D",
+            correct_choice_index=0,
+            explanation="解説",
+            interval_index=0,
+            next_due_date=dt.date.today(),
+        )
+    )
+    seeded_session.commit()
+
+    response = client.patch(f"/api/v1/vocab-cards/{card.id}", json={"term": "新しい用語"})
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 0
+
+
+def test_generate_vocab_deck_quiz_creates_questions(seeded_session, client, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+    stub_quiz_ai(
+        monkeypatch,
+        (
+            "問題: SMTPの役割は？\n"
+            "選択肢1: a\n選択肢2: SMTPはメール送信の役割を持つ\n選択肢3: c\n選択肢4: d\n"
+            f"正解: 2\n解説: 説明\n出典: #{card.id}"
+        ),
+    )
+
+    response = client.post(f"/api/v1/vocab-decks/{deck.id}/quiz/generate")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["created"] == 1
+
+
+def test_generate_vocab_deck_quiz_returns_zero_when_use_in_ai_is_false(
+    seeded_session, client, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal, use_in_ai=False)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+    calls = stub_quiz_ai(monkeypatch, "")
+
+    response = client.post(f"/api/v1/vocab-decks/{deck.id}/quiz/generate")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["created"] == 0
+    assert calls == []
+
+
+def test_generate_vocab_deck_quiz_unknown_deck_returns_404(client):
+    response = client.post("/api/v1/vocab-decks/999999/quiz/generate")
+    assert response.status_code == 404

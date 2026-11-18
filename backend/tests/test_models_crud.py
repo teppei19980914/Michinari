@@ -27,6 +27,8 @@ from app.models.ai import AiConversation, AiLog
 from app.models.book import Book
 from app.models.goal import ExamSubject, Goal, LoadProfile
 from app.models.material import Material, MaterialSubject, PlanBaseline
+from app.models.quiz import QuizQuestion
+from app.models.recap import RecapTheme
 from app.models.record import (
     ChatMessage,
     DailyMessage,
@@ -40,6 +42,7 @@ from app.models.record import (
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
 from app.models.setting import CalendarDayOverride, Holiday
+from app.models.vocab import VocabCard, VocabDeck
 
 
 def _make_goal(name: str, start_date: dt.date) -> Goal:
@@ -479,3 +482,100 @@ def test_reading_log_unique_book_and_daily_record(db_session):
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def _make_quiz_question_kwargs(**overrides) -> dict:
+    defaults = dict(
+        theme_id=None,
+        vocab_card_id=None,
+        question_text="問題文",
+        choice_1="A",
+        choice_2="B",
+        choice_3="C",
+        choice_4="D",
+        correct_choice_index=0,
+        explanation="解説",
+        citation_date=None,
+        interval_index=0,
+        next_due_date=dt.date(2026, 1, 1),
+    )
+    defaults.update(overrides)
+    return defaults
+
+
+def test_quiz_question_check_constraint_rejects_both_sources_set(db_session):
+    """開発Todo_単語帳_v1.0 要件B：`theme_id`・`vocab_card_id`はどちらか一方だけが入ること
+    （`ck_quiz_question_single_source`）。CHECK制約自体が機能することを検証する
+    （test-coverage-reviewerレビューで検出、2026-11-18）。"""
+    goal = _make_goal("目標A", dt.date(2026, 1, 1))
+    db_session.add(goal)
+    db_session.flush()
+    theme = RecapTheme(goal_id=goal.id, name="テーマA", body="本文")
+    db_session.add(theme)
+    deck = VocabDeck(goal_id=goal.id, name="単語帳A", description=None, display_order=0)
+    db_session.add(deck)
+    db_session.flush()
+    card = VocabCard(
+        deck_id=deck.id, term="用語", meaning="意味", aliases=None, note=None, display_order=0
+    )
+    db_session.add(card)
+    db_session.flush()
+
+    db_session.add(
+        QuizQuestion(
+            **_make_quiz_question_kwargs(
+                theme_id=theme.id, vocab_card_id=card.id, citation_date=dt.date(2026, 1, 1)
+            )
+        )
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_quiz_question_check_constraint_rejects_neither_source_set(db_session):
+    """`theme_id`・`vocab_card_id`のどちらも無い行は拒否されること（同上）。"""
+    db_session.add(QuizQuestion(**_make_quiz_question_kwargs()))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_quiz_question_check_constraint_rejects_theme_without_citation_date(db_session):
+    """開発Todo_単語帳_v1.0 要件B：`theme_id`があるときは`citation_date`も必須（同上、
+    `ck_quiz_question_theme_requires_citation_date`）。"""
+    goal = _make_goal("目標B", dt.date(2026, 1, 1))
+    db_session.add(goal)
+    db_session.flush()
+    theme = RecapTheme(goal_id=goal.id, name="テーマB", body="本文")
+    db_session.add(theme)
+    db_session.flush()
+
+    db_session.add(
+        QuizQuestion(**_make_quiz_question_kwargs(theme_id=theme.id, citation_date=None))
+    )
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_quiz_question_check_constraint_allows_vocab_sourced_row(db_session):
+    """単語帳由来（`theme_id`・`citation_date`ともNULL、`vocab_card_id`のみ設定）は正常に
+    保存できること（CHECK制約が正当な行まで誤って拒否しないことの確認）。"""
+    goal = _make_goal("目標C", dt.date(2026, 1, 1))
+    db_session.add(goal)
+    db_session.flush()
+    deck = VocabDeck(goal_id=goal.id, name="単語帳C", description=None, display_order=0)
+    db_session.add(deck)
+    db_session.flush()
+    card = VocabCard(
+        deck_id=deck.id, term="用語", meaning="意味", aliases=None, note=None, display_order=0
+    )
+    db_session.add(card)
+    db_session.flush()
+
+    question = QuizQuestion(**_make_quiz_question_kwargs(vocab_card_id=card.id))
+    db_session.add(question)
+    db_session.commit()
+
+    assert db_session.get(QuizQuestion, question.id) is not None

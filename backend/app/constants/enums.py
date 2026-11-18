@@ -113,6 +113,8 @@ class AiPurpose(enum.StrEnum):
     GOAL_CONSULTATION_READING = "GOAL_CONSULTATION_READING"
     GOAL_CONSULTATION_WORK = "GOAL_CONSULTATION_WORK"
     QUIZ_GENERATE = "QUIZ_GENERATE"
+    #: 単語帳のカードから今日の復習の問題を作る（開発Todo_単語帳_v1.0 要件B）。
+    VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
     #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）で確定した日の日次報告
     #: フィードバック。注入変数・コンテキスト構築は各カテゴリの非BRIEF版と同じ
     #: （prompt_builder.build_daily_feedback／build_with_degradable_entriesをそのまま再利用し、
@@ -146,6 +148,8 @@ class ConversationScope(enum.StrEnum):
     GOAL_CONSULTATION_READING = "GOAL_CONSULTATION_READING"
     GOAL_CONSULTATION_WORK = "GOAL_CONSULTATION_WORK"
     QUIZ_GENERATE = "QUIZ_GENERATE"
+    #: AiPurposeの同名定数と対になる単語帳由来のクイズ生成用の会話スコープ。
+    VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
     #: AiPurposeの同名定数と対になるひとこと記録モード用の会話スコープ（17.2.1/17.6.1/17.8.1）。
     DAILY_FEEDBACK_BRIEF = "DAILY_FEEDBACK_BRIEF"
     DAILY_FEEDBACK_READING_BRIEF = "DAILY_FEEDBACK_READING_BRIEF"

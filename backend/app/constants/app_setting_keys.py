@@ -197,3 +197,8 @@ VOCAB_SESSION_DEFAULT_QUESTIONS = "vocab.session_default_questions"
 VOCAB_SESSION_MAX_QUESTIONS = "vocab.session_max_questions"
 #: 「苦手」絞り込みの正答率しきい値（%、これ未満が対象）。
 VOCAB_WEAK_ACCURACY_PERCENT = "vocab.weak_accuracy_percent"
+# 単語帳（開発Todo_単語帳_v1.0 要件B）。今日の復習への統合。
+#: 1回の起動（または単語帳詳細の「作る」ボタン1回）で新規に問題を作るカード数の上限。
+VOCAB_QUIZ_CARDS_PER_STARTUP = "vocab.quiz_cards_per_startup"
+#: テーマ由来クイズ生成への参考用語（{{glossary_reference}}）の最大文字数。
+VOCAB_QUIZ_REFERENCE_MAX_CHARS = "vocab.quiz_reference_max_chars"

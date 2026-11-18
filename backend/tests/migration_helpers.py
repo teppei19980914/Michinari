@@ -44,6 +44,14 @@ def upgrade_to(revision: str) -> None:
         command.upgrade(build_alembic_config(), revision)
 
 
+def downgrade_to(revision: str) -> None:
+    """現在の`MICHINARI_DATABASE_URL`が指すDBを指定リビジョンまでダウングレードする
+    （`upgrade_to`のdowngrade版。開発Todo_単語帳_v1.0 要件Bのdowngrade安全性テストで使用）。
+    """
+    with preserve_logging_state():
+        command.downgrade(build_alembic_config(), revision)
+
+
 def drop_alembic_version_table(db_path: Path) -> None:
     """`alembic_version`テーブルを削除し、『create_all_tables()のみで構築され、一度も
     Alembicで管理されていない既存DB』を再現する（app.main._PRE_ALEMBIC_BASELINE_REVISION

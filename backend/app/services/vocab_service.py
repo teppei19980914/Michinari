@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import io
 import random
+import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,6 +19,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ai import question_safety
 from app.ai.question_safety import normalize_for_match
 from app.constants.app_setting_keys import (
     VOCAB_DECK_MAX_CARDS,
@@ -25,7 +27,7 @@ from app.constants.app_setting_keys import (
     VOCAB_MEANING_MAX_CHARS,
     VOCAB_TERM_MAX_CHARS,
 )
-from app.constants.enums import GoalCategory, VocabQuizMode
+from app.constants.enums import GoalCategory, GoalStatus, VocabQuizMode
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
@@ -178,6 +180,22 @@ def count_cards_by_deck(session: Session, deck_ids: list[int]) -> dict[int, int]
         .group_by(VocabCard.deck_id)
     ).all()
     return dict(rows)
+
+
+def get_deck_info_for_cards(session: Session, card_ids: list[int]) -> dict[int, tuple[int, str]]:
+    """複数カードの単語帳ID・名前を1回の問い合わせで返す（`card_id → (deck_id, deck_name)`）。
+
+    今日の復習（開発Todo_単語帳_v1.0 要件B）が単語帳由来の問題の出所表示・「単語帳で
+    確認する」リンクに使う（N+1禁止、`count_cards_by_deck`と同じ方針）。
+    """
+    if not card_ids:
+        return {}
+    rows = session.execute(
+        select(VocabCard.id, VocabDeck.id, VocabDeck.name)
+        .join(VocabDeck, VocabDeck.id == VocabCard.deck_id)
+        .where(VocabCard.id.in_(card_ids))
+    ).all()
+    return {card_id: (deck_id, deck_name) for card_id, deck_id, deck_name in rows}
 
 
 def _validate_card_fields(session: Session, term: str, meaning: str) -> None:
@@ -613,3 +631,155 @@ def build_choice_option_ids(
     option_cards = [*distractors, target_card]
     rng.shuffle(option_cards)
     return [card.id for card in option_cards]
+
+
+# ---------------------------------------------------------------------------
+# AI連携: 参考用語の組み立て（開発Todo_単語帳_v1.0 要件B B-U6）
+# ---------------------------------------------------------------------------
+
+#: 参考用語が無い場合の表示（資格試験以外の目標、対象カードが無い場合）。
+NO_GLOSSARY_REFERENCE_TEXT = "（なし）"
+
+
+def ai_eligible_deck_conditions() -> tuple:
+    """AI用途（今日の復習の生成・出題、参考用語の注入）の対象となる単語帳の絞り込み条件
+    （`use_in_ai=True`・目標ACTIVE・EXAM限定、B-U1・B-D13）。`VocabDeck`・`Goal`への
+    JOINを前提にした`.where(*ai_eligible_deck_conditions())`として使う。
+
+    `quiz_service._due_vocab_questions`（出題クエリ）と
+    `vocab_quiz_generation_service._candidate_cards_query`（生成対象クエリ）の両方が
+    同一の業務ルールを別々に実装して重複していたため共通化した（dry-reviewerレビューで
+    検出、2026-11-17）。
+    """
+    return (
+        VocabDeck.use_in_ai.is_(True),
+        Goal.status == GoalStatus.ACTIVE,
+        Goal.category == GoalCategory.EXAM,
+    )
+
+
+def split_aliases(card: VocabCard) -> list[str]:
+    """別名欄（改行区切り）を、空行を除いたリストで返す（前後の空白を除去済み）。
+
+    カードの表示・AI送信用フォーマット（`build_vocab_match_keys`・`_format_glossary_line`・
+    `vocab_quiz_generation_service._format_card_line`）で共通して使う別名の分解処理
+    （dry-reviewerレビューで3箇所の重複を検出、2026-11-17）。
+    """
+    return [alias.strip() for alias in (card.aliases or "").splitlines() if alias.strip()]
+
+
+def build_vocab_match_keys(card: VocabCard) -> list[str]:
+    """カードの用語・別名を正規化したキー一覧（`normalize_for_vocab_match`適用後）。
+
+    参考用語の組み立て（`build_glossary_reference`）・単語帳由来クイズの根拠検証
+    （`vocab_quiz_generation_service`、出典カードの用語または別名が問題文・正解の
+    選択肢に含まれるかの判定）の両方で使う共通処理（CLAUDE.md DRYの原則）。
+    """
+    keys = [normalize_for_vocab_match(card.term)]
+    keys.extend(normalize_for_vocab_match(alias) for alias in split_aliases(card))
+    return [key for key in keys if key]
+
+
+def flatten_for_single_line(text: str) -> str:
+    """AIへ渡す1行形式へ組み込む前に、改行等の行区切り文字を半角空白へ置換する。
+
+    用語・意味に改行が含まれていると、「#カードID 用語／意味」のような1行形式の
+    プロンプト構造を崩し、存在しないカードの行を偽装できてしまう（injection-reviewer
+    レビューで検出、2026-11-17）。データとしての改行の保存自体は妨げない（表示・入力検証
+    では拒否しない）。Unicode制御文字（Cc）・行区切り（Zl）・段落区切り（Zp）が対象。
+    """
+    return "".join(" " if unicodedata.category(ch) in ("Cc", "Zl", "Zp") else ch for ch in text)
+
+
+def _format_glossary_line(card: VocabCard) -> str:
+    """「・用語（別名1、別名2）: 意味」の形式（別名が無ければ括弧を省略、B-D11）。
+
+    埋め込み先の区切り（`<<<GLOSSARY-{{nonce}}>>>`）を利用者入力から偽造できないよう、
+    山括弧を全角化する（`DELIMITER_REPLACEMENTS`、呼び出し元に依存しないデフォルトで
+    安全な実装にする。injection-reviewerレビューで検出、2026-11-17）。改行等は1行形式を
+    崩すため空白へ変換する（`flatten_for_single_line`）。
+    """
+    term = flatten_for_single_line(card.term).translate(question_safety.DELIMITER_REPLACEMENTS)
+    meaning = flatten_for_single_line(card.meaning).translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
+    aliases = [
+        flatten_for_single_line(alias).translate(question_safety.DELIMITER_REPLACEMENTS)
+        for alias in split_aliases(card)
+    ]
+    if aliases:
+        return f"・{term}（{'、'.join(aliases)}）: {meaning}"
+    return f"・{term}: {meaning}"
+
+
+def eligible_glossary_cards(session: Session, goal: Goal) -> list[VocabCard]:
+    """参考用語（`build_glossary_reference`）の対象カード一覧を1回のクエリで取得する。
+
+    テーマ由来クイズ生成（`quiz_generation_service.generate_for_theme`）はチャンクごとに
+    `build_glossary_reference`を呼ぶため、呼び出し元がこの関数をループの外で1回だけ呼び、
+    結果を`build_glossary_reference`の`cards`引数へ渡すことで、チャンク数だけデッキ・
+    カード一覧を再取得する重複クエリを避けられる（performance-reviewerレビューで検出、
+    2026-11-17）。
+    """
+    if goal.category != GoalCategory.EXAM:
+        return []
+    deck_ids = [deck.id for deck in list_decks_for_goal(session, goal.id) if deck.use_in_ai]
+    if not deck_ids:
+        return []
+    return list(
+        session.scalars(
+            select(VocabCard)
+            .where(VocabCard.deck_id.in_(deck_ids))
+            .order_by(VocabCard.deck_id, VocabCard.display_order, VocabCard.id)
+        ).all()
+    )
+
+
+def build_glossary_reference(
+    session: Session,
+    goal: Goal,
+    texts: list[str],
+    *,
+    max_chars: int,
+    cards: list[VocabCard] | None = None,
+    forbidden_keys: list[str] | None = None,
+) -> str:
+    """参考用語（学習者が単語帳に登録した意味）を、与えられた文章群に用語または別名が
+    含まれるカードから組み立てる（B-U6、テーマ由来クイズ生成の{{glossary_reference}}）。
+
+    資格試験以外の目標・対象カードが無い場合は`NO_GLOSSARY_REFERENCE_TEXT`（「（なし）」）
+    を返す。禁止語を含むカードは除外する（vocab_quiz_generation_serviceと共通の方針）。
+    マッチ対象の文章群（`texts`）・文字数予算（`max_chars`）を引数化し、要件C（日次
+    フィードバック・目標相談への注入）でも再利用できる共通関数とする（利用者プロンプトの
+    明示指示）。カードの並び順（デッキ表示順→カード表示順）は固定とし、要件Cで異なる
+    並び順が必要になった場合はそのとき拡張する（B-D14、スコープの最小化）。
+
+    `cards`・`forbidden_keys`は、呼び出し元がチャンクごとに繰り返し呼ぶ場合に、
+    `eligible_glossary_cards`・`question_safety.list_enabled_forbidden_term_keys`の結果を
+    ループの外で1回だけ取得して渡すための引数（省略時はこの呼び出しの中で取得する、
+    performance-reviewerレビューで検出、2026-11-17）。
+    """
+    if cards is None:
+        cards = eligible_glossary_cards(session, goal)
+    if not cards:
+        return NO_GLOSSARY_REFERENCE_TEXT
+    if forbidden_keys is None:
+        forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
+    normalized_texts = [normalize_for_vocab_match(text) for text in texts]
+    lines: list[str] = []
+    total_chars = 0
+    for card in cards:
+        if question_safety.contains_any_forbidden_term(
+            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+        ):
+            continue
+        if not any(
+            key in text for key in build_vocab_match_keys(card) for text in normalized_texts
+        ):
+            continue
+        line = _format_glossary_line(card)
+        if lines and total_chars + len(line) > max_chars:
+            break
+        lines.append(line)
+        total_chars += len(line)
+    return "\n".join(lines) if lines else NO_GLOSSARY_REFERENCE_TEXT

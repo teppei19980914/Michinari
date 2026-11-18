@@ -272,7 +272,7 @@
 
 各リクエストには相関ID（`X-Request-Id`ヘッダ、12桁の16進数）を発行し、同一リクエストで出力される全てのログ行（アクセスログ・業務エラー・未分類例外）へ自動的に付与する（`logging.setLogRecordFactory`によるプロセス全体への注入、ハンドラ単位の`logging.Filter`では`caplog`等の別ハンドラに乗らないため採用しない）。フロントはレスポンスの`X-Request-Id`ヘッダを`ApiError.requestId`として保持し、エラー表示の詳細欄に「エラーID」として表示する。
 
-**単語帳（SC-22、開発Todo_単語帳_v1.0 要件A、AI非依存）**
+**単語帳（SC-22、開発Todo_単語帳_v1.0 要件A・要件B）**
 
 | メソッド | パス | 概要 |
 | --- | --- | --- |
@@ -292,6 +292,7 @@
 | GET | /vocab-decks/{deck_id}/export | 単語帳をタブ区切りテキストで書き出す |
 | POST | /vocab-decks/{deck_id}/quiz-sessions | 出題セッションを開始する（サーバーにセッション自体は保存しない） |
 | POST | /vocab-cards/{card_id}/answer | 単語帳の問題集での解答を記録する（`vocab_answer_log`へ追加。今日の復習の解答履歴とは別） |
+| POST | /vocab-decks/{deck_id}/quiz/generate | 単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B）。その単語帳の、まだ問題を持たないカードの分だけ作る（AI呼び出し） |
 
 **その他**
 

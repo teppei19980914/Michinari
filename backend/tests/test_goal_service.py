@@ -16,6 +16,7 @@ from app.models.book import Book
 from app.models.goal import Goal, GoalConsultationConversation, GoalConsultationLog
 from app.models.material import Material
 from app.models.milestone import GoalMilestoneAchievement
+from app.models.quiz import QuizAnswerLog, QuizQuestion
 from app.models.record import (
     ChatMessage,
     DailyGoalDiary,
@@ -26,6 +27,7 @@ from app.models.record import (
     WorkLog,
 )
 from app.models.setting import CalendarDayOverride
+from app.models.vocab import VocabCard, VocabDeck
 from app.models.work import WorkAssignment
 from app.services import goal_service, goal_service_lifecycle
 from app.services.exceptions import (
@@ -589,3 +591,56 @@ def test_delete_goal_cascades_removes_milestone_achievements(db_session):
     goal_service.delete_goal(db_session, goal)
 
     assert db_session.query(GoalMilestoneAchievement).count() == 0
+
+
+def test_delete_goal_cascades_removes_vocab_deck_card_and_quiz_rows(db_session):
+    """目標削除が単語帳（vocab_deck/vocab_card）・今日の復習の単語帳由来の問題
+    （quiz_question.vocab_card_id/quiz_answer_log.vocab_card_id）までCASCADEで連動削除する
+    こと（開発Todo_単語帳_v1.0 要件A・要件B。test-coverage-reviewerレビューで検出した
+    未検証のCASCADE連鎖、2026-11-18）。"""
+    goal = _make_goal(db_session, status=GoalStatus.CLOSED_WITH_RESULT)
+    deck = VocabDeck(goal_id=goal.id, name="単語帳A", description=None, display_order=0)
+    db_session.add(deck)
+    db_session.flush()
+    card = VocabCard(
+        deck_id=deck.id, term="用語", meaning="意味", aliases=None, note=None, display_order=0
+    )
+    db_session.add(card)
+    db_session.flush()
+    question = QuizQuestion(
+        vocab_card_id=card.id,
+        question_text="問題文",
+        choice_1="A",
+        choice_2="B",
+        choice_3="C",
+        choice_4="D",
+        correct_choice_index=0,
+        explanation="解説",
+        interval_index=0,
+        next_due_date=dt.date(2026, 1, 1),
+    )
+    db_session.add(question)
+    db_session.flush()
+    db_session.add(
+        QuizAnswerLog(
+            vocab_card_id=card.id,
+            question_id=question.id,
+            is_correct=True,
+            answered_at=dt.datetime(2026, 1, 1),
+        )
+    )
+    db_session.flush()
+    goal_service.archive_goal(db_session, goal)
+
+    goal_service.delete_goal(db_session, goal)
+
+    # vocab_deck/vocab_card/quiz_questionはGoalからのORM relationship（cascade="all,
+    # delete-orphan"）を持たず、DBのON DELETE CASCADEのみで削除される。そのためSQLAlchemy
+    # のアイデンティティマップは更新されず、db_session.get()は削除後も古いキャッシュを
+    # 返してしまう（expire_on_commitの対象外）。新規クエリ（.query().count()）はDBへ
+    # 問い合わせ直すため、実際にDBから削除されたことを正しく検証できる。
+    db_session.expire_all()
+    assert db_session.query(VocabDeck).count() == 0
+    assert db_session.query(VocabCard).count() == 0
+    assert db_session.query(QuizQuestion).count() == 0
+    assert db_session.query(QuizAnswerLog).count() == 0
