@@ -26,6 +26,7 @@ from app.constants.app_setting_keys import (
     VOCAB_IMPORT_MAX_ROWS,
     VOCAB_MEANING_MAX_CHARS,
     VOCAB_TERM_MAX_CHARS,
+    VOCAB_WEAK_ACCURACY_PERCENT,
 )
 from app.constants.enums import GoalCategory, GoalStatus, VocabQuizMode
 from app.models.base import utcnow
@@ -783,3 +784,130 @@ def build_glossary_reference(
         lines.append(line)
         total_chars += len(line)
     return "\n".join(lines) if lines else NO_GLOSSARY_REFERENCE_TEXT
+
+
+# ---------------------------------------------------------------------------
+# AI連携: 日次フィードバック・目標相談への参考用語の組み立て（開発Todo_単語帳_v1.0 要件C）
+# ---------------------------------------------------------------------------
+
+#: 参考用語（build_glossary_overview）が無い場合の表示。build_glossary_reference（要件B）の
+#: NO_GLOSSARY_REFERENCE_TEXT（「（なし）」）とは文言・用途が異なるため別の定数とする
+#: （利用者が直接読む文章のため分かりやすい文言を使う、C-D9）。
+NO_GLOSSARY_OVERVIEW_TEXT = "（登録された用語はありません）"
+
+
+def _glossary_overview_tier(
+    card: VocabCard, stats: VocabCardStats, weak_accuracy_percent: float
+) -> int:
+    """優先順（チェック付き→連続誤答数の多い順→正答率の低い順→未解答→その他）の
+    5段のどこに属するかを返す（0が最優先、C-D2）。
+
+    各段は排他的なバケットとする（1つの単純な数値キーで「正答率の低い順」と「その他」を
+    同時に表現しようとすると、正答率の高い「その他」が常に未解答より先に来てしまい
+    `未解答→その他`の順序を表現できないため、段ごとに分けるのが最も素直な実装）。
+    「正答率の低い順」は既存の「苦手」判定（`is_weak_card`・`vocab.weak_accuracy_percent`、
+    単語帳一覧の絞り込みと同じ基準）に合わせ、連続誤答が無い解答済みカードのうち
+    苦手なものに限定する（CLAUDE.md DRYの原則）。
+    """
+    if card.is_checked:
+        return 0
+    if stats.consecutive_incorrect >= 1:
+        return 1
+    if is_weak_card(stats, weak_accuracy_percent):
+        return 2
+    if stats.correct_count + stats.incorrect_count == 0:
+        return 3
+    return 4  # その他（解答済みで苦手でも連続誤答もない）
+
+
+def _glossary_overview_sort_key(
+    card: VocabCard, stats_by_card: dict[int, VocabCardStats], weak_accuracy_percent: float
+) -> tuple[int, float, int, int]:
+    """段の中の順序：段1（連続誤答）は多い順、段2（苦手）は正答率の低い順。
+    他の段は登録順（`display_order`→`id`）で安定させる（過剰な一般化を避ける、C-D2）。
+    """
+    stats = stats_by_card[card.id]
+    tier = _glossary_overview_tier(card, stats, weak_accuracy_percent)
+    secondary = 0.0
+    if tier == 1:
+        secondary = -stats.consecutive_incorrect
+    elif tier == 2:
+        secondary = stats.accuracy_percent or 0.0
+    return (tier, secondary, card.display_order, card.id)
+
+
+def _format_overview_line(
+    card: VocabCard, stats: VocabCardStats, weak_accuracy_percent: float
+) -> str:
+    """「・用語（別名1、別名2）: 意味［正答率 60%（3/5）・連続誤答 2回・要復習］」の形式
+    （未解答のカードは成績注記自体を省略する）。別名が無い場合は括弧を省略する
+    （`_format_glossary_line`と同じ書式規則、B-D11）。
+
+    埋め込み先の区切り（`<<<GLOSSARY-{{nonce}}>>>`）を利用者入力から偽造できないよう、
+    行フォーマット関数自身が山括弧を全角化する「デフォルトで安全」な実装にする
+    （呼び出し元に依存しない、C-D5・§5.3 #7と同じ方針）。改行等は1行形式を崩すため
+    空白へ変換する（`flatten_for_single_line`）。
+    """
+    term = flatten_for_single_line(card.term).translate(question_safety.DELIMITER_REPLACEMENTS)
+    meaning = flatten_for_single_line(card.meaning).translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
+    aliases = [
+        flatten_for_single_line(alias).translate(question_safety.DELIMITER_REPLACEMENTS)
+        for alias in split_aliases(card)
+    ]
+    label = f"・{term}（{'、'.join(aliases)}）: {meaning}" if aliases else f"・{term}: {meaning}"
+
+    total_answers = stats.correct_count + stats.incorrect_count
+    if total_answers == 0:
+        return label
+
+    notes = [f"正答率 {stats.accuracy_percent:.0f}%（{stats.correct_count}/{total_answers}）"]
+    if stats.consecutive_incorrect >= 1:
+        notes.append(f"連続誤答 {stats.consecutive_incorrect}回")
+    if is_weak_card(stats, weak_accuracy_percent):
+        notes.append("要復習")
+    return f"{label}［{'・'.join(notes)}］"
+
+
+def build_glossary_overview(session: Session, goal: Goal, *, max_chars: int) -> str:
+    """日次フィードバック・目標相談への参考用語（`{{glossary}}`）を組み立てる
+    （開発Todo_単語帳_v1.0 要件C）。
+
+    `build_glossary_reference`（要件B、報告・テーマ本文に実際に用語が出てくるカードだけに
+    絞る「マッチ型」）とは選定方法が異なり、その目標の`use_in_ai=True`の単語帳のカードを
+    全て対象に、成績に基づく優先順（`_glossary_overview_sort_key`、C-D2）で並べる。
+    資格試験以外の目標・対象カードが無い場合は`NO_GLOSSARY_OVERVIEW_TEXT`を返す。
+    禁止語を含むカードは除外する（既存B実装と同じ方針）。`max_chars`を超えない範囲で、
+    行の単位で打ち切る（最低1行は含める、`build_glossary_reference`と同じ打ち切り方式）。
+    """
+    cards = eligible_glossary_cards(session, goal)
+    if not cards:
+        return NO_GLOSSARY_OVERVIEW_TEXT
+    forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
+    cards = [
+        card
+        for card in cards
+        if not question_safety.contains_any_forbidden_term(
+            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+        )
+    ]
+    if not cards:
+        return NO_GLOSSARY_OVERVIEW_TEXT
+
+    stats_by_card = compute_card_stats(session, [card.id for card in cards])
+    weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
+    ordered = sorted(
+        cards,
+        key=lambda card: _glossary_overview_sort_key(card, stats_by_card, weak_accuracy_percent),
+    )
+
+    lines: list[str] = []
+    total_chars = 0
+    for card in ordered:
+        line = _format_overview_line(card, stats_by_card[card.id], weak_accuracy_percent)
+        if lines and total_chars + len(line) > max_chars:
+            break
+        lines.append(line)
+        total_chars += len(line)
+    return "\n".join(lines) if lines else NO_GLOSSARY_OVERVIEW_TEXT

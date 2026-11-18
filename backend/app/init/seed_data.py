@@ -96,6 +96,7 @@ from app.constants.app_setting_keys import (
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
     VOCAB_DECK_MAX_CARDS,
+    VOCAB_FEEDBACK_MAX_CHARS,
     VOCAB_IMPORT_MAX_ROWS,
     VOCAB_MEANING_MAX_CHARS,
     VOCAB_QUIZ_CARDS_PER_STARTUP,
@@ -314,6 +315,8 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     # 単語帳（開発Todo_単語帳_v1.0 要件B）。今日の復習への統合。
     VOCAB_QUIZ_CARDS_PER_STARTUP: ("20", AppSettingValueType.INTEGER),
     VOCAB_QUIZ_REFERENCE_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
+    # 単語帳（開発Todo_単語帳_v1.0 要件C）。日次フィードバック・目標相談への用語注入。
+    VOCAB_FEEDBACK_MAX_CHARS: ("4000", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {

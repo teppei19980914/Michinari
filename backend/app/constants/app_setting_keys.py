@@ -202,3 +202,7 @@ VOCAB_WEAK_ACCURACY_PERCENT = "vocab.weak_accuracy_percent"
 VOCAB_QUIZ_CARDS_PER_STARTUP = "vocab.quiz_cards_per_startup"
 #: テーマ由来クイズ生成への参考用語（{{glossary_reference}}）の最大文字数。
 VOCAB_QUIZ_REFERENCE_MAX_CHARS = "vocab.quiz_reference_max_chars"
+# 単語帳（開発Todo_単語帳_v1.0 要件C）。日次フィードバック・目標相談への用語注入。
+#: 日次フィードバック・目標相談への参考用語（{{glossary}}）の最大文字数。固定変数のため
+#: 段階的縮退の対象外（C-D7）。
+VOCAB_FEEDBACK_MAX_CHARS = "vocab.feedback_max_chars"

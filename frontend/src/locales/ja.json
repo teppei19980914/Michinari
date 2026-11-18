@@ -1114,7 +1114,8 @@
         "GOAL_INFO": "目標情報",
         "TODAY_RECORD": "本日の記録",
         "WEEKLY_SUMMARY": "週次要約",
-        "MATERIAL_PROGRESS": "教材の進捗"
+        "MATERIAL_PROGRESS": "教材の進捗",
+        "VOCAB_GLOSSARY": "登録した用語"
       },
       "privacyNotice": "送信されるのはこのPCの中の記録だけです。外部に保存されることはありません"
     },
