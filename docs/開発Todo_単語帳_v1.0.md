@@ -342,33 +342,33 @@
 - [x] C-01 `/threat-model`実施（STRIDE、§5.4へ記録、2026-11-18）
 
 #### 3.C.1 バックエンド実装
-- [ ] C-B01 設定キー追加（`vocab.feedback_max_chars`、既定4000）
-- [ ] C-B02 `vocab_service.py`：`build_glossary_overview`・`NO_GLOSSARY_OVERVIEW_TEXT`新設（優先順の複合ソートキー・成績注記・禁止語除外・改行潰し・山括弧全角化、C-D1〜D3・D5・D9）
-- [ ] C-B03 `prompt_builder.py`：`DailyFeedbackContext.glossary`フィールド追加、`build_daily_feedback`の`render()`へ組み込み（縮退対象外の固定変数）
-- [ ] C-B04 `daily_feedback_service.py`：`build_glossary_overview`呼び出し・`DailyFeedbackContext(glossary=...)`への受け渡し
-- [ ] C-B05 `goal_consultation_service_exam.py`：`build_context`の`fixed_variables`へ`glossary`追加
-- [ ] C-B06 `prompt_texts_exam.py`：`DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`・`GOAL_CONSULTATION`へ`{{glossary}}`・`<<<GLOSSARY-{{nonce}}>>>`区切り・指示文を追加
-- [ ] C-B07 マイグレーション（head=`a0c24f1a0f15`から新規1ファイル）：3用途の本文更新（is_customized=Falseのみ）、downgrade実装
-- [ ] C-B08 `app/constants/domain.py`：`CONTEXT_CATEGORIES_BY_PURPOSE`の`DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`へ`"VOCAB_GLOSSARY"`追加
-- [ ] C-B09 セキュリティテスト：禁止語カードの除外、区切りの偽装（偽nonce混入）、他目標・他デッキのカード混入防止、巨大カード集合での1秒以内の組み立て
+- [x] C-B01 設定キー追加（`vocab.feedback_max_chars`、既定4000）
+- [x] C-B02 `vocab_service.py`：`build_glossary_overview`・`NO_GLOSSARY_OVERVIEW_TEXT`新設（優先順の複合ソートキー・成績注記・禁止語除外・改行潰し・山括弧全角化、C-D1〜D3・D5・D9）
+- [x] C-B03 `prompt_builder.py`：`DailyFeedbackContext.glossary`フィールド追加、`build_daily_feedback`の`render()`へ組み込み（縮退対象外の固定変数）
+- [x] C-B04 `daily_feedback_service.py`：`build_glossary_overview`呼び出し・`DailyFeedbackContext(glossary=...)`への受け渡し
+- [x] C-B05 `goal_consultation_service_exam.py`：`build_context`の`fixed_variables`へ`glossary`追加
+- [x] C-B06 `prompt_texts_exam.py`：`DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`・`GOAL_CONSULTATION`へ`{{glossary}}`・`<<<GLOSSARY-{{nonce}}>>>`区切り・指示文を追加
+- [x] C-B07 マイグレーション（head=`a0c24f1a0f15`から新規1ファイル）：3用途の本文更新（is_customized=Falseのみ）、downgrade実装
+- [x] C-B08 `app/constants/domain.py`：`CONTEXT_CATEGORIES_BY_PURPOSE`の`DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`へ`"VOCAB_GLOSSARY"`追加
+- [x] C-B09 セキュリティテスト：禁止語カードの除外、区切りの偽装（偽nonce混入）、他目標・他デッキのカード混入防止、巨大カード集合での1秒以内の組み立て
 
 #### 3.C.2 フロントエンド実装
-- [ ] C-F01 `ja.json`/`en.json`：`dailyReport.chat.contextCategories.VOCAB_GLOSSARY`追加
-- [ ] C-F02 lint（oxlint）・tsc・test
+- [x] C-F01 `ja.json`/`en.json`：`dailyReport.chat.contextCategories.VOCAB_GLOSSARY`追加
+- [x] C-F02 lint（oxlint）・tsc・test
 
 #### 3.C.3 検証
-- [ ] C-V01 ruff・pytest・vitest（§2.2比較：既存テストが1件も壊れていないこと）
-- [ ] C-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、起動確認）
-- [ ] C-V03 観点別レビュー（コミット前チェック、該当エージェント並列実行）
-- [ ] C-V04 実機確認手順の提示（報告メッセージに記載）
+- [x] C-V01 ruff・pytest・vitest（§2.2比較：既存テストが1件も壊れていないこと）
+- [x] C-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、起動確認、2026-11-19実施、§8参照）
+- [x] C-V03 観点別レビュー（コミット前チェック、該当エージェント並列実行）
+- [x] C-V04 実機確認手順の提示（報告メッセージに記載）
 
 #### 3.C.4 文書改訂
-- [ ] C-D01 要件定義書：6.23へ要件C追記、改訂履歴
-- [ ] C-D02 仕様書：08_AI連携仕様.md（AI-01・AI-15・AI-22）・設定項目一覧・画面仕様（AIが参照した情報）、改訂履歴
-- [ ] C-D03 設計書（ロジック・プロンプト編）：17.2・17.2.1（変数表・初期文面）・24.2・24.7（STRIDE）・30章（優先順ロジック）、改訂履歴
-- [ ] C-D04 設計書（データ構造編）：5.2（`vocab.feedback_max_chars`）、改訂履歴
-- [ ] C-D05 README.md：単語帳の説明へ要件C反映
-- [ ] C-D06 help_content.json（`ja.json`の`help.sections.*`経由）：日次報告・目標相談ヘルプ本文更新
+- [x] C-D01 要件定義書：6.23へ要件C追記、改訂履歴
+- [x] C-D02 仕様書：08_AI連携仕様.md（AI-01・AI-15・AI-22）・設定項目一覧・画面仕様（AIが参照した情報）、改訂履歴
+- [x] C-D03 設計書（ロジック・プロンプト編）：17.2・17.2.1（変数表・初期文面）・24.2・24.7（STRIDE）・30章（優先順ロジック）、改訂履歴
+- [x] C-D04 設計書（データ構造編）：5.2（`vocab.feedback_max_chars`）、改訂履歴
+- [x] C-D05 README.md：単語帳の説明へ要件C反映
+- [x] C-D06 help_content.json（`ja.json`の`help.sections.*`経由）：日次報告・目標相談ヘルプ本文更新
 
 ### 3.D 要件D：日次報告からの用語提案（別セッション）
 （着手時に追記）
@@ -607,6 +607,15 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 観点別レビュー（§5.3）でHIGH以上の指摘を全て修正したこと。→ 達成
 - 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・単語帳CRUD・今日の復習の出題（空であることを含む）を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
 
+### 7.C 要件Cの完了の定義
+
+- §3.C（C-B01〜C-B09・C-F01〜C-F02・C-V01〜C-V04・C-D01〜D06）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文10,824・分岐2,024〉、フロントエンド100%）
+- §2.2のベースラインと比較し、既存の単語帳（要件A・B）のテストが1件も壊れていないこと。→ 達成
+- 既存のプロンプトを変更するため実装前に`/threat-model`を実施し、設計書へ反映したこと。→ 達成（§5.4、設計書17.2・24.7）
+- 観点別レビュー（§5.5、本セッション自身による実施）でHIGH以上の指摘を全て修正したこと。→ 達成
+- 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・ダッシュボード表示・新設app_setting/prompt_templateの反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
+
 ## 8. 作業記録
 
 - 2026-11-15：要件Aの開発着手。フルスキャン（4系統の調査エージェント＋直接のファイル確認）を実施し、復習クイズ（Phase49）を最も近い前例として本文書を作成。フルスキャンにより2点の食い違いを発見：①`DATA_SCHEMA_VERSION`は提示時点で既に"1.8"（ひとこと記録モードで導入済み）のため1.9へ上げる（D5）②`quiz.*`設定キーは設定画面未配線の既知ギャップがあり、新設の`vocab.*`も同様の扱いとする（D7）。いずれも利用者へ報告済み。ベースライン計測：バックエンド2,293件／カバレッジ100%／ruff 0件、フロントエンド203ファイル・1,658件／カバレッジ100%／oxlint・tsc 0件。
@@ -626,3 +635,13 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-17：コミット前チェックとして観点別レビュー7エージェント（dry-reviewer・style-reviewer・label-checker・injection-reviewer・xss-reviewer・test-coverage-reviewer・performance-reviewer）を並列実行（詳細は§5.3）。HIGH 4件・MEDIUM〜HIGH 1件・MEDIUM 5件・LOW 4件を検出。
 
 - 2026-11-18：§5.3で検出した指摘に対応。HIGH全件（禁止語チェックのDRY違反兼N+1、カード削除・目標削除のCASCADE未検証、CHECK制約自体の未検証）と、大半のMEDIUM（別名パース・AI対象条件の重複、`build_glossary_reference`のチャンク毎重複クエリ、単語帳カードの改行による1行形式偽装、`build_glossary_reference`の区切り全角化の呼び出し元依存、`vocab_match_keys`の命名不整合、3設定値のちょうど境界未検証）を修正。LOW 2件（`_MAX_BLOCK_CHARS`の橋渡し変数、フロントのミューテーションパターン重複）は対応不要と判断（理由は§5.3に記録）。新規テスト14件を追加。修正後、バックエンド全件再実行：2,491件合格・カバレッジ100%（文10,765・分岐1,998、欠落0）・ruff 0件。既存テストは1件も壊れていない。実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`a0c24f1a0f15`、要件A・Bの2マイグレーションを通し適用）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・単語帳デッキ作成・カード追加・`GET /quiz/today`（空配列、AIがまだクイズを生成していないため想定どおり）をAPI経由で確認。AIへの実送信（クイズ生成）は本検証では意図的に行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一）。OSVスキャン（`vuln-scan.sh`）実行：既知の脆弱性1件（`picomatch`〈devDependency〉、CVSS 8.7、修正版未公開、本セッションでは依存関係を変更していないため既存の状態、利用者へ報告）。以上により、要件Bの完了条件（§7.B）を満たしたと判断する。要件C〜E（AI注入・用語提案・習得可視化）は別セッションで着手する。
+
+- 2026-11-19：要件Cの開発着手。要件A・Bの完了検証は独立したサブエージェント（本セッションの作業コンテキストを持たない状態）に依頼し（§0.5）、軽微な表記の食い違い1件のみ（実装漏れではない）を検出。影響範囲の確定（§1.6）、ベースライン再計測（§2.2、バックエンド2,491件／フロントエンド217ファイル・1,744件、§8の要件B完了時の値と完全一致）を実施してから着手。`/threat-model`を実装前に実施（§5.4）。バックエンド（`vocab_service.build_glossary_overview`新設〈優先順5段バケット・成績注記・禁止語除外〉、`prompt_builder.DailyFeedbackContext.glossary`フィールド追加、`daily_feedback_service`・`goal_consultation_service_exam`からの呼び出し、`prompt_texts_exam.py`3用途への`{{glossary}}`区切りブロック追加、マイグレーション`1be51b4ce9c0`新設、`domain.py`の`CONTEXT_CATEGORIES_BY_PURPOSE`へ`VOCAB_GLOSSARY`追加）、フロントエンド（`ja.json`/`en.json`のロケールキー追加のみ、新規画面なし）を実装。途中、優先順の実装当初案（単一の複合ソートキー）がテスト失敗で設計ミスと判明し、排他的な5段バケット方式へ修正した（C-D2参照）。
+
+- 2026-11-19（続き）：セッション開始時のフックが`dev/2026-11-15`（本作業ブランチ）ではなく無関係な古い未マージブランチ`dev/2026-11-11`へチェックアウトする事象が発生したが、作業コミット自体は失われておらず（PR#69のHEAD到達性チェックにより削除は防止されていた）、`dev/2026-11-15`へ戻して作業を継続した。原因と再発時の対処は[[daily_branch_mark_mergeable_staleness]]に記録済み（修正は未依頼のため保留）。
+
+- 2026-11-19（続き）：コミット前チェックとして観点別レビューのサブエージェント起動が見送られたため、本セッション自身がgit差分を読んでレビューを実施した（詳細は§5.5）。HIGH 2件（禁止語照合対象文字列の組み立てが要件B由来の既存2箇所と合わせ3箇所に重複、「・用語（別名）: 意味」の組み立てが要件Bの`_format_glossary_line`と重複）を検出・修正済み（`vocab_service.forbidden_term_search_text`・`_format_glossary_label`へ共通化、要件B由来のモジュール`vocab_quiz_generation_service.py`も合わせて横展開修正）。DoS対策の確認として、デッキのカード数上限相当（2000枚）でも1秒以内に完了することを確認するテストを追加した。
+
+- 2026-11-19（最終）：全体最終テスト実行。バックエンド2,532件合格・カバレッジ100%（文10,824・分岐2,024、欠落0）・ruff 0件。フロントエンド217ファイル・1,744件合格・カバレッジ100%・oxlint 0件・tsc 0件。§2.2との比較：既存テストは1件も壊れていない（バックエンド+41件、いずれも要件Cの新規テストによる意図どおりの増加。フロントエンドは新規ロジックが無いためテスト数は不変）。実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`1be51b4ce9c0`、要件A・B・Cの3マイグレーションを通し適用）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・`GET /goals/1/vocab-decks`（空配列、単語帳未登録のため想定どおり）・起動時シードによる`DAILY_FEEDBACK_BRIEF`テンプレート新規投入（`{{glossary}}`を含む新文面がそのまま入る）・新設`app_setting`（`vocab.feedback_max_chars`=4000）の投入をAPI・DB直接確認の両方で確認した。AIへの実送信は本検証では行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一）。以上により、要件Cの完了条件（§7.C）を満たしたと判断する。要件D・E（日次報告からの用語提案・習得の可視化）は別セッションで着手する。
+
+**単語帳機能（要件A〜C）の進捗まとめ（2026-11-19）**：基盤と問題集（要件A、2026-11-15〜16、PR #135でmainマージ済み）・今日の復習への統合（要件B、2026-11-15〜18）・日次フィードバック・目標相談への用語注入（要件C、2026-11-19）の3要件が完了した（§7・§7.B・§7.Cすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照、という一連の流れを得られる。要件D（日次報告からの用語提案）・E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
