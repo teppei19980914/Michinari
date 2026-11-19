@@ -662,7 +662,7 @@ def ai_eligible_deck_conditions() -> tuple:
 def split_aliases(card: VocabCard) -> list[str]:
     """別名欄（改行区切り）を、空行を除いたリストで返す（前後の空白を除去済み）。
 
-    カードの表示・AI送信用フォーマット（`build_vocab_match_keys`・`_format_glossary_line`・
+    カードの表示・AI送信用フォーマット（`build_vocab_match_keys`・`_format_glossary_label`・
     `vocab_quiz_generation_service._format_card_line`）で共通して使う別名の分解処理
     （dry-reviewerレビューで3箇所の重複を検出、2026-11-17）。
     """
@@ -782,14 +782,14 @@ def build_glossary_reference(
     total_chars = 0
     for card in cards:
         if question_safety.contains_any_forbidden_term(
-            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+            _forbidden_term_search_text(card), forbidden_keys
         ):
             continue
         if not any(
             key in text for key in build_vocab_match_keys(card) for text in normalized_texts
         ):
             continue
-        line = _format_glossary_line(card)
+        line = _format_glossary_label(card)
         if lines and total_chars + len(line) > max_chars:
             break
         lines.append(line)
@@ -851,23 +851,11 @@ def _format_overview_line(
     card: VocabCard, stats: VocabCardStats, weak_accuracy_percent: float
 ) -> str:
     """「・用語（別名1、別名2）: 意味［正答率 60%（3/5）・連続誤答 2回・要復習］」の形式
-    （未解答のカードは成績注記自体を省略する）。別名が無い場合は括弧を省略する
-    （`_format_glossary_line`と同じ書式規則、B-D11）。
-
-    埋め込み先の区切り（`<<<GLOSSARY-{{nonce}}>>>`）を利用者入力から偽造できないよう、
-    行フォーマット関数自身が山括弧を全角化する「デフォルトで安全」な実装にする
-    （呼び出し元に依存しない、C-D5・§5.3 #7と同じ方針）。改行等は1行形式を崩すため
-    空白へ変換する（`flatten_for_single_line`）。
+    （未解答のカードは成績注記自体を省略する）。「・用語（別名）: 意味」部分は
+    `_format_glossary_label`（区切りの全角化・改行潰しを含む、B-D11・C-D5）を共有し、
+    成績注記のみを追加する。
     """
-    term = flatten_for_single_line(card.term).translate(question_safety.DELIMITER_REPLACEMENTS)
-    meaning = flatten_for_single_line(card.meaning).translate(
-        question_safety.DELIMITER_REPLACEMENTS
-    )
-    aliases = [
-        flatten_for_single_line(alias).translate(question_safety.DELIMITER_REPLACEMENTS)
-        for alias in split_aliases(card)
-    ]
-    label = f"・{term}（{'、'.join(aliases)}）: {meaning}" if aliases else f"・{term}: {meaning}"
+    label = _format_glossary_label(card)
 
     total_answers = stats.correct_count + stats.incorrect_count
     if total_answers == 0:
@@ -900,7 +888,7 @@ def build_glossary_overview(session: Session, goal: Goal, *, max_chars: int) -> 
         card
         for card in cards
         if not question_safety.contains_any_forbidden_term(
-            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+            _forbidden_term_search_text(card), forbidden_keys
         )
     ]
     if not cards:
