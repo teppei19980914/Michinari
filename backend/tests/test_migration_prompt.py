@@ -1029,3 +1029,90 @@ def test_quiz_generate_prompt_migration_downgrade_removes_glossary_reference(tmp
         ).fetchone()
 
     assert "{{glossary_reference}}" not in row[0]
+
+
+#: 開発Todo_単語帳_v1.0 要件C（1be51b4ce9c0）: {{glossary}}（単語帳の参考用語）を
+#: 追加する3用途。
+_GLOSSARY_PROMPT_PURPOSES = ("DAILY_FEEDBACK", "DAILY_FEEDBACK_BRIEF", "GOAL_CONSULTATION")
+
+
+@pytest.mark.parametrize("purpose", _GLOSSARY_PROMPT_PURPOSES)
+def test_glossary_prompt_migration_updates_non_customized_template(tmp_path, monkeypatch, purpose):
+    """1be51b4ce9c0: 資格試験の日次報告フィードバック2用途・目標相談チャットへ単語帳の
+    参考用語（{{glossary}}）を追加するマイグレーションを、既存データがある状態への適用として
+    検証する。is_customized=False（利用者が未編集）のテンプレートは、{{glossary}}を含む
+    新文面へ更新されること。
+    """
+    db_path = tmp_path / f"glossary_prompt_migration_non_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("a0c24f1a0f15")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, '旧文面（{{glossary}}を含まない）', 0, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert "{{glossary}}" in row[0]
+    assert "<<<GLOSSARY-{{nonce}}>>>" in row[0]
+
+
+@pytest.mark.parametrize("purpose", _GLOSSARY_PROMPT_PURPOSES)
+def test_glossary_prompt_migration_preserves_customized_template(tmp_path, monkeypatch, purpose):
+    """is_customized=True（利用者が手動編集済み）のテンプレートは、本マイグレーション
+    （1be51b4ce9c0）でも上書きしないこと。"""
+    db_path = tmp_path / f"glossary_prompt_migration_customized_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("a0c24f1a0f15")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, 'ユーザーがカスタマイズした文面', 1, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert row[0] == "ユーザーがカスタマイズした文面"
+
+
+@pytest.mark.parametrize("purpose", _GLOSSARY_PROMPT_PURPOSES)
+def test_glossary_prompt_migration_downgrade_removes_glossary(tmp_path, monkeypatch, purpose):
+    """downgradeは{{glossary}}を含まない旧文面へ戻すこと（is_customized=Falseのみ）。"""
+    db_path = tmp_path / f"glossary_prompt_migration_downgrade_{purpose}.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("a0c24f1a0f15")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO prompt_template (purpose, body, is_customized, updated_at) "
+            "VALUES (?, '旧文面（{{glossary}}を含まない）', 0, '2026-01-01T00:00:00')",
+            (purpose,),
+        )
+
+    migration_helpers.upgrade_to("head")
+    migration_helpers.downgrade_to("a0c24f1a0f15")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        row = connection.execute(
+            "SELECT body FROM prompt_template WHERE purpose = ?", (purpose,)
+        ).fetchone()
+
+    assert "{{glossary}}" not in row[0]
