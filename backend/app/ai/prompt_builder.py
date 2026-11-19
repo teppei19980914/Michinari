@@ -128,6 +128,12 @@ class DailyFeedbackContext:
     #: 利用者の自由入力が無くnonceを持たなかったが、添付ファイルは外部文書由来でリスクが
     #: 質的に高いため新規導入する。日記等の既存入力自体には適用しない）。
     nonce: str = ""
+    #: {{glossary}}: 単語帳の参考用語（開発Todo_単語帳_v1.0 要件C、`vocab_service.
+    #: build_glossary_overview`で組み立てる）。自分の予算（`vocab.feedback_max_chars`）で
+    #: 上限が決まる固定変数のため、段階的縮退の対象外とする（C-D7）。空文字なら
+    #: `vocab_service.NO_GLOSSARY_OVERVIEW_TEXT`を呼び出し元が渡す想定（本モジュールでは
+    #: 差し替えない、attachmentsと異なりvocab_service側が既に空表示文言を返す設計のため）。
+    glossary: str = ""
 
 
 _NO_MATERIALS_TEXT = "（対象教材はありません）"
@@ -219,6 +225,7 @@ def build_daily_feedback(
             "perspective_suggestion": context.perspective_suggestion,
             "attachments": context.attachments or NO_ATTACHMENTS_TEXT,
             "nonce": context.nonce,
+            "glossary": context.glossary,
         }
         return _substitute(template_body, variables)
 

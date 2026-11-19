@@ -338,13 +338,15 @@ def test_chat_endpoint_returns_assistant_message(client, monkeypatch):
     assert body["assistant_message"]["content"] == "今日もよく頑張りましたね"
     assert body["assistant_message"]["role"] == "ASSISTANT"
     assert body["was_truncated"] is False
-    # 「AIが参照した情報」表示用（2026-09-19）。資格試験のみMATERIAL_PROGRESSを含む
-    # （教材を持つのはEXAMだけのため、CONTEXT_CATEGORIES_BY_PURPOSE参照）。
+    # 「AIが参照した情報」表示用（2026-09-19）。資格試験のみMATERIAL_PROGRESS・
+    # VOCAB_GLOSSARYを含む（教材・単語帳を持つのはEXAMだけのため、
+    # CONTEXT_CATEGORIES_BY_PURPOSE参照。VOCAB_GLOSSARYは開発Todo_単語帳_v1.0 要件C）。
     assert body["context_categories"] == [
         "GOAL_INFO",
         "TODAY_RECORD",
         "WEEKLY_SUMMARY",
         "MATERIAL_PROGRESS",
+        "VOCAB_GLOSSARY",
     ]
     # 実績・日記は下書きのままDBへ確定されない（16.7、Phase5完了条件）。
     assert body["record"]["study_logs"] == []

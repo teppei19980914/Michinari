@@ -20,6 +20,7 @@ from app.constants.app_setting_keys import (
     AI_ASSISTANT_UID_DAILY_FEEDBACK,
     AI_ASSISTANT_UID_DAILY_FEEDBACK_BRIEF,
     AI_PERSPECTIVE_SUGGESTION_MIN_RECORDS,
+    VOCAB_FEEDBACK_MAX_CHARS,
 )
 from app.constants.enums import AiPurpose, ChatRole, ConversationScope, GoalCategory
 from app.models.goal import Goal
@@ -33,6 +34,7 @@ from app.services import (
     record_service_common,
     record_service_exam,
     setting_reader,
+    vocab_service,
 )
 from app.services.exceptions import DailyFeedbackPromptTooLongError, ValidationError
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
@@ -165,6 +167,9 @@ def send_daily_feedback(
     attachment_block = attachment_service.build_attachment_block(session, attachments)
     nonce = secrets.token_hex(question_safety.NONCE_BYTES)
 
+    glossary_max_chars = setting_reader.get_int(session, VOCAB_FEEDBACK_MAX_CHARS)
+    glossary = vocab_service.build_glossary_overview(session, goal, max_chars=glossary_max_chars)
+
     context = prompt_builder.DailyFeedbackContext(
         today=target_date.isoformat(),
         day_type=day_type.value,
@@ -187,6 +192,7 @@ def send_daily_feedback(
         perspective_suggestion=perspective_suggestion,
         attachments=attachment_block,
         nonce=nonce,
+        glossary=glossary,
     )
 
     template_body = ai_orchestration.load_template_body(session, purpose)
