@@ -84,6 +84,7 @@
 | C-D7 | 新設する`app_setting`は`vocab.feedback_max_chars`（既定4000）の1件のみ。マイグレーションでのINSERTは行わず、既存の「無いものだけ追加」方式（`seed_data.seed_app_settings`、起動時）に委ねる | `vocab.quiz_cards_per_startup`等（要件B）も同方式でマイグレーションのINSERTを行っていない既存前例に揃える |
 | C-D8 | `{{glossary}}`を注入するプロンプトは3用途（`DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`・`GOAL_CONSULTATION`）のみ。マイグレーションは`is_customized=False`の行のみを新旧本文で置換する1ファイルとし、`ca4cefcbe9c4`と同じ方式（新旧本文をマイグレーションファイル内に転記、appコードをimportしない）に揃える。`prompt_texts_exam.py`側の3定数も同時に新文面へ更新し、両者の一致は`tests/`側で`importlib.util.spec_from_file_location`（`test_help_content.py`の既存手法と同じ）でマイグレーションファイルを読み込み、埋め込み文字列同士を比較するテストで確認する（マイグレーション自身はappコードをimportしない原則を保ったまま、一致検証はテスト側の責務とする） | 利用者プロンプトの明示指示（既存のis_customized方式を踏襲、新旧本文を一致させてテストで確認）。`DAILY_FEEDBACK_READING`・`_WORK`・`GOAL_CONSULTATION_READING`・`_WORK`は単語帳がEXAM専用（要件A U1）のため対象外（U3のとおり） |
 | C-D9 | 関数名は`build_glossary_overview`、空カード時の文言は`NO_GLOSSARY_OVERVIEW_TEXT = "（登録された用語はありません）"`とし、要件Bの`build_glossary_reference`・`NO_GLOSSARY_REFERENCE_TEXT`（「（なし）」）とは別の定数にする | 利用者プロンプトが明示した文言どおり。Bの「（なし）」はテーマ生成という技術的な文脈向けの短い文言であり、Cの日次フィードバック・目標相談は利用者が直接読む文章のため、より分かりやすい文言を独自に指定している |
+| C-D10 | `DAILY_FEEDBACK_BRIEF`（ひとこと記録モード）のプロンプト指示文には「苦手な用語の復習を、単語帳の問題集で促してもよい」の一文を含めない（`DAILY_FEEDBACK`・`GOAL_CONSULTATION`には含める）。正答率に基づく言及自体は「短く触れてください」として残す | `DAILY_FEEDBACK_BRIEF`の既存の「重要な原則」（「督促はしないでください」「負荷を調整する提案をしたりしないでください」）と、復習を促す指示が性質上矛盾するため。ひとこと記録モードは記録量が少ない日を責めない設計（開発Todo「ひとこと記録」v1.0 Q2）であり、同じ原則をここでも優先する |
 
 
 
@@ -565,16 +566,19 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 ## 5.5 観点別レビュー（コミット前チェック、要件C、2026-11-19実施）
 
-観点別レビューのサブエージェント（dry-reviewer・style-reviewer等）の起動が今回は見送られたため、本セッション自身がgit差分を読んでレビューを実施した。検出事項と対応:
+観点別レビューのサブエージェント（dry-reviewer・style-reviewer等）の起動が見送られたため、本セッション自身がCLAUDE.md「コミット前チェック」6観点（横展開・コーディングルール・セキュリティ・パフォーマンス・テスト整合性・ドキュメント更新）に沿ってgit差分を読み、2回に分けてレビューを実施した（1回目はDRYのみで不十分だったとStop Hookの指摘を受け、2回目で残りの観点を実施）。検出事項と対応:
 
 | # | 観点 | 重要度 | 指摘内容 | 対応 |
 | --- | --- | --- | --- | --- |
-| 1 | DRY | **HIGH** | 禁止語照合対象文字列の組み立て（`f"{card.term} {card.meaning} {card.aliases or ''}"`）が、既存の`build_glossary_reference`（要件B）・`vocab_quiz_generation_service._generate_for_cards`（要件B）と、新設した`build_glossary_overview`（要件C）の3箇所に一字一句重複していた（§5.3 #1と同種の再発） | 修正済み：`vocab_service.forbidden_term_search_text`を新設し3箇所で共有（モジュール外から呼ぶため公開関数とする） |
-| 2 | DRY | **HIGH** | 「・用語（別名）: 意味」の組み立て（山括弧全角化・改行潰しを含む）が、既存の`_format_glossary_line`（要件B）と新設の`_format_overview_line`（要件C）に重複していた | 修正済み：`_format_glossary_line`を`_format_glossary_label`へ改名し、`_format_overview_line`がこれを呼んで成績注記のみを追加する方式に変更（呼び出し元の`build_glossary_reference`も追従） |
-| 3 | — | — | 優先順の実装当初案（単一の複合ソートキー）に設計ミスがあり、テスト（`test_build_glossary_overview_orders_unanswered_after_low_accuracy_before_other`）が失敗して発覚（C-D2参照）。排他的な5段バケット方式へ修正済み | 対応済み（実装中に検出・修正、§0.6 C-D2参照） |
+| 1 | 横展開・DRY | **HIGH** | 禁止語照合対象文字列の組み立て（`f"{card.term} {card.meaning} {card.aliases or ''}"`）が、既存の`build_glossary_reference`（要件B）・`vocab_quiz_generation_service._generate_for_cards`（要件B）と、新設した`build_glossary_overview`（要件C）の3箇所に一字一句重複していた（§5.3 #1と同種の再発） | 修正済み：`vocab_service.forbidden_term_search_text`を新設し3箇所で共有（モジュール外から呼ぶため公開関数とする） |
+| 2 | 横展開・DRY | **HIGH** | 「・用語（別名）: 意味」の組み立て（山括弧全角化・改行潰しを含む）が、既存の`_format_glossary_line`（要件B）と新設の`_format_overview_line`（要件C）に重複していた | 修正済み：`_format_glossary_line`を`_format_glossary_label`へ改名し、`_format_overview_line`がこれを呼んで成績注記のみを追加する方式に変更（呼び出し元の`build_glossary_reference`も追従） |
+| 3 | 横展開・ドキュメント整合 | MEDIUM | 上記#2の改名後、設計書`17.15_復習クイズ.md`（要件Bの既存章）内に旧名`_format_glossary_line`への参照が3箇所、および「要件Cでも`build_glossary_reference`を再利用する想定」という、実際の決定（C-D1、別関数`build_glossary_overview`を新設）と食い違う記述が1箇所残っていた | 修正済み：3箇所を`_format_glossary_label`へ更新し、再利用想定の記述を実際の設計（別関数化・共通部分のみ共有）に合わせて訂正 |
+| 4 | テスト整合性 | **HIGH** | 利用者プロンプトの明示指示「`exceeds_with_entries_emptied`・`exhausted`の判定が、用語を含めた状態で正しく働くことをテストで確認する」に対応するテストが未実装だった（汎用的な仕組み自体は無改修で正しく動作するはずだが、それを実証するテストが抜けていた） | 修正済み：`test_ask_returns_unavailable_when_glossary_alone_exceeds_limit`（目標相談）・`test_send_daily_feedback_raises_without_sending_when_glossary_alone_exceeds_limit`（日次フィードバック）を追加。巨大な単語帳カード1枚のみで`ai.max_prompt_chars`を超えさせ、UNAVAILABLE／`DailyFeedbackPromptTooLongError`になることを確認 |
+| 5 | — | — | 優先順の実装当初案（単一の複合ソートキー）に設計ミスがあり、テスト（`test_build_glossary_overview_orders_unanswered_after_low_accuracy_before_other`）が失敗して発覚（C-D2参照）。排他的な5段バケット方式へ修正済み | 対応済み（実装中に検出・修正、§0.6 C-D2参照） |
 | — | 性能・XSS・ハードコード文言 | — | `build_glossary_overview`は`eligible_glossary_cards`・`list_enabled_forbidden_term_keys`・`compute_card_stats`を1回ずつ呼ぶのみでN+1は無い。表示はプレーンテキストのみで生HTML解釈なし。日本語文言はコード中に直書きだが、既存の`NO_GLOSSARY_REFERENCE_TEXT`・`_format_glossary_label`と同じ既存方針（単語帳の用語・文言はAIプロンプト用の固定文であり、ja.json/en.jsonの画面文言とは別区分、既存前例踏襲） | 対応不要と判断 |
+| — | セキュリティ（依存脆弱性） | — | `osv-scanner scan -r .`を直接実行し確認。2026-11-18時点で報告されていた`picomatch`（CVSS 8.7）を含め、現時点で既知の脆弱性0件（0 Critical/High/Medium/Low） | 対応不要（解消済みまたはDB更新により非該当と確認） |
 
-全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,531件合格、カバレッジ100%、ruff 0件。§8参照）。
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,534件合格、カバレッジ100%、ruff 0件。§8参照）。
 
 ## 6. 既知のリスクと対策
 
@@ -643,5 +647,7 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-19（続き）：コミット前チェックとして観点別レビューのサブエージェント起動が見送られたため、本セッション自身がgit差分を読んでレビューを実施した（詳細は§5.5）。HIGH 2件（禁止語照合対象文字列の組み立てが要件B由来の既存2箇所と合わせ3箇所に重複、「・用語（別名）: 意味」の組み立てが要件Bの`_format_glossary_line`と重複）を検出・修正済み（`vocab_service.forbidden_term_search_text`・`_format_glossary_label`へ共通化、要件B由来のモジュール`vocab_quiz_generation_service.py`も合わせて横展開修正）。DoS対策の確認として、デッキのカード数上限相当（2000枚）でも1秒以内に完了することを確認するテストを追加した。
 
 - 2026-11-19（最終）：全体最終テスト実行。バックエンド2,532件合格・カバレッジ100%（文10,824・分岐2,024、欠落0）・ruff 0件。フロントエンド217ファイル・1,744件合格・カバレッジ100%・oxlint 0件・tsc 0件。§2.2との比較：既存テストは1件も壊れていない（バックエンド+41件、いずれも要件Cの新規テストによる意図どおりの増加。フロントエンドは新規ロジックが無いためテスト数は不変）。実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`1be51b4ce9c0`、要件A・B・Cの3マイグレーションを通し適用）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・`GET /goals/1/vocab-decks`（空配列、単語帳未登録のため想定どおり）・起動時シードによる`DAILY_FEEDBACK_BRIEF`テンプレート新規投入（`{{glossary}}`を含む新文面がそのまま入る）・新設`app_setting`（`vocab.feedback_max_chars`=4000）の投入をAPI・DB直接確認の両方で確認した。AIへの実送信は本検証では行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一）。以上により、要件Cの完了条件（§7.C）を満たしたと判断する。要件D・E（日次報告からの用語提案・習得の可視化）は別セッションで着手する。
+
+- 2026-11-19（コミット前チェック・再実施）：Stop Hookから「観点別レビューがDRYのみで不十分」との指摘を受け、CLAUDE.md「コミット前チェック」6観点に沿って残りの観点を実施した（詳細は§5.5）。新たにMEDIUM 1件（要件Bの既存設計書`17.15_復習クイズ.md`に改名前の関数名`_format_glossary_line`への参照3箇所と、要件Cの実際の設計〈別関数化〉と食い違う記述1箇所が残存）・HIGH 1件（利用者プロンプトの明示指示「`exceeds_with_entries_emptied`・`exhausted`の判定を用語を含めた状態で確認するテスト」が未実装）を検出し、全て修正済み。`osv-scanner`を直接実行し、2026-11-18時点で報告されていた`picomatch`（CVSS 8.7）を含め既知の脆弱性0件を確認した。修正後、バックエンド全件再実行：**2,534件合格**・カバレッジ100%（文10,824・分岐2,024、欠落0）・ruff 0件。既存テストは1件も壊れていない（§2.2比較）。
 
 **単語帳機能（要件A〜C）の進捗まとめ（2026-11-19）**：基盤と問題集（要件A、2026-11-15〜16、PR #135でmainマージ済み）・今日の復習への統合（要件B、2026-11-15〜18）・日次フィードバック・目標相談への用語注入（要件C、2026-11-19）の3要件が完了した（§7・§7.B・§7.Cすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照、という一連の流れを得られる。要件D（日次報告からの用語提案）・E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
