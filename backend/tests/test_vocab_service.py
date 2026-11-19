@@ -2,6 +2,7 @@
 
 import datetime as dt
 import random
+import time
 
 import pytest
 from sqlalchemy import select
@@ -1577,3 +1578,17 @@ def test_build_glossary_overview_includes_second_line_when_exactly_within_max_ch
     result = vocab_service.build_glossary_overview(seeded_session, goal, max_chars=exact_budget)
 
     assert result == f"{line1}\n{line2}"
+
+
+def test_build_glossary_overview_completes_within_one_second_for_many_cards(seeded_session):
+    """DoS対策の確認（§5.4）：デッキのカード数上限（`vocab.deck_max_cards`想定）相当の
+    2000枚でも、成績集計・優先順ソート・禁止語照合・打ち切りが1秒以内に終わること。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    for i in range(2000):
+        card = make_card(seeded_session, deck, term=f"用語{i}", meaning=f"意味{i}", display_order=i)
+        make_answer_log(seeded_session, card, is_correct=i % 2 == 0, answered_at=TODAY)
+
+    start = time.monotonic()
+    vocab_service.build_glossary_overview(seeded_session, goal, max_chars=4000)
+    assert time.monotonic() - start < 1.0

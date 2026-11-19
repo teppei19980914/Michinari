@@ -563,6 +563,19 @@ AI応答 → そのまま日次フィードバック回答／目標相談回答�
 ### 設計書への反映
 STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.2_日次報告フィードバック.md`・`24_目標相談チャットの生成ロジック.md`の該当章（24.7のSTRIDE表への追記）へ転記する（文書改訂C-D03で実施）。
 
+## 5.5 観点別レビュー（コミット前チェック、要件C、2026-11-19実施）
+
+観点別レビューのサブエージェント（dry-reviewer・style-reviewer等）の起動が今回は見送られたため、本セッション自身がgit差分を読んでレビューを実施した。検出事項と対応:
+
+| # | 観点 | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | DRY | **HIGH** | 禁止語照合対象文字列の組み立て（`f"{card.term} {card.meaning} {card.aliases or ''}"`）が、既存の`build_glossary_reference`（要件B）・`vocab_quiz_generation_service._generate_for_cards`（要件B）と、新設した`build_glossary_overview`（要件C）の3箇所に一字一句重複していた（§5.3 #1と同種の再発） | 修正済み：`vocab_service.forbidden_term_search_text`を新設し3箇所で共有（モジュール外から呼ぶため公開関数とする） |
+| 2 | DRY | **HIGH** | 「・用語（別名）: 意味」の組み立て（山括弧全角化・改行潰しを含む）が、既存の`_format_glossary_line`（要件B）と新設の`_format_overview_line`（要件C）に重複していた | 修正済み：`_format_glossary_line`を`_format_glossary_label`へ改名し、`_format_overview_line`がこれを呼んで成績注記のみを追加する方式に変更（呼び出し元の`build_glossary_reference`も追従） |
+| 3 | — | — | 優先順の実装当初案（単一の複合ソートキー）に設計ミスがあり、テスト（`test_build_glossary_overview_orders_unanswered_after_low_accuracy_before_other`）が失敗して発覚（C-D2参照）。排他的な5段バケット方式へ修正済み | 対応済み（実装中に検出・修正、§0.6 C-D2参照） |
+| — | 性能・XSS・ハードコード文言 | — | `build_glossary_overview`は`eligible_glossary_cards`・`list_enabled_forbidden_term_keys`・`compute_card_stats`を1回ずつ呼ぶのみでN+1は無い。表示はプレーンテキストのみで生HTML解釈なし。日本語文言はコード中に直書きだが、既存の`NO_GLOSSARY_REFERENCE_TEXT`・`_format_glossary_label`と同じ既存方針（単語帳の用語・文言はAIプロンプト用の固定文であり、ja.json/en.jsonの画面文言とは別区分、既存前例踏襲） | 対応不要と判断 |
+
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,531件合格、カバレッジ100%、ruff 0件。§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |

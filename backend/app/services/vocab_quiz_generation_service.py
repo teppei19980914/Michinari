@@ -154,7 +154,7 @@ def _generate_for_cards(
         card
         for card in cards
         if not question_safety.contains_any_forbidden_term(
-            f"{card.term} {card.meaning} {card.aliases or ''}", forbidden_keys
+            vocab_service.forbidden_term_search_text(card), forbidden_keys
         )
     ]
     if not eligible:

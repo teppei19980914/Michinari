@@ -692,11 +692,13 @@ def flatten_for_single_line(text: str) -> str:
     return "".join(" " if unicodedata.category(ch) in ("Cc", "Zl", "Zp") else ch for ch in text)
 
 
-def _forbidden_term_search_text(card: VocabCard) -> str:
+def forbidden_term_search_text(card: VocabCard) -> str:
     """禁止語照合の対象文字列（用語・意味・別名を連結、要件B・Cで共有）。
 
-    `build_glossary_reference`・`build_glossary_overview`の両方が同じ組み立てを
-    必要とするため、ここへ共通化する（自己レビューで検出した重複、§5.3 #1と同種）。
+    `build_glossary_reference`・`build_glossary_overview`（本モジュール）・
+    `vocab_quiz_generation_service._generate_for_cards`の3箇所が同じ組み立てを
+    必要とするため、ここへ共通化する（自己レビューで検出した重複、§5.3 #1と同種。
+    モジュール外から呼ぶため公開関数とする、`flatten_for_single_line`等と同じ扱い）。
     """
     return f"{card.term} {card.meaning} {card.aliases or ''}"
 
@@ -782,7 +784,7 @@ def build_glossary_reference(
     total_chars = 0
     for card in cards:
         if question_safety.contains_any_forbidden_term(
-            _forbidden_term_search_text(card), forbidden_keys
+            forbidden_term_search_text(card), forbidden_keys
         ):
             continue
         if not any(
@@ -888,7 +890,7 @@ def build_glossary_overview(session: Session, goal: Goal, *, max_chars: int) -> 
         card
         for card in cards
         if not question_safety.contains_any_forbidden_term(
-            _forbidden_term_search_text(card), forbidden_keys
+            forbidden_term_search_text(card), forbidden_keys
         )
     ]
     if not cards:
