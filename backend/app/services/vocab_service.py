@@ -692,13 +692,24 @@ def flatten_for_single_line(text: str) -> str:
     return "".join(" " if unicodedata.category(ch) in ("Cc", "Zl", "Zp") else ch for ch in text)
 
 
-def _format_glossary_line(card: VocabCard) -> str:
+def _forbidden_term_search_text(card: VocabCard) -> str:
+    """禁止語照合の対象文字列（用語・意味・別名を連結、要件B・Cで共有）。
+
+    `build_glossary_reference`・`build_glossary_overview`の両方が同じ組み立てを
+    必要とするため、ここへ共通化する（自己レビューで検出した重複、§5.3 #1と同種）。
+    """
+    return f"{card.term} {card.meaning} {card.aliases or ''}"
+
+
+def _format_glossary_label(card: VocabCard) -> str:
     """「・用語（別名1、別名2）: 意味」の形式（別名が無ければ括弧を省略、B-D11）。
 
     埋め込み先の区切り（`<<<GLOSSARY-{{nonce}}>>>`）を利用者入力から偽造できないよう、
     山括弧を全角化する（`DELIMITER_REPLACEMENTS`、呼び出し元に依存しないデフォルトで
     安全な実装にする。injection-reviewerレビューで検出、2026-11-17）。改行等は1行形式を
-    崩すため空白へ変換する（`flatten_for_single_line`）。
+    崩すため空白へ変換する（`flatten_for_single_line`）。`build_glossary_reference`
+    （要件B）・`build_glossary_overview`（要件C）の両方が同じ書式を使うため共有する
+    （自己レビューで検出した重複）。
     """
     term = flatten_for_single_line(card.term).translate(question_safety.DELIMITER_REPLACEMENTS)
     meaning = flatten_for_single_line(card.meaning).translate(
