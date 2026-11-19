@@ -711,6 +711,35 @@ def test_send_daily_feedback_excludes_vocab_card_from_other_goal(seeded_session,
     assert "他目標の用語" not in calls[0]["message"]
 
 
+def test_send_daily_feedback_raises_without_sending_when_glossary_alone_exceeds_limit(
+    seeded_session, monkeypatch
+):
+    """{{glossary}}を含む固定変数だけで上限を超える場合も、週次要約・直近記録を全て
+    使い切っても切り詰めずに送信を中止する（`exceeds`・`exhausted`の判定が用語を含めた
+    状態で正しく働くことの確認、開発Todo_単語帳_v1.0 要件C完了条件）。"""
+    goal = _make_goal(seeded_session)
+    _make_material(seeded_session, goal)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み" * 10)
+    setting = seeded_session.get(AppSetting, AI_MAX_PROMPT_CHARS)
+    setting.value = "100"
+    seeded_session.flush()
+    calls = _stub_send_message(monkeypatch)
+
+    with pytest.raises(DailyFeedbackPromptTooLongError):
+        daily_feedback_service.send_daily_feedback(
+            seeded_session,
+            goal_id=goal.id,
+            target_date=dt.date(2026, 8, 24),
+            today=dt.date(2026, 8, 24),
+            message=None,
+            study_log_items=[],
+            diary_entries=[],
+        )
+
+    assert calls == []
+
+
 # --- 添付ファイル（開発Todo_添付ファイル機能_v1.0） ---
 
 

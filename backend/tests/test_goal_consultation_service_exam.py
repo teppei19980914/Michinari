@@ -574,6 +574,29 @@ def test_ask_excludes_vocab_card_from_other_goal(seeded_session, monkeypatch):
     assert "他目標の用語" not in fake.sent[0]
 
 
+def test_ask_returns_unavailable_when_glossary_alone_exceeds_limit(seeded_session, monkeypatch):
+    """{{glossary}}を含む固定変数だけで上限を超える場合も、記録・用語を全て削らず送信しない
+    （`exceeds_with_entries_emptied`・`exhausted`の判定が用語を含めた状態で正しく働くことの
+    確認、開発Todo_単語帳_v1.0 要件C完了条件）。"""
+    goal = _make_exam_goal_with_records(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み" * 10)
+    _set_setting(seeded_session, AI_MAX_PROMPT_CHARS, "50")
+    fake = FakeAi(monkeypatch, (_DEFAULT_RESPONSE,))
+
+    conversation_id = _make_conversation(seeded_session, goal)
+    answer = service.ask(
+        seeded_session,
+        goal=goal,
+        today=_TODAY,
+        conversation_id=conversation_id,
+        raw_question="この後何を勉強すべき？",
+    )
+
+    assert answer.status is GoalConsultationAnswerStatus.UNAVAILABLE
+    assert fake.sent == []
+
+
 # --- 後始末 ---
 
 
