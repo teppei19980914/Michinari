@@ -90,6 +90,9 @@ export const QUERY_KEYS = {
   vocabCards: (deckId: number) => ['vocab-cards', deckId] as const,
   vocabCardsFiltered: (deckId: number, filter: string, sort: string) =>
     ['vocab-cards', deckId, filter, sort] as const,
+  //（開発Todo_単語帳_v1.0 要件D。日次報告の日記からの用語提案）
+  vocabTermSuggestions: (goalId: number, recordDate: string) =>
+    ['vocab-term-suggestions', goalId, recordDate] as const,
 
   // --- 振り返り（retrospective が retrospectiveView の前方一致になる） ---
   retrospective: (goalId: number) => ['retrospective', goalId] as const,

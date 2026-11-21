@@ -13,6 +13,8 @@ export type VocabQuizSession = components['schemas']['VocabQuizSessionRead']
 export type VocabQuizQuestion = components['schemas']['VocabQuizQuestionRead']
 export type VocabAnswerResult = components['schemas']['VocabAnswerResultRead']
 export type VocabQuizMode = components['schemas']['VocabAnswerRequest']['mode']
+export type VocabTermSuggestion = components['schemas']['VocabTermSuggestionRead']
+export type VocabTermSuggestionList = components['schemas']['VocabTermSuggestionListRead']
 
 /** 目標に紐づく単語帳の一覧（表示順）。 */
 export function getVocabDecks(goalId: number): Promise<VocabDeck[]> {
@@ -125,4 +127,43 @@ export function answerVocabCard(
  * まだ問題を持たないカードの分だけを作る（既存の未出題分の削除は行わない）。 */
 export function generateVocabDeckQuiz(deckId: number): Promise<QuizGenerateResult> {
   return apiClient.post<QuizGenerateResult>(`/vocab-decks/${deckId}/quiz/generate`)
+}
+
+/** 日次報告の確定成功後に呼ぶ（開発Todo_単語帳_v1.0 要件D D-U4）。AI未設定・単語帳が
+ * 1つも無いときは呼ばないこと（呼び出し側の責務）。 */
+export function generateVocabTermSuggestions(
+  goalId: number,
+  recordDate: string,
+): Promise<VocabTermSuggestionList> {
+  return apiClient.post<VocabTermSuggestionList>(`/goals/${goalId}/vocab-suggestions`, {
+    record_date: recordDate,
+  })
+}
+
+/** その日のPENDINGの提案一覧（record_dateは必須）。 */
+export function getVocabTermSuggestions(
+  goalId: number,
+  recordDate: string,
+): Promise<VocabTermSuggestionList> {
+  const params = new URLSearchParams({ record_date: recordDate })
+  return apiClient.get<VocabTermSuggestionList>(
+    `/goals/${goalId}/vocab-suggestions?${params.toString()}`,
+  )
+}
+
+/** 提案を採用し、単語帳へカードを追加する。 */
+export function acceptVocabTermSuggestion(
+  goalId: number,
+  suggestionId: number,
+  payload: { deck_id: number; term: string; meaning: string; aliases?: string | null },
+): Promise<VocabCard> {
+  return apiClient.post<VocabCard>(
+    `/goals/${goalId}/vocab-suggestions/${suggestionId}/accept`,
+    payload,
+  )
+}
+
+/** 提案を見送る。 */
+export function dismissVocabTermSuggestion(goalId: number, suggestionId: number): Promise<void> {
+  return apiClient.post(`/goals/${goalId}/vocab-suggestions/${suggestionId}/dismiss`)
 }

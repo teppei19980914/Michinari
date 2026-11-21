@@ -5,6 +5,7 @@ import datetime as dt
 from app.constants.app_setting_keys import VOCAB_IMPORT_MAX_ROWS
 from app.constants.enums import VocabQuizMode
 from app.models.quiz import QuizQuestion
+from app.models.vocab import VocabCard
 from app.services import vocab_service
 from tests.diary_helpers import make_exam_goal
 from tests.quiz_helpers import stub_quiz_ai
@@ -690,4 +691,184 @@ def test_generate_vocab_deck_quiz_returns_zero_when_use_in_ai_is_false(
 
 def test_generate_vocab_deck_quiz_unknown_deck_returns_404(client):
     response = client.post("/api/v1/vocab-decks/999999/quiz/generate")
+    assert response.status_code == 404
+
+
+def _finalize_exam_diary(client, goal_id: int, record_date: str, diary_learned: str) -> None:
+    client.post(
+        f"/api/v1/records/{record_date}/finalize",
+        json={
+            "study_logs": [],
+            "diary_entries": [
+                {"goal_id": goal_id, "diary_body": "", "diary_learned": diary_learned}
+            ],
+            "mood": None,
+        },
+    )
+
+
+def test_generate_vocab_term_suggestions_creates_pending_list(seeded_session, client, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [s["term"] for s in body["suggestions"]] == ["TCP"]
+    assert body["default_deck_id"] == deck.id
+
+
+def test_generate_vocab_term_suggestions_unknown_goal_returns_404(client):
+    response = client.post(
+        "/api/v1/goals/999999/vocab-suggestions", json={"record_date": "2026-11-20"}
+    )
+    assert response.status_code == 404
+
+
+def test_list_vocab_term_suggestions_unknown_goal_returns_404(client):
+    response = client.get(
+        "/api/v1/goals/999999/vocab-suggestions", params={"record_date": "2026-11-20"}
+    )
+    assert response.status_code == 404
+
+
+def test_list_vocab_term_suggestions_returns_pending_for_the_date(
+    seeded_session, client, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    make_deck(seeded_session, goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    client.post(f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"})
+
+    response = client.get(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert [s["term"] for s in response.json()["suggestions"]] == ["TCP"]
+
+
+def test_accept_vocab_term_suggestion_creates_card(seeded_session, client, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    suggestion_id = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    ).json()["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions/{suggestion_id}/accept",
+        json={"deck_id": deck.id, "term": "TCP", "meaning": "通信の仕組み", "aliases": None},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["term"] == "TCP"
+    assert seeded_session.query(VocabCard).filter(VocabCard.deck_id == deck.id).count() == 1
+    assert (
+        client.get(
+            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+        ).json()["suggestions"]
+        == []
+    )
+
+
+def test_accept_vocab_term_suggestion_unknown_id_returns_404(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions/999999/accept",
+        json={"deck_id": deck.id, "term": "x", "meaning": "y", "aliases": None},
+    )
+
+    assert response.status_code == 404
+
+
+def test_accept_vocab_term_suggestion_rejects_other_goals_deck(
+    seeded_session, client, monkeypatch
+):
+    """他の目標の単語帳を追加先に指定できないこと（goal_idの不一致を拒否、開発Todo §0.8 D-U）。"""
+    goal = make_exam_goal(seeded_session)
+    other_goal = make_exam_goal(seeded_session, name="別の資格目標")
+    other_deck = make_deck(seeded_session, other_goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    suggestion_id = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    ).json()["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions/{suggestion_id}/accept",
+        json={"deck_id": other_deck.id, "term": "TCP", "meaning": "y", "aliases": None},
+    )
+
+    assert response.status_code == 404
+
+
+def test_accept_vocab_term_suggestion_rejects_other_goals_suggestion(
+    seeded_session, client, monkeypatch
+):
+    """他の目標の提案IDを操作できないこと（goal_idの不一致を拒否）。"""
+    goal = make_exam_goal(seeded_session)
+    other_goal = make_exam_goal(seeded_session, name="別の資格目標")
+    other_deck = make_deck(seeded_session, other_goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    suggestion_id = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    ).json()["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{other_goal.id}/vocab-suggestions/{suggestion_id}/accept",
+        json={"deck_id": other_deck.id, "term": "TCP", "meaning": "y", "aliases": None},
+    )
+
+    assert response.status_code == 404
+
+
+def test_dismiss_vocab_term_suggestion_marks_dismissed(seeded_session, client, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    make_deck(seeded_session, goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    suggestion_id = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    ).json()["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions/{suggestion_id}/dismiss"
+    )
+
+    assert response.status_code == 200, response.text
+    assert (
+        client.get(
+            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+        ).json()["suggestions"]
+        == []
+    )
+
+
+def test_dismiss_vocab_term_suggestion_rejects_other_goals_suggestion(
+    seeded_session, client, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    other_goal = make_exam_goal(seeded_session, name="別の資格目標")
+    make_deck(seeded_session, goal)
+    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP")
+    suggestion_id = client.post(
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+    ).json()["suggestions"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{other_goal.id}/vocab-suggestions/{suggestion_id}/dismiss"
+    )
+
     assert response.status_code == 404

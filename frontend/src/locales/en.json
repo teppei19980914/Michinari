@@ -872,6 +872,7 @@
         "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
         "QUIZ_GENERATE": "Review quiz generation",
         "VOCAB_QUIZ_GENERATE": "Review quiz generation (vocabulary deck)",
+        "VOCAB_TERM_EXTRACT": "Term suggestion (extracted from diary)",
         "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
         "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
         "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)",
@@ -1537,7 +1538,8 @@
         "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 cards). Choose the format, filter, order (random, weakest first, registration order), and number of questions before starting. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
         "p5": "Vocabulary decks are not included in the knowledge export.",
         "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's terms. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a card's term, meaning, or aliases recreates that card's question. While AI isn't configured, the button is replaced with a link to the settings screen.",
-        "p7": "Terms from decks with that toggle on are also passed as reference information to the daily report feedback and goal consultation chat (certification exams only), ordered by priority — checked first, then longest wrong streak, then lowest accuracy, then unanswered, then everything else — along with their accuracy. The AI only mentions a term, with its accuracy, when it's relevant to today's record or your question (it won't list unrelated terms). This means you can still get feedback grounded in your registered terms even during a stretch with few daily reports."
+        "p7": "Terms from decks with that toggle on are also passed as reference information to the daily report feedback and goal consultation chat (certification exams only), ordered by priority — checked first, then longest wrong streak, then lowest accuracy, then unanswered, then everything else — along with their accuracy. The AI only mentions a term, with its accuracy, when it's relevant to today's record or your question (it won't list unrelated terms). This means you can still get feedback grounded in your registered terms even during a stretch with few daily reports.",
+        "p8": "When you finalize a certification-exam daily report, the AI scans that day's \"What I learned / understood\" entry and suggests vocabulary terms from it under \"Terms from today's record\" (shown right after finalizing, and on the daily report view screen). Suggested terms always come from text that's actually in your diary, and the draft meaning is simply the diary sentence that contains the term (the AI never writes the meaning itself). You can edit the term, meaning, aliases, and target deck before adding, or choose \"Dismiss\" instead. A term that's already been suggested (whether added or dismissed) or that's already in a deck won't be suggested again for that goal. Nothing is suggested when AI isn't configured or the goal has no vocabulary decks yet (in that case you'll just see a prompt to create one). The daily report view screen also has a button to add a term to a deck directly, without AI (this works even when AI isn't configured)."
       },
       "roadmap": {
         "title": "Roadmap",
@@ -2007,6 +2009,18 @@
       "checkWrongButton": "Check all wrong terms",
       "backToDeckButton": "Back to deck",
       "noQuestionsNotice": "No questions are available for these conditions"
+    },
+    "suggestions": {
+      "title": "Terms from today's record",
+      "noDeckNotice": "Create a vocabulary deck to get term suggestions from your records",
+      "deckLabel": "Deck to add to",
+      "termLabel": "Term",
+      "meaningLabel": "Meaning (drafted from a sentence in your diary; you can edit it)",
+      "aliasesLabel": "Aliases (optional)",
+      "addButton": "Add",
+      "dismissButton": "Dismiss",
+      "manualAddButton": "Add a term to a vocabulary deck",
+      "manualAddNoDeckNotice": "Create a vocabulary deck to add terms from here"
     }
   },
   "summaryCard": {

@@ -6,6 +6,12 @@ import { ReadingLogSummaryList } from '../features/record/ReadingLogSummaryList'
 import { WorkLogSummaryList } from '../features/record/WorkLogSummaryList'
 import { DiaryEntrySummaryList } from '../features/record/DiaryEntrySummaryList'
 import { CommentSection } from '../features/record/CommentSection'
+import { TodayVocabSuggestionsCard } from '../features/vocab/TodayVocabSuggestionsCard'
+import { AddVocabTermButton } from '../features/vocab/AddVocabTermButton'
+import {
+  resolveExamGoalIdForVocab,
+  selectDiaryEntriesEligibleForVocabSuggestions,
+} from '../features/vocab/vocabSuggestionEligibility'
 import { GoalTabBar } from '../features/record/GoalTabBar'
 import { useGoalReportTabs } from '../features/record/useGoalReportTabs'
 import { useDailyRecordQueries } from '../features/record/useDailyRecordQueries'
@@ -70,6 +76,13 @@ export function DailyReportViewPage() {
     diaryEntries,
     goalTabs: { showGoalSelector, selectedGoal },
   })
+  // 単語帳への用語提案・手動追加（開発Todo_単語帳_v1.0 要件D）の対象EXAM目標ID集合。
+  const examGoalIds = new Set(
+    (goalsQuery.data ?? [])
+      .filter((goal) => goal.category === 'EXAM' && goal.status === 'ACTIVE')
+      .map((goal) => goal.id),
+  )
+  const examGoalId = resolveExamGoalIdForVocab({ selectedGoal, diaryEntries, examGoalIds })
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
@@ -110,6 +123,19 @@ export function DailyReportViewPage() {
       )}
 
       {sections.showDiarySection && <DiaryEntrySummaryList diaryEntries={diaryEntries} />}
+
+      {sections.showExamSection &&
+        selectDiaryEntriesEligibleForVocabSuggestions(diaryEntries, examGoalIds).map((entry) => (
+          <TodayVocabSuggestionsCard
+            key={entry.goal_id}
+            goalId={entry.goal_id}
+            recordDate={targetDate}
+          />
+        ))}
+
+      {sections.showExamSection && examGoalId !== null && (
+        <AddVocabTermButton goalId={examGoalId} />
+      )}
 
       <DailyRecordChatHistories histories={sections.chatHistories} />
 

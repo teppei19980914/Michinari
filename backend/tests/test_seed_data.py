@@ -59,15 +59,15 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-18〜19で
-    `DAILY_FEEDBACK`・`DAILY_FEEDBACK_BRIEF`・`GOAL_CONSULTATION`へ単語帳の参考用語
-    （{{glossary}}）を追加したことに伴う（開発Todo_単語帳_v1.0 要件C）。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-20〜21で
+    `VOCAB_TERM_EXTRACT`（日記からの用語提案、開発Todo_単語帳_v1.0 要件D）を新設したことに
+    伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "0fb4928b70bb2f323b8405d7a4791bf63936d449399659d84da3055d1a9b9abc"
+    assert digest == "c22856602797a203989ae27668c91cf8ef32eb49fc645204b25b9d9b735415b0"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):
