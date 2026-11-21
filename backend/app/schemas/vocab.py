@@ -152,3 +152,29 @@ class VocabAnswerRequest(BaseModel):
 
 class VocabAnswerResultRead(BaseModel):
     is_correct: bool
+
+
+class VocabTermSuggestionGenerateRequest(BaseModel):
+    record_date: dt.date
+
+
+class VocabTermSuggestionRead(BaseModel):
+    id: int
+    goal_id: int
+    record_date: dt.date
+    term: str
+    #: 意味の下書き（その用語を含む日記の一文、開発Todo_単語帳_v1.0 要件D D-U2）。
+    source_sentence: str
+
+
+class VocabTermSuggestionListRead(BaseModel):
+    suggestions: list[VocabTermSuggestionRead]
+    #: 追加先の初期値（その目標で最後に使った単語帳、D-D5）。単語帳が1つも無ければNone。
+    default_deck_id: int | None
+
+
+class VocabTermSuggestionAcceptRequest(BaseModel):
+    deck_id: int
+    term: str
+    meaning: str
+    aliases: str | None = None

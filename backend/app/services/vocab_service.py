@@ -84,6 +84,27 @@ def list_decks_for_goal(session: Session, goal_id: int) -> list[VocabDeck]:
     )
 
 
+def last_used_deck_id(session: Session, goal_id: int) -> int | None:
+    """その目標で「最後に使った単語帳」（直近にカードを追加したデッキ）のIDを返す
+    （開発Todo_単語帳_v1.0 要件D、提案の追加先デッキの初期値、D-D5）。
+
+    「使った」をカード追加のタイミングで解釈し、その目標の全デッキを通じて直近に作成された
+    `VocabCard`が属するデッキ（`VocabCard.id`降順で1件）を返す。1件もカードが無い目標は
+    `display_order`最小のデッキ（`list_decks_for_goal`の並び順の先頭）を返す。デッキが
+    1つも無い場合は`None`を返す。
+    """
+    deck_ids = [deck.id for deck in list_decks_for_goal(session, goal_id)]
+    if not deck_ids:
+        return None
+    latest_deck_id = session.scalars(
+        select(VocabCard.deck_id)
+        .where(VocabCard.deck_id.in_(deck_ids))
+        .order_by(VocabCard.id.desc())
+        .limit(1)
+    ).first()
+    return latest_deck_id if latest_deck_id is not None else deck_ids[0]
+
+
 def _next_display_order(session: Session, column, condition) -> int:
     """`column`の最大値+1を返す（0件なら0）。`len(既存件数)`による採番は、中間の行が
     削除された後に既存のdisplay_orderと衝突しうるため使わない（dry-reviewerレビューで

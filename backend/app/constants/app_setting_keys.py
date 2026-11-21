@@ -206,3 +206,6 @@ VOCAB_QUIZ_REFERENCE_MAX_CHARS = "vocab.quiz_reference_max_chars"
 #: 日次フィードバック・目標相談への参考用語（{{glossary}}）の最大文字数。固定変数のため
 #: 段階的縮退の対象外（C-D7）。
 VOCAB_FEEDBACK_MAX_CHARS = "vocab.feedback_max_chars"
+# 単語帳（開発Todo_単語帳_v1.0 要件D）。日次報告の日記からの用語提案。
+#: 1回の提案生成（1目標・1日分）で採用する用語候補の上限（D-D8）。
+VOCAB_SUGGEST_MAX_PER_RECORD = "vocab.suggest_max_per_record"
