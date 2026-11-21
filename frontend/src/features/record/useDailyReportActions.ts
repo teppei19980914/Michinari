@@ -18,6 +18,7 @@ import {
   type DailyRecordRead,
 } from '../../api/records'
 import { generateVocabTermSuggestions, getVocabDecks } from '../../api/vocab'
+import { selectDiaryEntriesEligibleForVocabSuggestions } from '../vocab/vocabSuggestionEligibility'
 import { updateSettings } from '../../api/settings'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 import type { GoalCategory, GoalRead } from '../../api/goals'
@@ -99,16 +100,21 @@ function persistWorkLastMode(mode: RecordInputMode): void {
 /** 資格試験の確定成功後、日記（学んだこと）が書かれた目標ごとに単語帳への用語提案を
  * 作る（開発Todo_単語帳_v1.0 要件D D-U4）。AI未設定・その目標に単語帳が1つも無い場合は
  * 呼ばない。失敗しても確定処理自体の成功表示を妨げない「静かな失敗」とする（D-D18、
- * `persistExamLastMode`と同じベストエフォートの副作用パターン）。 */
+ * `persistExamLastMode`と同じベストエフォートの副作用パターン）。`examGoalIds`は呼び出し側が
+ * 持つACTIVEなEXAM目標ID集合（単語帳はEXAM専用のため、対象外の目標への無駄な問い合わせを
+ * 避ける、dry-reviewer・performance-reviewerレビューで検出、2026-11-21）。 */
 export function triggerVocabTermSuggestions(
   record: DailyRecordRead,
   targetDate: string,
   aiConfigured: boolean,
   queryClient: QueryClient,
+  examGoalIds: ReadonlySet<number>,
 ): void {
   if (!aiConfigured) return
-  for (const entry of record.diary_entries) {
-    if (entry.goal_id === null || !entry.diary_learned?.trim()) continue
+  for (const entry of selectDiaryEntriesEligibleForVocabSuggestions(
+    record.diary_entries,
+    examGoalIds,
+  )) {
     const goalId = entry.goal_id
     getVocabDecks(goalId)
       .then((decks) => {
@@ -273,10 +279,11 @@ export function useDailyReportActions({
 
   // 対話・確定の対象goal_id。日次フィードバックを目標単位の会話へ分離したため（Phase26、
   // 未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を指しているかを解決する。
-  const activeExamGoal = (queries.goals.data ?? []).find(
+  const activeExamGoals = (queries.goals.data ?? []).filter(
     (goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM',
   )
-  const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeExamGoal?.id ?? null)
+  const activeExamGoalIds = new Set(activeExamGoals.map((goal) => goal.id))
+  const examGoalId = resolveCategoryGoalId(goalTabs, 'EXAM', activeExamGoals[0]?.id ?? null)
   const readingGoalId = resolveCategoryGoalId(
     goalTabs,
     'READING',
@@ -306,7 +313,13 @@ export function useDailyReportActions({
       onFinalized: (record) => {
         onFinalized(record)
         milestoneQueue.checkGoal(examGoalId, 'EXAM')
-        triggerVocabTermSuggestions(record, targetDate, aiConfigured, queryClient)
+        triggerVocabTermSuggestions(
+          record,
+          targetDate,
+          aiConfigured,
+          queryClient,
+          activeExamGoalIds,
+        )
       },
     }),
     reading: useReadingActions({

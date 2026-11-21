@@ -15,6 +15,7 @@ const generateVocabTermSuggestions = vi.hoisted(() => vi.fn())
 vi.mock('../../api/vocab', () => ({ getVocabDecks, generateVocabTermSuggestions }))
 
 const TARGET_DATE = '2026-11-20'
+const EXAM_GOAL_IDS = new Set([1, 2])
 
 function makeDeck(id: number, goalId: number): VocabDeck {
   return {
@@ -70,7 +71,7 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 1, goal_name: 'goal', diary_body: '', diary_learned: 'TCPを学んだ' },
     ])
 
-    triggerVocabTermSuggestions(record, TARGET_DATE, false, queryClient)
+    triggerVocabTermSuggestions(record, TARGET_DATE, false, queryClient, EXAM_GOAL_IDS)
     await flushMicrotasks()
 
     expect(getVocabDecks).not.toHaveBeenCalled()
@@ -83,7 +84,19 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 1, goal_name: 'goal', diary_body: '', diary_learned: '   ' },
     ])
 
-    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient)
+    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS)
+    await flushMicrotasks()
+
+    expect(getVocabDecks).not.toHaveBeenCalled()
+  })
+
+  it('skips entries whose goal id is not in examGoalIds', async () => {
+    const queryClient = new QueryClient()
+    const record = buildRecord([
+      { goal_id: 999, goal_name: 'non-exam-goal', diary_body: '', diary_learned: 'TCPを学んだ' },
+    ])
+
+    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS)
     await flushMicrotasks()
 
     expect(getVocabDecks).not.toHaveBeenCalled()
@@ -96,7 +109,7 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 1, goal_name: 'goal', diary_body: '', diary_learned: 'TCPを学んだ' },
     ])
 
-    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient)
+    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS)
     await flushMicrotasks()
 
     expect(getVocabDecks).toHaveBeenCalledWith(1)
@@ -112,7 +125,7 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 1, goal_name: 'goal', diary_body: '', diary_learned: 'TCPを学んだ' },
     ])
 
-    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient)
+    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS)
     await flushMicrotasks()
 
     expect(generateVocabTermSuggestions).toHaveBeenCalledWith(1, TARGET_DATE)
@@ -128,7 +141,9 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 1, goal_name: 'goal', diary_body: '', diary_learned: 'TCPを学んだ' },
     ])
 
-    expect(() => triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient)).not.toThrow()
+    expect(() =>
+      triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS),
+    ).not.toThrow()
     await flushMicrotasks()
   })
 
@@ -140,7 +155,7 @@ describe('triggerVocabTermSuggestions', () => {
       { goal_id: 2, goal_name: 'goal2', diary_body: '', diary_learned: 'UDPを学んだ' },
     ])
 
-    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient)
+    triggerVocabTermSuggestions(record, TARGET_DATE, true, queryClient, EXAM_GOAL_IDS)
     await flushMicrotasks()
 
     expect(getVocabDecks).toHaveBeenCalledWith(1)
