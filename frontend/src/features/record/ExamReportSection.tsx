@@ -6,6 +6,7 @@ import { StudyLogSummaryList } from './StudyLogSummaryList'
 import { DiaryFields } from './DiaryFields'
 import { DiaryEntrySummaryList } from './DiaryEntrySummaryList'
 import { TodayVocabSuggestionsCard } from '../vocab/TodayVocabSuggestionsCard'
+import { selectDiaryEntriesEligibleForVocabSuggestions } from '../vocab/vocabSuggestionEligibility'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildMaterialLabels } from './summaryLabels'
@@ -55,6 +56,9 @@ export function ExamReportSection({
   // 同じ方針）。
   /* v8 ignore next */
   const quickNoteGoalId = targets.diaryGoals[0]?.id ?? null
+  // targets.diaryGoalsはACTIVEなEXAM目標のみ（resolveVisibleReportTargets）。単語帳への
+  // 用語提案（開発Todo_単語帳_v1.0 要件D）の対象をEXAM目標へ絞り込むために使う。
+  const examGoalIds = new Set(targets.diaryGoals.map((goal) => goal.id))
   return (
     <CategoryReportSection
       labels={{
@@ -71,15 +75,16 @@ export function ExamReportSection({
             materialLabels={buildMaterialLabels(quotaItems)}
           />
           <DiaryEntrySummaryList diaryEntries={filterWrittenDiaryEntries(record.diary_entries)} />
-          {record.diary_entries
-            .filter((entry) => entry.goal_id !== null && Boolean(entry.diary_learned?.trim()))
-            .map((entry) => (
-              <TodayVocabSuggestionsCard
-                key={entry.goal_id}
-                goalId={entry.goal_id as number}
-                recordDate={targetDate}
-              />
-            ))}
+          {selectDiaryEntriesEligibleForVocabSuggestions(
+            record.diary_entries,
+            examGoalIds,
+          ).map((entry) => (
+            <TodayVocabSuggestionsCard
+              key={entry.goal_id}
+              goalId={entry.goal_id}
+              recordDate={targetDate}
+            />
+          ))}
         </>
       }
       editor={

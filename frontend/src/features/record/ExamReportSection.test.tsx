@@ -74,7 +74,22 @@ function buildTargets(): VisibleReportTargets {
   return {
     presence: { hasExamCategory: true, hasReadingCategory: false, hasWorkCategory: false },
     quotaItems: [],
-    diaryGoals: [],
+    diaryGoals: [
+      {
+        id: EXAM_GOAL_ID,
+        category: 'EXAM',
+        name: 'exam-goal',
+        start_date: '2026-09-13',
+        status: 'ACTIVE',
+        memo: null,
+        activated_at: null,
+        closed_at: null,
+        archived_at: null,
+        resumed_at: null,
+        available_operations: [],
+        is_achieved: false,
+      },
+    ],
     books: [],
     workAssignments: [],
     showExamSection: true,

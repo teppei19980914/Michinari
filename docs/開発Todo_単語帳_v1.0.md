@@ -787,12 +787,14 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 | 3 | test-coverage-reviewer | MEDIUM | 同日の再取得（既存提案がある場合にAI呼び出しをスキップする経路）で、ADDED/DISMISSED済みの行がPENDINGのみへ絞り込まれることが未検証だった（既存テストは全件PENDINGのケースのみ） | 修正済み：`test_generate_suggestions_excludes_added_and_dismissed_suggestions_on_regeneration`を追加 |
 | 4 | test-coverage-reviewer | MEDIUM | AI応答内で同じ語句（表記ゆれ含む）が複数回出現した場合に1件しか採用しないことが未検証だった | 修正済み：`test_generate_suggestions_deduplicates_repeated_term_within_the_same_response`を追加 |
 | 5 | test-coverage-reviewer | LOW | `vocab.term_max_chars`・`vocab.suggest_max_per_record`のちょうど境界（成功側）、AI応答中の空行のスキップ、新規GETエンドポイントの404が未検証だった | 修正済み：境界値テスト3件・空行テスト1件・GET 404テスト1件を追加 |
+| 6 | dry-reviewer・performance-reviewer | MEDIUM | 日記エントリの絞り込み述語（`goal_id !== null && diary_learned?.trim()`）が`ExamReportSection.tsx`・`DailyReportViewPage.tsx`・`useDailyReportActions.ts`の3箇所に重複。加えてEXAM以外の目標の日記エントリにも`getVocabDecks`を呼ぶ・カードを余分にマウントする無駄があった（`daily_goal_diary`はEXAM確定フローのみが書き込むため実害は無いことをソースで確認済みだが、呼び出し側での絞り込みが無かった） | 修正済み：`frontend/src/features/vocab/vocabSuggestionEligibility.ts`を新設し、`selectDiaryEntriesEligibleForVocabSuggestions(diaryEntries, examGoalIds)`へ3箇所とも統一。`examGoalIds`（呼び出し側が持つACTIVEなEXAM目標ID集合）への絞り込みも同時に行うことで重複と無駄な呼び出しの両方を解消。単体テスト`vocabSuggestionEligibility.test.ts`を追加 |
+| 7 | test-coverage-reviewer | LOW | `DailyReportViewPage.tsx`の`examGoalId`導出（選択タブ→日記のある目標→ACTIVEなEXAM目標の3分岐）がインラインのJSX内判定で、テストが無かった | 修正済み：`resolveExamGoalIdForVocab`として`vocabSuggestionEligibility.ts`へ純粋関数として切り出し、4分岐（EXAM選択時／非EXAM選択時は日記のある目標へ／日記も無ければ先頭のEXAM目標／対象無しでnull）を単体テストで検証 |
 | — | injection-reviewer | — | プロンプト注入・ハルシネーション対策（区切りの全角化・nonce・実在検証）・SQLインジェクション・ReDoS・下流プロンプトへの再利用経路のいずれも、既存の共通防御（`question_safety`・`prompt_builder._substitute`の単一パス置換）を正しく利用しており抜け漏れなし。並行リクエストでの重複AI呼び出し（レースコンディション）の可能性を軽微な堅牢性メモとして指摘されたが、D-U4の想定操作（確定成功後に画面から1回だけ呼ぶ）では再現しにくく、セキュリティ脆弱性ではないため対応不要と判断 | 対応不要と判断 |
 | — | xss-reviewer | — | 危険な動的HTML注入APIの使用なし。AI由来・利用者由来の文字列は制御されたフォーム要素のvalue属性としてのみ出力され、HTML解釈されない。回帰防止テストの追加を提案されたが、既存のReact既定エスケープへの依存は本コードベース全体の前提（CLAUDE.md「React/Angularは既定で安全」）と一致するため見送り | 対応不要と判断 |
 | — | style-reviewer・label-checker | — | 命名規則・コメント規約・ハードコード文言のいずれも既存方針に合致。指摘なし | 対応不要 |
-| — | performance-reviewer | — | N+1クエリは無し（`_excluded_vocab_match_keys`は1回のIN句クエリ）。POST時にデッキ一覧を2回問い合わせる軽微な重複・AI応答の総行数に明示的な上限が無い点・フロントの2クエリ直列化（デッキ→提案）を指摘されたが、いずれもコスト（二重クエリは1回限りの軽量SELECT、行数上限は既存の類似ループ〈テーマ由来クイズ生成等〉も同様に未実装で本機能固有の後退ではない）に対して対応の複雑さが上回るため見送り。日記エントリがEXAM以外の目標にも及ぶ懸念は、`daily_goal_diary`へ書き込むのはEXAM確定フローのみ（`record_service_reading.py`・`record_service_work.py`には該当コードが無い）ことをソースで確認し、実害が無いことを確認した | 対応不要と判断 |
+| — | performance-reviewer | — | N+1クエリは無し（`_excluded_vocab_match_keys`は1回のIN句クエリ）。POST時にデッキ一覧を2回問い合わせる軽微な重複・AI応答の総行数に明示的な上限が無い点は、コスト（二重クエリは1回限りの軽量SELECT、行数上限は既存の類似ループ〈テーマ由来クイズ生成等〉も同様に未実装で本機能固有の後退ではない）に対して対応の複雑さが上回るため見送り。日記エントリがEXAM以外の目標にも及ぶ懸念は上記#6で対応済み | 対応不要と判断（一部は#6で対応） |
 
-全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,573件合格、カバレッジ100%。§8参照）。
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,573件合格、カバレッジ100%）。#6・#7（フロントエンドの重複排除・切り出し）はコミット前チェックの自己レビュー（Stop Hook）で追加検出し、同日中に修正・再検証済み：フロントエンド223ファイル・1,774件合格、カバレッジ100%、oxlint・tsc 0件（§8参照）。
 
 ## 6. 既知のリスクと対策
 
@@ -838,7 +840,7 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 ### 7.D 要件Dの完了の定義
 
 - §3.D（D-00・D-01・D-B01〜D-B10・D-F01〜D-F05・D-V01〜D-V04・D-D-01〜D-D-06）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
-- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文10,983・分岐2,052〉、フロントエンド100%〈文2,707・分岐1,777〉）
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文10,983・分岐2,052〉、フロントエンド100%〈文2,717・分岐1,784〉）
 - §2.3のベースラインと比較し、既存の単語帳（要件A・B・C）のテストが1件も壊れていないこと。→ 達成
 - 利用者の日記をプロンプトへ入れる新規AI用途のため実装前に`/threat-model`を実施し、設計書へ反映したこと。→ 達成（§5.6、設計書30.10）
 - 観点別レビュー（§5.7、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成
@@ -884,5 +886,7 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-21（続き）：コミット前チェックとして観点別レビュー7エージェントを並列実行（詳細は§5.7）。HIGH 2件（重複除外の正規化基準がカタカナ/ひらがな表記違いを検知できない設計ミス、フロントエンドの新規関数`triggerVocabTermSuggestions`にテストが無い）・MEDIUM 2件・LOW複数件を検出し、HIGH・MEDIUMは全て修正済み（LOWは対応不要と判断、理由は§5.7参照）。修正後、バックエンド全件再実行：**2,573件合格**・カバレッジ100%（文10,983・分岐2,052、欠落0）・ruff 0件。フロントエンド：222ファイル・1,765件合格・カバレッジ100%・oxlint 0件・tsc 0件。既存テストは1件も壊れていない（§2.3比較）。`osv-scanner scan -r .`を実行し既知の脆弱性0件を確認。
 
 - 2026-11-21（最終）：実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`e9eca0569d7c`、要件A・B・C・Dの4マイグレーションを通し適用。実DBは要件A〜Cのリリースを経ていなかったため、本セッションで初めて4件まとめて検証した）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・`GET /goals/1/vocab-decks`（空配列）・`GET /goals/1/vocab-suggestions?record_date=2026-11-21`（空配列、`default_deck_id`はnull）・`GET /goals/999999/vocab-suggestions`（404）・新設`app_setting`（`vocab.suggest_max_per_record`=5）・新設`prompt_template`（`VOCAB_TERM_EXTRACT`）・新規テーブル（`vocab_term_suggestion`）の投入をAPI・DB直接確認の両方で確認した。AIへの実送信は本検証では行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一：`935ff2854ef36c287f56091a055f0216`）。以上により、要件Dの完了条件（§7.D）を満たしたと判断する。要件E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
+
+- 2026-11-21（Stop Hookによるコミット前チェックの指摘対応）：Stop Hookから「DRY違反・テスト整合性・パフォーマンスの指摘が未対応のまま残っている」との指摘を受け、§5.7 #6・#7として追加対応した。日記エントリの絞り込み述語（`goal_id`存在・`diary_learned`非空白）が`ExamReportSection.tsx`・`DailyReportViewPage.tsx`・`useDailyReportActions.ts`の3箇所に重複していたDRY違反（dry-reviewer指摘）と、EXAM以外の目標の日記エントリにも`getVocabDecks`を呼ぶ無駄（performance-reviewer指摘。実害は無いことを確認済みだったが絞り込み自体は未実装だった）を、`frontend/src/features/vocab/vocabSuggestionEligibility.ts`（`selectDiaryEntriesEligibleForVocabSuggestions`・`resolveExamGoalIdForVocab`の2関数）へ切り出して一括修正した。`DailyReportViewPage.tsx`の`examGoalId`導出ロジック（3分岐）もこの切り出しにあわせて純粋関数化し、test-coverage-reviewerが指摘していた未検証分岐にテストを追加した。修正後、フロントエンド全件再実行：223ファイル・1,774件合格、カバレッジ100%、oxlint 0件、`tsc -b` 0件。既存テストは1件も壊れていない。バックエンドは本ラウンドで変更無し（§5.7時点の2,573件合格・カバレッジ100%のまま）。
 
 **単語帳機能（要件A〜D）の進捗まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）の4要件が完了した（§7・§7.B・§7.C・§7.Dすべて達成）。資格試験の利用者は、日次報告の確定だけで単語帳の用語候補が提案され、ワンタップで追加できるようになった（AIを使わない手動追加の手段も用意）。単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案、という一連の循環が完成した。要件E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
