@@ -1,14 +1,20 @@
-"""milestone_service_exam のテスト（開発Todo_節目のお祝い_v1.0 §3.3 B-07）。"""
+"""milestone_service_exam のテスト（開発Todo_節目のお祝い_v1.0 §3.3 B-07、
+開発Todo_単語帳_v1.0 要件E）。"""
 
 import datetime as dt
 
-from app.constants.app_setting_keys import MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS
+from app.constants.app_setting_keys import (
+    MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS,
+    MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
+    VOCAB_MASTERY_STREAK,
+)
 from app.constants.enums import GoalCategory, GoalStatus, MilestoneType
 from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, StudyLog
 from app.models.setting import AppSetting
 from app.services import milestone_service_exam as svc
+from tests.vocab_helpers import make_answer_log, make_card, make_deck
 
 
 def _make_goal(db_session, start_date=dt.date(2026, 1, 1)):
@@ -113,3 +119,42 @@ def test_detect_exam_milestones_reports_overall_progress_threshold(seeded_sessio
         p.milestone_key for p in pending if p.milestone_type == MilestoneType.EXAM_OVERALL_PROGRESS
     }
     assert keys == {"25", "50"}
+
+
+def test_detect_exam_milestones_reports_vocab_mastered_terms_threshold(seeded_session):
+    """開発Todo_単語帳_v1.0 要件E E-U2：単語帳の習得用語数（全単語帳の合計）の節目。"""
+    _set_threshold(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "1,3")
+    _set_threshold(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = _make_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1))
+
+    pending = svc.detect_exam_milestones(seeded_session, goal, dt.date(2026, 1, 1))
+
+    keys = {
+        p.milestone_key for p in pending if p.milestone_type == MilestoneType.VOCAB_MASTERED_TERMS
+    }
+    assert keys == {"1"}
+
+
+def test_detect_exam_milestones_detects_vocab_mastery_even_without_any_material(seeded_session):
+    """教材が0件（単語帳のみの下書き中の目標）でも、単語帳の習得判定は行われること。"""
+    _set_threshold(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "1")
+    _set_threshold(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = _make_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1))
+
+    pending = svc.detect_exam_milestones(seeded_session, goal, dt.date(2026, 1, 1))
+
+    assert {(p.milestone_type, p.milestone_key) for p in pending} == {
+        (MilestoneType.VOCAB_MASTERED_TERMS, "1")
+    }
+
+
+def test_detect_exam_milestones_vocab_mastery_is_empty_without_any_deck(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    assert svc.detect_exam_milestones(seeded_session, goal, dt.date(2026, 1, 1)) == []
