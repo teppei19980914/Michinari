@@ -123,10 +123,11 @@ def _vocab_mastery(session: Session, goal: Goal) -> RoadmapVocabMastery | None:
     返す（欄自体を出さない）。習得の定義・算出は`vocab_service.compute_mastered_card_ids`
     （節目判定と共通、DRYの原則）に委ねる。
     """
-    if not vocab_service.list_decks_for_goal(session, goal.id):
+    deck_ids = [deck.id for deck in vocab_service.list_decks_for_goal(session, goal.id)]
+    if not deck_ids:
         return None
     mastery_streak = setting_reader.get_int(session, VOCAB_MASTERY_STREAK)
-    totals = vocab_service.compute_goal_vocab_mastery(session, goal.id, mastery_streak)
+    totals = vocab_service.compute_goal_vocab_mastery(session, goal.id, mastery_streak, deck_ids)
     thresholds = setting_reader.get_int_list(session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS)
     next_threshold = next((t for t in thresholds if t > totals.mastered_cards), None)
     remaining = (
