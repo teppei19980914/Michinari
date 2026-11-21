@@ -872,6 +872,7 @@
         "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
         "QUIZ_GENERATE": "Review quiz generation",
         "VOCAB_QUIZ_GENERATE": "Review quiz generation (vocabulary deck)",
+        "VOCAB_TERM_EXTRACT": "Term suggestion (extracted from diary)",
         "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
         "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
         "DAILY_FEEDBACK_WORK_BRIEF": "Daily report feedback (quick record, work)",
@@ -2007,6 +2008,18 @@
       "checkWrongButton": "Check all wrong terms",
       "backToDeckButton": "Back to deck",
       "noQuestionsNotice": "No questions are available for these conditions"
+    },
+    "suggestions": {
+      "title": "Terms from today's record",
+      "noDeckNotice": "Create a vocabulary deck to get term suggestions from your records",
+      "deckLabel": "Deck to add to",
+      "termLabel": "Term",
+      "meaningLabel": "Meaning (drafted from a sentence in your diary; you can edit it)",
+      "aliasesLabel": "Aliases (optional)",
+      "addButton": "Add",
+      "dismissButton": "Dismiss",
+      "manualAddButton": "Add a term to a vocabulary deck",
+      "manualAddNoDeckNotice": "Create a vocabulary deck to add terms from here"
     }
   },
   "summaryCard": {
