@@ -201,6 +201,36 @@ def test_update_app_settings_accepts_each_milestone_threshold_field_independentl
     assert updated.milestone_threshold.consecutive_days_thresholds == "3,7,14,30,50,100,200,365"
 
 
+def test_get_app_settings_returns_vocab_mastery_defaults(seeded_session):
+    """開発Todo_単語帳_v1.0 要件E E-U1・E-U2・E-U8。"""
+    settings = settings_service.get_app_settings(seeded_session)
+    assert settings.vocab_mastery.mastery_streak == 3
+    assert settings.vocab_mastery.mastered_terms_thresholds == "10,30,50,100,200,300,500"
+
+
+def test_update_app_settings_updates_vocab_mastery_streak(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session, vocab_mastery={"mastery_streak": 5}
+    )
+    assert updated.vocab_mastery.mastery_streak == 5
+    # 更新していないフィールドは既定値のまま。
+    assert updated.vocab_mastery.mastered_terms_thresholds == "10,30,50,100,200,300,500"
+
+
+def test_update_app_settings_normalizes_vocab_mastered_terms_thresholds(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session, vocab_mastery={"mastered_terms_thresholds": " 30, 10,10"}
+    )
+    assert updated.vocab_mastery.mastered_terms_thresholds == "10,30"
+
+
+def test_update_app_settings_rejects_non_integer_vocab_mastered_terms_threshold(seeded_session):
+    with pytest.raises(ValidationError):
+        settings_service.update_app_settings(
+            seeded_session, vocab_mastery={"mastered_terms_thresholds": "10,abc"}
+        )
+
+
 def test_get_app_settings_returns_on_this_day_defaults(seeded_session):
     """開発Todo_1年前の今日_v1.0 §0 V1〜V3、V12。"""
     settings = settings_service.get_app_settings(seeded_session)

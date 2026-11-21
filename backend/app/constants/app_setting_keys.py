@@ -146,6 +146,9 @@ MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS = "milestone.reading_completed_book
 MILESTONE_EXAM_OVERALL_PROGRESS_THRESHOLDS = "milestone.exam_overall_progress_thresholds"
 #: 仕事：記録件数の節目。
 MILESTONE_WORK_RECORD_COUNT_THRESHOLDS = "milestone.work_record_count_thresholds"
+#: 資格試験：単語帳の習得用語数（その目標の全単語帳の合計）の節目（開発Todo_単語帳_v1.0
+#: 要件E E-U2）。
+MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS = "milestone.vocab_mastered_terms_thresholds"
 #: 起動時バックフィル（既存利用者の更新直後に節目のお祝いが大量表示されるのを防ぐ、M9）が
 #: 完了済みかどうか。`true`になった後は二度と実行しない。
 MILESTONE_BACKFILL_COMPLETED = "milestone.backfill_completed"
@@ -209,3 +212,6 @@ VOCAB_FEEDBACK_MAX_CHARS = "vocab.feedback_max_chars"
 # 単語帳（開発Todo_単語帳_v1.0 要件D）。日次報告の日記からの用語提案。
 #: 1回の提案生成（1目標・1日分）で採用する用語候補の上限（D-D8）。
 VOCAB_SUGGEST_MAX_PER_RECORD = "vocab.suggest_max_per_record"
+# 単語帳（開発Todo_単語帳_v1.0 要件E）。習得の可視化（節目・道のりマップ・単語帳画面）。
+#: 「習得した」と判定する連続正解回数（直近N回がすべて正解、E-U1）。
+VOCAB_MASTERY_STREAK = "vocab.mastery_streak"

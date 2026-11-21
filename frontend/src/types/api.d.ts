@@ -2418,6 +2418,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vocab-decks/{deck_id}/quiz-sessions/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Vocab Quiz Session
+         * @description 出題セッションを終えた直後に呼ぶ（開発Todo_単語帳_v1.0 要件E E-U3）。既存の記録確定時
+         *     （`milestone_service_common.detect_and_record_for_category`）と同じ判定関数
+         *     （`detect_and_record_new_achievements`、単一目標版）をこの1デッキの目標に対して呼ぶ。
+         *     未お祝いの節目は既存の`GET /goals/{goal_id}/milestones/pending-celebrations`から別途取得する
+         *     （GETに副作用を持たせない方針のため、本APIはレスポンスに節目を含めない）。
+         */
+        post: operations["complete_vocab_quiz_session_api_v1_vocab_decks__deck_id__quiz_sessions_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vocab-decks/{deck_id}/quiz/generate": {
         parameters: {
             query?: never;
@@ -2682,6 +2706,7 @@ export interface components {
             milestone_threshold: components["schemas"]["MilestoneThresholdSettingsRead"];
             on_this_day: components["schemas"]["OnThisDaySettingsRead"];
             quick_record: components["schemas"]["QuickRecordSettingsRead"];
+            vocab_mastery: components["schemas"]["VocabMasterySettingsRead"];
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
@@ -2694,6 +2719,7 @@ export interface components {
             milestone_threshold?: components["schemas"]["MilestoneThresholdSettingsUpdate"] | null;
             on_this_day?: components["schemas"]["OnThisDaySettingsUpdate"] | null;
             quick_record?: components["schemas"]["QuickRecordSettingsUpdate"] | null;
+            vocab_mastery?: components["schemas"]["VocabMasterySettingsUpdate"] | null;
         };
         /**
          * AttachmentLimitsRead
@@ -3681,7 +3707,8 @@ export interface components {
          *     カテゴリにより一部フィールドは常に空配列／nullになる（開発Todo §0 U7・U8・U10・U17）：
          *     EXAM以外はreplan_marks・overrun_daysが空／null、buffer_datesは仕事目標のみ空
          *     （予備日は仕様書13.5のとおり資格試験・読書目標が対象）、EXAMはfootprint_datesが
-         *     常に空、WORKはplanned_points・actual_pointsが常に空。
+         *     常に空、WORKはplanned_points・actual_pointsが常に空。vocab_masteryは資格試験で
+         *     単語帳がある目標のときのみ値が入り、他はnull（開発Todo_単語帳_v1.0 要件E E-U5）。
          */
         GoalRoadmapRead: {
             category: components["schemas"]["GoalCategory"];
@@ -3718,6 +3745,7 @@ export interface components {
             buffer_dates: string[];
             /** Overrun Days */
             overrun_days: number | null;
+            vocab_mastery: components["schemas"]["RoadmapVocabMasteryRead"] | null;
         };
         /**
          * GoalStatsRead
@@ -4271,7 +4299,7 @@ export interface components {
          *     （`GoalCategory`との対応は`milestone_service_<category>.py`側が持つ）。
          * @enum {string}
          */
-        MilestoneType: "CONSECUTIVE_DAYS" | "TOTAL_RECORD_DAYS" | "READING_TOTAL_PAGES" | "READING_COMPLETED_BOOKS" | "EXAM_MATERIAL_CYCLE_COMPLETED" | "EXAM_OVERALL_PROGRESS" | "WORK_RECORD_COUNT" | "WORK_EVALUATION_PERIOD_COMPLETED";
+        MilestoneType: "CONSECUTIVE_DAYS" | "TOTAL_RECORD_DAYS" | "READING_TOTAL_PAGES" | "READING_COMPLETED_BOOKS" | "EXAM_MATERIAL_CYCLE_COMPLETED" | "EXAM_OVERALL_PROGRESS" | "VOCAB_MASTERED_TERMS" | "WORK_RECORD_COUNT" | "WORK_EVALUATION_PERIOD_COMPLETED";
         /** MonthlyReportUpdateRequest */
         MonthlyReportUpdateRequest: {
             /** Target Goal Text */
@@ -4923,6 +4951,19 @@ export interface components {
             /** Ratio */
             ratio: number;
         };
+        /**
+         * RoadmapVocabMasteryRead
+         * @description 「用語の習得」欄（開発Todo_単語帳_v1.0 要件E E-U5）。資格試験で単語帳が1件以上
+         *     ある目標のときのみ値が入る。
+         */
+        RoadmapVocabMasteryRead: {
+            /** Mastered Count */
+            mastered_count: number;
+            /** Total Count */
+            total_count: number;
+            /** Remaining To Next Milestone */
+            remaining_to_next_milestone: number | null;
+        };
         /** SemiannualReviewUpdateRequest */
         SemiannualReviewUpdateRequest: {
             /** Target Goal Text */
@@ -5328,6 +5369,8 @@ export interface components {
             consecutive_incorrect: number;
             /** Last Answered At */
             last_answered_at: string | null;
+            /** Is Mastered */
+            is_mastered: boolean;
         };
         /** VocabCardUpdateRequest */
         VocabCardUpdateRequest: {
@@ -5363,6 +5406,8 @@ export interface components {
             display_order: number;
             /** Card Count */
             card_count: number;
+            /** Mastered Card Count */
+            mastered_card_count: number;
         };
         /** VocabDeckReorderRequest */
         VocabDeckReorderRequest: {
@@ -5437,6 +5482,20 @@ export interface components {
             aliases: string | null;
             /** Note */
             note: string | null;
+        };
+        /** VocabMasterySettingsRead */
+        VocabMasterySettingsRead: {
+            /** Mastery Streak */
+            mastery_streak: number;
+            /** Mastered Terms Thresholds */
+            mastered_terms_thresholds: string;
+        };
+        /** VocabMasterySettingsUpdate */
+        VocabMasterySettingsUpdate: {
+            /** Mastery Streak */
+            mastery_streak?: number | null;
+            /** Mastered Terms Thresholds */
+            mastered_terms_thresholds?: string | null;
         };
         /**
          * VocabQuizMode
@@ -10766,6 +10825,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VocabAnswerResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_vocab_quiz_session_api_v1_vocab_decks__deck_id__quiz_sessions_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deck_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
             /** @description Validation Error */

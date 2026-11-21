@@ -110,6 +110,13 @@ export function startVocabQuizSession(
   return apiClient.post<VocabQuizSession>(`/vocab-decks/${deckId}/quiz-sessions`, payload)
 }
 
+/** 出題セッションを終えた直後に呼ぶ（開発Todo_単語帳_v1.0 要件E E-U3）。未お祝いの節目の
+ * 取得は別途`listPendingCelebrations`（`api/milestones.ts`）で行う（GETに副作用を持たせない
+ * 方針のため、本APIのレスポンスには節目を含めない）。 */
+export function completeVocabQuizSession(deckId: number): Promise<void> {
+  return apiClient.post(`/vocab-decks/${deckId}/quiz-sessions/complete`)
+}
+
 /** 解答を記録する。モードに応じて`self_judged_correct`／`answer_text`／`selected_card_id`のいずれかを渡す。 */
 export function answerVocabCard(
   cardId: number,

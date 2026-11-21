@@ -27,6 +27,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     use_in_ai: true,
     display_order: 0,
     card_count: 0,
+    mastered_card_count: 0,
     ...overrides,
   }
 }

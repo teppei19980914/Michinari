@@ -15,6 +15,10 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
+from app.constants.app_setting_keys import (
+    MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
+    VOCAB_MASTERY_STREAK,
+)
 from app.constants.enums import BaselineReason, DayType, GoalCategory
 from app.models.goal import Goal
 from app.models.material import Material
@@ -26,7 +30,9 @@ from app.services import (
     goal_service,
     material_service,
     metrics_service,
+    setting_reader,
     speed_service,
+    vocab_service,
     work_report_service,
 )
 from app.services.cycle_service import ProgressPoint
@@ -49,6 +55,18 @@ class RoadmapFootprint:
 
 
 @dataclass(frozen=True)
+class RoadmapVocabMastery:
+    """「用語の習得」欄（開発Todo_単語帳_v1.0 要件E E-U5）。資格試験で単語帳が1件以上
+    ある目標のときのみ存在する（他カテゴリ・単語帳が無い目標はNone）。
+    """
+
+    mastered_count: int
+    total_count: int
+    #: 次の節目までの残り語数。すべての閾値に到達済みならNone。
+    remaining_to_next_milestone: int | None
+
+
+@dataclass(frozen=True)
 class Roadmap:
     """目標1件分の道のり算出結果（詳細版APIのレスポンス元、§3.1 S-02）。"""
 
@@ -65,6 +83,8 @@ class Roadmap:
     feedback_marks: list[dt.date]
     buffer_dates: list[dt.date]
     overrun_days: float | None
+    #: 資格試験で単語帳がある目標のときのみ値が入る（開発Todo_単語帳_v1.0 要件E E-U5）。
+    vocab_mastery: RoadmapVocabMastery | None
 
 
 def get_roadmap(
@@ -96,6 +116,28 @@ def _feedback_marks(session: Session, goal: Goal) -> list[dt.date]:
     """
     entries = analytics_service.list_growth_descriptions(session, goal)
     return sorted({entry.record_date for entry in entries})
+
+
+def _vocab_mastery(session: Session, goal: Goal) -> RoadmapVocabMastery | None:
+    """「用語の習得」欄（開発Todo_単語帳_v1.0 要件E E-U5）。単語帳が1つも無い目標はNoneを
+    返す（欄自体を出さない）。習得の定義・算出は`vocab_service.compute_mastered_card_ids`
+    （節目判定と共通、DRYの原則）に委ねる。
+    """
+    deck_ids = [deck.id for deck in vocab_service.list_decks_for_goal(session, goal.id)]
+    if not deck_ids:
+        return None
+    mastery_streak = setting_reader.get_int(session, VOCAB_MASTERY_STREAK)
+    totals = vocab_service.compute_goal_vocab_mastery(session, goal.id, mastery_streak, deck_ids)
+    thresholds = setting_reader.get_int_list(session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS)
+    next_threshold = next((t for t in thresholds if t > totals.mastered_cards), None)
+    remaining = (
+        next_threshold - totals.mastered_cards if next_threshold is not None else None
+    )
+    return RoadmapVocabMastery(
+        mastered_count=totals.mastered_cards,
+        total_count=totals.total_cards,
+        remaining_to_next_milestone=remaining,
+    )
 
 
 def resolve_work_period(today: dt.date) -> tuple[dt.date, dt.date]:
@@ -309,6 +351,7 @@ def _exam_roadmap(
         overrun_days=_average_overrun_days(
             session, goal, materials, today, treat_holiday_as_buffer
         ),
+        vocab_mastery=_vocab_mastery(session, goal),
     )
 
 
@@ -336,6 +379,7 @@ def _reading_roadmap(
             feedback_marks=_feedback_marks(session, goal),
             buffer_dates=_buffer_dates(session, start_date, start_date, treat_holiday_as_buffer),
             overrun_days=None,
+            vocab_mastery=None,  # §0 E-U5：単語帳は資格試験専用
         )
 
     # record_date・current_pageをまとめて1クエリで取得する（N+1禁止、CLAUDE.md。
@@ -398,6 +442,7 @@ def _reading_roadmap(
         # 予備日（UI-07）は仕様書13.5の既定方針どおり読書も対象（§0 U8訂正、2026-10-30）。
         buffer_dates=_buffer_dates(session, start_date, goal_date, treat_holiday_as_buffer),
         overrun_days=None,  # §0 U7：進捗状態の判定は新設しない
+        vocab_mastery=None,  # 要件E E-U5：単語帳は資格試験専用
     )
 
 
@@ -440,4 +485,5 @@ def _work_roadmap(session: Session, goal: Goal, today: dt.date) -> Roadmap:
         # 予備日（UI-07）は仕様書13.5のとおり仕事目標のみ対象外（§0 U8訂正、2026-10-30）。
         buffer_dates=[],
         overrun_days=None,  # §0 U7
+        vocab_mastery=None,  # 要件E E-U5：単語帳は資格試験専用
     )

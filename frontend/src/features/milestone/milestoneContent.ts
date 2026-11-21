@@ -50,5 +50,7 @@ export function resolveMilestoneMessage(
       return t('milestone.message.workRecordCount', { count })
     case 'WORK_EVALUATION_PERIOD_COMPLETED':
       return t('milestone.message.workEvaluationPeriodCompleted')
+    case 'VOCAB_MASTERED_TERMS':
+      return t('milestone.message.vocabMasteredTerms', { count })
   }
 }

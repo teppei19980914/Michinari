@@ -27,6 +27,7 @@ function makeRoadmap(overrides: Partial<GoalRoadmapRead> = {}): GoalRoadmapRead 
     feedback_marks: [],
     buffer_dates: [],
     overrun_days: null,
+    vocab_mastery: null,
     ...overrides,
   }
 }
@@ -65,5 +66,22 @@ describe('GoalRoadmapTab', () => {
     getGoalRoadmap.mockResolvedValue(makeRoadmap())
     renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
     expect(await screen.findByText(t('goals.roadmap.actualLineLabel'))).toBeTruthy()
+  })
+
+  it('単語帳がある資格試験の目標では「用語の習得」欄を表示する（開発Todo_単語帳_v1.0 要件E E-U5）', async () => {
+    getGoalRoadmap.mockResolvedValue(
+      makeRoadmap({
+        vocab_mastery: { mastered_count: 3, total_count: 10, remaining_to_next_milestone: 2 },
+      }),
+    )
+    renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
+    expect(await screen.findByText(t('goals.roadmap.vocabMastery.title'))).toBeTruthy()
+  })
+
+  it('単語帳が無い目標では「用語の習得」欄を表示しない', async () => {
+    getGoalRoadmap.mockResolvedValue(makeRoadmap({ vocab_mastery: null }))
+    renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)
+    await screen.findByRole('img')
+    expect(screen.queryByText(t('goals.roadmap.vocabMastery.title'))).toBeNull()
   })
 })

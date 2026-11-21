@@ -23,6 +23,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     use_in_ai: true,
     display_order: 0,
     card_count: 0,
+    mastered_card_count: 0,
     ...overrides,
   }
 }
@@ -50,6 +51,16 @@ describe('VocabDeckHeader の表示', () => {
     renderWithProviders(<VocabDeckHeader deck={makeDeck({ description: null })} />)
 
     expect(screen.queryByText('説明A')).toBeNull()
+  })
+
+  it('shows the mastered count summary', () => {
+    renderWithProviders(
+      <VocabDeckHeader deck={makeDeck({ card_count: 10, mastered_card_count: 3 })} />,
+    )
+
+    expect(
+      screen.getByText(t('vocab.deckDetail.masteredCount', { mastered: 3, total: 10 })),
+    ).toBeDefined()
   })
 })
 

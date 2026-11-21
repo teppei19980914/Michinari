@@ -22,6 +22,7 @@ from app.schemas.setting import (
     PromptTemplateUpdate,
     QuickRecordSettingsRead,
     ThresholdSettingsRead,
+    VocabMasterySettingsRead,
 )
 from app.services import settings_service
 from app.services.exceptions import NotFoundError
@@ -40,6 +41,7 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         milestone_threshold=MilestoneThresholdSettingsRead(**vars(settings.milestone_threshold)),
         on_this_day=OnThisDaySettingsRead(**vars(settings.on_this_day)),
         quick_record=QuickRecordSettingsRead(**vars(settings.quick_record)),
+        vocab_mastery=VocabMasterySettingsRead(**vars(settings.vocab_mastery)),
     )
 
 
@@ -79,6 +81,7 @@ def update_settings(
         milestone_threshold=groups.get("milestone_threshold"),
         on_this_day=groups.get("on_this_day"),
         quick_record=groups.get("quick_record"),
+        vocab_mastery=groups.get("vocab_mastery"),
     )
     session.commit()
     return _serialize_settings(updated)

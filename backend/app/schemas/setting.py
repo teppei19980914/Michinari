@@ -209,6 +209,18 @@ class QuickRecordSettingsUpdate(BaseModel):
     voice_hint_dismissed: bool | None = None
 
 
+#: 単語帳の習得の可視化（開発Todo_単語帳_v1.0 要件E E-U1・E-U2・E-U8）の設定。
+#: `mastered_terms_thresholds`の検証方針はmilestone threshold（直上）と同じ。
+class VocabMasterySettingsRead(BaseModel):
+    mastery_streak: int
+    mastered_terms_thresholds: str
+
+
+class VocabMasterySettingsUpdate(BaseModel):
+    mastery_streak: int | None = Field(default=None, ge=1)
+    mastered_terms_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
+
+
 class AppSettingsRead(BaseModel):
     ai_connection: AiConnectionSettingsRead
     threshold: ThresholdSettingsRead
@@ -219,6 +231,7 @@ class AppSettingsRead(BaseModel):
     milestone_threshold: MilestoneThresholdSettingsRead
     on_this_day: OnThisDaySettingsRead
     quick_record: QuickRecordSettingsRead
+    vocab_mastery: VocabMasterySettingsRead
 
 
 class AppSettingsUpdate(BaseModel):
@@ -231,6 +244,7 @@ class AppSettingsUpdate(BaseModel):
     milestone_threshold: MilestoneThresholdSettingsUpdate | None = None
     on_this_day: OnThisDaySettingsUpdate | None = None
     quick_record: QuickRecordSettingsUpdate | None = None
+    vocab_mastery: VocabMasterySettingsUpdate | None = None
 
 
 class PromptTemplateRead(BaseModel):

@@ -60,4 +60,8 @@ describe('resolveMilestoneMessage', () => {
       resolveMilestoneMessage(makeAchievement('WORK_EVALUATION_PERIOD_COMPLETED', '2026-H1')),
     ).not.toBe('')
   })
+
+  it('includes the threshold for vocab mastered terms', () => {
+    expect(resolveMilestoneMessage(makeAchievement('VOCAB_MASTERED_TERMS', '10'))).toContain('10')
+  })
 })

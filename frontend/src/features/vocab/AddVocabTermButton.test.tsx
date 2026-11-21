@@ -13,7 +13,16 @@ vi.mock('../../api/vocab', () => ({ getVocabDecks, createVocabCard }))
 const GOAL_ID = 1
 
 function makeDeck(id: number, name = 'デッキA'): VocabDeck {
-  return { id, goal_id: GOAL_ID, name, description: null, use_in_ai: true, display_order: 0, card_count: 0 }
+  return {
+    id,
+    goal_id: GOAL_ID,
+    name,
+    description: null,
+    use_in_ai: true,
+    display_order: 0,
+    card_count: 0,
+    mastered_card_count: 0,
+  }
 }
 
 function makeCard(): VocabCard {
@@ -31,6 +40,7 @@ function makeCard(): VocabCard {
     accuracy_percent: null,
     consecutive_incorrect: 0,
     last_answered_at: null,
+    is_mastered: false,
   }
 }
 
