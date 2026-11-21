@@ -11,14 +11,24 @@ import { useVocabQuizSession } from './useVocabQuizSession'
 const answerVocabCard = vi.hoisted(() => vi.fn())
 const checkVocabCard = vi.hoisted(() => vi.fn())
 const startVocabQuizSession = vi.hoisted(() => vi.fn())
-vi.mock('../../api/vocab', () => ({ answerVocabCard, checkVocabCard, startVocabQuizSession }))
+const completeVocabQuizSession = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
+vi.mock('../../api/vocab', () => ({
+  answerVocabCard,
+  checkVocabCard,
+  startVocabQuizSession,
+  completeVocabQuizSession,
+}))
 
-function setup() {
+const listPendingCelebrations = vi.hoisted(() => vi.fn().mockResolvedValue([]))
+const celebrateMilestone = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+vi.mock('../../api/milestones', () => ({ listPendingCelebrations, celebrateMilestone }))
+
+function setup(goalId: number | undefined = undefined) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   )
-  return renderHook(() => useVocabQuizSession(1), { wrapper })
+  return renderHook(() => useVocabQuizSession(1, goalId), { wrapper })
 }
 
 beforeEach(() => {
@@ -105,6 +115,98 @@ describe('useVocabQuizSession の解答進行', () => {
     })
 
     expect(answerVocabCard).not.toHaveBeenCalled()
+  })
+})
+
+describe('useVocabQuizSession のセッション終了時の節目判定（開発Todo_単語帳_v1.0 要件E E-U3）', () => {
+  it('calls completeVocabQuizSession once the session reaches its last question', async () => {
+    startVocabQuizSession.mockResolvedValue({
+      questions: [{ card_id: 1, prompt: 'A' }],
+      excluded_count: 0,
+    })
+    answerVocabCard.mockResolvedValue({ is_correct: true })
+    const { result, rerender } = setup()
+    await act(async () => {
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+    })
+
+    await act(async () => {
+      result.current.answer({ self_judged_correct: true })
+    })
+    rerender()
+
+    expect(completeVocabQuizSession).toHaveBeenCalledTimes(1)
+    expect(completeVocabQuizSession).toHaveBeenCalledWith(1)
+  })
+
+  it('does not call completeVocabQuizSession again on an unrelated re-render', async () => {
+    startVocabQuizSession.mockResolvedValue({
+      questions: [{ card_id: 1, prompt: 'A' }],
+      excluded_count: 0,
+    })
+    answerVocabCard.mockResolvedValue({ is_correct: true })
+    const { result, rerender } = setup()
+    await act(async () => {
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+    })
+    await act(async () => {
+      result.current.answer({ self_judged_correct: true })
+    })
+    rerender()
+    expect(completeVocabQuizSession).toHaveBeenCalledTimes(1)
+
+    rerender()
+
+    expect(completeVocabQuizSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks pending celebrations for the goal once the session completes', async () => {
+    listPendingCelebrations.mockResolvedValue([
+      {
+        id: 1,
+        goal_id: 42,
+        milestone_type: 'VOCAB_MASTERED_TERMS',
+        milestone_key: '10',
+        achieved_at: '2026-01-01T00:00:00',
+        celebrated_at: null,
+      },
+    ])
+    startVocabQuizSession.mockResolvedValue({
+      questions: [{ card_id: 1, prompt: 'A' }],
+      excluded_count: 0,
+    })
+    answerVocabCard.mockResolvedValue({ is_correct: true })
+    const { result, rerender } = setup(42)
+    await act(async () => {
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+    })
+    await act(async () => {
+      result.current.answer({ self_judged_correct: true })
+    })
+    rerender()
+    await act(async () => {})
+
+    expect(listPendingCelebrations).toHaveBeenCalledWith(42)
+    expect(result.current.milestone?.achievement.milestone_key).toBe('10')
+  })
+
+  it('does not check pending celebrations when goalId is not yet known', async () => {
+    startVocabQuizSession.mockResolvedValue({
+      questions: [{ card_id: 1, prompt: 'A' }],
+      excluded_count: 0,
+    })
+    answerVocabCard.mockResolvedValue({ is_correct: true })
+    const { result, rerender } = setup(undefined)
+    await act(async () => {
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+    })
+    await act(async () => {
+      result.current.answer({ self_judged_correct: true })
+    })
+    rerender()
+    await act(async () => {})
+
+    expect(listPendingCelebrations).not.toHaveBeenCalled()
   })
 })
 

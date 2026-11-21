@@ -6,7 +6,16 @@ import { VocabTermFields, type VocabTermFieldsValue } from './VocabTermFields'
 import type { VocabDeck } from '../../api/vocab'
 
 function makeDeck(id: number, name: string): VocabDeck {
-  return { id, goal_id: 1, name, description: null, use_in_ai: true, display_order: 0, card_count: 0 }
+  return {
+    id,
+    goal_id: 1,
+    name,
+    description: null,
+    use_in_ai: true,
+    display_order: 0,
+    card_count: 0,
+    mastered_card_count: 0,
+  }
 }
 
 const DECKS = [makeDeck(1, 'デッキA'), makeDeck(2, 'デッキB')]

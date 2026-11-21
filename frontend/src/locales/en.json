@@ -350,6 +350,12 @@
           "inProgress": "{{percent}}% of the evaluation period has passed"
         },
         "achieved": "Goal achieved ({{percent}}%)"
+      },
+      "vocabMastery": {
+        "title": "Term mastery",
+        "countLabel": "{{mastered}} / {{total}} terms mastered",
+        "remainingLabel": "{{count}} more term(s) to the next milestone",
+        "allMilestonesReached": "You've reached every configured milestone"
       }
     },
     "basicInfo": {
@@ -791,6 +797,14 @@
       "examOverallProgressThresholdsLabel": "Exam: overall progress (%) milestones",
       "workRecordCountThresholdsLabel": "Work: record count milestones",
       "invalid": "Enter a comma-separated list of positive integers (e.g. 3,7,14)."
+    },
+    "vocabMastery": {
+      "title": "Vocabulary mastery",
+      "description": "Set how many consecutive correct answers count as \"mastered\", and the milestones for mastered term counts (comma-separated).",
+      "masteryStreakLabel": "Consecutive correct answers to count as mastered",
+      "masteredTermsThresholdsLabel": "Mastered term count milestones (e.g. 10,30,50,100,200,300,500)",
+      "masteryStreakInvalid": "Enter an integer of 1 or more.",
+      "thresholdsInvalid": "Enter a comma-separated list of positive integers (e.g. 10,30,50)."
     },
     "onThisDay": {
       "title": "On this day",
@@ -1317,7 +1331,11 @@
         "one": "You've logged {{count}} entry so far.",
         "other": "You've logged {{count}} entries so far."
       },
-      "workEvaluationPeriodCompleted": "You kept logging entries throughout the evaluation period."
+      "workEvaluationPeriodCompleted": "You kept logging entries throughout the evaluation period.",
+      "vocabMasteredTerms": {
+        "one": "You've mastered {{count}} term in your vocabulary deck.",
+        "other": "You've mastered {{count}} terms in your vocabulary deck."
+      }
     },
     "list": {
       "title": "Milestones",
@@ -1927,6 +1945,7 @@
         "one": "{{count}} card",
         "other": "{{count}} cards"
       },
+      "masteredCount": "{{mastered}} / {{total}} mastered",
       "useInAiOffBadge": "Not used by AI",
       "moveUp": "Move up",
       "moveDown": "Move down",
@@ -1935,6 +1954,8 @@
     "deckDetail": {
       "backToGoal": "Back to goal detail",
       "startQuizButton": "Start quiz",
+      "masteredCount": "{{mastered}} / {{total}} mastered",
+      "masteredBadge": "Mastered",
       "useInAiLabel": "Use in today's review and AI feedback",
       "useInAiDescription": "This deck's terms are used when generating today's review questions and in AI feedback.",
       "generateQuizButton": "Create today's review questions",
@@ -1959,7 +1980,8 @@
         "EVER_WRONG": "Ever answered wrong",
         "CONSECUTIVE_WRONG": "Currently on a wrong streak",
         "WEAK": "Weak",
-        "UNANSWERED": "Unanswered"
+        "UNANSWERED": "Unanswered",
+        "UNMASTERED": "Not mastered"
       },
       "sortLabel": "Sort",
       "sortOptions": {

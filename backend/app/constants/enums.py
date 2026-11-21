@@ -258,6 +258,8 @@ class MilestoneType(enum.StrEnum):
     EXAM_MATERIAL_CYCLE_COMPLETED = "EXAM_MATERIAL_CYCLE_COMPLETED"
     #: 資格試験：目標全体の進捗率(%)。
     EXAM_OVERALL_PROGRESS = "EXAM_OVERALL_PROGRESS"
+    #: 資格試験：単語帳の習得用語数（その目標の全単語帳の合計、開発Todo_単語帳_v1.0 要件E）。
+    VOCAB_MASTERED_TERMS = "VOCAB_MASTERED_TERMS"
     #: 仕事：記録件数。
     WORK_RECORD_COUNT = "WORK_RECORD_COUNT"
     #: 仕事：評価期間を通して記録し続けたこと（閾値を持たないイベント型）。

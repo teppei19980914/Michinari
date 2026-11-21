@@ -7,6 +7,10 @@ docstringを参照。
 
 import datetime as dt
 
+from app.constants.app_setting_keys import (
+    MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
+    VOCAB_MASTERY_STREAK,
+)
 from app.constants.enums import (
     AiPurpose,
     BaselineReason,
@@ -23,6 +27,7 @@ from app.models.record import ChatMessage, DailyRecord, ReadingLog, StudyLog, Wo
 from app.models.setting import CalendarDayOverride
 from app.models.work import WorkAssignment
 from app.services import roadmap_service
+from tests.vocab_helpers import make_answer_log, make_card, make_deck, set_setting
 
 
 def _make_goal(
@@ -156,6 +161,7 @@ def test_exam_roadmap_with_no_subjects_or_materials_does_not_crash(db_session):
     assert roadmap.replan_marks == []
     assert roadmap.buffer_dates == []
     assert roadmap.overrun_days is None
+    assert roadmap.vocab_mastery is None  # 要件E E-U5：単語帳が無い目標は欄自体を出さない
 
 
 def test_exam_roadmap_summit_date_is_latest_exam_date_across_subjects(db_session):
@@ -284,6 +290,73 @@ def test_exam_roadmap_handles_archived_goal_status_without_crashing(db_session):
     assert roadmap.category == GoalCategory.EXAM
 
 
+# --- EXAM：用語の習得（開発Todo_単語帳_v1.0 要件E E-U5、app_settingの読み出しを伴うため
+# seeded_sessionを使う） ---
+
+
+def test_exam_roadmap_vocab_mastery_is_none_without_any_deck(seeded_session):
+    goal = _make_goal(seeded_session)
+
+    roadmap = roadmap_service.get_roadmap(seeded_session, goal, dt.date(2026, 1, 10), True)
+
+    assert roadmap.vocab_mastery is None
+
+
+def test_exam_roadmap_vocab_mastery_counts_mastered_and_total_across_decks(seeded_session):
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "2")
+    goal = _make_goal(seeded_session)
+    deck_a = make_deck(seeded_session, goal, "A")
+    deck_b = make_deck(seeded_session, goal, "B")
+    mastered_card = make_card(seeded_session, deck_a, term="習得済み")
+    make_card(seeded_session, deck_b, term="未習得")
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+    )
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 10)
+    )
+
+    roadmap = roadmap_service.get_roadmap(seeded_session, goal, dt.date(2026, 1, 10), True)
+
+    assert roadmap.vocab_mastery is not None
+    assert roadmap.vocab_mastery.total_count == 2
+    assert roadmap.vocab_mastery.mastered_count == 1
+
+
+def test_exam_roadmap_vocab_mastery_remaining_to_next_milestone(seeded_session):
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    set_setting(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "5,10")
+    goal = _make_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    for i in range(3):
+        card = make_card(seeded_session, deck, term=f"用語{i}")
+        make_answer_log(
+            seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+        )
+
+    roadmap = roadmap_service.get_roadmap(seeded_session, goal, dt.date(2026, 1, 10), True)
+
+    assert roadmap.vocab_mastery.mastered_count == 3
+    assert roadmap.vocab_mastery.remaining_to_next_milestone == 2
+
+
+def test_exam_roadmap_vocab_mastery_remaining_is_none_when_all_thresholds_reached(seeded_session):
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    set_setting(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "1,2")
+    goal = _make_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    for i in range(2):
+        card = make_card(seeded_session, deck, term=f"用語{i}")
+        make_answer_log(
+            seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+        )
+
+    roadmap = roadmap_service.get_roadmap(seeded_session, goal, dt.date(2026, 1, 10), True)
+
+    assert roadmap.vocab_mastery.mastered_count == 2
+    assert roadmap.vocab_mastery.remaining_to_next_milestone is None
+
+
 # --- READING ---
 
 
@@ -301,6 +374,7 @@ def test_reading_roadmap_with_no_book_does_not_crash(db_session):
     assert roadmap.replan_marks == []
     assert roadmap.buffer_dates == []
     assert roadmap.overrun_days is None
+    assert roadmap.vocab_mastery is None  # 要件E E-U5：単語帳は資格試験専用
 
 
 def _make_book(db_session, goal_id, start_date, due_date, total_pages=200) -> Book:
@@ -425,6 +499,7 @@ def test_work_roadmap_with_no_assignment_does_not_crash(db_session):
     assert roadmap.replan_marks == []
     assert roadmap.buffer_dates == []
     assert roadmap.overrun_days is None
+    assert roadmap.vocab_mastery is None  # 要件E E-U5：単語帳は資格試験専用
 
 
 def test_work_roadmap_period_is_current_semiannual_range(db_session):

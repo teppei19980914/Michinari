@@ -132,7 +132,14 @@ function VocabCardRow({ deckId, card }: { deckId: number; card: VocabCard }) {
         />
       </label>
       <div className="flex-1">
-        <p className="text-sm font-medium text-text-primary">{card.term}</p>
+        <p className="flex items-center gap-2 text-sm font-medium text-text-primary">
+          {card.term}
+          {card.is_mastered && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+              {t('vocab.deckDetail.masteredBadge')}
+            </span>
+          )}
+        </p>
         <p className="text-sm text-text-secondary">{card.meaning}</p>
         <p className="mt-1 text-xs text-text-faint">
           {t('vocab.deckDetail.statsLine', {

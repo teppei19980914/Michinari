@@ -314,6 +314,12 @@
           "inProgress": "評価期間の{{percent}}%が経過しました"
         },
         "achieved": "目標を達成しました（{{percent}}%）"
+      },
+      "vocabMastery": {
+        "title": "用語の習得",
+        "countLabel": "{{mastered}}/{{total}}語 習得済み",
+        "remainingLabel": "次の節目まで残り{{count}}語",
+        "allMilestonesReached": "設定済みの節目をすべて達成しました"
       }
     },
     "basicInfo": {
@@ -740,6 +746,14 @@
       "examOverallProgressThresholdsLabel": "資格試験：全体進捗率(%)の節目",
       "workRecordCountThresholdsLabel": "仕事：記録件数の節目",
       "invalid": "カンマ区切りの正の整数で入力してください（例：3,7,14）。"
+    },
+    "vocabMastery": {
+      "title": "単語帳の習得",
+      "description": "「習得した」と判定する連続正解回数と、習得用語数の節目（カンマ区切り）を設定します。",
+      "masteryStreakLabel": "習得と判定する連続正解回数",
+      "masteredTermsThresholdsLabel": "習得用語数の節目（例：10,30,50,100,200,300,500）",
+      "masteryStreakInvalid": "1以上の整数で入力してください。",
+      "thresholdsInvalid": "カンマ区切りの正の整数で入力してください（例：10,30,50）。"
     },
     "onThisDay": {
       "title": "1年前の今日",
@@ -1242,7 +1256,8 @@
       "examMaterialCycleCompleted": "教材を{{count}}周、完了しました",
       "examOverallProgress": "目標全体の進捗が{{count}}%に達しました",
       "workRecordCount": "これまでに{{count}}回、記録を続けています",
-      "workEvaluationPeriodCompleted": "評価期間を通して記録を続けました"
+      "workEvaluationPeriodCompleted": "評価期間を通して記録を続けました",
+      "vocabMasteredTerms": "単語帳の用語を{{count}}個、習得しました"
     },
     "list": {
       "title": "節目の記録",
@@ -1834,6 +1849,7 @@
       "descriptionLabel": "説明（任意）",
       "empty": "単語帳はまだありません",
       "cardCount": "{{count}}枚",
+      "masteredCount": "習得 {{mastered}}/{{total}}",
       "useInAiOffBadge": "AIで使わない",
       "moveUp": "上へ移動",
       "moveDown": "下へ移動",
@@ -1842,6 +1858,8 @@
     "deckDetail": {
       "backToGoal": "目標詳細へ戻る",
       "startQuizButton": "出題する",
+      "masteredCount": "習得済み {{mastered}}/{{total}}",
+      "masteredBadge": "習得済み",
       "useInAiLabel": "今日の復習とAIフィードバックで使う",
       "useInAiDescription": "今日の復習の問題作りと、AIフィードバックで、この単語帳の用語を使います。",
       "generateQuizButton": "今日の復習の問題を作る",
@@ -1863,7 +1881,8 @@
         "EVER_WRONG": "一度でも間違えた",
         "CONSECUTIVE_WRONG": "連続して間違えている",
         "WEAK": "苦手",
-        "UNANSWERED": "未解答"
+        "UNANSWERED": "未解答",
+        "UNMASTERED": "未習得"
       },
       "sortLabel": "並び順",
       "sortOptions": {

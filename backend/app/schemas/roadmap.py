@@ -28,13 +28,24 @@ class RoadmapFootprintRead(BaseModel):
     has_input: bool
 
 
+class RoadmapVocabMasteryRead(BaseModel):
+    """「用語の習得」欄（開発Todo_単語帳_v1.0 要件E E-U5）。資格試験で単語帳が1件以上
+    ある目標のときのみ値が入る。
+    """
+
+    mastered_count: int
+    total_count: int
+    remaining_to_next_milestone: int | None
+
+
 class GoalRoadmapRead(BaseModel):
     """目標の道のり（詳細版、資格=山、読書=地図上の道、仕事=足跡の積み上げ）。
 
     カテゴリにより一部フィールドは常に空配列／nullになる（開発Todo §0 U7・U8・U10・U17）：
     EXAM以外はreplan_marks・overrun_daysが空／null、buffer_datesは仕事目標のみ空
     （予備日は仕様書13.5のとおり資格試験・読書目標が対象）、EXAMはfootprint_datesが
-    常に空、WORKはplanned_points・actual_pointsが常に空。
+    常に空、WORKはplanned_points・actual_pointsが常に空。vocab_masteryは資格試験で
+    単語帳がある目標のときのみ値が入り、他はnull（開発Todo_単語帳_v1.0 要件E E-U5）。
     """
 
     category: GoalCategory
@@ -50,3 +61,4 @@ class GoalRoadmapRead(BaseModel):
     feedback_marks: list[dt.date]
     buffer_dates: list[dt.date]
     overrun_days: float | None
+    vocab_mastery: RoadmapVocabMasteryRead | None
