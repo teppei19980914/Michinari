@@ -62,6 +62,13 @@ export function VocabDeckHeader({ deck }: { deck: VocabDeck }) {
         isSaving={updateMutation.isPending}
       />
 
+      <p className="text-sm text-text-secondary">
+        {t('vocab.deckDetail.masteredCount', {
+          mastered: deck.mastered_card_count,
+          total: deck.card_count,
+        })}
+      </p>
+
       <VocabDeckAiSection
         useInAi={deck.use_in_ai}
         onToggleUseInAi={(checked) => updateMutation.mutate({ use_in_ai: checked })}

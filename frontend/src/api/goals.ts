@@ -31,6 +31,7 @@ export type WorkMemberRead = components['schemas']['WorkMemberRead']
 export type WorkMemberCreate = components['schemas']['WorkMemberCreate']
 export type WorkMemberUpdate = components['schemas']['WorkMemberUpdate']
 export type GoalRoadmapRead = components['schemas']['GoalRoadmapRead']
+export type RoadmapVocabMasteryRead = components['schemas']['RoadmapVocabMasteryRead']
 
 /** 進行中の読書目標とその書籍（listActiveReadingBooksの戻り）。 */
 export type ActiveReadingBook = { goal: GoalRead; book: BookRead }

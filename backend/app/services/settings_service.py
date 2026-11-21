@@ -52,6 +52,7 @@ from app.constants.app_setting_keys import (
     MILESTONE_READING_COMPLETED_BOOKS_THRESHOLDS,
     MILESTONE_READING_TOTAL_PAGES_THRESHOLDS,
     MILESTONE_TOTAL_RECORD_DAYS_THRESHOLDS,
+    MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
     MILESTONE_WORK_RECORD_COUNT_THRESHOLDS,
     ON_THIS_DAY_BODY_PREVIEW_CHARS,
     ON_THIS_DAY_CANDIDATE_MONTHS_AGO,
@@ -64,6 +65,7 @@ from app.constants.app_setting_keys import (
     QUICK_RECORD_VOICE_HINT_DISMISSED,
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
+    VOCAB_MASTERY_STREAK,
 )
 from app.constants.app_setting_keys import (
     DISPLAY_ACCENT_COLOR as _DISPLAY_ACCENT_COLOR,
@@ -235,6 +237,16 @@ class QuickRecordSettings:
 
 
 @dataclass(frozen=True)
+class VocabMasterySettings:
+    """単語帳の習得の可視化（開発Todo_単語帳_v1.0 要件E E-U1・E-U2・E-U8）の設定。
+    `mastered_terms_thresholds`はカンマ区切りの文字列（milestone_thresholdと同じ方式）。
+    """
+
+    mastery_streak: int
+    mastered_terms_thresholds: str
+
+
+@dataclass(frozen=True)
 class AppSettings:
     ai_connection: AiConnectionSettings
     threshold: ThresholdSettings
@@ -245,6 +257,7 @@ class AppSettings:
     milestone_threshold: MilestoneThresholdSettings
     on_this_day: OnThisDaySettings
     quick_record: QuickRecordSettings
+    vocab_mastery: VocabMasterySettings
 
 
 def get_app_settings(session: Session) -> AppSettings:
@@ -371,6 +384,12 @@ def get_app_settings(session: Session) -> AppSettings:
         last_mode_work=setting_reader.get_str(session, QUICK_RECORD_LAST_MODE_WORK),
         voice_hint_dismissed=setting_reader.get_bool(session, QUICK_RECORD_VOICE_HINT_DISMISSED),
     )
+    vocab_mastery = VocabMasterySettings(
+        mastery_streak=setting_reader.get_int(session, VOCAB_MASTERY_STREAK),
+        mastered_terms_thresholds=setting_reader.get_str(
+            session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS
+        ),
+    )
     return AppSettings(
         ai_connection=ai_connection,
         threshold=threshold,
@@ -381,6 +400,7 @@ def get_app_settings(session: Session) -> AppSettings:
         milestone_threshold=milestone_threshold,
         on_this_day=on_this_day,
         quick_record=quick_record,
+        vocab_mastery=vocab_mastery,
     )
 
 
@@ -587,6 +607,17 @@ def _update_on_this_day(session: Session, **fields: object) -> None:
         _set_number(session, ON_THIS_DAY_BODY_PREVIEW_CHARS, fields["body_preview_chars"])
 
 
+def _update_vocab_mastery(session: Session, **fields: object) -> None:
+    if fields.get("mastery_streak") is not None:
+        _set_number(session, VOCAB_MASTERY_STREAK, fields["mastery_streak"])
+    if fields.get("mastered_terms_thresholds") is not None:
+        _set_str(
+            session,
+            MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
+            _parse_threshold_list(fields["mastered_terms_thresholds"]),
+        )
+
+
 def _update_quick_record(session: Session, **fields: object) -> None:
     if fields.get("note_max_chars") is not None:
         _set_number(session, QUICK_RECORD_NOTE_MAX_CHARS, fields["note_max_chars"])
@@ -618,6 +649,7 @@ def update_app_settings(
     milestone_threshold: dict | None = None,
     on_this_day: dict | None = None,
     quick_record: dict | None = None,
+    vocab_mastery: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
         _update_ai_connection(session, **ai_connection)
@@ -637,6 +669,8 @@ def update_app_settings(
         _update_on_this_day(session, **on_this_day)
     if quick_record:
         _update_quick_record(session, **quick_record)
+    if vocab_mastery:
+        _update_vocab_mastery(session, **vocab_mastery)
     session.flush()
     return get_app_settings(session)
 

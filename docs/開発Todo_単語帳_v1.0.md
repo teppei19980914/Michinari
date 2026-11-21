@@ -133,7 +133,30 @@
 | D-D17 | `backup_service.DATA_SCHEMA_VERSION`は`"1.9"`のまま変更しない（新規テーブル追加だが版は上げない） | 要件Aで上げた"1.9"がまだリリースされていない（最新タグ`ver2.10.0`は要件Aのマージより前）ため、同一リリースへ含めて据え置く（B/C §1.5.4・§1.6.4と同じ判断）。新規テーブルは`Base.metadata.sorted_tables`方式で一括保存・復元に自動対応するため、変更自体も不要（要件A §1.4と同じ前例） |
 | D-D18 | 画面側の提案生成API呼び出しが失敗（AIエラー・通信エラー等）しても、確定成功のトーストやエラー表示を出さず、提案カードを単に表示しないという「静かな失敗」にする | 確定処理自体は既に成功済みであり、提案はオプショナルな付加機能のため、失敗を目立たせると利用者を迷わせる（`user_product_design_motto`「導線は一本化してユーザーを迷わせない」）。既存の`persistExamLastMode`（最後に使った入力方式の書き戻し）と同じ「ベストエフォートな副作用はエラーを握りつぶす」パターンを踏襲する |
 
+### 0.10 要件E着手前の確認（2026-11-21、要件A〜Dの完了検証）
 
+要件E着手前に、独立したサブエージェント（本セッションの作業コンテキストを持たない状態）に、ソースコード全体と本書を照合する検証を依頼した。
+
+- バックエンド：`ruff check .` 0件、`pytest -q --cov-report=term-missing` **2,573件合格**、カバレッジ100%（文10,983・分岐2,052、欠落0）。§7.D・§8記載の最終値と完全一致。
+- フロントエンド：`npm run lint`（oxlint）0件、`npx tsc -b` 0件、`npm run test -- --run` **223ファイル・1,774件合格**、カバレッジ100%（Statements/Branches/Functions/Lines）。§7.D・§8記載の値と完全一致。
+- ファイル実体確認：`app/models/vocab.py`・`app/services/vocab_service.py`・`app/services/vocab_term_suggestion_service.py`・`app/services/vocab_quiz_generation_service.py`・`app/api/vocab.py`（提案系4エンドポイント含む）・`app/constants/enums.py`（`VOCAB_TERM_EXTRACT`等）・マイグレーション`e9eca0569d7c_vocab_term_suggestion.py`・フロントエンド`frontend/src/features/vocab/`配下一式を実体確認し、§1.1・§1.5・§1.6・§1.7の表の記載と一致した。
+- **発見した食い違い（本セッションの依頼文の前提誤り、実装・記帳の漏れではない）**：依頼文はAlembic headを`1be51b4ce9c0`としていたが、これは§1.7.1表内「マイグレーション｜head=`1be51b4ce9c0`から新規1ファイル」（＝要件D着手前の出発点のhead）の読み違いであり、要件D完了後の実際のhead（新規マイグレーション自身のリビジョン）は`e9eca0569d7c`（§8の2026-11-21記録と一致）。Todo自体に誤記は無い。
+- `vocab_answer_log`の実データ：実利用者DB（`data/michinari.db`）のAlembic versionはまだ`0e22c031f0ca`（要件A〜Dのマイグレーション未適用、各完了検証は退避コピー上でのみ適用し実DBを変更しない方針を厳守してきたため）。したがって実データは0件であり、E-U4「過去分の一括判定は不要」の前提（単語帳の解答履歴はこの版から始まる）は、リリース未実施の現時点でも成立している。
+
+以上により、要件A〜Dはすべて完了条件を満たし、要件Eへ着手してよいと判断する。
+
+### 0.11 要件Eの決定事項（利用者提示、2026-11-21）
+
+| # | 決定 |
+| --- | --- |
+| E-U1 | 「習得した用語」の定義：そのカードの直近`vocab.mastery_streak`（新設、既定3）回の解答がすべて正解であること。解答回数がそれ未満のカードは習得に含めない。保存せず、`vocab_answer_log`（単語帳の問題集での解答だけ）から都度算出する（並び順は`answered_at`と`id`）。単語帳全体をGROUP BYかウィンドウ関数でまとめて算出し、N+1を禁止する。この関数は要件Eで1か所に作り、節目・道のりマップ・単語帳画面で共通に使う（DRY） |
+| E-U2 | 節目：`MilestoneType`に`VOCAB_MASTERED_TERMS`（資格試験）を追加する。数える範囲は、その目標のすべての単語帳の習得用語数の合計。閾値は`milestone.vocab_mastered_terms_thresholds`（新設、既定`"10,30,50,100,200,300,500"`）。節目のキーは閾値の値。判定は`milestone_service_exam.detect_exam_milestones`に追加する |
+| E-U3 | 判定のタイミング：既存の記録確定時（`detect_and_record_for_category`）に加え、単語帳の出題セッションを終えたときにも判定する。セッション終了の画面で、未お祝いの節目を既存の`useMilestoneCelebrationQueue`・`MilestoneCelebrationModal`に積んで表示する（新しいモーダルは作らない）。GETに副作用を持たせない既存の方針（判定はPOST、取得はGET）を守る |
+| E-U4 | 既存利用者へのまとめて表示：単語帳の解答履歴はこの版から始まるため、過去分の一括判定（`milestone.backfill_completed`）は不要 |
+| E-U5 | 道のりマップ：資格試験の詳細版（`GoalRoadmapTab`）の山の図の下に「用語の習得」欄を追加する。習得数／登録数と進捗バー、次の節目までの残り語数を表示する。山の図の座標計算（`roadmapGeometry.ts`）には手を入れない。データは`GET /goals/{id}/roadmap`のレスポンスに、資格試験のときだけ値が入る項目として追加する（読書・仕事はnull）。単語帳が無い目標では、この欄を出さない。ダッシュボードの縮小版（`GoalRoadmapMini`）と`GET /dashboard`には追加しない |
+| E-U6 | 単語帳の画面：一覧と詳細に「習得済み」の印と習得数を表示する。要件Aの絞り込みに「未習得」を追加する |
+| E-U7 | 文言は継続を褒める表現だけを使う（既存M16と同じ）。`ja.json`・`en.json`の両方に追加する |
+| E-U8 | 設定画面：新設する2つの値（`vocab.mastery_streak`、`milestone.vocab_mastered_terms_thresholds`）を、既存の節目の閾値と同じ配線で画面から変更できるようにする。入力の検証（整数・昇順・重複なし）も既存と同じにする |
 
 ### 1.1 バックエンド（変更する箇所）
 
@@ -324,6 +347,59 @@
 | `export_service_exam.py` | 単語帳・提案はナレッジエクスポート対象外（要件A U5の横展開、提案は単語帳の前段に過ぎないため同様に対象外） |
 | `backup_service.py`の一括保存・復元 | `Base.metadata.sorted_tables`方式のため新規モデルをBaseへ登録するだけで自動対応（要件A §1.4と同じ前例） |
 
+### 1.8 要件E：影響範囲（フルスキャンの結果、2026-11-21）
+
+新規テーブル・新規マイグレーションは無い（`MilestoneType`への値追加は`native_enum=False`の文字列列のためスキーマ変更不要。新設`app_setting`2件は既存の「無いものだけ追加」方式に委ねる、D7・D-D12等の既存前例と同じ）。
+
+#### 1.8.1 バックエンド（変更する箇所）
+
+| 領域 | 対象 | 変更の種類 |
+| --- | --- | --- |
+| 列挙 | `app/constants/enums.py` | `MilestoneType.VOCAB_MASTERED_TERMS`を`EXAM_OVERALL_PROGRESS`の直後に追加（EXAM系で隣接、E-D1） |
+| 設定キー | `app/constants/app_setting_keys.py` | `vocab.mastery_streak`（既定3）・`milestone.vocab_mastered_terms_thresholds`（既定`"10,30,50,100,200,300,500"`）を追加 |
+| 初期データ | `app/init/seed_data.py` | 上記2キーの既定値 |
+| 新規サービス関数 | `app/services/vocab_service.py` | `compute_mastered_card_ids`（唯一の習得判定、E-U1）・`compute_goal_vocab_mastery`（目標単位の合計、節目・道のりマップ共通）・`compute_mastered_card_counts_by_deck`（デッキ単位、単語帳画面用）・`VocabMasteryTotals`。`filter_cards`に`UNMASTERED`絞り込みを追加（`mastered_card_ids`引数、既定`frozenset()`で既存呼び出し元は無改修） |
+| 既存サービス改修 | `app/services/milestone_service_exam.py` | `detect_exam_milestones`に`_detect_vocab_mastery_milestones`を追加（E-U2）。教材が0件でも単語帳の判定は行うよう、早期returnを「教材が無ければそこだけスキップ」する構造へ変更（既存テストの`== []`期待は単語帳0件のため影響なし） |
+| 既存サービス改修 | `app/services/roadmap_service.py` | `_vocab_mastery`新設（E-U5）。`Roadmap`データクラスに`vocab_mastery`フィールド追加、EXAMのみ算出・READING/WORKは常にNone |
+| 新規API | `app/api/vocab.py` | `POST /vocab-decks/{deck_id}/quiz-sessions/complete`（E-U3、`milestone_service_common.detect_and_record_new_achievements`を単一目標に対して呼ぶ） |
+| 既存API改修 | `app/api/vocab.py` | `list_vocab_decks`・`get_vocab_deck`・`update_vocab_deck`・`create_vocab_deck`に`mastered_card_count`を追加。`list_vocab_cards`・各カードエンドポイントに`is_mastered`を追加 |
+| 既存API改修 | `app/api/goals.py` | `serialize_roadmap`に`vocab_mastery`を追加 |
+| スキーマ改修 | `app/schemas/vocab.py`・`app/schemas/roadmap.py` | `VocabDeckRead.mastered_card_count`・`VocabCardRead.is_mastered`・`RoadmapVocabMasteryRead`・`GoalRoadmapRead.vocab_mastery`追加 |
+| 設定配線 | `app/services/settings_service.py`・`app/schemas/setting.py`・`app/api/settings.py` | `VocabMasterySettings`（`mastery_streak`・`mastered_terms_thresholds`）を既存のmilestone_threshold・quick_recordと同じ配線で追加（E-U8） |
+| テスト | `backend/tests/test_vocab_service.py`・`test_milestone_service_exam.py`・`test_roadmap_service.py`・`test_api_vocab.py`・`test_api_settings.py`・`test_settings_service.py` | 追記 |
+
+#### 1.8.2 フロントエンド（変更する箇所）
+
+| 領域 | 対象 | 変更の種類 |
+| --- | --- | --- |
+| API層 | `src/api/vocab.ts`（`completeVocabQuizSession`追加）・`src/api/goals.ts`（`RoadmapVocabMasteryRead`型追加）・`src/types/api.d.ts`（再生成） | 追加 |
+| 出題セッション | `src/features/vocab/useVocabQuizSession.ts` | セッション終了時の判定呼び出し・`useMilestoneCelebrationQueue`の保持・`milestone`/`dismissMilestone`の公開（E-U3）。`VocabQuizPage.tsx`は薄いまま、新しい`MilestoneCelebrationModal`描画のみ追加 |
+| 単語帳画面 | `src/features/vocab/VocabCardList.tsx`（習得済みバッジ）・`VocabDeckHeader.tsx`（デッキ全体の習得数）・`VocabDeckListTab.tsx`（デッキ一覧の習得数）・`vocabCardFilters.ts`（`UNMASTERED`追加） | 追加（E-U6） |
+| 道のりマップ | `src/features/goal/GoalRoadmapTab.tsx`（新規`VocabMasteryRoadmapSection`を条件付き描画）・`VocabMasteryRoadmapSection.tsx`（新規） | 追加（E-U5） |
+| 節目文言 | `src/features/milestone/milestoneContent.ts` | `VOCAB_MASTERED_TERMS`のケース追加 |
+| 設定画面 | `src/features/settings/vocabMasterySettings.ts`（新規、`isValidThresholdList`を再利用）・`VocabMasterySettingsSection.tsx`（新規）・`SettingsPage.tsx`（マウント） | 追加（E-U8） |
+| 文言 | `src/locales/ja.json`・`en.json` | `vocab.deckList.masteredCount`・`vocab.deckDetail.masteredCount`/`masteredBadge`/`filterOptions.UNMASTERED`・`milestone.message.vocabMasteredTerms`・`goals.roadmap.vocabMastery.*`・`settings.vocabMastery.*` |
+| テスト | 上記変更ファイルそれぞれに対応する`.test.ts`/`.test.tsx`、`useDailyReportActions.test.ts`・`AddVocabTermButton.test.tsx`・`TodayVocabSuggestionsCard.test.tsx`・`VocabTermFields.test.tsx`・`VocabDeckDetailPage.test.tsx`・`VocabQuizPage.test.tsx`（既存のVocabDeck/VocabCardモック値へ新規必須フィールド追加） | 追記 |
+
+#### 1.8.3 ドキュメント（変更する箇所）
+
+| 文書 | 変更 |
+| --- | --- |
+| `docs/要件定義書_ミチナリ_v1.1.md` | 6.23へ要件E追記、改訂履歴 |
+| `docs/仕様書_ミチナリ_v1.1/` | 6.1.1〜6.1.3相当（節目一覧へ`VOCAB_MASTERED_TERMS`追記）・6.6（道のりマップ、「用語の習得」欄）・6.20（単語帳、習得済み表示・絞り込み）・設定項目一覧、改訂履歴 |
+| `docs/設計書_データ構造編_ミチナリ_v1.1/05_テーブル定義/` | `milestone_type`列挙値追加・新設`app_setting`2件、改訂履歴 |
+| `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/` | `30_単語帳の判定・出題ロジック.md`へ習得の定義・算出を追記、節目判定ロジックの章へ`VOCAB_MASTERED_TERMS`を追記、改訂履歴 |
+| `README.md` | 単語帳の説明へ要件Eの反映 |
+| `backend/app/content/help_content.json`（`frontend/src/locales/ja.json`の`help.sections.*`が正） | 単語帳・節目・道のりマップのヘルプ本文更新 |
+
+#### 1.8.4 確認だけする箇所（変更不要と確認済み）
+
+| 項目 | 状況 |
+| --- | --- |
+| `GoalRoadmapMini.tsx`・`GET /dashboard`（`app/schemas/summary_card.py`） | E-U5の明示指示により追加しない（ダッシュボードの初期表示2秒要件を優先） |
+| `backup_service.py`の`DATA_SCHEMA_VERSION` | 新規テーブルが無いため変更不要（新設`app_setting`2件は既存の「無いものだけ追加」方式でカバー、D7等の既存前例） |
+| `milestone.backfill_completed`（既存の一括バックフィル機構） | E-U4のとおり、単語帳の解答履歴はこの版から始まるため過去分のバックフィルは不要。既存のバックフィル関数（`milestone_service_common.backfill_achievements_if_needed`）は`detect_common_milestones`+`_detect_category_milestones`経由で`detect_exam_milestones`を呼ぶため、既存利用者が初回起動時に大量の`VOCAB_MASTERED_TERMS`を遡って祝うことはない（単語帳データが無ければ判定自体が空になるため、特別な除外コードは不要） |
+
 ## 2. 現状のベースライン（開発前、2026-11-15、`dev/2026-11-15`ブランチ）
 
 - バックエンド（`python -m pytest -q --cov-report=term-missing`）：2,293件合格、カバレッジ100%（文9,909・分岐1,800、いずれも欠落0）。`ruff check .` 0件。
@@ -346,6 +422,12 @@
 - バックエンド（`python -m pytest -q --cov-report=term-missing`、`backend`で実行）：**2,534件合格**、カバレッジ100%（文10,824・分岐2,024、欠落0）。`ruff check .` 0件。§8記載の要件C「コミット前チェック・再実施」後の最終値と完全一致（本セッションでの独立検証、§0.7）。
 - フロントエンド（`npm run test -- --run`）：**217ファイル／1,744件合格**、カバレッジ100%（Statements/Branches/Functions/Lines全て）。`npm run lint`（oxlint）0件。`npx tsc -b` 0件。
 - 要件D完了時はこの2.3の値と比較する（§2.2は要件C着手前のもので、要件Dの比較対象ではない）。
+
+### 2.4 要件E着手前のベースライン再計測（要件A・B・C・Dの完了検証後、2026-11-21）
+
+- バックエンド（`python -m pytest -q --cov-report=term-missing`、`backend`で実行）：**2,573件合格**、カバレッジ100%（文10,983・分岐2,052、欠落0）。`ruff check .` 0件。§0.10の独立検証と完全一致。
+- フロントエンド（`npm run test -- --run`）：**223ファイル／1,774件合格**、カバレッジ100%（Statements/Branches/Functions/Lines全て）。`npm run lint`（oxlint）0件。`npx tsc -b` 0件。§0.10の独立検証と完全一致。
+- 要件E完了時はこの2.4の値と比較する（§2.3は要件D着手前のもので、要件Eの比較対象ではない）。
 
 ## 3. 作業Todo
 
@@ -508,8 +590,46 @@
 - [x] D-D-05 README.md：単語帳説明へ要件Dの反映
 - [x] D-D-06 help_content.json：日次報告・単語帳ヘルプ本文更新
 
-### 3.E 要件E：習得の可視化（別セッション）
-（着手時に追記）
+### 3.E 要件E：習得の可視化（本セッションの対象）
+
+#### 3.E.0 準備
+- [x] E-00 要件A・B・C・Dの完了検証（独立サブエージェント、§0.10）、決定事項の記録（§0.11）、影響範囲の確定（§1.8）、ベースライン再計測（§2.4）
+- [x] E-01 脅威モデル実施（新規エンドポイント`POST /vocab-decks/{deck_id}/quiz-sessions/complete`が対象、`.claude/skills/threat-model.md`の手順に従う、§5.8へ記録）
+
+#### 3.E.1 バックエンド実装
+- [x] E-B01 列挙の追加（`MilestoneType.VOCAB_MASTERED_TERMS`）、設定キー追加（`vocab.mastery_streak`・`milestone.vocab_mastered_terms_thresholds`）、シード
+- [x] E-B02 `vocab_service.py`：`compute_mastered_card_ids`（唯一の習得判定、E-U1）・`compute_goal_vocab_mastery`・`compute_mastered_card_counts_by_deck`・`VocabMasteryTotals`。`filter_cards`に`UNMASTERED`追加
+- [x] E-B03 `milestone_service_exam.py`：`detect_exam_milestones`へ単語帳の習得用語数判定を追加（E-U2、教材0件でも単語帳判定は行う構造へ）
+- [x] E-B04 API：`POST /vocab-decks/{deck_id}/quiz-sessions/complete`新設（E-U3、既存の単一目標版判定関数を再利用）
+- [x] E-B05 `roadmap_service.py`：`_vocab_mastery`新設（E-U5）、`Roadmap`/`GoalRoadmapRead`へ`vocab_mastery`追加（EXAMのみ算出）
+- [x] E-B06 API：`VocabDeckRead.mastered_card_count`・`VocabCardRead.is_mastered`を既存の一覧・単発エンドポイントへ追加
+- [x] E-B07 設定配線：`VocabMasterySettings`（`settings_service.py`・`schemas/setting.py`・`api/settings.py`）を既存の節目閾値と同じ配線で追加（E-U8）
+- [x] E-B08 セキュリティ・境界テスト：習得の境界（直近N回がすべて正解／N回未満／途中に不正解）、同時刻の解答の並び、他の目標の単語帳が混ざらないこと、閾値到達時に1回だけ記録されること、セッション終了とその後の記録確定の両方で判定しても二重に記録されないこと、道のりマップの項目が資格試験だけに入ること
+
+#### 3.E.2 フロントエンド実装
+- [x] E-F01 `api/vocab.ts`に`completeVocabQuizSession`追加、`api/goals.ts`に`RoadmapVocabMasteryRead`型追加、型再生成（`npm run generate:api-types`）
+- [x] E-F02 `useVocabQuizSession.ts`：セッション終了時の判定呼び出し・`useMilestoneCelebrationQueue`の保持・`milestone`/`dismissMilestone`の公開。`VocabQuizPage.tsx`は`MilestoneCelebrationModal`描画のみ追加
+- [x] E-F03 単語帳画面：`VocabCardList.tsx`（習得済みバッジ）・`VocabDeckHeader.tsx`（デッキ全体の習得数）・`VocabDeckListTab.tsx`（デッキ一覧の習得数）・`vocabCardFilters.ts`（`UNMASTERED`追加）
+- [x] E-F04 道のりマップ：`VocabMasteryRoadmapSection.tsx`新設、`GoalRoadmapTab.tsx`へ条件付き描画を追加（単語帳が無い目標では非表示）
+- [x] E-F05 `milestoneContent.ts`へ`VOCAB_MASTERED_TERMS`のケース追加
+- [x] E-F06 設定画面：`vocabMasterySettings.ts`（新規、`isValidThresholdList`再利用）・`VocabMasterySettingsSection.tsx`（新規）・`SettingsPage.tsx`へマウント
+- [x] E-F07 `ja.json`/`en.json`：新規文言の追加（継続を褒める表現のみ、M16・E-U7）
+- [x] E-F08 lint（oxlint 0件）・tsc（0件）・test（223ファイル/1,775件合格、カバレッジ100%）
+
+#### 3.E.3 検証
+- [x] E-V01 ruff・pytest・vitest（§2.4比較：既存テストが1件も壊れていないこと）
+- [x] E-V02 既存DBからのアップグレード確認（実利用者DB退避コピー〈`data/michinari.db`〉、`alembic upgrade head`で要件A〜Dの4マイグレーションを適用〈実DB側は`0e22c031f0ca`のまま未リリースのため〉→新設`app_setting`2件のシード投入→`TestClient`でのAPI起動確認〈`GET /settings`の`vocab_mastery`・既存1件の目標取得〉まで実施。実DBはmd5一致で不変を確認済み。要件E自体は新規マイグレーションを持たない（Alembic head不変、`e9eca0569d7c`））
+- [x] E-V03 観点別レビュー（コミット前チェック、7エージェント並列実行、§5.9参照）
+- [x] E-V04 実機確認手順の提示（報告メッセージに記載）
+
+#### 3.E.4 文書改訂
+- [x] E-D01 要件定義書：6.23へR-195〜R-198追記、改訂履歴1.1改61
+- [x] E-D02 仕様書：6.2（道のりマップ「用語の習得」欄）・6.11（設定項目一覧）・6.20（単語帳画面、節目のお祝い連携）、改訂履歴1.1改72
+- [x] E-D03 設計書（データ構造編）：`milestone_type`列挙値（`VOCAB_MASTERED_TERMS`）追加・新設`app_setting`2件（5.2・5.4）、改訂履歴1.1改73
+- [x] E-D04 設計書（ロジック・プロンプト編）：`30_単語帳の判定・出題ロジック.md`へ30.11（習得の定義・算出・節目判定・道のりマップ・単語帳画面への反映・STRIDE）を追加
+- [x] E-D05 README.md：単語帳の説明・節目のお祝いの説明へ要件Eの反映
+- [x] E-D06 help_content.json（`ja.json`の`help.sections.vocab.p9`・`roadmap.p4`が正、`export_help_content.py`で生成。`en.json`にも対訳を追加）：単語帳・道のりマップのヘルプ本文更新。`test_help_content.py` 5件合格を確認
+- [x] E-D07 全要件（A〜E）の完了をTodo §8へ記録
 
 ## 4. 処理フロー（要件A確定版）
 
@@ -796,6 +916,70 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,573件合格、カバレッジ100%）。#6・#7（フロントエンドの重複排除・切り出し）はコミット前チェックの自己レビュー（Stop Hook）で追加検出し、同日中に修正・再検証済み：フロントエンド223ファイル・1,774件合格、カバレッジ100%、oxlint・tsc 0件（§8参照）。
 
+## 5.8 脅威モデル（STRIDE、要件E、`.claude/skills/threat-model.md`の手順に従う、2026-11-21）
+
+要件Eは新規の外部入力を持たない。AIは使わず（E-U7相当の前提）、単語帳の習得判定・節目・道のりマップはいずれも既存データ（`vocab_answer_log`・`app_setting`）からの読み取り・既存の判定関数の呼び出しのみである。新規の信頼境界は、新設した1エンドポイント（`POST /vocab-decks/{deck_id}/quiz-sessions/complete`）のみのため、本分析はその経路に絞る。
+
+### データフロー
+
+```
+[利用者 → 単語帳の出題セッションを終える（既存、要件A）]
+                    ↓
+[画面 → POST /vocab-decks/{deck_id}/quiz-sessions/complete（新規、パラメータはdeck_idのみ）]
+    → vocab_service.get_deck（既存、所有関係・存在確認）
+    → goal_service.get_goal（既存）
+    → milestone_service_common.detect_and_record_new_achievements（既存、単一目標版。
+       内部でmilestone_service_exam.detect_exam_milestonesを呼び、新規の
+      _detect_vocab_mastery_milestonesがvocab_service.compute_goal_vocab_mastery
+      〈読み取りのみ〉を経由して判定する）
+    → GoalMilestoneAchievementへ保存（既存のテーブル・既存の一意制約、新規到達分のみ）
+                    ↓
+[GET /goals/{goal_id}/milestones/pending-celebrations（既存、副作用なし）で未お祝いの節目を取得]
+[POST /goals/{goal_id}/milestones/{id}/celebrate（既存）でお祝い済みに更新]
+```
+
+- **アクター**：単一のローカル利用者のみ（既存前提、認証境界は無い）。外部システムは関与しない（AI不使用）。
+- **信頼境界**：ブラウザ↔localhost限定のFastAPIという既存の唯一の境界のみ（新規の境界越えは発生しない）。
+
+### STRIDE分析
+
+| カテゴリ | 脅威 | 対策 | 実装箇所 |
+| --- | --- | --- | --- |
+| **S**poofing | 該当なし（単一利用者ローカル運用、変更なし） | — | — |
+| **T**ampering | `deck_id`以外の入力を受け取らないため、改ざん可能なデータは無い。判定ロジック自体は既存の`detect_and_record_new_achievements`（節目のお祝い機能で既に検証済み）を再利用するのみで新規実装は`_detect_vocab_mastery_milestones`の読み取り集計のみ | 新規ロジックに書き込み系の分岐は無い（`threshold_milestones`が返す値をそのまま既存の保存関数へ渡すのみ） | `milestone_service_exam.py` |
+| **R**epudiation | 該当なし（既存の記録確定時の判定と同じ扱いで、否認防止の追加要件は無い） | — | — |
+| **I**nformation Disclosure（他目標のデッキ操作） | `deck_id`から解決した`goal_id`を使わず、別目標の節目を判定・保存してしまう経路がないか | `vocab_service.get_deck`で存在確認した後、その`deck.goal_id`から`goal_service.get_goal`を呼ぶため、他目標のデータには到達しない（既存の所有関係解決パターンをそのまま使用）。クロス目標分離は既存の節目機能のテストで既に担保済み（§5参照） | `app/api/vocab.py` |
+| **D**enial of Service（繰り返し呼び出し） | セッションを繰り返し終えることで同APIを何度も呼べるが、`GoalMilestoneAchievement`の一意制約（`goal_id, milestone_type, milestone_key`）により重複INSERTは発生しない。計算コストも`compute_goal_vocab_mastery`（その目標の単語帳カード数に比例する1クエリ×2）のみで、既存の記録確定時の判定と同程度 | 既存の一意制約・既存の軽量な集計方式をそのまま使用、新規の対策は不要 | `models/milestone.py`（既存）、`vocab_service.py` |
+| **E**levation of Privilege | 新規のAPI操作権限は増えない（既存の読み取り専用集計関数のみを使う、`deck_id`の所有関係は既存の`get_deck`が解決） | 設計上の制約（新規の権限チェックの追加は不要） | — |
+
+### 受容したリスク
+
+- 本要件固有の新規リスクは無い。既存の節目のお祝い機能・単語帳機能のいずれかで既に受容済みのリスクプロファイルの範囲内（単一利用者ローカル運用、外部システム関与なし）。
+
+### 設計書への反映
+
+STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/30_単語帳の判定・出題ロジック.md`（習得の定義・節目判定ロジックの追記箇所）へ転記する（文書改訂E-D04で実施）。
+
+## 5.9 観点別レビュー（コミット前チェック、要件E、2026-11-21実施）
+
+`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`xss-reviewer`・`test-coverage-reviewer`・`performance-reviewer`の7エージェントを並列実行（対象差分：`git diff ccad14e`、要件D完了時点との差分）。検出事項と対応:
+
+| # | エージェント | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | dry-reviewer | MEDIUM | `compute_card_stats`と`compute_mastered_card_ids`が、同じ`VocabAnswerLog`の行取得・グルーピングをほぼ同一の形で個別に実装しており、両方を呼ぶ箇所（`list_vocab_cards`・`_card_read_single`）で同じ行を2回クエリしていた | 修正済み：`vocab_service._fetch_answer_logs_by_card`を新設し、両関数がこの行取得を共有する方式に変更（クエリの集計ロジック自体は変更なし） |
+| 2 | style-reviewer | MEDIUM | `api/vocab.py`の対になるヘルパー関数の命名が`_card_read_single`（対象→動作→単発）・`_single_deck_read`（単発→対象→動作）で語順が不統一だった | 修正済み：`_single_deck_read`を`_deck_read_single`へ改名し、語順を揃えた |
+| 3 | performance-reviewer | MEDIUM | 記録確定時の判定（`detect_and_record_for_category`）がACTIVEなEXAM目標ごとにループし、各goalで`compute_goal_vocab_mastery`が3クエリを発行するため、EXAM目標数に比例してクエリ数が増える（既存のREADING向けlifetime集計の一括事前計算パターンとの非対称） | **対応不要と判断**（§0.2相当の理由を下記に記録） |
+| 4 | performance-reviewer | LOW | `roadmap_service._vocab_mastery`が「単語帳の有無確認」と「`compute_goal_vocab_mastery`内部」の両方で`list_decks_for_goal`を呼び、同一リクエスト内で2回発行していた | 修正済み：`compute_goal_vocab_mastery`に`deck_ids`引数（省略可）を追加し、`roadmap_service`側で取得済みのデッキID一覧を渡す方式に変更 |
+| 5 | performance-reviewer | LOW | `compute_mastered_card_counts_by_deck`がデッキ全カードをPython側でグルーピングする点 | 対応不要と判断（判定ロジック〈`compute_mastered_card_ids`〉をSQL側で再実装すると重複が生まれるため、レビュー自身もPython側集計を支持） |
+| 6 | dry-reviewer | LOW | `detect_exam_milestones`が、単語帳判定を教材の有無に関わらず行う必要から、早期returnを廃止したことでネストが4段に深くなった | 修正済み：教材関連の判定（教材1周完了・全体進捗率）を`_detect_material_milestones`へ分離し、`detect_exam_milestones`本体を2つの判定関数の合成（ネスト無し）まで平坦化 |
+| 7 | test-coverage-reviewer | MEDIUM | `useVocabQuizSession.ts`の`isSessionDone`（`questions.length > 0`のガード）について、出題0件のセッションでは節目判定が呼ばれないことを直接検証するテストが無かった（`src/**/use*.ts`はカバレッジ閾値の対象外だが、非自明な分岐のため直接テストが期待される箇所） | 修正済み：`useVocabQuizSession.test.tsx`に`questions: []`で開始した場合に`completeVocabQuizSession`が呼ばれないことを検証するテストを追加 |
+| 8 | test-coverage-reviewer | LOW | 道のりマップで「単語帳はあるがカードが0件」の組み合わせを直接検証するテストが無い（既存関数の合成結果であり新規の分岐ではない、実測カバレッジは100%） | 対応不要と判断（レビュー自身も追加必須ではないと判定） |
+| — | label-checker・injection-reviewer・xss-reviewer | — | ハードコード文言・ゼロハードコーディング・インジェクション・XSSのいずれも指摘なし。`ja.json`/`en.json`の文言トーン（継続を褒める表現のみ）・両言語のキー対応漏れも無いことを確認 | 対応不要 |
+
+**#3（performance-reviewer MEDIUM、対応不要と判断した理由）**：既存のREADING向け最適化（`compute_reading_totals`の事前一括計算）は、利用者の読書全体という「全目標に対して同一の値」をgoalの数だけ重複して再計算する無駄を避けるためのものである。これに対し単語帳の習得集計は、目標ごとに異なる単語帳・カードを対象とする「目標固有の計算」であり、同一値の重複計算という無駄は発生しない。コストはACTIVEなEXAM目標数に比例するのみであり、本アプリは単一利用者ローカル運用で同時進行するEXAM目標数は現実的に少数（1〜数件）のため、READINGと同じ事前バッチ化（`milestone_service_common`・`milestone_service_exam`双方への新規引数の追加、既存テストの大規模な署名変更を伴う）を行うコストが、現実的な効果に比して大きいと判断した。既存の`vocab_quiz_generation_service.run_all`（デッキ数×カード数の処理）等と同程度の計算量であり、本機能固有の後退ではない。
+
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,605件合格、カバレッジ100%〈文11,083・分岐2,072、欠落0〉、ruff 0件）。フロントエンドも再実行し合格・回帰無しを確認済み（226ファイル・1,802件合格、カバレッジ100%、oxlint・tsc 0件。§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |
@@ -847,6 +1031,16 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設エンドポイント（`GET /goals/{goal_id}/vocab-suggestions`、404判定を含む）・新設app_setting/prompt_templateの反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
 - セキュリティテスト（作り話の破棄・区切りの偽装・敵対的な長い行・禁止語を含む日記は送らない・存在しないIDへの操作は404・他目標の提案・単語帳を操作できない）が全て合格していること。→ 達成
 
+### 7.E 要件Eの完了の定義
+
+- §3.E（E-00・E-01・E-B01〜E-B08・E-F01〜E-F08・E-V01〜E-V04・E-D01〜E-D07）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文11,083・分岐2,072〉、フロントエンド100%〈文2,738・分岐1,803〉）
+- §2.4のベースラインと比較し、既存の単語帳（要件A〜D）・節目のお祝い・道のりマップのテストが1件も壊れていないこと。→ 達成
+- 新規エンドポイント（`POST /vocab-decks/{deck_id}/quiz-sessions/complete`）が対象のため実装前に`/threat-model`を実施したこと。→ 達成（§5.8、設計書30.11.5）
+- 観点別レビュー（§5.9、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成（HIGHの指摘は0件。MEDIUM3件中2件修正・1件は理由を記録して対応不要と判断、LOW複数件のうち該当分を修正）
+- 完了条件に明記された検証項目（習得の境界・同時刻解答の並び・他目標分離・閾値到達時の単発記録・セッション終了と記録確定の二重記録防止・道のりマップの資格試験限定）がすべてテストで検証されていること。→ 達成（§5.9 test-coverage-reviewer確認済み）
+- 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設フィールド（`vocab_mastery`設定・`mastered_card_count`・`is_mastered`）の反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み。要件E自体は新規マイグレーションを持たない）
+
 ## 8. 作業記録
 
 - 2026-11-15：要件Aの開発着手。フルスキャン（4系統の調査エージェント＋直接のファイル確認）を実施し、復習クイズ（Phase49）を最も近い前例として本文書を作成。フルスキャンにより2点の食い違いを発見：①`DATA_SCHEMA_VERSION`は提示時点で既に"1.8"（ひとこと記録モードで導入済み）のため1.9へ上げる（D5）②`quiz.*`設定キーは設定画面未配線の既知ギャップがあり、新設の`vocab.*`も同様の扱いとする（D7）。いずれも利用者へ報告済み。ベースライン計測：バックエンド2,293件／カバレッジ100%／ruff 0件、フロントエンド203ファイル・1,658件／カバレッジ100%／oxlint・tsc 0件。
@@ -890,3 +1084,13 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-21（Stop Hookによるコミット前チェックの指摘対応）：Stop Hookから「DRY違反・テスト整合性・パフォーマンスの指摘が未対応のまま残っている」との指摘を受け、§5.7 #6・#7として追加対応した。日記エントリの絞り込み述語（`goal_id`存在・`diary_learned`非空白）が`ExamReportSection.tsx`・`DailyReportViewPage.tsx`・`useDailyReportActions.ts`の3箇所に重複していたDRY違反（dry-reviewer指摘）と、EXAM以外の目標の日記エントリにも`getVocabDecks`を呼ぶ無駄（performance-reviewer指摘。実害は無いことを確認済みだったが絞り込み自体は未実装だった）を、`frontend/src/features/vocab/vocabSuggestionEligibility.ts`（`selectDiaryEntriesEligibleForVocabSuggestions`・`resolveExamGoalIdForVocab`の2関数）へ切り出して一括修正した。`DailyReportViewPage.tsx`の`examGoalId`導出ロジック（3分岐）もこの切り出しにあわせて純粋関数化し、test-coverage-reviewerが指摘していた未検証分岐にテストを追加した。修正後、フロントエンド全件再実行：223ファイル・1,774件合格、カバレッジ100%、oxlint 0件、`tsc -b` 0件。既存テストは1件も壊れていない。バックエンドは本ラウンドで変更無し（§5.7時点の2,573件合格・カバレッジ100%のまま）。
 
 **単語帳機能（要件A〜D）の進捗まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）の4要件が完了した（§7・§7.B・§7.C・§7.Dすべて達成）。資格試験の利用者は、日次報告の確定だけで単語帳の用語候補が提案され、ワンタップで追加できるようになった（AIを使わない手動追加の手段も用意）。単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案、という一連の循環が完成した。要件E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
+
+- 2026-11-21：要件Eの開発着手。要件A〜Dの完了検証は独立したサブエージェント（本セッションの作業コンテキストを持たない状態）に依頼し（§0.10）、依頼文中のAlembic head前提の誤り1件のみ（実装・記帳の漏れではない）を検出。決定事項の記録（§0.11）、影響範囲の確定（§1.8）、ベースライン再計測（§2.4、バックエンド2,573件／フロントエンド223ファイル・1,774件、§0.10の独立検証と完全一致）を実施してから着手した。新規テーブル・新規マイグレーションは持たない（`MilestoneType`への値追加はnative_enum=Falseの文字列列のため、新設`app_setting`2件は既存の「無いものだけ追加」方式のため、いずれもスキーマ変更不要）。
+
+- 2026-11-21（続き）：バックエンド（`vocab_service.compute_mastered_card_ids`〈唯一の習得判定〉・`compute_goal_vocab_mastery`・`compute_mastered_card_counts_by_deck`新設、`filter_cards`への`UNMASTERED`追加、`milestone_service_exam.detect_exam_milestones`への単語帳習得判定の追加、`roadmap_service._vocab_mastery`新設、新規API`POST /vocab-decks/{deck_id}/quiz-sessions/complete`、既存API・スキーマへの`mastered_card_count`/`is_mastered`追加、`VocabMasterySettings`の設定配線）、フロントエンド（`useVocabQuizSession.ts`へのセッション終了時節目判定統合、`VocabCardList.tsx`・`VocabDeckHeader.tsx`・`VocabDeckListTab.tsx`への習得表示、新規`VocabMasteryRoadmapSection.tsx`・`vocabMasterySettings.ts`・`VocabMasterySettingsSection.tsx`、`milestoneContent.ts`への`VOCAB_MASTERED_TERMS`ケース追加）を実装。`/threat-model`は新設の1エンドポイントに対して実装前に実施（§5.8）。
+
+- 2026-11-21（続き）：コミット前チェックとして観点別レビュー7エージェントを並列実行（詳細は§5.9）。HIGHの指摘は0件。MEDIUM3件（`compute_card_stats`/`compute_mastered_card_ids`間のクエリ重複、`api/vocab.py`のヘルパー命名不統一、フロントエンドの0件セッション時のテスト欠落）はいずれも修正、MEDIUM1件（EXAM目標数に比例したクエリ発行）は既存のREADING向け最適化と性質が異なる（lifetime集計の重複回避ではなく目標固有の計算のため）ことを理由に対応不要と判断（§5.9に記録）。LOW複数件（道のりマップでの`list_decks_for_goal`二重発行）も合わせて修正した。修正後、バックエンド全件再実行：**2,605件合格**・カバレッジ100%（文11,083・分岐2,072、欠落0）・ruff 0件。フロントエンド：226ファイル・1,802件合格・カバレッジ100%・oxlint 0件・tsc 0件。既存テストは1件も壊れていない（§2.4比較）。`osv-scanner scan -r .`を実行し既知の脆弱性0件を確認。
+
+- 2026-11-21（最終）：実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`e9eca0569d7c`、要件A〜Dの4マイグレーションを通し適用。要件E自体は新規マイグレーションを持たないためAlembic headは変化しない）・起動時シード（新設`app_setting`2件：`vocab.mastery_streak`=3、`milestone.vocab_mastered_terms_thresholds`="10,30,50,100,200,300,500"）を実施。レビュー対応による最終コード状態で実サーバ（`TestClient`）を起動し、`GET /settings`（`vocab_mastery`グループの反映）・`GET /goals`（既存の資格試験目標1件を正常表示）・`GET /goals/{id}/vocab-decks`（空配列、単語帳未登録のため想定どおり）・`GET /goals/{id}/roadmap`（`vocab_mastery`がnull、単語帳が無い目標のため想定どおり）を確認した。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一：`935ff2854ef36c287f56091a055f0216`）。以上により、要件Eの完了条件（§7.E）を満たしたと判断する。
+
+**単語帳機能（要件A〜E）の完了まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）・習得の可視化（要件E）の全5要件が完了した（§7・§7.B・§7.C・§7.D・§7.Eすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案→習得した用語数の節目のお祝い・道のりマップへの反映、という一連の循環を得られる。要件A〜Dはmainへマージ済み（PR #135〜#137）だが、要件A・B・Cのマイグレーション（`1bd06141379f`〜`1be51b4ce9c0`）・要件Dのマイグレーション（`e9eca0569d7c`）はいずれも実利用者DBへ未適用（未リリース）のままである。要件Eは新規マイグレーションを持たないため、次回のリリース（`backend/release.bat`）で要件A〜Eの変更がまとめて反映される。

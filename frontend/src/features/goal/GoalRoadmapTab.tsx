@@ -6,6 +6,7 @@ import { getGoalRoadmap } from '../../api/goals'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 import { RoadmapDiagram } from './RoadmapDiagram'
 import { RoadmapLegend } from './RoadmapLegend'
+import { VocabMasteryRoadmapSection } from './VocabMasteryRoadmapSection'
 import { buildRoadmapSummaryText, resolveRoadmapStatusTextClass } from './roadmapSummaryText'
 
 type GoalRoadmapTabProps = { goalId: number }
@@ -48,6 +49,9 @@ export function GoalRoadmapTab({ goalId }: GoalRoadmapTabProps) {
         <RoadmapDiagram roadmap={roadmap} interactive />
       </div>
       <RoadmapLegend category={roadmap.category} />
+      {roadmap.vocab_mastery != null && (
+        <VocabMasteryRoadmapSection vocabMastery={roadmap.vocab_mastery} />
+      )}
     </Card>
   )
 }

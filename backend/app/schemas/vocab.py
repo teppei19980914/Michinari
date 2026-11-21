@@ -17,6 +17,8 @@ class VocabDeckRead(BaseModel):
     use_in_ai: bool
     display_order: int
     card_count: int
+    #: 習得済みカード数（開発Todo_単語帳_v1.0 要件E E-U6、都度算出）。
+    mastered_card_count: int
 
 
 class VocabDeckCreateRequest(BaseModel):
@@ -49,6 +51,8 @@ class VocabCardRead(BaseModel):
     accuracy_percent: float | None
     consecutive_incorrect: int
     last_answered_at: dt.datetime | None
+    #: 習得済みか（開発Todo_単語帳_v1.0 要件E E-U1、都度算出）。
+    is_mastered: bool
 
 
 class VocabCardCreateRequest(BaseModel):

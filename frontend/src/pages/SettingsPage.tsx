@@ -9,6 +9,7 @@ import { ThresholdSection } from '../features/settings/ThresholdSection'
 import { MilestoneThresholdSection } from '../features/settings/MilestoneThresholdSection'
 import { OnThisDaySettingsSection } from '../features/settings/OnThisDaySettingsSection'
 import { QuickRecordSettingsSection } from '../features/settings/QuickRecordSettingsSection'
+import { VocabMasterySettingsSection } from '../features/settings/VocabMasterySettingsSection'
 import { PromptDegradationSection } from '../features/settings/PromptDegradationSection'
 import { DisplaySection } from '../features/settings/DisplaySection'
 import { DesktopSection } from '../features/settings/DesktopSection'
@@ -50,6 +51,7 @@ export function SettingsPage() {
       <MilestoneThresholdSection settings={settings} />
       <OnThisDaySettingsSection settings={settings} />
       <QuickRecordSettingsSection settings={settings} />
+      <VocabMasterySettingsSection settings={settings} />
       <PromptDegradationSection settings={settings} />
       <DisplaySection settings={settings} />
       <DesktopSection settings={settings} />
