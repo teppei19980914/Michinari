@@ -821,6 +821,7 @@
         "GOAL_CONSULTATION_WORK": "目標相談（仕事）",
         "QUIZ_GENERATE": "復習クイズ生成",
         "VOCAB_QUIZ_GENERATE": "復習クイズ生成（単語帳）",
+        "VOCAB_TERM_EXTRACT": "用語提案（日記からの抜き出し）",
         "DAILY_FEEDBACK_BRIEF": "日次報告フィードバック（ひとこと記録・資格）",
         "DAILY_FEEDBACK_READING_BRIEF": "日次報告フィードバック（ひとこと記録・読書）",
         "DAILY_FEEDBACK_WORK_BRIEF": "日次報告フィードバック（ひとこと記録・仕事）",
@@ -1911,6 +1912,18 @@
       "checkWrongButton": "間違えた用語にまとめてチェックを付ける",
       "backToDeckButton": "単語帳へ戻る",
       "noQuestionsNotice": "この条件で出題できる問題がありません"
+    },
+    "suggestions": {
+      "title": "今日の記録に出てきた用語",
+      "noDeckNotice": "単語帳を作ると、記録から用語を提案できます",
+      "deckLabel": "追加先の単語帳",
+      "termLabel": "用語",
+      "meaningLabel": "意味（日記の一文を下書きにしています。編集できます）",
+      "aliasesLabel": "別名（任意）",
+      "addButton": "追加",
+      "dismissButton": "見送る",
+      "manualAddButton": "単語帳に用語を追加",
+      "manualAddNoDeckNotice": "単語帳を作ると、ここから用語を追加できます"
     }
   },
   "summaryCard": {

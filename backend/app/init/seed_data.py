@@ -103,6 +103,7 @@ from app.constants.app_setting_keys import (
     VOCAB_QUIZ_REFERENCE_MAX_CHARS,
     VOCAB_SESSION_DEFAULT_QUESTIONS,
     VOCAB_SESSION_MAX_QUESTIONS,
+    VOCAB_SUGGEST_MAX_PER_RECORD,
     VOCAB_TERM_MAX_CHARS,
     VOCAB_WEAK_ACCURACY_PERCENT,
 )
@@ -317,6 +318,8 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     VOCAB_QUIZ_REFERENCE_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     # 単語帳（開発Todo_単語帳_v1.0 要件C）。日次フィードバック・目標相談への用語注入。
     VOCAB_FEEDBACK_MAX_CHARS: ("4000", AppSettingValueType.INTEGER),
+    # 単語帳（開発Todo_単語帳_v1.0 要件D）。日次報告の日記からの用語提案。
+    VOCAB_SUGGEST_MAX_PER_RECORD: ("5", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
@@ -325,6 +328,7 @@ INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
     AiPurpose.RECAP_THEME_BODY: prompt_texts_common.RECAP_THEME_BODY,
     AiPurpose.QUIZ_GENERATE: prompt_texts_common.QUIZ_GENERATE,
     AiPurpose.VOCAB_QUIZ_GENERATE: prompt_texts_exam.VOCAB_QUIZ_GENERATE,
+    AiPurpose.VOCAB_TERM_EXTRACT: prompt_texts_exam.VOCAB_TERM_EXTRACT,
     AiPurpose.WEEKLY_SUMMARY: prompt_texts_exam.WEEKLY_SUMMARY,
     AiPurpose.DAILY_MESSAGE: prompt_texts_common.DAILY_MESSAGE,
     AiPurpose.GOAL_RETROSPECTIVE: prompt_texts_exam.GOAL_RETROSPECTIVE,

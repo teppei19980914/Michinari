@@ -115,6 +115,9 @@ class AiPurpose(enum.StrEnum):
     QUIZ_GENERATE = "QUIZ_GENERATE"
     #: 単語帳のカードから今日の復習の問題を作る（開発Todo_単語帳_v1.0 要件B）。
     VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
+    #: 日次報告の日記（学んだこと）から、単語帳へ追加する用語の候補を抜き出す
+    #: （開発Todo_単語帳_v1.0 要件D）。
+    VOCAB_TERM_EXTRACT = "VOCAB_TERM_EXTRACT"
     #: ひとこと記録モード（開発Todo「ひとこと記録」v1.0 Q2）で確定した日の日次報告
     #: フィードバック。注入変数・コンテキスト構築は各カテゴリの非BRIEF版と同じ
     #: （prompt_builder.build_daily_feedback／build_with_degradable_entriesをそのまま再利用し、
@@ -150,6 +153,8 @@ class ConversationScope(enum.StrEnum):
     QUIZ_GENERATE = "QUIZ_GENERATE"
     #: AiPurposeの同名定数と対になる単語帳由来のクイズ生成用の会話スコープ。
     VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
+    #: AiPurposeの同名定数と対になる用語提案（日記からの抜き出し）用の会話スコープ。
+    VOCAB_TERM_EXTRACT = "VOCAB_TERM_EXTRACT"
     #: AiPurposeの同名定数と対になるひとこと記録モード用の会話スコープ（17.2.1/17.6.1/17.8.1）。
     DAILY_FEEDBACK_BRIEF = "DAILY_FEEDBACK_BRIEF"
     DAILY_FEEDBACK_READING_BRIEF = "DAILY_FEEDBACK_READING_BRIEF"
@@ -291,3 +296,15 @@ class VocabQuizMode(enum.StrEnum):
     TYPED_MEANING_TO_TERM = "TYPED_MEANING_TO_TERM"
     CHOICE_TERM_TO_MEANING = "CHOICE_TERM_TO_MEANING"
     CHOICE_MEANING_TO_TERM = "CHOICE_MEANING_TO_TERM"
+
+
+class VocabTermSuggestionStatus(enum.StrEnum):
+    """日次報告の日記から抜き出した単語帳の用語候補の状態（開発Todo_単語帳_v1.0 要件D）。
+
+    `PENDING`は未対応、`ADDED`は単語帳へ追加済み、`DISMISSED`は見送り済み。いずれも
+    同じ目標・同じ用語（term_key）では再提案しない（開発Todo §0.8 D-U5）。
+    """
+
+    PENDING = "PENDING"
+    ADDED = "ADDED"
+    DISMISSED = "DISMISSED"

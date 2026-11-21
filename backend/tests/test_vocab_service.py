@@ -1592,3 +1592,30 @@ def test_build_glossary_overview_completes_within_one_second_for_many_cards(seed
     start = time.monotonic()
     vocab_service.build_glossary_overview(seeded_session, goal, max_chars=4000)
     assert time.monotonic() - start < 1.0
+
+
+def test_last_used_deck_id_returns_none_without_decks(seeded_session):
+    goal = make_exam_goal(seeded_session)
+
+    assert vocab_service.last_used_deck_id(seeded_session, goal.id) is None
+
+
+def test_last_used_deck_id_falls_back_to_first_deck_without_cards(seeded_session):
+    """1件もカードが無い目標は、display_order最小のデッキを返す（開発Todo §0.9 D-D5）。"""
+    goal = make_exam_goal(seeded_session)
+    deck1 = make_deck(seeded_session, goal, name="先に作ったデッキ")
+    make_deck(seeded_session, goal, name="後から作ったデッキ")
+
+    assert vocab_service.last_used_deck_id(seeded_session, goal.id) == deck1.id
+
+
+def test_last_used_deck_id_returns_deck_of_most_recently_created_card(seeded_session):
+    """「最後に使った単語帳」は、直近にカードを追加したデッキ（D-D5）。"""
+    goal = make_exam_goal(seeded_session)
+    deck1 = make_deck(seeded_session, goal, name="古いデッキ")
+    deck2 = make_deck(seeded_session, goal, name="新しいデッキ")
+    make_card(seeded_session, deck1, term="先に追加した用語")
+    latest_card = make_card(seeded_session, deck2, term="後から追加した用語")
+
+    assert vocab_service.last_used_deck_id(seeded_session, goal.id) == deck2.id
+    assert latest_card.deck_id == deck2.id

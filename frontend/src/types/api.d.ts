@@ -2443,6 +2443,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/vocab-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Vocab Term Suggestions */
+        get: operations["list_vocab_term_suggestions_api_v1_goals__goal_id__vocab_suggestions_get"];
+        put?: never;
+        /**
+         * Generate Vocab Term Suggestions
+         * @description 日次報告の確定成功後に画面から呼ぶ（開発Todo_単語帳_v1.0 要件D D-U4）。確定処理
+         *     自体（`finalize_record`）からは呼ばない。
+         */
+        post: operations["generate_vocab_term_suggestions_api_v1_goals__goal_id__vocab_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/vocab-suggestions/{suggestion_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Vocab Term Suggestion */
+        post: operations["accept_vocab_term_suggestion_api_v1_goals__goal_id__vocab_suggestions__suggestion_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/vocab-suggestions/{suggestion_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismiss Vocab Term Suggestion */
+        post: operations["dismiss_vocab_term_suggestion_api_v1_goals__goal_id__vocab_suggestions__suggestion_id__dismiss_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2587,7 +2643,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "VOCAB_TERM_EXTRACT" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -5431,6 +5487,48 @@ export interface components {
             order: string;
             /** Question Count */
             question_count: number;
+        };
+        /** VocabTermSuggestionAcceptRequest */
+        VocabTermSuggestionAcceptRequest: {
+            /** Deck Id */
+            deck_id: number;
+            /** Term */
+            term: string;
+            /** Meaning */
+            meaning: string;
+            /** Aliases */
+            aliases?: string | null;
+        };
+        /** VocabTermSuggestionGenerateRequest */
+        VocabTermSuggestionGenerateRequest: {
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+        };
+        /** VocabTermSuggestionListRead */
+        VocabTermSuggestionListRead: {
+            /** Suggestions */
+            suggestions: components["schemas"]["VocabTermSuggestionRead"][];
+            /** Default Deck Id */
+            default_deck_id: number | null;
+        };
+        /** VocabTermSuggestionRead */
+        VocabTermSuggestionRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            /**
+             * Record Date
+             * Format: date
+             */
+            record_date: string;
+            /** Term */
+            term: string;
+            /** Source Sentence */
+            source_sentence: string;
         };
         /**
          * WeeklyDigestRead
@@ -10699,6 +10797,144 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuizGenerateResultRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vocab_term_suggestions_api_v1_goals__goal_id__vocab_suggestions_get: {
+        parameters: {
+            query: {
+                record_date: string;
+            };
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabTermSuggestionListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_vocab_term_suggestions_api_v1_goals__goal_id__vocab_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabTermSuggestionGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabTermSuggestionListRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_vocab_term_suggestion_api_v1_goals__goal_id__vocab_suggestions__suggestion_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VocabTermSuggestionAcceptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabCardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dismiss_vocab_term_suggestion_api_v1_goals__goal_id__vocab_suggestions__suggestion_id__dismiss_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                suggestion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
             /** @description Validation Error */

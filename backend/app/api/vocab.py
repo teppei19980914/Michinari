@@ -4,6 +4,7 @@ API層はドメイン例外をHTTPへ変換するのみ（CODING_RULES.md「サ�
 送出禁止」）。出題・判定・集計の実体は`vocab_service`（AI非依存）が担う。
 """
 
+import datetime as dt
 import random
 
 from fastapi import APIRouter, Depends
@@ -39,6 +40,10 @@ from app.schemas.vocab import (
     VocabQuizQuestionRead,
     VocabQuizSessionRead,
     VocabQuizSessionRequest,
+    VocabTermSuggestionAcceptRequest,
+    VocabTermSuggestionGenerateRequest,
+    VocabTermSuggestionListRead,
+    VocabTermSuggestionRead,
 )
 from app.services import (
     goal_service,
@@ -46,6 +51,7 @@ from app.services import (
     setting_reader,
     vocab_quiz_generation_service,
     vocab_service,
+    vocab_term_suggestion_service,
 )
 from app.services.exceptions import ValidationError
 
@@ -388,3 +394,77 @@ def generate_vocab_deck_quiz(
     created = vocab_quiz_generation_service.generate_for_deck(session, goal, deck)
     session.commit()
     return QuizGenerateResultRead(created=created)
+
+
+def _suggestion_list_read(
+    session: Session, goal_id: int, suggestions: list
+) -> VocabTermSuggestionListRead:
+    return VocabTermSuggestionListRead(
+        suggestions=[
+            VocabTermSuggestionRead(
+                id=s.id,
+                goal_id=s.goal_id,
+                record_date=s.record_date,
+                term=s.term,
+                source_sentence=s.source_sentence,
+            )
+            for s in suggestions
+        ],
+        default_deck_id=vocab_service.last_used_deck_id(session, goal_id),
+    )
+
+
+@router.post("/goals/{goal_id}/vocab-suggestions", response_model=VocabTermSuggestionListRead)
+def generate_vocab_term_suggestions(
+    goal_id: int, payload: VocabTermSuggestionGenerateRequest, session: Session = Depends(get_db)
+) -> VocabTermSuggestionListRead:
+    """日次報告の確定成功後に画面から呼ぶ（開発Todo_単語帳_v1.0 要件D D-U4）。確定処理
+    自体（`finalize_record`）からは呼ばない。
+    """
+    goal = goal_service.get_goal(session, goal_id)
+    suggestions = vocab_term_suggestion_service.generate_suggestions(
+        session, goal, payload.record_date
+    )
+    session.commit()
+    return _suggestion_list_read(session, goal_id, suggestions)
+
+
+@router.get("/goals/{goal_id}/vocab-suggestions", response_model=VocabTermSuggestionListRead)
+def list_vocab_term_suggestions(
+    goal_id: int, record_date: dt.date, session: Session = Depends(get_db)
+) -> VocabTermSuggestionListRead:
+    goal_service.get_goal(session, goal_id)
+    suggestions = vocab_term_suggestion_service.list_pending(session, goal_id, record_date)
+    return _suggestion_list_read(session, goal_id, suggestions)
+
+
+@router.post(
+    "/goals/{goal_id}/vocab-suggestions/{suggestion_id}/accept", response_model=VocabCardRead
+)
+def accept_vocab_term_suggestion(
+    goal_id: int,
+    suggestion_id: int,
+    payload: VocabTermSuggestionAcceptRequest,
+    session: Session = Depends(get_db),
+) -> VocabCardRead:
+    card = vocab_term_suggestion_service.accept_suggestion(
+        session,
+        goal_id,
+        suggestion_id,
+        deck_id=payload.deck_id,
+        term=payload.term,
+        meaning=payload.meaning,
+        aliases=payload.aliases,
+    )
+    session.commit()
+    stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
+    return _card_read(card, stats)
+
+
+@router.post("/goals/{goal_id}/vocab-suggestions/{suggestion_id}/dismiss")
+def dismiss_vocab_term_suggestion(
+    goal_id: int, suggestion_id: int, session: Session = Depends(get_db)
+) -> dict[str, bool]:
+    vocab_term_suggestion_service.dismiss_suggestion(session, goal_id, suggestion_id)
+    session.commit()
+    return {"success": True}

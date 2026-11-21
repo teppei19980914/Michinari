@@ -6,14 +6,26 @@ VocabCard: デッキに属するカード（用語・意味・別名・補足）
 VocabAnswerLog: 単語帳の問題集（AI非依存）での解答履歴のみ。今日の復習（要件B）での
 解答はここへ記録しない（開発Todo §0 U4）。正答数・誤答数・正答率・連続誤答数は
 保存せず、本テーブルから都度算出する（開発Todo §0 U6）。
+VocabTermSuggestion: 日次報告の日記（学んだこと）から抜き出した用語候補（要件D）。
+目標削除時はCASCADEで連動削除する（`VocabDeck`と同じ目標への直接CASCADE方式）。
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Integer, Text
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.constants.enums import VocabQuizMode
+from app.constants.enums import VocabQuizMode, VocabTermSuggestionStatus
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 
 
@@ -61,3 +73,25 @@ class VocabAnswerLog(CreatedAtMixin, Base):
     )
     is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
     answered_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class VocabTermSuggestion(TimestampMixin, Base):
+    __tablename__ = "vocab_term_suggestion"
+    __table_args__ = (
+        UniqueConstraint("goal_id", "term_key", name="uq_vocab_term_suggestion_goal_term_key"),
+        Index("ix_vocab_term_suggestion_goal_id", "goal_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goal.id", ondelete="CASCADE"), nullable=False)
+    record_date: Mapped[date] = mapped_column(Date, nullable=False)
+    term: Mapped[str] = mapped_column(Text, nullable=False)
+    #: 照合用の正規化キー（`question_safety.normalize_for_match`適用後）。重複提案の防止
+    #: （開発Todo §0.8 D-U5）に使う照合専用の値であり、成績等の派生値ではない。
+    term_key: Mapped[str] = mapped_column(Text, nullable=False)
+    source_sentence: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[VocabTermSuggestionStatus] = mapped_column(
+        Enum(VocabTermSuggestionStatus, native_enum=False, validate_strings=True),
+        nullable=False,
+        default=VocabTermSuggestionStatus.PENDING,
+    )
