@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from app.constants.app_setting_keys import VOCAB_SUGGEST_MAX_PER_RECORD
+from app.constants.app_setting_keys import VOCAB_SUGGEST_MAX_PER_RECORD, VOCAB_TERM_MAX_CHARS
 from app.constants.enums import VocabTermSuggestionStatus
 from app.models.ai import AiForbiddenTerm
 from app.services import vocab_term_suggestion_service
@@ -47,6 +47,98 @@ def test_generate_suggestions_discards_oversized_line_before_matching(seeded_ses
     created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
 
     assert created == []
+
+
+def test_generate_suggestions_rejects_line_one_char_over_term_max_chars(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    day = dt.date(2026, 11, 20)
+    set_setting(seeded_session, VOCAB_TERM_MAX_CHARS, "10")
+    over_limit_term = "A" * 11
+    finalize_diary(seeded_session, goal, day, diary_learned=f"{over_limit_term}について学んだ。")
+    stub_quiz_ai(monkeypatch, over_limit_term)
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert created == []
+
+
+def test_generate_suggestions_accepts_line_exactly_at_term_max_chars(seeded_session, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    day = dt.date(2026, 11, 20)
+    set_setting(seeded_session, VOCAB_TERM_MAX_CHARS, "10")
+    at_limit_term = "A" * 10
+    finalize_diary(seeded_session, goal, day, diary_learned=f"{at_limit_term}について学んだ。")
+    stub_quiz_ai(monkeypatch, at_limit_term)
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert [s.term for s in created] == [at_limit_term]
+
+
+def test_generate_suggestions_skips_blank_lines_in_ai_response(seeded_session, monkeypatch):
+    """AI応答中の空行はスキップし、他の行の採用に影響しないこと。"""
+    goal = make_exam_goal(seeded_session)
+    day = dt.date(2026, 11, 20)
+    finalize_diary(seeded_session, goal, day, diary_learned="TCPとUDPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP\n\n   \nUDP")
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert {s.term for s in created} == {"TCP", "UDP"}
+
+
+def test_generate_suggestions_deduplicates_repeated_term_within_the_same_response(
+    seeded_session, monkeypatch
+):
+    """同一のAI応答内に同じ語句（表記ゆれ含む）が複数回出現しても1件しか採用しないこと。"""
+    goal = make_exam_goal(seeded_session)
+    day = dt.date(2026, 11, 20)
+    finalize_diary(seeded_session, goal, day, diary_learned="今日はTCPについて学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP\nTCP\ntcp")
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert [s.term for s in created] == ["TCP"]
+
+
+def test_generate_suggestions_accepts_exactly_max_per_record_candidates(
+    seeded_session, monkeypatch
+):
+    """候補数が上限とちょうど一致する場合は全件採用すること（境界値）。"""
+    goal = make_exam_goal(seeded_session)
+    day = dt.date(2026, 11, 20)
+    set_setting(seeded_session, VOCAB_SUGGEST_MAX_PER_RECORD, "2")
+    finalize_diary(seeded_session, goal, day, diary_learned="AAAとBBBを学んだ。")
+    stub_quiz_ai(monkeypatch, "AAA\nBBB")
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert [s.term for s in created] == ["AAA", "BBB"]
+
+
+def test_generate_suggestions_excludes_added_and_dismissed_suggestions_on_regeneration(
+    seeded_session, monkeypatch
+):
+    """既にADDED/DISMISSEDになった提案は、同日の再取得（AI未呼び出し経路）で返らないこと。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    day = dt.date(2026, 11, 20)
+    finalize_diary(seeded_session, goal, day, diary_learned="TCPとUDPとICMPを学んだ。")
+    stub_quiz_ai(monkeypatch, "TCP\nUDP\nICMP")
+    first = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+    assert len(first) == 3
+    tcp = next(s for s in first if s.term == "TCP")
+    udp = next(s for s in first if s.term == "UDP")
+    vocab_term_suggestion_service.accept_suggestion(
+        seeded_session, goal.id, tcp.id, deck_id=deck.id, term="TCP", meaning="x", aliases=None
+    )
+    vocab_term_suggestion_service.dismiss_suggestion(seeded_session, goal.id, udp.id)
+
+    second = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert [s.term for s in second] == ["ICMP"]
 
 
 def test_generate_suggestions_discards_fabricated_terms_not_in_diary(seeded_session, monkeypatch):
@@ -160,6 +252,25 @@ def test_generate_suggestions_excludes_terms_already_in_a_deck(seeded_session, m
     created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
 
     assert [s.term for s in created] == ["UDP"]
+
+
+def test_generate_suggestions_excludes_term_matching_existing_card_by_kana_variant(
+    seeded_session, monkeypatch
+):
+    """既存カードがカタカナ表記、日記・AI応答がひらがな表記でも重複として除外すること
+    （dry-reviewerレビューで検出：term_key〈normalize_for_match〉だけでは検知できない
+    カタカナ/ひらがな表記違いの重複を、normalize_for_vocab_match基準で検知する、2026-11-21）。
+    """
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="キャンセル", meaning="取り消すこと")
+    day = dt.date(2026, 11, 20)
+    finalize_diary(seeded_session, goal, day, diary_learned="今日はきゃんせる処理を学んだ。")
+    stub_quiz_ai(monkeypatch, "きゃんせる")
+
+    created = vocab_term_suggestion_service.generate_suggestions(seeded_session, goal, day)
+
+    assert created == []
 
 
 def test_generate_suggestions_respects_max_per_record_setting(seeded_session, monkeypatch):

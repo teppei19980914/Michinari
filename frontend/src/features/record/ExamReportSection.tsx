@@ -5,6 +5,7 @@ import { StudyLogFields } from './StudyLogFields'
 import { StudyLogSummaryList } from './StudyLogSummaryList'
 import { DiaryFields } from './DiaryFields'
 import { DiaryEntrySummaryList } from './DiaryEntrySummaryList'
+import { TodayVocabSuggestionsCard } from '../vocab/TodayVocabSuggestionsCard'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildMaterialLabels } from './summaryLabels'
@@ -70,6 +71,15 @@ export function ExamReportSection({
             materialLabels={buildMaterialLabels(quotaItems)}
           />
           <DiaryEntrySummaryList diaryEntries={filterWrittenDiaryEntries(record.diary_entries)} />
+          {record.diary_entries
+            .filter((entry) => entry.goal_id !== null && Boolean(entry.diary_learned?.trim()))
+            .map((entry) => (
+              <TodayVocabSuggestionsCard
+                key={entry.goal_id}
+                goalId={entry.goal_id as number}
+                recordDate={targetDate}
+              />
+            ))}
         </>
       }
       editor={
