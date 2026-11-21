@@ -119,6 +119,20 @@ describe('useVocabQuizSession の解答進行', () => {
 })
 
 describe('useVocabQuizSession のセッション終了時の節目判定（開発Todo_単語帳_v1.0 要件E E-U3）', () => {
+  it('does not call completeVocabQuizSession when the session has no questions', async () => {
+    startVocabQuizSession.mockResolvedValue({ questions: [], excluded_count: 0 })
+    const { result, rerender } = setup()
+
+    await act(async () => {
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+    })
+    rerender()
+
+    // index(0) >= questions.length(0) は真になるが、questions.length > 0 のガードにより
+    // 節目判定は呼ばれない（test-coverage-reviewerレビューで指摘された非自明な分岐、2026-11-21）。
+    expect(completeVocabQuizSession).not.toHaveBeenCalled()
+  })
+
   it('calls completeVocabQuizSession once the session reaches its last question', async () => {
     startVocabQuizSession.mockResolvedValue({
       questions: [{ card_id: 1, prompt: 'A' }],

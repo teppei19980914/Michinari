@@ -149,7 +149,7 @@ def reorder_vocab_decks(
     return {"success": True}
 
 
-def _single_deck_read(session: Session, deck: VocabDeck) -> VocabDeckRead:
+def _deck_read_single(session: Session, deck: VocabDeck) -> VocabDeckRead:
     card_count = vocab_service.count_cards_by_deck(session, [deck.id]).get(deck.id, 0)
     mastered_count = vocab_service.compute_mastered_card_counts_by_deck(
         session, [deck.id], _mastery_streak(session)
@@ -160,7 +160,7 @@ def _single_deck_read(session: Session, deck: VocabDeck) -> VocabDeckRead:
 @router.get("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
 def get_vocab_deck(deck_id: int, session: Session = Depends(get_db)) -> VocabDeckRead:
     deck = vocab_service.get_deck(session, deck_id)
-    return _single_deck_read(session, deck)
+    return _deck_read_single(session, deck)
 
 
 @router.patch("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
@@ -176,7 +176,7 @@ def update_vocab_deck(
         use_in_ai=payload.use_in_ai,
     )
     session.commit()
-    return _single_deck_read(session, deck)
+    return _deck_read_single(session, deck)
 
 
 @router.delete("/vocab-decks/{deck_id}")

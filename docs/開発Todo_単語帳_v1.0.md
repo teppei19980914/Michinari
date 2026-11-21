@@ -960,6 +960,26 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/30_単語帳の判定・出題ロジック.md`（習得の定義・節目判定ロジックの追記箇所）へ転記する（文書改訂E-D04で実施）。
 
+## 5.9 観点別レビュー（コミット前チェック、要件E、2026-11-21実施）
+
+`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`xss-reviewer`・`test-coverage-reviewer`・`performance-reviewer`の7エージェントを並列実行（対象差分：`git diff ccad14e`、要件D完了時点との差分）。検出事項と対応:
+
+| # | エージェント | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | dry-reviewer | MEDIUM | `compute_card_stats`と`compute_mastered_card_ids`が、同じ`VocabAnswerLog`の行取得・グルーピングをほぼ同一の形で個別に実装しており、両方を呼ぶ箇所（`list_vocab_cards`・`_card_read_single`）で同じ行を2回クエリしていた | 修正済み：`vocab_service._fetch_answer_logs_by_card`を新設し、両関数がこの行取得を共有する方式に変更（クエリの集計ロジック自体は変更なし） |
+| 2 | style-reviewer | MEDIUM | `api/vocab.py`の対になるヘルパー関数の命名が`_card_read_single`（対象→動作→単発）・`_single_deck_read`（単発→対象→動作）で語順が不統一だった | 修正済み：`_single_deck_read`を`_deck_read_single`へ改名し、語順を揃えた |
+| 3 | performance-reviewer | MEDIUM | 記録確定時の判定（`detect_and_record_for_category`）がACTIVEなEXAM目標ごとにループし、各goalで`compute_goal_vocab_mastery`が3クエリを発行するため、EXAM目標数に比例してクエリ数が増える（既存のREADING向けlifetime集計の一括事前計算パターンとの非対称） | **対応不要と判断**（§0.2相当の理由を下記に記録） |
+| 4 | performance-reviewer | LOW | `roadmap_service._vocab_mastery`が「単語帳の有無確認」と「`compute_goal_vocab_mastery`内部」の両方で`list_decks_for_goal`を呼び、同一リクエスト内で2回発行していた | 修正済み：`compute_goal_vocab_mastery`に`deck_ids`引数（省略可）を追加し、`roadmap_service`側で取得済みのデッキID一覧を渡す方式に変更 |
+| 5 | performance-reviewer | LOW | `compute_mastered_card_counts_by_deck`がデッキ全カードをPython側でグルーピングする点 | 対応不要と判断（判定ロジック〈`compute_mastered_card_ids`〉をSQL側で再実装すると重複が生まれるため、レビュー自身もPython側集計を支持） |
+| 6 | dry-reviewer | LOW | `detect_exam_milestones`が、単語帳判定を教材の有無に関わらず行う必要から、早期returnを廃止したことでネストが4段に深くなった | 修正済み：教材関連の判定（教材1周完了・全体進捗率）を`_detect_material_milestones`へ分離し、`detect_exam_milestones`本体を2つの判定関数の合成（ネスト無し）まで平坦化 |
+| 7 | test-coverage-reviewer | MEDIUM | `useVocabQuizSession.ts`の`isSessionDone`（`questions.length > 0`のガード）について、出題0件のセッションでは節目判定が呼ばれないことを直接検証するテストが無かった（`src/**/use*.ts`はカバレッジ閾値の対象外だが、非自明な分岐のため直接テストが期待される箇所） | 修正済み：`useVocabQuizSession.test.tsx`に`questions: []`で開始した場合に`completeVocabQuizSession`が呼ばれないことを検証するテストを追加 |
+| 8 | test-coverage-reviewer | LOW | 道のりマップで「単語帳はあるがカードが0件」の組み合わせを直接検証するテストが無い（既存関数の合成結果であり新規の分岐ではない、実測カバレッジは100%） | 対応不要と判断（レビュー自身も追加必須ではないと判定） |
+| — | label-checker・injection-reviewer・xss-reviewer | — | ハードコード文言・ゼロハードコーディング・インジェクション・XSSのいずれも指摘なし。`ja.json`/`en.json`の文言トーン（継続を褒める表現のみ）・両言語のキー対応漏れも無いことを確認 | 対応不要 |
+
+**#3（performance-reviewer MEDIUM、対応不要と判断した理由）**：既存のREADING向け最適化（`compute_reading_totals`の事前一括計算）は、利用者の読書全体という「全目標に対して同一の値」をgoalの数だけ重複して再計算する無駄を避けるためのものである。これに対し単語帳の習得集計は、目標ごとに異なる単語帳・カードを対象とする「目標固有の計算」であり、同一値の重複計算という無駄は発生しない。コストはACTIVEなEXAM目標数に比例するのみであり、本アプリは単一利用者ローカル運用で同時進行するEXAM目標数は現実的に少数（1〜数件）のため、READINGと同じ事前バッチ化（`milestone_service_common`・`milestone_service_exam`双方への新規引数の追加、既存テストの大規模な署名変更を伴う）を行うコストが、現実的な効果に比して大きいと判断した。既存の`vocab_quiz_generation_service.run_all`（デッキ数×カード数の処理）等と同程度の計算量であり、本機能固有の後退ではない。
+
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,605件合格、カバレッジ100%、ruff 0件）。フロントエンドも再実行し合格・回帰無しを確認済み（§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |
@@ -1010,6 +1030,16 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 観点別レビュー（§5.7、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成
 - 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設エンドポイント（`GET /goals/{goal_id}/vocab-suggestions`、404判定を含む）・新設app_setting/prompt_templateの反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
 - セキュリティテスト（作り話の破棄・区切りの偽装・敵対的な長い行・禁止語を含む日記は送らない・存在しないIDへの操作は404・他目標の提案・単語帳を操作できない）が全て合格していること。→ 達成
+
+### 7.E 要件Eの完了の定義
+
+- §3.E（E-00・E-01・E-B01〜E-B08・E-F01〜E-F08・E-V01〜E-V04・E-D01〜E-D07）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文11,079・分岐2,072〉、フロントエンド100%〈文2,738・分岐1,803〉）
+- §2.4のベースラインと比較し、既存の単語帳（要件A〜D）・節目のお祝い・道のりマップのテストが1件も壊れていないこと。→ 達成
+- 新規エンドポイント（`POST /vocab-decks/{deck_id}/quiz-sessions/complete`）が対象のため実装前に`/threat-model`を実施したこと。→ 達成（§5.8、設計書30.11.5）
+- 観点別レビュー（§5.9、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成（HIGHの指摘は0件。MEDIUM3件中2件修正・1件は理由を記録して対応不要と判断、LOW複数件のうち該当分を修正）
+- 完了条件に明記された検証項目（習得の境界・同時刻解答の並び・他目標分離・閾値到達時の単発記録・セッション終了と記録確定の二重記録防止・道のりマップの資格試験限定）がすべてテストで検証されていること。→ 達成（§5.9 test-coverage-reviewer確認済み）
+- 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設フィールド（`vocab_mastery`設定・`mastered_card_count`・`is_mastered`）の反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み。要件E自体は新規マイグレーションを持たない）
 
 ## 8. 作業記録
 
