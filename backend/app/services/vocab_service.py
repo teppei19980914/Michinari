@@ -335,10 +335,9 @@ def _fetch_answer_logs_by_card(
     クエリで取得する（N+1禁止）。並び順は`answered_at`に`id`を第2キーとして付与する
     （CODING_RULES.md「タイムスタンプでの並び替え」）。`compute_card_stats`・
     `compute_mastered_card_ids`の両方がこの行取得を共有する（dry-reviewerレビューで
-    重複を検出、2026-11-21）。
+    重複を検出、2026-11-21）。呼び出し元が空リストを渡さないことを前提とする（両関数とも
+    呼び出し前に空チェックを行うため、ここでの空チェックは到達しない）。
     """
-    if not card_ids:
-        return {}
     rows = session.execute(
         select(VocabAnswerLog.card_id, VocabAnswerLog.is_correct, VocabAnswerLog.answered_at)
         .where(VocabAnswerLog.card_id.in_(card_ids))
