@@ -29,6 +29,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     use_in_ai: true,
     display_order: 0,
     card_count: 3,
+    mastered_card_count: 0,
     ...overrides,
   }
 }
@@ -58,6 +59,17 @@ describe('VocabDeckListTab の一覧', () => {
 
     expect(await screen.findByText(/5枚/)).toBeDefined()
     expect(screen.getByText(new RegExp(t('vocab.deckList.useInAiOffBadge')))).toBeDefined()
+  })
+
+  it('shows the mastered count', async () => {
+    getVocabDecks.mockResolvedValue([makeDeck({ card_count: 5, mastered_card_count: 2 })])
+    renderWithProviders(<VocabDeckListTab goalId={GOAL_ID} />)
+
+    expect(
+      await screen.findByText(
+        new RegExp(t('vocab.deckList.masteredCount', { mastered: 2, total: 5 })),
+      ),
+    ).toBeDefined()
   })
 
   it('shows an error message when fetching fails', async () => {

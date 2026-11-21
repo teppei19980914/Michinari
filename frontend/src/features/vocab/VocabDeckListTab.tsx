@@ -112,6 +112,11 @@ export function VocabDeckListTab({ goalId }: { goalId: number }) {
             <p className="text-sm font-medium text-text-primary">{deck.name}</p>
             <p className="text-sm text-text-faint">
               {t('vocab.deckList.cardCount', { count: deck.card_count })}
+              {' · '}
+              {t('vocab.deckList.masteredCount', {
+                mastered: deck.mastered_card_count,
+                total: deck.card_count,
+              })}
               {!deck.use_in_ai && ` · ${t('vocab.deckList.useInAiOffBadge')}`}
             </p>
           </Link>

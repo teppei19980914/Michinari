@@ -9,6 +9,7 @@ export const VOCAB_CARD_FILTER_KEYS = [
   'CONSECUTIVE_WRONG',
   'WEAK',
   'UNANSWERED',
+  'UNMASTERED',
 ] as const
 
 export type VocabCardFilterKey = (typeof VOCAB_CARD_FILTER_KEYS)[number]

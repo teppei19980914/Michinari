@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.constants.app_setting_keys import (
+    VOCAB_MASTERY_STREAK,
     VOCAB_SESSION_MAX_QUESTIONS,
     VOCAB_WEAK_ACCURACY_PERCENT,
 )
@@ -47,6 +48,7 @@ from app.schemas.vocab import (
 )
 from app.services import (
     goal_service,
+    milestone_service_common,
     quiz_service,
     setting_reader,
     vocab_quiz_generation_service,
@@ -62,7 +64,7 @@ _CHOICE_MODES = (VocabQuizMode.CHOICE_TERM_TO_MEANING, VocabQuizMode.CHOICE_MEAN
 _MIN_CARDS_FOR_CHOICE = 4
 
 
-def _deck_read(deck: VocabDeck, card_count: int) -> VocabDeckRead:
+def _deck_read(deck: VocabDeck, card_count: int, mastered_card_count: int) -> VocabDeckRead:
     return VocabDeckRead(
         id=deck.id,
         goal_id=deck.goal_id,
@@ -71,10 +73,13 @@ def _deck_read(deck: VocabDeck, card_count: int) -> VocabDeckRead:
         use_in_ai=deck.use_in_ai,
         display_order=deck.display_order,
         card_count=card_count,
+        mastered_card_count=mastered_card_count,
     )
 
 
-def _card_read(card: VocabCard, stats: vocab_service.VocabCardStats) -> VocabCardRead:
+def _card_read(
+    card: VocabCard, stats: vocab_service.VocabCardStats, is_mastered: bool
+) -> VocabCardRead:
     return VocabCardRead(
         id=card.id,
         deck_id=card.deck_id,
@@ -89,15 +94,37 @@ def _card_read(card: VocabCard, stats: vocab_service.VocabCardStats) -> VocabCar
         accuracy_percent=stats.accuracy_percent,
         consecutive_incorrect=stats.consecutive_incorrect,
         last_answered_at=stats.last_answered_at,
+        is_mastered=is_mastered,
     )
+
+
+def _mastery_streak(session: Session) -> int:
+    return setting_reader.get_int(session, VOCAB_MASTERY_STREAK)
+
+
+def _card_read_single(session: Session, card: VocabCard) -> VocabCardRead:
+    """既存カード1件分の応答を組み立てる（成績・習得状態を再計算、N+1にはならない
+    単発エンドポイント用）。"""
+    stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
+    is_mastered = card.id in vocab_service.compute_mastered_card_ids(
+        session, [card.id], _mastery_streak(session)
+    )
+    return _card_read(card, stats, is_mastered)
 
 
 @router.get("/goals/{goal_id}/vocab-decks", response_model=list[VocabDeckRead])
 def list_vocab_decks(goal_id: int, session: Session = Depends(get_db)) -> list[VocabDeckRead]:
     goal_service.get_goal(session, goal_id)
     decks = vocab_service.list_decks_for_goal(session, goal_id)
-    card_counts = vocab_service.count_cards_by_deck(session, [deck.id for deck in decks])
-    return [_deck_read(deck, card_counts.get(deck.id, 0)) for deck in decks]
+    deck_ids = [deck.id for deck in decks]
+    card_counts = vocab_service.count_cards_by_deck(session, deck_ids)
+    mastered_counts = vocab_service.compute_mastered_card_counts_by_deck(
+        session, deck_ids, _mastery_streak(session)
+    )
+    return [
+        _deck_read(deck, card_counts.get(deck.id, 0), mastered_counts.get(deck.id, 0))
+        for deck in decks
+    ]
 
 
 @router.post("/goals/{goal_id}/vocab-decks", response_model=VocabDeckRead)
@@ -109,7 +136,7 @@ def create_vocab_deck(
         session, goal, name=payload.name, description=payload.description
     )
     session.commit()
-    return _deck_read(deck, card_count=0)
+    return _deck_read(deck, card_count=0, mastered_card_count=0)
 
 
 @router.put("/goals/{goal_id}/vocab-decks/order")
@@ -122,11 +149,18 @@ def reorder_vocab_decks(
     return {"success": True}
 
 
+def _single_deck_read(session: Session, deck: VocabDeck) -> VocabDeckRead:
+    card_count = vocab_service.count_cards_by_deck(session, [deck.id]).get(deck.id, 0)
+    mastered_count = vocab_service.compute_mastered_card_counts_by_deck(
+        session, [deck.id], _mastery_streak(session)
+    ).get(deck.id, 0)
+    return _deck_read(deck, card_count, mastered_count)
+
+
 @router.get("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
 def get_vocab_deck(deck_id: int, session: Session = Depends(get_db)) -> VocabDeckRead:
     deck = vocab_service.get_deck(session, deck_id)
-    card_count = vocab_service.count_cards_by_deck(session, [deck.id]).get(deck.id, 0)
-    return _deck_read(deck, card_count)
+    return _single_deck_read(session, deck)
 
 
 @router.patch("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
@@ -142,8 +176,7 @@ def update_vocab_deck(
         use_in_ai=payload.use_in_ai,
     )
     session.commit()
-    card_count = vocab_service.count_cards_by_deck(session, [deck.id]).get(deck.id, 0)
-    return _deck_read(deck, card_count)
+    return _single_deck_read(session, deck)
 
 
 @router.delete("/vocab-decks/{deck_id}")
@@ -163,13 +196,24 @@ def list_vocab_cards(
 ) -> list[VocabCardRead]:
     vocab_service.get_deck(session, deck_id)
     cards = vocab_service.list_cards_for_deck(session, deck_id)
-    stats_by_card = vocab_service.compute_card_stats(session, [card.id for card in cards])
+    card_ids = [card.id for card in cards]
+    stats_by_card = vocab_service.compute_card_stats(session, card_ids)
+    mastered_card_ids = frozenset(
+        vocab_service.compute_mastered_card_ids(session, card_ids, _mastery_streak(session))
+    )
     weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
     filtered = vocab_service.filter_cards(
-        cards, stats_by_card, filter_key=filter, weak_accuracy_percent=weak_accuracy_percent
+        cards,
+        stats_by_card,
+        filter_key=filter,
+        weak_accuracy_percent=weak_accuracy_percent,
+        mastered_card_ids=mastered_card_ids,
     )
     sorted_cards = vocab_service.sort_cards(filtered, stats_by_card, sort_key=sort)
-    return [_card_read(card, stats_by_card[card.id]) for card in sorted_cards]
+    return [
+        _card_read(card, stats_by_card[card.id], card.id in mastered_card_ids)
+        for card in sorted_cards
+    ]
 
 
 @router.post("/vocab-decks/{deck_id}/cards", response_model=VocabCardRead)
@@ -187,7 +231,7 @@ def create_vocab_card(
     )
     session.commit()
     stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
-    return _card_read(card, stats)
+    return _card_read(card, stats, is_mastered=False)
 
 
 @router.patch("/vocab-cards/{card_id}", response_model=VocabCardRead)
@@ -205,8 +249,7 @@ def update_vocab_card(
     )
     quiz_service.delete_questions_for_vocab_card(session, card.id)
     session.commit()
-    stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
-    return _card_read(card, stats)
+    return _card_read_single(session, card)
 
 
 @router.patch("/vocab-cards/{card_id}/check", response_model=VocabCardRead)
@@ -216,8 +259,7 @@ def check_vocab_card(
     card = vocab_service.get_card(session, card_id)
     vocab_service.set_card_checked(session, card, payload.is_checked)
     session.commit()
-    stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
-    return _card_read(card, stats)
+    return _card_read_single(session, card)
 
 
 @router.delete("/vocab-cards/{card_id}")
@@ -378,6 +420,24 @@ def answer_vocab_card(
     return VocabAnswerResultRead(is_correct=is_correct)
 
 
+@router.post("/vocab-decks/{deck_id}/quiz-sessions/complete")
+def complete_vocab_quiz_session(
+    deck_id: int, session: Session = Depends(get_db)
+) -> dict[str, bool]:
+    """出題セッションを終えた直後に呼ぶ（開発Todo_単語帳_v1.0 要件E E-U3）。既存の記録確定時
+    （`milestone_service_common.detect_and_record_for_category`）と同じ判定関数
+    （`detect_and_record_new_achievements`、単一目標版）をこの1デッキの目標に対して呼ぶ。
+    未お祝いの節目は既存の`GET /goals/{goal_id}/milestones/pending-celebrations`から別途取得する
+    （GETに副作用を持たせない方針のため、本APIはレスポンスに節目を含めない）。
+    """
+    deck = vocab_service.get_deck(session, deck_id)
+    goal = goal_service.get_goal(session, deck.goal_id)
+    today = goal_service.resolve_today(session)
+    milestone_service_common.detect_and_record_new_achievements(session, goal, today)
+    session.commit()
+    return {"success": True}
+
+
 @router.post("/vocab-decks/{deck_id}/quiz/generate", response_model=QuizGenerateResultRead)
 def generate_vocab_deck_quiz(
     deck_id: int, session: Session = Depends(get_db)
@@ -458,7 +518,7 @@ def accept_vocab_term_suggestion(
     )
     session.commit()
     stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
-    return _card_read(card, stats)
+    return _card_read(card, stats, is_mastered=False)
 
 
 @router.post("/goals/{goal_id}/vocab-suggestions/{suggestion_id}/dismiss")

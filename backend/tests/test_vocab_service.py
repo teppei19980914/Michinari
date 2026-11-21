@@ -486,6 +486,172 @@ def test_compute_card_stats_breaks_answered_at_ties_by_id(seeded_session):
     assert stats.incorrect_count == 2
 
 
+# ---------------------------------------------------------------------------
+# 習得の判定（開発Todo_単語帳_v1.0 要件E）
+# ---------------------------------------------------------------------------
+
+
+def test_compute_mastered_card_ids_requires_all_recent_answers_correct(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    for i in range(3):
+        make_answer_log(
+            seeded_session, card, is_correct=True, answered_at=TODAY + dt.timedelta(minutes=i)
+        )
+
+    mastered = vocab_service.compute_mastered_card_ids(seeded_session, [card.id], 3)
+
+    assert mastered == {card.id}
+
+
+def test_compute_mastered_card_ids_excludes_card_with_fewer_answers_than_streak(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    for i in range(2):
+        make_answer_log(
+            seeded_session, card, is_correct=True, answered_at=TODAY + dt.timedelta(minutes=i)
+        )
+
+    mastered = vocab_service.compute_mastered_card_ids(seeded_session, [card.id], 3)
+
+    assert mastered == set()
+
+
+def test_compute_mastered_card_ids_excludes_card_with_incorrect_answer_in_recent_streak(
+    seeded_session,
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    answers = [True, True, False, True, True]
+    for i, is_correct in enumerate(answers):
+        make_answer_log(
+            seeded_session,
+            card,
+            is_correct=is_correct,
+            answered_at=TODAY + dt.timedelta(minutes=i),
+        )
+
+    # 直近3件は [False, True, True] であり、すべて正解ではないため未習得。
+    mastered = vocab_service.compute_mastered_card_ids(seeded_session, [card.id], 3)
+
+    assert mastered == set()
+
+
+def test_compute_mastered_card_ids_breaks_answered_at_ties_by_id(seeded_session):
+    """同一の`answered_at`でも挿入順（id昇順）で判定する（CODING_RULES.md「タイムスタンプでの
+    並び替え」）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    same_time = TODAY
+    make_answer_log(seeded_session, card, is_correct=False, answered_at=same_time)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=same_time)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=same_time)
+
+    mastered = vocab_service.compute_mastered_card_ids(seeded_session, [card.id], 2)
+
+    assert mastered == {card.id}
+
+
+def test_compute_mastered_card_ids_with_empty_card_ids_returns_empty_set(seeded_session):
+    assert vocab_service.compute_mastered_card_ids(seeded_session, [], 3) == set()
+
+
+def test_compute_mastered_card_ids_with_non_positive_streak_returns_empty_set(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=TODAY)
+
+    assert vocab_service.compute_mastered_card_ids(seeded_session, [card.id], 0) == set()
+
+
+def test_compute_goal_vocab_mastery_sums_across_decks_and_excludes_other_goals(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    other_goal = make_exam_goal(seeded_session, name="他の資格目標")
+    deck_a = make_deck(seeded_session, goal, "A")
+    deck_b = make_deck(seeded_session, goal, "B")
+    other_deck = make_deck(seeded_session, other_goal, "他")
+    mastered_card = make_card(seeded_session, deck_a, term="習得済み")
+    unmastered_card = make_card(seeded_session, deck_b, term="未習得")
+    other_card = make_card(seeded_session, other_deck, term="他の目標の用語")
+    for i in range(3):
+        make_answer_log(
+            seeded_session,
+            mastered_card,
+            is_correct=True,
+            answered_at=TODAY + dt.timedelta(minutes=i),
+        )
+    make_answer_log(seeded_session, unmastered_card, is_correct=True, answered_at=TODAY)
+    for i in range(3):
+        make_answer_log(
+            seeded_session,
+            other_card,
+            is_correct=True,
+            answered_at=TODAY + dt.timedelta(minutes=i),
+        )
+
+    totals = vocab_service.compute_goal_vocab_mastery(seeded_session, goal.id, 3)
+
+    assert totals.total_cards == 2
+    assert totals.mastered_cards == 1
+
+
+def test_compute_goal_vocab_mastery_with_no_decks_returns_zero(seeded_session):
+    goal = make_exam_goal(seeded_session)
+
+    totals = vocab_service.compute_goal_vocab_mastery(seeded_session, goal.id, 3)
+
+    assert totals.total_cards == 0
+    assert totals.mastered_cards == 0
+
+
+def test_compute_mastered_card_counts_by_deck_separates_counts_per_deck(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck_a = make_deck(seeded_session, goal, "A")
+    deck_b = make_deck(seeded_session, goal, "B")
+    card_a = make_card(seeded_session, deck_a, term="A1")
+    make_card(seeded_session, deck_a, term="A2")
+    card_b = make_card(seeded_session, deck_b, term="B1")
+    for i in range(3):
+        make_answer_log(
+            seeded_session, card_a, is_correct=True, answered_at=TODAY + dt.timedelta(minutes=i)
+        )
+        make_answer_log(
+            seeded_session, card_b, is_correct=True, answered_at=TODAY + dt.timedelta(minutes=i)
+        )
+
+    counts = vocab_service.compute_mastered_card_counts_by_deck(
+        seeded_session, [deck_a.id, deck_b.id], 3
+    )
+
+    assert counts == {deck_a.id: 1, deck_b.id: 1}
+
+
+def test_compute_mastered_card_counts_by_deck_with_empty_list_returns_empty_dict(seeded_session):
+    assert vocab_service.compute_mastered_card_counts_by_deck(seeded_session, [], 3) == {}
+
+
+def test_filter_cards_unmastered_excludes_mastered_card_ids(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered_card = make_card(seeded_session, deck, term="習得済み")
+    unmastered_card = make_card(seeded_session, deck, term="未習得")
+
+    filtered = vocab_service.filter_cards(
+        [mastered_card, unmastered_card],
+        {},
+        filter_key="UNMASTERED",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset({mastered_card.id}),
+    )
+
+    assert filtered == [unmastered_card]
+
+
 def test_record_answer_persists_mode_and_correctness(seeded_session):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)

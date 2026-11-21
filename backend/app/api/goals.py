@@ -24,7 +24,12 @@ from app.schemas.goal import (
 from app.schemas.load_profile import LoadProfileCreate, LoadProfileRead, LoadProfileUpdate
 from app.schemas.material import MaterialCreate, MaterialRead
 from app.schemas.resource import SlotAllocationRead, SlotAllocationUpdate
-from app.schemas.roadmap import GoalRoadmapRead, RoadmapFootprintRead, RoadmapPointRead
+from app.schemas.roadmap import (
+    GoalRoadmapRead,
+    RoadmapFootprintRead,
+    RoadmapPointRead,
+    RoadmapVocabMasteryRead,
+)
 from app.schemas.subject import (
     ExamResultRead,
     SubjectCreate,
@@ -275,6 +280,15 @@ def serialize_roadmap(roadmap: roadmap_service.Roadmap) -> GoalRoadmapRead:
         feedback_marks=roadmap.feedback_marks,
         buffer_dates=roadmap.buffer_dates,
         overrun_days=roadmap.overrun_days,
+        vocab_mastery=(
+            RoadmapVocabMasteryRead(
+                mastered_count=roadmap.vocab_mastery.mastered_count,
+                total_count=roadmap.vocab_mastery.total_count,
+                remaining_to_next_milestone=roadmap.vocab_mastery.remaining_to_next_milestone,
+            )
+            if roadmap.vocab_mastery is not None
+            else None
+        ),
     )
 
 

@@ -10,12 +10,18 @@ const getVocabDeck = vi.hoisted(() => vi.fn())
 const startVocabQuizSession = vi.hoisted(() => vi.fn())
 const answerVocabCard = vi.hoisted(() => vi.fn())
 const checkVocabCard = vi.hoisted(() => vi.fn())
+const completeVocabQuizSession = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 vi.mock('../api/vocab', () => ({
   getVocabDeck,
   startVocabQuizSession,
   answerVocabCard,
   checkVocabCard,
+  completeVocabQuizSession,
 }))
+
+const listPendingCelebrations = vi.hoisted(() => vi.fn().mockResolvedValue([]))
+const celebrateMilestone = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+vi.mock('../api/milestones', () => ({ listPendingCelebrations, celebrateMilestone }))
 
 function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
   return {
@@ -26,6 +32,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     use_in_ai: true,
     display_order: 0,
     card_count: 10,
+    mastered_card_count: 0,
     ...overrides,
   }
 }

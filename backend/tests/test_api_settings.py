@@ -399,6 +399,46 @@ class TestQuickRecordSettingsApi:
         assert body["quick_record"]["last_mode_work"] == "NORMAL"
 
 
+class TestVocabMasterySettingsApi:
+    """単語帳の習得の可視化（開発Todo_単語帳_v1.0 要件E E-U1・E-U2・E-U8）の設定。"""
+
+    def test_get_returns_the_vocab_mastery_group(self, client):
+        body = client.get("/api/v1/settings").json()
+
+        assert body["vocab_mastery"] == {
+            "mastery_streak": 3,
+            "mastered_terms_thresholds": "10,30,50,100,200,300,500",
+        }
+
+    def test_patch_updates_the_vocab_mastery_group(self, client):
+        response = client.patch(
+            "/api/v1/settings",
+            json={
+                "vocab_mastery": {
+                    "mastery_streak": 5,
+                    "mastered_terms_thresholds": "20,40",
+                }
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["vocab_mastery"]["mastery_streak"] == 5
+        assert body["vocab_mastery"]["mastered_terms_thresholds"] == "20,40"
+
+    def test_patch_rejects_non_positive_mastery_streak(self, client):
+        response = client.patch("/api/v1/settings", json={"vocab_mastery": {"mastery_streak": 0}})
+
+        assert response.status_code == 400, response.text
+
+    def test_patch_rejects_malformed_mastered_terms_thresholds(self, client):
+        response = client.patch(
+            "/api/v1/settings", json={"vocab_mastery": {"mastered_terms_thresholds": "10,abc"}}
+        )
+
+        assert response.status_code == 400, response.text
+
+
 def test_every_ai_purpose_has_a_frontend_message():
     """`AiPurpose`の全メンバーに画面文言があること（test_api_records.pyの
     test_every_context_category_has_a_frontend_messageと同種の横断チェック）。

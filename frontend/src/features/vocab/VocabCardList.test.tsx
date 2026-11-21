@@ -37,6 +37,7 @@ function makeCard(overrides: Partial<VocabCard> = {}): VocabCard {
     accuracy_percent: 66.6,
     consecutive_incorrect: 0,
     last_answered_at: null,
+    is_mastered: false,
     ...overrides,
   }
 }
@@ -88,6 +89,21 @@ describe('VocabCardList の一覧表示', () => {
     renderWithProviders(<VocabCardList deckId={DECK_ID} />)
 
     expect(await screen.findByText(/正答率 67%/)).toBeDefined()
+  })
+
+  it('shows the mastered badge for a mastered card', async () => {
+    getVocabCards.mockResolvedValue([makeCard({ is_mastered: true })])
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    expect(await screen.findByText(t('vocab.deckDetail.masteredBadge'))).toBeDefined()
+  })
+
+  it('does not show the mastered badge for an unmastered card', async () => {
+    getVocabCards.mockResolvedValue([makeCard({ is_mastered: false })])
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    await screen.findByText('用語A')
+    expect(screen.queryByText(t('vocab.deckDetail.masteredBadge'))).toBeNull()
   })
 
   it('re-fetches with the chosen filter and sort', async () => {

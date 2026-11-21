@@ -379,6 +379,87 @@ def record_answer(session: Session, card: VocabCard, mode: VocabQuizMode, is_cor
 
 
 # ---------------------------------------------------------------------------
+# 習得の判定（開発Todo_単語帳_v1.0 要件E、都度算出・N+1禁止）
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class VocabMasteryTotals:
+    """目標配下の単語帳全体の習得集計（開発Todo_単語帳_v1.0 要件E E-U1・E-U2）。
+    節目判定・道のりマップで共通に使う（DRYの原則）。
+    """
+
+    total_cards: int
+    mastered_cards: int
+
+
+def compute_mastered_card_ids(
+    session: Session, card_ids: list[int], mastery_streak: int
+) -> set[int]:
+    """直近`mastery_streak`回の解答がすべて正解のカードIDを返す（開発Todo_単語帳_v1.0
+    要件E E-U1）。解答回数が`mastery_streak`未満のカードは含めない。節目判定・道のりマップ・
+    単語帳画面（一覧・詳細の表示、絞り込み）で「習得」を判定する唯一の定義（DRYの原則）。
+
+    `compute_card_stats`と同じ1回のクエリ・同じ並び順（`answered_at`→`id`、CODING_RULES.md
+    「タイムスタンプでの並び替え」）で算出するが、集計の形（正答率等ではなく「直近N件が
+    すべて正解か」）が異なるため別関数とする（N+1禁止：card_idsの件数に関わらずクエリ1回）。
+    """
+    if not card_ids or mastery_streak <= 0:
+        return set()
+    rows = session.execute(
+        select(VocabAnswerLog.card_id, VocabAnswerLog.is_correct)
+        .where(VocabAnswerLog.card_id.in_(card_ids))
+        .order_by(VocabAnswerLog.card_id, VocabAnswerLog.answered_at, VocabAnswerLog.id)
+    ).all()
+    grouped: dict[int, list[bool]] = defaultdict(list)
+    for card_id, is_correct in rows:
+        grouped[card_id].append(is_correct)
+    return {
+        card_id
+        for card_id, answers in grouped.items()
+        if len(answers) >= mastery_streak and all(answers[-mastery_streak:])
+    }
+
+
+def compute_goal_vocab_mastery(
+    session: Session, goal_id: int, mastery_streak: int
+) -> VocabMasteryTotals:
+    """その目標のすべての単語帳を通じた習得用語数の合計（節目判定・道のりマップ用、
+    開発Todo_単語帳_v1.0 要件E E-U1・E-U2）。単語帳が1つも無い目標は`total_cards=0`で返す。
+    """
+    deck_ids = [deck.id for deck in list_decks_for_goal(session, goal_id)]
+    if not deck_ids:
+        return VocabMasteryTotals(total_cards=0, mastered_cards=0)
+    card_ids = list(
+        session.scalars(select(VocabCard.id).where(VocabCard.deck_id.in_(deck_ids))).all()
+    )
+    mastered = compute_mastered_card_ids(session, card_ids, mastery_streak)
+    return VocabMasteryTotals(total_cards=len(card_ids), mastered_cards=len(mastered))
+
+
+def compute_mastered_card_counts_by_deck(
+    session: Session, deck_ids: list[int], mastery_streak: int
+) -> dict[int, int]:
+    """複数デッキの習得済みカード数を1回の問い合わせでまとめて返す（デッキ一覧・詳細の
+    表示用、N+1禁止。開発Todo_単語帳_v1.0 要件E E-U6。`compute_mastered_card_ids`〈唯一の
+    習得判定〉を共有するだけで、判定ロジック自体は再実装しない）。
+    """
+    if not deck_ids:
+        return {}
+    rows = session.execute(
+        select(VocabCard.id, VocabCard.deck_id).where(VocabCard.deck_id.in_(deck_ids))
+    ).all()
+    deck_id_by_card_id = dict(rows)
+    mastered_card_ids = compute_mastered_card_ids(
+        session, list(deck_id_by_card_id), mastery_streak
+    )
+    counts: dict[int, int] = defaultdict(int)
+    for card_id in mastered_card_ids:
+        counts[deck_id_by_card_id[card_id]] += 1
+    return dict(counts)
+
+
+# ---------------------------------------------------------------------------
 # 一括登録（貼り付け）・エクスポート
 # ---------------------------------------------------------------------------
 
@@ -533,9 +614,11 @@ def filter_cards(
     *,
     filter_key: str,
     weak_accuracy_percent: float,
+    mastered_card_ids: frozenset[int] = frozenset(),
 ) -> list[VocabCard]:
     """絞り込み（全件／チェック付きのみ／一度でも間違えた／連続して間違えている／苦手／
-    未解答）を適用する。"""
+    未解答／未習得）を適用する。`mastered_card_ids`は`UNMASTERED`（開発Todo_単語帳_v1.0
+    要件E E-U6）のときのみ使う（`vocab_service.compute_mastered_card_ids`の結果）。"""
     if filter_key == "ALL":
         return cards
     if filter_key == "CHECKED":
@@ -548,6 +631,8 @@ def filter_cards(
         return [
             card for card in cards if is_weak_card(stats_by_card[card.id], weak_accuracy_percent)
         ]
+    if filter_key == "UNMASTERED":
+        return [card for card in cards if card.id not in mastered_card_ids]
     if filter_key == "UNANSWERED":
         return [
             card

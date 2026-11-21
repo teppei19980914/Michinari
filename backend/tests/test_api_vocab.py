@@ -2,14 +2,24 @@
 
 import datetime as dt
 
-from app.constants.app_setting_keys import VOCAB_IMPORT_MAX_ROWS
-from app.constants.enums import VocabQuizMode
+from app.constants.app_setting_keys import (
+    MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS,
+    VOCAB_IMPORT_MAX_ROWS,
+    VOCAB_MASTERY_STREAK,
+)
+from app.constants.enums import GoalCategory, VocabQuizMode
 from app.models.quiz import QuizQuestion
 from app.models.vocab import VocabCard
-from app.services import vocab_service
+from app.services import milestone_service_common, vocab_service
 from tests.diary_helpers import make_exam_goal
 from tests.quiz_helpers import stub_quiz_ai
-from tests.vocab_helpers import make_card, make_deck, make_reading_goal, set_setting
+from tests.vocab_helpers import (
+    make_answer_log,
+    make_card,
+    make_deck,
+    make_reading_goal,
+    set_setting,
+)
 
 # ---------------------------------------------------------------------------
 # デッキ
@@ -72,6 +82,26 @@ def test_list_vocab_decks_reports_each_decks_own_card_count(seeded_session, clie
     assert response.status_code == 200
     counts = {deck["name"]: deck["card_count"] for deck in response.json()}
     assert counts == {"A": 2, "B": 1}
+
+
+def test_list_vocab_decks_reports_each_decks_own_mastered_card_count(seeded_session, client):
+    """開発Todo_単語帳_v1.0 要件E E-U6：デッキごとの習得数が区別して返ること
+    （`compute_mastered_card_counts_by_deck`が他デッキの習得数を混ぜないことの確認）。"""
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = make_exam_goal(seeded_session)
+    deck_a = make_deck(seeded_session, goal, "A")
+    deck_b = make_deck(seeded_session, goal, "B")
+    mastered_card = make_card(seeded_session, deck_a, term="習得済み")
+    make_card(seeded_session, deck_b, term="未習得")
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1)
+    )
+
+    response = client.get(f"/api/v1/goals/{goal.id}/vocab-decks")
+
+    assert response.status_code == 200
+    counts = {deck["name"]: deck["mastered_card_count"] for deck in response.json()}
+    assert counts == {"A": 1, "B": 0}
 
 
 def test_get_vocab_deck_returns_deck(seeded_session, client):
@@ -198,6 +228,50 @@ def test_list_vocab_cards_includes_stats(seeded_session, client):
     body = response.json()[0]
     assert body["correct_count"] == 1
     assert body["accuracy_percent"] == 100.0
+
+
+def test_list_vocab_cards_includes_is_mastered(seeded_session, client):
+    """開発Todo_単語帳_v1.0 要件E E-U1：直近`vocab.mastery_streak`回がすべて正解のカードは
+    `is_mastered=True`、未達は`False`。"""
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "2")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered_card = make_card(seeded_session, deck, term="習得済み")
+    unmastered_card = make_card(seeded_session, deck, term="未習得")
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+    )
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 10)
+    )
+    make_answer_log(
+        seeded_session, unmastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1)
+    )
+
+    response = client.get(f"/api/v1/vocab-decks/{deck.id}/cards")
+
+    assert response.status_code == 200
+    is_mastered_by_term = {card["term"]: card["is_mastered"] for card in response.json()}
+    assert is_mastered_by_term == {"習得済み": True, "未習得": False}
+
+
+def test_list_vocab_cards_filter_unmastered_excludes_mastered_cards(seeded_session, client):
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered_card = make_card(seeded_session, deck, term="習得済み")
+    make_card(seeded_session, deck, term="未習得")
+    make_answer_log(
+        seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1)
+    )
+
+    response = client.get(
+        f"/api/v1/vocab-decks/{deck.id}/cards", params={"filter": "UNMASTERED"}
+    )
+
+    assert response.status_code == 200
+    terms = [card["term"] for card in response.json()]
+    assert terms == ["未習得"]
 
 
 def test_list_vocab_cards_unknown_sort_returns_400(seeded_session, client):
@@ -625,6 +699,62 @@ def test_answer_vocab_card_does_not_affect_todays_quiz_tables(seeded_session, cl
     )
 
     assert seeded_session.query(QuizAnswerLog).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# セッション終了時の節目判定（開発Todo_単語帳_v1.0 要件E E-U3）
+# ---------------------------------------------------------------------------
+
+
+def test_complete_vocab_quiz_session_records_milestone_when_threshold_reached(
+    seeded_session, client
+):
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    set_setting(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "1")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1))
+
+    response = client.post(f"/api/v1/vocab-decks/{deck.id}/quiz-sessions/complete")
+
+    assert response.status_code == 200, response.text
+    pending = client.get(f"/api/v1/goals/{goal.id}/milestones/pending-celebrations").json()
+    keys = {(m["milestone_type"], m["milestone_key"]) for m in pending}
+    assert ("VOCAB_MASTERED_TERMS", "1") in keys
+
+
+def test_complete_vocab_quiz_session_unknown_deck_returns_404(client):
+    response = client.post("/api/v1/vocab-decks/999999/quiz-sessions/complete")
+    assert response.status_code == 404
+
+
+def test_complete_vocab_quiz_session_does_not_double_record_with_later_record_finalize(
+    seeded_session, client
+):
+    """セッション終了時の判定と、その後の記録確定時の判定（`detect_and_record_for_category`）
+    の両方を実行しても、節目が二重に記録されないこと（開発Todo_単語帳_v1.0 要件E 完了条件）。"""
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    set_setting(seeded_session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS, "1")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck)
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=dt.datetime(2026, 1, 1))
+
+    response = client.post(f"/api/v1/vocab-decks/{deck.id}/quiz-sessions/complete")
+    assert response.status_code == 200, response.text
+    milestone_service_common.detect_and_record_for_category(
+        seeded_session, GoalCategory.EXAM, dt.date(2026, 1, 2)
+    )
+    seeded_session.commit()
+
+    achievements = client.get(f"/api/v1/goals/{goal.id}/milestones").json()
+    keys = [
+        (a["milestone_type"], a["milestone_key"])
+        for a in achievements
+        if a["milestone_type"] == "VOCAB_MASTERED_TERMS"
+    ]
+    assert keys == [("VOCAB_MASTERED_TERMS", "1")]
 
 
 def test_update_vocab_card_deletes_its_quiz_questions(seeded_session, client):
