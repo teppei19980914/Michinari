@@ -730,6 +730,13 @@ def test_generate_vocab_term_suggestions_unknown_goal_returns_404(client):
     assert response.status_code == 404
 
 
+def test_list_vocab_term_suggestions_unknown_goal_returns_404(client):
+    response = client.get(
+        "/api/v1/goals/999999/vocab-suggestions", params={"record_date": "2026-11-20"}
+    )
+    assert response.status_code == 404
+
+
 def test_list_vocab_term_suggestions_returns_pending_for_the_date(
     seeded_session, client, monkeypatch
 ):

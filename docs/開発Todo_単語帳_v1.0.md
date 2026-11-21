@@ -476,37 +476,37 @@
 - [x] D-01 `/threat-model`実施（利用者の日記をプロンプトへ入れる新規AI用途、STRIDE、§5.6へ記録、2026-11-20）
 
 #### 3.D.1 バックエンド実装
-- [ ] D-B01 列挙の追加（`AiPurpose.VOCAB_TERM_EXTRACT`・`ConversationScope.VOCAB_TERM_EXTRACT`・`VocabTermSuggestionStatus`）
-- [ ] D-B02 設定キー追加（`vocab.suggest_max_per_record`、既定5）、シード・プロンプト本文登録
-- [ ] D-B03 `vocab_term_suggestion`モデル・マイグレーション（`VocabTermSuggestion`、head=`1be51b4ce9c0`から新規1ファイル、`create_table`のみ）
-- [ ] D-B04 `prompt_texts_exam.py`：`VOCAB_TERM_EXTRACT`テンプレート新設（`{{diary_text}}`・`{{max_terms}}`・`{{nonce}}`、区切り・指示文つき）
-- [ ] D-B05 `vocab_service.py`：「最後に使った単語帳」取得関数（D-D5）
-- [ ] D-B06 `vocab_term_suggestion_service.py`：日記取得（`DailyGoalDiary`）・既存提案の有無チェック（D-D3）・禁止語チェック・`theme_ai_dispatch.send_theme_scoped_prompt`送信・応答の1行1語句解析・文単位の採用判定（D-D6）・`vocab.suggest_max_per_record`での打ち切り・保存
-- [ ] D-B07 `vocab_term_suggestion_service.py`：一覧取得（PENDING、`record_date`必須、D-D15）
-- [ ] D-B08 `vocab_term_suggestion_service.py`：accept（所有関係検証→`vocab_service.create_card`呼び出し→`ADDED`へ更新）・dismiss（所有関係検証→`DISMISSED`へ更新）
-- [ ] D-B09 API：`app/api/vocab.py`に4エンドポイント追加（POST生成・GET一覧・POST accept・POST dismiss）、`app/schemas/vocab.py`にスキーマ追加
-- [ ] D-B10 セキュリティテスト：日記に含まれない語句（作り話）の破棄、区切りの偽装、敵対的な長い行、禁止語を含む日記は送らないこと、存在しないIDへの操作は404、他の目標の提案・単語帳を操作できないこと（goal_id不一致を拒否）
+- [x] D-B01 列挙の追加（`AiPurpose.VOCAB_TERM_EXTRACT`・`ConversationScope.VOCAB_TERM_EXTRACT`・`VocabTermSuggestionStatus`）
+- [x] D-B02 設定キー追加（`vocab.suggest_max_per_record`、既定5）、シード・プロンプト本文登録
+- [x] D-B03 `vocab_term_suggestion`モデル・マイグレーション（`VocabTermSuggestion`、head=`1be51b4ce9c0`から新規1ファイル、`create_table`のみ）
+- [x] D-B04 `prompt_texts_exam.py`：`VOCAB_TERM_EXTRACT`テンプレート新設（`{{diary_text}}`・`{{max_terms}}`・`{{nonce}}`、区切り・指示文つき）
+- [x] D-B05 `vocab_service.py`：「最後に使った単語帳」取得関数（D-D5）
+- [x] D-B06 `vocab_term_suggestion_service.py`：日記取得（`DailyGoalDiary`）・既存提案の有無チェック（D-D3）・禁止語チェック・`theme_ai_dispatch.send_theme_scoped_prompt`送信・応答の1行1語句解析・文単位の採用判定（D-D6）・`vocab.suggest_max_per_record`での打ち切り・保存
+- [x] D-B07 `vocab_term_suggestion_service.py`：一覧取得（PENDING、`record_date`必須、D-D15）
+- [x] D-B08 `vocab_term_suggestion_service.py`：accept（所有関係検証→`vocab_service.create_card`呼び出し→`ADDED`へ更新）・dismiss（所有関係検証→`DISMISSED`へ更新）
+- [x] D-B09 API：`app/api/vocab.py`に4エンドポイント追加（POST生成・GET一覧・POST accept・POST dismiss）、`app/schemas/vocab.py`にスキーマ追加
+- [x] D-B10 セキュリティテスト：日記に含まれない語句（作り話）の破棄、区切りの偽装、敵対的な長い行、禁止語を含む日記は送らないこと、存在しないIDへの操作は404、他の目標の提案・単語帳を操作できないこと（goal_id不一致を拒否）
 
 #### 3.D.2 フロントエンド実装
-- [ ] D-F01 `api/vocab.ts`に提案系4関数追加、型再生成（`npm run generate:api-types`）
-- [ ] D-F02 `features/vocab/TodayVocabSuggestionsCard.tsx`（AI提案カード、accept/dismiss、0件時は非表示）・`AddVocabTermButton.tsx`（D-U6の手動追加ボタン）・共有の追加フォーム
-- [ ] D-F03 `ExamReportSection.tsx`（確定後サマリへ組み込み）・`DailyReportViewPage.tsx`（閲覧画面へ組み込み）・`useDailyReportActions.ts`（EXAM確定成功時に生成APIを呼ぶ、AI未設定・デッキ0件なら呼ばない）
-- [ ] D-F04 `ja.json`/`en.json`：`vocab.suggestions`名前空間の文言追加
-- [ ] D-F05 lint（oxlint）・tsc・test
+- [x] D-F01 `api/vocab.ts`に提案系4関数追加、型再生成（`npm run generate:api-types`）
+- [x] D-F02 `features/vocab/TodayVocabSuggestionsCard.tsx`（AI提案カード、accept/dismiss、0件時は非表示）・`AddVocabTermButton.tsx`（D-U6の手動追加ボタン）・共有の追加フォーム
+- [x] D-F03 `ExamReportSection.tsx`（確定後サマリへ組み込み）・`DailyReportViewPage.tsx`（閲覧画面へ組み込み）・`useDailyReportActions.ts`（EXAM確定成功時に生成APIを呼ぶ、AI未設定・デッキ0件なら呼ばない）
+- [x] D-F04 `ja.json`/`en.json`：`vocab.suggestions`名前空間の文言追加
+- [x] D-F05 lint（oxlint）・tsc・test
 
 #### 3.D.3 検証
-- [ ] D-V01 ruff・pytest・vitest（§2.3比較：既存テストが1件も壊れていないこと）
-- [ ] D-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、起動確認）
-- [ ] D-V03 観点別レビュー（コミット前チェック、該当エージェント並列実行）
-- [ ] D-V04 実機確認手順の提示（報告メッセージに記載）
+- [x] D-V01 ruff・pytest・vitest（§2.3比較：既存テストが1件も壊れていないこと）
+- [x] D-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、起動確認）
+- [x] D-V03 観点別レビュー（コミット前チェック、該当エージェント並列実行）
+- [x] D-V04 実機確認手順の提示（報告メッセージに記載）
 
 #### 3.D.4 文書改訂
-- [ ] D-D-01 要件定義書：6.23へ要件D追記、改訂履歴
-- [ ] D-D-02 仕様書：6.5・6.7・6.20・08_AI連携仕様.md・設定項目一覧、改訂履歴
-- [ ] D-D-03 設計書（データ構造編）：`vocab_term_suggestion`・`vocab.suggest_max_per_record`、改訂履歴
-- [ ] D-D-04 設計書（ロジック・プロンプト編）：抽出・検証のフロー新設、STRIDE、30章への反映、改訂履歴
-- [ ] D-D-05 README.md：単語帳説明へ要件Dの反映
-- [ ] D-D-06 help_content.json：日次報告・単語帳ヘルプ本文更新
+- [x] D-D-01 要件定義書：6.23へ要件D追記、改訂履歴
+- [x] D-D-02 仕様書：6.5・6.7・6.20・08_AI連携仕様.md・設定項目一覧、改訂履歴
+- [x] D-D-03 設計書（データ構造編）：`vocab_term_suggestion`・`vocab.suggest_max_per_record`、改訂履歴
+- [x] D-D-04 設計書（ロジック・プロンプト編）：抽出・検証のフロー新設、STRIDE、30章への反映、改訂履歴
+- [x] D-D-05 README.md：単語帳説明へ要件Dの反映
+- [x] D-D-06 help_content.json：日次報告・単語帳ヘルプ本文更新
 
 ### 3.E 要件E：習得の可視化（別セッション）
 （着手時に追記）
@@ -776,6 +776,24 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/`の該当章（抽出・検証のフロー新設）へ転記する（文書改訂D-D-04で実施）。
 
+## 5.7 観点別レビュー（コミット前チェック、要件D、2026-11-21実施）
+
+`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`xss-reviewer`・`test-coverage-reviewer`・`performance-reviewer`の7エージェントを並列実行。検出事項と対応:
+
+| # | エージェント | 重要度 | 指摘内容 | 対応 |
+| --- | --- | --- | --- | --- |
+| 1 | dry-reviewer | **HIGH** | 重複除外（既に提案済み・既に単語帳にある用語の判定）が`term_key`（`normalize_for_match`のみ）だけで行われており、既存の単語帳内の重複判定（`judge_typed_answer`・一括登録・`build_glossary_reference`等）が揃って使っている`vocab_service.normalize_for_vocab_match`（カタカナ→ひらがな統一込み）基準と不一致だった。単なる重複実装ではなく、カタカナ/ひらがな表記違いの重複を検知できない機能バグになり得る（D-U5の要件漏れ） | 修正済み：`_existing_term_keys`を`_excluded_vocab_match_keys`へ改名し、既存カード側は`vocab_service.build_vocab_match_keys`を再利用、候補側も`normalize_for_vocab_match`で正規化して比較する方式に変更（`term_key`列自体はD-U5データ定義どおり`normalize_for_match`のまま維持）。回帰テスト`test_generate_suggestions_excludes_term_matching_existing_card_by_kana_variant`を追加 |
+| 2 | test-coverage-reviewer | **HIGH** | フロントエンドの新規関数`triggerVocabTermSuggestions`（確定成功時の提案生成トリガー、`useDailyReportActions.ts`）に専用テストが無かった。`src/**/use*.ts`はカバレッジ閾値の集計対象外だが、vite.config.tsの既存方針（非自明な分岐を持つフックは直接テストを書く）に反していた | 修正済み：関数を`export`し、`useDailyReportActions.test.ts`を新設（AI未設定時に呼ばない・goal_id無し/日記空白のエントリを除外・デッキ0件なら生成APIを呼ばない・成功時の`invalidateQueries`呼び出し・失敗時に例外を投げない「静かな失敗」〈D-D18〉・複数目標の並列呼び出しの6点を検証） |
+| 3 | test-coverage-reviewer | MEDIUM | 同日の再取得（既存提案がある場合にAI呼び出しをスキップする経路）で、ADDED/DISMISSED済みの行がPENDINGのみへ絞り込まれることが未検証だった（既存テストは全件PENDINGのケースのみ） | 修正済み：`test_generate_suggestions_excludes_added_and_dismissed_suggestions_on_regeneration`を追加 |
+| 4 | test-coverage-reviewer | MEDIUM | AI応答内で同じ語句（表記ゆれ含む）が複数回出現した場合に1件しか採用しないことが未検証だった | 修正済み：`test_generate_suggestions_deduplicates_repeated_term_within_the_same_response`を追加 |
+| 5 | test-coverage-reviewer | LOW | `vocab.term_max_chars`・`vocab.suggest_max_per_record`のちょうど境界（成功側）、AI応答中の空行のスキップ、新規GETエンドポイントの404が未検証だった | 修正済み：境界値テスト3件・空行テスト1件・GET 404テスト1件を追加 |
+| — | injection-reviewer | — | プロンプト注入・ハルシネーション対策（区切りの全角化・nonce・実在検証）・SQLインジェクション・ReDoS・下流プロンプトへの再利用経路のいずれも、既存の共通防御（`question_safety`・`prompt_builder._substitute`の単一パス置換）を正しく利用しており抜け漏れなし。並行リクエストでの重複AI呼び出し（レースコンディション）の可能性を軽微な堅牢性メモとして指摘されたが、D-U4の想定操作（確定成功後に画面から1回だけ呼ぶ）では再現しにくく、セキュリティ脆弱性ではないため対応不要と判断 | 対応不要と判断 |
+| — | xss-reviewer | — | 危険な動的HTML注入APIの使用なし。AI由来・利用者由来の文字列は制御されたフォーム要素のvalue属性としてのみ出力され、HTML解釈されない。回帰防止テストの追加を提案されたが、既存のReact既定エスケープへの依存は本コードベース全体の前提（CLAUDE.md「React/Angularは既定で安全」）と一致するため見送り | 対応不要と判断 |
+| — | style-reviewer・label-checker | — | 命名規則・コメント規約・ハードコード文言のいずれも既存方針に合致。指摘なし | 対応不要 |
+| — | performance-reviewer | — | N+1クエリは無し（`_excluded_vocab_match_keys`は1回のIN句クエリ）。POST時にデッキ一覧を2回問い合わせる軽微な重複・AI応答の総行数に明示的な上限が無い点・フロントの2クエリ直列化（デッキ→提案）を指摘されたが、いずれもコスト（二重クエリは1回限りの軽量SELECT、行数上限は既存の類似ループ〈テーマ由来クイズ生成等〉も同様に未実装で本機能固有の後退ではない）に対して対応の複雑さが上回るため見送り。日記エントリがEXAM以外の目標にも及ぶ懸念は、`daily_goal_diary`へ書き込むのはEXAM確定フローのみ（`record_service_reading.py`・`record_service_work.py`には該当コードが無い）ことをソースで確認し、実害が無いことを確認した | 対応不要と判断 |
+
+全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,573件合格、カバレッジ100%。§8参照）。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |
@@ -789,6 +807,7 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 | 単語帳カードの改行による「1カード=1行」プロンプト構造の偽装 | `vocab_service.flatten_for_single_line`で改行等を空白へ変換してから埋め込む（§5.3 #6） |
 | `build_glossary_reference`の区切り全角化が呼び出し元依存 | 関数自身が`DELIMITER_REPLACEMENTS`を適用する「デフォルトで安全」な実装へ変更（§5.3 #7） |
 | カード削除・目標削除時の単語帳由来クイズのCASCADE連鎖が未検証 | `test_vocab_service.py`・`test_goal_service.py`に回帰テストを追加（§5.3 #3・#4） |
+| 用語の重複除外が`normalize_for_match`のみでカタカナ/ひらがな表記違いを検知できない | `vocab_service.normalize_for_vocab_match`（既存の単語帳内重複判定と同じ基準）を除外判定に使うよう修正（§5.7 #1） |
 
 ## 7. 完了の定義
 
@@ -815,6 +834,16 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 既存のプロンプトを変更するため実装前に`/threat-model`を実施し、設計書へ反映したこと。→ 達成（§5.4、設計書17.2・24.7）
 - 観点別レビュー（§5.5、本セッション自身による実施）でHIGH以上の指摘を全て修正したこと。→ 達成
 - 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・ダッシュボード表示・新設app_setting/prompt_templateの反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
+
+### 7.D 要件Dの完了の定義
+
+- §3.D（D-00・D-01・D-B01〜D-B10・D-F01〜D-F05・D-V01〜D-V04・D-D-01〜D-D-06）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%〈文10,983・分岐2,052〉、フロントエンド100%〈文2,707・分岐1,777〉）
+- §2.3のベースラインと比較し、既存の単語帳（要件A・B・C）のテストが1件も壊れていないこと。→ 達成
+- 利用者の日記をプロンプトへ入れる新規AI用途のため実装前に`/threat-model`を実施し、設計書へ反映したこと。→ 達成（§5.6、設計書30.10）
+- 観点別レビュー（§5.7、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成
+- 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設エンドポイント（`GET /goals/{goal_id}/vocab-suggestions`、404判定を含む）・新設app_setting/prompt_templateの反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
+- セキュリティテスト（作り話の破棄・区切りの偽装・敵対的な長い行・禁止語を含む日記は送らない・存在しないIDへの操作は404・他目標の提案・単語帳を操作できない）が全て合格していること。→ 達成
 
 ## 8. 作業記録
 
@@ -847,3 +876,13 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 2026-11-19（コミット前チェック・再実施）：Stop Hookから「観点別レビューがDRYのみで不十分」との指摘を受け、CLAUDE.md「コミット前チェック」6観点に沿って残りの観点を実施した（詳細は§5.5）。新たにMEDIUM 1件（要件Bの既存設計書`17.15_復習クイズ.md`に改名前の関数名`_format_glossary_line`への参照3箇所と、要件Cの実際の設計〈別関数化〉と食い違う記述1箇所が残存）・HIGH 1件（利用者プロンプトの明示指示「`exceeds_with_entries_emptied`・`exhausted`の判定を用語を含めた状態で確認するテスト」が未実装）を検出し、全て修正済み。`osv-scanner`を直接実行し、2026-11-18時点で報告されていた`picomatch`（CVSS 8.7）を含め既知の脆弱性0件を確認した。修正後、バックエンド全件再実行：**2,534件合格**・カバレッジ100%（文10,824・分岐2,024、欠落0）・ruff 0件。既存テストは1件も壊れていない（§2.2比較）。
 
 **単語帳機能（要件A〜C）の進捗まとめ（2026-11-19）**：基盤と問題集（要件A、2026-11-15〜16、PR #135でmainマージ済み）・今日の復習への統合（要件B、2026-11-15〜18）・日次フィードバック・目標相談への用語注入（要件C、2026-11-19）の3要件が完了した（§7・§7.B・§7.Cすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照、という一連の流れを得られる。要件D（日次報告からの用語提案）・E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
+
+- 2026-11-20〜21：要件Dの開発着手。セッション開始時点では利用者プロンプトが「要件A〜Cはmainにマージ済み」としていたが、本セッション自身の検証（§0.7）で、要件Cが前日のブランチ（`dev/2026-11-15`）上に残っており未マージだったことを発見した。検証の最中にバックグラウンドの自動化（Stop Hook）がコミット前チェックの指摘対応を済ませてPR #137としてmainへマージした（2026-11-19T23:04:27Z）のを確認し、以後の作業は更新後のmainから作成した`dev/2026-11-20`ブランチで行った（前日ブランチは完全にマージ済みであることを`git merge-base --is-ancestor`で確認した上で削除）。要件A・B・Cの完了検証（テスト再実行・alembic head確認・主要ファイル実体確認、すべて§8記載の値と完全一致）・決定事項の記録（§0.8・§0.9）・影響範囲の確定（§1.7）・ベースライン再計測（§2.3、バックエンド2,534件／フロントエンド217ファイル・1,744件）を実施してから着手した。`/threat-model`を実装前に実施（§5.6）。
+
+- 2026-11-21（続き）：バックエンド（`VocabTermSuggestion`モデル・マイグレーション`e9eca0569d7c`、`vocab_term_suggestion_service.py`新設〈日記取得・既存提案チェック・禁止語チェック・AI送信・応答解析・採用判定・保存・一覧取得・accept・dismiss〉、`VOCAB_TERM_EXTRACT`プロンプト新設、`vocab_service.last_used_deck_id`追加、`app/api/vocab.py`へ4エンドポイント追加）、フロントエンド（`TodayVocabSuggestionsCard.tsx`・`AddVocabTermButton.tsx`・`VocabTermFields.tsx`新設、`ExamReportSection.tsx`・`DailyReportViewPage.tsx`・`useDailyReportActions.ts`への組み込み、ロケール`vocab.suggestions.*`新設）を実装。
+
+- 2026-11-21（続き）：コミット前チェックとして観点別レビュー7エージェントを並列実行（詳細は§5.7）。HIGH 2件（重複除外の正規化基準がカタカナ/ひらがな表記違いを検知できない設計ミス、フロントエンドの新規関数`triggerVocabTermSuggestions`にテストが無い）・MEDIUM 2件・LOW複数件を検出し、HIGH・MEDIUMは全て修正済み（LOWは対応不要と判断、理由は§5.7参照）。修正後、バックエンド全件再実行：**2,573件合格**・カバレッジ100%（文10,983・分岐2,052、欠落0）・ruff 0件。フロントエンド：222ファイル・1,765件合格・カバレッジ100%・oxlint 0件・tsc 0件。既存テストは1件も壊れていない（§2.3比較）。`osv-scanner scan -r .`を実行し既知の脆弱性0件を確認。
+
+- 2026-11-21（最終）：実際の利用者DB（`data/michinari.db`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`0e22c031f0ca`→`e9eca0569d7c`、要件A・B・C・Dの4マイグレーションを通し適用。実DBは要件A〜Cのリリースを経ていなかったため、本セッションで初めて4件まとめて検証した）を実施。実サーバ（uvicorn、別ポート8799）を起動し、`GET /health`・`GET /dashboard`（既存の資格試験目標1件を正常表示）・`GET /goals/1/vocab-decks`（空配列）・`GET /goals/1/vocab-suggestions?record_date=2026-11-21`（空配列、`default_deck_id`はnull）・`GET /goals/999999/vocab-suggestions`（404）・新設`app_setting`（`vocab.suggest_max_per_record`=5）・新設`prompt_template`（`VOCAB_TERM_EXTRACT`）・新規テーブル（`vocab_term_suggestion`）の投入をAPI・DB直接確認の両方で確認した。AIへの実送信は本検証では行っていない（実際のAI利用枠を消費するため）。実DBは一切変更していないことをmd5チェックサムで確認済み（検証前後で同一：`935ff2854ef36c287f56091a055f0216`）。以上により、要件Dの完了条件（§7.D）を満たしたと判断する。要件E（習得の可視化）は未着手のまま別セッションに引き継ぐ。
+
+**単語帳機能（要件A〜D）の進捗まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）の4要件が完了した（§7・§7.B・§7.C・§7.Dすべて達成）。資格試験の利用者は、日次報告の確定だけで単語帳の用語候補が提案され、ワンタップで追加できるようになった（AIを使わない手動追加の手段も用意）。単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案、という一連の循環が完成した。要件E（習得の可視化）は未着手のまま別セッションに引き継ぐ。

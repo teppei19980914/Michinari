@@ -55,13 +55,20 @@ def _get_diary_learned(session: Session, goal_id: int, record_date: date) -> str
     return row[0] if row else None
 
 
-def _existing_term_keys(session: Session, goal_id: int) -> set[str]:
-    """同じ目標で既に提案済み（status不問）・既に単語帳にある用語・別名の正規化キー一覧
+def _excluded_vocab_match_keys(session: Session, goal_id: int) -> set[str]:
+    """同じ目標で既に提案済み（status不問）・既に単語帳にある用語・別名の照合キー一覧
     （開発Todo §0.8 D-U5）。
+
+    `vocab_service.normalize_for_vocab_match`（カタカナ→ひらがな統一込み）基準で揃える。
+    単語帳内の既存の重複判定（`judge_typed_answer`・一括登録・`build_glossary_reference`等）
+    と同じ基準にしないと、カタカナ/ひらがな表記違いの重複を検知できない
+    （dry-reviewerレビューで検出、2026-11-21。`term_key`列自体は`normalize_for_match`で
+    保存するが、それは重複防止の照合基準としては不十分だったため、除外判定はこの基準に
+    独立させる）。
     """
     keys: set[str] = {
-        key
-        for (key,) in session.query(VocabTermSuggestion.term_key).filter(
+        vocab_service.normalize_for_vocab_match(term)
+        for (term,) in session.query(VocabTermSuggestion.term).filter(
             VocabTermSuggestion.goal_id == goal_id
         )
     }
@@ -69,8 +76,7 @@ def _existing_term_keys(session: Session, goal_id: int) -> set[str]:
     if deck_ids:
         cards = session.scalars(select(VocabCard).where(VocabCard.deck_id.in_(deck_ids))).all()
         for card in cards:
-            keys.add(normalize_for_match(card.term))
-            keys.update(normalize_for_match(alias) for alias in vocab_service.split_aliases(card))
+            keys.update(vocab_service.build_vocab_match_keys(card))
     return {key for key in keys if key}
 
 
@@ -80,15 +86,20 @@ def _extract_candidates(
     sentences: list[str],
     term_max_chars: int,
     max_terms: int,
-    excluded_keys: set[str],
+    excluded_vocab_keys: set[str],
 ) -> list[tuple[str, str, str]]:
     """AI応答（1行1語句）を解析し、日記に文字どおり含まれる語句だけを採用する。
 
     戻り値は`(term, term_key, source_sentence)`のリスト（採用順）。長すぎる行は正規化・
     一致判定より先に捨てる（D-D7）。`max_terms`に達したら残りの行は読まない（D-D8）。
+
+    日記本文への部分一致判定（`term_key`、D-U3の明示指示どおり`normalize_for_match`）と、
+    重複除外の判定（`vocab_key`、`normalize_for_vocab_match`）は別の正規化基準を使う。前者は
+    「日記に文字どおり含まれるか」、後者は「単語帳の既存の重複判定と同じ基準で既に提案・
+    登録済みか」であり、意味が異なるため（dry-reviewerレビューで検出、2026-11-21）。
     """
     normalized_sentences = [(sentence, normalize_for_match(sentence)) for sentence in sentences]
-    seen_keys = set(excluded_keys)
+    seen_vocab_keys = set(excluded_vocab_keys)
     candidates: list[tuple[str, str, str]] = []
     for raw_line in response.splitlines():
         if len(candidates) >= max_terms:
@@ -97,7 +108,11 @@ def _extract_candidates(
         if not line or len(line) > term_max_chars:
             continue
         term_key = normalize_for_match(line)
-        if not term_key or term_key in seen_keys:
+        vocab_key = vocab_service.normalize_for_vocab_match(line)
+        # term_keyが空になる行は実質的に構築できない（normalize_for_matchは空白除去のみで
+        # 文字の削除は行わないため）が、空文字列は「どの文にも部分一致してしまう」ため
+        # 安全側のガードとして残す（not line の時点で弾けないケースへの保険）。
+        if not term_key or vocab_key in seen_vocab_keys:
             continue
         source_sentence = next(
             (
@@ -109,7 +124,7 @@ def _extract_candidates(
         )
         if source_sentence is None:
             continue
-        seen_keys.add(term_key)
+        seen_vocab_keys.add(vocab_key)
         candidates.append((line, term_key, source_sentence))
     return candidates
 
@@ -160,13 +175,13 @@ def generate_suggestions(
         title=f"単語帳の用語提案 record-{record_date.isoformat()}",
     )
 
-    excluded_keys = _existing_term_keys(session, goal.id)
+    excluded_vocab_keys = _excluded_vocab_match_keys(session, goal.id)
     candidates = _extract_candidates(
         response=response,
         sentences=_split_sentences(diary_text),
         term_max_chars=term_max_chars,
         max_terms=max_terms,
-        excluded_keys=excluded_keys,
+        excluded_vocab_keys=excluded_vocab_keys,
     )
 
     created = [

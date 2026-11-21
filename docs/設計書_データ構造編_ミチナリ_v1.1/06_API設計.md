@@ -293,6 +293,10 @@
 | POST | /vocab-decks/{deck_id}/quiz-sessions | 出題セッションを開始する（サーバーにセッション自体は保存しない） |
 | POST | /vocab-cards/{card_id}/answer | 単語帳の問題集での解答を記録する（`vocab_answer_log`へ追加。今日の復習の解答履歴とは別） |
 | POST | /vocab-decks/{deck_id}/quiz/generate | 単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B）。その単語帳の、まだ問題を持たないカードの分だけ作る（AI呼び出し） |
+| POST | /goals/{goal_id}/vocab-suggestions | 日次報告の確定成功後に呼ぶ（開発Todo_単語帳_v1.0 要件D）。`record_date`を指定し、その日の日記からAIが用語候補を抜き出しPENDINGの提案一覧を返す（AI呼び出し。既に同日の提案があれば呼び出さず既存を返す） |
+| GET | /goals/{goal_id}/vocab-suggestions | その日（`record_date`必須）のPENDINGの提案一覧を返す |
+| POST | /goals/{goal_id}/vocab-suggestions/{suggestion_id}/accept | 提案を採用し、指定の単語帳へカードを追加してADDEDにする。他目標の提案・単語帳は404 |
+| POST | /goals/{goal_id}/vocab-suggestions/{suggestion_id}/dismiss | 提案を見送り、DISMISSEDにする。他目標の提案は404 |
 
 **その他**
 
