@@ -294,6 +294,25 @@ def update_card(
     return card
 
 
+def vocab_card_content_changed(
+    card: VocabCard, *, term: str | None, meaning: str | None, aliases: str | None
+) -> bool:
+    """用語・意味・別名のいずれかが実際に変わるかを判定する（開発Todo_単語帳_v1.0 要件B、
+    今日の復習の問題削除条件。不具合修正、2026-11-22）。`update_card`で値を書き換える**前**に
+    呼ぶこと。比較は保存される値そのものの一致で行い正規化はしない（表記の修正も内容の変更と
+    みなす、利用者の明示指示）。`None`は「この項目は更新しない」を意味し`update_card`と同じ
+    規約（変更なし扱い）とする。後続の要件F（シチュエーションカード）でカードの種類ごとに
+    判定対象フィールドを増やせるよう、`update_card`本体から分離した独立関数とする。
+    """
+    if term is not None and term != card.term:
+        return True
+    if meaning is not None and meaning != card.meaning:
+        return True
+    if aliases is not None and aliases != card.aliases:
+        return True
+    return False
+
+
 def set_card_checked(session: Session, card: VocabCard, is_checked: bool) -> VocabCard:
     card.is_checked = is_checked
     session.flush()
@@ -626,11 +645,15 @@ def filter_cards(
     *,
     filter_key: str,
     weak_accuracy_percent: float,
-    mastered_card_ids: frozenset[int] = frozenset(),
+    mastered_card_ids: frozenset[int],
 ) -> list[VocabCard]:
     """絞り込み（全件／チェック付きのみ／一度でも間違えた／連続して間違えている／苦手／
     未解答／未習得）を適用する。`mastered_card_ids`は`UNMASTERED`（開発Todo_単語帳_v1.0
-    要件E E-U6）のときのみ使う（`vocab_service.compute_mastered_card_ids`の結果）。"""
+    要件E E-U6）のときのみ使う（`vocab_service.compute_mastered_card_ids`の結果）が、呼び出し
+    漏れを型・テストで検知できるよう既定値を持たない必須引数とする（不具合修正、2026-11-22。
+    出題開始API`start_vocab_quiz_session`が本引数を渡さず、カード一覧では効く「未習得」
+    絞り込みが出題には効かない不具合があったため）。
+    """
     if filter_key == "ALL":
         return cards
     if filter_key == "CHECKED":

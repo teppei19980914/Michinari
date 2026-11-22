@@ -125,6 +125,28 @@ def test_get_vocab_deck_unknown_id_returns_404(client):
     assert response.status_code == 404
 
 
+def test_get_vocab_deck_reports_session_question_count_default_and_max(seeded_session, client):
+    """出題開始フォームの初期値・上限として画面へ渡す`vocab.session_default_questions`・
+    `vocab.session_max_questions`が単語帳詳細のレスポンスに反映されること（軽微1の再現
+    テスト。設定値を変更した場合も反映されること）。"""
+    from app.constants.app_setting_keys import (
+        VOCAB_SESSION_DEFAULT_QUESTIONS,
+        VOCAB_SESSION_MAX_QUESTIONS,
+    )
+
+    set_setting(seeded_session, VOCAB_SESSION_DEFAULT_QUESTIONS, "15")
+    set_setting(seeded_session, VOCAB_SESSION_MAX_QUESTIONS, "50")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.get(f"/api/v1/vocab-decks/{deck.id}")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["session_default_questions"] == 15
+    assert body["session_max_questions"] == 50
+
+
 def test_update_vocab_deck_changes_fields(seeded_session, client):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal, "元の名前")
@@ -462,6 +484,40 @@ def test_start_quiz_session_flash_meaning_to_term_reveals_term(seeded_session, c
     assert question["reveal"] == cards[0].term
 
 
+def test_start_quiz_session_unmastered_filter_excludes_mastered_cards(seeded_session, client):
+    """filter=UNMASTERED で出題を開始したとき、習得済み（直近`vocab.mastery_streak`回正解）
+    のカードが出題されないこと（不具合1の再現テスト。`start_vocab_quiz_session`が
+    `vocab_service.filter_cards`へ`mastered_card_ids`を渡していないと、一覧APIでは
+    絞り込めるのに出題では習得済みカードも出てしまう）。"""
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered = make_card(seeded_session, deck, term="習得済み", meaning="習得済みの意味")
+    unmastered = make_card(seeded_session, deck, term="未習得", meaning="未習得の意味")
+    make_answer_log(seeded_session, mastered, is_correct=True, answered_at=dt.datetime(2026, 1, 1))
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "FLASH_TERM_TO_MEANING", "filter": "UNMASTERED", "question_count": 10},
+    )
+
+    assert response.status_code == 200, response.text
+    card_ids = [q["card_id"] for q in response.json()["questions"]]
+    assert card_ids == [unmastered.id]
+    assert mastered.id not in card_ids
+
+
+def test_start_quiz_session_unknown_deck_returns_404(client):
+    """存在しない単語帳IDで出題を始めても404になること（軽微2の再現テスト。他の単語帳APIは
+    全て`get_deck`/`get_card`で404化しているが、`start_vocab_quiz_session`だけ漏れていた）。"""
+    response = client.post(
+        "/api/v1/vocab-decks/999999/quiz-sessions",
+        json={"mode": "FLASH_TERM_TO_MEANING", "question_count": 1},
+    )
+
+    assert response.status_code == 404
+
+
 def test_start_quiz_session_choice_meaning_to_term_shows_term_options(seeded_session, client):
     deck, cards = _make_deck_with_cards(seeded_session, 5)
 
@@ -786,6 +842,108 @@ def test_update_vocab_card_deletes_its_quiz_questions(seeded_session, client):
     seeded_session.commit()
 
     response = client.patch(f"/api/v1/vocab-cards/{card.id}", json={"term": "新しい用語"})
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 0
+
+
+def _make_card_with_quiz_question(session, card, *, interval_index: int = 3):
+    question = QuizQuestion(
+        vocab_card_id=card.id,
+        question_text="問題文",
+        choice_1="A",
+        choice_2="B",
+        choice_3="C",
+        choice_4="D",
+        correct_choice_index=0,
+        explanation="解説",
+        interval_index=interval_index,
+        next_due_date=dt.date.today(),
+    )
+    session.add(question)
+    session.commit()
+    return question
+
+
+def test_update_vocab_card_note_only_change_keeps_quiz_questions(seeded_session, client):
+    """補足（note）だけを変える更新では、今日の復習の問題（間隔の進み具合を含む）が
+    消えないこと（不具合3の再現テスト。要件Bの仕様は「用語・意味・別名を編集したら削除する」
+    であり、補足はその対象外）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="用語", meaning="意味", note="元の補足")
+    _make_card_with_quiz_question(seeded_session, card, interval_index=3)
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}",
+        json={"term": "用語", "meaning": "意味", "note": "新しい補足"},
+    )
+
+    assert response.status_code == 200, response.text
+    question = seeded_session.query(QuizQuestion).one()
+    assert question.interval_index == 3
+
+
+def test_update_vocab_card_resending_same_values_keeps_quiz_questions(seeded_session, client):
+    """term・meaning・aliasesを変更前と同じ値で送り直した場合は、内容が変わっていないため
+    問題を削除しないこと（不具合3）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="用語", meaning="意味", aliases="別名")
+    _make_card_with_quiz_question(seeded_session, card)
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}",
+        json={"term": "用語", "meaning": "意味", "aliases": "別名"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 1
+
+
+def test_check_vocab_card_keeps_quiz_questions(seeded_session, client):
+    """チェックの切り替え（`PATCH /vocab-cards/{id}/check`）は今日の復習の問題を削除しないこと
+    （不具合3、既存の`check_vocab_card`エンドポイントはそもそも削除を呼ばないことの回帰防止）。
+    """
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="用語", meaning="意味")
+    _make_card_with_quiz_question(seeded_session, card)
+
+    response = client.patch(f"/api/v1/vocab-cards/{card.id}/check", json={"is_checked": True})
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 1
+
+
+def test_update_vocab_card_meaning_change_deletes_quiz_questions(seeded_session, client):
+    """意味を変えた更新では今日の復習の問題が削除されること（不具合3、term以外のフィールド
+    の横展開確認）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="用語", meaning="元の意味")
+    _make_card_with_quiz_question(seeded_session, card)
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}", json={"term": "用語", "meaning": "新しい意味"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 0
+
+
+def test_update_vocab_card_aliases_change_deletes_quiz_questions(seeded_session, client):
+    """別名を変えた更新では今日の復習の問題が削除されること（不具合3、term以外のフィールド
+    の横展開確認）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_card(seeded_session, deck, term="用語", meaning="意味", aliases="元の別名")
+    _make_card_with_quiz_question(seeded_session, card)
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}",
+        json={"term": "用語", "meaning": "意味", "aliases": "新しい別名"},
+    )
 
     assert response.status_code == 200, response.text
     assert seeded_session.query(QuizQuestion).count() == 0

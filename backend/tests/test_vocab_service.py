@@ -897,7 +897,11 @@ def test_filter_cards_all_returns_everything(seeded_session):
     cards = [make_card(seeded_session, deck, term=str(i)) for i in range(2)]
 
     result = vocab_service.filter_cards(
-        cards, _stats_for(seeded_session, cards), filter_key="ALL", weak_accuracy_percent=70
+        cards,
+        _stats_for(seeded_session, cards),
+        filter_key="ALL",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert len(result) == 2
@@ -911,7 +915,11 @@ def test_filter_cards_checked_only(seeded_session):
     cards = vocab_service.list_cards_for_deck(seeded_session, deck.id)
 
     result = vocab_service.filter_cards(
-        cards, _stats_for(seeded_session, cards), filter_key="CHECKED", weak_accuracy_percent=70
+        cards,
+        _stats_for(seeded_session, cards),
+        filter_key="CHECKED",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert [c.id for c in result] == [checked.id]
@@ -928,7 +936,11 @@ def test_filter_cards_ever_wrong(seeded_session):
     cards = vocab_service.list_cards_for_deck(seeded_session, deck.id)
 
     result = vocab_service.filter_cards(
-        cards, _stats_for(seeded_session, cards), filter_key="EVER_WRONG", weak_accuracy_percent=70
+        cards,
+        _stats_for(seeded_session, cards),
+        filter_key="EVER_WRONG",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert [c.id for c in result] == [wrong_card.id]
@@ -955,6 +967,7 @@ def test_filter_cards_consecutive_wrong(seeded_session):
         _stats_for(seeded_session, cards),
         filter_key="CONSECUTIVE_WRONG",
         weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert [c.id for c in result] == [streak_card.id]
@@ -974,7 +987,11 @@ def test_filter_cards_weak(seeded_session):
     cards = vocab_service.list_cards_for_deck(seeded_session, deck.id)
 
     result = vocab_service.filter_cards(
-        cards, _stats_for(seeded_session, cards), filter_key="WEAK", weak_accuracy_percent=70
+        cards,
+        _stats_for(seeded_session, cards),
+        filter_key="WEAK",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert [c.id for c in result] == [weak_card.id]
@@ -989,7 +1006,11 @@ def test_filter_cards_unanswered(seeded_session):
     cards = vocab_service.list_cards_for_deck(seeded_session, deck.id)
 
     result = vocab_service.filter_cards(
-        cards, _stats_for(seeded_session, cards), filter_key="UNANSWERED", weak_accuracy_percent=70
+        cards,
+        _stats_for(seeded_session, cards),
+        filter_key="UNANSWERED",
+        weak_accuracy_percent=70,
+        mastered_card_ids=frozenset(),
     )
 
     assert [c.id for c in result] == [unanswered.id]
@@ -1002,7 +1023,11 @@ def test_filter_cards_unknown_filter_raises(seeded_session):
 
     with pytest.raises(ValidationError):
         vocab_service.filter_cards(
-            cards, _stats_for(seeded_session, cards), filter_key="NOPE", weak_accuracy_percent=70
+            cards,
+            _stats_for(seeded_session, cards),
+            filter_key="NOPE",
+            weak_accuracy_percent=70,
+            mastered_card_ids=frozenset(),
         )
 
 
