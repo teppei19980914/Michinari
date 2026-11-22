@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.constants.app_setting_keys import (
     VOCAB_MASTERY_STREAK,
+    VOCAB_SESSION_DEFAULT_QUESTIONS,
     VOCAB_SESSION_MAX_QUESTIONS,
     VOCAB_WEAK_ACCURACY_PERCENT,
 )
@@ -64,7 +65,9 @@ _CHOICE_MODES = (VocabQuizMode.CHOICE_TERM_TO_MEANING, VocabQuizMode.CHOICE_MEAN
 _MIN_CARDS_FOR_CHOICE = 4
 
 
-def _deck_read(deck: VocabDeck, card_count: int, mastered_card_count: int) -> VocabDeckRead:
+def _deck_read(
+    session: Session, deck: VocabDeck, card_count: int, mastered_card_count: int
+) -> VocabDeckRead:
     return VocabDeckRead(
         id=deck.id,
         goal_id=deck.goal_id,
@@ -74,6 +77,8 @@ def _deck_read(deck: VocabDeck, card_count: int, mastered_card_count: int) -> Vo
         display_order=deck.display_order,
         card_count=card_count,
         mastered_card_count=mastered_card_count,
+        session_default_questions=setting_reader.get_int(session, VOCAB_SESSION_DEFAULT_QUESTIONS),
+        session_max_questions=setting_reader.get_int(session, VOCAB_SESSION_MAX_QUESTIONS),
     )
 
 
@@ -122,7 +127,7 @@ def list_vocab_decks(goal_id: int, session: Session = Depends(get_db)) -> list[V
         session, deck_ids, _mastery_streak(session)
     )
     return [
-        _deck_read(deck, card_counts.get(deck.id, 0), mastered_counts.get(deck.id, 0))
+        _deck_read(session, deck, card_counts.get(deck.id, 0), mastered_counts.get(deck.id, 0))
         for deck in decks
     ]
 
@@ -136,7 +141,7 @@ def create_vocab_deck(
         session, goal, name=payload.name, description=payload.description
     )
     session.commit()
-    return _deck_read(deck, card_count=0, mastered_card_count=0)
+    return _deck_read(session, deck, card_count=0, mastered_card_count=0)
 
 
 @router.put("/goals/{goal_id}/vocab-decks/order")
@@ -154,7 +159,7 @@ def _deck_read_single(session: Session, deck: VocabDeck) -> VocabDeckRead:
     mastered_count = vocab_service.compute_mastered_card_counts_by_deck(
         session, [deck.id], _mastery_streak(session)
     ).get(deck.id, 0)
-    return _deck_read(deck, card_count, mastered_count)
+    return _deck_read(session, deck, card_count, mastered_count)
 
 
 @router.get("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
@@ -239,6 +244,9 @@ def update_vocab_card(
     card_id: int, payload: VocabCardUpdateRequest, session: Session = Depends(get_db)
 ) -> VocabCardRead:
     card = vocab_service.get_card(session, card_id)
+    content_changed = vocab_service.vocab_card_content_changed(
+        card, term=payload.term, meaning=payload.meaning, aliases=payload.aliases
+    )
     vocab_service.update_card(
         session,
         card,
@@ -247,7 +255,8 @@ def update_vocab_card(
         aliases=payload.aliases,
         note=payload.note,
     )
-    quiz_service.delete_questions_for_vocab_card(session, card.id)
+    if content_changed:
+        quiz_service.delete_questions_for_vocab_card(session, card.id)
     session.commit()
     return _card_read_single(session, card)
 
@@ -343,6 +352,7 @@ def start_vocab_quiz_session(
     deck_id: int, payload: VocabQuizSessionRequest, session: Session = Depends(get_db)
 ) -> VocabQuizSessionRead:
     """問題集の出題セッションを開始する。サーバーにセッション自体は保存しない。"""
+    vocab_service.get_deck(session, deck_id)
     deck_cards = vocab_service.list_cards_for_deck(session, deck_id)
     if payload.mode in _CHOICE_MODES and len(deck_cards) < _MIN_CARDS_FOR_CHOICE:
         raise ValidationError(
@@ -354,11 +364,17 @@ def start_vocab_quiz_session(
 
     stats_by_card = vocab_service.compute_card_stats(session, [c.id for c in deck_cards])
     weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
+    mastered_card_ids = frozenset(
+        vocab_service.compute_mastered_card_ids(
+            session, [c.id for c in deck_cards], _mastery_streak(session)
+        )
+    )
     filtered = vocab_service.filter_cards(
         deck_cards,
         stats_by_card,
         filter_key=payload.filter,
         weak_accuracy_percent=weak_accuracy_percent,
+        mastered_card_ids=mastered_card_ids,
     )
     rng = random.Random()
     candidates = vocab_service.select_session_cards(

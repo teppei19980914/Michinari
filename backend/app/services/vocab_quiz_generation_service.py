@@ -91,6 +91,12 @@ def _candidate_cards_query(deck_ids: list[int] | None = None):
     """まだ`quiz_question`を持たないカードを、チェック付き→新しく登録した順
     （`is_checked DESC, id DESC`、B-D8）で返すクエリ。ACTIVEな資格試験の目標・
     `use_in_ai=True`の単語帳のみを対象とする（B-U1・B-D13）。
+
+    呼び出し側（`_select_eligible_cards`）はこのクエリにSQLの`.limit()`を付けない。禁止語の
+    除外は正規化した部分一致でSQLに表せないため、ここでは優先順位の並びだけを行い、禁止語の
+    除外→上限での切り詰めはPython側（`_select_eligible_cards`）で行う（不具合修正、
+    2026-11-22。SQLで先に上限枚数へ切り詰めてしまうと、禁止語を含むカードが優先順位の上位を
+    埋め続け、他のカードの問題が永久に作られなくなる不具合があった）。
     """
     stmt = (
         select(VocabCard)
@@ -133,6 +139,32 @@ def _validate_block(
     return card_id, block
 
 
+def _select_eligible_cards(
+    session: Session, limit: int, deck_ids: list[int] | None = None
+) -> list[VocabCard]:
+    """優先順位（`_candidate_cards_query`）で取得した候補から禁止語を含むカードを除外した
+    あと、上限`limit`枚で切り詰める（B-D9、不具合修正2026-11-22）。
+
+    禁止語の判定は正規化した部分一致でSQLに表せないため、「優先順位で全件取得→Pythonで
+    禁止語を除外→上限で切り詰め」の順に行う。`question_safety.list_enabled_forbidden_term_keys`
+    はこの1回だけ呼び、カードごとの再クエリ（N+1）は行わない。
+
+    全件取得の件数は`vocab.deck_max_cards`（既定2000）×対象ゴール数が上限であり、本コード
+    ベースの他の集計処理（`compute_card_stats`等）と同水準のため、段階的取得（ページング）は
+    行わない（開発Todo_単語帳_v1.0「不具合修正」参照）。
+    """
+    candidates = list(session.scalars(_candidate_cards_query(deck_ids)).all())
+    forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
+    eligible = [
+        card
+        for card in candidates
+        if not question_safety.contains_any_forbidden_term(
+            vocab_service.forbidden_term_search_text(card), forbidden_keys
+        )
+    ]
+    return eligible[:limit]
+
+
 def _send(session: Session, goal: Goal, deck: VocabDeck, variables: dict[str, str]) -> str:
     return theme_ai_dispatch.send_theme_scoped_prompt(
         session,
@@ -148,19 +180,12 @@ def _send(session: Session, goal: Goal, deck: VocabDeck, variables: dict[str, st
 def _generate_for_cards(
     session: Session, goal: Goal, deck: VocabDeck, cards: list[VocabCard]
 ) -> int:
-    """渡されたカード群（既に対象・上限の絞り込み済み）から問題を作る。戻り値は採用数。"""
-    forbidden_keys = question_safety.list_enabled_forbidden_term_keys(session)
-    eligible = [
-        card
-        for card in cards
-        if not question_safety.contains_any_forbidden_term(
-            vocab_service.forbidden_term_search_text(card), forbidden_keys
-        )
-    ]
-    if not eligible:
+    """渡されたカード群（既に対象・上限の絞り込み済み。禁止語を含むカードは呼び出し元
+    `_select_eligible_cards`が既に除外済み）から問題を作る。戻り値は採用数。"""
+    if not cards:
         return 0
-    cards_by_id = {card.id: card for card in eligible}
-    items = [_CardChunkItem(card_id=card.id, text=_format_card_line(card)) for card in eligible]
+    cards_by_id = {card.id: card for card in cards}
+    items = [_CardChunkItem(card_id=card.id, text=_format_card_line(card)) for card in cards]
     chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
     created = 0
     for chunk in recap_service.chunk_by_chars(items, chunk_budget):
@@ -211,7 +236,7 @@ def generate_for_deck(session: Session, goal: Goal, deck: VocabDeck) -> int:
     if not deck.use_in_ai:
         return 0
     limit = setting_reader.get_int(session, VOCAB_QUIZ_CARDS_PER_STARTUP)
-    cards = list(session.scalars(_candidate_cards_query([deck.id]).limit(limit)).all())
+    cards = _select_eligible_cards(session, limit, [deck.id])
     if not cards:
         return 0
     return _generate_for_cards(session, goal, deck, cards)
@@ -226,7 +251,7 @@ def run_all(session: Session) -> int:
     （`quiz_generation_service.run_all`と同方式）。戻り値は生成した問題の総件数。
     """
     limit = setting_reader.get_int(session, VOCAB_QUIZ_CARDS_PER_STARTUP)
-    cards = list(session.scalars(_candidate_cards_query().limit(limit)).all())
+    cards = _select_eligible_cards(session, limit)
     if not cards:
         return 0
     cards_by_deck: dict[int, list[VocabCard]] = defaultdict(list)
