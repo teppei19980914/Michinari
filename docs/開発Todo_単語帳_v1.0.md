@@ -1096,3 +1096,64 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 **単語帳機能（要件A〜E）の完了まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）・習得の可視化（要件E）の全5要件が完了した（§7・§7.B・§7.C・§7.D・§7.Eすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案→習得した用語数の節目のお祝い・道のりマップへの反映、という一連の循環を得られる。要件A〜Dはmainへマージ済み（要件A=PR #135、B=PR #136、C=PR #137、D=PR #138〈日次ブランチの定例マージ〉）だが、要件A・B・Cのマイグレーション（`1bd06141379f`〜`1be51b4ce9c0`）・要件Dのマイグレーション（`e9eca0569d7c`）はいずれも実利用者DBへ未適用（未リリース）のままである。要件Eは新規マイグレーションを持たないため、次回のリリース（`backend/release.bat`）で要件A〜Eの変更がまとめて反映される。
 
 - 2026-11-22：独立サブエージェントによる再フルスキャン検証の最中に、要件D由来の既存テスト（`test_api_vocab.py`の用語提案系7件）が、記録日を固定値`"2026-11-20"`でハードコードしていたために、日付経過（セッションが日をまたいだことで「前日まで」の確定許容範囲を超えた）により失敗するようになっていたことを発見した。要件Eの変更が原因ではないこと（`git show ccad14e`で要件D完了時点から既に同じハードコードが存在していたこと）を確認したうえで、`RECORD_DATE = dt.date.today().isoformat()`へ置き換えて修正し、他の単語帳関連テストファイルに同種の時間依存ハードコードが残っていないことをgrepで横断確認した。バックエンド全件再実行：2,605件合格・カバレッジ100%（文11,083・分岐2,072）。PR #139（要件E）はマージコミット`b4187a3`、この修正はPR #140としてマージコミット`c777bdc`でmainへ反映済み。マージ後、再度独立サブエージェントでmainの最終状態（HEAD・未マージPRの有無・要件Eの実装漏れ・PR#140の横展開漏れ・実測テスト結果・ドキュメント整合性）を検証し、デグレ・横展開漏れ・実装漏れが無いことを確認した。
+
+## 9. 不具合修正（静的解析の指摘、2026-11-22）
+
+main（`77a1a0f`）上での静的コード解析により発見した不具合3件・軽微な問題2件の修正。利用者が解析時に`backend/app/api/vocab.py`・`vocab_service.py`の関数を直接呼び、不具合3件（下記9.2 #1〜#3）の再現を確認済みの指摘を受けて着手した。
+
+### 9.0 スキャン結果（着手前の再確認）
+
+着手前に`backend/`・`frontend/`・`docs/`・`.claude/`をスキャンし、指摘が現在のmain HEADでも再現することを確認した。
+
+1. `start_vocab_quiz_session`（`app/api/vocab.py`341行目〜）が`vocab_service.filter_cards`（357〜362行目）を呼ぶ際、`mastered_card_ids`を渡していない（既定の空`frozenset`が使われる）→ 再現確認済み
+2. `_candidate_cards_query`（`vocab_quiz_generation_service.py`90行目〜）を`.limit(limit)`で切り詰めた**後**に`_generate_for_cards`（148行目〜）内で禁止語カードを除外している → 再現確認済み
+3. `update_vocab_card`（`app/api/vocab.py`237行目〜）がどの項目を変えても`quiz_service.delete_questions_for_vocab_card`（250行目）を無条件に呼ぶ → 再現確認済み
+4. `vocab.session_default_questions`・`vocab.session_max_questions`（`app_setting_keys.py`198・200行目、`seed_data.py`に既定値10・100が登録済み）はどこからも読まれず、`VocabQuizSetupForm.tsx`37行目の初期値は`useState(10)`に固定、上限は画面に渡っていない → 再現確認済み
+5. `start_vocab_quiz_session`が`vocab_service.get_deck`を呼ばずに`list_cards_for_deck`を呼んでいる（他の単語帳APIは全て`get_deck`/`get_card`で404化している）→ 再現確認済み
+
+### 9.1 ベースライン（着手前）
+
+| 対象 | 結果 |
+| --- | --- |
+| バックエンド（pytest） | 2,605件合格・1 warning・カバレッジ100%（`app/`パッケージ、文35,002−missed411は全てalembic/scripts。`app/`のみは欠落0） |
+| バックエンド（ruff） | 0件 |
+| フロントエンド（vitest） | 226ファイル・1,802件合格・カバレッジ100%（文・分岐・関数・行） |
+| フロントエンド（oxlint） | 0件 |
+| フロントエンド（tsc -b） | 0件 |
+
+着手前のバックエンド合格件数（2,605件）は§8の要件E完了時点（2026-11-21）の記録と完全一致しており、mainの状態は想定どおりであることを確認した。
+
+### 9.2 影響範囲
+
+| # | 不具合/軽微 | 影響範囲（横展開チェック） |
+| --- | --- | --- |
+| 1 | 未習得フィルタが出題に効かない（高） | `vocab_service.filter_cards`の呼び出し元は`app/api/vocab.py`の`list_vocab_cards`（既に正しく指定済み・変更不要）と`start_vocab_quiz_session`（指摘箇所）の2箇所のみ（本番コード）。テストからの直接呼び出しは`tests/test_vocab_service.py`に7箇所（`mastered_card_ids`省略、`filter_cards`を必須引数化すると全て修正が必要） |
+| 2 | 禁止語カードが上限枠を埋め続ける（中） | `_candidate_cards_query`の呼び出し元は`generate_for_deck`・`run_all`の2箇所のみ。`_generate_for_cards`は両方から呼ばれる共通実装のため1箇所の修正で足りる |
+| 3 | 補足だけの編集で問題が消える（中） | `quiz_service.delete_questions_for_vocab_card`の呼び出し元は`update_vocab_card`の1箇所のみ（本番コード）。`vocab_service.update_card`の呼び出し元も同APIの1箇所のみ |
+| 4 | 問題数の初期値・上限が画面に渡らない（軽微） | `VocabQuizSetupForm.tsx`は`VocabQuizPage.tsx`から`deck.card_count`のみを受け取っており、`VocabDeckRead`（`_deck_read`/`_deck_read_single`の2箇所）に新フィールドを追加する形が既存の取得経路に乗る。フロントの型は`openapi-typescript`で自動生成するため手書き禁止（`frontend/src/types/api.d.ts`） |
+| 5 | 出題開始の404漏れ（軽微） | `app/api/vocab.py`の他19エンドポイントは全て`get_deck`/`get_card`または`goal_service.get_goal`で所有関係を検証済み（横展開確認の結果、漏れは`start_vocab_quiz_session`のみ） |
+
+### 9.3 決定事項
+
+- **#1の修正**：`filter_cards`の`mastered_card_ids: frozenset[int] = frozenset()`から既定値を外し必須引数化する（再発防止、利用者の明示指示）。`start_vocab_quiz_session`で`vocab_service.compute_mastered_card_ids`（習得の唯一の定義、30.11.1）を呼び結果を渡す。既存7箇所のテスト呼び出しは`mastered_card_ids=frozenset()`を明示する横展開修正を行う。`VocabQuizSessionRequest.filter`のコメントへ`UNMASTERED`を追記する。
+- **#2の修正**：`_candidate_cards_query`はSQLの`.limit()`を呼び出し側で付けない形にし、新設の`_select_eligible_cards(session, limit, deck_ids=None)`が「優先順で全件取得→禁止語を1回だけ取得したキーで除外→上限で切り詰め」の順に行う。`_generate_for_cards`は入力が既に禁止語除外済みという前提に変え、自身の禁止語フィルタ処理を削除する（二重実装はDRY違反になるため1箇所に統合）。
+  - **性能評価**：全件取得の上限は`vocab.deck_max_cards`（既定2000）×対象ゴール数。本アプリは単一利用者のローカル運用で資格試験の目標数は実運用上数件程度であり、既存の`compute_card_stats`等（30.2）と同じ「1回のクエリで全件取得しPython側で処理」という方針と同水準の負荷（既存のデッキ最大件数での性能テストは1秒以内を確認済み、§5.3 #での前例）。段階的取得（ページング）は、取得件数が既存の他の集計処理と同程度であり、追加の複雑さに見合う性能上の懸念が無いため**採用しない**。
+  - **残存リスク（AIの検証失敗が居座る可能性）**：禁止語以外の理由（根拠検証`_validate_block`の失敗等）でAIが毎回同じカードの問題生成に失敗し続けるケースは、失敗回数を保存する列・テーブルが無ければ検出できない。本修正はテーブル追加・変更を行わない方針のため、**対応は見送り、既知のリスクとして設計書（17.16）に記載する**。理由：(a)不具合2の本質（禁止語カードの恒久的な居座り）は本修正で解消しており、本リスクはAIが同一カードに対して複数回にわたり一貫して検証へ失敗する場合に限られる低頻度・確率的な事象である、(b) 失敗は`vocab.quiz_cards_per_startup`枚の枠内に限られ、他の全カードの生成を無限に止めることはない（枠を使い切っても次回の起動時バッチ・ボタンでチェック無しの他カードの順番が回ってくる）、(c) AI応答は非決定的であり、同一カードが連続して同じ理由で検証に落ち続ける可能性は実運用上小さい。
+- **#3の修正**：`vocab_service`に専用関数`vocab_card_content_changed(card, *, term, meaning, aliases) -> bool`を新設し、`update_card`で値を書き換える**前**に呼ぶ（保存値そのものの一致比較、正規化はしない＝表記の修正も変更とみなす、利用者の明示指示）。`update_card`自体の引数・戻り値（`VocabCard`）は変更しない（既存呼び出し元との互換性を保つ）。要件F（シチュエーションカード）でカード種別ごとに判定対象を増やせるよう、`update_card`本体から分離した独立関数とする。API層（`update_vocab_card`）は`update_card`呼び出しの前にこの判定結果を保持し、`True`のときだけ`quiz_service.delete_questions_for_vocab_card`を呼ぶ。
+- **#4の修正**：既存の類似前例を調査した結果、本アプリの`vocab.*`設定キーは`quiz.*`と同様に「設定画面（SC-11）には表示しない内部パラメータ」として意図的に設計されている（データ構造編5.2、1.1改71・72・73・74の各注記）。そのため`GET/PATCH /settings`（`AppSettingsRead`／`AppSettingsUpdate`、編集可能な設定グループ）への追加は設計意図に反すると判断し、**採用しない**。代わりに、既存の`useQuickRecordSettings.ts`と同じ「画面側が参照だけする内部パラメータ」の前例を踏襲せず、さらに狭い既存の前例である単語帳詳細のレスポンス（`VocabDeckRead`）に`session_default_questions`・`session_max_questions`の2フィールドを読み取り専用で追加する（`VocabQuizPage.tsx`が既に`getVocabDeck`で取得済みのデータへ乗せるだけで新規フェッチが不要、かつ設定画面での編集可能化を伴わない）。フロントの型は`npm run generate:api-types`で再生成する（手書き禁止、CODING_RULES.md）。
+- **#5の修正**：`start_vocab_quiz_session`の先頭で`vocab_service.get_deck(session, deck_id)`を呼ぶ（戻り値は使わないが404化のためだけに呼ぶ、既存の`list_vocab_cards`と同じパターン）。
+
+### 9.4 作業Todo
+
+- [x] 9.0 再スキャンでの再現確認
+- [x] 9.1 ベースライン計測
+- [x] 9.2 影響範囲の確定・横展開チェック
+- [x] 9.3 決定事項の記録
+- [ ] 各不具合の再現テストを先に書き、失敗することを確認する
+- [ ] #1〜#5を修正する
+- [ ] 既存7箇所の`filter_cards`呼び出し（テスト）へ`mastered_card_ids=frozenset()`を横展開する
+- [ ] ドキュメント更新（設計書17.16・30.3・30.8、データ構造編5.2、仕様書6.20_SC-22、各改訂履歴）
+- [ ] 観点別レビュー（コミット前チェック）の並列実行
+- [ ] 全体最終テスト・ベースライン比較
+- [ ] 実利用者DBでの検証
+- [ ] 9.5〜9.7（レビュー結果・作業記録・完了の定義）の記録
