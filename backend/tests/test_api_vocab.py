@@ -21,6 +21,12 @@ from tests.vocab_helpers import (
     set_setting,
 )
 
+#: 日次報告の確定は前日までしか遡れない（BACKDATE_LIMIT_EXCEEDED）ため、提案系テストの
+#: 記録日は固定の過去日ではなく実行時の「今日」を基準にする（test_api_records_exam.py等の
+#: 既存方針と同じ、CODING_RULES.md「タイムスタンプでの並び替え」とは別件だが同根の時間依存
+#: バグ〈2026-11-22、日付経過により"2026-11-20"固定値が失敗するようになり検出〉への対策）。
+RECORD_DATE = dt.date.today().isoformat()
+
 # ---------------------------------------------------------------------------
 # デッキ
 # ---------------------------------------------------------------------------
@@ -840,11 +846,11 @@ def _finalize_exam_diary(client, goal_id: int, record_date: str, diary_learned: 
 def test_generate_vocab_term_suggestions_creates_pending_list(seeded_session, client, monkeypatch):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
 
     response = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     )
 
     assert response.status_code == 200, response.text
@@ -855,14 +861,14 @@ def test_generate_vocab_term_suggestions_creates_pending_list(seeded_session, cl
 
 def test_generate_vocab_term_suggestions_unknown_goal_returns_404(client):
     response = client.post(
-        "/api/v1/goals/999999/vocab-suggestions", json={"record_date": "2026-11-20"}
+        "/api/v1/goals/999999/vocab-suggestions", json={"record_date": RECORD_DATE}
     )
     assert response.status_code == 404
 
 
 def test_list_vocab_term_suggestions_unknown_goal_returns_404(client):
     response = client.get(
-        "/api/v1/goals/999999/vocab-suggestions", params={"record_date": "2026-11-20"}
+        "/api/v1/goals/999999/vocab-suggestions", params={"record_date": RECORD_DATE}
     )
     assert response.status_code == 404
 
@@ -872,12 +878,12 @@ def test_list_vocab_term_suggestions_returns_pending_for_the_date(
 ):
     goal = make_exam_goal(seeded_session)
     make_deck(seeded_session, goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
-    client.post(f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"})
+    client.post(f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE})
 
     response = client.get(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": RECORD_DATE}
     )
 
     assert response.status_code == 200, response.text
@@ -887,10 +893,10 @@ def test_list_vocab_term_suggestions_returns_pending_for_the_date(
 def test_accept_vocab_term_suggestion_creates_card(seeded_session, client, monkeypatch):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
     suggestion_id = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
     response = client.post(
@@ -903,7 +909,7 @@ def test_accept_vocab_term_suggestion_creates_card(seeded_session, client, monke
     assert seeded_session.query(VocabCard).filter(VocabCard.deck_id == deck.id).count() == 1
     assert (
         client.get(
-            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": RECORD_DATE}
         ).json()["suggestions"]
         == []
     )
@@ -928,10 +934,10 @@ def test_accept_vocab_term_suggestion_rejects_other_goals_deck(
     goal = make_exam_goal(seeded_session)
     other_goal = make_exam_goal(seeded_session, name="別の資格目標")
     other_deck = make_deck(seeded_session, other_goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
     suggestion_id = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
     response = client.post(
@@ -949,10 +955,10 @@ def test_accept_vocab_term_suggestion_rejects_other_goals_suggestion(
     goal = make_exam_goal(seeded_session)
     other_goal = make_exam_goal(seeded_session, name="別の資格目標")
     other_deck = make_deck(seeded_session, other_goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
     suggestion_id = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
     response = client.post(
@@ -966,10 +972,10 @@ def test_accept_vocab_term_suggestion_rejects_other_goals_suggestion(
 def test_dismiss_vocab_term_suggestion_marks_dismissed(seeded_session, client, monkeypatch):
     goal = make_exam_goal(seeded_session)
     make_deck(seeded_session, goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
     suggestion_id = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
     response = client.post(
@@ -979,7 +985,7 @@ def test_dismiss_vocab_term_suggestion_marks_dismissed(seeded_session, client, m
     assert response.status_code == 200, response.text
     assert (
         client.get(
-            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": "2026-11-20"}
+            f"/api/v1/goals/{goal.id}/vocab-suggestions", params={"record_date": RECORD_DATE}
         ).json()["suggestions"]
         == []
     )
@@ -991,10 +997,10 @@ def test_dismiss_vocab_term_suggestion_rejects_other_goals_suggestion(
     goal = make_exam_goal(seeded_session)
     other_goal = make_exam_goal(seeded_session, name="別の資格目標")
     make_deck(seeded_session, goal)
-    _finalize_exam_diary(client, goal.id, "2026-11-20", "TCPを学んだ。")
+    _finalize_exam_diary(client, goal.id, RECORD_DATE, "TCPを学んだ。")
     stub_quiz_ai(monkeypatch, "TCP")
     suggestion_id = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": "2026-11-20"}
+        f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
     response = client.post(
