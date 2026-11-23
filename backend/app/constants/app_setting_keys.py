@@ -254,3 +254,11 @@ SCHEDULE_MAX_ITEMS = "schedule.max_items"
 SCHEDULE_GANTT_DAY_WIDTH_MIN_REM = "schedule.gantt_day_width_min_rem"
 #: ガントの1日分の幅の上限（rem、D-20）。内部パラメータ。
 SCHEDULE_GANTT_DAY_WIDTH_MAX_REM = "schedule.gantt_day_width_max_rem"
+#: 作業項目の最大文字数。内部パラメータ（DoS対策、セキュリティレビュー2026-11-23で追加）。
+SCHEDULE_ITEM_TITLE_MAX_CHARS = "schedule.item_title_max_chars"
+#: 作業内容の最大文字数。内部パラメータ。
+SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS = "schedule.item_description_max_chars"
+#: 追加列の名前の最大文字数。内部パラメータ。
+SCHEDULE_COLUMN_NAME_MAX_CHARS = "schedule.column_name_max_chars"
+#: 追加列の値（セル）の最大文字数。内部パラメータ。
+SCHEDULE_CELL_VALUE_MAX_CHARS = "schedule.cell_value_max_chars"

@@ -17,7 +17,14 @@ from dataclasses import dataclass
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.constants.app_setting_keys import SCHEDULE_MAX_CUSTOM_COLUMNS, SCHEDULE_MAX_ITEMS
+from app.constants.app_setting_keys import (
+    SCHEDULE_CELL_VALUE_MAX_CHARS,
+    SCHEDULE_COLUMN_NAME_MAX_CHARS,
+    SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS,
+    SCHEDULE_ITEM_TITLE_MAX_CHARS,
+    SCHEDULE_MAX_CUSTOM_COLUMNS,
+    SCHEDULE_MAX_ITEMS,
+)
 from app.constants.enums import ScheduleItemStatus, ScheduleUpdateSource
 from app.models.base import utcnow
 from app.models.goal import Goal
@@ -154,39 +161,70 @@ def validate_item_fields(
         raise ValidationError("actual_end_date must not be in the future")
 
 
-def _validate_columns(
-    columns: list[ScheduleColumnInput], existing_columns: dict[int, ScheduleColumn]
+def _check_owned_by_goal(
+    entity_id: int | None, existing: dict[int, object], entity_label: str
 ) -> None:
+    """送信されたIDが対象の目標に属することを確認する（8.1「所有者の検証」）。
+
+    他の目標に属する場合と、存在しないIDの場合を区別しない（他の目標が存在することの
+    手掛かりを与えない。material_service._resolve_subjectsの考え方と同じ）。
+    """
+    if entity_id is not None and entity_id not in existing:
+        raise ValidationError(
+            f"Cannot update {entity_label}(id={entity_id}) that belongs to a different goal"
+        )
+
+
+def _validate_columns(
+    session: Session,
+    columns: list[ScheduleColumnInput],
+    existing_columns: dict[int, ScheduleColumn],
+) -> None:
+    name_max_chars = setting_reader.get_int(session, SCHEDULE_COLUMN_NAME_MAX_CHARS)
     seen_names: set[str] = set()
     seen_temp_keys: set[str] = set()
     for column_input in columns:
         name = column_input.name
         if not name.strip():
             raise ValidationError("Column name must not be blank")
+        if len(name) > name_max_chars:
+            raise ValidationError(f"Column name must be {name_max_chars} characters or fewer")
+        # 利用者が入力した列名自体はメッセージへ埋め込まない（ログ・応答への混入を防ぐ、
+        # app/api/errors.pyの「メッセージは自由入力文字列を含まない」という前提を保つ）。
         if name in seen_names:
-            raise ValidationError(f'Duplicate column name "{name}"')
+            raise ValidationError("Duplicate column name in request")
         seen_names.add(name)
 
-        if column_input.id is not None and column_input.id not in existing_columns:
-            # 他の目標に属する場合と、存在しないIDの場合を区別しない（他の目標が存在する
-            # ことの手掛かりを与えない。material_service._resolve_subjectsの考え方と同じ）。
-            raise ValidationError(
-                f"Cannot update schedule column(id={column_input.id}) "
-                "that belongs to a different goal"
-            )
+        _check_owned_by_goal(column_input.id, existing_columns, "schedule column")
         if column_input.temp_key is not None:
             if column_input.temp_key in seen_temp_keys:
-                raise ValidationError(f'Duplicate temp_key "{column_input.temp_key}"')
+                raise ValidationError("Duplicate temp_key in request")
             seen_temp_keys.add(column_input.temp_key)
 
 
 def _validate_items(
-    items: list[ScheduleItemInput], existing_items: dict[int, ScheduleItem], today: dt.date
+    session: Session,
+    items: list[ScheduleItemInput],
+    existing_items: dict[int, ScheduleItem],
+    today: dt.date,
 ) -> None:
+    title_max_chars = setting_reader.get_int(session, SCHEDULE_ITEM_TITLE_MAX_CHARS)
+    description_max_chars = setting_reader.get_int(session, SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS)
+    seen_ids: set[int] = set()
     for item_input in items:
-        if item_input.id is not None and item_input.id not in existing_items:
+        _check_owned_by_goal(item_input.id, existing_items, "schedule item")
+        if item_input.id is not None:
+            if item_input.id in seen_ids:
+                raise ValidationError("Duplicate item id in request")
+            seen_ids.add(item_input.id)
+        if len(item_input.title) > title_max_chars:
+            raise ValidationError(f"title must be {title_max_chars} characters or fewer")
+        if (
+            item_input.description is not None
+            and len(item_input.description) > description_max_chars
+        ):
             raise ValidationError(
-                f"Cannot update schedule item(id={item_input.id}) that belongs to a different goal"
+                f"description must be {description_max_chars} characters or fewer"
             )
         validate_item_fields(
             title=item_input.title,
@@ -199,7 +237,10 @@ def _validate_items(
         )
 
 
-def _validate_cells(items: list[ScheduleItemInput], columns: list[ScheduleColumnInput]) -> None:
+def _validate_cells(
+    session: Session, items: list[ScheduleItemInput], columns: list[ScheduleColumnInput]
+) -> None:
+    value_max_chars = setting_reader.get_int(session, SCHEDULE_CELL_VALUE_MAX_CHARS)
     valid_keys = {_column_key(c.id, c.temp_key) for c in columns}
     for item_input in items:
         seen_keys: set[_ColumnKey] = set()
@@ -212,6 +253,17 @@ def _validate_cells(items: list[ScheduleItemInput], columns: list[ScheduleColumn
             if key in seen_keys:
                 raise ValidationError("Duplicate cell for the same column in one item")
             seen_keys.add(key)
+            if len(cell_input.value) > value_max_chars:
+                raise ValidationError(f"Cell value must be {value_max_chars} characters or fewer")
+
+
+def _delete_not_resubmitted(
+    session: Session, existing: dict[int, object], submitted_ids: set[int]
+) -> None:
+    """送られてこなかった既存の行・列を削除する（8.1の差分ルール、DRYの原則）。"""
+    for entity_id, entity in existing.items():
+        if entity_id not in submitted_ids:
+            session.delete(entity)
 
 
 def _apply_columns(
@@ -220,10 +272,7 @@ def _apply_columns(
     columns: list[ScheduleColumnInput],
     existing_columns: dict[int, ScheduleColumn],
 ) -> dict[_ColumnKey, ScheduleColumn]:
-    submitted_ids = {c.id for c in columns if c.id is not None}
-    for column_id, column in existing_columns.items():
-        if column_id not in submitted_ids:
-            session.delete(column)
+    _delete_not_resubmitted(session, existing_columns, {c.id for c in columns if c.id is not None})
 
     resolved: dict[_ColumnKey, ScheduleColumn] = {}
     for index, column_input in enumerate(columns):
@@ -246,10 +295,7 @@ def _apply_items(
     items: list[ScheduleItemInput],
     existing_items: dict[int, ScheduleItem],
 ) -> list[tuple[ScheduleItem, ScheduleItemInput]]:
-    submitted_ids = {i.id for i in items if i.id is not None}
-    for item_id, item in existing_items.items():
-        if item_id not in submitted_ids:
-            session.delete(item)
+    _delete_not_resubmitted(session, existing_items, {i.id for i in items if i.id is not None})
 
     pairs: list[tuple[ScheduleItem, ScheduleItemInput, bool, tuple | None]] = []
     for index, item_input in enumerate(items):
@@ -369,9 +415,9 @@ def save_schedule(
     }
 
     # --- 検証（適用前にすべて終える） ---
-    _validate_columns(payload.columns, existing_columns)
-    _validate_items(payload.items, existing_items, today)
-    _validate_cells(payload.items, payload.columns)
+    _validate_columns(session, payload.columns, existing_columns)
+    _validate_items(session, payload.items, existing_items, today)
+    _validate_cells(session, payload.items, payload.columns)
 
     # --- 適用 ---
     resolved_columns = _apply_columns(session, goal, payload.columns, existing_columns)

@@ -138,6 +138,11 @@ def test_put_schedule_rejects_column_id_belonging_to_another_goal(client):
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    # どちらの目標の列も変化しないこと（認可境界レビュー指摘）。
+    goal_a_schedule = client.get(f"/api/v1/goals/{goal_a['id']}/schedule").json()
+    assert goal_a_schedule["columns"] == []
+    goal_b_schedule = client.get(f"/api/v1/goals/{goal_b['id']}/schedule").json()
+    assert goal_b_schedule["columns"][0]["name"] == "目標Bの列"
 
 
 def test_put_schedule_stores_and_returns_sql_and_xss_payloads_verbatim(client):
