@@ -50,6 +50,9 @@ from app.constants.bundle import (
     BUILD_INFO_FILE_NAME,
     EXAM_TEMPLATES_DIR_NAME,
     FRONTEND_DIST_DIR_NAME,
+    HOLIDAY_CSV_FILE_NAME,
+    HOLIDAY_DIR_NAME,
+    HOLIDAY_METADATA_FILE_NAME,
     LOCALES_DIR_NAME,
 )
 from app.desktop.assets import resolve_icon_path
@@ -115,6 +118,12 @@ EXAM_TEMPLATES_SOURCE_DIR = BACKEND_DIR / "app" / "templates" / "exams"
 #: `app/services/help_content.py`（`parents[1] / "content"`）と対にする。
 HELP_CONTENT_SOURCE_PATH = BACKEND_DIR / "app" / "content" / "help_content.json"
 HELP_CONTENT_DIR_NAME = os.path.join("app", "content")
+#: 祝日CSV・メタデータの同梱元（開発Todo_スケジュール・ガントチャート_v1.1.md D-43）。
+#: 実行時は`app/main.py`の`import_bundled_holidays_if_needed`が`resolve_bundled_path`
+#: で解決する先と対にする。
+HOLIDAY_SOURCE_DIR = BACKEND_DIR / "app" / "content" / HOLIDAY_DIR_NAME
+HOLIDAY_CSV_SOURCE_PATH = HOLIDAY_SOURCE_DIR / HOLIDAY_CSV_FILE_NAME
+HOLIDAY_METADATA_SOURCE_PATH = HOLIDAY_SOURCE_DIR / HOLIDAY_METADATA_FILE_NAME
 ICON_SOURCE_DIR = ICON_SOURCE_PATH.parent
 _VERSION_LINE_PATTERN = re.compile(r'(?m)^version = "[^"]*"$')
 #: 半角英数字・ドット・ハイフン・アンダースコアのみ許可する。ユーザ入力をそのまま
@@ -606,6 +615,9 @@ def pyinstaller_args() -> list[str]:
         # ヘルプAIアシスタントが根拠にするヘルプ本文（ja.json から生成した JSON）。
         # 実行時は `app/services/help_content.py` が `app/content/` から読む（Phase43）。
         f"{HELP_CONTENT_SOURCE_PATH}{os.pathsep}{HELP_CONTENT_DIR_NAME}",
+        # 祝日CSV・メタデータ（リリース時に update_holiday_csv.py が更新する、D-43）。
+        f"{HOLIDAY_CSV_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}",
+        f"{HOLIDAY_METADATA_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}",
         # 差し替え可能にするため素のまま置く pystray（上記 --exclude-module と対になる）。
         f"{lgpl_module_source_dir()}{os.pathsep}{LGPL_MODULE_NAME}",
     ]

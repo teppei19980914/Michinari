@@ -9,7 +9,11 @@ import datetime as dt
 
 import pytest
 
-from app.constants.app_setting_keys import CALENDAR_DAY_BOUNDARY_HOUR, HOLIDAY_TREAT_AS_BUFFER
+from app.constants.app_setting_keys import (
+    CALENDAR_DAY_BOUNDARY_HOUR,
+    HOLIDAY_BUNDLED_CSV_SHA256,
+    HOLIDAY_TREAT_AS_BUFFER,
+)
 from app.constants.enums import (
     Environment,
     ExamDateType,
@@ -23,6 +27,7 @@ from app.models.record import ExamResult
 from app.models.setting import AppSetting
 from app.services import (
     allocation_service,
+    calendar_service,
     goal_service,
     goal_service_lifecycle,
     goal_service_load_profile,
@@ -420,6 +425,20 @@ def test_update_holiday_treat_as_buffer_missing_setting_raises_app_setting_not_f
     seeded_session.flush()
     with pytest.raises(AppSettingNotFoundError):
         resource_service.update_holiday_treat_as_buffer(seeded_session, False)
+
+
+def test_import_bundled_holidays_if_needed_missing_setting_raises_app_setting_not_found(
+    seeded_session,
+):
+    seeded_session.query(AppSetting).filter(
+        AppSetting.key == HOLIDAY_BUNDLED_CSV_SHA256
+    ).delete()
+    seeded_session.flush()
+    content = (
+        "国民の祝日・休日月日,国民の祝日・休日名称\r\n2026/1/1,元日\r\n"
+    ).encode("cp932")
+    with pytest.raises(AppSettingNotFoundError):
+        calendar_service.import_bundled_holidays_if_needed(seeded_session, content)
 
 
 def test_update_goal_updates_only_specified_fields(seeded_session):

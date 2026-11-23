@@ -705,7 +705,14 @@
       "title": "Default day type settings",
       "plan": "Plan day",
       "buffer": "Buffer day",
-      "holidayTreatAsBuffer": "Treat public holidays as buffer days by default"
+      "holidayTreatAsBuffer": "Treat public holidays as buffer days by default",
+      "holidayCoverageTitle": "Holiday data coverage",
+      "holidayCoverageRange": "{{from}}–{{to}}",
+      "holidayCoverageNone": "No holiday data is loaded yet",
+      "importHolidaysButton": "Import Cabinet Office CSV",
+      "importHolidaysDescription": "Choose the \"National Holidays\" CSV file from the Cabinet Office.",
+      "cabinetOfficeLinkLabel": "About Japan's National Holidays (Cabinet Office)",
+      "importHolidaysSuccess": "Imported {{count}} holiday(s) ({{from}}–{{to}})"
     },
     "dayBoundaryHour": {
       "title": "Day boundary time",
@@ -1592,7 +1599,7 @@
       "resources": {
         "title": "Study environment settings",
         "p1": "Register the \"study time slots\" available for studying (name, start/end time, environment tags, days applied). Continuous time is calculated automatically from the start and end times. Time slots that satisfy each material's required continuous time and environment are assigned automatically. \"Allocation status\" lets you check the allocated and remaining time for each goal within each time slot, and shows a warning if shortening or deleting a time slot causes an allocation to exceed capacity (saving itself is not blocked).",
-        "p2": "\"Default day type settings\" lets you set the default (plan day / buffer day) for each day of the week and whether to treat public holidays as buffer days. \"Day boundary time\" lets you set when the date changes over (e.g. treating late-night study as the previous day). \"Allocation status\" lets you check time allocation and unallocated remainder by day of week, environment, and goal."
+        "p2": "\"Default day type settings\" lets you set the default (plan day / buffer day) for each day of the week and whether to treat public holidays as buffer days. \"Day boundary time\" lets you set when the date changes over (e.g. treating late-night study as the previous day). Holiday data is fetched and imported automatically with each release; if a year outside the bundled range is missing, you can import the Cabinet Office CSV manually. \"Allocation status\" lets you check time allocation and unallocated remainder by day of week, environment, and goal."
       },
       "calendar": {
         "title": "Calendar",

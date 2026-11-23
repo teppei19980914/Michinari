@@ -387,6 +387,7 @@ class TestMain:
         )
         self.ai_tasks: list[bool] = []
         monkeypatch.setattr(main_module, "run_ai_startup_tasks", lambda: self.ai_tasks.append(True))
+        monkeypatch.setattr(main_module, "import_bundled_holidays_if_needed", lambda: None)
 
     def test_returns_the_runner_exit_code_on_a_normal_run(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(main_module, "resolve_startup_port", lambda: 8100)

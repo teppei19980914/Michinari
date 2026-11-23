@@ -12,6 +12,7 @@ import build_package
 import publish_release
 import pytest
 import release
+import update_holiday_csv
 
 _COMMIT = "82c324748411a3763e964891abf869329243be6e"
 _STALE_COMMIT = "da9e566d4eca76d6ae139d59404b73039634db01"
@@ -401,6 +402,7 @@ def test_build_cleans_up_stale_leftovers_before_archiving_and_discarding(
     monkeypatch.setattr(build_package, "has_uncommitted_changes", lambda _root: False)
     monkeypatch.setattr(build_package, "read_git_commit", lambda _root: _COMMIT)
     monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.3")
+    monkeypatch.setattr(update_holiday_csv, "update_bundled_holiday_csv", lambda: None)
     monkeypatch.setattr(
         build_package,
         "write_version",
