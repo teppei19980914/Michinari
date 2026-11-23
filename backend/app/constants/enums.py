@@ -115,6 +115,10 @@ class AiPurpose(enum.StrEnum):
     QUIZ_GENERATE = "QUIZ_GENERATE"
     #: 単語帳のカードから今日の復習の問題を作る（開発Todo_単語帳_v1.0 要件B）。
     VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
+    #: シチュエーションカードから今日の復習の問題を作る（開発Todo_単語帳_v1.0 要件F）。
+    #: 問題文・正解は登録済みの状況・問い・最善の対応をそのまま使い、AIには誤答3つだけを
+    #: 作らせる点がVOCAB_QUIZ_GENERATE（4択すべてをAIが作る）と異なるため別の用途とする。
+    VOCAB_SITUATION_QUIZ_GENERATE = "VOCAB_SITUATION_QUIZ_GENERATE"
     #: 日次報告の日記（学んだこと）から、単語帳へ追加する用語の候補を抜き出す
     #: （開発Todo_単語帳_v1.0 要件D）。
     VOCAB_TERM_EXTRACT = "VOCAB_TERM_EXTRACT"
@@ -153,6 +157,8 @@ class ConversationScope(enum.StrEnum):
     QUIZ_GENERATE = "QUIZ_GENERATE"
     #: AiPurposeの同名定数と対になる単語帳由来のクイズ生成用の会話スコープ。
     VOCAB_QUIZ_GENERATE = "VOCAB_QUIZ_GENERATE"
+    #: AiPurposeの同名定数と対になるシチュエーションカード由来のクイズ生成用の会話スコープ。
+    VOCAB_SITUATION_QUIZ_GENERATE = "VOCAB_SITUATION_QUIZ_GENERATE"
     #: AiPurposeの同名定数と対になる用語提案（日記からの抜き出し）用の会話スコープ。
     VOCAB_TERM_EXTRACT = "VOCAB_TERM_EXTRACT"
     #: AiPurposeの同名定数と対になるひとこと記録モード用の会話スコープ（17.2.1/17.6.1/17.8.1）。
@@ -298,6 +304,20 @@ class VocabQuizMode(enum.StrEnum):
     TYPED_MEANING_TO_TERM = "TYPED_MEANING_TO_TERM"
     CHOICE_TERM_TO_MEANING = "CHOICE_TERM_TO_MEANING"
     CHOICE_MEANING_TO_TERM = "CHOICE_MEANING_TO_TERM"
+    #: シチュエーションカード専用（開発Todo_単語帳_v1.0 要件F F-U4）。状況・問いを表示し、
+    #: めくると最善の対応・解説を表示して自己採点する（FLASH_*と同じ自己判定方式）。
+    FLASH_SITUATION = "FLASH_SITUATION"
+
+
+class VocabCardType(enum.StrEnum):
+    """単語帳カードの種類（開発Todo_単語帳_v1.0 要件F）。作成後は変更できない（F-D2）。
+
+    TERM: 用語カード（既存、要件A〜E）。SITUATION: シチュエーションカード
+    （見出し・状況・問い・最善の対応・解説の5項目、要件F）。
+    """
+
+    TERM = "TERM"
+    SITUATION = "SITUATION"
 
 
 class VocabTermSuggestionStatus(enum.StrEnum):

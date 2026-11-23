@@ -11,13 +11,17 @@ afterEach(() => {
 })
 
 describe('VocabQuizQuestionView のカードをめくる形式', () => {
-  const question: VocabQuizQuestion = { card_id: 1, prompt: '用語A', reveal: '意味A' }
+  const question: VocabQuizQuestion = {
+    card_id: 1,
+    mode: 'FLASH_TERM_TO_MEANING',
+    prompt: '用語A',
+    reveal: '意味A',
+  }
 
   it('reveals the answer only after clicking the reveal button', async () => {
     const user = userEvent.setup()
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="FLASH_TERM_TO_MEANING"
         question={question}
         lastResult={null}
         onSubmit={vi.fn()}
@@ -35,7 +39,6 @@ describe('VocabQuizQuestionView のカードをめくる形式', () => {
     const onSubmit = vi.fn()
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="FLASH_TERM_TO_MEANING"
         question={question}
         lastResult={null}
         onSubmit={onSubmit}
@@ -56,6 +59,7 @@ describe('VocabQuizQuestionView のカードをめくる形式', () => {
 describe('VocabQuizQuestionView の4択形式', () => {
   const question: VocabQuizQuestion = {
     card_id: 1,
+    mode: 'CHOICE_TERM_TO_MEANING',
     prompt: '用語A',
     options: [
       { card_id: 1, text: '意味A' },
@@ -70,7 +74,6 @@ describe('VocabQuizQuestionView の4択形式', () => {
     const onSubmit = vi.fn()
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="CHOICE_TERM_TO_MEANING"
         question={question}
         lastResult={null}
         onSubmit={onSubmit}
@@ -88,7 +91,6 @@ describe('VocabQuizQuestionView の4択形式', () => {
     const onNext = vi.fn()
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="CHOICE_TERM_TO_MEANING"
         question={question}
         lastResult={{ is_correct: false }}
         onSubmit={vi.fn()}
@@ -103,14 +105,17 @@ describe('VocabQuizQuestionView の4択形式', () => {
 })
 
 describe('VocabQuizQuestionView の入力式', () => {
-  const question: VocabQuizQuestion = { card_id: 1, prompt: '意味A' }
+  const question: VocabQuizQuestion = {
+    card_id: 1,
+    mode: 'TYPED_MEANING_TO_TERM',
+    prompt: '意味A',
+  }
 
   it('submits the typed answer and clears the input', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="TYPED_MEANING_TO_TERM"
         question={question}
         lastResult={null}
         onSubmit={onSubmit}
@@ -128,7 +133,6 @@ describe('VocabQuizQuestionView の入力式', () => {
   it('shows the correct result label', () => {
     renderWithProviders(
       <VocabQuizQuestionView
-        mode="TYPED_MEANING_TO_TERM"
         question={question}
         lastResult={{ is_correct: true }}
         onSubmit={vi.fn()}

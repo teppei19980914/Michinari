@@ -6,7 +6,7 @@ import datetime as dt
 
 from pydantic import BaseModel
 
-from app.constants.enums import VocabQuizMode
+from app.constants.enums import VocabCardType, VocabQuizMode
 
 
 class VocabDeckRead(BaseModel):
@@ -19,6 +19,13 @@ class VocabDeckRead(BaseModel):
     card_count: int
     #: 習得済みカード数（開発Todo_単語帳_v1.0 要件E E-U6、都度算出）。
     mastered_card_count: int
+    #: 用語カードの件数・習得済み件数（開発Todo_単語帳_v1.0 要件F F-U9、「用語◯語／場面◯件」
+    #: の表示用、都度算出）。
+    term_card_count: int
+    term_mastered_card_count: int
+    #: シチュエーションカードの件数・習得済み件数（同上、F-U9）。
+    situation_card_count: int
+    situation_mastered_card_count: int
     #: 出題セッションの問題数の初期値（`vocab.session_default_questions`、設定画面には表示
     #: しない内部パラメータ。不具合修正、2026-11-22）。
     session_default_questions: int
@@ -44,10 +51,15 @@ class VocabDeckReorderRequest(BaseModel):
 class VocabCardRead(BaseModel):
     id: int
     deck_id: int
+    #: カードの種類（開発Todo_単語帳_v1.0 要件F）。作成後は不変（F-D2）。
+    card_type: VocabCardType
     term: str
     meaning: str
     aliases: str | None
     note: str | None
+    #: シチュエーションカード専用（要件F）。TERMでは常にNone。
+    situation_text: str | None
+    question_text: str | None
     is_checked: bool
     display_order: int
     correct_count: int
@@ -61,17 +73,25 @@ class VocabCardRead(BaseModel):
 
 
 class VocabCardCreateRequest(BaseModel):
+    #: 既定はTERM（既存A〜Dの挙動を保つ）。作成後は変更できない（F-D2）。
+    card_type: VocabCardType = VocabCardType.TERM
     term: str
     meaning: str
     aliases: str | None = None
     note: str | None = None
+    situation_text: str | None = None
+    question_text: str | None = None
 
 
 class VocabCardUpdateRequest(BaseModel):
+    #: card_typeを持たない（開発Todo_単語帳_v1.0 要件F F-D2、作成後の種類変更を
+    #: スキーマレベルで不可能にする）。
     term: str | None = None
     meaning: str | None = None
     aliases: str | None = None
     note: str | None = None
+    situation_text: str | None = None
+    question_text: str | None = None
 
 
 class VocabCardCheckRequest(BaseModel):
@@ -80,6 +100,8 @@ class VocabCardCheckRequest(BaseModel):
 
 class VocabImportPreviewRequest(BaseModel):
     text: str
+    #: 取り込む種類（開発Todo_単語帳_v1.0 要件F F-U8）。既定はTERM（既存A〜Dの挙動を保つ）。
+    card_type: VocabCardType = VocabCardType.TERM
 
 
 class VocabImportRowRead(BaseModel):
@@ -88,6 +110,8 @@ class VocabImportRowRead(BaseModel):
     meaning: str
     aliases: str | None
     note: str | None
+    situation_text: str | None = None
+    question_text: str | None = None
 
 
 class VocabImportErrorRead(BaseModel):
@@ -106,10 +130,13 @@ class VocabImportConfirmRow(BaseModel):
     meaning: str
     aliases: str | None = None
     note: str | None = None
+    situation_text: str | None = None
+    question_text: str | None = None
 
 
 class VocabImportConfirmRequest(BaseModel):
     rows: list[VocabImportConfirmRow]
+    card_type: VocabCardType = VocabCardType.TERM
 
 
 class VocabImportConfirmRead(BaseModel):
@@ -121,12 +148,16 @@ class VocabExportRead(BaseModel):
 
 
 class VocabQuizSessionRequest(BaseModel):
+    #: TERMカードの出題形式。SITUATIONカードは常にFLASH_SITUATION（開発Todo_単語帳_v1.0
+    #: 要件F F-D8、「両方」選択時は問題ごとに実際の形式が異なる）。
     mode: VocabQuizMode
     #: ALL/CHECKED/EVER_WRONG/CONSECUTIVE_WRONG/WEAK/UNANSWERED/UNMASTERED
     filter: str = "ALL"
     #: RANDOM/WEAK_ORDER/REGISTERED
     order: str = "RANDOM"
     question_count: int
+    #: カードの種類の絞り込み（ALL/TERM/SITUATION、開発Todo_単語帳_v1.0 要件F F-U3・F-D25）。
+    card_type: str = "ALL"
 
 
 class VocabQuizOptionRead(BaseModel):
@@ -136,9 +167,14 @@ class VocabQuizOptionRead(BaseModel):
 
 class VocabQuizQuestionRead(BaseModel):
     card_id: int
+    #: その問題の実際の出題形式（開発Todo_単語帳_v1.0 要件F F-D7、「両方」選択時は
+    #: カードごとに異なる）。
+    mode: VocabQuizMode
     prompt: str
     #: カードをめくる形式のみ、出題時点で答えを返す（仕様上の明示的な例外）。
     reveal: str | None = None
+    #: FLASH_SITUATIONのみ、解説（登録されていなければNone、F-U4）。
+    explanation: str | None = None
     #: 4択のみ。
     options: list[VocabQuizOptionRead] | None = None
 

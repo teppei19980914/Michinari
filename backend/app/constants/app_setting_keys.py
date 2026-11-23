@@ -215,3 +215,21 @@ VOCAB_SUGGEST_MAX_PER_RECORD = "vocab.suggest_max_per_record"
 # 単語帳（開発Todo_単語帳_v1.0 要件E）。習得の可視化（節目・道のりマップ・単語帳画面）。
 #: 「習得した」と判定する連続正解回数（直近N回がすべて正解、E-U1）。
 VOCAB_MASTERY_STREAK = "vocab.mastery_streak"
+# 単語帳（開発Todo_単語帳_v1.0 要件F）。シチュエーションカード。
+#: 見出しの最大文字数（F-U2）。設定画面から変更可能（F-D3）。
+VOCAB_SITUATION_HEADING_MAX_CHARS = "vocab.situation_heading_max_chars"
+#: 状況の最大文字数（F-U2）。設定画面から変更可能（F-D3）。
+VOCAB_SITUATION_TEXT_MAX_CHARS = "vocab.situation_text_max_chars"
+#: 問いの最大文字数（F-U2）。設定画面から変更可能（F-D3）。
+VOCAB_SITUATION_QUESTION_MAX_CHARS = "vocab.situation_question_max_chars"
+#: 最善の対応の最大文字数（F-U2）。設定画面から変更可能（F-D3）。
+VOCAB_SITUATION_BEST_ACTION_MAX_CHARS = "vocab.situation_best_action_max_chars"
+#: 解説の最大文字数（F-U2）。設定画面から変更可能（F-D3）。
+VOCAB_SITUATION_EXPLANATION_MAX_CHARS = "vocab.situation_explanation_max_chars"
+#: 用語カードの補足（note）の最大文字数（F-U10）。既存のterm/meaning同様、設定画面には
+#: 表示しない内部パラメータ（F-D3）。
+VOCAB_NOTE_MAX_CHARS = "vocab.note_max_chars"
+#: AIが作るシチュエーションの誤答の長さの下限（正解の文字数に対する%、F-U6）。内部パラメータ。
+VOCAB_SITUATION_DISTRACTOR_MIN_LENGTH_PERCENT = "vocab.situation_distractor_min_length_percent"
+#: AIが作るシチュエーションの誤答の長さの上限（正解の文字数に対する%、F-U6）。内部パラメータ。
+VOCAB_SITUATION_DISTRACTOR_MAX_LENGTH_PERCENT = "vocab.situation_distractor_max_length_percent"

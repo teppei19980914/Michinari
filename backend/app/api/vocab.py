@@ -15,7 +15,7 @@ from app.constants.app_setting_keys import (
     VOCAB_SESSION_DEFAULT_QUESTIONS,
     VOCAB_SESSION_MAX_QUESTIONS,
 )
-from app.constants.enums import VocabQuizMode
+from app.constants.enums import VocabCardType, VocabQuizMode
 from app.database import get_db
 from app.models.vocab import VocabCard, VocabDeck
 from app.schemas.quiz import QuizGenerateResultRead
@@ -64,8 +64,12 @@ _CHOICE_MODES = (VocabQuizMode.CHOICE_TERM_TO_MEANING, VocabQuizMode.CHOICE_MEAN
 _MIN_CARDS_FOR_CHOICE = 4
 
 
+#: カードが1枚も無いデッキの種類別内訳（開発Todo_単語帳_v1.0 要件F F-D19）。
+_EMPTY_MASTERY_TOTALS = vocab_service.VocabMasteryTotals(total_cards=0, mastered_cards=0)
+
+
 def _deck_read(
-    session: Session, deck: VocabDeck, card_count: int, mastered_card_count: int
+    session: Session, deck: VocabDeck, totals: vocab_service.VocabMasteryTotals
 ) -> VocabDeckRead:
     return VocabDeckRead(
         id=deck.id,
@@ -74,8 +78,12 @@ def _deck_read(
         description=deck.description,
         use_in_ai=deck.use_in_ai,
         display_order=deck.display_order,
-        card_count=card_count,
-        mastered_card_count=mastered_card_count,
+        card_count=totals.total_cards,
+        mastered_card_count=totals.mastered_cards,
+        term_card_count=totals.term_total,
+        term_mastered_card_count=totals.term_mastered,
+        situation_card_count=totals.situation_total,
+        situation_mastered_card_count=totals.situation_mastered,
         session_default_questions=setting_reader.get_int(session, VOCAB_SESSION_DEFAULT_QUESTIONS),
         session_max_questions=setting_reader.get_int(session, VOCAB_SESSION_MAX_QUESTIONS),
     )
@@ -87,10 +95,13 @@ def _card_read(
     return VocabCardRead(
         id=card.id,
         deck_id=card.deck_id,
+        card_type=card.card_type,
         term=card.term,
         meaning=card.meaning,
         aliases=card.aliases,
         note=card.note,
+        situation_text=card.situation_text,
+        question_text=card.question_text,
         is_checked=card.is_checked,
         display_order=card.display_order,
         correct_count=stats.correct_count,
@@ -121,12 +132,11 @@ def list_vocab_decks(goal_id: int, session: Session = Depends(get_db)) -> list[V
     goal_service.get_goal(session, goal_id)
     decks = vocab_service.list_decks_for_goal(session, goal_id)
     deck_ids = [deck.id for deck in decks]
-    card_counts = vocab_service.count_cards_by_deck(session, deck_ids)
-    mastered_counts = vocab_service.compute_mastered_card_counts_by_deck(
+    totals_by_deck = vocab_service.deck_vocab_mastery_totals(
         session, deck_ids, _mastery_streak(session)
     )
     return [
-        _deck_read(session, deck, card_counts.get(deck.id, 0), mastered_counts.get(deck.id, 0))
+        _deck_read(session, deck, totals_by_deck.get(deck.id, _EMPTY_MASTERY_TOTALS))
         for deck in decks
     ]
 
@@ -140,7 +150,7 @@ def create_vocab_deck(
         session, goal, name=payload.name, description=payload.description
     )
     session.commit()
-    return _deck_read(session, deck, card_count=0, mastered_card_count=0)
+    return _deck_read(session, deck, _EMPTY_MASTERY_TOTALS)
 
 
 @router.put("/goals/{goal_id}/vocab-decks/order")
@@ -154,11 +164,10 @@ def reorder_vocab_decks(
 
 
 def _deck_read_single(session: Session, deck: VocabDeck) -> VocabDeckRead:
-    card_count = vocab_service.count_cards_by_deck(session, [deck.id]).get(deck.id, 0)
-    mastered_count = vocab_service.compute_mastered_card_counts_by_deck(
+    totals = vocab_service.deck_vocab_mastery_totals(
         session, [deck.id], _mastery_streak(session)
-    ).get(deck.id, 0)
-    return _deck_read(session, deck, card_count, mastered_count)
+    ).get(deck.id, _EMPTY_MASTERY_TOTALS)
+    return _deck_read(session, deck, totals)
 
 
 @router.get("/vocab-decks/{deck_id}", response_model=VocabDeckRead)
@@ -196,10 +205,14 @@ def list_vocab_cards(
     deck_id: int,
     filter: str = "ALL",
     sort: str = "REGISTERED",
+    #: カードの種類の絞り込み（ALL/TERM/SITUATION、開発Todo_単語帳_v1.0 要件F F-U1「機能1」）。
+    card_type: str = "ALL",
     session: Session = Depends(get_db),
 ) -> list[VocabCardRead]:
     vocab_service.get_deck(session, deck_id)
-    cards = vocab_service.list_cards_for_deck(session, deck_id)
+    cards = vocab_service.filter_cards_by_type(
+        vocab_service.list_cards_for_deck(session, deck_id), card_type
+    )
     filtered, stats_by_card, mastered_card_ids = vocab_service.compute_filtered_cards(
         session, cards, filter_key=filter, mastery_streak=_mastery_streak(session)
     )
@@ -218,10 +231,13 @@ def create_vocab_card(
     card = vocab_service.create_card(
         session,
         deck,
+        card_type=payload.card_type,
         term=payload.term,
         meaning=payload.meaning,
         aliases=payload.aliases,
         note=payload.note,
+        situation_text=payload.situation_text,
+        question_text=payload.question_text,
     )
     session.commit()
     stats = vocab_service.compute_card_stats(session, [card.id])[card.id]
@@ -234,7 +250,13 @@ def update_vocab_card(
 ) -> VocabCardRead:
     card = vocab_service.get_card(session, card_id)
     content_changed = vocab_service.vocab_card_content_changed(
-        card, term=payload.term, meaning=payload.meaning, aliases=payload.aliases
+        card,
+        term=payload.term,
+        meaning=payload.meaning,
+        aliases=payload.aliases,
+        note=payload.note,
+        situation_text=payload.situation_text,
+        question_text=payload.question_text,
     )
     vocab_service.update_card(
         session,
@@ -243,6 +265,8 @@ def update_vocab_card(
         meaning=payload.meaning,
         aliases=payload.aliases,
         note=payload.note,
+        situation_text=payload.situation_text,
+        question_text=payload.question_text,
     )
     if content_changed:
         quiz_service.delete_questions_for_vocab_card(session, card.id)
@@ -273,7 +297,9 @@ def preview_vocab_import(
     deck_id: int, payload: VocabImportPreviewRequest, session: Session = Depends(get_db)
 ) -> VocabImportPreviewRead:
     deck = vocab_service.get_deck(session, deck_id)
-    preview = vocab_service.parse_bulk_import(session, deck, payload.text)
+    preview = vocab_service.parse_bulk_import(
+        session, deck, payload.text, card_type=payload.card_type
+    )
     return VocabImportPreviewRead(
         rows=[
             VocabImportRowRead(
@@ -282,6 +308,8 @@ def preview_vocab_import(
                 meaning=row.meaning,
                 aliases=row.aliases,
                 note=row.note,
+                situation_text=row.situation_text,
+                question_text=row.question_text,
             )
             for row in preview.rows
         ],
@@ -305,35 +333,64 @@ def confirm_vocab_import(
             meaning=row.meaning,
             aliases=row.aliases,
             note=row.note,
+            situation_text=row.situation_text,
+            question_text=row.question_text,
         )
         for index, row in enumerate(payload.rows, start=1)
     ]
-    created_count = vocab_service.confirm_bulk_import(session, deck, rows)
+    created_count = vocab_service.confirm_bulk_import(
+        session, deck, rows, card_type=payload.card_type
+    )
     session.commit()
     return VocabImportConfirmRead(created_count=created_count)
 
 
 @router.get("/vocab-decks/{deck_id}/export", response_model=VocabExportRead)
-def export_vocab_deck(deck_id: int, session: Session = Depends(get_db)) -> VocabExportRead:
+def export_vocab_deck(
+    deck_id: int, card_type: VocabCardType = VocabCardType.TERM, session: Session = Depends(get_db)
+) -> VocabExportRead:
     deck = vocab_service.get_deck(session, deck_id)
-    return VocabExportRead(text=vocab_service.export_deck(session, deck))
+    return VocabExportRead(text=vocab_service.export_deck(session, deck, card_type=card_type))
 
 
-def _prompt_and_reveal(mode: VocabQuizMode, card: VocabCard) -> tuple[str, str | None]:
+#: 自己採点（カードをめくる）方式のモード。シチュエーションカードのFLASH_SITUATIONも
+#: 同じ採点方法を使う（開発Todo_単語帳_v1.0 要件F F-D24）。
+_SELF_JUDGED_MODES = (
+    VocabQuizMode.FLASH_TERM_TO_MEANING,
+    VocabQuizMode.FLASH_MEANING_TO_TERM,
+    VocabQuizMode.FLASH_SITUATION,
+)
+
+
+def _prompt_and_reveal(mode: VocabQuizMode, card: VocabCard) -> tuple[str, str | None, str | None]:
+    """出題文・答え（カードめくり形式のみ）・解説（FLASH_SITUATIONのみ）を返す
+    （開発Todo_単語帳_v1.0 要件F F-D7、3値への一般化）。
+
+    戻り値: (prompt, reveal, explanation)。
+    """
     if mode == VocabQuizMode.FLASH_TERM_TO_MEANING:
-        return card.term, card.meaning
+        return card.term, card.meaning, None
     if mode == VocabQuizMode.FLASH_MEANING_TO_TERM:
-        return card.meaning, card.term
+        return card.meaning, card.term, None
     if mode == VocabQuizMode.TYPED_MEANING_TO_TERM:
-        return card.meaning, None
+        return card.meaning, None, None
     if mode == VocabQuizMode.CHOICE_TERM_TO_MEANING:
-        return card.term, None
-    return card.meaning, None  # CHOICE_MEANING_TO_TERM
+        return card.term, None, None
+    if mode == VocabQuizMode.FLASH_SITUATION:
+        return vocab_service.build_situation_prompt_text(card), card.meaning, card.note
+    return card.meaning, None, None  # CHOICE_MEANING_TO_TERM
 
 
 def _choice_field(mode: VocabQuizMode) -> str:
     #: 選択肢に表示する欄（出題の欄と逆）。
     return "meaning" if mode == VocabQuizMode.CHOICE_TERM_TO_MEANING else "term"
+
+
+def _effective_mode(mode: VocabQuizMode, card: VocabCard) -> VocabQuizMode:
+    """そのカードの実際の出題形式を決める（開発Todo_単語帳_v1.0 要件F F-D8）。
+    SITUATIONカードは常にFLASH_SITUATION（F-U4、選んだ形式に関わらない）。
+    """
+    return mode if card.card_type == VocabCardType.TERM else VocabQuizMode.FLASH_SITUATION
 
 
 @router.post("/vocab-decks/{deck_id}/quiz-sessions", response_model=VocabQuizSessionRead)
@@ -345,16 +402,23 @@ def start_vocab_quiz_session(
     # deck_idならNotFoundErrorを投げて404化する、軽微2の修正、2026-11-22）。
     vocab_service.get_deck(session, deck_id)
     deck_cards = vocab_service.list_cards_for_deck(session, deck_id)
-    if payload.mode in _CHOICE_MODES and len(deck_cards) < _MIN_CARDS_FOR_CHOICE:
+    #: 入力式・4択の対象、4択可否判定、誤答候補プールはTERMカードのみで数える
+    #: （開発Todo_単語帳_v1.0 要件F F-U3・F-D6・F-D8）。
+    term_cards_in_deck = [card for card in deck_cards if card.card_type == VocabCardType.TERM]
+    if payload.mode in _CHOICE_MODES and len(term_cards_in_deck) < _MIN_CARDS_FOR_CHOICE:
         raise ValidationError(
-            f"CHOICE modes require at least {_MIN_CARDS_FOR_CHOICE} cards in the deck"
+            f"CHOICE modes require at least {_MIN_CARDS_FOR_CHOICE} term cards in the deck"
         )
     max_questions = setting_reader.get_int(session, VOCAB_SESSION_MAX_QUESTIONS)
     if payload.question_count < 1 or payload.question_count > max_questions:
         raise ValidationError(f"question_count must be between 1 and {max_questions}")
 
+    type_filtered_cards = vocab_service.filter_cards_by_type(deck_cards, payload.card_type)
     filtered, stats_by_card, _mastered_card_ids = vocab_service.compute_filtered_cards(
-        session, deck_cards, filter_key=payload.filter, mastery_streak=_mastery_streak(session)
+        session,
+        type_filtered_cards,
+        filter_key=payload.filter,
+        mastery_streak=_mastery_streak(session),
     )
     rng = random.Random()
     candidates = vocab_service.select_session_cards(
@@ -370,26 +434,40 @@ def start_vocab_quiz_session(
     for card in candidates:
         if len(questions) >= payload.question_count:
             break
-        prompt, reveal = _prompt_and_reveal(payload.mode, card)
-        if payload.mode in _CHOICE_MODES:
+        effective_mode = _effective_mode(payload.mode, card)
+        prompt, reveal, explanation = _prompt_and_reveal(effective_mode, card)
+        if effective_mode in _CHOICE_MODES:
             option_ids = vocab_service.build_choice_option_ids(
-                deck_cards, card, field=_choice_field(payload.mode), rng=rng
+                term_cards_in_deck, card, field=_choice_field(effective_mode), rng=rng
             )
             if option_ids is None:
                 excluded_count += 1
                 continue
-            field = _choice_field(payload.mode)
-            cards_by_id = {c.id: c for c in deck_cards}
+            field = _choice_field(effective_mode)
+            cards_by_id = {c.id: c for c in term_cards_in_deck}
             options = [
                 VocabQuizOptionRead(card_id=option_id, text=getattr(cards_by_id[option_id], field))
                 for option_id in option_ids
             ]
             questions.append(
-                VocabQuizQuestionRead(card_id=card.id, prompt=prompt, reveal=None, options=options)
+                VocabQuizQuestionRead(
+                    card_id=card.id,
+                    mode=effective_mode,
+                    prompt=prompt,
+                    reveal=None,
+                    options=options,
+                )
             )
         else:
             questions.append(
-                VocabQuizQuestionRead(card_id=card.id, prompt=prompt, reveal=reveal, options=None)
+                VocabQuizQuestionRead(
+                    card_id=card.id,
+                    mode=effective_mode,
+                    prompt=prompt,
+                    reveal=reveal,
+                    explanation=explanation,
+                    options=None,
+                )
             )
     return VocabQuizSessionRead(questions=questions, excluded_count=excluded_count)
 
@@ -399,7 +477,7 @@ def answer_vocab_card(
     card_id: int, payload: VocabAnswerRequest, session: Session = Depends(get_db)
 ) -> VocabAnswerResultRead:
     card = vocab_service.get_card(session, card_id)
-    if payload.mode in (VocabQuizMode.FLASH_TERM_TO_MEANING, VocabQuizMode.FLASH_MEANING_TO_TERM):
+    if payload.mode in _SELF_JUDGED_MODES:
         if payload.self_judged_correct is None:
             raise ValidationError("self_judged_correct is required for FLASH modes")
         is_correct = payload.self_judged_correct

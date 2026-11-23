@@ -66,6 +66,11 @@ from app.constants.app_setting_keys import (
     THRESHOLD_REPLAN_OVERRUN_DAYS,
     THRESHOLD_WARNING_RATIO,
     VOCAB_MASTERY_STREAK,
+    VOCAB_SITUATION_BEST_ACTION_MAX_CHARS,
+    VOCAB_SITUATION_EXPLANATION_MAX_CHARS,
+    VOCAB_SITUATION_HEADING_MAX_CHARS,
+    VOCAB_SITUATION_QUESTION_MAX_CHARS,
+    VOCAB_SITUATION_TEXT_MAX_CHARS,
 )
 from app.constants.app_setting_keys import (
     DISPLAY_ACCENT_COLOR as _DISPLAY_ACCENT_COLOR,
@@ -247,6 +252,20 @@ class VocabMasterySettings:
 
 
 @dataclass(frozen=True)
+class VocabSituationLimitsSettings:
+    """シチュエーションカードの5項目の文字数上限（開発Todo_単語帳_v1.0 要件F F-U2・F-D3）。
+    用語カードの上限（`vocab.term_max_chars`等）とは異なり、利用者プロンプトの明示指示により
+    この5件のみ設定画面から変更できるようにする。
+    """
+
+    heading_max_chars: int
+    text_max_chars: int
+    question_max_chars: int
+    best_action_max_chars: int
+    explanation_max_chars: int
+
+
+@dataclass(frozen=True)
 class AppSettings:
     ai_connection: AiConnectionSettings
     threshold: ThresholdSettings
@@ -258,6 +277,7 @@ class AppSettings:
     on_this_day: OnThisDaySettings
     quick_record: QuickRecordSettings
     vocab_mastery: VocabMasterySettings
+    vocab_situation_limits: VocabSituationLimitsSettings
 
 
 def get_app_settings(session: Session) -> AppSettings:
@@ -390,6 +410,17 @@ def get_app_settings(session: Session) -> AppSettings:
             session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS
         ),
     )
+    vocab_situation_limits = VocabSituationLimitsSettings(
+        heading_max_chars=setting_reader.get_int(session, VOCAB_SITUATION_HEADING_MAX_CHARS),
+        text_max_chars=setting_reader.get_int(session, VOCAB_SITUATION_TEXT_MAX_CHARS),
+        question_max_chars=setting_reader.get_int(session, VOCAB_SITUATION_QUESTION_MAX_CHARS),
+        best_action_max_chars=setting_reader.get_int(
+            session, VOCAB_SITUATION_BEST_ACTION_MAX_CHARS
+        ),
+        explanation_max_chars=setting_reader.get_int(
+            session, VOCAB_SITUATION_EXPLANATION_MAX_CHARS
+        ),
+    )
     return AppSettings(
         ai_connection=ai_connection,
         threshold=threshold,
@@ -401,6 +432,7 @@ def get_app_settings(session: Session) -> AppSettings:
         on_this_day=on_this_day,
         quick_record=quick_record,
         vocab_mastery=vocab_mastery,
+        vocab_situation_limits=vocab_situation_limits,
     )
 
 
@@ -618,6 +650,21 @@ def _update_vocab_mastery(session: Session, **fields: object) -> None:
         )
 
 
+def _update_vocab_situation_limits(session: Session, **fields: object) -> None:
+    """シチュエーションカードの5項目の文字数上限（開発Todo_単語帳_v1.0 要件F F-U2）。"""
+    key_by_field = {
+        "heading_max_chars": VOCAB_SITUATION_HEADING_MAX_CHARS,
+        "text_max_chars": VOCAB_SITUATION_TEXT_MAX_CHARS,
+        "question_max_chars": VOCAB_SITUATION_QUESTION_MAX_CHARS,
+        "best_action_max_chars": VOCAB_SITUATION_BEST_ACTION_MAX_CHARS,
+        "explanation_max_chars": VOCAB_SITUATION_EXPLANATION_MAX_CHARS,
+    }
+    for field, key in key_by_field.items():
+        value = fields.get(field)
+        if value is not None:
+            _set_number(session, key, value)
+
+
 def _update_quick_record(session: Session, **fields: object) -> None:
     if fields.get("note_max_chars") is not None:
         _set_number(session, QUICK_RECORD_NOTE_MAX_CHARS, fields["note_max_chars"])
@@ -650,6 +697,7 @@ def update_app_settings(
     on_this_day: dict | None = None,
     quick_record: dict | None = None,
     vocab_mastery: dict | None = None,
+    vocab_situation_limits: dict | None = None,
 ) -> AppSettings:
     if ai_connection:
         _update_ai_connection(session, **ai_connection)
@@ -671,6 +719,8 @@ def update_app_settings(
         _update_quick_record(session, **quick_record)
     if vocab_mastery:
         _update_vocab_mastery(session, **vocab_mastery)
+    if vocab_situation_limits:
+        _update_vocab_situation_limits(session, **vocab_situation_limits)
     session.flush()
     return get_app_settings(session)
 

@@ -88,8 +88,8 @@ export const QUERY_KEYS = {
   vocabDecks: (goalId: number) => ['vocab-decks', goalId] as const,
   vocabDeck: (deckId: number) => ['vocab-deck', deckId] as const,
   vocabCards: (deckId: number) => ['vocab-cards', deckId] as const,
-  vocabCardsFiltered: (deckId: number, filter: string, sort: string) =>
-    ['vocab-cards', deckId, filter, sort] as const,
+  vocabCardsFiltered: (deckId: number, filter: string, sort: string, cardType: string = 'ALL') =>
+    ['vocab-cards', deckId, filter, sort, cardType] as const,
   //（開発Todo_単語帳_v1.0 要件D。日次報告の日記からの用語提案）
   vocabTermSuggestions: (goalId: number, recordDate: string) =>
     ['vocab-term-suggestions', goalId, recordDate] as const,

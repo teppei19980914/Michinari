@@ -13,3 +13,10 @@ export const VOCAB_CARD_FILTER_KEYS = [
 ] as const
 
 export type VocabCardFilterKey = (typeof VOCAB_CARD_FILTER_KEYS)[number]
+
+/** 「カードの種類」の絞り込みキー（開発Todo_単語帳_v1.0 要件F F-U3）。カード一覧・
+ * 一括登録・出題セッション開始フォームで共通して使う（CODING_RULES.md①DRYの原則）。
+ * 表示文言は`vocab.cardType.*`（`t()`経由）で解決する。 */
+export const VOCAB_CARD_TYPE_KEYS = ['ALL', 'TERM', 'SITUATION'] as const
+
+export type VocabCardTypeKey = (typeof VOCAB_CARD_TYPE_KEYS)[number]

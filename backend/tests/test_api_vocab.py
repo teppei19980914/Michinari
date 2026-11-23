@@ -18,6 +18,7 @@ from tests.vocab_helpers import (
     make_card,
     make_deck,
     make_reading_goal,
+    make_situation_card,
     set_setting,
 )
 
@@ -1166,3 +1167,311 @@ def test_dismiss_vocab_term_suggestion_rejects_other_goals_suggestion(
     )
 
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# シチュエーションカード（開発Todo_単語帳_v1.0 要件F）
+# ---------------------------------------------------------------------------
+
+
+def test_create_vocab_card_situation_succeeds(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/cards",
+        json={
+            "card_type": "SITUATION",
+            "term": "見出し",
+            "meaning": "最善の対応",
+            "situation_text": "状況",
+            "question_text": "問い",
+            "note": "解説",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["card_type"] == "SITUATION"
+    assert body["situation_text"] == "状況"
+    assert body["question_text"] == "問い"
+
+
+def test_create_vocab_card_situation_rejects_missing_situation_text(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/cards",
+        json={"card_type": "SITUATION", "term": "見出し", "meaning": "最善の対応"},
+    )
+
+    assert response.status_code == 400
+
+
+def test_create_vocab_card_default_card_type_is_term(seeded_session, client):
+    """card_typeを省略した既存の呼び出しはTERMのまま（既存A〜Dの挙動を保つ）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/cards", json={"term": "用語", "meaning": "意味"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["card_type"] == "TERM"
+
+
+def test_update_vocab_card_cannot_change_card_type(seeded_session, client):
+    """card_typeは作成後不変（F-D2）。更新用スキーマに項目自体が無いため、送っても無視される。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}", json={"card_type": "TERM", "term": "新しい見出し"}
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["card_type"] == "SITUATION"
+    assert body["term"] == "新しい見出し"
+
+
+def test_update_vocab_card_situation_change_deletes_quiz_questions(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+    seeded_session.add(
+        QuizQuestion(
+            vocab_card_id=card.id,
+            question_text="状況\n\n問い",
+            choice_1="A",
+            choice_2="B",
+            choice_3="C",
+            choice_4="D",
+            correct_choice_index=0,
+            explanation="解説",
+            interval_index=0,
+            next_due_date=dt.date(2026, 1, 1),
+        )
+    )
+    seeded_session.commit()
+
+    response = client.patch(
+        f"/api/v1/vocab-cards/{card.id}", json={"situation_text": "新しい状況"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert seeded_session.query(QuizQuestion).count() == 0
+
+
+def test_list_vocab_decks_reports_term_and_situation_breakdown(seeded_session, client):
+    """単語帳一覧が「用語◯語／場面◯件」の内訳を返すこと（F-U9）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="用語")
+    make_situation_card(seeded_session, deck, term="見出し1")
+    make_situation_card(seeded_session, deck, term="見出し2")
+
+    response = client.get(f"/api/v1/goals/{goal.id}/vocab-decks")
+
+    assert response.status_code == 200, response.text
+    body = response.json()[0]
+    assert body["card_count"] == 3
+    assert body["term_card_count"] == 1
+    assert body["situation_card_count"] == 2
+
+
+def test_list_vocab_cards_filters_by_card_type(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    situation_card = make_situation_card(seeded_session, deck)
+
+    response = client.get(f"/api/v1/vocab-decks/{deck.id}/cards", params={"card_type": "TERM"})
+
+    assert response.status_code == 200, response.text
+    returned_ids = {card["id"] for card in response.json()}
+    assert returned_ids == {term_card.id}
+    assert situation_card.id not in returned_ids
+
+
+def test_start_quiz_session_situation_card_always_uses_flash_situation_mode(
+    seeded_session, client
+):
+    """「両方」選択時、シチュエーションカードは選んだ形式に関わらずFLASH_SITUATIONで
+    出題されること（F-U3・F-D8）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session, deck, situation_text="状況", question_text="問い", meaning="最善の対応"
+    )
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "TYPED_MEANING_TO_TERM", "card_type": "ALL", "question_count": 1},
+    )
+
+    assert response.status_code == 200, response.text
+    question = response.json()["questions"][0]
+    assert question["card_id"] == card.id
+    assert question["mode"] == "FLASH_SITUATION"
+    assert question["prompt"] == "状況\n\n問い"
+    assert question["reveal"] == "最善の対応"
+
+
+def test_start_quiz_session_card_type_filter_situation_only(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    situation_card = make_situation_card(seeded_session, deck)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={
+            "mode": "FLASH_TERM_TO_MEANING",
+            "card_type": "SITUATION",
+            "question_count": 10,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    card_ids = [q["card_id"] for q in response.json()["questions"]]
+    assert card_ids == [situation_card.id]
+    assert term_card.id not in card_ids
+
+
+def test_start_quiz_session_card_type_filter_term_only(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    make_situation_card(seeded_session, deck)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "FLASH_TERM_TO_MEANING", "card_type": "TERM", "question_count": 10},
+    )
+
+    assert response.status_code == 200, response.text
+    card_ids = [q["card_id"] for q in response.json()["questions"]]
+    assert card_ids == [term_card.id]
+
+
+def test_start_quiz_session_choice_mode_counts_only_term_cards(seeded_session, client):
+    """4択の可否判定はTERMカードだけで数える（シチュエーションカードが多数あっても、
+    TERMカードが4枚未満ならCHOICEは拒否される、F-U3・F-D8）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    for i in range(3):
+        make_card(seeded_session, deck, term=f"用語{i}")
+    for i in range(5):
+        make_situation_card(seeded_session, deck, term=f"見出し{i}")
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "CHOICE_TERM_TO_MEANING", "question_count": 1},
+    )
+
+    assert response.status_code == 400
+
+
+def test_start_quiz_session_choice_mode_distractor_pool_excludes_situation_cards(
+    seeded_session, client
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    cards = [make_card(seeded_session, deck, term=f"用語{i}") for i in range(4)]
+    make_situation_card(seeded_session, deck, term="見出し", meaning="最善の対応")
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "CHOICE_TERM_TO_MEANING", "card_type": "TERM", "question_count": 4},
+    )
+
+    assert response.status_code == 200, response.text
+    for question in response.json()["questions"]:
+        option_texts = {opt["text"] for opt in question["options"]}
+        assert option_texts <= {c.meaning for c in cards}
+        assert "最善の対応" not in option_texts
+
+
+def test_answer_vocab_card_flash_situation_records_self_judged_result(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+
+    response = client.post(
+        f"/api/v1/vocab-cards/{card.id}/answer",
+        json={"mode": "FLASH_SITUATION", "self_judged_correct": True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["is_correct"] is True
+
+
+def test_preview_vocab_import_situation_returns_five_column_rows(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/cards/import-preview",
+        json={"text": "見出し\t状況\t問い\t最善の対応\t解説", "card_type": "SITUATION"},
+    )
+
+    assert response.status_code == 200, response.text
+    row = response.json()["rows"][0]
+    assert row["term"] == "見出し"
+    assert row["situation_text"] == "状況"
+    assert row["question_text"] == "問い"
+
+
+def test_confirm_vocab_import_situation_creates_situation_cards(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/cards/import",
+        json={
+            "rows": [
+                {
+                    "term": "見出し",
+                    "meaning": "最善の対応",
+                    "situation_text": "状況",
+                    "question_text": "問い",
+                }
+            ],
+            "card_type": "SITUATION",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["created_count"] == 1
+    card = vocab_service.list_cards_for_deck(seeded_session, deck.id)[0]
+    assert card.card_type.value == "SITUATION"
+
+
+def test_export_vocab_deck_situation_returns_five_columns(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(
+        seeded_session, deck, term="見出し", situation_text="状況", meaning="最善の対応"
+    )
+
+    response = client.get(
+        f"/api/v1/vocab-decks/{deck.id}/export", params={"card_type": "SITUATION"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["text"] == "見出し\t状況\t\t最善の対応\t\n"
+
+
+def test_export_vocab_deck_default_card_type_is_term(seeded_session, client):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="用語", meaning="意味")
+
+    response = client.get(f"/api/v1/vocab-decks/{deck.id}/export")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["text"] == "用語\t意味\t\t\n"

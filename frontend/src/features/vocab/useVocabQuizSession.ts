@@ -15,7 +15,13 @@ import type { VocabQuizSessionParams } from './VocabQuizSetupForm'
 import type { VocabQuizAnswerPayload } from './VocabQuizQuestionView'
 import { buildSessionSummary, nextIndex, type VocabAnswerRecord } from './vocabQuizProgress'
 
-const FLASH_MODES: VocabQuizMode[] = ['FLASH_TERM_TO_MEANING', 'FLASH_MEANING_TO_TERM']
+//: 自己採点（カードをめくる）方式のモード。SITUATIONカードのFLASH_SITUATIONも同じ採点
+//: 方法のため含める（開発Todo_単語帳_v1.0 要件F F-D24）。
+const FLASH_MODES: VocabQuizMode[] = [
+  'FLASH_TERM_TO_MEANING',
+  'FLASH_MEANING_TO_TERM',
+  'FLASH_SITUATION',
+]
 
 /** 出題セッションの状態と操作をまとめたフック（VocabQuizPageが100行制限に収まるよう分割、
  * CODING_RULES.md「保守性（複雑度）」）。セッションを終えたときの単語帳の習得用語数の
@@ -41,8 +47,15 @@ export function useVocabQuizSession(deckId: number, goalId: number | undefined) 
     },
   })
   const answerMutation = useMutation({
-    mutationFn: ({ cardId, payload }: { cardId: number; payload: VocabQuizAnswerPayload }) =>
-      answerVocabCard(cardId, { mode: mode as VocabQuizMode, ...payload }),
+    mutationFn: ({
+      cardId,
+      mode: answerMode,
+      payload,
+    }: {
+      cardId: number
+      mode: VocabQuizMode
+      payload: VocabQuizAnswerPayload
+    }) => answerVocabCard(cardId, { mode: answerMode, ...payload }),
   })
   const checkMutation = useMutation({
     mutationFn: (cardIds: number[]) => Promise.all(cardIds.map((id) => checkVocabCard(id, true))),
@@ -69,8 +82,11 @@ export function useVocabQuizSession(deckId: number, goalId: number | undefined) 
 
   const handleAnswer = (payload: VocabQuizAnswerPayload) => {
     if (!currentQuestion || !mode) return
+    //: その問題の実際の出題形式（開発Todo_単語帳_v1.0 要件F F-D7）。「両方」選択時は
+    //: SITUATIONカードがFLASH_SITUATIONになるため、セッション単位のmodeとは異なりうる。
+    const answerMode = currentQuestion.mode
     answerMutation.mutate(
-      { cardId: currentQuestion.card_id, payload },
+      { cardId: currentQuestion.card_id, mode: answerMode, payload },
       {
         onSuccess: (result) => {
           setResults((prev) => [
@@ -81,7 +97,7 @@ export function useVocabQuizSession(deckId: number, goalId: number | undefined) 
               isCorrect: result.is_correct,
             },
           ])
-          if (FLASH_MODES.includes(mode)) {
+          if (FLASH_MODES.includes(answerMode)) {
             setIndex(nextIndex(index))
           } else {
             setLastResult(result)

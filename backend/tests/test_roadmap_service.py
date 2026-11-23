@@ -27,7 +27,13 @@ from app.models.record import ChatMessage, DailyRecord, ReadingLog, StudyLog, Wo
 from app.models.setting import CalendarDayOverride
 from app.models.work import WorkAssignment
 from app.services import roadmap_service
-from tests.vocab_helpers import make_answer_log, make_card, make_deck, set_setting
+from tests.vocab_helpers import (
+    make_answer_log,
+    make_card,
+    make_deck,
+    make_situation_card,
+    set_setting,
+)
 
 
 def _make_goal(
@@ -321,6 +327,30 @@ def test_exam_roadmap_vocab_mastery_counts_mastered_and_total_across_decks(seede
     assert roadmap.vocab_mastery is not None
     assert roadmap.vocab_mastery.total_count == 2
     assert roadmap.vocab_mastery.mastered_count == 1
+
+
+def test_exam_roadmap_vocab_mastery_breaks_down_by_card_type(seeded_session):
+    """「用語◯語／場面◯件」の内訳（開発Todo_単語帳_v1.0 要件F F-U9）。"""
+    set_setting(seeded_session, VOCAB_MASTERY_STREAK, "1")
+    goal = _make_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered_term = make_card(seeded_session, deck, term="習得済み用語")
+    make_card(seeded_session, deck, term="未習得用語")
+    mastered_situation = make_situation_card(seeded_session, deck, term="習得済み場面")
+    make_answer_log(
+        seeded_session, mastered_term, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+    )
+    make_answer_log(
+        seeded_session, mastered_situation, is_correct=True, answered_at=dt.datetime(2026, 1, 1, 9)
+    )
+
+    roadmap = roadmap_service.get_roadmap(seeded_session, goal, dt.date(2026, 1, 10), True)
+
+    assert roadmap.vocab_mastery is not None
+    assert roadmap.vocab_mastery.term_total_count == 2
+    assert roadmap.vocab_mastery.term_mastered_count == 1
+    assert roadmap.vocab_mastery.situation_total_count == 1
+    assert roadmap.vocab_mastery.situation_mastered_count == 1
 
 
 def test_exam_roadmap_vocab_mastery_remaining_to_next_milestone(seeded_session):
