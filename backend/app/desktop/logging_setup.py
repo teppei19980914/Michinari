@@ -42,10 +42,13 @@ def ensure_standard_streams() -> None:
     PyInstaller公式が案内する対処そのもの。**ログ設定より先に、起動の一番最初に呼ぶこと**
     （差し替える前にどこかが標準出力へ書くと、その時点で落ちるため）。
     """
+    # encoding未指定だとWindows既定ロケール（日本語環境ではcp932）になり、開発キット
+    # （newtonx_adk）内部のprint()がAI応答中のcp932非対応文字（em dash等）で
+    # UnicodeEncodeErrorを起こす。devnullへ捨てるだけなので表示上の影響はない。
     if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w")  # noqa: SIM115 (プロセス終了まで開いたままにする)
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115 (プロセス終了まで開いたままにする)
     if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w")  # noqa: SIM115 (同上)
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")  # noqa: SIM115 (同上)
 
 
 def attach_console() -> bool:  # pragma: no cover (実コンソールの割り当てのため対象外)
