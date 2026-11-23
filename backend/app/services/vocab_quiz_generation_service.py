@@ -181,9 +181,12 @@ def _generate_for_cards(
     session: Session, goal: Goal, deck: VocabDeck, cards: list[VocabCard]
 ) -> int:
     """渡されたカード群（既に対象・上限の絞り込み済み。禁止語を含むカードは呼び出し元
-    `_select_eligible_cards`が既に除外済み）から問題を作る。戻り値は採用数。"""
-    if not cards:
-        return 0
+    `_select_eligible_cards`が既に除外済み）から問題を作る。戻り値は採用数。
+
+    呼び出し元（`generate_for_deck`・`run_all`）は`cards`が空なら本関数を呼ばない前提のため、
+    ここでの空チェックは行わない（test-coverage-reviewerレビューで検出：空チェックがあると
+    呼び出し元の保証により到達不能コードになり、カバレッジ100%方針に反するため、2026-11-23）。
+    """
     cards_by_id = {card.id: card for card in cards}
     items = [_CardChunkItem(card_id=card.id, text=_format_card_line(card)) for card in cards]
     chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)

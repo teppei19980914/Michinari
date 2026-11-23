@@ -14,7 +14,6 @@ from app.constants.app_setting_keys import (
     VOCAB_MASTERY_STREAK,
     VOCAB_SESSION_DEFAULT_QUESTIONS,
     VOCAB_SESSION_MAX_QUESTIONS,
-    VOCAB_WEAK_ACCURACY_PERCENT,
 )
 from app.constants.enums import VocabQuizMode
 from app.database import get_db
@@ -201,18 +200,8 @@ def list_vocab_cards(
 ) -> list[VocabCardRead]:
     vocab_service.get_deck(session, deck_id)
     cards = vocab_service.list_cards_for_deck(session, deck_id)
-    card_ids = [card.id for card in cards]
-    stats_by_card = vocab_service.compute_card_stats(session, card_ids)
-    mastered_card_ids = frozenset(
-        vocab_service.compute_mastered_card_ids(session, card_ids, _mastery_streak(session))
-    )
-    weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
-    filtered = vocab_service.filter_cards(
-        cards,
-        stats_by_card,
-        filter_key=filter,
-        weak_accuracy_percent=weak_accuracy_percent,
-        mastered_card_ids=mastered_card_ids,
+    filtered, stats_by_card, mastered_card_ids = vocab_service.compute_filtered_cards(
+        session, cards, filter_key=filter, mastery_streak=_mastery_streak(session)
     )
     sorted_cards = vocab_service.sort_cards(filtered, stats_by_card, sort_key=sort)
     return [
@@ -352,6 +341,8 @@ def start_vocab_quiz_session(
     deck_id: int, payload: VocabQuizSessionRequest, session: Session = Depends(get_db)
 ) -> VocabQuizSessionRead:
     """問題集の出題セッションを開始する。サーバーにセッション自体は保存しない。"""
+    # 戻り値は使わず存在確認のみが目的（他の単語帳APIと同じ所有関係検証パターン。未知の
+    # deck_idならNotFoundErrorを投げて404化する、軽微2の修正、2026-11-22）。
     vocab_service.get_deck(session, deck_id)
     deck_cards = vocab_service.list_cards_for_deck(session, deck_id)
     if payload.mode in _CHOICE_MODES and len(deck_cards) < _MIN_CARDS_FOR_CHOICE:
@@ -362,19 +353,8 @@ def start_vocab_quiz_session(
     if payload.question_count < 1 or payload.question_count > max_questions:
         raise ValidationError(f"question_count must be between 1 and {max_questions}")
 
-    stats_by_card = vocab_service.compute_card_stats(session, [c.id for c in deck_cards])
-    weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
-    mastered_card_ids = frozenset(
-        vocab_service.compute_mastered_card_ids(
-            session, [c.id for c in deck_cards], _mastery_streak(session)
-        )
-    )
-    filtered = vocab_service.filter_cards(
-        deck_cards,
-        stats_by_card,
-        filter_key=payload.filter,
-        weak_accuracy_percent=weak_accuracy_percent,
-        mastered_card_ids=mastered_card_ids,
+    filtered, stats_by_card, _mastered_card_ids = vocab_service.compute_filtered_cards(
+        session, deck_cards, filter_key=payload.filter, mastery_streak=_mastery_streak(session)
     )
     rng = random.Random()
     candidates = vocab_service.select_session_cards(

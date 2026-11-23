@@ -1142,6 +1142,7 @@ main（`77a1a0f`）上での静的コード解析により発見した不具合3
 - **#3の修正**：`vocab_service`に専用関数`vocab_card_content_changed(card, *, term, meaning, aliases) -> bool`を新設し、`update_card`で値を書き換える**前**に呼ぶ（保存値そのものの一致比較、正規化はしない＝表記の修正も変更とみなす、利用者の明示指示）。`update_card`自体の引数・戻り値（`VocabCard`）は変更しない（既存呼び出し元との互換性を保つ）。要件F（シチュエーションカード）でカード種別ごとに判定対象を増やせるよう、`update_card`本体から分離した独立関数とする。API層（`update_vocab_card`）は`update_card`呼び出しの前にこの判定結果を保持し、`True`のときだけ`quiz_service.delete_questions_for_vocab_card`を呼ぶ。
 - **#4の修正**：既存の類似前例を調査した結果、本アプリの`vocab.*`設定キーは`quiz.*`と同様に「設定画面（SC-11）には表示しない内部パラメータ」として意図的に設計されている（データ構造編5.2、1.1改71・72・73・74の各注記）。そのため`GET/PATCH /settings`（`AppSettingsRead`／`AppSettingsUpdate`、編集可能な設定グループ）への追加は設計意図に反すると判断し、**採用しない**。代わりに、既存の`useQuickRecordSettings.ts`と同じ「画面側が参照だけする内部パラメータ」の前例を踏襲せず、さらに狭い既存の前例である単語帳詳細のレスポンス（`VocabDeckRead`）に`session_default_questions`・`session_max_questions`の2フィールドを読み取り専用で追加する（`VocabQuizPage.tsx`が既に`getVocabDeck`で取得済みのデータへ乗せるだけで新規フェッチが不要、かつ設定画面での編集可能化を伴わない）。フロントの型は`npm run generate:api-types`で再生成する（手書き禁止、CODING_RULES.md）。
 - **#5の修正**：`start_vocab_quiz_session`の先頭で`vocab_service.get_deck(session, deck_id)`を呼ぶ（戻り値は使わないが404化のためだけに呼ぶ、既存の`list_vocab_cards`と同じパターン）。
+- **観点別レビュー対応の決定事項（9.5参照）**：`list_vocab_cards`・`start_vocab_quiz_session`の両方で`filter_cards`必須引数化に伴い重複した「成績算出→習得判定→絞り込み」の4ステップを`vocab_service.compute_filtered_cards`へ統合し、同時に`compute_card_stats`・`compute_mastered_card_ids`が同一card_idsに対し解答ログ取得(`_fetch_answer_logs_by_card`)を個別に2回発行していた重複クエリも解消した（採用）。一方、`build_glossary_reference`・`build_glossary_overview`・新設`_select_eligible_cards`の3箇所に広がる禁止語除外の重複（dry-reviewer指摘）は、前者2つが既にレビュー・脅威モデル済みの日次フィードバック・目標相談向けAI連携コードであり、`build_glossary_reference`は禁止語除外とマッチ判定・文字数予算の打ち切りを1つのループに融合した構造のため、共通化のための再構成は本不具合修正の範囲外のリスクを持ち込むと判断し**採用しない**（既知の軽微な重複として許容。要件F等で当該コードに再度手を入れる際に併せて検討する）。
 
 ### 9.4 作業Todo
 
@@ -1149,11 +1150,25 @@ main（`77a1a0f`）上での静的コード解析により発見した不具合3
 - [x] 9.1 ベースライン計測
 - [x] 9.2 影響範囲の確定・横展開チェック
 - [x] 9.3 決定事項の記録
-- [ ] 各不具合の再現テストを先に書き、失敗することを確認する
-- [ ] #1〜#5を修正する
-- [ ] 既存7箇所の`filter_cards`呼び出し（テスト）へ`mastered_card_ids=frozenset()`を横展開する
-- [ ] ドキュメント更新（設計書17.16・30.3・30.8、データ構造編5.2、仕様書6.20_SC-22、各改訂履歴）
-- [ ] 観点別レビュー（コミット前チェック）の並列実行
-- [ ] 全体最終テスト・ベースライン比較
+- [x] 各不具合の再現テストを先に書き、失敗することを確認する
+- [x] #1〜#5を修正する
+- [x] 既存7箇所の`filter_cards`呼び出し（テスト）へ`mastered_card_ids=frozenset()`を横展開する
+- [x] ドキュメント更新（設計書17.16・30.3・30.8、データ構造編5.2、仕様書6.20_SC-22、各改訂履歴）
+- [x] 観点別レビュー（コミット前チェック）の並列実行
+- [x] 全体最終テスト・ベースライン比較
 - [ ] 実利用者DBでの検証
-- [ ] 9.5〜9.7（レビュー結果・作業記録・完了の定義）の記録
+- [x] 9.5〜9.7（レビュー結果・作業記録・完了の定義）の記録
+
+### 9.5 観点別レビュー（コミット前チェック、2026-11-23実施）
+
+変更範囲（API層・サービス層のロジック修正、DB問い合わせ順序の変更、フロントのフォーム初期値）に基づき、`dry-reviewer`・`style-reviewer`・`test-coverage-reviewer`・`performance-reviewer`・`injection-reviewer`の5エージェントを並列起動した（`auth-reviewer`／`xss-reviewer`／`secret-reviewer`／`dependency-reviewer`／`label-checker`は認証・HTML出力・機密情報・新規依存・新規ハードコード文言のいずれにも該当しないため見送った）。
+
+| エージェント | 指摘 | 重要度 | 対応 |
+| --- | --- | --- | --- |
+| injection-reviewer | 新たなインジェクション系脆弱性は無し。全クエリがORM経由のパラメータ化クエリ | — | 対応不要 |
+| performance-reviewer | `start_vocab_quiz_session`で`compute_card_stats`と`compute_mastered_card_ids`が同一card_idsに対し解答ログ取得（`_fetch_answer_logs_by_card`）を個別に2回発行する重複クエリ | MEDIUM | 修正済み（`vocab_service.compute_filtered_cards`へ統合、1回のクエリに） |
+| dry-reviewer | ①`filter_cards`必須引数化により`list_vocab_cards`・`start_vocab_quiz_session`の「成績算出→習得判定→絞り込み」4ステップの重複が拡大 ②禁止語除外のlist comprehensionが`build_glossary_reference`・`build_glossary_overview`・新設`_select_eligible_cards`の3箇所に分散 ③フロントの`makeDeck()`テストフィクスチャ8箇所で新フィールドの値が重複（LOW） | MEDIUM／MEDIUM／LOW | ①修正済み（`compute_filtered_cards`へ統合、performance-reviewer指摘の解消と同時に対応） ②対応しない（9.3決定事項参照、既存の重要なAI連携コードへの再構成リスクを避けた） ③対応しない（既存の他フィールドと同じ既存パターンの延伸、必須指摘ではない） |
+| style-reviewer | `start_vocab_quiz_session`冒頭の`vocab_service.get_deck(session, deck_id)`が戻り値を使わず、意図（404化のためだけの呼び出し）がコードだけでは伝わりにくい | MEDIUM | 修正済み（WHYコメントを追加） |
+| test-coverage-reviewer | ①`_generate_for_cards`内の`if not cards: return 0`が、呼び出し元（`_select_eligible_cards`の結果を呼び出し元が必ず空チェックする構造）により到達不能コード化していた ②`VocabQuizPage.tsx`の配線（`deck.session_default_questions`等を`VocabQuizSetupForm`へ渡す）を検証するテストが、フォーム側のデフォルト値と同じ値のフィクスチャを使っていたため配線漏れを検知できない ③`vocab_card_content_changed`の直接の単体テストが無い（API統合テスト経由のみ） | LOW／MEDIUM／LOW | ①修正済み（ガードを削除） ②修正済み（`VocabQuizPage.test.tsx`に`session_default_questions: 7`等の非既定値オーバーライドで配線を検証するテストを追加） ③修正済み（`test_vocab_service.py`に直接の単体テスト2件を追加） |
+
+HIGH以上の指摘は0件だった。MEDIUM相当（performance-reviewerとdry-reviewer①は同一箇所への指摘のため1件の修正で両方解消）は重複クエリ・コメント不足・配線テスト漏れの3件を修正し、禁止語除外の3箇所分散（dry-reviewer②）1件は既存コードへの変更リスクが利益を上回ると判断して対応しないことを明記した。LOW（到達不能コード・直接の単体テスト不足）2件は修正、フロントのテストフィクスチャ重複（LOW）1件は対応しないこととした（上記表参照）。
