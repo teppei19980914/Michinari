@@ -1,10 +1,14 @@
-import { differenceInCalendarDays, parseISO } from 'date-fns'
+import { daysBetween } from '../../utils/dateRange'
 
 /**
  * ガントチャート（技術選定書「CSS Grid + Tailwindで自作」）の帯位置を算出する。
  * 全教材の開始日〜締切の最小・最大範囲を100%とし、各教材の帯の左端・幅・進捗の
  * 塗りつぶし幅、および本日位置を百分率で返す（描画側はこの値をwidth/left styleへ
  * そのまま渡すだけにする）。
+ *
+ * 日付の差の計算（`daysBetween`）は、スケジュールタブのガント（rem方式、開発Todo_
+ * スケジュール・ガントチャート_v1.1 3.4）と共通化している（`utils/dateRange.ts`）。
+ * 本ファイルの百分率方式のロジック自体は変更していない（既存の教材ガント表示を変えない）。
  */
 
 export type GanttMaterialInput = {
@@ -24,10 +28,6 @@ export type GanttLayoutEntry = {
 export type GanttLayout = {
   entries: GanttLayoutEntry[]
   todayPercent: number | null
-}
-
-function daysBetween(fromIso: string, toIso: string): number {
-  return differenceInCalendarDays(parseISO(toIso), parseISO(fromIso))
 }
 
 function clampRate(rate: number): number {

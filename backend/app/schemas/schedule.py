@@ -90,12 +90,22 @@ class ScheduleColumnRead(BaseModel):
 
 
 class ScheduleRead(BaseModel):
-    """GET /goals/{goal_id}/schedule の応答（本書8章）。"""
+    """GET /goals/{goal_id}/schedule の応答（本書8章）。
+
+    max_items・max_custom_columns・gantt_day_width_min_rem・gantt_day_width_max_rem は
+    画面側が必要とする内部パラメータ（app_setting、設定画面には表示しない）を読み取り専用
+    フィールドとして渡す。単語帳機能の前例（VocabDeckRead.session_default_questions/
+    session_max_questions、設計書データ構造編1.1改75）に倣う（単位3、開発Todo第2章食い違い2）。
+    """
 
     revision: int
     frozen_row_count: int
     frozen_column_count: int
     today: dt.date
+    max_items: int
+    max_custom_columns: int
+    gantt_day_width_min_rem: float
+    gantt_day_width_max_rem: float
     columns: list[ScheduleColumnRead]
     items: list[ScheduleItemRead]
 

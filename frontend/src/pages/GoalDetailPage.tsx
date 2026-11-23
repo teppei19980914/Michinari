@@ -28,6 +28,7 @@ import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
 import { WorkReportTab } from '../features/goal/WorkReportTab'
 import { WorkEvaluationReportTab } from '../features/goal/WorkEvaluationReportTab'
 import { GoalEndModal, type GoalEndKind } from '../features/goal/GoalEndModal'
+import { ScheduleTab } from '../features/schedule/ScheduleTab'
 import { ERROR_CODES } from '../constants/errorCodes'
 import { resolveByGoalCategory } from '../features/goal/goalCategoryVariant'
 import { hasOperation, isClosedGoalStatus } from '../features/goal/goalStatus'
@@ -70,6 +71,11 @@ const EXAM_TABS = [
     tooltipKey: 'goals.detail.tabTooltips.vocab',
   },
   {
+    key: 'schedule',
+    labelKey: 'goals.detail.tabs.schedule',
+    tooltipKey: 'goals.detail.tabTooltips.schedule',
+  },
+  {
     key: 'goalConsultation',
     labelKey: 'goals.detail.tabs.goalConsultation',
     tooltipKey: 'goals.detail.tabTooltips.goalConsultation',
@@ -100,6 +106,11 @@ const READING_TABS = [
     key: 'resourceAllocation',
     labelKey: 'goals.detail.tabs.resourceAllocation',
     tooltipKey: 'goals.detail.tabTooltips.resourceAllocation',
+  },
+  {
+    key: 'schedule',
+    labelKey: 'goals.detail.tabs.schedule',
+    tooltipKey: 'goals.detail.tabTooltips.schedule',
   },
   {
     key: 'goalConsultation',
@@ -141,6 +152,11 @@ const WORK_TABS = [
     key: 'evaluationReport',
     labelKey: 'goals.detail.tabs.evaluationReport',
     tooltipKey: 'goals.detail.tabTooltips.evaluationReport',
+  },
+  {
+    key: 'schedule',
+    labelKey: 'goals.detail.tabs.schedule',
+    tooltipKey: 'goals.detail.tabTooltips.schedule',
   },
   {
     key: 'goalConsultation',
@@ -343,8 +359,11 @@ export function GoalDetailPage() {
   // 同一目標内でのタブ切替の挙動には影響させない）。
   const activeTab: TabKey = tabs.some((item) => item.key === tab) ? tab : 'basicInfo'
 
+  // スケジュールタブ表示中だけ幅の制限を外す（D-31）。他のタブの見た目は変えない。
+  const containerWidthClassName = activeTab === 'schedule' ? 'max-w-full' : 'max-w-3xl'
+
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
+    <div className={`mx-auto flex ${containerWidthClassName} flex-col gap-4 p-4`}>
       <Link to={ROUTES.goals} className="text-sm text-accent hover:underline">
         {t('goals.detail.backToList')}
       </Link>
@@ -441,6 +460,10 @@ function GoalDetailTabContent({
           {activeTab === 'vocab' && <VocabDeckListTab goalId={goal.id} />}
         </>
       )}
+      {/* スケジュールタブは資格・読書・仕事の3種別で共通のため（D-01、開発Todo_スケジュール・
+          ガントチャート_v1.1）、roadmap・goalConsultationと同じ理由でカテゴリ別ブロックの
+          外に置く。終了した目標はisReadOnlyをそのまま渡す（isClosedGoalStatus、D-04）。 */}
+      {activeTab === 'schedule' && <ScheduleTab goalId={goal.id} readOnly={isReadOnly} />}
       {/* 目標相談は資格・読書・仕事の3種別で共通のため（S10、開発Todo v1.1 V1）、
           resourceAllocationと同じ理由でカテゴリ別ブロックの外に置く。 */}
       {activeTab === 'goalConsultation' && (
