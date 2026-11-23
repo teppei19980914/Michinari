@@ -88,6 +88,23 @@ def test_import_bundled_holidays_if_needed_imports_the_bundled_csv(db_session):
     assert db_session.query(Holiday).count() > 0
 
 
+def test_import_bundled_holidays_if_needed_does_nothing_when_the_bundled_file_is_missing(
+    tmp_path, monkeypatch
+):
+    """同梱CSVが存在しない場合（配布物の破損・開発環境の未配置等）は何もしない。"""
+    calls: list[bytes] = []
+    monkeypatch.setattr(app_main, "resolve_bundled_path", lambda *_args: tmp_path / "missing.csv")
+    monkeypatch.setattr(
+        app_main.calendar_service,
+        "import_bundled_holidays_if_needed",
+        lambda _session, csv_bytes: calls.append(csv_bytes),
+    )
+
+    app_main.import_bundled_holidays_if_needed()
+
+    assert calls == []
+
+
 def test_import_bundled_holidays_if_needed_is_idempotent_across_calls(db_session):
     from app.init.seed_data import run_all
     from app.models.setting import Holiday
