@@ -368,17 +368,16 @@ def _fetch_answer_logs_by_card(
     return grouped
 
 
-def compute_card_stats(session: Session, card_ids: list[int]) -> dict[int, VocabCardStats]:
-    """複数カードの成績を1回のクエリでまとめて算出する（N+1禁止）。
+def _stats_from_answer_logs(
+    card_ids: list[int], grouped: dict[int, list[tuple[bool, datetime]]]
+) -> dict[int, VocabCardStats]:
+    """`_fetch_answer_logs_by_card`で取得済みの解答行から成績を算出する（取得と集計を分離し、
+    `compute_card_stats`・`compute_filtered_cards`〈カード一覧・出題開始が共有〉の両方から
+    呼べるようにする。performance-reviewerレビューで検出した重複クエリの解消、2026-11-23）。
 
-    SQLiteのウィンドウ関数に依存せず、1回のSELECTで取得した全解答行をPython側で
-    カードごとに走査して集計する（移植性・可読性を優先、本コードベースにウィンドウ関数の
-    前例が無いため）。
+    SQLiteのウィンドウ関数に依存せず、Python側でカードごとに走査して集計する（移植性・
+    可読性を優先、本コードベースにウィンドウ関数の前例が無いため）。
     """
-    if not card_ids:
-        return {}
-    grouped = _fetch_answer_logs_by_card(session, card_ids)
-
     stats: dict[int, VocabCardStats] = {}
     for card_id in card_ids:
         logs = grouped.get(card_id)
@@ -400,6 +399,14 @@ def compute_card_stats(session: Session, card_ids: list[int]) -> dict[int, Vocab
             last_answered_at=logs[-1][1],
         )
     return stats
+
+
+def compute_card_stats(session: Session, card_ids: list[int]) -> dict[int, VocabCardStats]:
+    """複数カードの成績を1回のクエリでまとめて算出する（N+1禁止）。"""
+    if not card_ids:
+        return {}
+    grouped = _fetch_answer_logs_by_card(session, card_ids)
+    return _stats_from_answer_logs(card_ids, grouped)
 
 
 def record_answer(session: Session, card: VocabCard, mode: VocabQuizMode, is_correct: bool) -> None:
@@ -425,26 +432,32 @@ class VocabMasteryTotals:
     mastered_cards: int
 
 
-def compute_mastered_card_ids(
-    session: Session, card_ids: list[int], mastery_streak: int
+def _mastered_from_answer_logs(
+    grouped: dict[int, list[tuple[bool, datetime]]], mastery_streak: int
 ) -> set[int]:
-    """直近`mastery_streak`回の解答がすべて正解のカードIDを返す（開発Todo_単語帳_v1.0
-    要件E E-U1）。解答回数が`mastery_streak`未満のカードは含めない。節目判定・道のりマップ・
-    単語帳画面（一覧・詳細の表示、絞り込み）で「習得」を判定する唯一の定義（DRYの原則）。
-
-    行取得は`_fetch_answer_logs_by_card`（`compute_card_stats`と共有、N+1禁止：card_idsの
-    件数に関わらずクエリ1回）に委ね、ここでは集計の形（正答率等ではなく「直近N件がすべて
-    正解か」）だけが異なる。
-    """
-    if not card_ids or mastery_streak <= 0:
+    """`_fetch_answer_logs_by_card`で取得済みの解答行から習得済みカードIDを判定する
+    （取得と判定を分離する理由は`_stats_from_answer_logs`と同じ、2026-11-23）。"""
+    if mastery_streak <= 0:
         return set()
-    grouped = _fetch_answer_logs_by_card(session, card_ids)
     return {
         card_id
         for card_id, logs in grouped.items()
         if len(logs) >= mastery_streak
         and all(is_correct for is_correct, _ in logs[-mastery_streak:])
     }
+
+
+def compute_mastered_card_ids(
+    session: Session, card_ids: list[int], mastery_streak: int
+) -> set[int]:
+    """直近`mastery_streak`回の解答がすべて正解のカードIDを返す（開発Todo_単語帳_v1.0
+    要件E E-U1）。解答回数が`mastery_streak`未満のカードは含めない。節目判定・道のりマップ・
+    単語帳画面（一覧・詳細の表示、絞り込み）で「習得」を判定する唯一の定義（DRYの原則）。
+    """
+    if not card_ids:
+        return set()
+    grouped = _fetch_answer_logs_by_card(session, card_ids)
+    return _mastered_from_answer_logs(grouped, mastery_streak)
 
 
 def compute_goal_vocab_mastery(
@@ -675,6 +688,37 @@ def filter_cards(
             if stats_by_card[card.id].correct_count + stats_by_card[card.id].incorrect_count == 0
         ]
     raise ValidationError(f"Unknown filter: {filter_key}")
+
+
+def compute_filtered_cards(
+    session: Session, cards: list[VocabCard], *, filter_key: str, mastery_streak: int
+) -> tuple[list[VocabCard], dict[int, VocabCardStats], frozenset[int]]:
+    """カード一覧（`list_vocab_cards`）・出題開始（`start_vocab_quiz_session`）の両方が
+    必要とする「成績・習得判定の算出→絞り込み」をまとめる（dry-reviewerレビューで検出した
+    API層の重複の解消、2026-11-23）。成績（`compute_card_stats`）と習得判定
+    （`compute_mastered_card_ids`）を個別に呼ぶと、同じカードID集合に対して解答ログの取得
+    （`_fetch_answer_logs_by_card`）が2回発行されるため、ここで1回に統合する
+    （performance-reviewerレビューで検出した重複クエリの解消）。
+
+    戻り値は(絞り込み後のカード, 全カードの成績辞書, 習得済みカードIDの集合)。並び替え
+    （カード一覧のみ必要）は呼び出し元に任せる。
+    """
+    card_ids = [card.id for card in cards]
+    if card_ids:
+        grouped = _fetch_answer_logs_by_card(session, card_ids)
+    else:
+        grouped = {}
+    stats_by_card = _stats_from_answer_logs(card_ids, grouped)
+    mastered_card_ids = frozenset(_mastered_from_answer_logs(grouped, mastery_streak))
+    weak_accuracy_percent = setting_reader.get_int(session, VOCAB_WEAK_ACCURACY_PERCENT)
+    filtered = filter_cards(
+        cards,
+        stats_by_card,
+        filter_key=filter_key,
+        weak_accuracy_percent=weak_accuracy_percent,
+        mastered_card_ids=mastered_card_ids,
+    )
+    return filtered, stats_by_card, mastered_card_ids
 
 
 def sort_cards(

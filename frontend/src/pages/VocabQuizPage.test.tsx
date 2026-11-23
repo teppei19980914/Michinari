@@ -49,6 +49,19 @@ afterEach(() => {
 })
 
 describe('VocabQuizPage', () => {
+  it("passes the deck's session_default_questions and session_max_questions to the setup form (軽微1の修正、2026-11-22)", async () => {
+    getVocabDeck.mockResolvedValue(
+      makeDeck({ session_default_questions: 7, session_max_questions: 50 }),
+    )
+    renderWithProviders(<VocabQuizPage />)
+
+    const countInput = (await screen.findByLabelText(
+      t('vocab.quiz.questionCountLabel'),
+    )) as HTMLInputElement
+    expect(countInput.value).toBe('7')
+    expect(countInput.getAttribute('max')).toBe('50')
+  })
+
   it('shows the setup form first, then the question, then the summary', async () => {
     const user = userEvent.setup()
     startVocabQuizSession.mockResolvedValue({
