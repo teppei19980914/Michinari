@@ -42,7 +42,12 @@ export function VocabQuizPage() {
       <h1 className="text-xl font-semibold text-text-primary">{deck.name}</h1>
 
       {!session.mode && (
-        <VocabQuizSetupForm cardCount={deck.card_count} onStart={session.start} />
+        <VocabQuizSetupForm
+          cardCount={deck.card_count}
+          defaultQuestionCount={deck.session_default_questions}
+          maxQuestionCount={deck.session_max_questions}
+          onStart={session.start}
+        />
       )}
 
       {session.mode && session.currentQuestion && (
