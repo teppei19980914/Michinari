@@ -396,6 +396,25 @@ def test_import_bundled_holidays_if_needed_applies_a_same_year_correction_withou
     assert row.value == hashlib.sha256(corrected_content).hexdigest()
 
 
+def test_import_bundled_holidays_if_needed_updates_when_manual_data_is_older_than_bundled(
+    seeded_session,
+):
+    """手動インポート後でも、同梱データが手動データより新しい（収録最終年が伸びる）場合は
+    保護せず取り込む(D-44の年比較ガードが機能する側の分岐)。"""
+    manual_content = _holiday_csv_bytes([("2026/1/1", "元日")])
+    calendar_service.import_holidays(seeded_session, manual_content)
+    calendar_service.mark_manual_holiday_import(seeded_session)
+    seeded_session.flush()
+
+    newer_bundled_content = _holiday_csv_bytes([("2026/1/1", "元日"), ("2028/1/1", "元日")])
+    result = calendar_service.import_bundled_holidays_if_needed(
+        seeded_session, newer_bundled_content
+    )
+
+    assert result is not None
+    assert seeded_session.get(Holiday, dt.date(2028, 1, 1)) is not None
+
+
 def test_import_bundled_holidays_if_needed_updates_older_existing_data_without_manual_import(
     seeded_session,
 ):
