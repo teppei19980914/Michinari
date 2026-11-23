@@ -6,7 +6,7 @@ import hashlib
 
 import pytest
 
-from app.constants.app_setting_keys import HOLIDAY_BUNDLED_CSV_SHA256
+from app.constants.app_setting_keys import HOLIDAY_BUNDLED_CSV_SHA256, HOLIDAY_IMPORTED_VIA_MANUAL
 from app.constants.enums import DayType, GoalStatus
 from app.models.goal import Goal, LoadProfile
 from app.models.setting import AppSetting, CalendarDayOverride, DayTypeDefault, Holiday
@@ -336,9 +336,14 @@ def test_import_bundled_holidays_if_needed_is_idempotent_when_sha_matches(seeded
 
 
 def test_import_bundled_holidays_if_needed_does_not_downgrade_newer_manual_data(seeded_session):
-    """D-44: 利用者が手動で取り込んだ新しいデータを、古い同梱データで上書きしない。"""
+    """D-44: 利用者が手動で取り込んだ新しいデータを、古い同梱データで上書きしない。
+
+    「手動インポートが行われたこと」(`mark_manual_holiday_import`)が記録されている場合に
+    限り、収録年の比較による保護が働く。
+    """
     manual_content = _holiday_csv_bytes([("2030/1/1", "元日")])
     calendar_service.import_holidays(seeded_session, manual_content)
+    calendar_service.mark_manual_holiday_import(seeded_session)
     seeded_session.flush()
 
     older_bundled_content = _holiday_csv_bytes([("2026/1/1", "元日")])
@@ -350,3 +355,66 @@ def test_import_bundled_holidays_if_needed_does_not_downgrade_newer_manual_data(
     assert seeded_session.get(Holiday, dt.date(2030, 1, 1)) is not None
     row = seeded_session.get(AppSetting, HOLIDAY_BUNDLED_CSV_SHA256)
     assert row.value == ""
+
+
+def test_import_bundled_holidays_if_needed_protects_the_same_year_to_when_manual(seeded_session):
+    """境界値: 手動インポート後は、収録最終年が同梱CSVと完全に一致する場合も保護する。"""
+    manual_content = _holiday_csv_bytes([("2026/1/1", "元日")])
+    calendar_service.import_holidays(seeded_session, manual_content)
+    calendar_service.mark_manual_holiday_import(seeded_session)
+    seeded_session.flush()
+
+    same_year_bundled_content = _holiday_csv_bytes([("2026/1/12", "成人の日")])
+    result = calendar_service.import_bundled_holidays_if_needed(
+        seeded_session, same_year_bundled_content
+    )
+
+    assert result is None
+    assert seeded_session.get(Holiday, dt.date(2026, 1, 1)) is not None
+    assert seeded_session.get(Holiday, dt.date(2026, 1, 12)) is None
+
+
+def test_import_bundled_holidays_if_needed_applies_a_same_year_correction_without_manual_import(
+    seeded_session,
+):
+    """独立レビューで指摘された不具合の再発防止（2026-11-23）。
+
+    手動インポートが一度も行われていない場合、同梱CSVの収録最終年が既存と同じでも
+    （内閣府が既存年の内容だけを訂正した更新）、常に取り込む。年range比較だけで保護すると、
+    この種の訂正が永久に反映されなくなる。
+    """
+    first_content = _holiday_csv_bytes([("2026/1/1", "元日")])
+    calendar_service.import_bundled_holidays_if_needed(seeded_session, first_content)
+    seeded_session.flush()
+
+    corrected_content = _holiday_csv_bytes([("2026/1/1", "元日（訂正）")])
+    result = calendar_service.import_bundled_holidays_if_needed(seeded_session, corrected_content)
+
+    assert result is not None
+    assert seeded_session.get(Holiday, dt.date(2026, 1, 1)).name == "元日（訂正）"
+    row = seeded_session.get(AppSetting, HOLIDAY_BUNDLED_CSV_SHA256)
+    assert row.value == hashlib.sha256(corrected_content).hexdigest()
+
+
+def test_import_bundled_holidays_if_needed_updates_older_existing_data_without_manual_import(
+    seeded_session,
+):
+    """D-44の典型シナリオ: アプリ更新で同梱CSVの収録範囲が伸びた場合に取り込む。"""
+    older_content = _holiday_csv_bytes([("2026/1/1", "元日")])
+    calendar_service.import_bundled_holidays_if_needed(seeded_session, older_content)
+    seeded_session.flush()
+
+    newer_content = _holiday_csv_bytes([("2026/1/1", "元日"), ("2028/1/1", "元日")])
+    result = calendar_service.import_bundled_holidays_if_needed(seeded_session, newer_content)
+
+    assert result is not None
+    assert seeded_session.get(Holiday, dt.date(2028, 1, 1)) is not None
+
+
+def test_mark_manual_holiday_import_sets_the_flag(seeded_session):
+    row = seeded_session.get(AppSetting, HOLIDAY_IMPORTED_VIA_MANUAL)
+    assert row.value == "false"
+
+    calendar_service.mark_manual_holiday_import(seeded_session)
+
+    assert seeded_session.get(AppSetting, HOLIDAY_IMPORTED_VIA_MANUAL).value == "true"

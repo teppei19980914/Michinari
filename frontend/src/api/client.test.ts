@@ -10,7 +10,7 @@
  * 期待する文言は `t()` から取得する。ロケールを直書きすると文言変更のたびにテストが
  * 落ちるうえ、ゼロハードコーディング（CODING_RULES.md ②）にも反するため。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiClient, apiErrorDetail, apiErrorMessage } from './client'
+import { ApiError, apiClient, apiErrorDetail, apiErrorMessage, postMultipart } from './client'
 import { t } from '../locales/t'
 import { ERROR_REASONS } from '../constants/errorCodes'
 
@@ -303,6 +303,44 @@ describe('apiClient methods', () => {
       headers: { 'Content-Type': 'application/json' },
       method: 'POST',
       body: undefined,
+    })
+  })
+})
+
+describe('postMultipart', () => {
+  /** `importDataFile`・`uploadAttachment`・`importHolidaysFile`が共有する処理
+   * （CLAUDE.md DRYの原則）。これらのエンドポイント固有ラッパ自体は分岐を持たないため
+   * カバレッジ対象から除外しており、共有処理であるここで分岐を固定する。 */
+  it('sends the FormData body without a manual Content-Type header', async () => {
+    const payload = { imported_count: 1 }
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(mockResponse({ ok: true, json: () => Promise.resolve(payload) })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const formData = new FormData()
+    formData.append('file', new File(['x'], 'a.csv'))
+
+    await expect(postMultipart(PATH, formData)).resolves.toEqual(payload)
+
+    expect(fetchMock).toHaveBeenCalledWith(EXPECTED_URL, {
+      method: 'POST',
+      body: formData,
+    })
+  })
+
+  it('converts a network failure into NETWORK_ERROR', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
+
+    await expect(postMultipart(PATH, new FormData())).rejects.toMatchObject({
+      code: 'NETWORK_ERROR',
+    })
+  })
+
+  it('surfaces the server error for a non-OK response', async () => {
+    stubErrorResponse({ error: { code: REGISTERED_CODE, message: 'サーバ側の文言' } })
+
+    await expect(postMultipart(PATH, new FormData())).rejects.toMatchObject({
+      code: REGISTERED_CODE,
     })
   })
 })

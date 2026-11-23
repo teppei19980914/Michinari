@@ -1,4 +1,4 @@
-import { apiClient, ApiError } from './client'
+import { apiClient, ApiError, postMultipart } from './client'
 import { t } from '../locales/t'
 import type { components } from '../types/api.d.ts'
 
@@ -38,27 +38,10 @@ export async function downloadExportFile(): Promise<Blob> {
 
 /**
  * データのインポート（仕様書6.12）。multipart/form-dataで送るため、
- * JSON専用のapiClientではなく個別にfetchする。
+ * JSON専用のapiClientではなく`postMultipart`を使う。
  */
-export async function importDataFile(file: File): Promise<void> {
+export function importDataFile(file: File): Promise<void> {
   const formData = new FormData()
   formData.append('file', file)
-
-  let response: Response
-  try {
-    response = await fetch(`${BASE_URL}/data/import`, { method: 'POST', body: formData })
-  } catch {
-    throw new ApiError('NETWORK_ERROR', t('errors.NETWORK_ERROR'))
-  }
-  if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string; details?: unknown[] }
-    } | null
-    const error = body?.error
-    throw new ApiError(
-      error?.code ?? 'INTERNAL_ERROR',
-      error?.message ?? t('errors.default'),
-      error?.details ?? [],
-    )
-  }
+  return postMultipart<void>('/data/import', formData)
 }
