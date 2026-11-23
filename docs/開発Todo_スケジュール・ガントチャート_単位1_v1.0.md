@@ -93,7 +93,7 @@
 | D-43（取得・検証・更新） | `backend/scripts/update_holiday_csv.py`（`fetch_holiday_csv`・`validate_holiday_csv`・`update_bundled_holiday_csv`）、`release.py`の`build()` | `tests/test_update_holiday_csv.py`、`tests/test_release.py::test_build_cleans_up_stale_leftovers_before_archiving_and_discarding` |
 | D-43（配布物への同梱） | `app/constants/bundle.py`（`HOLIDAY_*`）、`scripts/build_package.py`の`pyinstaller_args` | `tests/test_build_package_misc.py::...test_bundles_the_holiday_csv_and_metadata_where_the_runtime_reads_them` |
 | D-43（アプリは外部通信しない） | `backend/app/`配下に`urllib`/`requests`呼び出しを追加していないこと（検証: 横展開チェックリスト） | （grepで確認、専用テストなし） |
-| D-44（起動時取込み・冪等性・新しい手動データを上書きしない） | `calendar_service.import_bundled_holidays_if_needed`、`app/main.py`の`import_bundled_holidays_if_needed`（`bootstrap_database`に含めない） | `tests/test_calendar_service.py::test_import_bundled_holidays_if_needed_*`（3件）、`tests/test_bootstrap.py::test_import_bundled_holidays_if_needed_*`（2件）、`tests/test_phase3_service_guards.py::test_import_bundled_holidays_if_needed_missing_setting_raises_app_setting_not_found`、`tests/test_desktop_runner.py`（スタブ追加） |
+| D-44（起動時取込み・冪等性・新しい手動データを上書きしない） | `calendar_service.import_bundled_holidays_if_needed`・`mark_manual_holiday_import`、`HOLIDAY_IMPORTED_VIA_MANUAL`（app_setting）、`app/api/calendar.py`の手動インポートエンドポイント、`app/main.py`の`import_bundled_holidays_if_needed`（`bootstrap_database`に含めない） | `tests/test_calendar_service.py::test_import_bundled_holidays_if_needed_*`（7件）・`test_mark_manual_holiday_import_sets_the_flag`、`tests/test_bootstrap.py::test_import_bundled_holidays_if_needed_*`（3件）、`tests/test_phase3_service_guards.py`（2件）、`tests/test_desktop_runner.py`（呼び出し確認付きスタブ）、`tests/test_api_calendar.py::test_import_holidays_endpoint_marks_manual_import` |
 | D-45（収録範囲外の年の注記） | 単位3（ガント画面）の対象。`GET /holidays`のAPI自体は本単位で用意済み | — |
 | D-46（`GET /holidays`・手動取込みUI） | `app/api/calendar.py`・`app/schemas/calendar.py`・`calendar_service.get_holiday_coverage`/`list_holidays`、`frontend/src/features/resource/DayTypeDefaultsCard.tsx`、`frontend/src/api/resources.ts` | `tests/test_api_calendar.py::test_get_holidays_*`（3件）、`tests/test_calendar_service.py::test_get_holiday_coverage_*`/`test_list_holidays_*`（4件）、`DayTypeDefaultsCard.test.tsx`（9件） |
 | D-47（特性テスト） | — | `tests/test_calendar_service.py::test_resolve_day_types_treats_a_real_holiday_as_plan_when_no_holiday_data_imported` |
@@ -117,4 +117,17 @@
 いつでもOFFに変更できます。
 ```
 
-## 8. 次の単位への引き継ぎ事項（完了後に記入）
+## 10. 範囲外の改善提案（対応しない判断、15.1手順11）
+
+コミット前の観点別レビューで、フロントエンドの「隠しinput+ボタンクリックでファイル選択」のUIパターン（`useRef`＋`<input type="file" className="hidden">`＋選択後に`value`をリセット）が、本単位の`DayTypeDefaultsCard.tsx`を含めて3箇所（`frontend/src/features/data/DataActionsCard.tsx`・`frontend/src/pages/AttachmentManagementPage.tsx`）で重複しているとの指摘（DRYレビュー、MEDIUM）を受けた。
+
+- multipart送信＋エラーハンドリングの重複（同レビューのHIGH指摘）は本単位の範囲内（`frontend/src/api/resources.ts`の新規コード）のため、`client.ts`の`postMultipart`へ共通化済み（`importDataFile`・`uploadAttachment`も合わせて移行し、カバレッジの抜け漏れも解消）。
+- 一方、UIパターンの共通化は`DataActionsCard.tsx`・`AttachmentManagementPage.tsx`という**単位1の範囲外の既存ファイル**の変更を伴う。第15章手順11「単位の範囲外は変更しない」に従い、本単位では対応せず、ここに記録するのみとする。対応する場合は`FileImportButton`等の共通部品（props: `label`・`accept`・`disabled`・`onFileSelected`）への切り出しを推奨する。
+
+## 8. 次の単位への引き継ぎ事項
+
+- `GET /holidays`は単位1で用意済み（期間省略時は収録範囲のみ返す）。単位3（ガント画面）はこのAPIをそのまま使い、D-45「収録範囲外の年の注記」をフロントエンドに実装すること。
+- `calendar_service.get_holiday_coverage`・`list_holidays`はテスト済みで単位3からそのまま呼べる。
+- `app_setting`に`holiday.imported_via_manual`（HOLIDAY_IMPORTED_VIA_MANUAL）を追加した。単位5（AI修正案）が資格試験の既存締切計算（`material_service.compute_due_date`）を経由して祝日データに依存するため、この依存関係自体は変更していないが、祝日データが「いつ・どちらの経路で」入ったかを追跡できる状態になったことを留意されたい。
+- `backend/app/content/holidays/`のCSV・メタデータはgit commit対象外の運用（`release.py`が都度更新）。開発環境で初めてクローンした直後は本単位でコミットした初期データ（1955〜2027年、取得日時2026-11-23）がそのまま使われる。
+- フロントエンドのmultipartアップロード共通化（`client.ts`の`postMultipart`）を行った。今後ファイルアップロードを追加する画面は、個別にfetchを書かずこの関数を使うこと。
