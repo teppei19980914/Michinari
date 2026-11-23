@@ -11,7 +11,14 @@ afterEach(() => {
 
 describe('VocabQuizSetupForm の4択の可否', () => {
   it('shows the notice and disables choice modes when fewer than 4 cards', () => {
-    renderWithProviders(<VocabQuizSetupForm cardCount={3} onStart={vi.fn()} />)
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={3}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={vi.fn()}
+      />,
+    )
 
     expect(screen.getByText(t('vocab.quiz.choiceUnavailableNotice'))).toBeDefined()
     const option = screen.getByRole('option', {
@@ -21,7 +28,14 @@ describe('VocabQuizSetupForm の4択の可否', () => {
   })
 
   it('does not show the notice and enables choice modes with 4 or more cards', () => {
-    renderWithProviders(<VocabQuizSetupForm cardCount={4} onStart={vi.fn()} />)
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={4}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={vi.fn()}
+      />,
+    )
 
     expect(screen.queryByText(t('vocab.quiz.choiceUnavailableNotice'))).toBeNull()
     const option = screen.getByRole('option', {
@@ -31,11 +45,53 @@ describe('VocabQuizSetupForm の4択の可否', () => {
   })
 })
 
+describe('VocabQuizSetupForm の問題数の初期値・上限（軽微1の修正、2026-11-22）', () => {
+  it('uses defaultQuestionCount as the initial question count', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={10}
+        defaultQuestionCount={7}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
+
+    expect(onStart).toHaveBeenCalledWith(
+      expect.objectContaining({ question_count: 7 }),
+    )
+  })
+
+  it('sets maxQuestionCount as the input max attribute', () => {
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={50}
+        onStart={vi.fn()}
+      />,
+    )
+
+    const countInput = screen.getByLabelText(t('vocab.quiz.questionCountLabel'))
+    expect(countInput.getAttribute('max')).toBe('50')
+  })
+})
+
 describe('VocabQuizSetupForm の開始', () => {
   it('starts with the default parameters', async () => {
     const user = userEvent.setup()
     const onStart = vi.fn()
-    renderWithProviders(<VocabQuizSetupForm cardCount={10} onStart={onStart} />)
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
 
     await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
 
@@ -50,7 +106,14 @@ describe('VocabQuizSetupForm の開始', () => {
   it('starts with the chosen mode, filter, order and question count', async () => {
     const user = userEvent.setup()
     const onStart = vi.fn()
-    renderWithProviders(<VocabQuizSetupForm cardCount={10} onStart={onStart} />)
+    renderWithProviders(
+      <VocabQuizSetupForm
+        cardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
 
     await user.selectOptions(
       screen.getByLabelText(t('vocab.quiz.modeLabel')),

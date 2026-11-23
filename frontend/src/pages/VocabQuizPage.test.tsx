@@ -33,6 +33,8 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     display_order: 0,
     card_count: 10,
     mastered_card_count: 0,
+    session_default_questions: 10,
+    session_max_questions: 100,
     ...overrides,
   }
 }

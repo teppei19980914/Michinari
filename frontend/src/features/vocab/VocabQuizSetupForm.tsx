@@ -23,18 +23,25 @@ export type VocabQuizSessionParams = {
   question_count: number
 }
 
-/** 出題セッションの開始条件フォーム（出題形式・絞り込み・並び順・問題数）。 */
+/** 出題セッションの開始条件フォーム（出題形式・絞り込み・並び順・問題数）。
+ * `defaultQuestionCount`・`maxQuestionCount`は単語帳詳細のレスポンス（`vocab.
+ * session_default_questions`・`vocab.session_max_questions`、設定画面には表示しない内部
+ * パラメータ）を初期値・入力欄の上限として使う（軽微1の修正、2026-11-22）。 */
 export function VocabQuizSetupForm({
   cardCount,
+  defaultQuestionCount,
+  maxQuestionCount,
   onStart,
 }: {
   cardCount: number
+  defaultQuestionCount: number
+  maxQuestionCount: number
   onStart: (params: VocabQuizSessionParams) => void
 }) {
   const [mode, setMode] = useState<VocabQuizMode>('FLASH_TERM_TO_MEANING')
   const [filter, setFilter] = useState<VocabCardFilterKey>('ALL')
   const [order, setOrder] = useState<(typeof ORDERS)[number]>('RANDOM')
-  const [questionCount, setQuestionCount] = useState(10)
+  const [questionCount, setQuestionCount] = useState(defaultQuestionCount)
   const choiceUnavailable = cardCount < 4
 
   return (
@@ -92,6 +99,7 @@ export function VocabQuizSetupForm({
         <Input
           type="number"
           min={1}
+          max={maxQuestionCount}
           value={questionCount}
           onChange={(e) => setQuestionCount(Number(e.target.value))}
         />
