@@ -243,3 +243,22 @@ VOCAB_NOTE_MAX_CHARS = "vocab.note_max_chars"
 VOCAB_SITUATION_DISTRACTOR_MIN_LENGTH_PERCENT = "vocab.situation_distractor_min_length_percent"
 #: AIが作るシチュエーションの誤答の長さの上限（正解の文字数に対する%、F-U6）。内部パラメータ。
 VOCAB_SITUATION_DISTRACTOR_MAX_LENGTH_PERCENT = "vocab.situation_distractor_max_length_percent"
+
+# スケジュール・ガントチャート機能（開発Todo_スケジュール・ガントチャート_v1.1、単位2）。
+#: 追加列の上限（D-14）。設定画面には表示しない内部パラメータ（vocab.*と同じ扱い）。
+SCHEDULE_MAX_CUSTOM_COLUMNS = "schedule.max_custom_columns"
+#: 行の上限（D-14）。内部パラメータ。
+SCHEDULE_MAX_ITEMS = "schedule.max_items"
+#: ガントの1日分の幅の下限（rem、D-20）。日付の数字（2桁）が読める幅。内部パラメータ
+#: （単位3のガント描画が使う。単位2ではapp_settingへの初期値投入のみ行う）。
+SCHEDULE_GANTT_DAY_WIDTH_MIN_REM = "schedule.gantt_day_width_min_rem"
+#: ガントの1日分の幅の上限（rem、D-20）。内部パラメータ。
+SCHEDULE_GANTT_DAY_WIDTH_MAX_REM = "schedule.gantt_day_width_max_rem"
+#: 作業項目の最大文字数。内部パラメータ（DoS対策、セキュリティレビュー2026-11-23で追加）。
+SCHEDULE_ITEM_TITLE_MAX_CHARS = "schedule.item_title_max_chars"
+#: 作業内容の最大文字数。内部パラメータ。
+SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS = "schedule.item_description_max_chars"
+#: 追加列の名前の最大文字数。内部パラメータ。
+SCHEDULE_COLUMN_NAME_MAX_CHARS = "schedule.column_name_max_chars"
+#: 追加列の値（セル）の最大文字数。内部パラメータ。
+SCHEDULE_CELL_VALUE_MAX_CHARS = "schedule.cell_value_max_chars"

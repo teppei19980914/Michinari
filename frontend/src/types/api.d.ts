@@ -835,6 +835,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Schedule */
+        get: operations["get_schedule_api_v1_goals__goal_id__schedule_get"];
+        /** Save Schedule */
+        put: operations["save_schedule_api_v1_goals__goal_id__schedule_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/schedule/view-setting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update Schedule View Setting */
+        put: operations["update_schedule_view_setting_api_v1_goals__goal_id__schedule_view_setting_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records/today": {
         parameters: {
             query?: never;
@@ -5016,6 +5051,170 @@ export interface components {
             /** Situation Total Count */
             situation_total_count: number;
         };
+        /**
+         * ScheduleCellInput
+         * @description 追加列1件分の値（PUT /goals/{goal_id}/schedule）。column_idかcolumn_temp_keyの
+         *     どちらか一方のみを指定する（新規列はcolumn_temp_keyで対応付ける、本書8.1）。
+         */
+        ScheduleCellInput: {
+            /** Column Id */
+            column_id?: number | null;
+            /** Column Temp Key */
+            column_temp_key?: string | null;
+            /**
+             * Value
+             * @default
+             */
+            value: string;
+        };
+        /** ScheduleCellRead */
+        ScheduleCellRead: {
+            /** Column Id */
+            column_id: number;
+            /** Value */
+            value: string;
+        };
+        /**
+         * ScheduleColumnInput
+         * @description 追加列1件分の定義（PUT /goals/{goal_id}/schedule）。idかtemp_keyのどちらか一方のみ
+         *     を指定する（既存列はid、新規列はtemp_key、本書8.1）。
+         */
+        ScheduleColumnInput: {
+            /** Id */
+            id?: number | null;
+            /** Temp Key */
+            temp_key?: string | null;
+            /** Name */
+            name: string;
+        };
+        /** ScheduleColumnRead */
+        ScheduleColumnRead: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Display Order */
+            display_order: number;
+        };
+        /**
+         * ScheduleItemInput
+         * @description 作業項目1行分（PUT /goals/{goal_id}/schedule）。idが無ければ新規作成する。
+         */
+        ScheduleItemInput: {
+            /** Id */
+            id?: number | null;
+            /** Title */
+            title: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Planned Start Date
+             * Format: date
+             */
+            planned_start_date: string;
+            /**
+             * Planned End Date
+             * Format: date
+             */
+            planned_end_date: string;
+            /** @default NOT_STARTED */
+            status: components["schemas"]["ScheduleItemStatus"];
+            /** Actual Start Date */
+            actual_start_date?: string | null;
+            /** Actual End Date */
+            actual_end_date?: string | null;
+            /** Cells */
+            cells?: components["schemas"]["ScheduleCellInput"][];
+        };
+        /** ScheduleItemRead */
+        ScheduleItemRead: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /**
+             * Planned Start Date
+             * Format: date
+             */
+            planned_start_date: string;
+            /**
+             * Planned End Date
+             * Format: date
+             */
+            planned_end_date: string;
+            status: components["schemas"]["ScheduleItemStatus"];
+            /** Actual Start Date */
+            actual_start_date: string | null;
+            /** Actual End Date */
+            actual_end_date: string | null;
+            /** Display Order */
+            display_order: number;
+            /** Cells */
+            cells: components["schemas"]["ScheduleCellRead"][];
+        };
+        /**
+         * ScheduleItemStatus
+         * @description スケジュール作業項目の状況（開発Todo_スケジュール・ガントチャート_v1.1 D-10）。
+         *
+         *     実績日の入力可否は状況に応じた条件付き必須（本書6.2）。
+         * @enum {string}
+         */
+        ScheduleItemStatus: "NOT_STARTED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+        /**
+         * ScheduleRead
+         * @description GET /goals/{goal_id}/schedule の応答（本書8章）。
+         */
+        ScheduleRead: {
+            /** Revision */
+            revision: number;
+            /** Frozen Row Count */
+            frozen_row_count: number;
+            /** Frozen Column Count */
+            frozen_column_count: number;
+            /**
+             * Today
+             * Format: date
+             */
+            today: string;
+            /** Columns */
+            columns: components["schemas"]["ScheduleColumnRead"][];
+            /** Items */
+            items: components["schemas"]["ScheduleItemRead"][];
+        };
+        /**
+         * ScheduleSaveRequest
+         * @description PUT /goals/{goal_id}/schedule のリクエスト本体（本書8.1）。
+         */
+        ScheduleSaveRequest: {
+            /** Revision */
+            revision: number;
+            /** Columns */
+            columns?: components["schemas"]["ScheduleColumnInput"][];
+            /** Items */
+            items?: components["schemas"]["ScheduleItemInput"][];
+        };
+        /** ScheduleViewSettingRead */
+        ScheduleViewSettingRead: {
+            /** Frozen Row Count */
+            frozen_row_count: number;
+            /** Frozen Column Count */
+            frozen_column_count: number;
+        };
+        /**
+         * ScheduleViewSettingUpdate
+         * @description PUT /goals/{goal_id}/schedule/view-setting のリクエスト（本書8章、D-24・D-25）。
+         *
+         *     revisionは変えない（固定の設定の変更は版数に数えない、本書7.1）。見出し行は常に固定
+         *     するため、ここで数えるのはデータ行・既定7列＋追加列（本書7.1・D-24）。
+         */
+        ScheduleViewSettingUpdate: {
+            /** Frozen Row Count */
+            frozen_row_count: number;
+            /** Frozen Column Count */
+            frozen_column_count: number;
+        };
         /** SemiannualReviewUpdateRequest */
         SemiannualReviewUpdateRequest: {
             /** Target Goal Text */
@@ -7910,6 +8109,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HolidayTreatAsBufferRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_api_v1_goals__goal_id__schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_schedule_api_v1_goals__goal_id__schedule_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_schedule_view_setting_api_v1_goals__goal_id__schedule_view_setting_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleViewSettingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleViewSettingRead"];
                 };
             };
             /** @description Validation Error */

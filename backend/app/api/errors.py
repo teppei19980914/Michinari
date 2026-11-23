@@ -35,6 +35,7 @@ from app.services.exceptions import (
     RecapThemeNameConflictError,
     ResourceAllocationExceededError,
     ResourceAllocationRequiredError,
+    ScheduleRevisionConflictError,
     ValidationError,
     VocabDeckCardLimitExceededError,
     VocabDeckGoalCategoryError,
@@ -74,6 +75,8 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     ExamResultsIncompleteError: (status.HTTP_409_CONFLICT, "EXAM_RESULTS_INCOMPLETE"),
     ImmutableRecordError: (status.HTTP_409_CONFLICT, "IMMUTABLE_RECORD"),
     RecapThemeNameConflictError: (status.HTTP_409_CONFLICT, "RECAP_THEME_NAME_CONFLICT"),
+    # スケジュール・ガントチャート機能（開発Todo_スケジュール・ガントチャート_v1.1 D-07）。
+    ScheduleRevisionConflictError: (status.HTTP_409_CONFLICT, "SCHEDULE_REVISION_CONFLICT"),
     RecapBodyRejectedError: (status.HTTP_409_CONFLICT, "RECAP_BODY_REJECTED"),
     RecapPromptTooLongError: (status.HTTP_409_CONFLICT, "RECAP_PROMPT_TOO_LONG"),
     DailyFeedbackPromptTooLongError: (
