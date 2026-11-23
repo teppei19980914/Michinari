@@ -31,6 +31,13 @@ from app.models.record import (
 )
 from app.models.resource import GoalSlotAllocation, ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
+from app.models.schedule import (
+    GoalSchedule,
+    ScheduleCell,
+    ScheduleColumn,
+    ScheduleItem,
+    ScheduleItemHistory,
+)
 from app.models.setting import (
     AppSetting,
     CalendarDayOverride,
@@ -89,4 +96,9 @@ __all__ = [
     "VocabDeck",
     "VocabCard",
     "VocabAnswerLog",
+    "GoalSchedule",
+    "ScheduleItem",
+    "ScheduleColumn",
+    "ScheduleCell",
+    "ScheduleItemHistory",
 ]
