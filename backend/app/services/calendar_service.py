@@ -14,10 +14,11 @@ from dataclasses import dataclass
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.constants.app_setting_keys import HOLIDAY_BUNDLED_CSV_SHA256
+from app.constants.app_setting_keys import HOLIDAY_BUNDLED_CSV_SHA256, HOLIDAY_IMPORTED_VIA_MANUAL
 from app.constants.enums import DayType
 from app.models.goal import LoadProfile
 from app.models.setting import AppSetting, CalendarDayOverride, DayTypeDefault, Holiday
+from app.services import setting_reader
 from app.services.exceptions import AppSettingNotFoundError, NotFoundError, ValidationError
 
 #: 曜日既定値が未登録の場合のフォールバック（起動時シードで全曜日投入されるため通常は到達しない）。
@@ -223,6 +224,21 @@ def import_holidays(session: Session, csv_bytes: bytes) -> HolidayImportResult:
     return HolidayImportResult(imported_count=len(parsed), year_from=year_from, year_to=year_to)
 
 
+def mark_manual_holiday_import(session: Session) -> None:
+    """手動インポート（`POST /calendar/holidays/import`）が行われたことを記録する。
+
+    `import_holidays`自体は`import_bundled_holidays_if_needed`（同梱データの自動取込み）
+    からも呼ばれる共有関数のため、ここでは呼ばない。API層（手動インポートの経路）から
+    `import_holidays`成功後に明示的に呼び、`import_bundled_holidays_if_needed`の
+    「手動データを古い同梱データで上書きしない」判定（D-44）に使う。
+    """
+    row = session.get(AppSetting, HOLIDAY_IMPORTED_VIA_MANUAL)
+    if row is None:
+        raise AppSettingNotFoundError(HOLIDAY_IMPORTED_VIA_MANUAL)
+    row.value = "true"
+    session.flush()
+
+
 @dataclass(frozen=True)
 class HolidayCoverage:
     """祝日データの収録範囲（`GET /holidays`、D-46の年範囲表示）。
@@ -274,9 +290,17 @@ def import_bundled_holidays_if_needed(
     （開発Todo_スケジュール・ガントチャート_単位1_v1.0.md「重要な設計判断」1）。
 
     冪等性: 同梱CSVのSHA256が前回取り込んだ値と同じであれば何もしない。
-    利用者が手動で取り込んだ新しいデータを古い同梱データで上書きしないため、既存の収録
-    範囲（年）が同梱CSVの範囲以上であれば取り込まない（D-44）。この場合も「前回取り込んだ
-    SHA256」は更新しない（実際には取り込んでいないため）。
+
+    利用者が手動で取り込んだ新しいデータを古い同梱データで上書きしないため、**手動
+    インポート（`import_holidays`を`POST /calendar/holidays/import`経由で呼んだ場合）が
+    一度でも行われていれば**、既存の収録範囲（年）が同梱CSVの範囲以上である間は取り込ま
+    ない（D-44）。この場合「前回取り込んだSHA256」は更新しない（実際には取り込んでいない
+    ため）。
+
+    手動インポートが一度も行われていない場合は、収録年の比較を行わず常に同梱データを
+    適用する。これが無いと、同梱CSVが同じ年の範囲内の内容だけを訂正する更新（内閣府の
+    祝日データは法改正等で既存年の日付が事後的に変わることがある）を、収録年が伸びない
+    という理由だけで永久に取り込めなくなる不具合になる（独立レビューで指摘、2026-11-23）。
 
     戻り値:
         実際に取り込んだ場合はその結果、取り込まなかった場合は`None`。
@@ -288,11 +312,12 @@ def import_bundled_holidays_if_needed(
     if csv_sha256 == row.value:
         return None
 
-    parsed = parse_holiday_csv(csv_bytes)
-    bundled_year_to = max(holiday_date.year for holiday_date in parsed)
-    current_coverage = get_holiday_coverage(session)
-    if current_coverage.year_to is not None and current_coverage.year_to >= bundled_year_to:
-        return None
+    if setting_reader.get_bool(session, HOLIDAY_IMPORTED_VIA_MANUAL):
+        parsed = parse_holiday_csv(csv_bytes)
+        bundled_year_to = max(holiday_date.year for holiday_date in parsed)
+        current_coverage = get_holiday_coverage(session)
+        if current_coverage.year_to is not None and current_coverage.year_to >= bundled_year_to:
+            return None
 
     result = import_holidays(session, csv_bytes)
     row.value = csv_sha256
