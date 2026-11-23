@@ -72,6 +72,55 @@ def test_run_ai_startup_tasks_calls_retroactive_generation(db_session, monkeypat
     assert len(calls) == 1
 
 
+def test_import_bundled_holidays_if_needed_imports_the_bundled_csv(db_session):
+    """起動時の祝日自動取込み（開発Todo_スケジュール・ガントチャート_v1.1.md D-44）。
+
+    `import_bundled_holidays_if_needed`は独自にSessionLocal()を開くため、
+    `run_ai_startup_tasks`のテストと同様にapp_settingを別途投入する（run_allで投入）。
+    """
+    from app.init.seed_data import run_all
+    from app.models.setting import Holiday
+
+    run_all(db_session)
+
+    app_main.import_bundled_holidays_if_needed()
+
+    assert db_session.query(Holiday).count() > 0
+
+
+def test_import_bundled_holidays_if_needed_does_nothing_when_the_bundled_file_is_missing(
+    tmp_path, monkeypatch
+):
+    """同梱CSVが存在しない場合（配布物の破損・開発環境の未配置等）は何もしない。"""
+    calls: list[bytes] = []
+    monkeypatch.setattr(app_main, "resolve_bundled_path", lambda *_args: tmp_path / "missing.csv")
+    monkeypatch.setattr(
+        app_main.calendar_service,
+        "import_bundled_holidays_if_needed",
+        lambda _session, csv_bytes: calls.append(csv_bytes),
+    )
+
+    app_main.import_bundled_holidays_if_needed()
+
+    assert calls == []
+
+
+def test_import_bundled_holidays_if_needed_is_idempotent_across_calls(db_session):
+    from app.init.seed_data import run_all
+    from app.models.setting import Holiday
+
+    run_all(db_session)
+
+    app_main.import_bundled_holidays_if_needed()
+    first_count = db_session.query(Holiday).count()
+
+    app_main.import_bundled_holidays_if_needed()
+    second_count = db_session.query(Holiday).count()
+
+    assert first_count > 0
+    assert first_count == second_count
+
+
 def test_resolve_alembic_ini_path_uses_backend_dir_when_not_frozen(monkeypatch):
     monkeypatch.setattr(sys, "frozen", False, raising=False)
 

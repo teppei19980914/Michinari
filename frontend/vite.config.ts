@@ -78,6 +78,9 @@ export default defineConfig({
         'src/features/record/DailyRecordChatHistories.tsx',
         'src/features/record/StudyLogCard.tsx',
         'src/features/resource/SlotFormFields.tsx',
+        // 祝日の収録範囲表示・手動取込み（開発Todo_スケジュール・ガントチャート_v1.1.md
+        // D-46）。取込み成功/失敗の分岐と収録範囲の出し分けを持つため同じ方針で含める。
+        'src/features/resource/DayTypeDefaultsCard.tsx',
         'src/features/settings/AiAssistantFields.tsx',
         'src/features/settings/AiAuthStatusCard.tsx',
         // 診断ログのエクスポート（Phase40）。期間の決定（プリセット/手動入力）と

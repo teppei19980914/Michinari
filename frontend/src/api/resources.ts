@@ -1,4 +1,4 @@
-import { apiClient } from './client'
+import { apiClient, postMultipart } from './client'
 import type { components } from '../types/api.d.ts'
 
 export type ResourceSlotRead = components['schemas']['ResourceSlotRead']
@@ -8,6 +8,8 @@ export type AllocationStatusRead = components['schemas']['AllocationStatusRead']
 export type DayType = components['schemas']['DayType']
 export type DayBoundaryHourRead = components['schemas']['DayBoundaryHourRead']
 export type HolidayTreatAsBufferRead = components['schemas']['HolidayTreatAsBufferRead']
+export type HolidayListRead = components['schemas']['HolidayListRead']
+export type HolidayImportResultRead = components['schemas']['HolidayImportResultRead']
 
 export function listSlots(): Promise<ResourceSlotRead[]> {
   return apiClient.get<ResourceSlotRead[]>('/resources/slots')
@@ -62,4 +64,19 @@ export function updateHolidayTreatAsBuffer(
   return apiClient.put<HolidayTreatAsBufferRead>('/resources/holiday-treat-as-buffer', {
     treat_as_buffer: treatAsBuffer,
   })
+}
+
+/** 収録済みの祝日の年の範囲を取得する（D-46「収録済みの年の範囲」表示）。 */
+export function getHolidayCoverage(): Promise<HolidayListRead> {
+  return apiClient.get<HolidayListRead>('/holidays')
+}
+
+/**
+ * 内閣府CSVを手動で取り込む（既存の`POST /calendar/holidays/import`、D-46）。
+ * multipart/form-dataで送るため、JSON専用のapiClientではなく`postMultipart`を使う。
+ */
+export function importHolidaysFile(file: File): Promise<HolidayImportResultRead> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return postMultipart<HolidayImportResultRead>('/calendar/holidays/import', formData)
 }
