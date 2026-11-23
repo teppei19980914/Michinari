@@ -124,3 +124,20 @@
 
 - **食い違い（15.1手順5で解決済み、報告のみ）**：本書（v1.1）7.5章の「`DATA_SCHEMA_VERSION`を1.2から1.3に上げ」は、本書執筆時点（2026-11-12）のコードの実際の値を前提とした記述だが、単位2着手時点（2026-11-23）には他機能（単語帳）により実際の値は1.9まで進んでいた。版数を1つ上げ直前の版の取り込みを受け付けるという仕様の意図は変わらないため、現在の実際の値を起点に1.10へ上げて対応した（3章「重要な設計判断1」参照、判断を仰ぐために実装を止めるべき食い違いではないと判断）。
 - **範囲外の不具合**：発見なし。
+
+## 10. コミット前チェック（15.1手順13・14・16）の結果と対応
+
+CLAUDE.md「コミット前チェック」の該当する観点別レビューエージェント7件（dry-reviewer・style-reviewer・label-checker・injection-reviewer・xss-reviewer・auth-reviewer・performance-reviewer）と、手順16の独立レビュー（経緯を知らない別セッション）を実行した。backend全体のpytest（2797 passed時点）・`ruff check .`はレビュー前にも合格済みだったことを独立レビューが実機で再確認している。
+
+| レビュー | 結果 | 対応 |
+| --- | --- | --- |
+| dry-reviewer | MEDIUM2件：`_validate_columns`/`_validate_items`の所有者検証、`_apply_columns`/`_apply_items`の「未再送信の削除」ロジックが同一ファイル内で重複 | 対応済み：`_check_owned_by_goal`・`_delete_not_resubmitted`の共通関数へ切り出した |
+| style-reviewer | LOW1件（任意）：CANCELLED分岐に行コメントが無い | 対応不要と判断（docstringで6.2を参照済み、必須修正ではないため見送り） |
+| label-checker | 問題なし | 対応不要 |
+| injection-reviewer | 問題なし（生SQL・動的識別子なし） | 対応不要 |
+| xss-reviewer | MEDIUM1件：`_validate_columns`の重複エラーメッセージに利用者入力（列名・temp_key）を直接埋め込んでおり、ログインジェクション（CWE-117）のリスク。LOW〜MEDIUM1件：title/description/column name/cell valueに文字数上限が無い（DoS） | 両方対応済み：①メッセージから利用者入力を除去（固定文言のみに変更）、②`schedule.item_title_max_chars`（200）・`schedule.item_description_max_chars`（2000）・`schedule.column_name_max_chars`（200）・`schedule.cell_value_max_chars`（2000）の4設定キーを追加し検証に組み込んだ |
+| auth-reviewer | MEDIUM1件：列IDの他目標越境テストに「被害側データが無傷であること」の確認が無い（行ID版テストとの非対称）。LOW1件（任意）：セル経由で他目標の実在する列IDを直接参照する具体的な攻撃シナリオのテストが無い | 両方対応済み：`test_schedule_service.py`・`test_api_schedule.py`の列ID越境テストに副作用の確認を追加、セル経由の実在列ID参照を拒否するテストを新規追加 |
+| performance-reviewer | 問題なし（`_apply_cells`・`get_schedule_view`ともN+1なし）。LOW1件（任意）：クエリ回数の回帰防止テストが無い | 対応不要と判断（必須ではない将来の改善提案として記録のみ） |
+| 独立レビュー（手順16） | 総合判定「軽微な指摘あり」。①重複ID送信時の扱いが未検証・未定義、②CANCELLED「実績開始日のみ」ケースのテスト欠落、③列ID越境テストの非対称（auth-reviewerと同一指摘） | 対応済み：①同一リクエスト内の重複行IDを明示的に拒否する検証を追加、②CANCELLED「実績開始日のみ」を許容することを固定するテストを追加、③auth-reviewerの対応と共通 |
+
+対応後、backend全体のpytestを再実行し2804 passed・coverage100%・`ruff check .`全合格を確認した（4章末のベースライン比較、2章の追跡表を参照）。

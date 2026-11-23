@@ -11,7 +11,14 @@ import datetime as dt
 
 import pytest
 
-from app.constants.app_setting_keys import SCHEDULE_MAX_CUSTOM_COLUMNS, SCHEDULE_MAX_ITEMS
+from app.constants.app_setting_keys import (
+    SCHEDULE_CELL_VALUE_MAX_CHARS,
+    SCHEDULE_COLUMN_NAME_MAX_CHARS,
+    SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS,
+    SCHEDULE_ITEM_TITLE_MAX_CHARS,
+    SCHEDULE_MAX_CUSTOM_COLUMNS,
+    SCHEDULE_MAX_ITEMS,
+)
 from app.constants.enums import GoalStatus, ScheduleItemStatus
 from app.models.schedule import ScheduleCell, ScheduleColumn, ScheduleItem, ScheduleItemHistory
 from app.schemas.schedule import (
@@ -460,6 +467,148 @@ def test_save_schedule_rejects_column_id_from_another_goal(seeded_session):
             goal,
             ScheduleSaveRequest(
                 revision=0, columns=[ScheduleColumnInput(id=other_column_id, name="乗っ取り")]
+            ),
+            _TODAY,
+        )
+    # 検証で拒否した場合、どちらの目標の列も変化しないこと（認可境界レビュー指摘）。
+    assert seeded_session.query(ScheduleColumn).filter_by(goal_id=goal.id).count() == 0
+    unchanged = seeded_session.get(ScheduleColumn, other_column_id)
+    assert unchanged.name == "他目標の列"
+
+
+def test_save_schedule_rejects_cell_referencing_another_goals_real_column(seeded_session):
+    """セル経由で他目標の実在する列IDを直接参照しても拒否されること（columns配列に
+    含めず、cellsだけに書く迂回を想定した認可境界テスト）。"""
+    goal = schedule_helpers.make_goal(seeded_session, "目標A")
+    other_goal = schedule_helpers.make_goal(seeded_session, "目標B")
+    other = schedule_service.save_schedule(
+        seeded_session,
+        other_goal,
+        ScheduleSaveRequest(
+            revision=0, columns=[ScheduleColumnInput(temp_key="c1", name="他目標の列")]
+        ),
+        _TODAY,
+    )
+    other_column_id = other.columns[0].id
+
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(
+                revision=0,
+                items=[
+                    _item(
+                        title="第1章",
+                        cells=[ScheduleCellInput(column_id=other_column_id, value="乗っ取り")],
+                    )
+                ],
+            ),
+            _TODAY,
+        )
+    assert seeded_session.query(ScheduleItem).filter_by(goal_id=goal.id).count() == 0
+    assert seeded_session.query(ScheduleCell).count() == 0
+
+
+def test_save_schedule_rejects_duplicate_item_id_in_request(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    first = schedule_service.save_schedule(
+        seeded_session, goal, ScheduleSaveRequest(revision=0, items=[_item(title="第1章")]), _TODAY
+    )
+    item_id = first.items[0].id
+
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(
+                revision=1,
+                items=[
+                    _item(id=item_id, title="第1章（改訂A）"),
+                    _item(id=item_id, title="第1章（改訂B）"),
+                ],
+            ),
+            _TODAY,
+        )
+
+
+def test_validate_item_fields_cancelled_accepts_actual_start_date_only():
+    """中止：実績開始日のみは許容される（実績終了日だけの入力のみが不可、6.2）。"""
+    schedule_service.validate_item_fields(
+        title="第1章",
+        planned_start_date=dt.date(2026, 6, 1),
+        planned_end_date=dt.date(2026, 6, 10),
+        status=ScheduleItemStatus.CANCELLED,
+        actual_start_date=dt.date(2026, 6, 5),
+        actual_end_date=None,
+        today=_TODAY,
+    )
+
+
+def test_save_schedule_rejects_title_exceeding_max_chars(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    schedule_helpers.set_setting(seeded_session, SCHEDULE_ITEM_TITLE_MAX_CHARS, "5")
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(revision=0, items=[_item(title="123456")]),
+            _TODAY,
+        )
+
+
+def test_save_schedule_rejects_description_exceeding_max_chars(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    schedule_helpers.set_setting(seeded_session, SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS, "3")
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(
+                revision=0,
+                items=[
+                    ScheduleItemInput(
+                        title="第1章",
+                        description="1234",
+                        planned_start_date=dt.date(2026, 6, 1),
+                        planned_end_date=dt.date(2026, 6, 10),
+                    )
+                ],
+            ),
+            _TODAY,
+        )
+
+
+def test_save_schedule_rejects_column_name_exceeding_max_chars(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    schedule_helpers.set_setting(seeded_session, SCHEDULE_COLUMN_NAME_MAX_CHARS, "3")
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(
+                revision=0, columns=[ScheduleColumnInput(temp_key="c1", name="1234")]
+            ),
+            _TODAY,
+        )
+
+
+def test_save_schedule_rejects_cell_value_exceeding_max_chars(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    schedule_helpers.set_setting(seeded_session, SCHEDULE_CELL_VALUE_MAX_CHARS, "3")
+    with pytest.raises(ValidationError):
+        schedule_service.save_schedule(
+            seeded_session,
+            goal,
+            ScheduleSaveRequest(
+                revision=0,
+                columns=[ScheduleColumnInput(temp_key="c1", name="担当")],
+                items=[
+                    _item(
+                        title="第1章",
+                        cells=[ScheduleCellInput(column_temp_key="c1", value="1234")],
+                    )
+                ],
             ),
             _TODAY,
         )

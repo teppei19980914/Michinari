@@ -93,8 +93,12 @@ from app.constants.app_setting_keys import (
     RECAP_CLASSIFY_CHUNK_CHARS,
     RECAP_MIN_RETENTION_RATIO,
     RESUME_QUOTA_WARNING_RATIO,
+    SCHEDULE_CELL_VALUE_MAX_CHARS,
+    SCHEDULE_COLUMN_NAME_MAX_CHARS,
     SCHEDULE_GANTT_DAY_WIDTH_MAX_REM,
     SCHEDULE_GANTT_DAY_WIDTH_MIN_REM,
+    SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS,
+    SCHEDULE_ITEM_TITLE_MAX_CHARS,
     SCHEDULE_MAX_CUSTOM_COLUMNS,
     SCHEDULE_MAX_ITEMS,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
@@ -362,6 +366,12 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     #: 影響範囲確定時に見直す）。
     SCHEDULE_GANTT_DAY_WIDTH_MIN_REM: ("1.75", AppSettingValueType.FLOAT),
     SCHEDULE_GANTT_DAY_WIDTH_MAX_REM: ("4.5", AppSettingValueType.FLOAT),
+    #: 文字数上限（DoS対策、セキュリティレビュー2026-11-23で追加）。短い語句相当の
+    #: `vocab.term_max_chars`・自由記述相当の`vocab.meaning_max_chars`と同じ値を採用する。
+    SCHEDULE_ITEM_TITLE_MAX_CHARS: ("200", AppSettingValueType.INTEGER),
+    SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
+    SCHEDULE_COLUMN_NAME_MAX_CHARS: ("200", AppSettingValueType.INTEGER),
+    SCHEDULE_CELL_VALUE_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {
