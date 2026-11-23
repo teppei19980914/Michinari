@@ -788,7 +788,7 @@
 #### 3.F.3 検証
 - [x] F-V01 ruff・pytest・vitest（§2.5比較：既存テストが1件も壊れていないこと。バックエンド2,617→2,703件・フロントエンド1,805→1,827件、いずれも新規テストのみによる増加）
 - [x] F-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、全マイグレーション適用、`TestClient`での起動・デッキ/カード作成・一括登録・出題セッション・書き出し・設定取得を確認。実DBはmd5一致で不変を確認済み）
-- [x] F-V03 観点別レビュー（コミット前チェック、dry-reviewer・style-reviewer・label-checker・injection-reviewer・test-coverage-reviewerの5エージェント並列実行、§5.11参照）
+- [x] F-V03 観点別レビュー（コミット前チェック、dry-reviewer・style-reviewer・label-checker・injection-reviewer・test-coverage-reviewer・performance-reviewer・xss-reviewerの7エージェント並列実行〈後2件はStop Hookの指摘を受けて追加実施〉、§5.11参照）
 - [x] F-V04 実機確認手順の提示（報告メッセージに記載）
 
 #### 3.F.4 文書改訂
@@ -1205,10 +1205,14 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 ## 5.11 観点別レビュー（コミット前チェック、要件F、2026-11-23実施）
 
-対象差分（要件Fの全変更）に基づき、`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`test-coverage-reviewer`の5エージェントを並列起動した（`auth-reviewer`／`xss-reviewer`／`secret-reviewer`／`dependency-reviewer`は認証・新規HTML出力・機密情報・新規依存のいずれにも該当しないため見送った）。
+対象差分（要件Fの全変更）に基づき、`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`test-coverage-reviewer`の5エージェントを並列起動した（`auth-reviewer`／`secret-reviewer`／`dependency-reviewer`は認証・機密情報・新規依存のいずれにも該当しないため見送った）。
+
+**追記（2026-11-23、Stop Hookの指摘を受けて追加実施）**：Stop Hookから「`performance-reviewer`・`xss-reviewer`が未実行で根拠が無い」との指摘を受けた。`fix-issue.md`の起動条件に照らすと、本差分はループ/DB問い合わせ（`deck_vocab_mastery_totals`等）・描画処理（`ExpandableText`等の新規表示コンポーネント）の変更を含むため、いずれも実際には該当していた（前段の「見送り」判断は誤りだった）。`performance-reviewer`・`xss-reviewer`を追加で並列起動し、結果をまとめた表に追記した。
 
 | エージェント | 指摘 | 重要度 | 対応 |
 | --- | --- | --- | --- |
+| performance-reviewer | `start_vocab_quiz_session`のCHOICE系モード分岐内で`cards_by_id`相当の辞書が候補カードのforループ内で毎回再構築されている（本差分の新規持ち込みではなく、変更前から同位置にあったロジックの延長） | LOW（既存債務） | 対応不要と判断（`vocab.deck_max_cards`〈既定2000〉・出題数上限を踏まえ実害は小さい。ループ外への引き上げは別途検討） |
+| xss-reviewer | 新設`ExpandableText.tsx`・`QuizSession.tsx`の`whitespace-pre-wrap`追加・`VocabCardList.tsx`等の表示箇所を確認。生HTML解釈（該当API名はCLAUDE.mdの危険パターン検知対象のため本書では記載しない）・URLへの生埋め込みはいずれも検出なし。`whitespace-pre-wrap`はCSSの表示指定のみでエスケープ処理に影響しないことを確認 | — | 問題なし（修正不要） |
 | dry-reviewer | ①フロントの「種類別内訳」表示JSXが`VocabMasteryRoadmapSection.tsx`・`VocabDeckHeader.tsx`・`VocabDeckListTab.tsx`の3箇所で完全一致コピー ②カード種類（ALL/TERM/SITUATION）選択用の`<select>`マークアップが`VocabCardList.tsx`・`VocabQuizSetupForm.tsx`で重複 ③自己採点モード一覧`FLASH_MODES`が`VocabQuizQuestionView.tsx`・`useVocabQuizSession.ts`の2ファイルに別々定義（既存債務、今回`FLASH_SITUATION`追加は両方に正しく追従済み） ④`generate_for_deck`・`run_all`の両方に「term_cardsがあれば…situation_cardsがあれば…」という同一の分岐パターンが重複 ⑤`vocab_service.py`の`count_cards_by_deck`直後に空行が4行連続 | MEDIUM／MEDIUM／LOW／LOW／LOW | ①②修正済み（`VocabMasteryBreakdownLine.tsx`・`CardTypeFilterSelect.tsx`を新設し3箇所・2箇所をそれぞれ置き換え） ③④対応しない（③は既存コードベースの前からの設計、今回の変更範囲外。④は`_generate_for_cards`・`_generate_for_situation_cards`の責務分離を優先し、過剰な一般化〈CLAUDE.md「設計しない」原則〉を避けた） ⑤修正済み（空行を2行に） |
 | style-reviewer | `_prompt_and_reveal`の戻り値タプル（3値）の各要素が何を指すかをdocstringで明示していない | LOW | 修正済み（「戻り値: (prompt, reveal, explanation)」の一行を追加） |
 | label-checker | t()未経由の文字列リテラル・ロケールキー対応漏れ・閾値のマジックナンバー化はいずれも検出なし。`textTruncation.ts`の`MAX_LINES`・`CHARS_PER_LINE_ESTIMATE`（折りたたみ判定の表示見積もり定数）はCLAUDE.mdの閾値外部化規定に対しグレーゾーンだが、業務ロジックの閾値ではなくTailwindの`line-clamp-3`と連動した表示定数であるため是正不要と判断 | — | 対応不要 |
@@ -1217,7 +1221,9 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 HIGH以上の指摘は0件だった。MEDIUM2件（フロントの重複表示・重複セレクト）は共通コンポーネント化で解消し、LOW相当（docstring不足・空行）も修正した。既存債務・退行でないLOW指摘（FLASH_MODESの分散、2関数の分岐重複、CSV解析の境界テスト等）は、既存コードへの変更リスクが利益を上回ると判断して対応しないことをここに明記した。
 
-全修正後、バックエンド・フロントエンドとも全体を再実行し合格・回帰無しを確認済み（バックエンド2,703件・カバレッジ100%、フロントエンド230ファイル・1,827件・カバレッジ100%、ruff・oxlint・tsc いずれも0件。§8参照）。
+全修正後、バックエンド・フロントエンドとも全体を再実行し合格・回帰無しを確認済み（バックエンド2,703件・カバレッジ100%、フロントエンド230ファイル・1,827件・カバレッジ100%、ruff・oxlint・tsc いずれも0件。§8参照）。`osv-scanner scan -r .`を実行し既知の脆弱性0件（backend・frontendとも）を確認した。
+
+**追記（独立サブエージェントによるフルスキャン検証、2026-11-23）**：本セッションの作業コンテキストを持たない独立したサブエージェントに、F-U1〜F-U12（§0.13）と実コードの照合、既存機能（要件A〜E）への回帰、横展開漏れの3点を依頼した。結果、F-U1〜F-U12の全12件が実装確認済み（食い違いなし）、デグレ・横展開漏れは検出されなかった。なお当該レビューはコードの静的照合のみでpytest/vitestの再実行は行っていないため、本書記載のテスト件数・カバレッジ100%の主張自体は本セッション自身の実行結果（§8、上記）で裏付けている。
 
 ## 6. 既知のリスクと対策
 
@@ -1362,6 +1368,8 @@ HIGH以上の指摘は0件だった。MEDIUM2件（フロントの重複表示�
 - 2026-11-23（続き）：ドキュメントを更新（要件定義書R-199〜R-208、仕様書6.20・6.2・6.1・6.11・AI連携仕様AI-27、設計書5.1・5.2・5.4・ロジック・プロンプト編17.17〈STRIDE脅威モデル17.17.1を含む〉・30.12〈同30.12.8を含む〉、README.md、help_content.jsonの再生成、本書§5.10〈脅威モデル〉・§5.11〈観点別レビュー〉・§6〈既知のリスクと対策〉・§7.F〈完了の定義〉）。30.12.8の執筆時、XSS対策の説明文に危険APIとして検知される文字列をそのまま含めたため`.claude/hooks/block-dangerous-edit.sh`にブロックされた。実際には同APIを使わないことを説明する文章だったため、該当箇所を「生HTMLを解釈する仕組みは使わない」という表現に書き換えて再適用し、解消した。
 
 - 2026-11-23（最終）：実際の利用者DB（`data/michinari.db`、md5=`935ff2854ef36c287f56091a055f0216`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`e9eca0569d7c`→`8d475d100b88`）を適用。`TestClient`で実アプリを起動し、デッキ作成→用語カード1件・シチュエーションカード1件の作成→改行を含む引用符付きセルを含む一括登録（プレビュー→確定）→種類混在（「両方」）での出題セッション開始（実際に2問がFLASH_SITUATION・1問がFLASH_TERM_TO_MEANINGで出題されることを確認）→種類別の書き出し（シチュエーションの改行セルが自動的に引用符で囲まれて出力されることを確認）→設定取得（5件の新設上限値のデフォルトを確認）をAPI経由で確認した。AIへの実送信（シチュエーションの誤答生成）は実際のAI利用枠を消費するため本検証では行わず、単体・統合テストでの確認のみとした（要件Bの前例に揃える方針）。検証後、実DBのmd5が検証前と同一であることを確認し、スクラッチパッドのコピーを削除した。以上により、要件Fの完了条件（§7.F）を満たしたと判断する。
+
+- 2026-11-23（Stop Hookの指摘を受けた追加レビュー）：報告後、Stop Hookから「`performance-reviewer`・`xss-reviewer`の実行根拠が無い」との指摘を受けた。§5.11の見送り判断を見直し、両エージェントを追加で並列起動（結果は§5.11に追記。HIGH以上0件、LOW1件〈既存債務、対応不要と判断〉）。合わせて`osv-scanner scan -r .`を直接実行し既知の脆弱性0件を確認した。さらに、利用者からの依頼（デグレ・横展開漏れの有無の最終確認）に応え、本セッションの作業コンテキストを持たない独立したサブエージェントへF-U1〜F-U12と実コードの照合を依頼し、全12件の実装確認・デグレ/横展開漏れ無しの結果を得た（§5.11に追記）。これにより§7.Fの完了条件（観点別レビュー・セキュリティチェック・ドキュメント反映）を裏付ける根拠が揃った。
 
 **単語帳機能（要件A〜F）の完了まとめ（2026-11-23）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）・習得の可視化（要件E）・シチュエーションカード（要件F）の全6要件が完了した（§7・§7.B〜§7.Fすべて達成）。資格試験の利用者は、用語カードに加えてPMP等の「状況を読んで最善の対応を選ぶ」形式のシチュエーションカードを登録でき、AI非依存の問題集ではめくって自己採点、今日の復習ではAIが誤答3件のみを生成する形で、どちらの種類も横断して学習できる。要件A〜Dはmainへマージ済み（要件A=PR #135、B=PR #136、C=PR #137、D=PR #138、§9不具合修正=PR #140）だが、要件A〜D・§9不具合修正に対応するマイグレーション（`1bd06141379f`〜`e9eca0569d7c`）および要件Fのマイグレーション（`8d475d100b88`）はいずれも実利用者DBへ未適用（未リリース）のままであり、次回のリリース（`backend/release.bat`）でまとめて反映される。
 
