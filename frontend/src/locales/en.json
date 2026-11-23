@@ -34,7 +34,9 @@
       "next": "Next",
       "reset": "Reset to default",
       "showAdvanced": "Show advanced settings",
-      "hideAdvanced": "Hide advanced settings"
+      "hideAdvanced": "Hide advanced settings",
+      "expandText": "Read more",
+      "collapseText": "Close"
     },
     "confirmDelete": "Delete this? This action cannot be undone.",
     "saveSucceeded": "Saved",
@@ -886,6 +888,7 @@
         "GOAL_CONSULTATION_WORK": "Goal consultation (work)",
         "QUIZ_GENERATE": "Review quiz generation",
         "VOCAB_QUIZ_GENERATE": "Review quiz generation (vocabulary deck)",
+        "VOCAB_SITUATION_QUIZ_GENERATE": "Review quiz generation (situation cards)",
         "VOCAB_TERM_EXTRACT": "Term suggestion (extracted from diary)",
         "DAILY_FEEDBACK_BRIEF": "Daily report feedback (quick record, exam)",
         "DAILY_FEEDBACK_READING_BRIEF": "Daily report feedback (quick record, reading)",
@@ -1333,8 +1336,8 @@
       },
       "workEvaluationPeriodCompleted": "You kept logging entries throughout the evaluation period.",
       "vocabMasteredTerms": {
-        "one": "You've mastered {{count}} term in your vocabulary deck.",
-        "other": "You've mastered {{count}} terms in your vocabulary deck."
+        "one": "You've mastered {{count}} card in your vocabulary deck.",
+        "other": "You've mastered {{count}} cards in your vocabulary deck."
       }
     },
     "list": {
@@ -1551,21 +1554,22 @@
       "vocab": {
         "title": "Vocabulary",
         "p1": "A vocabulary deck is a glossary tied to a certification exam goal. You can reach it from the \"Vocabulary\" entry in the global nav, or from the \"Vocabulary\" tab on the goal detail screen. You can register terms yourself at any time, independent of how many daily reports you've accumulated. You can view, edit, and quiz yourself even if the goal is archived, abandoned, or completed.",
-        "p2": "A goal can have multiple vocabulary decks. Add, edit, and delete cards (term, meaning, aliases, note) within a deck, and mark them checked. The card list can be sorted (registration order, lowest accuracy first, most incorrect first, longest wrong streak first) and filtered (checked only, ever answered wrong, currently on a wrong streak, weak, unanswered). Each card shows its correct/incorrect counts, accuracy (\"—\" if unanswered), current wrong streak, and last-answered date (scores are never stored — they're computed fresh each time).",
-        "p3": "You can bulk-add cards by pasting a table copied from Excel or similar (tab-separated; rows without a tab are treated as comma-separated). Columns are \"term, meaning, aliases (optional, separated by |), note (optional).\" Before confirming, you can preview the rows to import, any error rows, and any rows that duplicate an existing term in the deck; duplicates are skipped on confirm. You can also export a deck as tab-separated text.",
-        "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 cards). Choose the format, filter, order (random, weakest first, registration order), and number of questions before starting. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
+        "p2": "A goal can have multiple vocabulary decks. Add, edit, and delete cards within a deck (term cards: term, meaning, aliases, note; situation cards: heading, situation, question, best response, explanation — see p10), and mark them checked. A card's type can't be changed after it's created. The card list can be filtered by type (terms only, situations only, both) and by score (checked only, ever answered wrong, currently on a wrong streak, weak, unanswered, not mastered), and sorted (registration order, lowest accuracy first, most incorrect first, longest wrong streak first). Each card shows its correct/incorrect counts, accuracy (\"—\" if unanswered), current wrong streak, and last-answered date (scores are never stored — they're computed fresh each time). Long meaning, note, situation, and explanation text is collapsed to a few lines, with a \"Read more\" link to expand it.",
+        "p3": "You can bulk-add cards by pasting a table copied from Excel or similar (tab-separated; rows without a tab are treated as comma-separated). Choose the type to import (term or situation) first. Term columns are \"term, meaning, aliases (optional, separated by |), note (optional)\"; situation columns are \"heading, situation, question (optional), best response, explanation (optional).\" Cells containing line breaks (quoted cells) are read correctly as a single item. Before confirming, you can preview the rows to import, any error rows, and any rows that duplicate an existing card of the same type in the deck; duplicates are skipped on confirm. You can also export a deck as tab-separated text, one type at a time (items containing line breaks are quoted).",
+        "p4": "The question set never uses AI, and comes in 3 formats: \"Flip cards\" (term → meaning or meaning → term; after revealing the answer, you judge for yourself whether you knew it), \"Typed answer\" (you see the meaning, type the term, and the server checks it), and \"4-choice\" (pick the matching term or meaning from 4 options; unavailable when the deck has fewer than 4 **term** cards). Typed answer and 4-choice only ever use term cards. Situation cards are always quizzed as \"Flip cards\" (you see the situation and question, then flip to reveal the best response and explanation, and judge for yourself). Choose which card types to include (terms only, situations only, both), the format, filter, order (random, weakest first, registration order), and number of questions before starting. When both types are included, term cards use the format you chose and situation cards use flip cards. When you finish, you'll see your score and accuracy, a list of the terms you got wrong, and a button to check all of them at once.",
         "p5": "Vocabulary decks are not included in the knowledge export.",
-        "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's terms. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a card's term, meaning, or aliases recreates that card's question. While AI isn't configured, the button is replaced with a link to the settings screen.",
-        "p7": "Terms from decks with that toggle on are also passed as reference information to the daily report feedback and goal consultation chat (certification exams only), ordered by priority — checked first, then longest wrong streak, then lowest accuracy, then unanswered, then everything else — along with their accuracy. The AI only mentions a term, with its accuracy, when it's relevant to today's record or your question (it won't list unrelated terms). This means you can still get feedback grounded in your registered terms even during a stretch with few daily reports.",
-        "p8": "When you finalize a certification-exam daily report, the AI scans that day's \"What I learned / understood\" entry and suggests vocabulary terms from it under \"Terms from today's record\" (shown right after finalizing, and on the daily report view screen). Suggested terms always come from text that's actually in your diary, and the draft meaning is simply the diary sentence that contains the term (the AI never writes the meaning itself). You can edit the term, meaning, aliases, and target deck before adding, or choose \"Dismiss\" instead. A term that's already been suggested (whether added or dismissed) or that's already in a deck won't be suggested again for that goal. Nothing is suggested when AI isn't configured or the goal has no vocabulary decks yet (in that case you'll just see a prompt to create one). The daily report view screen also has a button to add a term to a deck directly, without AI (this works even when AI isn't configured).",
-        "p9": "A card is shown as \"Mastered\" in the list and detail views once it's answered correctly a set number of times in a row (3 by default), and you can filter the card list to \"Not mastered\" as well. When the deck's total number of mastered terms reaches a milestone, you'll see the character celebration modal both when you finalize a daily report and when you finish a quiz session (no AI involved)."
+        "p6": "Toggling \"Use in today's review and AI feedback\" on a deck's detail screen controls whether the AI uses that deck's cards. When it's on, the \"Create today's review questions\" button has the AI create questions for any cards that don't have one yet (the goal must still be active). Questions are also created automatically at startup. Editing a term card's term, meaning, or aliases — or a situation card's heading, situation, question, best response, or explanation — recreates that card's question. For situation cards, the AI reuses your registered question text (situation + question), correct answer (best response), and explanation as-is, and only generates the 3 wrong-answer options itself (so a hallucinated answer can never become the correct one or the question's premise). While AI isn't configured, the button is replaced with a link to the settings screen.",
+        "p7": "Cards from decks with that toggle on are also passed as reference information to the daily report feedback and goal consultation chat (certification exams only), ordered by priority — checked first, then longest wrong streak, then lowest accuracy, then unanswered, then everything else — along with their accuracy. Situation cards are passed by heading only; the situation, best response, and explanation text itself is never sent. The AI only mentions a card, with its accuracy, when it's relevant to today's record or your question (it won't list unrelated terms). This means you can still get feedback grounded in your registered terms even during a stretch with few daily reports.",
+        "p8": "When you finalize a certification-exam daily report, the AI scans that day's \"What I learned / understood\" entry and suggests vocabulary terms from it under \"Terms from today's record\" (shown right after finalizing, and on the daily report view screen). This only ever suggests term cards, never situation cards. Suggested terms always come from text that's actually in your diary, and the draft meaning is simply the diary sentence that contains the term (the AI never writes the meaning itself). You can edit the term, meaning, aliases, and target deck before adding, or choose \"Dismiss\" instead. A term that's already been suggested (whether added or dismissed) or that's already in a deck won't be suggested again for that goal. Nothing is suggested when AI isn't configured or the goal has no vocabulary decks yet (in that case you'll just see a prompt to create one). The daily report view screen also has a button to add a term to a deck directly, without AI (this works even when AI isn't configured).",
+        "p9": "A card is shown as \"Mastered\" in the list and detail views once it's answered correctly a set number of times in a row (3 by default), and you can filter the card list to \"Not mastered\" as well. The deck list and detail views also show a breakdown by type (\"N terms / N situations\"). When the deck's total number of mastered cards reaches a milestone, you'll see the character celebration modal both when you finalize a daily report and when you finish a quiz session (no AI involved).",
+        "p10": "For exams like the PMP or project management exams, where you read a situation and choose the best response, you can use \"situation cards\" — a separate card type from term cards. They have 5 fields: heading, situation, question (optional), best response, and explanation (optional); heading, situation, and best response are required. Leaving the question blank treats it as \"What is the best response?\" For example: heading \"Loss of a key team member\", situation \"A key team member unexpectedly resigned at a critical point in the project\", question (blank), best response \"Identify the impact and promptly share it with stakeholders\", explanation \"Delays in sharing information tend to widen the schedule impact.\" A deck can mix term cards and situation cards freely, and a card's type can't be changed after it's created. Each field's character limit can be changed from the settings screen."
       },
       "roadmap": {
         "title": "Roadmap",
         "p1": "The dashboard's goal cards and the goal detail screen's \"Roadmap\" tab show your progress from start to goal as a diagram, drawn differently by goal type. A certification exam goal is drawn as a mountain: the peak is the day you finish taking every subject's exam, and the altitude is your overall progress rate (including every planned cycle, such as a 2nd or 3rd pass through a material). A reading goal is drawn as a road on a map: the road's length is the total page count, your current position is your current page, and the goal is the final page (finishing the book). Days with a record but no page entered are placed as footprints on the road. A work goal has no fixed quantity to reach, so it's drawn as a road toward the end of the current evaluation period (March-August or September-the following February), with the days you recorded piling up as footprints.",
         "p2": "For certification exams, the diagram overlays the planned line (if everything went to plan) with your actual progress line, and marks the point where you replanned (from your replan history) as \"Replanned.\" Reading and work goals have no concept of a plan baseline, so this mark isn't shown for them. Days you received AI feedback are marked as waypoints; clicking one takes you to that day's daily report view. The diagram still works without waypoints if AI isn't configured or there's no feedback history yet.",
         "p3": "Your current position shows a character icon that matches your status (only certification exams change icon for behind/on-schedule/ahead/buffer day; reading and work always show the same icon). Reaching the goal shows the achievement icon at the goal position. The dashboard shows a compact, read-only version that links to the goal detail screen; the \"Roadmap\" tab there shows the full version.",
-        "p4": "For a certification exam goal with at least one vocabulary deck, the full version shows a \"Term mastery\" section below the diagram: the number of mastered terms out of the total, a progress bar, and how many more terms remain to the next milestone (or a note once every milestone has been reached). This section is omitted for goals with no vocabulary deck, and from the dashboard's compact version."
+        "p4": "For a certification exam goal with at least one vocabulary deck, the full version shows a \"Term mastery\" section below the diagram: the number of mastered terms out of the total, a progress bar, a breakdown by card type (terms vs. situations), and how many more terms remain to the next milestone (or a note once every milestone has been reached). This section is omitted for goals with no vocabulary deck, and from the dashboard's compact version."
       },
       "goalConsultation": {
         "title": "Goal consultation chat",
@@ -1975,6 +1979,21 @@
       "statsLine": "{{correct}} correct · {{incorrect}} incorrect · {{accuracy}} accuracy · {{streak}} in a row wrong",
       "cardsEmpty": "No cards yet",
       "addCardTitle": "Add a card",
+      "cardTypeLabel": "Type",
+      "cardTypeFilterLabel": "Filter by type",
+      "cardTypeFixedNotice": "The type cannot be changed after creation",
+      "cardTypeOptions": {
+        "ALL": "All",
+        "TERM": "Term",
+        "SITUATION": "Situation"
+      },
+      "headingLabel": "Heading",
+      "situationTextLabel": "Situation",
+      "questionTextLabel": "Question (optional)",
+      "questionTextHint": "If left blank, it is treated as \"What is the best response?\"",
+      "bestActionLabel": "Best response",
+      "explanationLabel": "Explanation (optional)",
+      "masteredCountBreakdown": "Terms {{termMastered}}/{{termTotal}} · Situations {{situationMastered}}/{{situationTotal}}",
       "filterLabel": "Filter",
       "filterOptions": {
         "ALL": "All",
@@ -1993,11 +2012,14 @@
         "CONSECUTIVE_WRONG_DESC": "Longest wrong streak first"
       },
       "bulkImportTitle": "Bulk add (paste)",
+      "bulkImportCardTypeLabel": "Type to import",
       "bulkImportPlaceholder": "Paste a table copied from Excel etc. (tab-separated. Columns: term, meaning, aliases (optional, separated by |), note (optional))",
+      "bulkImportPlaceholderSituation": "Paste a table copied from Excel etc. (tab-separated. Columns: heading, situation, question (optional), best response, explanation (optional))",
       "bulkImportPreviewButton": "Preview",
       "bulkImportSummary": "{{rowCount}} rows to import / {{errorCount}} errors / {{duplicateCount}} duplicates",
       "bulkImportErrorRow": "Line {{line}}: {{reason}}",
       "bulkImportConfirmButton": "Add these cards",
+      "exportCardTypeLabel": "Type to export",
       "exportButton": "Export (tab-separated text)"
     },
     "quiz": {

@@ -26,10 +26,13 @@ function makeCard(overrides: Partial<VocabCard> = {}): VocabCard {
   return {
     id: 1,
     deck_id: DECK_ID,
+    card_type: 'TERM',
     term: '用語A',
     meaning: '意味A',
     aliases: null,
     note: null,
+    situation_text: null,
+    question_text: null,
     is_checked: false,
     display_order: 0,
     correct_count: 2,
@@ -106,30 +109,71 @@ describe('VocabCardList の一覧表示', () => {
     expect(screen.queryByText(t('vocab.deckDetail.masteredBadge'))).toBeNull()
   })
 
+  it('shows the situation badge and the situation text (not meaning) for a situation card', async () => {
+    getVocabCards.mockResolvedValue([
+      makeCard({
+        card_type: 'SITUATION',
+        term: '見出しA',
+        meaning: '最善の対応A',
+        situation_text: '状況A',
+      }),
+    ])
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    expect(await screen.findByText('見出しA')).toBeTruthy()
+    expect(screen.getByText('状況A')).toBeTruthy()
+    expect(screen.queryByText('最善の対応A')).toBeNull()
+  })
+
+  it('re-fetches with the chosen card type filter', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED', undefined),
+    )
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.cardTypeFilterLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED', 'SITUATION'),
+    )
+  })
+
   it('re-fetches with the chosen filter and sort', async () => {
     const user = userEvent.setup()
     renderWithProviders(<VocabCardList deckId={DECK_ID} />)
-    await waitFor(() => expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED'))
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED', undefined),
+    )
 
     await user.selectOptions(
       screen.getByLabelText(t('vocab.deckDetail.filterLabel')),
       t('vocab.deckDetail.filterOptions.WEAK'),
     )
 
-    await waitFor(() => expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'WEAK', 'REGISTERED'))
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'WEAK', 'REGISTERED', undefined),
+    )
   })
 
   it('re-fetches with the chosen sort', async () => {
     const user = userEvent.setup()
     renderWithProviders(<VocabCardList deckId={DECK_ID} />)
-    await waitFor(() => expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED'))
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'REGISTERED', undefined),
+    )
 
     await user.selectOptions(
       screen.getByLabelText(t('vocab.deckDetail.sortLabel')),
       t('vocab.deckDetail.sortOptions.ACCURACY_ASC'),
     )
 
-    await waitFor(() => expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'ACCURACY_ASC'))
+    await waitFor(() =>
+      expect(getVocabCards).toHaveBeenCalledWith(DECK_ID, 'ALL', 'ACCURACY_ASC', undefined),
+    )
   })
 })
 
@@ -149,6 +193,7 @@ describe('VocabCardList の追加', () => {
       meaning: '意味B',
       aliases: null,
       note: null,
+      card_type: 'TERM',
     })
   })
 
@@ -169,6 +214,77 @@ describe('VocabCardList の追加', () => {
         meaning: '意味B',
         aliases: '別名B',
         note: '補足B',
+        card_type: 'TERM',
+      }),
+    )
+  })
+
+  it('shows situation fields and hides term/aliases fields after switching the type', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    await user.click(await screen.findByRole('button', { name: t('vocab.deckDetail.addCardTitle') }))
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.cardTypeLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+
+    expect(screen.getByLabelText(t('vocab.deckDetail.headingLabel'))).toBeTruthy()
+    expect(screen.getByLabelText(t('vocab.deckDetail.situationTextLabel'))).toBeTruthy()
+    expect(screen.getByLabelText(t('vocab.deckDetail.bestActionLabel'))).toBeTruthy()
+    expect(screen.queryByLabelText(t('vocab.deckDetail.aliasesLabel'))).toBeNull()
+  })
+
+  it('creates a situation card with the situation fields', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    await user.click(await screen.findByRole('button', { name: t('vocab.deckDetail.addCardTitle') }))
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.cardTypeLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.headingLabel')), '見出しB')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.situationTextLabel')), '状況B')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.questionTextLabel')), '問いB')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.bestActionLabel')), '最善の対応B')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.explanationLabel')), '解説B')
+    await user.click(screen.getByRole('button', { name: t('common.action.save') }))
+
+    await waitFor(() =>
+      expect(createVocabCard).toHaveBeenCalledWith(DECK_ID, {
+        term: '見出しB',
+        meaning: '最善の対応B',
+        note: '解説B',
+        situation_text: '状況B',
+        question_text: '問いB',
+        card_type: 'SITUATION',
+      }),
+    )
+  })
+
+  it('creates a situation card with null question/explanation when left blank', async () => {
+    const user = userEvent.setup()
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    await user.click(await screen.findByRole('button', { name: t('vocab.deckDetail.addCardTitle') }))
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.cardTypeLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.headingLabel')), '見出しC')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.situationTextLabel')), '状況C')
+    await user.type(screen.getByLabelText(t('vocab.deckDetail.bestActionLabel')), '最善の対応C')
+    await user.click(screen.getByRole('button', { name: t('common.action.save') }))
+
+    await waitFor(() =>
+      expect(createVocabCard).toHaveBeenCalledWith(DECK_ID, {
+        term: '見出しC',
+        meaning: '最善の対応C',
+        note: null,
+        situation_text: '状況C',
+        question_text: null,
+        card_type: 'SITUATION',
       }),
     )
   })
@@ -205,6 +321,25 @@ describe('VocabCardList の編集・チェック・削除', () => {
         note: null,
       }),
     )
+  })
+
+  it('shows the fixed-type notice (no selector) when editing a situation card', async () => {
+    const user = userEvent.setup()
+    getVocabCards.mockResolvedValue([
+      makeCard({
+        card_type: 'SITUATION',
+        term: '見出しA',
+        meaning: '最善の対応A',
+        situation_text: '状況A',
+        aliases: null,
+      }),
+    ])
+    renderWithProviders(<VocabCardList deckId={DECK_ID} />)
+
+    await user.click(await screen.findByRole('button', { name: t('common.action.edit') }))
+
+    expect(screen.queryByLabelText(t('vocab.deckDetail.cardTypeLabel'))).toBeNull()
+    expect(screen.getByLabelText(t('vocab.deckDetail.headingLabel'))).toBeTruthy()
   })
 
   it('toggles the checked state', async () => {

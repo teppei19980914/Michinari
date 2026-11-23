@@ -281,11 +281,7 @@ def serialize_roadmap(roadmap: roadmap_service.Roadmap) -> GoalRoadmapRead:
         buffer_dates=roadmap.buffer_dates,
         overrun_days=roadmap.overrun_days,
         vocab_mastery=(
-            RoadmapVocabMasteryRead(
-                mastered_count=roadmap.vocab_mastery.mastered_count,
-                total_count=roadmap.vocab_mastery.total_count,
-                remaining_to_next_milestone=roadmap.vocab_mastery.remaining_to_next_milestone,
-            )
+            RoadmapVocabMasteryRead(**vars(roadmap.vocab_mastery))
             if roadmap.vocab_mastery is not None
             else None
         ),

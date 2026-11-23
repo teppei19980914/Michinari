@@ -221,6 +221,23 @@ class VocabMasterySettingsUpdate(BaseModel):
     mastered_terms_thresholds: str | None = Field(default=None, pattern=_THRESHOLD_LIST_PATTERN)
 
 
+#: シチュエーションカードの5項目の文字数上限（開発Todo_単語帳_v1.0 要件F F-U2）。
+class VocabSituationLimitsSettingsRead(BaseModel):
+    heading_max_chars: int
+    text_max_chars: int
+    question_max_chars: int
+    best_action_max_chars: int
+    explanation_max_chars: int
+
+
+class VocabSituationLimitsSettingsUpdate(BaseModel):
+    heading_max_chars: int | None = Field(default=None, ge=1)
+    text_max_chars: int | None = Field(default=None, ge=1)
+    question_max_chars: int | None = Field(default=None, ge=1)
+    best_action_max_chars: int | None = Field(default=None, ge=1)
+    explanation_max_chars: int | None = Field(default=None, ge=1)
+
+
 class AppSettingsRead(BaseModel):
     ai_connection: AiConnectionSettingsRead
     threshold: ThresholdSettingsRead
@@ -232,6 +249,7 @@ class AppSettingsRead(BaseModel):
     on_this_day: OnThisDaySettingsRead
     quick_record: QuickRecordSettingsRead
     vocab_mastery: VocabMasterySettingsRead
+    vocab_situation_limits: VocabSituationLimitsSettingsRead
 
 
 class AppSettingsUpdate(BaseModel):
@@ -245,6 +263,7 @@ class AppSettingsUpdate(BaseModel):
     on_this_day: OnThisDaySettingsUpdate | None = None
     quick_record: QuickRecordSettingsUpdate | None = None
     vocab_mastery: VocabMasterySettingsUpdate | None = None
+    vocab_situation_limits: VocabSituationLimitsSettingsUpdate | None = None
 
 
 class PromptTemplateRead(BaseModel):

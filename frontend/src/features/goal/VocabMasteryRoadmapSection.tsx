@@ -1,5 +1,6 @@
 import { t } from '../../locales/t'
 import type { RoadmapVocabMasteryRead } from '../../api/goals'
+import { VocabMasteryBreakdownLine } from '../vocab/VocabMasteryBreakdownLine'
 
 /** 道のりマップ（詳細版）の「用語の習得」欄（開発Todo_単語帳_v1.0 要件E E-U5）。山の図
  * （RoadmapDiagram・roadmapGeometry.ts）には手を入れず、その下に別枠で表示する。 */
@@ -20,6 +21,12 @@ export function VocabMasteryRoadmapSection({
           total: vocabMastery.total_count,
         })}
       </p>
+      <VocabMasteryBreakdownLine
+        termMastered={vocabMastery.term_mastered_count}
+        termTotal={vocabMastery.term_total_count}
+        situationMastered={vocabMastery.situation_mastered_count}
+        situationTotal={vocabMastery.situation_total_count}
+      />
       <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
         <div
           className="h-full rounded-full bg-accent"

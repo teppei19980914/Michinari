@@ -51,6 +51,52 @@ class ParsedQuestionBlock:
     citation_raw: str
 
 
+#: シチュエーションカード由来の誤答生成（開発Todo_単語帳_v1.0 要件F F-D11）。問題文・正解・
+#: 解説はAIに作らせず登録済みの文をそのまま使うため、AIには「出典→誤答1→誤答2→誤答3」の
+#: 4行だけを出力させる（既存のParsedQuestionBlock・7フィールドの形式とは異なる）。
+#: ReDoS対策（`[^\n]+?`・`re.DOTALL`不使用）は既存と同じ方針を共有する。
+_DISTRACTOR_BLOCK_PATTERN = re.compile(
+    r"出典:[ \t]*(?P<citation>[^\n]+?)[ \t]*\n"
+    r"誤答1:[ \t]*(?P<distractor1>[^\n]+?)[ \t]*\n"
+    r"誤答2:[ \t]*(?P<distractor2>[^\n]+?)[ \t]*\n"
+    r"誤答3:[ \t]*(?P<distractor3>[^\n]+?)[ \t]*$"
+)
+
+
+@dataclass(frozen=True)
+class ParsedDistractorBlock:
+    #: 出典の生文字列（検証・変換は呼び出し側が行う）。
+    citation_raw: str
+    distractors: list[str]
+
+
+def parse_distractor_blocks(response_text: str) -> list[ParsedDistractorBlock]:
+    """シチュエーションカード由来の誤答生成の応答を解析する（開発Todo_単語帳_v1.0 要件F）。
+
+    `parse_question_blocks`と区切り（`===`）・ブロック長上限（`_MAX_BLOCK_CHARS`）を共有し、
+    フィールド構成（出典→誤答1〜3の4行）が異なるため解析用の正規表現・データクラスは分ける
+    （F-D11）。形式に合わないブロックは個別に無視する。
+    """
+    parsed: list[ParsedDistractorBlock] = []
+    for block in _BLOCK_SEPARATOR.split(response_text):
+        if len(block) > _MAX_BLOCK_CHARS:
+            continue
+        match = _DISTRACTOR_BLOCK_PATTERN.search(block)
+        if match is None:
+            continue
+        parsed.append(
+            ParsedDistractorBlock(
+                citation_raw=match.group("citation").strip(),
+                distractors=[
+                    match.group("distractor1").strip(),
+                    match.group("distractor2").strip(),
+                    match.group("distractor3").strip(),
+                ],
+            )
+        )
+    return parsed
+
+
 def parse_question_blocks(response_text: str) -> list[ParsedQuestionBlock]:
     """応答を「===」で分割し、ブロックごとに5フィールドを抽出する。
 

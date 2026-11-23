@@ -18,6 +18,7 @@ import {
 } from '../../api/vocab'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 import { swapByOffset } from './vocabDeckOrder'
+import { VocabMasteryBreakdownLine } from './VocabMasteryBreakdownLine'
 
 function CreateVocabDeckForm({ goalId, onDone }: { goalId: number; onDone: () => void }) {
   const queryClient = useQueryClient()
@@ -119,6 +120,12 @@ export function VocabDeckListTab({ goalId }: { goalId: number }) {
               })}
               {!deck.use_in_ai && ` · ${t('vocab.deckList.useInAiOffBadge')}`}
             </p>
+            <VocabMasteryBreakdownLine
+              termMastered={deck.term_mastered_card_count}
+              termTotal={deck.term_card_count}
+              situationMastered={deck.situation_mastered_card_count}
+              situationTotal={deck.situation_card_count}
+            />
           </Link>
           <div className="flex gap-1">
             <Button

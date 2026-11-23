@@ -25,10 +25,16 @@ from app.constants.app_setting_keys import (
     VOCAB_DECK_MAX_CARDS,
     VOCAB_IMPORT_MAX_ROWS,
     VOCAB_MEANING_MAX_CHARS,
+    VOCAB_NOTE_MAX_CHARS,
+    VOCAB_SITUATION_BEST_ACTION_MAX_CHARS,
+    VOCAB_SITUATION_EXPLANATION_MAX_CHARS,
+    VOCAB_SITUATION_HEADING_MAX_CHARS,
+    VOCAB_SITUATION_QUESTION_MAX_CHARS,
+    VOCAB_SITUATION_TEXT_MAX_CHARS,
     VOCAB_TERM_MAX_CHARS,
     VOCAB_WEAK_ACCURACY_PERCENT,
 )
-from app.constants.enums import GoalCategory, GoalStatus, VocabQuizMode
+from app.constants.enums import GoalCategory, GoalStatus, VocabCardType, VocabQuizMode
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
@@ -220,17 +226,63 @@ def get_deck_info_for_cards(session: Session, card_ids: list[int]) -> dict[int, 
     return {card_id: (deck_id, deck_name) for card_id, deck_id, deck_name in rows}
 
 
-def _validate_card_fields(session: Session, term: str, meaning: str) -> None:
-    term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
-    meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
+def _validate_card_fields(
+    session: Session,
+    card_type: VocabCardType,
+    term: str,
+    meaning: str,
+    *,
+    aliases: str | None = None,
+    note: str | None = None,
+    situation_text: str | None = None,
+    question_text: str | None = None,
+) -> None:
+    """文字数・必須項目の検証を種類ごとに分岐する1か所（開発Todo_単語帳_v1.0 要件F、F-D5）。
+
+    TERM：用語（`term`）・意味（`meaning`）が必須、別名・補足は任意（既存のA〜D挙動）。
+    SITUATION：見出し（`term`）・状況（`situation_text`）・最善の対応（`meaning`）が必須、
+    問い（`question_text`）・解説（`note`）は任意、別名は使わない（F-U1・F-D4）。
+    """
+    if card_type == VocabCardType.TERM:
+        term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
+        meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
+        note_max = setting_reader.get_int(session, VOCAB_NOTE_MAX_CHARS)
+        if not term.strip():
+            raise ValidationError("term must not be empty")
+        if len(term) > term_max:
+            raise ValidationError(f"term must be {term_max} characters or fewer")
+        if not meaning.strip():
+            raise ValidationError("meaning must not be empty")
+        if len(meaning) > meaning_max:
+            raise ValidationError(f"meaning must be {meaning_max} characters or fewer")
+        if note is not None and len(note) > note_max:
+            raise ValidationError(f"note must be {note_max} characters or fewer")
+        return
+
+    # SITUATION
+    if aliases:
+        raise ValidationError("aliases is not allowed for SITUATION cards")
+    heading_max = setting_reader.get_int(session, VOCAB_SITUATION_HEADING_MAX_CHARS)
+    situation_max = setting_reader.get_int(session, VOCAB_SITUATION_TEXT_MAX_CHARS)
+    question_max = setting_reader.get_int(session, VOCAB_SITUATION_QUESTION_MAX_CHARS)
+    best_action_max = setting_reader.get_int(session, VOCAB_SITUATION_BEST_ACTION_MAX_CHARS)
+    explanation_max = setting_reader.get_int(session, VOCAB_SITUATION_EXPLANATION_MAX_CHARS)
     if not term.strip():
-        raise ValidationError("term must not be empty")
-    if len(term) > term_max:
-        raise ValidationError(f"term must be {term_max} characters or fewer")
+        raise ValidationError("heading (term) must not be empty")
+    if len(term) > heading_max:
+        raise ValidationError(f"heading must be {heading_max} characters or fewer")
+    if not (situation_text or "").strip():
+        raise ValidationError("situation_text must not be empty")
+    if len(situation_text or "") > situation_max:
+        raise ValidationError(f"situation_text must be {situation_max} characters or fewer")
+    if question_text is not None and len(question_text) > question_max:
+        raise ValidationError(f"question_text must be {question_max} characters or fewer")
     if not meaning.strip():
-        raise ValidationError("meaning must not be empty")
-    if len(meaning) > meaning_max:
-        raise ValidationError(f"meaning must be {meaning_max} characters or fewer")
+        raise ValidationError("best_action (meaning) must not be empty")
+    if len(meaning) > best_action_max:
+        raise ValidationError(f"best_action must be {best_action_max} characters or fewer")
+    if note is not None and len(note) > explanation_max:
+        raise ValidationError(f"explanation (note) must be {explanation_max} characters or fewer")
 
 
 def _ensure_deck_card_capacity(
@@ -245,21 +297,36 @@ def create_card(
     session: Session,
     deck: VocabDeck,
     *,
+    card_type: VocabCardType = VocabCardType.TERM,
     term: str,
     meaning: str,
     aliases: str | None = None,
     note: str | None = None,
+    situation_text: str | None = None,
+    question_text: str | None = None,
 ) -> VocabCard:
-    _validate_card_fields(session, term, meaning)
+    _validate_card_fields(
+        session,
+        card_type,
+        term,
+        meaning,
+        aliases=aliases,
+        note=note,
+        situation_text=situation_text,
+        question_text=question_text,
+    )
     existing_cards = list_cards_for_deck(session, deck.id)
     _ensure_deck_card_capacity(session, deck.id, current_count=len(existing_cards), adding=1)
     next_order = max((c.display_order for c in existing_cards), default=-1) + 1
     card = VocabCard(
         deck_id=deck.id,
+        card_type=card_type,
         term=term,
         meaning=meaning,
         aliases=aliases,
         note=note,
+        situation_text=situation_text,
+        question_text=question_text,
         is_checked=False,
         display_order=next_order,
     )
@@ -276,11 +343,21 @@ def update_card(
     meaning: str | None = None,
     aliases: str | None = None,
     note: str | None = None,
+    situation_text: str | None = None,
+    question_text: str | None = None,
 ) -> VocabCard:
+    """カードを更新する。`card_type`は引数に持たず作成後不変とする（開発Todo_単語帳_v1.0
+    要件F F-D2、API層の更新用スキーマにも`card_type`を設けないことで二重に保証する）。
+    """
     _validate_card_fields(
         session,
+        card.card_type,
         term if term is not None else card.term,
         meaning if meaning is not None else card.meaning,
+        aliases=aliases if aliases is not None else card.aliases,
+        note=note if note is not None else card.note,
+        situation_text=situation_text if situation_text is not None else card.situation_text,
+        question_text=question_text if question_text is not None else card.question_text,
     )
     if term is not None:
         card.term = term
@@ -290,27 +367,80 @@ def update_card(
         card.aliases = aliases
     if note is not None:
         card.note = note
+    if situation_text is not None:
+        card.situation_text = situation_text
+    if question_text is not None:
+        card.question_text = question_text
     session.flush()
     return card
 
 
 def vocab_card_content_changed(
-    card: VocabCard, *, term: str | None, meaning: str | None, aliases: str | None
+    card: VocabCard,
+    *,
+    term: str | None,
+    meaning: str | None,
+    aliases: str | None,
+    note: str | None = None,
+    situation_text: str | None = None,
+    question_text: str | None = None,
 ) -> bool:
-    """用語・意味・別名のいずれかが実際に変わるかを判定する（開発Todo_単語帳_v1.0 要件B、
-    今日の復習の問題削除条件。不具合修正、2026-11-22）。`update_card`で値を書き換える**前**に
-    呼ぶこと。比較は保存される値そのものの一致で行い正規化はしない（表記の修正も内容の変更と
-    みなす、利用者の明示指示）。`None`は「この項目は更新しない」を意味し`update_card`と同じ
-    規約（変更なし扱い）とする。後続の要件F（シチュエーションカード）でカードの種類ごとに
-    判定対象フィールドを増やせるよう、`update_card`本体から分離した独立関数とする。
+    """用語・意味・（カードの種類に応じた項目）のいずれかが実際に変わるかを判定する
+    （開発Todo_単語帳_v1.0 要件B、今日の復習の問題削除条件。不具合修正、2026-11-22。
+    要件Fでカードの種類ごとに判定対象フィールドを拡張、F-D1想定どおり）。`update_card`で
+    値を書き換える**前**に呼ぶこと。比較は保存される値そのものの一致で行い正規化はしない
+    （表記の修正も内容の変更とみなす、利用者の明示指示）。`None`は「この項目は更新しない」を
+    意味し`update_card`と同じ規約（変更なし扱い）とする。
+
+    TERM：用語・意味・別名のいずれかが変わったとき（既存のB不具合修正どおり、`note`は対象外
+    のまま＝TERMの補足はクイズの内容に使われていないため）。
+    SITUATION：見出し（term）・状況・問い・最善の対応（meaning）・解説（note）のいずれかが
+    変わったとき（F-U5、解説も今日の復習の`explanation`に保存しているため対象に含める）。
     """
     if term is not None and term != card.term:
         return True
     if meaning is not None and meaning != card.meaning:
         return True
-    if aliases is not None and aliases != card.aliases:
+    if card.card_type == VocabCardType.TERM:
+        if aliases is not None and aliases != card.aliases:
+            return True
+        return False
+    if note is not None and note != card.note:
+        return True
+    if situation_text is not None and situation_text != card.situation_text:
+        return True
+    if question_text is not None and question_text != card.question_text:
         return True
     return False
+
+
+#: 問いが空のときの既定文言（開発Todo_単語帳_v1.0 要件F F-U1）。AI送信・保存データ向けの
+#: 日本語定数（F-D9）。画面表示専用の文言（カード編集画面のプレースホルダー等）は別途
+#: ロケールファイルに持つ（同じ文字列になるが用途が異なるため統合しない）。
+DEFAULT_SITUATION_QUESTION_TEXT = "最善の対応は？"
+
+
+def resolve_situation_question_text(question_text: str | None) -> str:
+    """問いが空のときに既定文言へ差し替える（F-U1）。AI送信（`_format_situation_card_line`）・
+    ローカル出題（FLASH_SITUATIONのprompt組み立て）の両方で共有する（DRYの原則）。
+    """
+    if question_text and question_text.strip():
+        return question_text
+    return DEFAULT_SITUATION_QUESTION_TEXT
+
+
+def build_situation_prompt_text(card: VocabCard) -> str:
+    """シチュエーションカードの問題文（状況＋空行＋問い、F-U5）を組み立てる。AI生成の
+    `quiz_question.question_text`・ローカル出題（FLASH_SITUATIONの`prompt`）の両方で共有する。
+    """
+    return f"{card.situation_text}\n\n{resolve_situation_question_text(card.question_text)}"
+
+
+def situation_no_explanation_text(meaning: str) -> str:
+    """解説（`note`）が空のときのクイズの`explanation`（開発Todo_単語帳_v1.0 要件F F-U5・
+    F-D15）。`quiz_question.explanation`はNOT NULL制約のため空文字を保存できない。
+    """
+    return f"最善の対応は「{meaning}」です。"
 
 
 def set_card_checked(session: Session, card: VocabCard, is_checked: bool) -> VocabCard:
@@ -425,11 +555,17 @@ def record_answer(session: Session, card: VocabCard, mode: VocabQuizMode, is_cor
 @dataclass
 class VocabMasteryTotals:
     """目標配下の単語帳全体の習得集計（開発Todo_単語帳_v1.0 要件E E-U1・E-U2）。
-    節目判定・道のりマップで共通に使う（DRYの原則）。
+    節目判定・道のりマップで共通に使う（DRYの原則）。種類別の内訳（要件F F-D19、
+    「用語◯語／場面◯件」の表示用）も同時に持つ。節目の判定は合計（`total_cards`・
+    `mastered_cards`）のみを見る（F-U9、既存の判定ロジックは無改修）。
     """
 
     total_cards: int
     mastered_cards: int
+    term_total: int = 0
+    term_mastered: int = 0
+    situation_total: int = 0
+    situation_mastered: int = 0
 
 
 def _mastered_from_answer_logs(
@@ -474,11 +610,26 @@ def compute_goal_vocab_mastery(
         deck_ids = [deck.id for deck in list_decks_for_goal(session, goal_id)]
     if not deck_ids:
         return VocabMasteryTotals(total_cards=0, mastered_cards=0)
-    card_ids = list(
-        session.scalars(select(VocabCard.id).where(VocabCard.deck_id.in_(deck_ids))).all()
-    )
+    rows = session.execute(
+        select(VocabCard.id, VocabCard.card_type).where(VocabCard.deck_id.in_(deck_ids))
+    ).all()
+    card_type_by_id = dict(rows)
+    card_ids = list(card_type_by_id)
     mastered = compute_mastered_card_ids(session, card_ids, mastery_streak)
-    return VocabMasteryTotals(total_cards=len(card_ids), mastered_cards=len(mastered))
+    term_total = sum(1 for t in card_type_by_id.values() if t == VocabCardType.TERM)
+    situation_total = len(card_ids) - term_total
+    term_mastered = sum(
+        1 for card_id in mastered if card_type_by_id[card_id] == VocabCardType.TERM
+    )
+    situation_mastered = len(mastered) - term_mastered
+    return VocabMasteryTotals(
+        total_cards=len(card_ids),
+        mastered_cards=len(mastered),
+        term_total=term_total,
+        term_mastered=term_mastered,
+        situation_total=situation_total,
+        situation_mastered=situation_mastered,
+    )
 
 
 def compute_mastered_card_counts_by_deck(
@@ -503,6 +654,40 @@ def compute_mastered_card_counts_by_deck(
     return dict(counts)
 
 
+def deck_vocab_mastery_totals(
+    session: Session, deck_ids: list[int], mastery_streak: int
+) -> dict[int, VocabMasteryTotals]:
+    """複数デッキそれぞれの種類別内訳（`VocabMasteryTotals`）を1回の問い合わせでまとめて
+    返す（開発Todo_単語帳_v1.0 要件F F-D19、単語帳一覧・詳細の「用語◯語／場面◯件」表示用、
+    N+1禁止）。デッキにカードが1枚も無ければ`VocabMasteryTotals(0, 0)`を返す（既存の
+    `count_cards_by_deck`等と同じ「無ければキー自体が無い」規約を呼び出し元で補う）。
+    """
+    if not deck_ids:
+        return {}
+    rows = session.execute(
+        select(VocabCard.id, VocabCard.deck_id, VocabCard.card_type).where(
+            VocabCard.deck_id.in_(deck_ids)
+        )
+    ).all()
+    card_ids = [row[0] for row in rows]
+    mastered_card_ids = compute_mastered_card_ids(session, card_ids, mastery_streak)
+    totals_by_deck: dict[int, VocabMasteryTotals] = {}
+    for card_id, deck_id, card_type in rows:
+        totals = totals_by_deck.setdefault(
+            deck_id, VocabMasteryTotals(total_cards=0, mastered_cards=0)
+        )
+        is_mastered = card_id in mastered_card_ids
+        if card_type == VocabCardType.TERM:
+            totals.term_total += 1
+            totals.term_mastered += 1 if is_mastered else 0
+        else:
+            totals.situation_total += 1
+            totals.situation_mastered += 1 if is_mastered else 0
+        totals.total_cards += 1
+        totals.mastered_cards += 1 if is_mastered else 0
+    return totals_by_deck
+
+
 # ---------------------------------------------------------------------------
 # 一括登録（貼り付け）・エクスポート
 # ---------------------------------------------------------------------------
@@ -515,6 +700,9 @@ class VocabImportRow:
     meaning: str
     aliases: str | None
     note: str | None
+    #: シチュエーションカード専用（開発Todo_単語帳_v1.0 要件F）。TERMでは常にNone。
+    situation_text: str | None = None
+    question_text: str | None = None
 
 
 @dataclass
@@ -530,11 +718,6 @@ class VocabImportPreview:
     duplicate_line_numbers: list[int]
 
 
-def _split_import_line(line: str) -> list[str]:
-    delimiter = "\t" if "\t" in line else ","
-    return next(csv.reader([line], delimiter=delimiter))
-
-
 def _parse_import_aliases(raw: str) -> str | None:
     """一括登録の別名欄（`|`区切り、利用者プロンプトの明示指示）を、保存形式（改行区切り、
     `judge_typed_answer`が`splitlines()`で読む形式）へ変換する。変換を忘れると、一括登録した
@@ -544,49 +727,121 @@ def _parse_import_aliases(raw: str) -> str | None:
     return "\n".join(aliases) if aliases else None
 
 
-def parse_bulk_import(session: Session, deck: VocabDeck, text: str) -> VocabImportPreview:
-    """貼り付けテキストを解析し、取り込み前のプレビューを返す。
+def _read_import_records(text: str) -> list[list[str]]:
+    """貼り付け全体を`csv`モジュールで1回読み、空レコード（全項目が空文字列）を除いた
+    レコード（フィールドのリスト）の一覧を返す（開発Todo_単語帳_v1.0 要件F F-D17）。
 
-    列は「用語・意味・別名（任意、`|`区切り）・補足（任意）」。タブ区切り、タブが無い行は
-    カンマ区切りとして扱う（利用者プロンプトの明示指示）。`csv`モジュールのみを使い、
-    正規表現の連鎖は行わない（ReDoS対策）。別名は入力時の`|`区切りから保存形式（改行区切り）
-    へ`_parse_import_aliases`で変換する（横展開チェックで検出：変換を忘れると入力式判定の
-    別名一致が機能しなくなる）。
+    区切りはタブを含むかどうかを貼り付け全体で1回だけ判定する（タブ優先、利用者プロンプトの
+    明示指示）。1行ずつではなく`io.StringIO`越しに全体を渡すことで、引用符で囲まれたセル内の
+    改行をRFC4180準拠で1項目として読める（改行を含まない既存の入力では、1レコード＝1物理行
+    のまま変わらないため、既存の用語取り込みの挙動・テストに影響しない）。正規表現の連鎖は
+    行わない（ReDoS対策、既存方針を継続）。
     """
+    delimiter = "\t" if "\t" in text else ","
+    reader = csv.reader(io.StringIO(text), delimiter=delimiter)
+    return [record for record in reader if any(field.strip() for field in record)]
+
+
+def _parse_term_import_row(
+    session: Session, line_number: int, fields: list[str]
+) -> VocabImportRow | VocabImportError:
+    """用語カードの一括登録1レコード分を解析する（列：用語・意味・別名（任意）・補足（任意））。"""
     term_max = setting_reader.get_int(session, VOCAB_TERM_MAX_CHARS)
     meaning_max = setting_reader.get_int(session, VOCAB_MEANING_MAX_CHARS)
-    import_max_rows = setting_reader.get_int(session, VOCAB_IMPORT_MAX_ROWS)
+    term = fields[0].strip() if len(fields) > 0 else ""
+    meaning = fields[1].strip() if len(fields) > 1 else ""
+    aliases = _parse_import_aliases(fields[2]) if len(fields) > 2 else None
+    note = fields[3].strip() if len(fields) > 3 and fields[3].strip() else None
+    if not term:
+        return VocabImportError(line_number, "term is empty")
+    if not meaning:
+        return VocabImportError(line_number, "meaning is empty")
+    if len(term) > term_max:
+        return VocabImportError(line_number, f"term exceeds {term_max} characters")
+    if len(meaning) > meaning_max:
+        return VocabImportError(line_number, f"meaning exceeds {meaning_max} characters")
+    return VocabImportRow(line_number, term, meaning, aliases, note)
 
-    raw_lines = [line for line in text.splitlines() if line.strip()]
-    if len(raw_lines) > import_max_rows:
-        raise VocabImportTooManyRowsError(len(raw_lines), import_max_rows)
+
+def _parse_situation_import_row(
+    session: Session, line_number: int, fields: list[str]
+) -> VocabImportRow | VocabImportError:
+    """シチュエーションカードの一括登録1レコード分を解析する（開発Todo_単語帳_v1.0 要件F
+    F-U8。列：見出し・状況・問い（任意）・最善の対応・解説（任意））。
+    """
+    heading_max = setting_reader.get_int(session, VOCAB_SITUATION_HEADING_MAX_CHARS)
+    situation_max = setting_reader.get_int(session, VOCAB_SITUATION_TEXT_MAX_CHARS)
+    question_max = setting_reader.get_int(session, VOCAB_SITUATION_QUESTION_MAX_CHARS)
+    best_action_max = setting_reader.get_int(session, VOCAB_SITUATION_BEST_ACTION_MAX_CHARS)
+    explanation_max = setting_reader.get_int(session, VOCAB_SITUATION_EXPLANATION_MAX_CHARS)
+    heading = fields[0].strip() if len(fields) > 0 else ""
+    situation_text = fields[1].strip() if len(fields) > 1 else ""
+    question_text = fields[2].strip() if len(fields) > 2 and fields[2].strip() else None
+    best_action = fields[3].strip() if len(fields) > 3 else ""
+    explanation = fields[4].strip() if len(fields) > 4 and fields[4].strip() else None
+    if not heading:
+        return VocabImportError(line_number, "heading is empty")
+    if not situation_text:
+        return VocabImportError(line_number, "situation_text is empty")
+    if not best_action:
+        return VocabImportError(line_number, "best_action is empty")
+    if len(heading) > heading_max:
+        return VocabImportError(line_number, f"heading exceeds {heading_max} characters")
+    if len(situation_text) > situation_max:
+        return VocabImportError(line_number, f"situation_text exceeds {situation_max} characters")
+    if question_text is not None and len(question_text) > question_max:
+        return VocabImportError(line_number, f"question_text exceeds {question_max} characters")
+    if len(best_action) > best_action_max:
+        return VocabImportError(line_number, f"best_action exceeds {best_action_max} characters")
+    if explanation is not None and len(explanation) > explanation_max:
+        return VocabImportError(line_number, f"explanation exceeds {explanation_max} characters")
+    return VocabImportRow(
+        line_number,
+        term=heading,
+        meaning=best_action,
+        aliases=None,
+        note=explanation,
+        situation_text=situation_text,
+        question_text=question_text,
+    )
+
+
+def parse_bulk_import(
+    session: Session,
+    deck: VocabDeck,
+    text: str,
+    *,
+    card_type: VocabCardType = VocabCardType.TERM,
+) -> VocabImportPreview:
+    """貼り付けテキストを解析し、取り込み前のプレビューを返す。
+
+    TERM：列は「用語・意味・別名（任意、`|`区切り）・補足（任意）」。SITUATION：列は
+    「見出し・状況・問い（任意）・最善の対応・解説（任意）」（開発Todo_単語帳_v1.0 要件F
+    F-U8）。重複判定はTERMが用語、SITUATIONが見出しで行う（いずれも`row.term`列を使うため
+    判定処理自体は共通、既存カードとの比較は取り込み対象と同じ種類のカードだけに絞る）。
+    """
+    import_max_rows = setting_reader.get_int(session, VOCAB_IMPORT_MAX_ROWS)
+    records = _read_import_records(text)
+    if len(records) > import_max_rows:
+        raise VocabImportTooManyRowsError(len(records), import_max_rows)
 
     rows: list[VocabImportRow] = []
     errors: list[VocabImportError] = []
-    for line_number, raw_line in enumerate(raw_lines, start=1):
-        fields = _split_import_line(raw_line)
-        term = fields[0].strip() if len(fields) > 0 else ""
-        meaning = fields[1].strip() if len(fields) > 1 else ""
-        aliases = _parse_import_aliases(fields[2]) if len(fields) > 2 else None
-        note = fields[3].strip() if len(fields) > 3 and fields[3].strip() else None
-        if not term:
-            errors.append(VocabImportError(line_number, "term is empty"))
-            continue
-        if not meaning:
-            errors.append(VocabImportError(line_number, "meaning is empty"))
-            continue
-        if len(term) > term_max:
-            errors.append(VocabImportError(line_number, f"term exceeds {term_max} characters"))
-            continue
-        if len(meaning) > meaning_max:
-            errors.append(
-                VocabImportError(line_number, f"meaning exceeds {meaning_max} characters")
-            )
-            continue
-        rows.append(VocabImportRow(line_number, term, meaning, aliases, note))
+    for line_number, fields in enumerate(records, start=1):
+        parsed = (
+            _parse_term_import_row(session, line_number, fields)
+            if card_type == VocabCardType.TERM
+            else _parse_situation_import_row(session, line_number, fields)
+        )
+        if isinstance(parsed, VocabImportError):
+            errors.append(parsed)
+        else:
+            rows.append(parsed)
 
     existing_keys = {
-        normalize_for_vocab_match(card.term) for card in list_cards_for_deck(session, deck.id)
+        normalize_for_vocab_match(card.term)
+        for card in list_cards_for_deck(session, deck.id)
+        if card.card_type == card_type
     }
     seen_keys: set[str] = set()
     duplicate_line_numbers: list[int] = []
@@ -602,7 +857,13 @@ def parse_bulk_import(session: Session, deck: VocabDeck, text: str) -> VocabImpo
     return VocabImportPreview(deduped_rows, errors, duplicate_line_numbers)
 
 
-def confirm_bulk_import(session: Session, deck: VocabDeck, rows: list[VocabImportRow]) -> int:
+def confirm_bulk_import(
+    session: Session,
+    deck: VocabDeck,
+    rows: list[VocabImportRow],
+    *,
+    card_type: VocabCardType = VocabCardType.TERM,
+) -> int:
     """プレビューで確定した行をカードとして登録する。重複・エラー行は呼び出し側
     （`parse_bulk_import`の結果）で既に除かれている前提だが、`parse_bulk_import`を経由せず
     このAPIへ直接送られた行も想定し、行数・文字数はここでも再検証する（信頼境界を
@@ -612,7 +873,16 @@ def confirm_bulk_import(session: Session, deck: VocabDeck, rows: list[VocabImpor
     if len(rows) > import_max_rows:
         raise VocabImportTooManyRowsError(len(rows), import_max_rows)
     for row in rows:
-        _validate_card_fields(session, row.term, row.meaning)
+        _validate_card_fields(
+            session,
+            card_type,
+            row.term,
+            row.meaning,
+            aliases=row.aliases,
+            note=row.note,
+            situation_text=row.situation_text,
+            question_text=row.question_text,
+        )
     existing_cards = list_cards_for_deck(session, deck.id)
     _ensure_deck_card_capacity(
         session, deck.id, current_count=len(existing_cards), adding=len(rows)
@@ -622,10 +892,13 @@ def confirm_bulk_import(session: Session, deck: VocabDeck, rows: list[VocabImpor
         session.add(
             VocabCard(
                 deck_id=deck.id,
+                card_type=card_type,
                 term=row.term,
                 meaning=row.meaning,
                 aliases=row.aliases,
                 note=row.note,
+                situation_text=row.situation_text,
+                question_text=row.question_text,
                 is_checked=False,
                 display_order=next_order + offset,
             )
@@ -634,12 +907,32 @@ def confirm_bulk_import(session: Session, deck: VocabDeck, rows: list[VocabImpor
     return len(rows)
 
 
-def export_deck(session: Session, deck: VocabDeck) -> str:
-    """単語帳をタブ区切りテキストへ書き出す（用語・意味・別名・補足の4列）。"""
+def export_deck(
+    session: Session, deck: VocabDeck, *, card_type: VocabCardType = VocabCardType.TERM
+) -> str:
+    """単語帳を種類ごとにタブ区切りテキストへ書き出す（開発Todo_単語帳_v1.0 要件F F-U8・
+    F-D18）。TERM：用語・意味・別名・補足の4列。SITUATION：見出し・状況・問い・最善の対応・
+    解説の5列。`csv.writer`の既定（QUOTE_MINIMAL）が改行を含む項目を自動的に引用符で囲むため、
+    追加の引用処理は不要。
+    """
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
-    for card in list_cards_for_deck(session, deck.id):
-        writer.writerow([card.term, card.meaning, card.aliases or "", card.note or ""])
+    cards = [
+        card for card in list_cards_for_deck(session, deck.id) if card.card_type == card_type
+    ]
+    for card in cards:
+        if card_type == VocabCardType.TERM:
+            writer.writerow([card.term, card.meaning, card.aliases or "", card.note or ""])
+        else:
+            writer.writerow(
+                [
+                    card.term,
+                    card.situation_text or "",
+                    card.question_text or "",
+                    card.meaning,
+                    card.note or "",
+                ]
+            )
     return buffer.getvalue()
 
 
@@ -650,6 +943,20 @@ def export_deck(session: Session, deck: VocabDeck) -> str:
 
 def is_weak_card(stats: VocabCardStats, weak_accuracy_percent: float) -> bool:
     return stats.accuracy_percent is not None and stats.accuracy_percent < weak_accuracy_percent
+
+
+def filter_cards_by_type(cards: list[VocabCard], card_type_filter: str) -> list[VocabCard]:
+    """出題開始時の「カードの種類」絞り込み（ALL/TERM/SITUATION、開発Todo_単語帳_v1.0
+    要件F F-U3・F-D25）。成績に基づく絞り込み（`filter_cards`）とは独立した軸のため別関数
+    とする。
+    """
+    if card_type_filter == "ALL":
+        return cards
+    if card_type_filter == "TERM":
+        return [card for card in cards if card.card_type == VocabCardType.TERM]
+    if card_type_filter == "SITUATION":
+        return [card for card in cards if card.card_type == VocabCardType.SITUATION]
+    raise ValidationError(f"Unknown card_type: {card_type_filter}")
 
 
 def filter_cards(
@@ -878,18 +1185,28 @@ def flatten_for_single_line(text: str) -> str:
 
 
 def forbidden_term_search_text(card: VocabCard) -> str:
-    """禁止語照合の対象文字列（用語・意味・別名を連結、要件B・Cで共有）。
+    """禁止語照合の対象文字列（要件B・Cで共有。要件Fでcard_typeにより分岐、F-D16）。
+
+    TERM：用語・意味・別名を連結（既存どおり）。SITUATION：aliasesが無いため、見出し・
+    状況・問い・最善の対応・解説の5項目を連結する（状況・解説の本文にも禁止語が含まれうる
+    ため検索対象を広げる）。
 
     `build_glossary_reference`・`build_glossary_overview`（本モジュール）・
     `vocab_quiz_generation_service._generate_for_cards`の3箇所が同じ組み立てを
     必要とするため、ここへ共通化する（自己レビューで検出した重複、§5.3 #1と同種。
     モジュール外から呼ぶため公開関数とする、`flatten_for_single_line`等と同じ扱い）。
     """
-    return f"{card.term} {card.meaning} {card.aliases or ''}"
+    if card.card_type == VocabCardType.TERM:
+        return f"{card.term} {card.meaning} {card.aliases or ''}"
+    return (
+        f"{card.term} {card.situation_text or ''} {card.question_text or ''} "
+        f"{card.meaning} {card.note or ''}"
+    )
 
 
 def _format_glossary_label(card: VocabCard) -> str:
     """「・用語（別名1、別名2）: 意味」の形式（別名が無ければ括弧を省略、B-D11）。
+    シチュエーションカードは「・【状況】見出し」の形式（本文は渡さない、F-U7・F-D16）。
 
     埋め込み先の区切り（`<<<GLOSSARY-{{nonce}}>>>`）を利用者入力から偽造できないよう、
     山括弧を全角化する（`DELIMITER_REPLACEMENTS`、呼び出し元に依存しないデフォルトで
@@ -899,6 +1216,8 @@ def _format_glossary_label(card: VocabCard) -> str:
     （自己レビューで検出した重複）。
     """
     term = flatten_for_single_line(card.term).translate(question_safety.DELIMITER_REPLACEMENTS)
+    if card.card_type == VocabCardType.SITUATION:
+        return f"・【状況】{term}"
     meaning = flatten_for_single_line(card.meaning).translate(
         question_safety.DELIMITER_REPLACEMENTS
     )

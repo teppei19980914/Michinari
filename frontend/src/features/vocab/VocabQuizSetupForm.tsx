@@ -3,8 +3,9 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
-import type { VocabQuizMode } from '../../api/vocab'
-import { VOCAB_CARD_FILTER_KEYS, type VocabCardFilterKey } from './vocabCardFilters'
+import type { VocabCardTypeFilter, VocabQuizMode } from '../../api/vocab'
+import { CardTypeFilterSelect } from './CardTypeFilterSelect'
+import { VOCAB_CARD_FILTER_KEYS, type VocabCardFilterKey, type VocabCardTypeKey } from './vocabCardFilters'
 
 const MODES: VocabQuizMode[] = [
   'FLASH_TERM_TO_MEANING',
@@ -21,31 +22,40 @@ export type VocabQuizSessionParams = {
   filter: string
   order: string
   question_count: number
+  card_type: VocabCardTypeFilter
 }
 
-/** 出題セッションの開始条件フォーム（出題形式・絞り込み・並び順・問題数）。
+/** 出題セッションの開始条件フォーム（カードの種類・出題形式・絞り込み・並び順・問題数）。
  * `defaultQuestionCount`・`maxQuestionCount`は単語帳詳細のレスポンス（`vocab.
  * session_default_questions`・`vocab.session_max_questions`、設定画面には表示しない内部
- * パラメータ）を初期値・入力欄の上限として使う（軽微1の修正、2026-11-22）。 */
+ * パラメータ）を初期値・入力欄の上限として使う（軽微1の修正、2026-11-22）。`termCardCount`
+ * は4択の可否判定に使う（用語カードだけで数える、開発Todo_単語帳_v1.0 要件F F-U3・F-D8）。 */
 export function VocabQuizSetupForm({
-  cardCount,
+  termCardCount,
   defaultQuestionCount,
   maxQuestionCount,
   onStart,
 }: {
-  cardCount: number
+  termCardCount: number
   defaultQuestionCount: number
   maxQuestionCount: number
   onStart: (params: VocabQuizSessionParams) => void
 }) {
+  const [cardType, setCardType] = useState<VocabCardTypeKey>('ALL')
   const [mode, setMode] = useState<VocabQuizMode>('FLASH_TERM_TO_MEANING')
   const [filter, setFilter] = useState<VocabCardFilterKey>('ALL')
   const [order, setOrder] = useState<(typeof ORDERS)[number]>('RANDOM')
   const [questionCount, setQuestionCount] = useState(defaultQuestionCount)
-  const choiceUnavailable = cardCount < 4
+  const choiceUnavailable = termCardCount < 4
 
   return (
     <Card className="flex flex-col gap-4">
+      <CardTypeFilterSelect
+        label={t('vocab.deckDetail.cardTypeFilterLabel')}
+        value={cardType}
+        onChange={setCardType}
+      />
+
       <label className="flex flex-col gap-1 text-sm text-text-secondary">
         {t('vocab.quiz.modeLabel')}
         <select
@@ -105,7 +115,11 @@ export function VocabQuizSetupForm({
         />
       </label>
 
-      <Button onClick={() => onStart({ mode, filter, order, question_count: questionCount })}>
+      <Button
+        onClick={() =>
+          onStart({ mode, filter, order, question_count: questionCount, card_type: cardType })
+        }
+      >
         {t('vocab.quiz.startButton')}
       </Button>
     </Card>

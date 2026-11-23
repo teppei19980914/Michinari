@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import random
 import re
 import secrets
 from collections import defaultdict
@@ -31,8 +32,10 @@ from app.ai import question_safety
 from app.constants.app_setting_keys import (
     RECAP_CLASSIFY_CHUNK_CHARS,
     VOCAB_QUIZ_CARDS_PER_STARTUP,
+    VOCAB_SITUATION_DISTRACTOR_MAX_LENGTH_PERCENT,
+    VOCAB_SITUATION_DISTRACTOR_MIN_LENGTH_PERCENT,
 )
-from app.constants.enums import AiPurpose, ConversationScope
+from app.constants.enums import AiPurpose, ConversationScope, VocabCardType
 from app.models.goal import Goal
 from app.models.quiz import QuizQuestion
 from app.models.vocab import VocabCard, VocabDeck
@@ -177,6 +180,150 @@ def _send(session: Session, goal: Goal, deck: VocabDeck, variables: dict[str, st
     )
 
 
+def _format_situation_card_line(card: VocabCard) -> str:
+    """AIへ送るシチュエーションカード1枚分の行「#カードID 状況／問い／最善の対応」を
+    組み立てる（開発Todo_単語帳_v1.0 要件F F-U5）。状況・問いの改行は既存の
+    `flatten_for_single_line`で空白へ変換する（複数行専用の関数は作らない、F-D10）。
+    """
+    situation = vocab_service.flatten_for_single_line(card.situation_text or "").translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
+    question = vocab_service.flatten_for_single_line(
+        vocab_service.resolve_situation_question_text(card.question_text)
+    ).translate(question_safety.DELIMITER_REPLACEMENTS)
+    best_action = vocab_service.flatten_for_single_line(card.meaning).translate(
+        question_safety.DELIMITER_REPLACEMENTS
+    )
+    return f"#{card.id} {situation}／{question}／{best_action}"
+
+
+def _send_situation(
+    session: Session, goal: Goal, deck: VocabDeck, variables: dict[str, str]
+) -> str:
+    return theme_ai_dispatch.send_theme_scoped_prompt(
+        session,
+        goal,
+        AiPurpose.VOCAB_SITUATION_QUIZ_GENERATE,
+        ConversationScope.VOCAB_SITUATION_QUIZ_GENERATE,
+        variables,
+        scope_key=f"deck-{deck.id}-situation",
+        title=f"シチュエーション問題生成 deck-{deck.id}",
+    )
+
+
+def _validate_distractor_block(
+    block: quiz_block_parsing.ParsedDistractorBlock,
+    valid_card_ids: frozenset[int],
+    cards_by_id: dict[int, VocabCard],
+    seen_card_ids: set[int],
+    *,
+    min_length_percent: int,
+    max_length_percent: int,
+) -> tuple[int, quiz_block_parsing.ParsedDistractorBlock] | None:
+    """誤答3件のブロックを検証する（開発Todo_単語帳_v1.0 要件F F-D13）。不合格なら`None`。
+
+    ①出典の形式②出典カードIDが送付集合に含まれ、かつそのカードがSITUATIONである
+    （選定時点でSITUATIONのみに絞られているため通常は到達しないが、多層防御として明示的に
+    行う）③誤答3件・正解の4件が正規化後に全て異なる④各誤答の文字数が正解（最善の対応）の
+    文字数に対し`min_length_percent`〜`max_length_percent`%の範囲内⑤1回の生成で1カード1問
+    まで（`seen_card_ids`）。
+    """
+    match = _CITATION_PATTERN.match(block.citation_raw)
+    if match is None:
+        return None
+    card_id = int(match.group(1))
+    if card_id not in valid_card_ids or card_id in seen_card_ids:
+        return None
+    card = cards_by_id[card_id]
+    if card.card_type != VocabCardType.SITUATION:
+        return None
+    normalized_choices = {normalize_for_vocab_match(card.meaning)}
+    normalized_choices.update(normalize_for_vocab_match(d) for d in block.distractors)
+    if len(normalized_choices) != 4:
+        return None
+    correct_length = len(card.meaning)
+    for distractor in block.distractors:
+        ratio = len(distractor) / correct_length * 100
+        if ratio < min_length_percent or ratio > max_length_percent:
+            return None
+    return card_id, block
+
+
+def _generate_for_situation_cards(
+    session: Session,
+    goal: Goal,
+    deck: VocabDeck,
+    cards: list[VocabCard],
+    *,
+    rng: random.Random | None = None,
+) -> int:
+    """シチュエーションカード（既に対象・上限の絞り込み済み）から、登録済みの状況・問い・
+    最善の対応・解説をそのまま使い、AIには誤答3つだけを作らせて問題を保存する
+    （開発Todo_単語帳_v1.0 要件F F-U5・F-D12〜F-D15）。戻り値は採用数。
+    """
+    rng = rng or random.Random()
+    cards_by_id = {card.id: card for card in cards}
+    items = [
+        _CardChunkItem(card_id=card.id, text=_format_situation_card_line(card)) for card in cards
+    ]
+    chunk_budget = setting_reader.get_int(session, RECAP_CLASSIFY_CHUNK_CHARS)
+    min_percent = setting_reader.get_int(session, VOCAB_SITUATION_DISTRACTOR_MIN_LENGTH_PERCENT)
+    max_percent = setting_reader.get_int(session, VOCAB_SITUATION_DISTRACTOR_MAX_LENGTH_PERCENT)
+    created = 0
+    for chunk in recap_service.chunk_by_chars(items, chunk_budget):
+        valid_card_ids = frozenset(item.card_id for item in chunk)
+        nonce = secrets.token_hex(question_safety.NONCE_BYTES)
+        response = _send_situation(
+            session,
+            goal,
+            deck,
+            {
+                "card_count": str(len(chunk)),
+                "cards": "\n".join(item.text for item in chunk),
+                "nonce": nonce,
+            },
+        )
+        seen_card_ids: set[int] = set()
+        for block in quiz_block_parsing.parse_distractor_blocks(response):
+            validated = _validate_distractor_block(
+                block,
+                valid_card_ids,
+                cards_by_id,
+                seen_card_ids,
+                min_length_percent=min_percent,
+                max_length_percent=max_percent,
+            )
+            if validated is None:
+                continue
+            card_id, parsed = validated
+            seen_card_ids.add(card_id)
+            card = cards_by_id[card_id]
+            options = [card.meaning, *parsed.distractors]
+            order = list(range(4))
+            rng.shuffle(order)
+            shuffled = [options[i] for i in order]
+            correct_choice_index = shuffled.index(card.meaning)
+            explanation = card.note or vocab_service.situation_no_explanation_text(card.meaning)
+            session.add(
+                QuizQuestion(
+                    vocab_card_id=card_id,
+                    question_text=vocab_service.build_situation_prompt_text(card),
+                    choice_1=shuffled[0],
+                    choice_2=shuffled[1],
+                    choice_3=shuffled[2],
+                    choice_4=shuffled[3],
+                    correct_choice_index=correct_choice_index,
+                    explanation=explanation,
+                    citation_date=None,
+                    interval_index=0,
+                    next_due_date=dt.date.today(),
+                )
+            )
+            created += 1
+        session.flush()
+    return created
+
+
 def _generate_for_cards(
     session: Session, goal: Goal, deck: VocabDeck, cards: list[VocabCard]
 ) -> int:
@@ -231,10 +378,21 @@ def _generate_for_cards(
     return created
 
 
+def _split_by_card_type(cards: list[VocabCard]) -> tuple[list[VocabCard], list[VocabCard]]:
+    """候補カードをTERM/SITUATIONへ分ける（開発Todo_単語帳_v1.0 要件F F-D12）。対象の選び方
+    （`_select_eligible_cards`）・上限はカードの種類に依存しないため共通のまま、生成方法
+    （AIに作らせる範囲）が異なる2つの関数へ分配するためだけに分ける。
+    """
+    term_cards = [card for card in cards if card.card_type == VocabCardType.TERM]
+    situation_cards = [card for card in cards if card.card_type == VocabCardType.SITUATION]
+    return term_cards, situation_cards
+
+
 def generate_for_deck(session: Session, goal: Goal, deck: VocabDeck) -> int:
     """単語帳詳細の「今日の復習の問題を作る」ボタン（B-U5）。`use_in_ai=False`のデッキは
     何もしない（対象はuse_in_ai=Trueのみ、B-U1）。上限は起動時バッチと同じ
-    `vocab.quiz_cards_per_startup`をそのデッキ単独に適用する（B-D9）。
+    `vocab.quiz_cards_per_startup`をそのデッキ単独に、2種類の合計に対して適用する（B-D9・
+    要件F F-D12）。
     """
     if not deck.use_in_ai:
         return 0
@@ -242,7 +400,13 @@ def generate_for_deck(session: Session, goal: Goal, deck: VocabDeck) -> int:
     cards = _select_eligible_cards(session, limit, [deck.id])
     if not cards:
         return 0
-    return _generate_for_cards(session, goal, deck, cards)
+    term_cards, situation_cards = _split_by_card_type(cards)
+    created = 0
+    if term_cards:
+        created += _generate_for_cards(session, goal, deck, term_cards)
+    if situation_cards:
+        created += _generate_for_situation_cards(session, goal, deck, situation_cards)
+    return created
 
 
 def run_all(session: Session) -> int:
@@ -278,8 +442,12 @@ def run_all(session: Session) -> int:
     for deck_id, deck_cards in cards_by_deck.items():
         deck = decks_by_id[deck_id]
         goal = goals_by_id[deck.goal_id]
+        term_cards, situation_cards = _split_by_card_type(deck_cards)
         try:
-            total += _generate_for_cards(session, goal, deck, deck_cards)
+            if term_cards:
+                total += _generate_for_cards(session, goal, deck, term_cards)
+            if situation_cards:
+                total += _generate_for_situation_cards(session, goal, deck, situation_cards)
             session.commit()
         except Exception:  # noqa: BLE001 - 1デッキの失敗で起動時処理全体を止めないため意図的に握りつぶす
             _logger.exception("単語帳由来の復習クイズの生成に失敗しました: deck_id=%s", deck_id)

@@ -197,4 +197,20 @@ describe('QuizSession', () => {
     ).toBeDefined()
     expect(screen.queryByRole('link', { name: t('quiz.viewInVocabDeckLink') })).toBeNull()
   })
+
+  it('preserves line breaks in a multi-line question text (開発Todo_単語帳_v1.0 要件F F-U10)', () => {
+    const multilineQuestion: QuizQuestion = {
+      id: 3,
+      source: 'vocab',
+      vocab_deck_id: 1,
+      vocab_deck_name: 'デッキ',
+      question_text: '状況の説明\n\n最善の対応は？',
+      choices: ['対応A', '対応B', '対応C', '対応D'],
+    }
+    renderWithProviders(<QuizSession questions={[multilineQuestion]} onFinished={vi.fn()} />)
+
+    const heading = screen.getByText((_, element) => element?.tagName === 'H2')
+    expect(heading.className).toContain('whitespace-pre-wrap')
+    expect(heading.textContent).toBe('状況の説明\n\n最善の対応は？')
+  })
 })
