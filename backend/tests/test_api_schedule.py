@@ -6,6 +6,8 @@
 保存・取得、終了した目標への書き込み拒否を中心に確認する。
 """
 
+import datetime as dt
+
 from app.constants.enums import GoalStatus
 from tests import schedule_helpers
 
@@ -24,7 +26,11 @@ def test_get_schedule_returns_defaults_for_new_goal(client):
     assert body["frozen_column_count"] == 1
     assert body["columns"] == []
     assert body["items"] == []
-    assert body["today"] == "2026-11-23"
+    # 単位2の原文は日付の文字列リテラルを直書きしていたため、翌日以降にテストが必ず
+    # 失敗していた（独立した最終確認〈2026-11-24〉で発覚）。他のテスト（例:
+    # test_api_records_common.py）と同じ`dt.date.today()`基準の動的な比較に修正する
+    # （resolve_todayはdt.datetime.now()を使うため、既定の日境界時刻では一致する）。
+    assert body["today"] == dt.date.today().isoformat()
     # 単位3：画面が必要とする内部パラメータ（app_settingの初期値）を読み取り専用で返す
     # （開発Todo_スケジュール・ガントチャート_単位3_v1.0 第2章食い違い2）。
     assert body["max_items"] == 100
