@@ -19,6 +19,11 @@ class VocabDeckRead(BaseModel):
     card_count: int
     #: 習得済みカード数（開発Todo_単語帳_v1.0 要件E E-U6、都度算出）。
     mastered_card_count: int
+    #: 出題セッションの問題数の初期値（`vocab.session_default_questions`、設定画面には表示
+    #: しない内部パラメータ。不具合修正、2026-11-22）。
+    session_default_questions: int
+    #: 出題セッションの問題数の上限（`vocab.session_max_questions`、同上）。
+    session_max_questions: int
 
 
 class VocabDeckCreateRequest(BaseModel):
@@ -117,7 +122,7 @@ class VocabExportRead(BaseModel):
 
 class VocabQuizSessionRequest(BaseModel):
     mode: VocabQuizMode
-    #: ALL/CHECKED/EVER_WRONG/CONSECUTIVE_WRONG/WEAK/UNANSWERED
+    #: ALL/CHECKED/EVER_WRONG/CONSECUTIVE_WRONG/WEAK/UNANSWERED/UNMASTERED
     filter: str = "ALL"
     #: RANDOM/WEAK_ORDER/REGISTERED
     order: str = "RANDOM"

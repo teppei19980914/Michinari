@@ -199,6 +199,33 @@ def test_generate_for_deck_excludes_card_containing_forbidden_term(seeded_sessio
     assert calls == []
 
 
+def test_generate_for_deck_does_not_starve_normal_cards_behind_forbidden_cards(
+    seeded_session, monkeypatch
+):
+    """禁止語を含むカードが上限枚数以上にチェック付きで並んでいても、禁止語を含まない
+    カードの問題が作られること（不具合2の再現テスト。禁止語の除外を上限で切り詰める前に
+    行わないと、禁止語カードが優先順の上位〈チェック付き〉を埋め続け、他のカードが永久に
+    選ばれない）。"""
+    from app.constants.app_setting_keys import VOCAB_QUIZ_CARDS_PER_STARTUP
+
+    seeded_session.add(AiForbiddenTerm(term="社外秘", enabled=True, note=None))
+    seeded_session.flush()
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    normal_card = make_card(seeded_session, deck, term="DNS", meaning="名前解決の仕組み")
+    for i in range(3):
+        make_card(seeded_session, deck, term=f"社外秘{i}", meaning="意味", is_checked=True)
+    set_setting(seeded_session, VOCAB_QUIZ_CARDS_PER_STARTUP, "3")
+    calls = stub_quiz_ai(monkeypatch, _valid_block(normal_card.id, term="DNS"))
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 1
+    assert len(calls) == 1
+    question = seeded_session.scalar(select(QuizQuestion))
+    assert question.vocab_card_id == normal_card.id
+
+
 def test_generate_for_deck_respects_cards_per_startup_limit(seeded_session, monkeypatch):
     from app.constants.app_setting_keys import VOCAB_QUIZ_CARDS_PER_STARTUP
 
@@ -348,6 +375,30 @@ def test_run_all_generates_across_decks_with_global_cap(seeded_session, monkeypa
 
     assert total == 1
     assert len(calls) == 1
+
+
+def test_run_all_does_not_starve_normal_cards_behind_forbidden_cards(seeded_session, monkeypatch):
+    """起動時バッチ（`run_all`）でも、禁止語を含むカードが上限枚数以上にチェック付きで
+    並んでいても、禁止語を含まないカードの問題が作られること（不具合2、`generate_for_deck`
+    と同じ観点のボタン以外の経路の横展開確認）。"""
+    from app.constants.app_setting_keys import VOCAB_QUIZ_CARDS_PER_STARTUP
+
+    seeded_session.add(AiForbiddenTerm(term="社外秘", enabled=True, note=None))
+    seeded_session.flush()
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    normal_card = make_card(seeded_session, deck, term="DNS", meaning="名前解決の仕組み")
+    for i in range(3):
+        make_card(seeded_session, deck, term=f"社外秘{i}", meaning="意味", is_checked=True)
+    set_setting(seeded_session, VOCAB_QUIZ_CARDS_PER_STARTUP, "3")
+    calls = stub_quiz_ai(monkeypatch, _valid_block(normal_card.id, term="DNS"))
+
+    total = vocab_quiz_generation_service.run_all(seeded_session)
+
+    assert total == 1
+    assert len(calls) == 1
+    question = seeded_session.scalar(select(QuizQuestion))
+    assert question.vocab_card_id == normal_card.id
 
 
 def test_run_all_excludes_reading_goal_decks(seeded_session, monkeypatch):
