@@ -5165,6 +5165,11 @@ export interface components {
         /**
          * ScheduleRead
          * @description GET /goals/{goal_id}/schedule の応答（本書8章）。
+         *
+         *     max_items・max_custom_columns・gantt_day_width_min_rem・gantt_day_width_max_rem は
+         *     画面側が必要とする内部パラメータ（app_setting、設定画面には表示しない）を読み取り専用
+         *     フィールドとして渡す。単語帳機能の前例（VocabDeckRead.session_default_questions/
+         *     session_max_questions、設計書データ構造編1.1改75）に倣う（単位3、開発Todo第2章食い違い2）。
          */
         ScheduleRead: {
             /** Revision */
@@ -5178,6 +5183,14 @@ export interface components {
              * Format: date
              */
             today: string;
+            /** Max Items */
+            max_items: number;
+            /** Max Custom Columns */
+            max_custom_columns: number;
+            /** Gantt Day Width Min Rem */
+            gantt_day_width_min_rem: number;
+            /** Gantt Day Width Max Rem */
+            gantt_day_width_max_rem: number;
             /** Columns */
             columns: components["schemas"]["ScheduleColumnRead"][];
             /** Items */

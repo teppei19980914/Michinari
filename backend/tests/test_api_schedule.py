@@ -25,6 +25,12 @@ def test_get_schedule_returns_defaults_for_new_goal(client):
     assert body["columns"] == []
     assert body["items"] == []
     assert body["today"] == "2026-11-23"
+    # 単位3：画面が必要とする内部パラメータ（app_settingの初期値）を読み取り専用で返す
+    # （開発Todo_スケジュール・ガントチャート_単位3_v1.0 第2章食い違い2）。
+    assert body["max_items"] == 100
+    assert body["max_custom_columns"] == 10
+    assert body["gantt_day_width_min_rem"] == 1.75
+    assert body["gantt_day_width_max_rem"] == 4.5
 
 
 def test_get_schedule_returns_404_for_nonexistent_goal(client):

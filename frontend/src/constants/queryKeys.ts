@@ -44,6 +44,8 @@ export const QUERY_KEYS = {
   goalMilestones: (goalId: number) => ['goal-milestones', goalId] as const,
   materialSlotCheck: (materialId: number) => ['material-slot-check', materialId] as const,
   examTemplates: () => ['exam-templates'] as const,
+  /** スケジュールタブ（開発Todo_スケジュール・ガントチャート_v1.1、単位3）。 */
+  schedule: (goalId: number) => ['schedule', goalId] as const,
 
   // --- 日次記録 ---
   record: (targetDate: string) => ['record', targetDate] as const,
@@ -122,7 +124,9 @@ export const QUERY_KEYS = {
   dayTypeDefaults: () => ['day-type-defaults'] as const,
   dayBoundaryHour: () => ['day-boundary-hour'] as const,
   holidayTreatAsBuffer: () => ['holiday-treat-as-buffer'] as const,
-  holidayCoverage: () => ['holiday-coverage'] as const,
+  /** 祝日（D-46の年範囲表示は引数なし、スケジュールタブのガント〈D-45〉は期間指定で呼ぶ）。 */
+  holidayCoverage: (dateFrom?: string, dateTo?: string) =>
+    ['holiday-coverage', dateFrom ?? null, dateTo ?? null] as const,
 
   // --- 設定・システム ---
   settings: () => ['settings'] as const,

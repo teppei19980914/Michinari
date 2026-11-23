@@ -66,9 +66,16 @@ export function updateHolidayTreatAsBuffer(
   })
 }
 
-/** 収録済みの祝日の年の範囲を取得する（D-46「収録済みの年の範囲」表示）。 */
-export function getHolidayCoverage(): Promise<HolidayListRead> {
-  return apiClient.get<HolidayListRead>('/holidays')
+/**
+ * 祝日を取得する（D-46「収録済みの年の範囲」表示、D-45スケジュールタブのガント）。
+ * `dateFrom`・`dateTo`を省略した場合は`holidays`は空配列、`year_from`/`year_to`
+ * （収録範囲）のみを返す（リソース設定画面の表示はこの用法、`GET /holidays`は単位1で
+ * 期間を省略可能として実装済み）。
+ */
+export function getHolidayCoverage(dateFrom?: string, dateTo?: string): Promise<HolidayListRead> {
+  const query =
+    dateFrom && dateTo ? `?date_from=${dateFrom}&date_to=${dateTo}` : ''
+  return apiClient.get<HolidayListRead>(`/holidays${query}`)
 }
 
 /**
