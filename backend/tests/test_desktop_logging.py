@@ -43,6 +43,19 @@ class TestEnsureStandardStreams:
         logging_setup.sys.stdout.write("x")
         logging_setup.sys.stderr.flush()
 
+    def test_accepts_characters_outside_cp932(self, monkeypatch: pytest.MonkeyPatch):
+        """`encoding`未指定だとWindows既定ロケール（cp932）になり、開発キット内部の
+        `print()`がAI応答中のcp932非対応文字（em dash等）で`UnicodeEncodeError`を
+        起こしていたため、UTF-8で書けることを確かめる。
+        """
+        monkeypatch.setattr(logging_setup.sys, "stdout", None)
+        monkeypatch.setattr(logging_setup.sys, "stderr", None)
+
+        logging_setup.ensure_standard_streams()
+
+        logging_setup.sys.stdout.write("— ↔ 日本語")
+        logging_setup.sys.stderr.write("— ↔ 日本語")
+
     def test_keeps_existing_streams(self, monkeypatch: pytest.MonkeyPatch):
         """既に使える標準出力がある場合（ソースからの起動）は奪わないこと。"""
         sentinel = object()
