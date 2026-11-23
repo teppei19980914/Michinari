@@ -320,6 +320,38 @@ class VocabCardType(enum.StrEnum):
     SITUATION = "SITUATION"
 
 
+class ScheduleItemStatus(enum.StrEnum):
+    """スケジュール作業項目の状況（開発Todo_スケジュール・ガントチャート_v1.1 D-10）。
+
+    実績日の入力可否は状況に応じた条件付き必須（本書6.2）。
+    """
+
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    DONE = "DONE"
+    CANCELLED = "CANCELLED"
+
+
+class ScheduleUpdateSource(enum.StrEnum):
+    """schedule_item_historyの更新元（開発Todo_スケジュール・ガントチャート_v1.1 D-39）。
+
+    DAILY_REPORT・PROGRESS_ONLYは単位4で追加するAPIが使う（本単位では定義のみ）。
+    """
+
+    SCHEDULE_SCREEN = "SCHEDULE_SCREEN"
+    DAILY_REPORT = "DAILY_REPORT"
+    PROGRESS_ONLY = "PROGRESS_ONLY"
+
+
+class ScheduleColumnType(enum.StrEnum):
+    """スケジュールの追加列の型（開発Todo_スケジュール・ガントチャート_v1.1 D-12）。
+
+    MVPはTEXTのみ。
+    """
+
+    TEXT = "TEXT"
+
+
 class VocabTermSuggestionStatus(enum.StrEnum):
     """日次報告の日記から抜き出した単語帳の用語候補の状態（開発Todo_単語帳_v1.0 要件D）。
 

@@ -22,6 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover (型チェック専用、実行時には�
     from app.models.record import DailyGoalDiary, DailyMessage, ExamResult, WeeklySummary
     from app.models.resource import GoalSlotAllocation
     from app.models.retrospective import GoalRetrospective
+    from app.models.schedule import GoalSchedule, ScheduleColumn, ScheduleItem
     from app.models.work import WorkAssignment
 
 
@@ -85,6 +86,16 @@ class Goal(TimestampMixin, Base):
         back_populates="goal", cascade="all, delete-orphan"
     )
     slot_allocations: Mapped[list["GoalSlotAllocation"]] = relationship(
+        back_populates="goal", cascade="all, delete-orphan"
+    )
+    #: スケジュール・ガントチャート機能（開発Todo_スケジュール・ガントチャート_v1.1 7.3）。
+    schedule: Mapped["GoalSchedule | None"] = relationship(
+        back_populates="goal", cascade="all, delete-orphan", uselist=False
+    )
+    schedule_items: Mapped[list["ScheduleItem"]] = relationship(
+        back_populates="goal", cascade="all, delete-orphan"
+    )
+    schedule_columns: Mapped[list["ScheduleColumn"]] = relationship(
         back_populates="goal", cascade="all, delete-orphan"
     )
 

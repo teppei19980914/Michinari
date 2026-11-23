@@ -298,6 +298,16 @@
 | POST | /goals/{goal_id}/vocab-suggestions/{suggestion_id}/accept | 提案を採用し、指定の単語帳へカードを追加してADDEDにする。他目標の提案・単語帳は404 |
 | POST | /goals/{goal_id}/vocab-suggestions/{suggestion_id}/dismiss | 提案を見送り、DISMISSEDにする。他目標の提案は404 |
 
+**スケジュール・ガントチャート（開発Todo_スケジュール・ガントチャート_v1.1 単位2、データモデル・APIのみ。画面は単位3）**
+
+| メソッド | パス | 概要 |
+| --- | --- | --- |
+| GET | /goals/{goal_id}/schedule | 行・追加列・セル・固定の設定・revision・本日（サーバーの論理日）を返す。行が存在しない目標は既定値（固定は作業項目列のみ、revision=0）を返す |
+| PUT | /goals/{goal_id}/schedule | 一括保存。行IDを維持する差分更新（IDがあれば更新、なければ新規作成、送られてこなかった既存のものは削除）。新規列はクライアントが振った仮キー（`temp_key`）で対応付ける。`revision`が現在値と一致しなければ`SCHEDULE_REVISION_CONFLICT`（409）、他の目標に属する行・列IDを送った場合は`VALIDATION_ERROR`（400、存在しないIDと区別しない）。状況・実績日が変わった行は`source=SCHEDULE_SCREEN`で履歴（`schedule_item_history`）を追加する |
+| PUT | /goals/{goal_id}/schedule/view-setting | 固定する行数・列数を即時に保存する（`revision`は変えない）。現在の行数・既定7列+追加列数を超える値は範囲内へ収める |
+
+検証ルール（必須・日付整合・状況に応じた実績日の条件付き必須等）はサービス層の1か所（`schedule_service.validate_item_fields`）に集約し、本APIの一括保存と、単位4で追加する日次報告・SC-07からの更新で共通に使う。詳細は仕様書10章参照。
+
 **その他**
 
 | メソッド | パス | 概要 |
@@ -327,6 +337,7 @@
 | VOCAB_DECK_GOAL_CATEGORY | 400 | 単語帳を資格試験以外の目標へ作成しようとした（開発Todo_単語帳_v1.0 要件A） |
 | VOCAB_IMPORT_TOO_MANY_ROWS | 400 | 単語帳の一括登録が`vocab.import_max_rows`を超える行数を送った |
 | VOCAB_DECK_CARD_LIMIT_EXCEEDED | 400 | 単語帳のカード数が`vocab.deck_max_cards`を超える |
+| SCHEDULE_REVISION_CONFLICT | 409 | スケジュールの一括保存時に、送信された`revision`が現在値と一致しない（他の画面での同時更新、開発Todo_スケジュール・ガントチャート_v1.1 D-07） |
 | NOT_FOUND | 404 | 対象が存在しない |
 | AI_AUTH_REQUIRED | 401 | AI基盤の認証が必要 |
 | AI_CONFIG_ERROR | 400 | AI連携の設定不備 |

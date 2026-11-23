@@ -1878,6 +1878,7 @@
     "EXAM_RESULTS_INCOMPLETE": "Results aren't all in yet, so this can't be completed. Please register results for every subject, then try again",
     "IMMUTABLE_RECORD": "A finalized record can't be changed. There's no way to revert to the content before it was finalized",
     "RECAP_THEME_NAME_CONFLICT": "A theme with that name already exists. Please choose a different name",
+    "SCHEDULE_REVISION_CONFLICT": "This was updated in another window. Please reload the latest content and try again",
     "RECAP_BODY_REJECTED": "Could not update the recap body. Nothing was lost. Please try again later",
     "RECAP_PROMPT_TOO_LONG": "Too many reports to process, so the recap could not be created",
     "DAILY_FEEDBACK_PROMPT_TOO_LONG": "Today's input exceeds the character limit and could not be sent. Please shorten it and try again",

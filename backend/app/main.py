@@ -42,6 +42,7 @@ from app.api.quiz import router as quiz_router
 from app.api.recap import router as recap_router
 from app.api.records import router as records_router
 from app.api.resources import router as resources_router
+from app.api.schedule import router as schedule_router
 from app.api.settings import router as settings_router
 from app.api.summary_card import router as summary_card_router
 from app.api.system_info import router as system_info_router
@@ -249,6 +250,7 @@ def create_app() -> FastAPI:
     app.include_router(recap_router, prefix=API_V1_PREFIX)
     app.include_router(quiz_router, prefix=API_V1_PREFIX)
     app.include_router(resources_router, prefix=API_V1_PREFIX)
+    app.include_router(schedule_router, prefix=API_V1_PREFIX)
     app.include_router(records_router, prefix=API_V1_PREFIX)
     app.include_router(calendar_router, prefix=API_V1_PREFIX)
     app.include_router(ai_router, prefix=API_V1_PREFIX)
