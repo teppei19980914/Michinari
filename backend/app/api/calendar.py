@@ -75,6 +75,7 @@ async def import_holidays(
 ) -> HolidayImportResultRead:
     content = await file.read()
     result = calendar_service.import_holidays(session, content)
+    calendar_service.mark_manual_holiday_import(session)
     session.commit()
     return HolidayImportResultRead(
         imported_count=result.imported_count, year_from=result.year_from, year_to=result.year_to
