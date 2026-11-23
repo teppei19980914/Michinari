@@ -93,6 +93,10 @@ from app.constants.app_setting_keys import (
     RECAP_CLASSIFY_CHUNK_CHARS,
     RECAP_MIN_RETENTION_RATIO,
     RESUME_QUOTA_WARNING_RATIO,
+    SCHEDULE_GANTT_DAY_WIDTH_MAX_REM,
+    SCHEDULE_GANTT_DAY_WIDTH_MIN_REM,
+    SCHEDULE_MAX_CUSTOM_COLUMNS,
+    SCHEDULE_MAX_ITEMS,
     SERVER_GRACEFUL_SHUTDOWN_SECONDS,
     SERVER_PORT,
     SUMMARY_RETROACTIVE_MAX_PER_RUN,
@@ -350,6 +354,14 @@ INITIAL_APP_SETTINGS: dict[str, tuple[str, AppSettingValueType]] = {
     VOCAB_NOTE_MAX_CHARS: ("2000", AppSettingValueType.INTEGER),
     VOCAB_SITUATION_DISTRACTOR_MIN_LENGTH_PERCENT: ("50", AppSettingValueType.INTEGER),
     VOCAB_SITUATION_DISTRACTOR_MAX_LENGTH_PERCENT: ("150", AppSettingValueType.INTEGER),
+    # スケジュール・ガントチャート機能（開発Todo_スケジュール・ガントチャート_v1.1、単位2）。
+    SCHEDULE_MAX_CUSTOM_COLUMNS: ("10", AppSettingValueType.INTEGER),
+    SCHEDULE_MAX_ITEMS: ("100", AppSettingValueType.INTEGER),
+    #: 日付の数字（2桁）が1.0remのフォントで読める幅を1.75remとして下限に採用（単位3の
+    #: ガント描画が使う。単位2の時点ではガント画面が未実装のため暫定値とし、単位3の
+    #: 影響範囲確定時に見直す）。
+    SCHEDULE_GANTT_DAY_WIDTH_MIN_REM: ("1.75", AppSettingValueType.FLOAT),
+    SCHEDULE_GANTT_DAY_WIDTH_MAX_REM: ("4.5", AppSettingValueType.FLOAT),
 }
 
 INITIAL_PROMPT_TEMPLATES: dict[AiPurpose, str] = {

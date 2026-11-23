@@ -273,3 +273,18 @@ class VocabDeckCardLimitExceededError(DomainError):
         self.deck_id = deck_id
         self.max_cards = max_cards
         super().__init__(f"VocabDeck(id={deck_id}) would exceed the card limit of {max_cards}")
+
+
+class ScheduleRevisionConflictError(DomainError):
+    """スケジュールの一括保存時に、送信されたrevisionが現在の値と一致しない場合
+    （開発Todo_スケジュール・ガントチャート_v1.1 D-07、楽観ロック）。他の画面での
+    同時更新を検知する。"""
+
+    def __init__(self, goal_id: int, expected_revision: int, actual_revision: int) -> None:
+        self.goal_id = goal_id
+        self.expected_revision = expected_revision
+        self.actual_revision = actual_revision
+        super().__init__(
+            f"Goal(id={goal_id}) schedule revision mismatch "
+            f"(expected={expected_revision}, actual={actual_revision})"
+        )

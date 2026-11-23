@@ -962,9 +962,7 @@ def test_vocab_card_situation_fields_migration_downgrade_drops_new_columns_only(
     migration_helpers.downgrade_to("e9eca0569d7c")
 
     with migration_helpers.sqlite_connection(db_path) as connection:
-        remaining_cards = connection.execute(
-            "SELECT id, term, meaning FROM vocab_card"
-        ).fetchall()
+        remaining_cards = connection.execute("SELECT id, term, meaning FROM vocab_card").fetchall()
         card_columns = {
             row[1] for row in connection.execute("PRAGMA table_info(vocab_card)").fetchall()
         }
@@ -973,3 +971,82 @@ def test_vocab_card_situation_fields_migration_downgrade_drops_new_columns_only(
     assert "card_type" not in card_columns
     assert "situation_text" not in card_columns
     assert "question_text" not in card_columns
+
+
+def test_schedule_tables_migration_upgrade_preserves_existing_goal_rows(tmp_path, monkeypatch):
+    """新規create_tableのみのマイグレーション（b4bff554312c）でも、既存の他テーブルの行
+    （目標）が保持され、新テーブルへ目標IDで行を追加できることを確認する
+    （開発Todo_スケジュール・ガントチャート_v1.1 単位2、15.1手順1「既存DBのコピーへの
+    upgradeが成功すること」。CODING_RULES.md「DBマイグレーションのテスト」の判断の
+    目安により、本マイグレーション自体は既存データ保持の確認テストの必須対象外だが、
+    単位2の開発Todoの要求に基づき確認する）。
+    """
+    db_path = tmp_path / "schedule_tables_migration_upgrade.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("8d475d100b88")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '既存目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        goal_rows = connection.execute("SELECT id, name FROM goal").fetchall()
+        connection.execute(
+            "INSERT INTO schedule_item (goal_id, title, planned_start_date, planned_end_date, "
+            "status, display_order, updated_at, created_at) "
+            "VALUES (1, '第1章', '2026-01-01', '2026-01-05', 'NOT_STARTED', 0, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        item_rows = connection.execute("SELECT goal_id, title FROM schedule_item").fetchall()
+
+    assert goal_rows == [(1, "既存目標A")]
+    assert item_rows == [(1, "第1章")]
+
+
+def test_schedule_tables_migration_downgrade_drops_new_tables_only(tmp_path, monkeypatch):
+    """downgradeは新設5テーブルを削除するのみで、既存の目標行は削除しないこと
+    （開発Todo_スケジュール・ガントチャート_v1.1 単位2、15.1手順1「downgradeが
+    成功すること」）。
+    """
+    db_path = tmp_path / "schedule_tables_migration_downgrade.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '既存目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal_schedule (goal_id, revision, frozen_row_count, "
+            "frozen_column_count, updated_at, created_at) "
+            "VALUES (1, 0, 0, 1, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.downgrade_to("8d475d100b88")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        goal_rows = connection.execute("SELECT id, name FROM goal").fetchall()
+        table_names = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+
+    assert goal_rows == [(1, "既存目標A")]
+    assert {
+        "goal_schedule",
+        "schedule_item",
+        "schedule_column",
+        "schedule_cell",
+        "schedule_item_history",
+    }.isdisjoint(table_names)

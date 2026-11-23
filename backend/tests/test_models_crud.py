@@ -22,6 +22,8 @@ from app.constants.enums import (
     GoalCategory,
     GoalStatus,
     RecordState,
+    ScheduleItemStatus,
+    ScheduleUpdateSource,
 )
 from app.models.ai import AiConversation, AiLog
 from app.models.book import Book
@@ -41,6 +43,13 @@ from app.models.record import (
 )
 from app.models.resource import ResourceSlot, ResourceSlotWeekday
 from app.models.retrospective import GoalRetrospective
+from app.models.schedule import (
+    GoalSchedule,
+    ScheduleCell,
+    ScheduleColumn,
+    ScheduleItem,
+    ScheduleItemHistory,
+)
 from app.models.setting import CalendarDayOverride, Holiday
 from app.models.vocab import VocabCard, VocabDeck
 
@@ -579,3 +588,70 @@ def test_quiz_question_check_constraint_allows_vocab_sourced_row(db_session):
     db_session.commit()
 
     assert db_session.get(QuizQuestion, question.id) is not None
+
+
+def test_goal_schedule_goal_id_unique_constraint(db_session):
+    """goal_schedule.goal_idはUNIQUE（目標ごとに1行、開発Todo_スケジュール・
+    ガントチャート_v1.1 7.1）。"""
+    goal = _make_goal("スケジュール一意制約検証用", dt.date(2026, 1, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    db_session.add(GoalSchedule(goal_id=goal.id, revision=0))
+    db_session.commit()
+
+    db_session.add(GoalSchedule(goal_id=goal.id, revision=0))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_schedule_tables_cascade_delete_with_goal(db_session):
+    """目標の削除で、スケジュールのデータ（goal_schedule・schedule_item・schedule_column・
+    schedule_cell）がすべて削除されること（開発Todo_スケジュール・ガントチャート_v1.1
+    単位2、CASCADE）。schedule_item_historyはschedule_item経由の二段CASCADEで検証する。
+    """
+    goal = _make_goal("スケジュールCASCADE検証用", dt.date(2026, 1, 1))
+    db_session.add(goal)
+    db_session.flush()
+
+    schedule = GoalSchedule(goal_id=goal.id, revision=1)
+    column = ScheduleColumn(goal_id=goal.id, name="担当", display_order=0)
+    item = ScheduleItem(
+        goal_id=goal.id,
+        title="第1章",
+        planned_start_date=dt.date(2026, 1, 1),
+        planned_end_date=dt.date(2026, 1, 5),
+        status=ScheduleItemStatus.NOT_STARTED,
+        display_order=0,
+    )
+    db_session.add_all([schedule, column, item])
+    db_session.flush()
+
+    cell = ScheduleCell(schedule_item_id=item.id, schedule_column_id=column.id, value="自分")
+    db_session.add(cell)
+    db_session.flush()
+    history = ScheduleItemHistory(
+        schedule_item_id=item.id,
+        source=ScheduleUpdateSource.SCHEDULE_SCREEN,
+        record_date=None,
+        status=ScheduleItemStatus.NOT_STARTED,
+        actual_start_date=None,
+        actual_end_date=None,
+        changed_at=dt.datetime.now(dt.UTC),
+    )
+    db_session.add(history)
+    db_session.commit()
+
+    schedule_id, column_id, item_id, history_id = schedule.id, column.id, item.id, history.id
+
+    db_session.delete(db_session.get(Goal, goal.id))
+    db_session.commit()
+
+    assert db_session.get(Goal, goal.id) is None
+    assert db_session.get(GoalSchedule, schedule_id) is None
+    assert db_session.get(ScheduleColumn, column_id) is None
+    assert db_session.get(ScheduleItem, item_id) is None
+    assert db_session.get(ScheduleCell, (item_id, column_id)) is None
+    # schedule_item_historyはschedule_item経由の二段CASCADEで削除されること。
+    assert db_session.get(ScheduleItemHistory, history_id) is None
