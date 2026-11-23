@@ -5408,6 +5408,10 @@ export interface components {
             card_count: number;
             /** Mastered Card Count */
             mastered_card_count: number;
+            /** Session Default Questions */
+            session_default_questions: number;
+            /** Session Max Questions */
+            session_max_questions: number;
         };
         /** VocabDeckReorderRequest */
         VocabDeckReorderRequest: {

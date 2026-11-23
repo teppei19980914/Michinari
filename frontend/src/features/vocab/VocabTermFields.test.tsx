@@ -15,6 +15,8 @@ function makeDeck(id: number, name: string): VocabDeck {
     display_order: 0,
     card_count: 0,
     mastered_card_count: 0,
+    session_default_questions: 10,
+    session_max_questions: 100,
   }
 }
 
