@@ -15,6 +15,16 @@ THRESHOLD_REPLAN_OVERRUN_DAYS = "threshold.replan_overrun_days"
 RESUME_QUOTA_WARNING_RATIO = "resume.quota_warning_ratio"
 CALENDAR_DAY_BOUNDARY_HOUR = "calendar.day_boundary_hour"
 HOLIDAY_TREAT_AS_BUFFER = "holiday.treat_as_buffer"
+#: 起動時に同梱の祝日CSVをDBへ取り込んだ際のSHA256（開発Todo_スケジュール・ガントチャート
+#: _v1.1.md D-44）。`QUICK_RECORD_LAST_MODE_*`と同じく、実行時に更新される状態値を
+#: app_settingへ記録する既存の慣例に合わせる。
+HOLIDAY_BUNDLED_CSV_SHA256 = "holiday.bundled_csv_sha256"
+#: 直近の祝日取込みが手動（`POST /calendar/holidays/import`）経由だったか（独立レビューで
+#: 指摘された不具合の修正。D-44「新しい手動データを古い同梱データで上書きしない」の判定を、
+#: 収録最終年の比較だけで行うと、同梱側が同じ年の内容だけを訂正する更新を永久に取り込め
+#: なくなる。手動インポートが一度も行われていない間は、この比較を行わず常に同梱データを
+#: 適用する）。
+HOLIDAY_IMPORTED_VIA_MANUAL = "holiday.imported_via_manual"
 
 # AI連携（設計書 ロジック・プロンプト編16章、実装フェーズ分割計画書Phase5）。
 AI_HOST = "ai.host"

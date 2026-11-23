@@ -1167,6 +1167,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Holidays */
+        get: operations["get_holidays_api_v1_holidays_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/calendar/holidays/import": {
         parameters: {
             query?: never;
@@ -3884,6 +3901,31 @@ export interface components {
             year_from: number;
             /** Year To */
             year_to: number;
+        };
+        /**
+         * HolidayListRead
+         * @description `GET /holidays`の応答（第8章、D-46「収録済みの年の範囲」表示）。
+         *
+         *     `year_from`・`year_to`は`holiday`テーブル全体の収録範囲であり、`holidays`の
+         *     フィルタ範囲とは独立する（期間を省略した呼び出しでも収録範囲だけ取得できる）。
+         */
+        HolidayListRead: {
+            /** Holidays */
+            holidays: components["schemas"]["HolidayRead"][];
+            /** Year From */
+            year_from: number | null;
+            /** Year To */
+            year_to: number | null;
+        };
+        /** HolidayRead */
+        HolidayRead: {
+            /**
+             * Holiday Date
+             * Format: date
+             */
+            holiday_date: string;
+            /** Name */
+            name: string;
         };
         /** HolidayTreatAsBufferRead */
         HolidayTreatAsBufferRead: {
@@ -8490,6 +8532,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_holidays_api_v1_holidays_get: {
+        parameters: {
+            query?: {
+                date_from?: string | null;
+                date_to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayListRead"];
+                };
             };
             /** @description Validation Error */
             422: {

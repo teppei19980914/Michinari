@@ -122,6 +122,7 @@ export const QUERY_KEYS = {
   dayTypeDefaults: () => ['day-type-defaults'] as const,
   dayBoundaryHour: () => ['day-boundary-hour'] as const,
   holidayTreatAsBuffer: () => ['holiday-treat-as-buffer'] as const,
+  holidayCoverage: () => ['holiday-coverage'] as const,
 
   // --- 設定・システム ---
   settings: () => ['settings'] as const,

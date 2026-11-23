@@ -1,10 +1,14 @@
+import { useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
+import { Button } from '../../components/Button'
 import { useToast } from '../../components/toastContext'
 import {
   getDayTypeDefaults,
+  getHolidayCoverage,
   getHolidayTreatAsBuffer,
+  importHolidaysFile,
   updateDayTypeDefaults,
   updateHolidayTreatAsBuffer,
   type DayType,
@@ -12,10 +16,14 @@ import {
 import { WEEKDAYS } from './slotOptions'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 
+//: 内閣府「国民の祝日」について（CSVのダウンロード元、D-46「データソースの案内」）。
+const CABINET_OFFICE_HOLIDAY_INFO_URL = 'https://www8.cao.go.jp/chosei/shukujitsu/gaiyou.html'
+
 /** 日種別の既定設定（仕様書6.3「曜日ごとに計画日またはバッファ日を選択」「祝日の扱い」）。 */
 export function DayTypeDefaultsCard() {
   const queryClient = useQueryClient()
-  const { showApiError } = useToast()
+  const { showToast, showApiError } = useToast()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const defaultsQuery = useQuery({
     queryKey: QUERY_KEYS.dayTypeDefaults(),
     queryFn: getDayTypeDefaults,
@@ -23,6 +31,10 @@ export function DayTypeDefaultsCard() {
   const holidayQuery = useQuery({
     queryKey: QUERY_KEYS.holidayTreatAsBuffer(),
     queryFn: getHolidayTreatAsBuffer,
+  })
+  const coverageQuery = useQuery({
+    queryKey: QUERY_KEYS.holidayCoverage(),
+    queryFn: getHolidayCoverage,
   })
 
   const defaults = defaultsQuery.data ?? {}
@@ -39,6 +51,22 @@ export function DayTypeDefaultsCard() {
     mutationFn: (value: boolean) => updateHolidayTreatAsBuffer(value),
     meta: { overlay: 'saving' },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: QUERY_KEYS.holidayTreatAsBuffer() }),
+    onError: showApiError,
+  })
+
+  const importHolidaysMutation = useMutation({
+    mutationFn: (file: File) => importHolidaysFile(file),
+    meta: { overlay: 'saving' },
+    onSuccess: (result) => {
+      showToast(
+        t('resources.dayTypeDefaults.importHolidaysSuccess', {
+          count: result.imported_count,
+          from: result.year_from,
+          to: result.year_to,
+        }),
+      )
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.holidayCoverage() })
+    },
     onError: showApiError,
   })
 
@@ -72,6 +100,53 @@ export function DayTypeDefaultsCard() {
           {t('resources.dayTypeDefaults.holidayTreatAsBuffer')}
         </label>
       )}
+      <div className="flex flex-col gap-2 border-t border-border-strong pt-3">
+        <h3 className="text-sm font-medium text-text-primary">
+          {t('resources.dayTypeDefaults.holidayCoverageTitle')}
+        </h3>
+        <p className="text-sm text-text-secondary">
+          {coverageQuery.data?.year_from != null && coverageQuery.data?.year_to != null
+            ? t('resources.dayTypeDefaults.holidayCoverageRange', {
+                from: coverageQuery.data.year_from,
+                to: coverageQuery.data.year_to,
+              })
+            : t('resources.dayTypeDefaults.holidayCoverageNone')}
+        </p>
+        <p className="text-sm text-text-secondary">
+          {t('resources.dayTypeDefaults.importHolidaysDescription')}
+        </p>
+        <div>
+          <Button
+            variant="secondary"
+            disabled={importHolidaysMutation.isPending}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {t('resources.dayTypeDefaults.importHolidaysButton')}
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              e.target.value = ''
+              if (!file) {
+                return
+              }
+              importHolidaysMutation.mutate(file)
+            }}
+          />
+        </div>
+        <a
+          href={CABINET_OFFICE_HOLIDAY_INFO_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm text-accent-muted-text underline"
+        >
+          {t('resources.dayTypeDefaults.cabinetOfficeLinkLabel')}
+        </a>
+      </div>
     </Card>
   )
 }

@@ -387,6 +387,12 @@ class TestMain:
         )
         self.ai_tasks: list[bool] = []
         monkeypatch.setattr(main_module, "run_ai_startup_tasks", lambda: self.ai_tasks.append(True))
+        self.holiday_imports: list[bool] = []
+        monkeypatch.setattr(
+            main_module,
+            "import_bundled_holidays_if_needed",
+            lambda: self.holiday_imports.append(True),
+        )
 
     def test_returns_the_runner_exit_code_on_a_normal_run(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr(main_module, "resolve_startup_port", lambda: 8100)
@@ -394,6 +400,17 @@ class TestMain:
 
         assert main_module.main() == 0
         assert self.dialogs == []
+
+    def test_imports_bundled_holidays_before_starting_the_server(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """起動時の祝日自動取込み（D-44）が実機起動（main()）で必ず呼ばれること。"""
+        monkeypatch.setattr(main_module, "resolve_startup_port", lambda: 8100)
+        monkeypatch.setattr(main_module.desktop_runner, "run", lambda _app, _port: 0)
+
+        main_module.main()
+
+        assert self.holiday_imports == [True]
 
     def test_passes_the_resolved_port_to_the_runner(self, monkeypatch: pytest.MonkeyPatch):
         received: list[int] = []
