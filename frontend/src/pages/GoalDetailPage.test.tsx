@@ -54,6 +54,32 @@ vi.mock('../api/goals', () => ({
 
 vi.mock('../api/records', () => ({ getToday: vi.fn(() => Promise.resolve(null)) }))
 
+// スケジュールタブ（単位3）が子として取り込むため用意する（27行目のコメントと同じ理由）。
+const getSchedule = vi.hoisted(() =>
+  vi.fn(() =>
+    Promise.resolve({
+      revision: 0,
+      frozen_row_count: 0,
+      frozen_column_count: 1,
+      today: '2026-11-23',
+      max_items: 100,
+      max_custom_columns: 10,
+      gantt_day_width_min_rem: 1.75,
+      gantt_day_width_max_rem: 4.5,
+      columns: [],
+      items: [],
+    }),
+  ),
+)
+vi.mock('../api/schedule', () => ({
+  getSchedule,
+  saveSchedule: vi.fn(),
+  updateScheduleViewSetting: vi.fn(),
+}))
+vi.mock('../api/resources', () => ({
+  getHolidayCoverage: vi.fn(() => Promise.resolve({ holidays: [], year_from: 1955, year_to: 2027 })),
+}))
+
 // 目標相談チャット（S09）タブが子として取り込むため、AI接続状態と上限取得も用意しておく
 // （27行目のコメントと同じ理由）。
 const getAiStatus = vi.hoisted(() =>
@@ -117,6 +143,7 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.subjects')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.materials')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.loadProfile')).not.toBeNull()
+    expect(tabButton('goals.detail.tabs.schedule')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.book')).toBeNull()
     expect(tabButton('goals.detail.tabs.workAssignment')).toBeNull()
@@ -134,6 +161,7 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(tabButton('goals.detail.tabs.subjects')).toBeNull()
     expect(tabButton('goals.detail.tabs.materials')).toBeNull()
     expect(tabButton('goals.detail.tabs.loadProfile')).toBeNull()
+    expect(tabButton('goals.detail.tabs.schedule')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
   })
 
@@ -148,6 +176,7 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     // 仕事はスロットを奪い合わないため配分タブを持たない。
     // 目標相談チャットはS10で読書・仕事へ展開したため出す（開発Todo v1.1 V1）。
     expect(tabButton('goals.detail.tabs.resourceAllocation')).toBeNull()
+    expect(tabButton('goals.detail.tabs.schedule')).not.toBeNull()
     expect(tabButton('goals.detail.tabs.goalConsultation')).not.toBeNull()
   })
 
@@ -214,6 +243,50 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     await user.click(tabButton('goals.detail.tabs.goalConsultation')!)
 
     expect(await screen.findByText(t('goalConsultation.disclaimer'))).toBeDefined()
+  })
+
+  it('renders the schedule tab content for an exam goal (not just the tab button)', async () => {
+    // goalConsultationと同種の実装漏れ（ボタンは出るが中身が空白）を防ぐ確認
+    // （開発Todo_スケジュール・ガントチャート_v1.1 単位3、D-01）。
+    const user = userEvent.setup()
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    await user.click(tabButton('goals.detail.tabs.schedule')!)
+
+    expect(await screen.findByText(t('schedule.intro'))).toBeDefined()
+    expect(getSchedule).toHaveBeenCalledWith(GOAL_ID)
+  })
+
+  it('renders the schedule tab content for a reading goal and a work goal', async () => {
+    const user = userEvent.setup()
+    for (const category of ['READING', 'WORK'] as const) {
+      getGoal.mockResolvedValue(makeGoalDetail({ category }))
+      const { unmount } = renderWithProviders(<GoalDetailPage />)
+      await screen.findByText('目標A')
+      await user.click(tabButton('goals.detail.tabs.schedule')!)
+      expect(await screen.findByText(t('schedule.intro'))).toBeDefined()
+      unmount()
+    }
+  })
+
+  it('widens the page (removes max-w-3xl) only while the schedule tab is shown', async () => {
+    // D-31: スケジュールタブ表示中だけ目標詳細画面の幅の制限を外す。他のタブでは
+    // max-w-3xlを維持する（他画面と同じ見た目を変えない）。
+    const user = userEvent.setup()
+    renderWithProviders(<GoalDetailPage />)
+
+    await screen.findByText('目標A')
+    const container = screen.getByText('目標A').closest('.mx-auto')
+    expect(container?.className).toContain('max-w-3xl')
+
+    await user.click(tabButton('goals.detail.tabs.schedule')!)
+    await screen.findByText(t('schedule.intro'))
+    expect(container?.className).toContain('max-w-full')
+    expect(container?.className).not.toContain('max-w-3xl')
+
+    await user.click(tabButton('goals.detail.tabs.basicInfo')!)
+    expect(container?.className).toContain('max-w-3xl')
   })
 })
 

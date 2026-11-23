@@ -34,7 +34,7 @@ export function DayTypeDefaultsCard() {
   })
   const coverageQuery = useQuery({
     queryKey: QUERY_KEYS.holidayCoverage(),
-    queryFn: getHolidayCoverage,
+    queryFn: () => getHolidayCoverage(),
   })
 
   const defaults = defaultsQuery.data ?? {}

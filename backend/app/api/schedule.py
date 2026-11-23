@@ -10,6 +10,12 @@ import datetime as dt
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.constants.app_setting_keys import (
+    SCHEDULE_GANTT_DAY_WIDTH_MAX_REM,
+    SCHEDULE_GANTT_DAY_WIDTH_MIN_REM,
+    SCHEDULE_MAX_CUSTOM_COLUMNS,
+    SCHEDULE_MAX_ITEMS,
+)
 from app.database import get_db
 from app.schemas.schedule import (
     ScheduleCellRead,
@@ -20,18 +26,22 @@ from app.schemas.schedule import (
     ScheduleViewSettingRead,
     ScheduleViewSettingUpdate,
 )
-from app.services import goal_service, schedule_service
+from app.services import goal_service, schedule_service, setting_reader
 from app.services.schedule_service import ScheduleView
 
 router = APIRouter(tags=["schedule"])
 
 
-def _serialize_view(view: ScheduleView, today: dt.date) -> ScheduleRead:
+def _serialize_view(session: Session, view: ScheduleView, today: dt.date) -> ScheduleRead:
     return ScheduleRead(
         revision=view.revision,
         frozen_row_count=view.frozen_row_count,
         frozen_column_count=view.frozen_column_count,
         today=today,
+        max_items=setting_reader.get_int(session, SCHEDULE_MAX_ITEMS),
+        max_custom_columns=setting_reader.get_int(session, SCHEDULE_MAX_CUSTOM_COLUMNS),
+        gantt_day_width_min_rem=setting_reader.get_float(session, SCHEDULE_GANTT_DAY_WIDTH_MIN_REM),
+        gantt_day_width_max_rem=setting_reader.get_float(session, SCHEDULE_GANTT_DAY_WIDTH_MAX_REM),
         columns=[
             ScheduleColumnRead(id=column.id, name=column.name, display_order=column.display_order)
             for column in view.columns
@@ -62,7 +72,7 @@ def get_schedule(goal_id: int, session: Session = Depends(get_db)) -> ScheduleRe
     goal = goal_service.get_goal(session, goal_id)
     today = goal_service.resolve_today(session)
     view = schedule_service.get_schedule_view(session, goal)
-    return _serialize_view(view, today)
+    return _serialize_view(session, view, today)
 
 
 @router.put("/goals/{goal_id}/schedule", response_model=ScheduleRead)
@@ -73,7 +83,7 @@ def save_schedule(
     today = goal_service.resolve_today(session)
     view = schedule_service.save_schedule(session, goal, payload, today)
     session.commit()
-    return _serialize_view(view, today)
+    return _serialize_view(session, view, today)
 
 
 @router.put("/goals/{goal_id}/schedule/view-setting", response_model=ScheduleViewSettingRead)

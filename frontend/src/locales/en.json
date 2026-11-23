@@ -285,6 +285,7 @@
         "monthlyReport": "Monthly report",
         "semiannualReview": "Semiannual review",
         "evaluationReport": "Evaluation report",
+        "schedule": "Schedule",
         "goalConsultation": "Goal consultation"
       },
       "tabTooltips": {
@@ -302,6 +303,7 @@
         "monthlyReport": "A tab to generate a monthly report draft, review and edit it on the spot, and download it as Markdown.",
         "semiannualReview": "A tab to generate a semiannual review report, review and edit it on the spot, and download it as Markdown.",
         "evaluationReport": "A tab to select a registered team member and generate an evaluation report draft based on their daily work records and AI feedback history, then review, edit, and download it. Only shown when your role is set to \"Evaluator.\"",
+        "schedule": "A tab to manage work items as a table (add, delete, and reorder rows) and check planned vs. actual progress on a Gantt chart. Status and actual dates can also be updated from the daily report.",
         "goalConsultation": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What should I study next?). Separate from the daily report feedback feature.",
         "goalConsultationReading": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. How does this connect to books I've read before?). Separate from the daily report feedback feature.",
         "goalConsultationWork": "A tab to ask the AI free-form questions grounded in your accumulated records (e.g. What are the recent trends in challenges I'm facing?). Separate from the daily report feedback feature."
@@ -1552,11 +1554,11 @@
       "goals": {
         "title": "Goal list / goal detail editing",
         "p1": "The \"Goals\" screen lists every registered goal. Choosing a type (certification exam, reading, or work) from \"Create new goal\" lets you create reading and work goals instantly, while certification exam goals use a wizard: pick a preset exam template or enter the exam name directly, then set the exam date, materials, and study hours in order (templates cannot be added or edited). Selecting a goal takes you to its details/edit screen. If you forget how to use the app, or on first launch, you can reopen the welcome screen from the link on the Help screen.",
-        "p2": "A certification exam goal's detail screen has 7 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), \"Load profile\" (load coefficient per period), \"Vocabulary\" (register terms and quiz yourself with a non-AI question set; see the \"Vocabulary\" section for details), and \"Goal consultation\" (ask the AI free-form questions grounded in your accumulated records; see the \"Goal consultation chat\" section for details). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
+        "p2": "A certification exam goal's detail screen has 8 tabs: \"Basic info\" (exam name, start date, notes), \"Subjects\" (subject name, exam date, passing criteria), \"Materials\" (total amount, planned cycles, subjects covered, due date, required continuous time, required environment, quality metric method), \"Resource allocation\" (minutes allocated to this goal per time slot), \"Load profile\" (load coefficient per period), \"Vocabulary\" (register terms and quiz yourself with a non-AI question set; see the \"Vocabulary\" section for details), \"Schedule\" (manage work items as a table and Gantt chart; see the \"Schedule\" section for details), and \"Goal consultation\" (ask the AI free-form questions grounded in your accumulated records; see the \"Goal consultation chat\" section for details). The load profile and material advanced settings (required continuous time, required environment, quality metric method) are collapsed by default; expand them with \"Show advanced settings.\"",
         "p3": "The goal's action area shows \"Start,\" \"Pause,\" \"Resume,\" \"Mark as complete,\" or \"Abandon,\" depending on its status. After completing or abandoning, the goal becomes read-only; a completed or abandoned goal can be reverted with \"Resume\" to continue it. A certification exam goal cannot be completed until results are in for every subject.",
         "p4": "Completed, abandoned, or paused goals can be hidden from the list with \"Archive\" (view them again with \"Show all\"). Archived goals, or any goal that isn't currently active, can be permanently erased with \"Delete.\" Deletion cannot be undone and removes all related records and data, so you must type the goal's name to confirm.",
-        "p5": "A reading goal's detail screen has 4 tabs — \"Basic info,\" \"Book,\" \"Resource allocation,\" and \"Goal consultation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
-        "p6": "A work goal's detail screen has 5 tabs — \"Basic info,\" \"Project info,\" \"Monthly report,\" \"Semiannual review,\" and \"Goal consultation\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
+        "p5": "A reading goal's detail screen has 5 tabs — \"Basic info,\" \"Book,\" \"Resource allocation,\" \"Schedule,\" and \"Goal consultation\" — and doesn't use a daily quota or effective speed. Since reading is also a flexible activity, it's included in the same resource allocation that competes for time slots with certification exams (setting it is optional; you can start without it). Registering the title, author, total pages, and target completion date on the \"Book\" tab lets you start, and when you finish reading, choose \"Mark as complete\" from the goal detail actions. The completion report is generated at the same time.",
+        "p6": "A work goal's detail screen has 6 tabs — \"Basic info,\" \"Project info,\" \"Schedule,\" \"Monthly report,\" \"Semiannual review,\" and \"Goal consultation\" — plus an \"Evaluation report\" tab that appears once you set your role to \"Evaluator\" on the project info tab (daily quota, effective speed, and resource allocation aren't used). Registering the project name, expected work content, start date, and role on the \"Project info\" tab lets you start; you can also register, edit, and deactivate team members (name, traits, etc.) from the same tab. The monthly report and semiannual review tabs have the AI generate a draft for the target period, which you can edit on the spot and download as Markdown. The evaluation report tab lets you select a registered member and generate a report draft based on their daily work records and AI feedback history, which you can edit and download."
       },
       "vocab": {
         "title": "Vocabulary",
@@ -1577,6 +1579,13 @@
         "p2": "For certification exams, the diagram overlays the planned line (if everything went to plan) with your actual progress line, and marks the point where you replanned (from your replan history) as \"Replanned.\" Reading and work goals have no concept of a plan baseline, so this mark isn't shown for them. Days you received AI feedback are marked as waypoints; clicking one takes you to that day's daily report view. The diagram still works without waypoints if AI isn't configured or there's no feedback history yet.",
         "p3": "Your current position shows a character icon that matches your status (only certification exams change icon for behind/on-schedule/ahead/buffer day; reading and work always show the same icon). Reaching the goal shows the achievement icon at the goal position. The dashboard shows a compact, read-only version that links to the goal detail screen; the \"Roadmap\" tab there shows the full version.",
         "p4": "For a certification exam goal with at least one vocabulary deck, the full version shows a \"Term mastery\" section below the diagram: the number of mastered terms out of the total, a progress bar, a breakdown by card type (terms vs. situations), and how many more terms remain to the next milestone (or a note once every milestone has been reached). This section is omitted for goals with no vocabulary deck, and from the dashboard's compact version."
+      },
+      "schedule": {
+        "title": "Schedule",
+        "p1": "The \"Schedule\" tab on the goal detail screen lets you manage a goal's work items as a table (work item, description, planned start, planned end, status, actual start, actual end) and a Gantt chart together (available for certification exam, reading, and work goals alike). Add rows with \"Add row\" or \"Insert below,\" reorder them with the up/down buttons, and delete them (there's no drag-and-drop). You can also add text columns (up to 10) to record whatever you like.",
+        "p2": "The table is always editable; once you make a change, \"Save\" and \"Discard changes\" become available. Saving applies the whole table at once; if someone else updated it in another window first, you'll see \"This was updated in another window\" and can choose to reload the latest content or keep editing. Changing the status to \"In progress\" or \"Done\" automatically fills in today's date for the actual dates (you can still edit it). A goal that's closed (completed or abandoned, with or without a result) is read-only.",
+        "p3": "On the Gantt chart, each row shows a planned bar (a light shared color) and an actual bar (accent color while in progress, green when done, gray when cancelled), with a warning mark on rows that are still open past their planned end date. Hovering over a bar shows the work item, planned period, actual period, and how many days behind it is. Saturdays and Sundays/public holidays (same color) are shaded, and a year outside the bundled holiday data shows a \"Holiday data for that year is not included\" note. The \"Go to today\" button scrolls back to today's position.",
+        "p4": "The toolbar's dropdowns let you choose how many rows and columns to freeze from the left/top (the same idea as Excel's freeze panes — the header row is always frozen). Status and actual dates can be updated from this tab or from the daily report; either one updates the same underlying data."
       },
       "goalConsultation": {
         "title": "Goal consultation chat",
@@ -2075,6 +2084,90 @@
       "dismissButton": "Dismiss",
       "manualAddButton": "Add a term to a vocabulary deck",
       "manualAddNoDeckNotice": "Create a vocabulary deck to add terms from here"
+    }
+  },
+  "schedule": {
+    "intro": "Day-to-day progress is tracked in the daily report; update a work item's status either here or from the daily report",
+    "toolbar": {
+      "frozenRowsLabel": "Frozen rows",
+      "frozenColumnsLabel": "Frozen columns",
+      "goToToday": "Go to today",
+      "addRow": "Add row",
+      "addColumn": "Add column",
+      "discardChanges": "Discard changes",
+      "save": "Save",
+      "discardConfirm": "Discard the unsaved changes?",
+      "rowLimitReached": "You've reached the row limit ({{max}} rows)",
+      "columnLimitReached": "You've reached the column limit ({{max}} columns)"
+    },
+    "columns": {
+      "title": "Work item",
+      "description": "Description",
+      "plannedStartDate": "Planned start",
+      "plannedEndDate": "Planned end",
+      "status": "Status",
+      "actualStartDate": "Actual start",
+      "actualEndDate": "Actual end"
+    },
+    "status": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "DONE": "Done",
+      "CANCELLED": "Cancelled"
+    },
+    "rowActions": {
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "insertBelow": "Insert below",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this row?"
+    },
+    "customColumn": {
+      "namePlaceholder": "Column name",
+      "renameLabel": "Rename column",
+      "moveLeft": "Move left",
+      "moveRight": "Move right",
+      "delete": "Delete column",
+      "deleteConfirmWithValue": "This column has values entered. Delete it anyway?",
+      "deleteConfirmEmpty": "Delete this column?",
+      "nameRequired": "Enter a column name",
+      "duplicateName": "A column with this name already exists"
+    },
+    "validation": {
+      "TITLE_REQUIRED": "Enter a work item",
+      "PLANNED_RANGE_INVALID": "The planned start date must be on or before the planned end date",
+      "ACTUAL_NOT_ALLOWED": "Actual dates cannot be entered while not started",
+      "ACTUAL_START_REQUIRED": "Enter the actual start date",
+      "ACTUAL_END_NOT_ALLOWED": "The actual end date cannot be entered for this status",
+      "ACTUAL_END_REQUIRED": "Enter the actual end date",
+      "ACTUAL_END_ONLY_NOT_ALLOWED": "The actual end date cannot be entered alone",
+      "ACTUAL_RANGE_INVALID": "The actual start date must be on or before the actual end date",
+      "ACTUAL_DATE_IN_FUTURE": "Actual dates cannot be after today",
+      "saveErrorCount": {
+        "one": "There is {{count}} input error. Jumping to it.",
+        "other": "There are {{count}} input errors. Jumping to the first one."
+      }
+    },
+    "empty": {
+      "title": "No work items yet",
+      "description": "Add a row with \"Add row\" to see it as a table row and a Gantt bar here"
+    },
+    "conflict": {
+      "title": "This was updated in another window",
+      "reload": "Reload the latest (discard my edits)",
+      "keepEditing": "Keep editing"
+    },
+    "gantt": {
+      "uncoveredYearNotice": "Holiday data for {{year}} is not included",
+      "delayDays": {
+        "one": "{{days}} day behind schedule",
+        "other": "{{days}} days behind schedule"
+      },
+      "tooltip": {
+        "planned": "Planned: {{start}} - {{end}}",
+        "actual": "Actual: {{start}} - {{end}}",
+        "noActual": "Actual: none"
+      }
     }
   },
   "summaryCard": {
