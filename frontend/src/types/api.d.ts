@@ -2667,7 +2667,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "VOCAB_TERM_EXTRACT" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "VOCAB_SITUATION_QUIZ_GENERATE" | "VOCAB_TERM_EXTRACT" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -2707,6 +2707,7 @@ export interface components {
             on_this_day: components["schemas"]["OnThisDaySettingsRead"];
             quick_record: components["schemas"]["QuickRecordSettingsRead"];
             vocab_mastery: components["schemas"]["VocabMasterySettingsRead"];
+            vocab_situation_limits: components["schemas"]["VocabSituationLimitsSettingsRead"];
         };
         /** AppSettingsUpdate */
         AppSettingsUpdate: {
@@ -2720,6 +2721,7 @@ export interface components {
             on_this_day?: components["schemas"]["OnThisDaySettingsUpdate"] | null;
             quick_record?: components["schemas"]["QuickRecordSettingsUpdate"] | null;
             vocab_mastery?: components["schemas"]["VocabMasterySettingsUpdate"] | null;
+            vocab_situation_limits?: components["schemas"]["VocabSituationLimitsSettingsUpdate"] | null;
         };
         /**
          * AttachmentLimitsRead
@@ -4963,6 +4965,14 @@ export interface components {
             total_count: number;
             /** Remaining To Next Milestone */
             remaining_to_next_milestone: number | null;
+            /** Term Mastered Count */
+            term_mastered_count: number;
+            /** Term Total Count */
+            term_total_count: number;
+            /** Situation Mastered Count */
+            situation_mastered_count: number;
+            /** Situation Total Count */
+            situation_total_count: number;
         };
         /** SemiannualReviewUpdateRequest */
         SemiannualReviewUpdateRequest: {
@@ -5332,6 +5342,8 @@ export interface components {
         };
         /** VocabCardCreateRequest */
         VocabCardCreateRequest: {
+            /** @default TERM */
+            card_type: components["schemas"]["VocabCardType"];
             /** Term */
             term: string;
             /** Meaning */
@@ -5340,6 +5352,10 @@ export interface components {
             aliases?: string | null;
             /** Note */
             note?: string | null;
+            /** Situation Text */
+            situation_text?: string | null;
+            /** Question Text */
+            question_text?: string | null;
         };
         /** VocabCardRead */
         VocabCardRead: {
@@ -5347,6 +5363,7 @@ export interface components {
             id: number;
             /** Deck Id */
             deck_id: number;
+            card_type: components["schemas"]["VocabCardType"];
             /** Term */
             term: string;
             /** Meaning */
@@ -5355,6 +5372,10 @@ export interface components {
             aliases: string | null;
             /** Note */
             note: string | null;
+            /** Situation Text */
+            situation_text: string | null;
+            /** Question Text */
+            question_text: string | null;
             /** Is Checked */
             is_checked: boolean;
             /** Display Order */
@@ -5372,6 +5393,15 @@ export interface components {
             /** Is Mastered */
             is_mastered: boolean;
         };
+        /**
+         * VocabCardType
+         * @description 単語帳カードの種類（開発Todo_単語帳_v1.0 要件F）。作成後は変更できない（F-D2）。
+         *
+         *     TERM: 用語カード（既存、要件A〜E）。SITUATION: シチュエーションカード
+         *     （見出し・状況・問い・最善の対応・解説の5項目、要件F）。
+         * @enum {string}
+         */
+        VocabCardType: "TERM" | "SITUATION";
         /** VocabCardUpdateRequest */
         VocabCardUpdateRequest: {
             /** Term */
@@ -5382,6 +5412,10 @@ export interface components {
             aliases?: string | null;
             /** Note */
             note?: string | null;
+            /** Situation Text */
+            situation_text?: string | null;
+            /** Question Text */
+            question_text?: string | null;
         };
         /** VocabDeckCreateRequest */
         VocabDeckCreateRequest: {
@@ -5408,6 +5442,14 @@ export interface components {
             card_count: number;
             /** Mastered Card Count */
             mastered_card_count: number;
+            /** Term Card Count */
+            term_card_count: number;
+            /** Term Mastered Card Count */
+            term_mastered_card_count: number;
+            /** Situation Card Count */
+            situation_card_count: number;
+            /** Situation Mastered Card Count */
+            situation_mastered_card_count: number;
             /** Session Default Questions */
             session_default_questions: number;
             /** Session Max Questions */
@@ -5441,6 +5483,8 @@ export interface components {
         VocabImportConfirmRequest: {
             /** Rows */
             rows: components["schemas"]["VocabImportConfirmRow"][];
+            /** @default TERM */
+            card_type: components["schemas"]["VocabCardType"];
         };
         /** VocabImportConfirmRow */
         VocabImportConfirmRow: {
@@ -5452,6 +5496,10 @@ export interface components {
             aliases?: string | null;
             /** Note */
             note?: string | null;
+            /** Situation Text */
+            situation_text?: string | null;
+            /** Question Text */
+            question_text?: string | null;
         };
         /** VocabImportErrorRead */
         VocabImportErrorRead: {
@@ -5473,6 +5521,8 @@ export interface components {
         VocabImportPreviewRequest: {
             /** Text */
             text: string;
+            /** @default TERM */
+            card_type: components["schemas"]["VocabCardType"];
         };
         /** VocabImportRowRead */
         VocabImportRowRead: {
@@ -5486,6 +5536,10 @@ export interface components {
             aliases: string | null;
             /** Note */
             note: string | null;
+            /** Situation Text */
+            situation_text?: string | null;
+            /** Question Text */
+            question_text?: string | null;
         };
         /** VocabMasterySettingsRead */
         VocabMasterySettingsRead: {
@@ -5509,7 +5563,7 @@ export interface components {
          *     （サーバー側で判定）、`CHOICE_*`は4択（誤答選択肢は同じ単語帳の他カードから生成）。
          * @enum {string}
          */
-        VocabQuizMode: "FLASH_TERM_TO_MEANING" | "FLASH_MEANING_TO_TERM" | "TYPED_MEANING_TO_TERM" | "CHOICE_TERM_TO_MEANING" | "CHOICE_MEANING_TO_TERM";
+        VocabQuizMode: "FLASH_TERM_TO_MEANING" | "FLASH_MEANING_TO_TERM" | "TYPED_MEANING_TO_TERM" | "CHOICE_TERM_TO_MEANING" | "CHOICE_MEANING_TO_TERM" | "FLASH_SITUATION";
         /** VocabQuizOptionRead */
         VocabQuizOptionRead: {
             /** Card Id */
@@ -5521,10 +5575,13 @@ export interface components {
         VocabQuizQuestionRead: {
             /** Card Id */
             card_id: number;
+            mode: components["schemas"]["VocabQuizMode"];
             /** Prompt */
             prompt: string;
             /** Reveal */
             reveal?: string | null;
+            /** Explanation */
+            explanation?: string | null;
             /** Options */
             options?: components["schemas"]["VocabQuizOptionRead"][] | null;
         };
@@ -5550,6 +5607,37 @@ export interface components {
             order: string;
             /** Question Count */
             question_count: number;
+            /**
+             * Card Type
+             * @default ALL
+             */
+            card_type: string;
+        };
+        /** VocabSituationLimitsSettingsRead */
+        VocabSituationLimitsSettingsRead: {
+            /** Heading Max Chars */
+            heading_max_chars: number;
+            /** Text Max Chars */
+            text_max_chars: number;
+            /** Question Max Chars */
+            question_max_chars: number;
+            /** Best Action Max Chars */
+            best_action_max_chars: number;
+            /** Explanation Max Chars */
+            explanation_max_chars: number;
+        };
+        /** VocabSituationLimitsSettingsUpdate */
+        VocabSituationLimitsSettingsUpdate: {
+            /** Heading Max Chars */
+            heading_max_chars?: number | null;
+            /** Text Max Chars */
+            text_max_chars?: number | null;
+            /** Question Max Chars */
+            question_max_chars?: number | null;
+            /** Best Action Max Chars */
+            best_action_max_chars?: number | null;
+            /** Explanation Max Chars */
+            explanation_max_chars?: number | null;
         };
         /** VocabTermSuggestionAcceptRequest */
         VocabTermSuggestionAcceptRequest: {
@@ -10504,6 +10592,7 @@ export interface operations {
             query?: {
                 filter?: string;
                 sort?: string;
+                card_type?: string;
             };
             header?: never;
             path: {
@@ -10743,7 +10832,9 @@ export interface operations {
     };
     export_vocab_deck_api_v1_vocab_decks__deck_id__export_get: {
         parameters: {
-            query?: never;
+            query?: {
+                card_type?: components["schemas"]["VocabCardType"];
+            };
             header?: never;
             path: {
                 deck_id: number;

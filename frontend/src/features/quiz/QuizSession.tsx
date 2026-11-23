@@ -76,7 +76,9 @@ export function QuizSession({ questions, onFinished }: QuizSessionProps) {
         {t('quiz.progressLabel', { current: currentIndex + 1, total: questions.length })}
       </p>
       <SourceHeader question={question} />
-      <h2 className="text-base font-medium text-text-primary">{question.question_text}</h2>
+      <h2 className="whitespace-pre-wrap text-base font-medium text-text-primary">
+        {question.question_text}
+      </h2>
       <div className="flex flex-col gap-2">
         {question.choices.map((choice, index) => (
           <Button
@@ -85,7 +87,7 @@ export function QuizSession({ questions, onFinished }: QuizSessionProps) {
             disabled={result !== null || answerMutation.isPending}
             onClick={() => answerMutation.mutate(index)}
           >
-            {choice}
+            <span className="whitespace-pre-wrap">{choice}</span>
           </Button>
         ))}
       </div>

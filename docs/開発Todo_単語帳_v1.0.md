@@ -1,6 +1,6 @@
-# 開発Todo：単語帳（要件A〜Eの5回に分割、本書は全体の正）
+# 開発Todo：単語帳（要件A〜Fの6回に分割、本書は全体の正）
 
-本書は、資格試験の目標に紐づく単語帳機能（要件A：基盤＋AI非依存の問題集／要件B：今日の復習への統合／要件C：日次フィードバック・目標相談への用語注入／要件D：日次報告からの用語提案／要件E：習得の可視化）の開発作業の正（Single Common of Truth）である。各要件は別セッションで、前の要件のPRをmainへマージしてから着手する。
+本書は、資格試験の目標に紐づく単語帳機能（要件A：基盤＋AI非依存の問題集／要件B：今日の復習への統合／要件C：日次フィードバック・目標相談への用語注入／要件D：日次報告からの用語提案／要件E：習得の可視化／要件F：シチュエーションカード）の開発作業の正（Single Common of Truth）である。各要件は別セッションで、前の要件のPRをmainへマージしてから着手する。
 作業は `dev/2026-11-15`（`origin/main` マージ直後）で行う。版数は次回マイナー版を見込むが、`pyproject.toml` の実際の更新は `release.bat` 実行時に行う（開発中は変更しない）。
 
 ## 0. 決定事項
@@ -157,6 +157,67 @@
 | E-U6 | 単語帳の画面：一覧と詳細に「習得済み」の印と習得数を表示する。要件Aの絞り込みに「未習得」を追加する |
 | E-U7 | 文言は継続を褒める表現だけを使う（既存M16と同じ）。`ja.json`・`en.json`の両方に追加する |
 | E-U8 | 設定画面：新設する2つの値（`vocab.mastery_streak`、`milestone.vocab_mastered_terms_thresholds`）を、既存の節目の閾値と同じ配線で画面から変更できるようにする。入力の検証（整数・昇順・重複なし）も既存と同じにする |
+
+### 0.12 要件F着手前の確認（2026-11-23、要件A〜Eおよび不具合修正の完了検証）
+
+要件F着手前に、本セッション自身がソースコード全体（backend/・frontend/・docs/・.claude/）と本書を照合し、要件A〜Eおよび§9不具合修正が漏れなく完了しているかを検証した。
+
+- `gh pr list --state merged`で要件A〜E（PR#135〜139）・§9不具合修正（PR#142）・関連ドキュメントPR（#140・141）がいずれも`main`へマージ済みであることを確認した（マージ時刻は§0.10・§9記載のとおり）。
+- バックエンド：`ruff check .` 0件。`pytest -q --cov=app --cov-report=term-missing`（`backend`で実行）**2,617件合格**、カバレッジ100%（本セッションの実測：文11,107・分岐2,082、欠落0。§9.6記載の文11,399とは計測スコープ・coverage.pyの行カウント差と見られる差異があるが、件数・分岐数・カバレッジ100%・欠落0は完全一致しており、合否判定に影響しない）。
+- フロントエンド：`npx tsc -b` 0件。`npm run lint`（oxlint）0件。`npm run test`（`vitest run --coverage`）**226ファイル・1,805件合格**、カバレッジ100%（Statements/Branches/Functions/Lines、§9.6記載の値と完全一致）。
+- 独立したサブエージェント（本セッションの作業コンテキストを持たない状態）に、`vocab_card.meaning`＝用語の意味・`vocab_card.term`＝見出し語という前提で書かれている箇所の洗い出しを依頼した（読み取り専用）。入力式の判定・ローカル4択・参考用語の組み立て（B/C）・AIへの注入（単語帳由来クイズ生成）・今日の復習の画面表示・一括登録・書き出し・習得の集計・画面（フロントエンド）・app_setting・モデル/スキーマの10観点で計26箇所を検出した（結果は§1.9へ反映）。実装の漏れ・不具合は検出されなかった（全て「要件Fで種類分岐が必要になる既存の前提」であり、§9までの完了条件には影響しない）。
+- 実利用者DB（`data/michinari.db`）を確認した結果、`alembic_version`は`0e22c031f0ca`のままで、`vocab_card`等の単語帳テーブル自体がまだ作成されていない（要件A〜Dのマイグレーションは実DBへ未適用、要件Eの完了検証§0.10時点の記載と同じ状態が継続）。したがって実データは0件であり、F-U9に明記された「`vocab.note_max_chars`の既定値は実データの補足の最大文字数を確認してから決める」の確認対象データが存在しない（§0.14 F-D22で既定値の決定方針を記録する）。
+
+以上により、要件A〜Eおよび§9不具合修正はすべて完了条件を満たし、記帳漏れ・実装漏れは無いと判断する。要件Fへ着手する。
+
+### 0.13 要件Fの決定事項（利用者提示、2026-11-23）
+
+| # | 決定 |
+| --- | --- |
+| F-U1 | シチュエーションカードの項目は「見出し・状況・問い・最善の対応・解説」の5つ。必須は見出し・状況・最善の対応。問いが空のときは「最善の対応は？」として扱う。解説は任意 |
+| F-U2 | 文字数の上限の初期値は、見出し100字・状況2,000字・問い200字・最善の対応500字・解説2,000字。いずれも`app_setting`に置き、設定画面から変更できるようにする |
+| F-U3 | 用語カードとシチュエーションカードは、同じ単語帳に混在できる。問題集の開始時に「用語だけ／シチュエーションだけ／両方」を選べる |
+| F-U4 | 単語帳の問題集（AIなし）では、シチュエーションカードは「めくって自己採点」だけで出題する。状況と問いを表示し、めくると最善の対応と解説を表示して、「わかった／わからなかった」を選ぶ。入力式とローカルの4択の対象からは外す |
+| F-U5 | 今日の復習（AI）では、問題文（状況＋問い）と正解（最善の対応）を、登録した文のまま使う。AIには誤答の選択肢3つだけを作らせる。解説は登録した解説を使い、AIには書かせない（解説が空のときは、最善の対応だけを示す文言にする） |
+| F-U6 | AIが作った誤答の長さ・書き方を、正解とそろえる。長さが極端に違う誤答を含む問題は捨てる。判定の基準は`app_setting`に置く（`vocab.situation_distractor_min_length_percent`＝50、`vocab.situation_distractor_max_length_percent`＝150） |
+| F-U7 | 日次フィードバック・目標相談（要件C）と、今日の復習の参考用語（要件B B-U6）へは、シチュエーションカードの見出しだけを渡す。要件Cには成績も付ける。状況・最善の対応の本文は渡さない |
+| F-U8 | 一括登録（貼り付け）に対応する。セル内に改行がある項目（引用符で囲まれた項目）を正しく読む。書き出しも同じ形式で行う |
+| F-U9 | 習得の判定は、シチュエーションカードにも同じ定義を使う。単語帳の画面と道のりマップでは「用語◯語／場面◯件」と分けて表示する。節目のお祝い（VOCAB_MASTERED_TERMS）は合計で判定する。文言を合計を表す表現に改める（ja・en とも） |
+| F-U10 | 長文の読みやすさを、既存の用語カードにもそろえる。意味・補足・状況・解説は改行を保持して表示する。一覧では数行で折りたたみ、「続きを読む」で展開する。補足の上限（`vocab.note_max_chars`）を新設する |
+| F-U11 | 日次報告からの用語の提案（要件D）は、今回はシチュエーションを提案しない |
+| F-U12 | 「AIが参照した情報」の表示は変更しない（開発Todo C-D6 のまま） |
+
+データの方針（モデル）・機能・ドキュメントの詳細は利用者プロンプトの提示内容どおり（§0.14・§1.9・§3.Fへ転記する）。
+
+### 0.14 要件F 実装上の判断（利用者確認は不要な技術的決定。根拠を併記）
+
+| # | 決定 | 理由 |
+| --- | --- | --- |
+| F-D1 | 利用者提示の推奨対応づけ（見出し→`term`、最善の対応→`meaning`、解説→`note`）を採用し、`vocab_card`へ`card_type`（`VocabCardType`、`native_enum=False`、`server_default="TERM"`）・`situation_text`（NULL可）・`question_text`（NULL可）の3列を追加する | 既存の`term`・`meaning`のNOT NULL制約、成績集計（`compute_card_stats`等）、CASCADE、入力式/4択/一括登録/AI連携の骨格をそのまま使え、新規テーブルを作らずに済む。利用者プロンプトの推奨方針どおり |
+| F-D2 | `card_type`は作成後不変とする。`VocabCardUpdateRequest`・`update_card`に`card_type`パラメータを設けない（構造上変更不可能にする） | 利用者プロンプトの明示指示（「種類は作成後に変えられないようにする」、成績の意味が変わるため） |
+| F-D3 | 新設する8つの`app_setting`のうち、F-U2が明示する5つ（`vocab.situation_heading_max_chars`＝100・`vocab.situation_text_max_chars`＝2000・`vocab.situation_question_max_chars`＝200・`vocab.situation_best_action_max_chars`＝500・`vocab.situation_explanation_max_chars`＝2000）は設定画面から変更できるよう配線する（`VocabMasterySettings`と同じ既存の配線方式、E-U8の前例）。残り3つ（`vocab.note_max_chars`・`vocab.situation_distractor_min_length_percent`・`vocab.situation_distractor_max_length_percent`）は既存の`vocab.term_max_chars`等と同じ内部パラメータとし、画面配線を行わない | 利用者プロンプトは「既存の単語帳の上限と同じ配線」としているが、フルスキャンの結果、既存の`vocab.term_max_chars`・`meaning_max_chars`等（要件A〜D）は設定画面に**未配線**の内部パラメータである（D7・9.3決定事項#4で意図的にそう設計されている）。したがってこの前提記述は実際の実装と食い違っているが、F-U2自体の指示（「設定画面から変更できるようにする」）は明確であるため、実際に設定画面へ配線されている既存の前例（E-U8の`vocab.mastery_streak`・`milestone.vocab_mastered_terms_thresholds`）に揃える。F-U10（`note_max_chars`）・F-U6（誤答長さ判定）は利用者プロンプトが画面配線を明示していないため、既存のA〜D同様の内部パラメータのままとする |
+| F-D4 | `aliases`はTERM専用とする。`card_type=SITUATION`で`aliases`に非空値を渡した場合は`ValidationError`とする | シチュエーションカードに別名の概念が無いため。黒魔術的に無視（silent）せず、フロントエンドの実装誤りを検知できるよう明示的に拒否する |
+| F-D5 | 文字数・必須項目の検証は`_validate_card_fields`1か所に`card_type`分岐を集約する（新規の検証関数は作らない） | フルスキャンで確認した既存のDRY良好ポイント（§0.12参照）をそのまま活かす |
+| F-D6 | `judge_typed_answer`・`build_choice_option_ids`・`filter_cards`・`sort_cards`・`select_session_cards`の本体は無改修とする。呼び出し元（`start_vocab_quiz_session`）が、入力式・4択の対象カード集合をTERMカードのみに絞り込んだ上でこれらの関数へ渡す | これらの関数はカードのリストを引数に取る設計のため、呼び出し元での絞り込みだけで「入力式・4択はTERMのみ」（F-U3）を実現できる。関数自体にcard_type分岐を持たせるより責務が明確になる |
+| F-D7 | `VocabQuizMode.FLASH_SITUATION`を追加する。`_prompt_and_reveal`を`(prompt, reveal, explanation)`の3値を返す形へ一般化し（既存4モードは`explanation=None`）、`VocabQuizQuestionRead`に`explanation: str \| None`・`mode: VocabQuizMode`（そのカードの実際の出題形式）を追加する | 「両方」選択時（F-U3）はカードごとに出題形式が異なるため、セッション単位の単一`mode`では表現できない。既存の2値返却を素直に3値へ拡張する方が、シチュエーション専用の並行関数を作るより重複が少ない |
+| F-D8 | 出題開始時、デッキの全カードをcard_typeで分け、`effective_mode = payload.mode if card.card_type == TERM else FLASH_SITUATION`として各カードの出題形式を決める。CHOICE系モードの利用可否判定（4枚以上）・誤答候補プールは、デッキ内のTERMカードのみの部分集合（`term_card_count`）で行う | F-U3・F-U4の「ローカル4択の誤答候補と4択を選べるかの判定はTERMカードだけで数える」をそのまま実装する。`effective_mode`がSITUATIONカードには常にFLASH_SITUATIONを返すため、既存の`if payload.mode in _CHOICE_MODES`系の分岐を`effective_mode`基準に変えるだけでTYPED/CHOICEの対象外化が自然に実現する |
+| F-D9 | 問いが空のときの既定文言「最善の対応は？」は、バックエンドのモジュール定数（`vocab_service.DEFAULT_SITUATION_QUESTION_TEXT`）として持つ。カード編集画面でのプレースホルダー等、画面表示専用の文言は別途ロケールファイル（`vocab.deckDetail.defaultQuestionText`等）に持つ | 既存の`NO_GLOSSARY_OVERVIEW_TEXT`等と同じ「AI送信・保存データ向けの日本語定数はモジュール定数、画面表示向けの文言はロケールファイル」という既存の2系統分離パターンを踏襲する。両者はたまたま同じ日本語文字列になるが、用途（保存データ vs UI文言）が異なるため統合しない |
+| F-D10 | AIへ送る状況・問いの改行は、既存の`flatten_for_single_line`をそのまま適用し空白へ変換して1行化する。複数行専用の新しい関数は作らない | 「1カード=1行」という既存の区切り構造の健全性（injection-reviewerが検出した既存の防御方針）を優先する。情報量の損失は、AIが3つの誤答を作るのに必要な理解を妨げない範囅（改行を空白に変えるだけで文意は保たれる）と判断した |
+| F-D11 | `quiz_block_parsing.py`へ`parse_distractor_blocks`（「出典→誤答1→誤答2→誤答3」の4行1ブロック、`===`区切り）を新設する。既存の`_BLOCK_SEPARATOR`・`_MAX_BLOCK_CHARS`を共有し、既存の`parse_question_blocks`（用語カード用、7フィールド）は変更しない | 利用者プロンプトの明示指示（「quiz_block_parsingと共通にできる部分は共通化する」）。フィールド構成・順序が異なるため解析関数自体は分けるが、ReDoS対策の構造（`[^\n]+?`・`re.DOTALL`不使用・ブロック長上限）は完全に共有する |
+| F-D12 | `_select_eligible_cards`（card_type非依存の既存の共通選定クエリ）が返す候補を、呼び出し元（`generate_for_deck`・`run_all`）でcard_typeにより分割し、TERMは既存の`_generate_for_cards`へ、SITUATIONは新設`_generate_for_situation_cards`へそれぞれ渡す。上限（`vocab.quiz_cards_per_startup`）は分割前の共通候補に対して1回だけ適用する | F-U5「対象の選び方…は用語カードと共通にする」「上限は2種類の合計に対して効かせる」をそのまま実装する。選定条件（use_in_ai・ACTIVE EXAM・まだ問題を持たない・優先順）はcard_typeに依存しないため、既存のクエリを変更せずに済む |
+| F-D13 | `_validate_distractor_block`の検証順序は①形式②出典カードIDが送付集合に含まれ、かつそのカードが`card_type == SITUATION`である③誤答3件と正解の4件が正規化後に全て異なる④各誤答の文字数が正解（最善の対応）の文字数に対し`vocab.situation_distractor_min/max_length_percent`の範囲内⑤1回の生成で1カード1問まで、とする。②の種類チェックは、選定時点でSITUATIONカードのみに絞られているため通常は到達しないが、実装の取り違えに対する多層防御として明示的に行う | 利用者プロンプトが明記した5項目の検証基準をそのまま実装する。②は完了条件に明記された「用語カードのID」という敵対的入力テストに対応する防御的実装（本来到達しないコードパスだが、テストカバレッジの対象として明示的にテストする） |
+| F-D14 | 誤答の長さ判定が1件でも範囲外ならブロック全体（その問題）を破棄する。そのカードは次回の起動時バッチ・ボタンでの生成の対象に残る（追加の失敗カウント列は作らない） | 利用者プロンプトの明示指示。既存の`_select_eligible_cards`（まだ`quiz_question`を持たないカードを対象にする設計）が、保存されなかったカードを自然に次回の対象に残す。§9.3で既に許容した「AIの検証失敗が居座る可能性」と同種の既知のリスクとして設計書に記載する |
+| F-D15 | `card.note`が空のときのクイズの`explanation`は、バックエンドのテンプレート定数（`SITUATION_NO_EXPLANATION_TEXT = "最善の対応は「{meaning}」です。"`相当）を使う | `QuizQuestion.explanation`はNOT NULL制約のため空文字を保存できない。利用者プロンプトの明示指示（「最善の対応だけを示す文言にする」）を満たす最小実装 |
+| F-D16 | `forbidden_term_search_text`・`_format_glossary_label`に`card_type`分岐を追加する。SITUATIONの禁止語検索対象は見出し・状況・問い・最善の対応・解説の5項目（aliases無し）、参考用語のラベルは「・【状況】見出し」のみ（成績注記は`_format_overview_line`が従来どおり後置するため変更不要）とする。`build_glossary_reference`・`build_glossary_overview`本体は無改修（内部で呼ぶこの2関数の分岐だけで両カード種別に対応する） | F-U7の明示指示（見出しだけを渡す）。既存2関数が既にこの2つの共有ヘルパーを呼ぶ構造になっているため、分岐をヘルパー内に閉じ込めるだけで済む（DRYの原則、呼び出し元を変更しない） |
+| F-D17 | 一括登録の解析を、貼り付け全体を`csv.reader`に1回通す方式へ変更する。`line_number`の意味を「物理行番号」から「レコードの出現順」へ変更する（セル内に改行を含む行は複数の物理行にまたがるため）。種類（用語／シチュエーション）は呼び出し元（画面）が先に選び、サービス層は`card_type`引数で列構成（4列／5列）を切り替える1つの解析関数に統一する | 利用者プロンプトの明示指示（セル内改行への対応、既存の用語取り込みテストを1件も変えずに合格させること）。改行を含まない既存のテスト入力は全て「1物理行=1レコード」のままのため、`line_number`の値は従来と完全に一致し、既存テストへの影響は無い |
+| F-D18 | `export_deck`に`card_type`引数を追加し、呼び出し元がデッキ内の対象種類を選んで書き出す（種類ごとに書き出し、F-U8）。追加の引用符処理は行わない | `csv.writer`の既定（`QUOTE_MINIMAL`）が、改行・区切り文字を含む項目を自動的に引用符で囲むため、既存の`csv.writer`呼び出しのままで改行を含む項目の書き出しに対応できる |
+| F-D19 | `VocabMasteryTotals`・`count_cards_by_deck`・`compute_mastered_card_counts_by_deck`を、種類別内訳（TERM／SITUATIONそれぞれの総数・習得数）を返せるよう拡張する。内訳も1回のクエリ（`GROUP BY card_type`または`VocabCard.id, VocabCard.card_type`の取得）でまとめて算出し、既存のN+1禁止方針を維持する | F-U9「用語◯語／場面◯件」の表示に必要。既存の「習得判定は`compute_mastered_card_ids`のみ」という唯一の定義（DRYの原則）は変えず、内訳は呼び出し元でcard_typeごとに振り分けるだけで実現する |
+| F-D20 | `MilestoneType.VOCAB_MASTERED_TERMS`の判定ロジック（`_detect_vocab_mastery_milestones`・閾値・既存の達成記録）は変更しない。`ja.json`の`vocabMasteredTerms`を「単語帳のカードを{{count}}件、習得しました」へ、`en.json`を件数表現（"You've mastered {{count}} card/cards in your vocabulary deck."）へ変更する | F-U9の明示指示（節目は合計で判定、文言だけ変更）。閾値・判定関数は合計値（`totals.mastered_cards`）のみを見ており、カードの種類に依存しないため変更不要 |
+| F-D21 | 既存カードの移行は`card_type`列の`server_default="TERM"`のみで対応し、データ移行スクリプトは作らない | 既存の全カードがTERM（シチュエーションは本要件で新設のため既存データに存在しない）であることが自明なため、`server_default`だけで要件（「既存のカードがすべて用語になること」）を満たせる |
+| F-D22 | `vocab.note_max_chars`（F-U10）の既定値は、既存の`vocab.meaning_max_chars`（2000、説明文相当）と同じ値を採用する | §0.12で確認したとおり、実利用者DB（`data/michinari.db`）には`vocab_card`テーブル自体が存在せず（要件A〜Dのマイグレーション未適用）、既存の補足データが0件のため「実データの最大文字数を確認してから決める」という利用者プロンプトの前提を満たす対象データが無い。補足（`note`）は意味の説明文に近い自由記述であり、既存の`meaning_max_chars`と同じ値を既定値とすることが既存の類似項目との整合として最も自然と判断した |
+| F-D23 | 長文の折りたたみ・改行保持（F-U10）は、共通のフロントエンド部品（新規`ExpandableText`相当）として1つ作り、単語帳一覧・カードめくり出題・今日の復習の3か所で使い回す | CODING_RULES.md「①DRYの原則」。`whitespace-pre-wrap`と「続きを読む」展開の実装を複数箇所に重複させない |
+| F-D24 | ローカル出題のFLASH_SITUATIONの自己採点（「わかった／わからなかった」）は、既存のFLASH系モードの自己判定分岐（`self_judged_correct`必須）にFLASH_SITUATIONを追加するだけで実現する。`VocabAnswerRequest`への新規フィールドは追加しない | 既存のカードめくり形式と採点方法が完全に同一のため、既存の分岐条件（モードのタプル）を拡張するだけで十分 |
+| F-D25 | 出題開始時の「カードの種類」絞り込み（F-U3）は`VocabQuizSessionRequest`へ`card_type: str = "ALL"`（ALL/TERM/SITUATION）を新設し、既存の`filter`（成績に基づく絞り込み）とは独立したパラメータとする | 「カードの種類」と「成績による絞り込み」は直交する別の軸であり、既存の`filter`文字列へ値を追加すると意味が混ざる。既存の`compute_filtered_cards`の前段で型フィルタを適用するだけで両者を独立に組み合わせられる |
 
 ### 1.1 バックエンド（変更する箇所）
 
@@ -400,6 +461,64 @@
 | `backup_service.py`の`DATA_SCHEMA_VERSION` | 新規テーブルが無いため変更不要（新設`app_setting`2件は既存の「無いものだけ追加」方式でカバー、D7等の既存前例） |
 | `milestone.backfill_completed`（既存の一括バックフィル機構） | E-U4のとおり、単語帳の解答履歴はこの版から始まるため過去分のバックフィルは不要。既存のバックフィル関数（`milestone_service_common.backfill_achievements_if_needed`）は`detect_common_milestones`+`_detect_category_milestones`経由で`detect_exam_milestones`を呼ぶため、既存利用者が初回起動時に大量の`VOCAB_MASTERED_TERMS`を遡って祝うことはない（単語帳データが無ければ判定自体が空になるため、特別な除外コードは不要） |
 
+### 1.9 要件F：影響範囲（フルスキャンの結果、2026-11-23）
+
+マイグレーションは既存テーブル`vocab_card`への列追加のみ（既存の`term`・`meaning`のNOT NULL制約は変更しない）。独立したサブエージェントによる「`meaning`＝用語の意味」前提箇所の洗い出し（§0.12）を踏まえた一覧。
+
+#### 1.9.1 バックエンド（変更する箇所）
+
+| 領域 | 対象 | 変更の種類 |
+| --- | --- | --- |
+| 列挙 | `app/constants/enums.py` | `VocabCardType`（TERM/SITUATION）・`VocabQuizMode.FLASH_SITUATION`を追加 |
+| 設定キー | `app/constants/app_setting_keys.py` | `vocab.situation_heading_max_chars`・`situation_text_max_chars`・`situation_question_max_chars`・`situation_best_action_max_chars`・`situation_explanation_max_chars`・`note_max_chars`・`situation_distractor_min_length_percent`・`situation_distractor_max_length_percent`の8キー追加 |
+| 初期データ | `app/init/seed_data.py` | 上記8キーの既定値 |
+| モデル | `app/models/vocab.py` | `VocabCard`へ`card_type`（`server_default="TERM"`）・`situation_text`・`question_text`を追加（F-D1） |
+| マイグレーション | `backend/alembic/versions/`（head=`e9eca0569d7c`） | 新規1ファイル（列追加3本、`batch_alter_table`。既存データ入りでのupgrade/downgrade確認が対象、CODING_RULES.md適用） |
+| 設定配線 | `app/services/settings_service.py`・`app/schemas/setting.py`・`app/api/settings.py` | F-U2の5キーを既存の`VocabMasterySettings`と同じ配線方式で追加（F-D3） |
+| 既存サービス改修 | `app/services/vocab_service.py` | `_validate_card_fields`（card_type分岐、F-D5）・`create_card`/`update_card`（situation_text/question_text引数追加）・`vocab_card_content_changed`（SITUATION用にnote/situation_text/question_textの比較を追加）・`judge_typed_answer`等の呼び出し元絞り込みは呼び出し元（API層）で実施・`forbidden_term_search_text`/`_format_glossary_label`（card_type分岐、F-D16）・`parse_bulk_import`/`export_deck`（card_type引数化、F-D17・F-D18）・`VocabMasteryTotals`/`count_cards_by_deck`/`compute_mastered_card_counts_by_deck`（種類別内訳、F-D19）・`DEFAULT_SITUATION_QUESTION_TEXT`/`SITUATION_NO_EXPLANATION_TEXT`新設定数 |
+| 共有化 | `app/services/quiz_block_parsing.py` | `parse_distractor_blocks`新設（F-D11） |
+| 既存サービス改修 | `app/services/vocab_quiz_generation_service.py` | `_select_eligible_cards`の結果をcard_typeで分割（F-D12）、新設`_generate_for_situation_cards`（状況用フォーマット・`_validate_distractor_block`・選択肢組み立て・保存） |
+| 既存サービス改修 | `app/models/quiz.py`・`app/services/quiz_service.py` | 変更不要と確認済み（`QuizQuestion`の既存列のみで状況由来の問題を表現できる、確認だけする箇所） |
+| API改修 | `app/api/vocab.py`・`app/schemas/vocab.py` | `VocabCardCreateRequest`/`Read`へ`card_type`・`situation_text`・`question_text`追加（Update系は`card_type`を含めない、F-D2）。`VocabDeckRead`へ`term_card_count`等の種類別内訳追加。`start_vocab_quiz_session`：card_typeでの事前絞り込み（F-D25）、`effective_mode`算出（F-D8）、`_prompt_and_reveal`の3値化（F-D7）。`VocabQuizQuestionRead`へ`explanation`・`mode`追加。`VocabImportPreviewRequest`/`ConfirmRequest`へ`card_type`追加 |
+| テスト | `backend/tests/test_vocab_service.py`・`test_api_vocab.py`・`test_vocab_quiz_generation_service.py`・`test_quiz_block_parsing.py`・`test_settings_service.py`・`test_api_settings.py`・`test_bootstrap.py`系（マイグレーション安全性） | 追記 |
+
+#### 1.9.2 フロントエンド（変更する箇所）
+
+| 領域 | 対象 | 変更の種類 |
+| --- | --- | --- |
+| API層 | `src/api/vocab.ts`・`src/types/api.d.ts`（再生成） | `card_type`・`situation_text`・`question_text`・`explanation`・`mode`・種類別内訳フィールド追加 |
+| 共有部品 | `src/components/ExpandableText.tsx`（新規） | `whitespace-pre-wrap`＋「続きを読む」展開（F-D23） |
+| カード一覧・編集 | `src/features/vocab/VocabCardList.tsx` | 種類選択（追加フォーム）、シチュエーション5項目入力欄、種類バッジ、絞り込みへ種類追加、`ExpandableText`適用（見出し・状況の折りたたみ、既存の意味・補足にも適用） |
+| 一括登録 | `src/features/vocab/VocabImportExportPanel.tsx` | 種類選択UI、列構成の切り替え表示 |
+| 問題集 | `src/features/vocab/VocabQuizSetupForm.tsx`（種類選択追加、4択選択可否判定を`term_card_count`基準に変更）・`VocabQuizQuestionView.tsx`（FLASH_SITUATION分岐、`ExpandableText`適用）・`useVocabQuizSession.ts`（問題ごとの`mode`を使用） | 追加・改修 |
+| 今日の復習 | `src/features/quiz/QuizSession.tsx` | `question_text`・選択肢・解説に`ExpandableText`/`whitespace-pre-wrap`適用（F-U10） |
+| 単語帳画面・道のりマップ | `VocabDeckListTab.tsx`・`VocabDeckHeader.tsx`・`VocabMasteryRoadmapSection.tsx` | 種類別内訳表示（「用語◯語／場面◯件」） |
+| 文言 | `src/locales/ja.json`・`en.json` | 新規`vocab`名前空間（シチュエーション項目ラベル・種類選択・既定の問い文言等）、`milestone.message.vocabMasteredTerms`の件数表現化 |
+| テスト | 上記変更ファイルそれぞれに対応する`.test.ts`/`.test.tsx`（既存のVocabCardモック値へ`card_type`等の新規必須フィールド追加） | 追記 |
+
+#### 1.9.3 ドキュメント（変更する箇所）
+
+| 文書 | 変更 |
+| --- | --- |
+| `docs/要件定義書_ミチナリ_v1.1.md` | 6.23へ要件F追記、改訂履歴 |
+| `docs/仕様書_ミチナリ_v1.1/06_画面仕様/6.20_SC-22_単語帳.md` | シチュエーションカードの入力欄・一括登録の列構成・問題集の種類選択・今日の復習の表示、改訂履歴 |
+| `docs/仕様書_ミチナリ_v1.1/`（設定項目一覧・AI連携一覧） | 新設8設定キー（5件は画面配線あり）、`VOCAB_QUIZ_GENERATE`の送信内容変更 |
+| `docs/設計書_データ構造編_ミチナリ_v1.1/05_テーブル定義/` | `vocab_card`への列追加（`card_type`・`situation_text`・`question_text`）、新設`app_setting`8件、改訂履歴 |
+| `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.16_単語帳由来の復習クイズ生成.md` | シチュエーション用の生成フロー・検証5項目・誤答長さ判定・STRIDE追記 |
+| `docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/30_単語帳の判定・出題ロジック.md` | シチュエーションの出題形式・習得内訳の算出・一括登録の解析方式変更 |
+| `README.md` | 単語帳の説明へ要件Fの反映 |
+| `backend/app/content/help_content.json` | シチュエーションカードの書き方の例、改訂 |
+
+#### 1.9.4 確認だけする箇所（変更不要と確認済み）
+
+| 項目 | 状況 |
+| --- | --- |
+| `app/models/quiz.py`・`quiz_service.py`の既存列 | `QuizQuestion`の既存列（`question_text`・`choice_1`〜`4`・`correct_choice_index`・`explanation`・`vocab_card_id`）だけでシチュエーション由来の問題を表現できる。新規列・新規テーブルは不要 |
+| `app/services/analytics_service.py` | 既存のテーマ別正答率集計（`theme_id`とのINNER JOIN）は単語帳由来（TERM/SITUATIONいずれも）を対象外にする既存方針のまま変更不要 |
+| `export_service_*.py` | 単語帳はナレッジエクスポート対象外（要件A U5）のまま変更不要（シチュエーションカードも同様） |
+| `backend/app/services/backup_service.py`の`DATA_SCHEMA_VERSION` | 列追加のみで新規テーブルは無いため、既存の汎用round-trip方式がそのまま対応。現在の値（1.9）は未リリースのため、変更せずこのリリースへ含める |
+| `VocabTermFields.tsx`（要件D、日次報告からの用語提案） | F-U11により変更不要（シチュエーションは提案しない） |
+
 ## 2. 現状のベースライン（開発前、2026-11-15、`dev/2026-11-15`ブランチ）
 
 - バックエンド（`python -m pytest -q --cov-report=term-missing`）：2,293件合格、カバレッジ100%（文9,909・分岐1,800、いずれも欠落0）。`ruff check .` 0件。
@@ -428,6 +547,12 @@
 - バックエンド（`python -m pytest -q --cov-report=term-missing`、`backend`で実行）：**2,573件合格**、カバレッジ100%（文10,983・分岐2,052、欠落0）。`ruff check .` 0件。§0.10の独立検証と完全一致。
 - フロントエンド（`npm run test -- --run`）：**223ファイル／1,774件合格**、カバレッジ100%（Statements/Branches/Functions/Lines全て）。`npm run lint`（oxlint）0件。`npx tsc -b` 0件。§0.10の独立検証と完全一致。
 - 要件E完了時はこの2.4の値と比較する（§2.3は要件D着手前のもので、要件Eの比較対象ではない）。
+
+### 2.5 要件F着手前のベースライン再計測（要件A〜Eおよび§9不具合修正の完了検証後、2026-11-23）
+
+- バックエンド（`python -m pytest -q --cov=app --cov-report=term-missing`、`backend`で実行）：**2,617件合格**、カバレッジ100%（文11,107・分岐2,082、欠落0）。`ruff check .` 0件。
+- フロントエンド（`npm run test`＝`vitest run --coverage`）：**226ファイル・1,805件合格**、カバレッジ100%（Statements/Branches/Functions/Lines全て）。`npm run lint`（oxlint）0件。`npx tsc -b` 0件。
+- §9.6記載の最終値（バックエンド2,617件・文11,399・分岐2,082、フロントエンド226ファイル・1,805件）と比較し、件数・分岐数・カバレッジ100%・oxlint/tsc 0件は完全一致。バックエンドの文数のみ11,107対11,399で差異があるが、同一コード・同一テストに対する再計測であり、coverage.pyの行カウント方式の違い（バージョン・設定差）によるものと判断する（§0.12参照）。要件F完了時はこの2.5の値と比較する（§2.4は要件E着手前のもので、要件Fの比較対象ではない）。
 
 ## 3. 作業Todo
 
@@ -631,6 +756,50 @@
 - [x] E-D06 help_content.json（`ja.json`の`help.sections.vocab.p9`・`roadmap.p4`が正、`export_help_content.py`で生成。`en.json`にも対訳を追加）：単語帳・道のりマップのヘルプ本文更新。`test_help_content.py` 5件合格を確認
 - [x] E-D07 全要件（A〜E）の完了をTodo §8へ記録
 
+### 3.F 要件F：シチュエーションカード（本セッションの対象）
+
+#### 3.F.0 準備
+- [x] F-00 要件A〜Eおよび§9不具合修正の完了検証（本セッション自身、§0.12）、決定事項の記録（§0.13）、影響範囲の確定（§1.9）、ベースライン再計測（§2.5）
+- [x] F-01 脅威モデル実施（新しい外部入力経路〈長文・改行を含む貼り付け〉・新しいAI用途が増えるため、`.claude/skills/threat-model.md`の手順に従う、§5.10へ記録。設計書17.17.1・30.12.8へも反映）
+
+#### 3.F.1 バックエンド実装
+- [x] F-B01 列挙・設定キー・シード：`VocabCardType`・`VocabQuizMode.FLASH_SITUATION`、`vocab.*`新設8キー、設定配線5キー（F-D3）
+- [x] F-B02 モデル・マイグレーション：`vocab_card`へ`card_type`/`situation_text`/`question_text`追加、既存データ入りでのupgrade/downgrade確認
+- [x] F-B03 `vocab_service.py`：`_validate_card_fields`のcard_type分岐、`create_card`/`update_card`のシチュエーション項目対応、`vocab_card_content_changed`のSITUATION拡張、`forbidden_term_search_text`/`_format_glossary_label`のcard_type分岐、`DEFAULT_SITUATION_QUESTION_TEXT`/`SITUATION_NO_EXPLANATION_TEXT`
+- [x] F-B04 一括登録・書き出し：`parse_bulk_import`のcsv全体読み込み化（F-D17、既存の用語取り込みテストを変えずに合格させる）、`export_deck`のcard_type引数化（F-D18）
+- [x] F-B05 問題集（AI非依存）：出題開始APIの種類絞り込み（F-D25）・`effective_mode`算出（F-D8）・`_prompt_and_reveal`の3値化（F-D7）・入力式/4択候補のTERM限定（F-D6）
+- [x] F-B06 今日の復習（AI）：`quiz_block_parsing.parse_distractor_blocks`新設（F-D11）、`vocab_quiz_generation_service._generate_for_situation_cards`新設（対象選定の分割・AI送信・5項目検証・誤答長さ判定・保存、F-D12〜F-D15）
+- [x] F-B07 AIへの注入（B・C共通）：`forbidden_term_search_text`/`_format_glossary_label`の分岐が`build_glossary_reference`・`build_glossary_overview`両方へ反映されることを確認（F-D16、両関数の統合テストで確認済み）
+- [x] F-B08 習得・節目：`VocabMasteryTotals`・`deck_vocab_mastery_totals`・roadmap_serviceの`RoadmapVocabMastery`の種類別内訳拡張（F-D19）、節目の判定ロジックは無改修（F-D20）
+- [x] F-B09 API・スキーマ：`VocabCardCreateRequest`/`Read`/`VocabDeckRead`/`VocabQuizQuestionRead`/`VocabImportPreview`系・`RoadmapVocabMasteryRead`・`VocabSituationLimitsSettings`系の拡張
+- [x] F-B10 セキュリティ・境界テスト：区切りの偽装（nonce・DELIMITER_REPLACEMENTSの回帰）、1秒以内の性能（敵対的な長い状況文・繰り返し一括登録）、禁止語（5項目検索対象）、存在しないカードID・用語カードのIDでの出典検証失敗、誤答の長さ逸脱、1枚1問、種類の変更不可（APIスキーマレベル）
+
+#### 3.F.2 フロントエンド実装
+- [x] F-F01 型再生成（`npm run generate:api-types`相当、`export_openapi.py`＋`openapi-typescript`を3回実施）
+- [x] F-F02 共有部品：`ExpandableText.tsx`・`textTruncation.ts`新設（F-D23）、観点別レビュー後に`VocabMasteryBreakdownLine.tsx`・`CardTypeFilterSelect.tsx`も追加（DRY対応）
+- [x] F-F03 カード一覧・編集：`VocabCardList.tsx`の種類選択・5項目入力欄・種類バッジ・絞り込み、既存の意味・補足への`ExpandableText`適用
+- [x] F-F04 一括登録：`VocabImportExportPanel.tsx`の種類選択・列構成切り替え
+- [x] F-F05 問題集：`VocabQuizSetupForm.tsx`（種類選択・term_card_count基準の4択判定）・`VocabQuizQuestionView.tsx`（FLASH_SITUATION分岐）・`useVocabQuizSession.ts`（問題ごとのmode）
+- [x] F-F06 今日の復習：`QuizSession.tsx`への改行保持適用
+- [x] F-F07 単語帳画面・道のりマップ：種類別内訳表示（「用語◯語／場面◯件」、`VocabMasteryBreakdownLine`で共通化）
+- [x] F-F08 文言：`ja.json`/`en.json`の新規`vocab.deckDetail.*`名前空間、`milestone.message.vocabMasteredTerms`の件数表現化
+- [x] F-F09 lint（oxlint 0件）・tsc（0件）・test（1,827件合格・カバレッジ100%）
+
+#### 3.F.3 検証
+- [x] F-V01 ruff・pytest・vitest（§2.5比較：既存テストが1件も壊れていないこと。バックエンド2,617→2,703件・フロントエンド1,805→1,827件、いずれも新規テストのみによる増加）
+- [x] F-V02 既存DBからのアップグレード確認（実利用者DB退避コピー、全マイグレーション適用、`TestClient`での起動・デッキ/カード作成・一括登録・出題セッション・書き出し・設定取得を確認。実DBはmd5一致で不変を確認済み）
+- [x] F-V03 観点別レビュー（コミット前チェック、dry-reviewer・style-reviewer・label-checker・injection-reviewer・test-coverage-reviewer・performance-reviewer・xss-reviewerの7エージェント並列実行〈後2件はStop Hookの指摘を受けて追加実施〉、§5.11参照）
+- [x] F-V04 実機確認手順の提示（報告メッセージに記載）
+
+#### 3.F.4 文書改訂
+- [x] F-D01 要件定義書：6.23へ要件F追記（R-199〜R-208）、改訂履歴1.1改62
+- [x] F-D02 仕様書：6.1（今日の復習の改行保持）・6.2（用語の習得欄の内訳）・6.11（新設5設定項目）・6.20（単語帳画面、6.20.6新設）・8.1（AI-27追加、AI-01/15/18/22へ見出しのみ渡す旨）、改訂履歴1.1改76
+- [x] F-D03 設計書（データ構造編）：`vocab_card`列追加（card_type/situation_text/question_text）・新設`app_setting`8件・`VocabCardType`列挙・`VocabQuizMode.FLASH_SITUATION`、改訂履歴1.1改76
+- [x] F-D04 設計書（ロジック・プロンプト編）：17.17（シチュエーションカード由来の誤答生成）新設、30.12（シチュエーションカード）新設、30.1・30.3・30.5・30.9・30.11へ種類分岐の要点を追記、改訂履歴1.1改76
+- [x] F-D05 README.md：単語帳の説明へ要件Fの反映
+- [x] F-D06 help_content.json：シチュエーションカードの書き方の例（p10）を含めて`ja.json`/`en.json`更新後に`export_help_content.py`で再生成、`test_help_content.py` 5件合格を確認
+- [x] F-D07 要件F完了をTodo §8へ記録
+
 ## 4. 処理フロー（要件A確定版）
 
 ### 4.1 一括登録（貼り付け）
@@ -648,6 +817,15 @@
 1. `vocab_answer_log`をカード単位でGROUP BY集計し、正答数・誤答数・正答率を算出する。
 2. 連続誤答数は`answered_at`・`id`順に解答を並べ、直近から遡って不正解が連続する件数を数える（ウィンドウ関数またはPython側での1回の走査）。
 3. 1回のクエリで全カード分をまとめて算出し、N+1を禁止する。
+
+### 4.4 シチュエーションカード（要件F追加分）
+
+1. **一括登録**：種類（用語／シチュエーション）を選んでから貼り付ける。サーバーは貼り付け全体を`csv`モジュールで1回解析し（タブが文中にあればタブ区切り、無ければカンマ区切り）、引用符で囲まれたセル内の改行を1項目として読む。シチュエーションは「見出し・状況・問い・最善の対応・解説」の5列。重複判定はTERMが用語、SITUATIONが見出しの正規化一致。
+2. **問題集（AIなし）**：開始時に「カードの種類」（用語／シチュエーション／両方）を選ぶ。TERMカードは選んだ形式（カードめくり・入力式・4択）、SITUATIONカードは常にカードめくり（`FLASH_SITUATION`）で出題する。入力式・4択の対象、4択の可否判定（4枚以上）はTERMカードのみで数える。
+3. **今日の復習（AI）**：対象カード選定（use_in_ai・ACTIVE EXAM・未出題・優先順・上限）はTERM/SITUATION共通で1回行い、上限適用後にcard_typeで分ける。SITUATIONは登録済みの状況・問い・最善の対応・解説をそのまま使い、AIには誤答3つだけを作らせる。検証（形式・出典実在+種類・4択重複なし・誤答長さ比率・1カード1問）に落ちた問題は個別に破棄し、そのカードは次回生成の対象に残る。
+4. **AIへの注入（B・C共通）**：参考用語・日次フィードバック・目標相談のいずれも、SITUATIONカードは見出しのみを渡す（状況・最善の対応・解説の本文は渡さない）。
+5. **習得・節目**：習得の判定（`compute_mastered_card_ids`）はカードの種類を問わず同一の定義を使う。単語帳の画面・道のりマップは種類別の内訳を表示し、節目の判定は合計で行う。
+6. **編集時の問題削除**：SITUATIONカードは見出し・状況・問い・最善の対応・解説のいずれかが実際に変わったときに、そのカードのクイズを削除する（解説も問題の`explanation`に保存しているため）。TERMカードの削除条件（用語・意味・別名）は変更しない。
 
 ## 5. 検証の基準
 
@@ -980,6 +1158,73 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 
 全修正後、バックエンド全体を再実行し合格・回帰無しを確認済み（2,605件合格、カバレッジ100%〈文11,083・分岐2,072、欠落0〉、ruff 0件）。フロントエンドも再実行し合格・回帰無しを確認済み（226ファイル・1,802件合格、カバレッジ100%、oxlint・tsc 0件。§8参照）。
 
+## 5.10 脅威モデル（STRIDE、要件F、`.claude/skills/threat-model.md`の手順に従う、2026-11-23）
+
+### データフロー
+
+```
+[利用者(単一ローカル利用者)] → [単語帳カード追加/編集/一括登録（HTTP、新規入力項目: 状況・問い）]
+                                       ↓
+                                [vocab_service: 検証(文字数・必須項目・card_type不変)]
+                                       ↓
+                                [vocab_card（新規列: card_type/situation_text/question_text）]
+                                       ↓
+                        [vocab_quiz_generation_service: 対象選定→AI送信（信頼境界）]
+                                       ↓
+                [外部LLM（NewtonX API、既存の信頼境界の外側）] → [応答の解析・検証]
+                                       ↓
+                           [quiz_question（出所: vocab_card_id）]
+                                       ↓
+                        [今日の復習・単語帳の問題集（HTTP応答）→利用者]
+```
+
+- **アクター**：単一のローカル利用者（既存の全機能と同じ、匿名の第三者アクセスは想定しない）。
+- **エントリポイント**：①カード追加・編集API（状況・問い・解説の新規自由記述項目）②一括登録API（貼り付け全体、改行を含むセル）③AI応答（単語帳由来クイズ生成、外部LLMからの信頼できない入力）。
+- **信頼境界**：利用者が入力した状況・問い・最善の対応・解説の本文は、既存のterm/meaning/aliasesと同じ「信頼できるローカル利用者の入力だが、AIプロンプトへ埋め込む際は区切り構造を偽装しうる」という既存の境界をそのまま引き継ぐ。AI応答（誤答3件・出典）は既存と同じく信頼できない外部入力として扱う。
+- **データストア**：`vocab_card`（新規列）、`quiz_question`（既存列のみ、新規列なし）。
+
+### STRIDE分析
+
+| カテゴリ | 脅威 | 対策 |
+| --- | --- | --- |
+| S (Spoofing) | 既存の単語帳API同様、所有関係の検証を通らずに他目標・他デッキのカードを操作できないか | `vocab_service.get_deck`/`get_card`による404化を既存どおり全エンドポイントで維持。新規の状況・問いフィールドも既存カードCRUDの同じ検証経路を通る（新規エンドポイントは追加しない） |
+| T (Tampering) | ①一括登録のセル内改行・引用符を使った列のずらし（CSVインジェクション的な列偽装）②状況・問いに`<<<CARDS-{{nonce}}>>>`等の区切りを模した文字列を入れてプロンプト構造を偽装③AIの応答に存在しないカードIDや用語カードのIDを出典として書く④AIが極端に短い/長い誤答を書いて正解が自明または不自然になる | ①`csv`モジュール（RFC4180準拠のクオート処理）のみを使い正規表現連鎖を行わない（既存のReDoS対策方針を継続）。行数・文字数の上限は確定API側でも再検証（既存の`confirm_bulk_import`と同じ多層防御）②既存の`flatten_for_single_line`（改行→空白）・`DELIMITER_REPLACEMENTS`（山括弧全角化）をそのまま状況・問いにも適用し、nonceによる区切りの偽装不可能性を維持する③`_validate_distractor_block`で出典カードIDの実在確認＋card_type=SITUATION確認（F-D13）④誤答の文字数比率判定（F-U6・F-D14）で範囲外のブロックごと破棄 |
+| R (Repudiation) | 既存と同じ（単一ローカル利用者、監査ログの要件なし） | 既存方針を維持（対象外） |
+| I (Information Disclosure) | ①AIへ状況・最善の対応・解説の本文を送る際、意図せず他カードの情報が混入しないか②参考用語（B・C）経由で状況・最善の対応の本文自体が漏れないか（要件のF-U7が明示的に禁止） | ①既存の1カード1行形式・nonce区切りをそのまま継承し、チャンクごとに送る集合を`valid_card_ids`で厳密に絞る（既存のテーマ由来・単語帳由来と同じ構造）②`_format_glossary_label`のSITUATION分岐で見出しのみを返すことをユニットテストで固定（本文を含む文字列が出力されないことを明示的に検証） |
+| D (Denial of Service) | ①巨大な状況文（2,000字×行数上限）を繰り返し貼り付けてCPU時間を消費させる②一括登録の列のずらしで異常に多い列・長い行を送る | ①状況の文字数上限（`vocab.situation_text_max_chars`）を確定API側でも再検証、CSV解析は正規表現連鎖を使わないため入力長に対して線形時間②既存の`vocab.import_max_rows`をcsv全体解析後のレコード数に対して適用（F-D17でも維持）。完了条件の「繰り返しが1秒以内」の性能テストで固定する |
+| E (Elevation of Privilege) | `card_type`をAPI経由で事後に変更し、既存の成績（TERMとして蓄積した解答履歴）をSITUATIONの習得判定に転用できないか | `VocabCardUpdateRequest`・`update_card`に`card_type`パラメータ自体を設けない（構造上変更不可能、F-D2）。スキーマレベルでの防御のためテストで「スキーマにcard_typeフィールドが存在しない」ことを明示的に確認する |
+
+### 受容したリスク
+
+- AIが誤答の内容自体（長さは適正だが、文脈的に不自然・簡単すぎる誤答）を作る可能性は、既存の単語帳由来クイズ生成（要件B）と同じく受容する（根拠検証・長さ検証を超える「問題の質」はAIの応答品質に依存し、本アプリの既存方針（非決定的なAI応答を許容し形式面のみ検証する）の範囲内）。
+- 一括登録でセルの区切り文字（タブ有無）を貼り付け全体で1回だけ判定する方式（F-D17）により、状況文の中に偶然タブ文字が含まれる極端な入力では区切りの誤判定が理論上起こりうるが、実運用（表計算ソフトからの貼り付け）では区切り文字が貼り付け全体で統一されるため現実的なリスクは小さいと判断し受容する。
+
+### 設計書への反映
+
+`docs/設計書_ロジック・プロンプト編_ミチナリ_v1.1/17_プロンプト設計/17.16_単語帳由来の復習クイズ生成.md`・`30_単語帳の判定・出題ロジック.md`へ、上記STRIDE表・データフロー図・受容したリスクを反映する（F-D04で実施。実際には17.17〈新設〉・30.12〈新設〉へ記載した）。
+
+## 5.11 観点別レビュー（コミット前チェック、要件F、2026-11-23実施）
+
+対象差分（要件Fの全変更）に基づき、`dry-reviewer`・`style-reviewer`・`label-checker`・`injection-reviewer`・`test-coverage-reviewer`の5エージェントを並列起動した（`auth-reviewer`／`secret-reviewer`／`dependency-reviewer`は認証・機密情報・新規依存のいずれにも該当しないため見送った）。
+
+**追記（2026-11-23、Stop Hookの指摘を受けて追加実施）**：Stop Hookから「`performance-reviewer`・`xss-reviewer`が未実行で根拠が無い」との指摘を受けた。`fix-issue.md`の起動条件に照らすと、本差分はループ/DB問い合わせ（`deck_vocab_mastery_totals`等）・描画処理（`ExpandableText`等の新規表示コンポーネント）の変更を含むため、いずれも実際には該当していた（前段の「見送り」判断は誤りだった）。`performance-reviewer`・`xss-reviewer`を追加で並列起動し、結果をまとめた表に追記した。
+
+| エージェント | 指摘 | 重要度 | 対応 |
+| --- | --- | --- | --- |
+| performance-reviewer | `start_vocab_quiz_session`のCHOICE系モード分岐内で`cards_by_id`相当の辞書が候補カードのforループ内で毎回再構築されている（本差分の新規持ち込みではなく、変更前から同位置にあったロジックの延長） | LOW（既存債務） | 対応不要と判断（`vocab.deck_max_cards`〈既定2000〉・出題数上限を踏まえ実害は小さい。ループ外への引き上げは別途検討） |
+| xss-reviewer | 新設`ExpandableText.tsx`・`QuizSession.tsx`の`whitespace-pre-wrap`追加・`VocabCardList.tsx`等の表示箇所を確認。生HTML解釈（該当API名はCLAUDE.mdの危険パターン検知対象のため本書では記載しない）・URLへの生埋め込みはいずれも検出なし。`whitespace-pre-wrap`はCSSの表示指定のみでエスケープ処理に影響しないことを確認 | — | 問題なし（修正不要） |
+| dry-reviewer | ①フロントの「種類別内訳」表示JSXが`VocabMasteryRoadmapSection.tsx`・`VocabDeckHeader.tsx`・`VocabDeckListTab.tsx`の3箇所で完全一致コピー ②カード種類（ALL/TERM/SITUATION）選択用の`<select>`マークアップが`VocabCardList.tsx`・`VocabQuizSetupForm.tsx`で重複 ③自己採点モード一覧`FLASH_MODES`が`VocabQuizQuestionView.tsx`・`useVocabQuizSession.ts`の2ファイルに別々定義（既存債務、今回`FLASH_SITUATION`追加は両方に正しく追従済み） ④`generate_for_deck`・`run_all`の両方に「term_cardsがあれば…situation_cardsがあれば…」という同一の分岐パターンが重複 ⑤`vocab_service.py`の`count_cards_by_deck`直後に空行が4行連続 | MEDIUM／MEDIUM／LOW／LOW／LOW | ①②修正済み（`VocabMasteryBreakdownLine.tsx`・`CardTypeFilterSelect.tsx`を新設し3箇所・2箇所をそれぞれ置き換え） ③④対応しない（③は既存コードベースの前からの設計、今回の変更範囲外。④は`_generate_for_cards`・`_generate_for_situation_cards`の責務分離を優先し、過剰な一般化〈CLAUDE.md「設計しない」原則〉を避けた） ⑤修正済み（空行を2行に） |
+| style-reviewer | `_prompt_and_reveal`の戻り値タプル（3値）の各要素が何を指すかをdocstringで明示していない | LOW | 修正済み（「戻り値: (prompt, reveal, explanation)」の一行を追加） |
+| label-checker | t()未経由の文字列リテラル・ロケールキー対応漏れ・閾値のマジックナンバー化はいずれも検出なし。`textTruncation.ts`の`MAX_LINES`・`CHARS_PER_LINE_ESTIMATE`（折りたたみ判定の表示見積もり定数）はCLAUDE.mdの閾値外部化規定に対しグレーゾーンだが、業務ロジックの閾値ではなくTailwindの`line-clamp-3`と連動した表示定数であるため是正不要と判断 | — | 対応不要 |
+| injection-reviewer | ①`_read_import_records`が行数チェックより前に貼り付け全文を1回でメモリに読み込む（旧実装も同様のため退行ではない） ②AI応答から抽出した誤答テキスト自体に、保存前の`DELIMITER_REPLACEMENTS`等の再エスケープを行っていない（既存の用語カード由来クイズ生成と同水準、退行ではない） | LOW／LOW | 対応不要と判断（既存実装から継続する設計であり、単一ローカル利用者向けアプリという前提で実害は限定的） |
+| test-coverage-reviewer | 「セル内にタブとカンマが両方含まれる」境界、正解自体が誤答と重複するケースの明示テストが無い（いずれも既存仕様の維持・既存テストに実質包含されるため追加必須ではないLOW） | LOW | 対応不要と判断（レビュー自身も追加必須ではないと判定） |
+
+HIGH以上の指摘は0件だった。MEDIUM2件（フロントの重複表示・重複セレクト）は共通コンポーネント化で解消し、LOW相当（docstring不足・空行）も修正した。既存債務・退行でないLOW指摘（FLASH_MODESの分散、2関数の分岐重複、CSV解析の境界テスト等）は、既存コードへの変更リスクが利益を上回ると判断して対応しないことをここに明記した。
+
+全修正後、バックエンド・フロントエンドとも全体を再実行し合格・回帰無しを確認済み（バックエンド2,703件・カバレッジ100%、フロントエンド230ファイル・1,827件・カバレッジ100%、ruff・oxlint・tsc いずれも0件。§8参照）。`osv-scanner scan -r .`を実行し既知の脆弱性0件（backend・frontendとも）を確認した。要件Fは環境変数・認証情報・ログ出力のいずれにも該当しないため`secret-reviewer`の起動は見送ったが、Stop Hookの指摘を受けて`git diff main...HEAD`全体をAPIキー・パスワード・トークン・秘密鍵ヘッダ等のパターンでgrepし、該当なし（`secrets.token_hex`という標準ライブラリ呼び出しとレビューア名の文字列一致のみ）であることを確認した。
+
+**追記（独立サブエージェントによるフルスキャン検証、2026-11-23）**：本セッションの作業コンテキストを持たない独立したサブエージェントに、F-U1〜F-U12（§0.13）と実コードの照合、既存機能（要件A〜E）への回帰、横展開漏れの3点を依頼した。結果、F-U1〜F-U12の全12件が実装確認済み（食い違いなし）、デグレ・横展開漏れは検出されなかった。なお当該レビューはコードの静的照合のみでpytest/vitestの再実行は行っていないため、本書記載のテスト件数・カバレッジ100%の主張自体は本セッション自身の実行結果（§8、上記）で裏付けている。
+
 ## 6. 既知のリスクと対策
 
 | リスク | 対策 |
@@ -994,6 +1239,10 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 | `build_glossary_reference`の区切り全角化が呼び出し元依存 | 関数自身が`DELIMITER_REPLACEMENTS`を適用する「デフォルトで安全」な実装へ変更（§5.3 #7） |
 | カード削除・目標削除時の単語帳由来クイズのCASCADE連鎖が未検証 | `test_vocab_service.py`・`test_goal_service.py`に回帰テストを追加（§5.3 #3・#4） |
 | 用語の重複除外が`normalize_for_match`のみでカタカナ/ひらがな表記違いを検知できない | `vocab_service.normalize_for_vocab_match`（既存の単語帳内重複判定と同じ基準）を除外判定に使うよう修正（§5.7 #1） |
+| シチュエーションカードの`card_type`を事後に変更し、既存の成績をシチュエーションの習得判定に転用する（要件F） | 更新用スキーマ・サービス関数のいずれにも`card_type`という項目を持たせない（F-D2、スキーマ層・サービス層の二重防御。`test_update_vocab_card_cannot_change_card_type`で確認） |
+| シチュエーションの状況・最善の対応の本文が、見出しのみを渡すべきAI注入経路（日次フィードバック等）へ漏れる（要件F） | `_format_glossary_label`自身がSITUATIONの本文を含まない文字列を返す「デフォルトで安全」な実装（F-D16、`test_build_glossary_overview_for_situation_card_shows_heading_only_with_stats`等で確認） |
+| AIが作るシチュエーションの誤答が極端に短い・長いと消去法のヒントになる（要件F） | 正解の文字数に対する比率判定（`vocab.situation_distractor_min/max_length_percent`）で範囲外の問題を個別に破棄する（F-D14） |
+| 一括登録のセル内改行対応（貼り付け全体を1回で解析）による巨大入力・メモリ消費（要件F） | 既存の行数上限（`vocab.import_max_rows`）をレコード数に対して適用。解析は`csv`モジュールのみで正規表現の連鎖を行わない（既存方針を継続、F-D17） |
 
 ## 7. 完了の定義
 
@@ -1040,6 +1289,17 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 - 観点別レビュー（§5.9、7エージェント並列実行）でHIGH以上の指摘を全て修正したこと。→ 達成（HIGHの指摘は0件。MEDIUM3件中2件修正・1件は理由を記録して対応不要と判断、LOW複数件のうち該当分を修正）
 - 完了条件に明記された検証項目（習得の境界・同時刻解答の並び・他目標分離・閾値到達時の単発記録・セッション終了と記録確定の二重記録防止・道のりマップの資格試験限定）がすべてテストで検証されていること。→ 達成（§5.9 test-coverage-reviewer確認済み）
 - 実際の利用者DBを退避コピーしたうえでマイグレーションを適用し、起動・新設フィールド（`vocab_mastery`設定・`mastered_card_count`・`is_mastered`）の反映を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み。要件E自体は新規マイグレーションを持たない）
+
+### 7.F 要件Fの完了の定義
+
+- §3.F（F-00・F-01・F-B01〜F-B10・F-F01〜F-F09・F-V01〜F-V04）が全て`[x]`になり、バックエンド・フロントエンドともテストが通る。→ 達成
+- カバレッジは例外処理を除き100%。→ 達成（バックエンド100%、フロントエンド100%）
+- §2.5のベースラインと比較し、既存の単語帳（要件A〜E）・問題集・今日の復習・道のりマップ・節目のお祝いのテストが1件も壊れていないこと。→ 達成（バックエンド2,617→2,703件・フロントエンド226ファイル・1,805件→230ファイル・1,827件、いずれも新規テストのみによる増加）
+- 新しい外部入力経路（長文・改行を含む貼り付け、シチュエーション4項目）・新規AI用途（`VOCAB_SITUATION_QUIZ_GENERATE`）のため実装前に`/threat-model`を実施し、設計書へ反映したこと。→ 達成（§5.10、設計書17.17.1・30.12.8）
+- 観点別レビュー（§5.11、dry-reviewer・style-reviewer・label-checker・injection-reviewer・test-coverage-reviewerの5エージェント並列実行）で検出した指摘を全て修正または理由を記録して対応不要と判断したこと。→ 達成
+- 完了条件に明記された検証項目（種類別の必須項目・文字数制限、種類変更不可、既存データの全件TERM移行、Excel引用符付き改行セルの一括登録、タブ/カンマ区切り、エラー行・重複行、入力式/4択からのシチュエーション除外、シチュエーション生成とその5項目検証、1カード1問、敵対的入力・性能、見出しのみの注入、習得内訳・節目の件数表現）がすべてテストで検証されていること。→ 達成（§3.F.1 F-B10、§3.F.3 F-V01）
+- 実際の利用者DBを退避コピーしたうえでマイグレーション（`e9eca0569d7c`→`8d475d100b88`）を適用し、起動・デッキ/カード作成・一括登録・出題セッション（種類混在）・書き出し・設定取得を確認したこと。→ 達成（§8参照、実DBは一切変更していないことをmd5で確認済み）
+- `pyproject.toml`のバージョン番号を変更していないこと。→ 達成（変更なし）
 
 ## 8. 作業記録
 
@@ -1096,6 +1356,22 @@ STRIDE分析は`docs/設計書_ロジック・プロンプト編_ミチナリ_v1
 **単語帳機能（要件A〜E）の完了まとめ（2026-11-21）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）・習得の可視化（要件E）の全5要件が完了した（§7・§7.B・§7.C・§7.D・§7.Eすべて達成）。資格試験の利用者は、単語帳への用語登録→AI非依存の問題集での自己学習→今日の復習への自動統合→日次フィードバック・目標相談でのAI参照→日次報告からの自動提案→習得した用語数の節目のお祝い・道のりマップへの反映、という一連の循環を得られる。要件A〜Dはmainへマージ済み（要件A=PR #135、B=PR #136、C=PR #137、D=PR #138〈日次ブランチの定例マージ〉）だが、要件A・B・Cのマイグレーション（`1bd06141379f`〜`1be51b4ce9c0`）・要件Dのマイグレーション（`e9eca0569d7c`）はいずれも実利用者DBへ未適用（未リリース）のままである。要件Eは新規マイグレーションを持たないため、次回のリリース（`backend/release.bat`）で要件A〜Eの変更がまとめて反映される。
 
 - 2026-11-22：独立サブエージェントによる再フルスキャン検証の最中に、要件D由来の既存テスト（`test_api_vocab.py`の用語提案系7件）が、記録日を固定値`"2026-11-20"`でハードコードしていたために、日付経過（セッションが日をまたいだことで「前日まで」の確定許容範囲を超えた）により失敗するようになっていたことを発見した。要件Eの変更が原因ではないこと（`git show ccad14e`で要件D完了時点から既に同じハードコードが存在していたこと）を確認したうえで、`RECORD_DATE = dt.date.today().isoformat()`へ置き換えて修正し、他の単語帳関連テストファイルに同種の時間依存ハードコードが残っていないことをgrepで横断確認した。バックエンド全件再実行：2,605件合格・カバレッジ100%（文11,083・分岐2,072）。PR #139（要件E）はマージコミット`b4187a3`、この修正はPR #140としてマージコミット`c777bdc`でmainへ反映済み。マージ後、再度独立サブエージェントでmainの最終状態（HEAD・未マージPRの有無・要件Eの実装漏れ・PR#140の横展開漏れ・実測テスト結果・ドキュメント整合性）を検証し、デグレ・横展開漏れ・実装漏れが無いことを確認した。
+
+- 2026-11-23：要件F（シチュエーションカード）の開発着手。開発に入る前にbackend/・frontend/・docs/・.claude/と本書を照合し、要件A〜Eおよび§9不具合修正（PR#135〜142）が漏れなく完了していることを`gh pr list`・独立したサブエージェントによる「meaning＝用語の意味」前提箇所の洗い出し（26箇所検出）で確認した（§0.12）。ベースラインを独自に再計測（バックエンド2,617件・カバレッジ100%・ruff 0件、フロントエンド226ファイル・1,805件・カバレッジ100%・oxlint/tsc 0件、§2.5）。利用者提示の決定事項（F-U1〜F-U12、§0.13）と、データ方針（`card_type`/`situation_text`/`question_text`列追加の対応づけ）を踏まえ、実装上の判断25件（F-D1〜F-D25、§0.14）・影響範囲（§1.9）・処理フロー（§4.4）・脅威モデル（STRIDE、§5.10）を記録した。利用者提示の「設定画面配線は既存の単語帳の上限と同じ」という前提は、フルスキャンの結果実際には既存の`vocab.term_max_chars`等が画面未配線（D7・9.3決定事項#4による意図的な設計）であることが判明したため、F-U2自体の明示指示（画面から変更できるようにする）は尊重しつつ、実際に画面配線されている既存の前例（E-U8）に揃える方針とした（F-D3、§0.14で理由を記録）。実利用者DB（`data/michinari.db`）を確認した結果、単語帳テーブル自体が未作成（要件A〜Dのマイグレーション未適用が継続）で実データが0件だったため、`vocab.note_max_chars`の既定値は既存の`vocab.meaning_max_chars`と同じ値を採用することとした（F-D22）。次回以降のセッションで§3.Fの作業Todoに沿って実装へ着手する。
+
+- 2026-11-23（続き）：バックエンドを実装。列挙・設定キー・シード（`VocabCardType`・`VocabQuizMode.FLASH_SITUATION`、`vocab.*`新設8キー）、モデル・マイグレーション（`vocab_card`への`card_type`/`situation_text`/`question_text`追加、マイグレーション`8d475d100b88`。実DBコピーをupgrade/downgrade双方向で検証し、既存データが`card_type='TERM'`へ自動補完され`situation_text`/`question_text`はNULLのままであること、downgradeで3列のみ消え既存の用語・意味データが保持されることを確認）、`vocab_service.py`（`_validate_card_fields`のcard_type分岐、`create_card`/`update_card`、`update_card`には`card_type`という項目自体を持たせずスキーマ層・サービス層の二重防御でカード種類の事後変更を構造的に禁止、`vocab_card_content_changed`のSITUATION拡張、`forbidden_term_search_text`/`_format_glossary_label`のcard_type分岐で見出しのみを注入、一括登録を`csv`モジュールの貼り付け全体一括読み込み方式へ再設計〈既存の用語取り込みテストは1件も変更せずに合格〉、`export_deck`のcard_type引数化）、`quiz_block_parsing.parse_distractor_blocks`新設、`vocab_quiz_generation_service._generate_for_situation_cards`新設（対象選定・AI送信・5項目検証〈出典の存在・用語カードでないこと・重複選択肢・誤答の長さ比率上下限〉・シャッフル・保存）、`VocabMasteryTotals`・`deck_vocab_mastery_totals`・`roadmap_service.RoadmapVocabMastery`の種類別内訳拡張、API・スキーマ一式を実装した。
+
+- 2026-11-23（続き）：フロントエンドを実装。`openapi-typescript`による型再生成、`ExpandableText.tsx`・`textTruncation.ts`新設（改行保持・数行での折り畳み・「続きを読む」展開、既存の用語カードへも遡って適用）、`VocabCardList.tsx`の種類選択・5項目入力欄・種類バッジ・種類絞り込み、`VocabImportExportPanel.tsx`の種類選択・列構成切り替え、`VocabQuizSetupForm.tsx`・`VocabQuizQuestionView.tsx`・`useVocabQuizSession.ts`の種類混在対応（問題ごとの`mode`をセッション単位の`mode`に代えて使用するよう変更）、`QuizSession.tsx`への改行保持適用、単語帳画面・道のりマップの種類別内訳表示（「用語◯語／場面◯件」）、文言の新設・節目メッセージの件数表現化を実装した。途中、`expandableText.ts`と`ExpandableText.tsx`をWindowsの大文字小文字を区別しないファイルシステム上で同一ディレクトリに置いたためバンドラの拡張子解決が誤って衝突し、再エクスポートした関数が`undefined`になる事象が発生。大文字小文字のみが異なるファイル名の共存を避ける方針で、論理ファイルを`textTruncation.ts`へ改名して解消した。
+
+- 2026-11-23（続き）：コミット前チェックとして観点別レビュー5エージェント（dry-reviewer・style-reviewer・label-checker・injection-reviewer・test-coverage-reviewer）を並列実行（詳細は§5.11）。重複コードの指摘を受け`VocabMasteryBreakdownLine.tsx`（3箇所の重複JSXを共通化）・`CardTypeFilterSelect.tsx`（2箇所の重複`<select>`を共通化）を切り出し、`vocab_service.py`の空行過多（4行→2行）、`_prompt_and_reveal`への戻り値docstring追加を修正。その他のLOW指摘（既存の`FLASH_MODES`重複、`generate_for_deck`/`run_all`の種類分割パターンの重複、タブ・カンマ混在セルの境界テスト未追加、正解と誤答が重複するケースの明示テスト未追加）は、既存債務でスコープ外・回帰リスクが利益を上回る・既存テストで実質網羅済み、のいずれかの理由を記録し対応不要と判断した（§5.11）。修正後、バックエンド全件再実行：**2,703件合格**・カバレッジ100%・ruff 0件。フロントエンド：230ファイル・1,827件合格・カバレッジ100%・oxlint 0件・tsc 0件。既存テストは1件も壊れていない（§2.5比較、バックエンド+86件・フロントエンド+4ファイル・+22件、いずれも要件Fの新規テストによる意図どおりの増加）。`osv-scanner scan -r .`を実行し既知の脆弱性0件を確認。
+
+- 2026-11-23（続き）：ドキュメントを更新（要件定義書R-199〜R-208、仕様書6.20・6.2・6.1・6.11・AI連携仕様AI-27、設計書5.1・5.2・5.4・ロジック・プロンプト編17.17〈STRIDE脅威モデル17.17.1を含む〉・30.12〈同30.12.8を含む〉、README.md、help_content.jsonの再生成、本書§5.10〈脅威モデル〉・§5.11〈観点別レビュー〉・§6〈既知のリスクと対策〉・§7.F〈完了の定義〉）。30.12.8の執筆時、XSS対策の説明文に危険APIとして検知される文字列をそのまま含めたため`.claude/hooks/block-dangerous-edit.sh`にブロックされた。実際には同APIを使わないことを説明する文章だったため、該当箇所を「生HTMLを解釈する仕組みは使わない」という表現に書き換えて再適用し、解消した。
+
+- 2026-11-23（最終）：実際の利用者DB（`data/michinari.db`、md5=`935ff2854ef36c287f56091a055f0216`）をスクラッチパッドへ退避コピーし、コピー上でマイグレーション（`e9eca0569d7c`→`8d475d100b88`）を適用。`TestClient`で実アプリを起動し、デッキ作成→用語カード1件・シチュエーションカード1件の作成→改行を含む引用符付きセルを含む一括登録（プレビュー→確定）→種類混在（「両方」）での出題セッション開始（実際に2問がFLASH_SITUATION・1問がFLASH_TERM_TO_MEANINGで出題されることを確認）→種類別の書き出し（シチュエーションの改行セルが自動的に引用符で囲まれて出力されることを確認）→設定取得（5件の新設上限値のデフォルトを確認）をAPI経由で確認した。AIへの実送信（シチュエーションの誤答生成）は実際のAI利用枠を消費するため本検証では行わず、単体・統合テストでの確認のみとした（要件Bの前例に揃える方針）。検証後、実DBのmd5が検証前と同一であることを確認し、スクラッチパッドのコピーを削除した。以上により、要件Fの完了条件（§7.F）を満たしたと判断する。
+
+- 2026-11-23（Stop Hookの指摘を受けた追加レビュー）：報告後、Stop Hookから「`performance-reviewer`・`xss-reviewer`の実行根拠が無い」との指摘を受けた。§5.11の見送り判断を見直し、両エージェントを追加で並列起動（結果は§5.11に追記。HIGH以上0件、LOW1件〈既存債務、対応不要と判断〉）。合わせて`osv-scanner scan -r .`を直接実行し既知の脆弱性0件を確認した。さらに、利用者からの依頼（デグレ・横展開漏れの有無の最終確認）に応え、本セッションの作業コンテキストを持たない独立したサブエージェントへF-U1〜F-U12と実コードの照合を依頼し、全12件の実装確認・デグレ/横展開漏れ無しの結果を得た（§5.11に追記）。これにより§7.Fの完了条件（観点別レビュー・セキュリティチェック・ドキュメント反映）を裏付ける根拠が揃った。
+
+**単語帳機能（要件A〜F）の完了まとめ（2026-11-23）**：基盤と問題集（要件A）・今日の復習への統合（要件B）・日次フィードバック・目標相談への用語注入（要件C）・日次報告からの用語提案（要件D）・習得の可視化（要件E）・シチュエーションカード（要件F）の全6要件が完了した（§7・§7.B〜§7.Fすべて達成）。資格試験の利用者は、用語カードに加えてPMP等の「状況を読んで最善の対応を選ぶ」形式のシチュエーションカードを登録でき、AI非依存の問題集ではめくって自己採点、今日の復習ではAIが誤答3件のみを生成する形で、どちらの種類も横断して学習できる。要件A〜Dはmainへマージ済み（要件A=PR #135、B=PR #136、C=PR #137、D=PR #138、§9不具合修正=PR #140）だが、要件A〜D・§9不具合修正に対応するマイグレーション（`1bd06141379f`〜`e9eca0569d7c`）および要件Fのマイグレーション（`8d475d100b88`）はいずれも実利用者DBへ未適用（未リリース）のままであり、次回のリリース（`backend/release.bat`）でまとめて反映される。
 
 ## 9. 不具合修正（静的解析の指摘、2026-11-22）
 

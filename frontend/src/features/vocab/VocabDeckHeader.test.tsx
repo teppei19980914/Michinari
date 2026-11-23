@@ -24,6 +24,10 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     display_order: 0,
     card_count: 0,
     mastered_card_count: 0,
+    term_card_count: 0,
+    term_mastered_card_count: 0,
+    situation_card_count: 0,
+    situation_mastered_card_count: 0,
     session_default_questions: 10,
     session_max_questions: 100,
     ...overrides,
@@ -62,6 +66,30 @@ describe('VocabDeckHeader の表示', () => {
 
     expect(
       screen.getByText(t('vocab.deckDetail.masteredCount', { mastered: 3, total: 10 })),
+    ).toBeDefined()
+  })
+
+  it('shows the term/situation breakdown (F-U9)', () => {
+    renderWithProviders(
+      <VocabDeckHeader
+        deck={makeDeck({
+          term_mastered_card_count: 2,
+          term_card_count: 7,
+          situation_mastered_card_count: 1,
+          situation_card_count: 3,
+        })}
+      />,
+    )
+
+    expect(
+      screen.getByText(
+        t('vocab.deckDetail.masteredCountBreakdown', {
+          termMastered: 2,
+          termTotal: 7,
+          situationMastered: 1,
+          situationTotal: 3,
+        }),
+      ),
     ).toBeDefined()
   })
 })

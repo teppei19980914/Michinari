@@ -33,6 +33,10 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
     display_order: 0,
     card_count: 10,
     mastered_card_count: 0,
+    term_card_count: 10,
+    term_mastered_card_count: 0,
+    situation_card_count: 0,
+    situation_mastered_card_count: 0,
     session_default_questions: 10,
     session_max_questions: 100,
     ...overrides,
@@ -65,7 +69,9 @@ describe('VocabQuizPage', () => {
   it('shows the setup form first, then the question, then the summary', async () => {
     const user = userEvent.setup()
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: '用語A', reveal: '意味A' }],
+      questions: [
+        { card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: '用語A', reveal: '意味A' },
+      ],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })

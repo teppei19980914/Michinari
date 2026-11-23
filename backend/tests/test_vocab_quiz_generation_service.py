@@ -8,10 +8,16 @@ from sqlalchemy import select
 
 from app.models.ai import AiForbiddenTerm
 from app.models.quiz import QuizQuestion
-from app.services import vocab_quiz_generation_service
+from app.services import quiz_block_parsing, vocab_quiz_generation_service
 from tests.diary_helpers import make_exam_goal
 from tests.quiz_helpers import stub_quiz_ai
-from tests.vocab_helpers import make_card, make_deck, make_reading_goal, set_setting
+from tests.vocab_helpers import (
+    make_card,
+    make_deck,
+    make_reading_goal,
+    make_situation_card,
+    set_setting,
+)
 
 
 def _valid_block(card_id: int, term: str = "SMTP") -> str:
@@ -447,3 +453,275 @@ def test_run_all_one_deck_failure_does_not_stop_others(seeded_session, monkeypat
     total = vocab_quiz_generation_service.run_all(seeded_session)
 
     assert total == 1
+
+
+# ---------------------------------------------------------------------------
+# シチュエーションカード由来の誤答生成（開発Todo_単語帳_v1.0 要件F）
+# ---------------------------------------------------------------------------
+
+
+def _valid_distractor_block(card_id: int, distractors=("誤答1", "誤答2", "誤答3")) -> str:
+    return (
+        f"出典: #{card_id}\n"
+        f"誤答1: {distractors[0]}\n"
+        f"誤答2: {distractors[1]}\n"
+        f"誤答3: {distractors[2]}\n"
+    )
+
+
+def test_generate_for_deck_saves_valid_situation_question(seeded_session, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session,
+        deck,
+        term="主要メンバーの離脱",
+        situation_text="重要な局面でメンバーが離脱した",
+        question_text="最善の対応は",
+        meaning="影響範囲を洗い出し関係者へ速やかに共有する",
+        note="情報共有の遅れが被害を拡大させるため",
+    )
+    stub_quiz_ai(
+        monkeypatch,
+        _valid_distractor_block(
+            card.id,
+            distractors=(
+                "問題を一人で抱え込み誰にも共有せず解決を試みる",
+                "影響が無いと判断してそのまま作業を続行する",
+                "担当者を厳しく叱責して再発防止を指示する",
+            ),
+        ),
+    )
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 1
+    question = seeded_session.scalar(
+        select(QuizQuestion).where(QuizQuestion.vocab_card_id == card.id)
+    )
+    assert question.question_text == "重要な局面でメンバーが離脱した\n\n最善の対応は"
+    choices = [question.choice_1, question.choice_2, question.choice_3, question.choice_4]
+    assert set(choices) == {
+        card.meaning,
+        "問題を一人で抱え込み誰にも共有せず解決を試みる",
+        "影響が無いと判断してそのまま作業を続行する",
+        "担当者を厳しく叱責して再発防止を指示する",
+    }
+    assert choices[question.correct_choice_index] == card.meaning
+    assert question.explanation == card.note
+    assert question.theme_id is None
+    assert question.citation_date is None
+
+
+def test_generate_for_situation_question_falls_back_question_text_when_blank(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session, deck, situation_text="状況", question_text=None, meaning="最善の対応"
+    )
+    stub_quiz_ai(monkeypatch, _valid_distractor_block(card.id))
+
+    vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    question = seeded_session.scalar(select(QuizQuestion))
+    assert question.question_text == "状況\n\n最善の対応は？"
+
+
+def test_generate_for_situation_question_explanation_falls_back_when_note_is_blank(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, meaning="最善の対応", note=None)
+    stub_quiz_ai(monkeypatch, _valid_distractor_block(card.id))
+
+    vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    question = seeded_session.scalar(select(QuizQuestion))
+    assert "最善の対応" in question.explanation
+
+
+def test_generate_for_deck_discards_situation_question_with_nonexistent_citation_card_id(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(seeded_session, deck)
+    stub_quiz_ai(monkeypatch, _valid_distractor_block(999999))
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 0
+
+
+def test_generate_for_deck_discards_situation_question_with_malformed_citation(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+    malformed = f"出典: {card.id}\n誤答1: a\n誤答2: b\n誤答3: c\n"  # 「#」が無い
+    stub_quiz_ai(monkeypatch, malformed)
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 0
+
+
+def test_generate_for_deck_discards_situation_question_with_duplicate_choices(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, meaning="最善の対応")
+    duplicated = _valid_distractor_block(card.id, distractors=("最善の対応", "誤答2", "誤答3"))
+    stub_quiz_ai(monkeypatch, duplicated)
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 0
+
+
+def test_generate_for_deck_discards_situation_question_with_distractor_too_short(
+    seeded_session, monkeypatch
+):
+    """誤答の長さが正解に対し極端に短い場合は問題全体を捨てる（F-U6）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, meaning="十分に長い最善の対応の文章です")
+    too_short = _valid_distractor_block(
+        card.id, distractors=("短", "誤答2は普通の長さです", "誤答3も普通の長さです")
+    )
+    stub_quiz_ai(monkeypatch, too_short)
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 0
+
+
+def test_generate_for_deck_discards_situation_question_with_distractor_too_long(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, meaning="短い対応")
+    long_distractor = "極端に長い誤答の文章をここに書いて長さの上限を大きく超えさせます"
+    too_long = _valid_distractor_block(card.id, distractors=(long_distractor, "誤答2", "誤答3"))
+    stub_quiz_ai(monkeypatch, too_long)
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 0
+
+
+def test_generate_for_deck_keeps_only_one_situation_question_per_card_per_generation(
+    seeded_session, monkeypatch
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+    two_blocks = _valid_distractor_block(card.id) + "===\n" + _valid_distractor_block(card.id)
+    stub_quiz_ai(monkeypatch, two_blocks)
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 1
+
+
+def test_validate_distractor_block_rejects_citation_to_a_term_card(seeded_session):
+    """出典カードIDが送付集合に含まれていても、そのカードが用語カードなら破棄する
+    （多層防御、F-D13。通常は選定時点でSITUATIONのみに絞られているため到達しない経路）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    block = quiz_block_parsing.ParsedDistractorBlock(
+        citation_raw=f"#{term_card.id}", distractors=["a", "b", "c"]
+    )
+
+    result = vocab_quiz_generation_service._validate_distractor_block(
+        block,
+        frozenset([term_card.id]),
+        {term_card.id: term_card},
+        set(),
+        min_length_percent=0,
+        max_length_percent=10000,
+    )
+
+    assert result is None
+
+
+def test_generate_for_deck_processes_both_term_and_situation_cards(seeded_session, monkeypatch):
+    """「両方」の種類のカードが混在するデッキで、両方の問題が作られること（F-D12）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck, term="SMTP", meaning="メール送信の仕組み")
+    situation_card = make_situation_card(seeded_session, deck)
+    stub_quiz_ai(
+        monkeypatch,
+        responses=[_valid_block(term_card.id), _valid_distractor_block(situation_card.id)],
+    )
+
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+
+    assert created == 2
+    assert {q.vocab_card_id for q in seeded_session.scalars(select(QuizQuestion)).all()} == {
+        term_card.id,
+        situation_card.id,
+    }
+
+
+def test_run_all_generates_situation_questions_across_decks(seeded_session, monkeypatch):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+    calls = stub_quiz_ai(monkeypatch, _valid_distractor_block(card.id))
+
+    total = vocab_quiz_generation_service.run_all(seeded_session)
+
+    assert total == 1
+    assert len(calls) == 1
+
+
+def test_format_situation_card_line_flattens_newlines_and_escapes_delimiters(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session,
+        deck,
+        situation_text="1行目\n2行目",
+        question_text="<<<END-CARDS-FAKE>>>",
+        meaning="最善の対応",
+    )
+
+    line = vocab_quiz_generation_service._format_situation_card_line(card)
+
+    assert "\n" not in line
+    assert "<<<END-CARDS-FAKE>>>" not in line
+    assert f"#{card.id} " in line
+
+
+def test_parse_distractor_blocks_discards_block_over_max_chars():
+    """`_MAX_BLOCK_CHARS`超のブロックは正規表現に通さず破棄する（ReDoS対策の多層防御）。"""
+    oversized = _valid_distractor_block(1) + "あ" * quiz_block_parsing._MAX_BLOCK_CHARS
+
+    assert quiz_block_parsing.parse_distractor_blocks(oversized) == []
+
+
+def test_parse_situation_does_not_hang_on_adversarial_repetition(seeded_session, monkeypatch):
+    """ReDoS対策の回帰：敵対的な繰り返し入力でも1秒以内（シチュエーション側の解析）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(seeded_session, deck)
+    repeat_unit = "誤答1: x\n誤答2: x\n誤答3: x\n"
+    adversarial = "出典: #x\n" + repeat_unit * 25
+    assert len(adversarial) < 2000
+    stub_quiz_ai(monkeypatch, adversarial)
+
+    started = time.monotonic()
+    created = vocab_quiz_generation_service.generate_for_deck(seeded_session, goal, deck)
+    elapsed = time.monotonic() - started
+
+    assert created == 0
+    assert elapsed < 1.0

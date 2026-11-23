@@ -36,6 +36,11 @@ class RoadmapVocabMasteryRead(BaseModel):
     mastered_count: int
     total_count: int
     remaining_to_next_milestone: int | None
+    #: 種類別の内訳（開発Todo_単語帳_v1.0 要件F F-U9）。
+    term_mastered_count: int
+    term_total_count: int
+    situation_mastered_count: int
+    situation_total_count: int
 
 
 class GoalRoadmapRead(BaseModel):

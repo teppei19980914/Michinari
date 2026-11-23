@@ -3,9 +3,16 @@ import { t } from '../../locales/t'
 import { Card } from '../../components/Card'
 import { Button } from '../../components/Button'
 import { Input } from '../../components/Input'
+import { ExpandableText } from '../../components/ExpandableText'
 import type { VocabAnswerResult, VocabQuizMode, VocabQuizQuestion } from '../../api/vocab'
 
-const FLASH_MODES: VocabQuizMode[] = ['FLASH_TERM_TO_MEANING', 'FLASH_MEANING_TO_TERM']
+//: 自己採点（カードをめくる）方式。SITUATIONカードのFLASH_SITUATIONも同じ採点方法を使う
+//: （開発Todo_単語帳_v1.0 要件F F-D24）。
+const FLASH_MODES: VocabQuizMode[] = [
+  'FLASH_TERM_TO_MEANING',
+  'FLASH_MEANING_TO_TERM',
+  'FLASH_SITUATION',
+]
 const CHOICE_MODES: VocabQuizMode[] = ['CHOICE_TERM_TO_MEANING', 'CHOICE_MEANING_TO_TERM']
 
 export type VocabQuizAnswerPayload = {
@@ -14,15 +21,16 @@ export type VocabQuizAnswerPayload = {
   selected_card_id?: number
 }
 
-/** 問題集の1問分の表示・解答入力。形式（カードめくり／入力式／4択）ごとにUIを分ける。 */
+/** 問題集の1問分の表示・解答入力。形式（カードめくり／入力式／4択）ごとにUIを分ける。
+ * 出題形式は`question.mode`（カードごとの実際の形式、開発Todo_単語帳_v1.0 要件F F-D7）を
+ * 見る。「両方」選択時はSITUATIONカードがFLASH_SITUATIONになるため、セッション単位の
+ * 選択とは異なりうる。 */
 export function VocabQuizQuestionView({
-  mode,
   question,
   lastResult,
   onSubmit,
   onNext,
 }: {
-  mode: VocabQuizMode
   question: VocabQuizQuestion
   lastResult: VocabAnswerResult | null
   onSubmit: (payload: VocabQuizAnswerPayload) => void
@@ -30,16 +38,20 @@ export function VocabQuizQuestionView({
 }) {
   const [revealed, setRevealed] = useState(false)
   const [answerText, setAnswerText] = useState('')
+  const mode = question.mode
 
   if (FLASH_MODES.includes(mode)) {
     return (
       <Card className="flex flex-col gap-3">
-        <p className="text-lg text-text-primary">{question.prompt}</p>
+        <p className="whitespace-pre-wrap text-lg text-text-primary">{question.prompt}</p>
         {!revealed ? (
           <Button onClick={() => setRevealed(true)}>{t('vocab.quiz.revealButton')}</Button>
         ) : (
           <>
-            <p className="text-lg font-medium text-accent-muted-text">{question.reveal}</p>
+            <p className="whitespace-pre-wrap text-lg font-medium text-accent-muted-text">
+              {question.reveal}
+            </p>
+            <ExpandableText text={question.explanation} className="text-sm text-text-secondary" />
             <div className="flex gap-2">
               <Button
                 onClick={() => {

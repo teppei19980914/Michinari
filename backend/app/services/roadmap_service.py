@@ -64,6 +64,11 @@ class RoadmapVocabMastery:
     total_count: int
     #: 次の節目までの残り語数。すべての閾値に到達済みならNone。
     remaining_to_next_milestone: int | None
+    #: 種類別の内訳（開発Todo_単語帳_v1.0 要件F F-U9、「用語◯語／場面◯件」の表示用）。
+    term_mastered_count: int
+    term_total_count: int
+    situation_mastered_count: int
+    situation_total_count: int
 
 
 @dataclass(frozen=True)
@@ -137,6 +142,10 @@ def _vocab_mastery(session: Session, goal: Goal) -> RoadmapVocabMastery | None:
         mastered_count=totals.mastered_cards,
         total_count=totals.total_cards,
         remaining_to_next_milestone=remaining,
+        term_mastered_count=totals.term_mastered,
+        term_total_count=totals.term_total,
+        situation_mastered_count=totals.situation_mastered,
+        situation_total_count=totals.situation_total,
     )
 
 

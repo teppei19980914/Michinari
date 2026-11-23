@@ -98,13 +98,66 @@ describe('VocabImportExportPanel の一括登録', () => {
     await user.click(await screen.findByRole('button', { name: t('vocab.deckDetail.bulkImportConfirmButton') }))
 
     await waitFor(() =>
-      expect(confirmVocabImport).toHaveBeenCalledWith(DECK_ID, [
-        { term: '用語', meaning: '意味', aliases: '別名', note: '補足' },
-      ]),
+      expect(confirmVocabImport).toHaveBeenCalledWith(
+        DECK_ID,
+        [
+          {
+            term: '用語',
+            meaning: '意味',
+            aliases: '別名',
+            note: '補足',
+            situation_text: undefined,
+            question_text: undefined,
+          },
+        ],
+        'TERM',
+      ),
     )
     await waitFor(() =>
       expect(screen.queryByText(/取り込む件数/)).toBeNull(),
     )
+  })
+
+  it('shows the situation placeholder and passes SITUATION card_type after switching', async () => {
+    const user = userEvent.setup()
+    previewVocabImport.mockResolvedValue({ rows: [], errors: [], duplicate_count: 0 })
+    renderWithProviders(<VocabImportExportPanel deckId={DECK_ID} deckName={DECK_NAME} />)
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.bulkImportCardTypeLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+
+    expect(
+      screen.getByPlaceholderText(t('vocab.deckDetail.bulkImportPlaceholderSituation')),
+    ).toBeTruthy()
+
+    await user.type(
+      screen.getByPlaceholderText(t('vocab.deckDetail.bulkImportPlaceholderSituation')),
+      '見出し\t状況\t\t最善の対応',
+    )
+    await user.click(screen.getByRole('button', { name: t('vocab.deckDetail.bulkImportPreviewButton') }))
+
+    await waitFor(() =>
+      expect(previewVocabImport).toHaveBeenCalledWith(DECK_ID, '見出し\t状況\t\t最善の対応', 'SITUATION'),
+    )
+  })
+})
+
+describe('VocabImportExportPanel の書き出し', () => {
+  it('exports with the chosen card type', async () => {
+    const user = userEvent.setup()
+    exportVocabDeck.mockResolvedValue({ text: '見出し\t状況\t\t最善の対応\t\n' })
+    renderWithProviders(<VocabImportExportPanel deckId={DECK_ID} deckName={DECK_NAME} />)
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.exportCardTypeLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+    await user.click(screen.getByRole('button', { name: t('vocab.deckDetail.exportButton') }))
+
+    await waitFor(() => expect(exportVocabDeck).toHaveBeenCalledWith(DECK_ID, 'SITUATION'))
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalledOnce())
   })
 })
 

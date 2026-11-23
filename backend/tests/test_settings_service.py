@@ -231,6 +231,25 @@ def test_update_app_settings_rejects_non_integer_vocab_mastered_terms_threshold(
         )
 
 
+def test_get_app_settings_returns_vocab_situation_limits_defaults(seeded_session):
+    """開発Todo_単語帳_v1.0 要件F F-U2。"""
+    settings = settings_service.get_app_settings(seeded_session)
+    assert settings.vocab_situation_limits.heading_max_chars == 100
+    assert settings.vocab_situation_limits.text_max_chars == 2000
+    assert settings.vocab_situation_limits.question_max_chars == 200
+    assert settings.vocab_situation_limits.best_action_max_chars == 500
+    assert settings.vocab_situation_limits.explanation_max_chars == 2000
+
+
+def test_update_app_settings_updates_vocab_situation_limits(seeded_session):
+    updated = settings_service.update_app_settings(
+        seeded_session, vocab_situation_limits={"heading_max_chars": 50}
+    )
+    assert updated.vocab_situation_limits.heading_max_chars == 50
+    # 更新していないフィールドは既定値のまま。
+    assert updated.vocab_situation_limits.text_max_chars == 2000
+
+
 def test_get_app_settings_returns_on_this_day_defaults(seeded_session):
     """開発Todo_1年前の今日_v1.0 §0 V1〜V3、V12。"""
     settings = settings_service.get_app_settings(seeded_session)

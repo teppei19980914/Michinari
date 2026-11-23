@@ -43,7 +43,7 @@ export function VocabQuizPage() {
 
       {!session.mode && (
         <VocabQuizSetupForm
-          cardCount={deck.card_count}
+          termCardCount={deck.term_card_count}
           defaultQuestionCount={deck.session_default_questions}
           maxQuestionCount={deck.session_max_questions}
           onStart={session.start}
@@ -59,7 +59,6 @@ export function VocabQuizPage() {
             })}
           </p>
           <VocabQuizQuestionView
-            mode={session.mode}
             question={session.currentQuestion}
             lastResult={session.lastResult}
             onSubmit={session.answer}
