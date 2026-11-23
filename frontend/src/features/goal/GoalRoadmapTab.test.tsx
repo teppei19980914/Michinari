@@ -71,7 +71,15 @@ describe('GoalRoadmapTab', () => {
   it('単語帳がある資格試験の目標では「用語の習得」欄を表示する（開発Todo_単語帳_v1.0 要件E E-U5）', async () => {
     getGoalRoadmap.mockResolvedValue(
       makeRoadmap({
-        vocab_mastery: { mastered_count: 3, total_count: 10, remaining_to_next_milestone: 2 },
+        vocab_mastery: {
+          mastered_count: 3,
+          total_count: 10,
+          remaining_to_next_milestone: 2,
+          term_mastered_count: 2,
+          term_total_count: 7,
+          situation_mastered_count: 1,
+          situation_total_count: 3,
+        },
       }),
     )
     renderWithProviders(<GoalRoadmapTab goalId={GOAL_ID} />)

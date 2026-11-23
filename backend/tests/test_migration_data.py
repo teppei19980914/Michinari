@@ -887,3 +887,89 @@ def test_vocab_quiz_integration_migration_downgrade_deletes_vocab_sourced_rows(
     assert remaining_answer_logs == [(1, 1)]
     assert "vocab_card_id" not in question_columns
     assert "vocab_card_id" not in answer_log_columns
+
+
+def test_vocab_card_situation_fields_migration_backfills_existing_cards_as_term(
+    tmp_path, monkeypatch
+):
+    """既存データがある状態で8d475d100b88を適用できること（CODING_RULES.md）。既存の
+    用語カードはcard_type='TERM'にbackfillされ、term/meaningはそのまま保持されること
+    （開発Todo_単語帳_v1.0 要件F F-D21）。
+    """
+    db_path = tmp_path / "vocab_card_situation_fields_migration_backfill.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("e9eca0569d7c")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '単語帳A', NULL, 1, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_card (id, deck_id, term, meaning, aliases, note, is_checked, "
+            "display_order, updated_at, created_at) "
+            "VALUES (1, 1, '用語A', '意味A', '別名A', '補足A', 0, 0, '2026-01-01T00:00:00', "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        card = connection.execute(
+            "SELECT term, meaning, aliases, note, card_type, situation_text, question_text "
+            "FROM vocab_card WHERE id = 1"
+        ).fetchone()
+
+    assert card == ("用語A", "意味A", "別名A", "補足A", "TERM", None, None)
+
+
+def test_vocab_card_situation_fields_migration_downgrade_drops_new_columns_only(
+    tmp_path, monkeypatch
+):
+    """downgradeは新設3列を削除するのみで、既存の用語カード自体（term/meaning等）は
+    削除しないこと（開発Todo_単語帳_v1.0 要件F）。
+    """
+    db_path = tmp_path / "vocab_card_situation_fields_migration_downgrade.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (1, 1, '単語帳A', NULL, 1, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_card (id, deck_id, card_type, term, meaning, aliases, note, "
+            "situation_text, question_text, is_checked, display_order, updated_at, created_at) "
+            "VALUES (1, 1, 'SITUATION', '見出しA', '最善の対応A', NULL, '解説A', "
+            "'状況A', '問いA', 0, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.downgrade_to("e9eca0569d7c")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        remaining_cards = connection.execute(
+            "SELECT id, term, meaning FROM vocab_card"
+        ).fetchall()
+        card_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(vocab_card)").fetchall()
+        }
+
+    assert remaining_cards == [(1, "見出しA", "最善の対応A")]
+    assert "card_type" not in card_columns
+    assert "situation_text" not in card_columns
+    assert "question_text" not in card_columns

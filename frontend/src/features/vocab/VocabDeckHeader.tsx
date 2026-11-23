@@ -15,6 +15,7 @@ import { useAiConfigured } from '../../hooks/useAiConfigured'
 import { QUERY_KEYS } from '../../constants/queryKeys'
 import { VocabDeckAiSection } from './VocabDeckAiSection'
 import { VocabDeckNameSection } from './VocabDeckNameSection'
+import { VocabMasteryBreakdownLine } from './VocabMasteryBreakdownLine'
 
 /** 単語帳詳細の見出し（名前・説明の編集、AI利用の切替、削除）。 */
 export function VocabDeckHeader({ deck }: { deck: VocabDeck }) {
@@ -68,6 +69,12 @@ export function VocabDeckHeader({ deck }: { deck: VocabDeck }) {
           total: deck.card_count,
         })}
       </p>
+      <VocabMasteryBreakdownLine
+        termMastered={deck.term_mastered_card_count}
+        termTotal={deck.term_card_count}
+        situationMastered={deck.situation_mastered_card_count}
+        situationTotal={deck.situation_card_count}
+      />
 
       <VocabDeckAiSection
         useInAi={deck.use_in_ai}

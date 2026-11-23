@@ -23,6 +23,7 @@ from app.schemas.setting import (
     QuickRecordSettingsRead,
     ThresholdSettingsRead,
     VocabMasterySettingsRead,
+    VocabSituationLimitsSettingsRead,
 )
 from app.services import settings_service
 from app.services.exceptions import NotFoundError
@@ -42,6 +43,9 @@ def _serialize_settings(settings: settings_service.AppSettings) -> AppSettingsRe
         on_this_day=OnThisDaySettingsRead(**vars(settings.on_this_day)),
         quick_record=QuickRecordSettingsRead(**vars(settings.quick_record)),
         vocab_mastery=VocabMasterySettingsRead(**vars(settings.vocab_mastery)),
+        vocab_situation_limits=VocabSituationLimitsSettingsRead(
+            **vars(settings.vocab_situation_limits)
+        ),
     )
 
 
@@ -82,6 +86,7 @@ def update_settings(
         on_this_day=groups.get("on_this_day"),
         quick_record=groups.get("quick_record"),
         vocab_mastery=groups.get("vocab_mastery"),
+        vocab_situation_limits=groups.get("vocab_situation_limits"),
     )
     session.commit()
     return _serialize_settings(updated)

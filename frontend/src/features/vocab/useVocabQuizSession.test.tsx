@@ -42,13 +42,13 @@ afterEach(() => {
 describe('useVocabQuizSession の開始', () => {
   it('sets the mode and questions from the started session', async () => {
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' }],
       excluded_count: 0,
     })
     const { result } = setup()
 
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
 
     expect(result.current.mode).toBe('FLASH_TERM_TO_MEANING')
@@ -61,15 +61,15 @@ describe('useVocabQuizSession の解答進行', () => {
   it('advances immediately for FLASH modes without setting lastResult', async () => {
     startVocabQuizSession.mockResolvedValue({
       questions: [
-        { card_id: 1, prompt: 'A' },
-        { card_id: 2, prompt: 'B' },
+        { card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' },
+        { card_id: 2, mode: 'FLASH_TERM_TO_MEANING', prompt: 'B' },
       ],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })
     const { result } = setup()
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 2 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 2, card_type: 'ALL' })
     })
 
     await act(async () => {
@@ -81,15 +81,48 @@ describe('useVocabQuizSession の解答進行', () => {
     expect(result.current.summary.correctCount).toBe(1)
   })
 
+  it('advances immediately for FLASH_SITUATION (per-question mode, not the session mode)', async () => {
+    /** 「両方」選択時、セッション単位のmode（TYPED_MEANING_TO_TERM）とは異なり、
+     * シチュエーションカードはFLASH_SITUATIONとして振る舞う（開発Todo_単語帳_v1.0
+     * 要件F F-D7・F-D8）。answerVocabCardへ渡すmodeも問題ごとのFLASH_SITUATIONに
+     * なること（API呼び出しの引数で確認）。 */
+    startVocabQuizSession.mockResolvedValue({
+      questions: [{ card_id: 1, mode: 'FLASH_SITUATION', prompt: '状況\n\n問い' }],
+      excluded_count: 0,
+    })
+    answerVocabCard.mockResolvedValue({ is_correct: true })
+    const { result } = setup()
+    await act(async () => {
+      result.current.start({
+        mode: 'TYPED_MEANING_TO_TERM',
+        filter: 'ALL',
+        order: 'RANDOM',
+        question_count: 1,
+        card_type: 'ALL',
+      })
+    })
+
+    await act(async () => {
+      result.current.answer({ self_judged_correct: true })
+    })
+
+    expect(answerVocabCard).toHaveBeenCalledWith(1, {
+      mode: 'FLASH_SITUATION',
+      self_judged_correct: true,
+    })
+    expect(result.current.index).toBe(1)
+    expect(result.current.lastResult).toBeNull()
+  })
+
   it('shows the result without advancing for non-FLASH modes until next() is called', async () => {
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'TYPED_MEANING_TO_TERM', prompt: 'A' }],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: false })
     const { result } = setup()
     await act(async () => {
-      result.current.start({ mode: 'TYPED_MEANING_TO_TERM', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'TYPED_MEANING_TO_TERM', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
 
     await act(async () => {
@@ -124,7 +157,7 @@ describe('useVocabQuizSession のセッション終了時の節目判定（開�
     const { result, rerender } = setup()
 
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
     rerender()
 
@@ -135,13 +168,13 @@ describe('useVocabQuizSession のセッション終了時の節目判定（開�
 
   it('calls completeVocabQuizSession once the session reaches its last question', async () => {
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' }],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })
     const { result, rerender } = setup()
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
 
     await act(async () => {
@@ -155,13 +188,13 @@ describe('useVocabQuizSession のセッション終了時の節目判定（開�
 
   it('does not call completeVocabQuizSession again on an unrelated re-render', async () => {
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' }],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })
     const { result, rerender } = setup()
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
     await act(async () => {
       result.current.answer({ self_judged_correct: true })
@@ -186,13 +219,13 @@ describe('useVocabQuizSession のセッション終了時の節目判定（開�
       },
     ])
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' }],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })
     const { result, rerender } = setup(42)
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
     await act(async () => {
       result.current.answer({ self_judged_correct: true })
@@ -206,13 +239,13 @@ describe('useVocabQuizSession のセッション終了時の節目判定（開�
 
   it('does not check pending celebrations when goalId is not yet known', async () => {
     startVocabQuizSession.mockResolvedValue({
-      questions: [{ card_id: 1, prompt: 'A' }],
+      questions: [{ card_id: 1, mode: 'FLASH_TERM_TO_MEANING', prompt: 'A' }],
       excluded_count: 0,
     })
     answerVocabCard.mockResolvedValue({ is_correct: true })
     const { result, rerender } = setup(undefined)
     await act(async () => {
-      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1 })
+      result.current.start({ mode: 'FLASH_TERM_TO_MEANING', filter: 'ALL', order: 'RANDOM', question_count: 1, card_type: 'ALL' })
     })
     await act(async () => {
       result.current.answer({ self_judged_correct: true })

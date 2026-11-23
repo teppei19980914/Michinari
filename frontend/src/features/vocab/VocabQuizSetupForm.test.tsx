@@ -13,7 +13,7 @@ describe('VocabQuizSetupForm の4択の可否', () => {
   it('shows the notice and disables choice modes when fewer than 4 cards', () => {
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={3}
+        termCardCount={3}
         defaultQuestionCount={10}
         maxQuestionCount={100}
         onStart={vi.fn()}
@@ -30,7 +30,7 @@ describe('VocabQuizSetupForm の4択の可否', () => {
   it('does not show the notice and enables choice modes with 4 or more cards', () => {
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={4}
+        termCardCount={4}
         defaultQuestionCount={10}
         maxQuestionCount={100}
         onStart={vi.fn()}
@@ -51,7 +51,7 @@ describe('VocabQuizSetupForm の問題数の初期値・上限（軽微1の修�
     const onStart = vi.fn()
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={10}
+        termCardCount={10}
         defaultQuestionCount={7}
         maxQuestionCount={100}
         onStart={onStart}
@@ -68,7 +68,7 @@ describe('VocabQuizSetupForm の問題数の初期値・上限（軽微1の修�
   it('sets maxQuestionCount as the input max attribute', () => {
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={10}
+        termCardCount={10}
         defaultQuestionCount={10}
         maxQuestionCount={50}
         onStart={vi.fn()}
@@ -86,7 +86,7 @@ describe('VocabQuizSetupForm の開始', () => {
     const onStart = vi.fn()
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={10}
+        termCardCount={10}
         defaultQuestionCount={10}
         maxQuestionCount={100}
         onStart={onStart}
@@ -100,6 +100,7 @@ describe('VocabQuizSetupForm の開始', () => {
       filter: 'ALL',
       order: 'RANDOM',
       question_count: 10,
+      card_type: 'ALL',
     })
   })
 
@@ -108,7 +109,7 @@ describe('VocabQuizSetupForm の開始', () => {
     const onStart = vi.fn()
     renderWithProviders(
       <VocabQuizSetupForm
-        cardCount={10}
+        termCardCount={10}
         defaultQuestionCount={10}
         maxQuestionCount={100}
         onStart={onStart}
@@ -137,6 +138,28 @@ describe('VocabQuizSetupForm の開始', () => {
       filter: 'CHECKED',
       order: 'WEAK_ORDER',
       question_count: 5,
+      card_type: 'ALL',
     })
+  })
+
+  it('starts with the chosen card type', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    renderWithProviders(
+      <VocabQuizSetupForm
+        termCardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.deckDetail.cardTypeFilterLabel')),
+      t('vocab.deckDetail.cardTypeOptions.SITUATION'),
+    )
+    await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
+
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ card_type: 'SITUATION' }))
   })
 })

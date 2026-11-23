@@ -13,7 +13,7 @@ from app.constants.app_setting_keys import (
     VOCAB_MEANING_MAX_CHARS,
     VOCAB_TERM_MAX_CHARS,
 )
-from app.constants.enums import VocabQuizMode
+from app.constants.enums import VocabCardType, VocabQuizMode
 from app.models.ai import AiForbiddenTerm
 from app.models.quiz import QuizAnswerLog, QuizQuestion
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
@@ -31,6 +31,7 @@ from tests.vocab_helpers import (
     make_card,
     make_deck,
     make_reading_goal,
+    make_situation_card,
     set_setting,
 )
 
@@ -417,6 +418,258 @@ def test_delete_card_cascades_to_quiz_question_and_answer_log(seeded_session):
 
 
 # ---------------------------------------------------------------------------
+# シチュエーションカード（開発Todo_単語帳_v1.0 要件F）
+# ---------------------------------------------------------------------------
+
+
+def test_create_situation_card_succeeds(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    card = vocab_service.create_card(
+        seeded_session,
+        deck,
+        card_type=VocabCardType.SITUATION,
+        term="見出し",
+        meaning="最善の対応",
+        situation_text="状況の説明",
+        question_text="問い",
+        note="解説",
+    )
+
+    assert card.card_type == VocabCardType.SITUATION
+    assert card.situation_text == "状況の説明"
+    assert card.question_text == "問い"
+    assert card.aliases is None
+
+
+def test_create_situation_card_succeeds_without_optional_fields(seeded_session):
+    """問い・解説は任意（F-U1）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    card = vocab_service.create_card(
+        seeded_session,
+        deck,
+        card_type=VocabCardType.SITUATION,
+        term="見出し",
+        meaning="最善の対応",
+        situation_text="状況",
+    )
+
+    assert card.question_text is None
+    assert card.note is None
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"term": "  "},
+        {"situation_text": " "},
+        {"meaning": " "},
+    ],
+)
+def test_create_situation_card_rejects_missing_required_fields(seeded_session, kwargs):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    base = {"term": "見出し", "meaning": "最善の対応", "situation_text": "状況"}
+    base.update(kwargs)
+
+    with pytest.raises(ValidationError):
+        vocab_service.create_card(
+            seeded_session, deck, card_type=VocabCardType.SITUATION, **base
+        )
+
+
+def test_create_situation_card_rejects_aliases(seeded_session):
+    """シチュエーションカードに別名は使わない（F-D4）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    with pytest.raises(ValidationError):
+        vocab_service.create_card(
+            seeded_session,
+            deck,
+            card_type=VocabCardType.SITUATION,
+            term="見出し",
+            meaning="最善の対応",
+            situation_text="状況",
+            aliases="別名",
+        )
+
+
+@pytest.mark.parametrize(
+    ("setting_key_name", "field_kwarg"),
+    [
+        ("VOCAB_SITUATION_HEADING_MAX_CHARS", "term"),
+        ("VOCAB_SITUATION_TEXT_MAX_CHARS", "situation_text"),
+        ("VOCAB_SITUATION_QUESTION_MAX_CHARS", "question_text"),
+        ("VOCAB_SITUATION_BEST_ACTION_MAX_CHARS", "meaning"),
+        ("VOCAB_SITUATION_EXPLANATION_MAX_CHARS", "note"),
+    ],
+)
+def test_create_situation_card_rejects_one_field_over_its_own_max_chars(
+    seeded_session, setting_key_name, field_kwarg
+):
+    """5項目それぞれ独自の上限を持つこと（F-U2）。他項目を規定値内に保ったまま、対象の
+    1項目だけが上限を超えたときに拒否されることを確認する。"""
+    import app.constants.app_setting_keys as keys
+
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    set_setting(seeded_session, getattr(keys, setting_key_name), "3")
+    base = {
+        "term": "見出し",
+        "meaning": "最善の対応",
+        "situation_text": "状況",
+        "question_text": "問い",
+        "note": "解説",
+    }
+    base[field_kwarg] = "12345"
+
+    with pytest.raises(ValidationError):
+        vocab_service.create_card(
+            seeded_session, deck, card_type=VocabCardType.SITUATION, **base
+        )
+
+
+def test_create_term_card_rejects_note_over_max_chars(seeded_session):
+    """用語カードの補足（note）の上限（`vocab.note_max_chars`、F-U10）。"""
+    from app.constants.app_setting_keys import VOCAB_NOTE_MAX_CHARS
+
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    set_setting(seeded_session, VOCAB_NOTE_MAX_CHARS, "3")
+
+    with pytest.raises(ValidationError):
+        vocab_service.create_card(seeded_session, deck, term="用語", meaning="意味", note="12345")
+
+
+def test_update_situation_card_can_update_situation_and_question(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck)
+
+    vocab_service.update_card(
+        seeded_session, card, situation_text="新しい状況", question_text="新しい問い"
+    )
+
+    assert card.situation_text == "新しい状況"
+    assert card.question_text == "新しい問い"
+
+
+def test_update_situation_card_validates_existing_situation_text_when_unrelated_field_changes(
+    seeded_session,
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, situation_text="12345")
+    from app.constants.app_setting_keys import VOCAB_SITUATION_TEXT_MAX_CHARS
+
+    set_setting(seeded_session, VOCAB_SITUATION_TEXT_MAX_CHARS, "3")
+
+    with pytest.raises(ValidationError):
+        vocab_service.update_card(seeded_session, card, meaning="新しい最善の対応")
+
+
+def test_vocab_card_content_changed_for_situation_checks_situation_fields(seeded_session):
+    """見出し・状況・問い・最善の対応・解説のいずれかが変われば`True`（F-U5）。別名は
+    SITUATIONでは判定対象にならない。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session, deck, situation_text="状況", question_text="問い", note="解説"
+    )
+
+    assert vocab_service.vocab_card_content_changed(
+        card, term=None, meaning=None, aliases=None, situation_text="新しい状況"
+    )
+    assert vocab_service.vocab_card_content_changed(
+        card, term=None, meaning=None, aliases=None, question_text="新しい問い"
+    )
+    assert vocab_service.vocab_card_content_changed(
+        card, term=None, meaning=None, aliases=None, note="新しい解説"
+    )
+    assert not vocab_service.vocab_card_content_changed(
+        card, term=None, meaning=None, aliases=None
+    )
+    assert not vocab_service.vocab_card_content_changed(
+        card,
+        term="見出し",
+        meaning="最善の対応",
+        aliases=None,
+        note="解説",
+        situation_text="状況",
+        question_text="問い",
+    )
+
+
+def test_resolve_situation_question_text_falls_back_when_blank():
+    assert (
+        vocab_service.resolve_situation_question_text(None)
+        == vocab_service.DEFAULT_SITUATION_QUESTION_TEXT
+    )
+    assert (
+        vocab_service.resolve_situation_question_text("   ")
+        == vocab_service.DEFAULT_SITUATION_QUESTION_TEXT
+    )
+    assert vocab_service.resolve_situation_question_text("問い") == "問い"
+
+
+def test_build_situation_prompt_text_combines_situation_and_question(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(seeded_session, deck, situation_text="状況", question_text=None)
+
+    prompt = vocab_service.build_situation_prompt_text(card)
+
+    assert prompt == f"状況\n\n{vocab_service.DEFAULT_SITUATION_QUESTION_TEXT}"
+
+
+def test_situation_no_explanation_text_includes_the_best_action():
+    text = vocab_service.situation_no_explanation_text("最善の対応")
+    assert "最善の対応" in text
+
+
+def test_forbidden_term_search_text_for_situation_includes_all_five_fields(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session,
+        deck,
+        term="見出し",
+        situation_text="状況ワード",
+        question_text="問いワード",
+        meaning="最善ワード",
+        note="解説ワード",
+    )
+
+    text = vocab_service.forbidden_term_search_text(card)
+
+    for expected in ("見出し", "状況ワード", "問いワード", "最善ワード", "解説ワード"):
+        assert expected in text
+
+
+def test_format_glossary_label_for_situation_card_shows_heading_only(seeded_session):
+    """シチュエーションカードは見出しだけを渡す（本文は渡さない、F-U7）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session,
+        deck,
+        term="主要メンバーの離脱",
+        situation_text="状況の本文は漏れないこと",
+        meaning="最善の対応の本文は漏れないこと",
+    )
+
+    label = vocab_service._format_glossary_label(card)
+
+    assert label == "・【状況】主要メンバーの離脱"
+    assert "状況の本文は漏れないこと" not in label
+    assert "最善の対応の本文は漏れないこと" not in label
+
+
+# ---------------------------------------------------------------------------
 # 成績集計
 # ---------------------------------------------------------------------------
 
@@ -639,6 +892,99 @@ def test_compute_goal_vocab_mastery_with_no_decks_returns_zero(seeded_session):
 
     assert totals.total_cards == 0
     assert totals.mastered_cards == 0
+
+
+def test_compute_goal_vocab_mastery_breaks_down_by_card_type(seeded_session):
+    """「用語◯語／場面◯件」の内訳（開発Todo_単語帳_v1.0 要件F F-U9・F-D19）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    mastered_term = make_card(seeded_session, deck, term="習得済み用語")
+    make_card(seeded_session, deck, term="未習得用語")
+    mastered_situation = make_situation_card(seeded_session, deck, term="習得済み場面")
+    make_situation_card(seeded_session, deck, term="未習得場面")
+    for i in range(3):
+        make_answer_log(
+            seeded_session,
+            mastered_term,
+            is_correct=True,
+            answered_at=TODAY + dt.timedelta(minutes=i),
+        )
+        make_answer_log(
+            seeded_session,
+            mastered_situation,
+            mode=VocabQuizMode.FLASH_SITUATION,
+            is_correct=True,
+            answered_at=TODAY + dt.timedelta(minutes=i),
+        )
+
+    totals = vocab_service.compute_goal_vocab_mastery(seeded_session, goal.id, 3)
+
+    assert totals.total_cards == 4
+    assert totals.mastered_cards == 2
+    assert totals.term_total == 2
+    assert totals.term_mastered == 1
+    assert totals.situation_total == 2
+    assert totals.situation_mastered == 1
+
+
+def test_deck_vocab_mastery_totals_returns_breakdown_per_deck(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck_a = make_deck(seeded_session, goal, "A")
+    deck_b = make_deck(seeded_session, goal, "B")
+    make_card(seeded_session, deck_a, term="用語")
+    make_situation_card(seeded_session, deck_a, term="場面")
+    make_card(seeded_session, deck_b, term="用語B")
+
+    totals_by_deck = vocab_service.deck_vocab_mastery_totals(
+        seeded_session, [deck_a.id, deck_b.id], 3
+    )
+
+    assert totals_by_deck[deck_a.id].term_total == 1
+    assert totals_by_deck[deck_a.id].situation_total == 1
+    assert totals_by_deck[deck_b.id].term_total == 1
+    assert totals_by_deck[deck_b.id].situation_total == 0
+
+
+def test_deck_vocab_mastery_totals_with_empty_list_returns_empty_dict(seeded_session):
+    assert vocab_service.deck_vocab_mastery_totals(seeded_session, [], 3) == {}
+
+
+def test_filter_cards_by_type_all_returns_everything(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    situation_card = make_situation_card(seeded_session, deck)
+
+    result = vocab_service.filter_cards_by_type([term_card, situation_card], "ALL")
+
+    assert result == [term_card, situation_card]
+
+
+def test_filter_cards_by_type_term_only(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    situation_card = make_situation_card(seeded_session, deck)
+
+    result = vocab_service.filter_cards_by_type([term_card, situation_card], "TERM")
+
+    assert result == [term_card]
+
+
+def test_filter_cards_by_type_situation_only(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    term_card = make_card(seeded_session, deck)
+    situation_card = make_situation_card(seeded_session, deck)
+
+    result = vocab_service.filter_cards_by_type([term_card, situation_card], "SITUATION")
+
+    assert result == [situation_card]
+
+
+def test_filter_cards_by_type_unknown_filter_raises(seeded_session):
+    with pytest.raises(ValidationError):
+        vocab_service.filter_cards_by_type([], "UNKNOWN")
 
 
 def test_compute_mastered_card_counts_by_deck_separates_counts_per_deck(seeded_session):
@@ -912,6 +1258,245 @@ def test_export_deck_empty_deck_returns_empty_string(seeded_session):
     deck = make_deck(seeded_session, goal)
 
     assert vocab_service.export_deck(seeded_session, deck) == ""
+
+
+# ---------------------------------------------------------------------------
+# 一括登録・エクスポート（シチュエーションカード、開発Todo_単語帳_v1.0 要件F F-U8）
+# ---------------------------------------------------------------------------
+
+
+def test_parse_bulk_import_situation_parses_five_columns(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session,
+        deck,
+        "見出し\t状況\t問い\t最善の対応\t解説",
+        card_type=VocabCardType.SITUATION,
+    )
+
+    assert preview.errors == []
+    row = preview.rows[0]
+    assert row.term == "見出し"
+    assert row.situation_text == "状況"
+    assert row.question_text == "問い"
+    assert row.meaning == "最善の対応"
+    assert row.note == "解説"
+
+
+def test_parse_bulk_import_situation_question_and_note_are_optional(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session, deck, "見出し\t状況\t\t最善の対応", card_type=VocabCardType.SITUATION
+    )
+
+    assert preview.errors == []
+    assert preview.rows[0].question_text is None
+    assert preview.rows[0].note is None
+
+
+@pytest.mark.parametrize(
+    ("line", "expected_reason"),
+    [
+        ("\t状況\t\t最善の対応", "heading is empty"),
+        ("見出し\t\t\t最善の対応", "situation_text is empty"),
+        ("見出し\t状況\t\t", "best_action is empty"),
+    ],
+)
+def test_parse_bulk_import_situation_reports_missing_required_fields(
+    seeded_session, line, expected_reason
+):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session, deck, line, card_type=VocabCardType.SITUATION
+    )
+
+    assert preview.rows == []
+    assert preview.errors[0].reason == expected_reason
+
+
+@pytest.mark.parametrize(
+    ("setting_key_name", "line", "expected_prefix"),
+    [
+        ("VOCAB_SITUATION_HEADING_MAX_CHARS", "12345\t状況\t\t最善の対応\t", "heading exceeds"),
+        (
+            "VOCAB_SITUATION_TEXT_MAX_CHARS",
+            "見出し\t12345\t\t最善の対応\t",
+            "situation_text exceeds",
+        ),
+        (
+            "VOCAB_SITUATION_QUESTION_MAX_CHARS",
+            "見出し\t状況\t12345\t最善の対応\t",
+            "question_text exceeds",
+        ),
+        (
+            "VOCAB_SITUATION_BEST_ACTION_MAX_CHARS",
+            "見出し\t状況\t\t12345\t",
+            "best_action exceeds",
+        ),
+        (
+            "VOCAB_SITUATION_EXPLANATION_MAX_CHARS",
+            "見出し\t状況\t\t最善の対応\t12345",
+            "explanation exceeds",
+        ),
+    ],
+)
+def test_parse_bulk_import_situation_reports_field_over_max_chars(
+    seeded_session, setting_key_name, line, expected_prefix
+):
+    import app.constants.app_setting_keys as keys
+
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    set_setting(seeded_session, getattr(keys, setting_key_name), "3")
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session, deck, line, card_type=VocabCardType.SITUATION
+    )
+
+    assert preview.rows == []
+    assert preview.errors[0].reason.startswith(expected_prefix)
+
+
+def test_parse_bulk_import_handles_quoted_multiline_cell_for_term(seeded_session):
+    """Excelからコピーした表のセル内改行（引用符で囲まれた項目）を1項目として読む
+    （開発Todo_単語帳_v1.0 要件F F-U8・F-D17）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    pasted = '用語\t"意味の\n2行目"\n用語2\t意味2'
+
+    preview = vocab_service.parse_bulk_import(seeded_session, deck, pasted)
+
+    assert preview.errors == []
+    assert [row.meaning for row in preview.rows] == ["意味の\n2行目", "意味2"]
+    assert [row.line_number for row in preview.rows] == [1, 2]
+
+
+def test_parse_bulk_import_handles_quoted_multiline_cell_for_situation(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    pasted = '見出し\t"状況の\n複数行の説明"\t問い\t最善の対応\t解説'
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session, deck, pasted, card_type=VocabCardType.SITUATION
+    )
+
+    assert preview.errors == []
+    assert preview.rows[0].situation_text == "状況の\n複数行の説明"
+
+
+def test_parse_bulk_import_situation_duplicate_is_judged_by_heading(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(seeded_session, deck, term="主要メンバーの離脱")
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session,
+        deck,
+        "主要メンバーの離脱\t状況\t\t最善の対応",
+        card_type=VocabCardType.SITUATION,
+    )
+
+    assert preview.rows == []
+    assert preview.duplicate_line_numbers == [1]
+
+
+def test_parse_bulk_import_term_and_situation_do_not_collide_in_duplicate_check(seeded_session):
+    """同じ文字列でも種類が異なれば重複と判定しない（取り込み対象と同じ種類のカードだけで
+    重複を判定する、F-D17）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="リスク")
+
+    preview = vocab_service.parse_bulk_import(
+        seeded_session, deck, "リスク\t状況\t\t最善の対応", card_type=VocabCardType.SITUATION
+    )
+
+    assert len(preview.rows) == 1
+    assert preview.duplicate_line_numbers == []
+
+
+def test_parse_bulk_import_situation_rejects_adversarial_multiline_paste_quickly(seeded_session):
+    """セル内改行を含む巨大な貼り付けでも1秒以内に解析が終わること（ReDoS対策の確認）。"""
+    import time
+
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    huge_cell = '"' + ("あ" * 5000) + "\n" + ("い" * 5000) + '"'
+    pasted = f"見出し\t{huge_cell}\t問い\t最善の対応\t解説"
+
+    start = time.monotonic()
+    vocab_service.parse_bulk_import(seeded_session, deck, pasted, card_type=VocabCardType.SITUATION)
+    assert time.monotonic() - start < 1.0
+
+
+def test_confirm_bulk_import_situation_creates_situation_cards(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    rows = [
+        vocab_service.VocabImportRow(
+            1, "見出し", "最善の対応", None, "解説", situation_text="状況", question_text="問い"
+        )
+    ]
+
+    created = vocab_service.confirm_bulk_import(
+        seeded_session, deck, rows, card_type=VocabCardType.SITUATION
+    )
+
+    assert created == 1
+    card = vocab_service.list_cards_for_deck(seeded_session, deck.id)[0]
+    assert card.card_type == VocabCardType.SITUATION
+    assert card.situation_text == "状況"
+    assert card.question_text == "問い"
+
+
+def test_export_deck_situation_writes_five_columns(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(
+        seeded_session,
+        deck,
+        term="見出し",
+        situation_text="状況",
+        question_text="問い",
+        meaning="最善の対応",
+        note="解説",
+    )
+
+    text = vocab_service.export_deck(seeded_session, deck, card_type=VocabCardType.SITUATION)
+
+    assert text == "見出し\t状況\t問い\t最善の対応\t解説\n"
+
+
+def test_export_deck_only_exports_cards_of_the_requested_type(seeded_session):
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_card(seeded_session, deck, term="用語")
+    make_situation_card(seeded_session, deck, term="見出し")
+
+    term_text = vocab_service.export_deck(seeded_session, deck, card_type=VocabCardType.TERM)
+    situation_text = vocab_service.export_deck(
+        seeded_session, deck, card_type=VocabCardType.SITUATION
+    )
+
+    assert "用語" in term_text and "見出し" not in term_text
+    assert "見出し" in situation_text and "用語" not in situation_text
+
+
+def test_export_deck_quotes_fields_containing_newlines(seeded_session):
+    """改行を含む項目は引用符で囲んで書き出す（`csv.writer`の既定動作、F-U8・F-D18）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(seeded_session, deck, situation_text="1行目\n2行目")
+
+    text = vocab_service.export_deck(seeded_session, deck, card_type=VocabCardType.SITUATION)
+
+    assert '"1行目\n2行目"' in text
 
 
 # ---------------------------------------------------------------------------
@@ -1477,6 +2062,48 @@ def test_build_glossary_reference_excludes_card_containing_forbidden_term(seeded
     assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
 
 
+def test_build_glossary_reference_for_situation_card_matches_by_heading_only_and_hides_body(
+    seeded_session,
+):
+    """シチュエーションカードは見出しだけで照合し、見出しだけを渡す（本文は渡さない、
+    開発Todo_単語帳_v1.0 要件F F-U7）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(
+        seeded_session,
+        deck,
+        term="主要メンバーの離脱",
+        situation_text="本文は渡らないはずの状況の説明",
+        meaning="本文は渡らないはずの最善の対応",
+    )
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日は主要メンバーの離脱という事例を学んだ"], max_chars=2000
+    )
+
+    assert result == "・【状況】主要メンバーの離脱"
+    assert "本文は渡らない" not in result
+
+
+def test_build_glossary_reference_excludes_situation_card_containing_forbidden_term_in_body(
+    seeded_session,
+):
+    """シチュエーションカードの禁止語検索は状況・最善の対応・解説も対象にする（F-D16）。"""
+    seeded_session.add(AiForbiddenTerm(term="きんし語", enabled=True, note=None))
+    seeded_session.flush()
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    make_situation_card(
+        seeded_session, deck, term="見出し", situation_text="きんし語を含む状況"
+    )
+
+    result = vocab_service.build_glossary_reference(
+        seeded_session, goal, ["今日は見出しという事例を学んだ"], max_chars=2000
+    )
+
+    assert result == vocab_service.NO_GLOSSARY_REFERENCE_TEXT
+
+
 def test_build_glossary_reference_truncates_by_line_unit_within_max_chars(seeded_session):
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)
@@ -1568,6 +2195,30 @@ def test_build_glossary_overview_includes_accuracy_and_weak_tag(seeded_session):
 
     # 正答率33%（1/3）・既定の苦手しきい値70%未満のため要復習・直近2件連続誤答。
     assert result == "・SMTP: メール送信の仕組み［正答率 33%（1/3）・連続誤答 2回・要復習］"
+
+
+def test_build_glossary_overview_for_situation_card_shows_heading_only_with_stats(
+    seeded_session,
+):
+    """シチュエーションカードは見出しだけを渡し、成績注記は付けること（F-U7）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session,
+        deck,
+        term="主要メンバーの離脱",
+        situation_text="本文は渡らないはずの状況",
+        meaning="本文は渡らないはずの最善の対応",
+    )
+    make_answer_log(seeded_session, card, is_correct=True, answered_at=TODAY)
+    make_answer_log(
+        seeded_session, card, is_correct=False, answered_at=TODAY + dt.timedelta(minutes=1)
+    )
+
+    result = vocab_service.build_glossary_overview(seeded_session, goal, max_chars=2000)
+
+    assert result == "・【状況】主要メンバーの離脱［正答率 50%（1/2）・連続誤答 1回・要復習］"
+    assert "本文は渡らない" not in result
 
 
 def test_build_glossary_overview_omits_weak_tag_and_streak_when_accuracy_is_high(

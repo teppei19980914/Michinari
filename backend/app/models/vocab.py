@@ -25,7 +25,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.constants.enums import VocabQuizMode, VocabTermSuggestionStatus
+from app.constants.enums import VocabCardType, VocabQuizMode, VocabTermSuggestionStatus
 from app.models.base import Base, CreatedAtMixin, TimestampMixin
 
 
@@ -51,11 +51,28 @@ class VocabCard(TimestampMixin, Base):
     deck_id: Mapped[int] = mapped_column(
         ForeignKey("vocab_deck.id", ondelete="CASCADE"), nullable=False
     )
+    #: カードの種類（開発Todo_単語帳_v1.0 要件F）。作成後は変更できない（F-D2、API層が
+    #: 更新用スキーマへ含めないことで保証する）。既存行は`server_default`により全てTERM
+    #: になる（F-D21）。
+    card_type: Mapped[VocabCardType] = mapped_column(
+        Enum(VocabCardType, native_enum=False, validate_strings=True),
+        nullable=False,
+        server_default=VocabCardType.TERM.value,
+    )
+    #: TERM: 用語。SITUATION: 見出し（F-D1）。
     term: Mapped[str] = mapped_column(Text, nullable=False)
+    #: TERM: 意味。SITUATION: 最善の対応（F-D1）。
     meaning: Mapped[str] = mapped_column(Text, nullable=False)
-    #: 別名・読み（任意）。JSON列の前例が無いため改行区切りのTextとする（利用者プロンプトの決定）。
+    #: 別名・読み（任意、TERM専用）。JSON列の前例が無いため改行区切りのTextとする
+    #: （利用者プロンプトの決定）。SITUATIONでは常にNULL（F-D4）。
     aliases: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: TERM: 補足（任意）。SITUATION: 解説（任意、F-D1）。
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: 状況（開発Todo_単語帳_v1.0 要件F、SITUATION専用、必須。TERMでは常にNULL）。
+    situation_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: 問い（開発Todo_単語帳_v1.0 要件F、SITUATION専用、任意。空のときは「最善の対応は？」
+    #: として扱う、`vocab_service.resolve_situation_question_text`。TERMでは常にNULL）。
+    question_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_checked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 

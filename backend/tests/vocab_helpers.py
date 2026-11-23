@@ -4,7 +4,7 @@ import datetime as dt
 
 from sqlalchemy import select
 
-from app.constants.enums import GoalCategory, GoalStatus, VocabQuizMode
+from app.constants.enums import GoalCategory, GoalStatus, VocabCardType, VocabQuizMode
 from app.models.goal import Goal
 from app.models.setting import AppSetting
 from app.models.vocab import VocabAnswerLog, VocabCard, VocabDeck
@@ -40,25 +40,59 @@ def make_card(
     session,
     deck,
     *,
+    card_type: VocabCardType = VocabCardType.TERM,
     term: str = "用語",
     meaning: str = "意味",
     aliases: str | None = None,
     note: str | None = None,
+    situation_text: str | None = None,
+    question_text: str | None = None,
     is_checked: bool = False,
     display_order: int = 0,
 ) -> VocabCard:
     card = VocabCard(
         deck_id=deck.id,
+        card_type=card_type,
         term=term,
         meaning=meaning,
         aliases=aliases,
         note=note,
+        situation_text=situation_text,
+        question_text=question_text,
         is_checked=is_checked,
         display_order=display_order,
     )
     session.add(card)
     session.flush()
     return card
+
+
+def make_situation_card(
+    session,
+    deck,
+    *,
+    term: str = "見出し",
+    situation_text: str = "状況",
+    question_text: str | None = None,
+    meaning: str = "最善の対応",
+    note: str | None = None,
+    is_checked: bool = False,
+    display_order: int = 0,
+) -> VocabCard:
+    """シチュエーションカードを作る（開発Todo_単語帳_v1.0 要件F）。既定値は必須項目のみ。"""
+    return make_card(
+        session,
+        deck,
+        card_type=VocabCardType.SITUATION,
+        term=term,
+        meaning=meaning,
+        aliases=None,
+        note=note,
+        situation_text=situation_text,
+        question_text=question_text,
+        is_checked=is_checked,
+        display_order=display_order,
+    )
 
 
 def make_answer_log(

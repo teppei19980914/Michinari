@@ -4,6 +4,7 @@ import type { components } from '../types/api.d.ts'
 
 export type VocabDeck = components['schemas']['VocabDeckRead']
 export type VocabCard = components['schemas']['VocabCardRead']
+export type VocabCardType = components['schemas']['VocabCardType']
 export type VocabImportPreview = components['schemas']['VocabImportPreviewRead']
 export type VocabImportRowRead = components['schemas']['VocabImportRowRead']
 export type VocabImportConfirmRow = components['schemas']['VocabImportConfirmRow']
@@ -15,6 +16,8 @@ export type VocabAnswerResult = components['schemas']['VocabAnswerResultRead']
 export type VocabQuizMode = components['schemas']['VocabAnswerRequest']['mode']
 export type VocabTermSuggestion = components['schemas']['VocabTermSuggestionRead']
 export type VocabTermSuggestionList = components['schemas']['VocabTermSuggestionListRead']
+//: 出題開始時の「カードの種類」絞り込み（開発Todo_単語帳_v1.0 要件F F-U3）。
+export type VocabCardTypeFilter = 'ALL' | 'TERM' | 'SITUATION'
 
 /** 目標に紐づく単語帳の一覧（表示順）。 */
 export function getVocabDecks(goalId: number): Promise<VocabDeck[]> {
@@ -48,22 +51,39 @@ export function deleteVocabDeck(deckId: number): Promise<void> {
   return apiClient.delete(`/vocab-decks/${deckId}`)
 }
 
-/** カード一覧。`filter`・`sort`は画面の絞り込み・並び替えキー（省略時はALL・REGISTERED）。 */
-export function getVocabCards(deckId: number, filter?: string, sort?: string): Promise<VocabCard[]> {
+/** カード一覧。`filter`・`sort`は画面の絞り込み・並び替えキー（省略時はALL・REGISTERED）。
+ * `cardType`は種類の絞り込み（省略時はALL、開発Todo_単語帳_v1.0 要件F）。 */
+export function getVocabCards(
+  deckId: number,
+  filter?: string,
+  sort?: string,
+  cardType?: VocabCardTypeFilter,
+): Promise<VocabCard[]> {
   const params = new URLSearchParams()
   if (filter) params.set('filter', filter)
   if (sort) params.set('sort', sort)
+  if (cardType) params.set('card_type', cardType)
   const query = params.toString() ? `?${params.toString()}` : ''
   return apiClient.get<VocabCard[]>(`/vocab-decks/${deckId}/cards${query}`)
 }
 
 export function createVocabCard(
   deckId: number,
-  payload: { term: string; meaning: string; aliases?: string | null; note?: string | null },
+  payload: {
+    card_type?: VocabCardType
+    term: string
+    meaning: string
+    aliases?: string | null
+    note?: string | null
+    situation_text?: string | null
+    question_text?: string | null
+  },
 ): Promise<VocabCard> {
   return apiClient.post<VocabCard>(`/vocab-decks/${deckId}/cards`, payload)
 }
 
+/** カードを更新する。`card_type`は更新できない（開発Todo_単語帳_v1.0 要件F F-D2、作成後
+ * 不変）ため、このpayload型自体に項目を持たせない。 */
 export function updateVocabCard(
   cardId: number,
   payload: {
@@ -71,6 +91,8 @@ export function updateVocabCard(
     meaning?: string
     aliases?: string | null
     note?: string | null
+    situation_text?: string | null
+    question_text?: string | null
   },
 ): Promise<VocabCard> {
   return apiClient.patch<VocabCard>(`/vocab-cards/${cardId}`, payload)
@@ -84,28 +106,52 @@ export function deleteVocabCard(cardId: number): Promise<void> {
   return apiClient.delete(`/vocab-cards/${cardId}`)
 }
 
-/** 一括登録のプレビュー（確定前）。取り込む件数・エラー行・重複件数を返す。 */
-export function previewVocabImport(deckId: number, text: string): Promise<VocabImportPreview> {
-  return apiClient.post<VocabImportPreview>(`/vocab-decks/${deckId}/cards/import-preview`, { text })
+/** 一括登録のプレビュー（確定前）。取り込む件数・エラー行・重複件数を返す。`cardType`省略時は
+ * TERM（開発Todo_単語帳_v1.0 要件F F-U8）。 */
+export function previewVocabImport(
+  deckId: number,
+  text: string,
+  cardType: VocabCardType = 'TERM',
+): Promise<VocabImportPreview> {
+  return apiClient.post<VocabImportPreview>(`/vocab-decks/${deckId}/cards/import-preview`, {
+    text,
+    card_type: cardType,
+  })
 }
 
 /** プレビューで確定した行をカードとして一括登録する。 */
 export function confirmVocabImport(
   deckId: number,
   rows: VocabImportConfirmRow[],
+  cardType: VocabCardType = 'TERM',
 ): Promise<VocabImportConfirmResult> {
-  return apiClient.post<VocabImportConfirmResult>(`/vocab-decks/${deckId}/cards/import`, { rows })
+  return apiClient.post<VocabImportConfirmResult>(`/vocab-decks/${deckId}/cards/import`, {
+    rows,
+    card_type: cardType,
+  })
 }
 
-/** 単語帳をタブ区切りテキストへ書き出す。 */
-export function exportVocabDeck(deckId: number): Promise<VocabExport> {
-  return apiClient.get<VocabExport>(`/vocab-decks/${deckId}/export`)
+/** 単語帳を種類ごとにタブ区切りテキストへ書き出す（`cardType`省略時はTERM、F-U8）。 */
+export function exportVocabDeck(
+  deckId: number,
+  cardType: VocabCardType = 'TERM',
+): Promise<VocabExport> {
+  return apiClient.get<VocabExport>(
+    `/vocab-decks/${deckId}/export?${new URLSearchParams({ card_type: cardType }).toString()}`,
+  )
 }
 
-/** 出題セッションを開始する（サーバーにセッション自体は保存されない）。 */
+/** 出題セッションを開始する（サーバーにセッション自体は保存されない）。`card_type`省略時は
+ * ALL（開発Todo_単語帳_v1.0 要件F F-U3）。 */
 export function startVocabQuizSession(
   deckId: number,
-  payload: { mode: VocabQuizMode; filter?: string; order?: string; question_count: number },
+  payload: {
+    mode: VocabQuizMode
+    filter?: string
+    order?: string
+    question_count: number
+    card_type?: VocabCardTypeFilter
+  },
 ): Promise<VocabQuizSession> {
   return apiClient.post<VocabQuizSession>(`/vocab-decks/${deckId}/quiz-sessions`, payload)
 }

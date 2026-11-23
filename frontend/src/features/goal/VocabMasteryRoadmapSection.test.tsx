@@ -10,6 +10,10 @@ describe('VocabMasteryRoadmapSection', () => {
       mastered_count: 3,
       total_count: 10,
       remaining_to_next_milestone: 2,
+      term_mastered_count: 2,
+      term_total_count: 7,
+      situation_mastered_count: 1,
+      situation_total_count: 3,
     }
     render(<VocabMasteryRoadmapSection vocabMastery={vocabMastery} />)
 
@@ -19,6 +23,16 @@ describe('VocabMasteryRoadmapSection', () => {
     expect(
       screen.getByText(t('goals.roadmap.vocabMastery.remainingLabel', { count: 2 })),
     ).toBeDefined()
+    expect(
+      screen.getByText(
+        t('vocab.deckDetail.masteredCountBreakdown', {
+          termMastered: 2,
+          termTotal: 7,
+          situationMastered: 1,
+          situationTotal: 3,
+        }),
+      ),
+    ).toBeDefined()
   })
 
   it('shows the all-milestones-reached message when there is no next milestone', () => {
@@ -26,6 +40,10 @@ describe('VocabMasteryRoadmapSection', () => {
       mastered_count: 500,
       total_count: 500,
       remaining_to_next_milestone: null,
+      term_mastered_count: 400,
+      term_total_count: 400,
+      situation_mastered_count: 100,
+      situation_total_count: 100,
     }
     render(<VocabMasteryRoadmapSection vocabMastery={vocabMastery} />)
 
@@ -37,6 +55,10 @@ describe('VocabMasteryRoadmapSection', () => {
       mastered_count: 0,
       total_count: 0,
       remaining_to_next_milestone: null,
+      term_mastered_count: 0,
+      term_total_count: 0,
+      situation_mastered_count: 0,
+      situation_total_count: 0,
     }
     render(<VocabMasteryRoadmapSection vocabMastery={vocabMastery} />)
 
