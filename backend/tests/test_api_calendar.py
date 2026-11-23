@@ -1,5 +1,8 @@
 """カレンダーAPIのテスト（データ構造編6.2、技術選定書6章、実装フェーズ分割計画書Phase4）。"""
 
+from app.constants.app_setting_keys import HOLIDAY_IMPORTED_VIA_MANUAL
+from app.models.setting import AppSetting
+
 
 def _holiday_csv_bytes(rows: list[tuple[str, str]]) -> bytes:
     header = "国民の祝日・休日月日,国民の祝日・休日名称"
@@ -59,6 +62,21 @@ def test_import_holidays_endpoint_returns_summary(client):
     assert body["imported_count"] == 2
     assert body["year_from"] == 2026
     assert body["year_to"] == 2026
+
+
+def test_import_holidays_endpoint_marks_manual_import(client, seeded_session):
+    """手動インポート後、起動時の同梱取込み(D-44)が古い同梱データで上書きしないための
+    フラグが立つこと。"""
+    content = _holiday_csv_bytes([("2026/1/1", "元日")])
+
+    response = client.post(
+        "/api/v1/calendar/holidays/import",
+        files={"file": ("holidays.csv", content, "text/csv")},
+    )
+
+    assert response.status_code == 200, response.text
+    row = seeded_session.get(AppSetting, HOLIDAY_IMPORTED_VIA_MANUAL)
+    assert row.value == "true"
 
 
 def test_import_holidays_endpoint_rejects_invalid_encoding(client):

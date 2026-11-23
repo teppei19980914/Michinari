@@ -12,6 +12,7 @@ import pytest
 from app.constants.app_setting_keys import (
     CALENDAR_DAY_BOUNDARY_HOUR,
     HOLIDAY_BUNDLED_CSV_SHA256,
+    HOLIDAY_IMPORTED_VIA_MANUAL,
     HOLIDAY_TREAT_AS_BUFFER,
 )
 from app.constants.enums import (
@@ -439,6 +440,15 @@ def test_import_bundled_holidays_if_needed_missing_setting_raises_app_setting_no
     ).encode("cp932")
     with pytest.raises(AppSettingNotFoundError):
         calendar_service.import_bundled_holidays_if_needed(seeded_session, content)
+
+
+def test_mark_manual_holiday_import_missing_setting_raises_app_setting_not_found(seeded_session):
+    seeded_session.query(AppSetting).filter(
+        AppSetting.key == HOLIDAY_IMPORTED_VIA_MANUAL
+    ).delete()
+    seeded_session.flush()
+    with pytest.raises(AppSettingNotFoundError):
+        calendar_service.mark_manual_holiday_import(seeded_session)
 
 
 def test_update_goal_updates_only_specified_fields(seeded_session):

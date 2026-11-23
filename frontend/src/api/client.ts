@@ -87,10 +87,14 @@ export function apiErrorDetail(error: unknown): string | undefined {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // FormData（multipart/form-data）の送信ではContent-Typeを手動指定しない。ブラウザが
+  // 境界文字列（boundary）を含めて自動設定するため、ここで固定値を指定すると境界が
+  // 欠落してサーバ側で解析できなくなる（`postMultipart`参照）。
+  const isFormData = init?.body instanceof FormData
   let response: Response
   try {
     response = await fetch(`${BASE_URL}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
+      ...(isFormData ? {} : { headers: { 'Content-Type': 'application/json' } }),
       ...init,
     })
   } catch {
@@ -134,4 +138,13 @@ export const apiClient = {
   put: <T>(path: string, body?: unknown): Promise<T> => _requestWithBody<T>('PUT', path, body),
   delete: <T>(path: string, body?: unknown): Promise<T> =>
     _requestWithBody<T>('DELETE', path, body),
+}
+
+/**
+ * multipart/form-dataでファイルをPOSTする（CSVアップロード等）。通信失敗の`NETWORK_ERROR`化・
+ * エラー応答の解析・相関IDの取得は`request`を共有する（`importDataFile`・`uploadAttachment`・
+ * `importHolidaysFile`の3箇所で同じfetch処理を複製していたため統合、CLAUDE.md DRYの原則）。
+ */
+export function postMultipart<T>(path: string, formData: FormData): Promise<T> {
+  return request<T>(path, { method: 'POST', body: formData })
 }

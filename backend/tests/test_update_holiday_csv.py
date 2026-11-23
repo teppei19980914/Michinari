@@ -189,3 +189,10 @@ def test_update_bundled_holiday_csv_does_not_regress_using_existing_metadata(
 
 def test_read_previous_year_to_returns_none_when_metadata_is_missing(tmp_path):
     assert update_holiday_csv._read_previous_year_to(tmp_path / "missing.json") is None
+
+
+def test_read_previous_year_to_returns_none_when_the_key_is_absent(tmp_path):
+    metadata_path = tmp_path / "holidays_metadata.json"
+    metadata_path.write_text(json.dumps({"source_url": "https://example.test"}), encoding="utf-8")
+
+    assert update_holiday_csv._read_previous_year_to(metadata_path) is None
