@@ -302,7 +302,7 @@
 
 | メソッド | パス | 概要 |
 | --- | --- | --- |
-| GET | /goals/{goal_id}/schedule | 行・追加列・セル・固定の設定・revision・本日（サーバーの論理日）を返す。行が存在しない目標は既定値（固定は作業項目列のみ、revision=0）を返す |
+| GET | /goals/{goal_id}/schedule | 行・追加列・セル・固定の設定・revision・本日（サーバーの論理日）を返す。行が存在しない目標は既定値（固定は作業項目列のみ、revision=0）を返す。画面側が必要とする内部パラメータ（`schedule.max_items`・`max_custom_columns`・`gantt_day_width_min/max_rem`、単位3で追加・1.1改78）も読み取り専用で含める |
 | PUT | /goals/{goal_id}/schedule | 一括保存。行IDを維持する差分更新（IDがあれば更新、なければ新規作成、送られてこなかった既存のものは削除）。新規列はクライアントが振った仮キー（`temp_key`）で対応付ける。`revision`が現在値と一致しなければ`SCHEDULE_REVISION_CONFLICT`（409）、他の目標に属する行・列IDを送った場合は`VALIDATION_ERROR`（400、存在しないIDと区別しない）。状況・実績日が変わった行は`source=SCHEDULE_SCREEN`で履歴（`schedule_item_history`）を追加する |
 | PUT | /goals/{goal_id}/schedule/view-setting | 固定する行数・列数を即時に保存する（`revision`は変えない）。現在の行数・既定7列+追加列数を超える値は範囲内へ収める |
 
