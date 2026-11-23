@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.calendar import CalendarDayRead, DayTypeOverrideRequest, HolidayImportResultRead
+from app.schemas.calendar import (
+    CalendarDayRead,
+    DayTypeOverrideRequest,
+    HolidayImportResultRead,
+    HolidayListRead,
+    HolidayRead,
+)
 from app.services import calendar_service, record_service_common
 
 router = APIRouter(tags=["calendar"])
@@ -43,6 +49,24 @@ def set_day_type(
 def clear_day_type(target_date: dt.date, session: Session = Depends(get_db)) -> None:
     calendar_service.clear_day_type_override(session, target_date)
     session.commit()
+
+
+@router.get("/holidays", response_model=HolidayListRead)
+def get_holidays(
+    date_from: dt.date | None = None,
+    date_to: dt.date | None = None,
+    session: Session = Depends(get_db),
+) -> HolidayListRead:
+    coverage = calendar_service.get_holiday_coverage(session)
+    holidays = calendar_service.list_holidays(session, date_from, date_to)
+    return HolidayListRead(
+        holidays=[
+            HolidayRead(holiday_date=holiday.holiday_date, name=holiday.name)
+            for holiday in holidays
+        ],
+        year_from=coverage.year_from,
+        year_to=coverage.year_to,
+    )
 
 
 @router.post("/calendar/holidays/import", response_model=HolidayImportResultRead)

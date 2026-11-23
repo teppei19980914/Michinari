@@ -30,3 +30,10 @@ ICON_FILE_NAME = "michinari.ico"
 #: 資格試験テンプレート（JSON）の同梱先フォルダ名。原本は`app/templates/exams/`
 #: （`app/services/exam_template_service.py`参照）。
 EXAM_TEMPLATES_DIR_NAME = "exam_templates"
+
+#: 祝日CSV・メタデータの同梱先フォルダ名。原本は`app/content/holidays/`
+#: （開発Todo_スケジュール・ガントチャート_v1.1.md D-43・D-44、`scripts/update_holiday_csv.py`
+#: が`release.py`経由で更新し、`app/main.py`の起動時取込みが読む）。
+HOLIDAY_DIR_NAME = "holidays"
+HOLIDAY_CSV_FILE_NAME = "holidays.csv"
+HOLIDAY_METADATA_FILE_NAME = "holidays_metadata.json"

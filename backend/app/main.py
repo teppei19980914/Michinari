@@ -49,7 +49,12 @@ from app.api.vocab import router as vocab_router
 from app.api.work_members import router as work_members_router
 from app.config import BACKEND_DIR, REPO_ROOT, get_settings, resolve_bundled_path
 from app.constants.app_setting_keys import SERVER_PORT
-from app.constants.bundle import ALEMBIC_INI_FILE_NAME, FRONTEND_DIST_DIR_NAME
+from app.constants.bundle import (
+    ALEMBIC_INI_FILE_NAME,
+    FRONTEND_DIST_DIR_NAME,
+    HOLIDAY_CSV_FILE_NAME,
+    HOLIDAY_DIR_NAME,
+)
 from app.database import SessionLocal, checkpoint_and_dispose, engine
 from app.desktop import runner as desktop_runner
 from app.desktop.logging_setup import preserve_logging_state
@@ -58,6 +63,7 @@ from app.middleware.request_context import register_request_context_middleware
 from app.models.setting import AppSetting
 from app.services import (
     backup_service,
+    calendar_service,
     goal_service,
     milestone_service_common,
     quiz_generation_service,
@@ -292,6 +298,33 @@ def resolve_startup_port() -> int:
         session.close()
 
 
+_HOLIDAY_CSV_SOURCE_PATH = (
+    REPO_ROOT / "backend" / "app" / "content" / HOLIDAY_DIR_NAME / HOLIDAY_CSV_FILE_NAME
+)
+
+
+def import_bundled_holidays_if_needed() -> None:
+    """同梱の祝日CSVが前回取り込んだものから変わっていればDBへ取り込む（D-44）。
+
+    **意図的に`bootstrap_database`（`lifespan`）には含めず、`main()`からのみ呼ぶ。**
+    `bootstrap_database`は`TestClient`の`lifespan`経由で全APIテストが毎回実行するため、
+    ここに実データの祝日取込みを入れると、既存テストの`resolve_day_types`経由のノルマ計算
+    結果が広範囲に変わってしまう（`run_ai_startup_tasks`をAI通信のために意図的に分離している
+    のと同じ考え方）。CSVファイルの読込みのみでネットワーク通信は行わない。
+    """
+    csv_path = resolve_bundled_path(
+        f"{HOLIDAY_DIR_NAME}/{HOLIDAY_CSV_FILE_NAME}", _HOLIDAY_CSV_SOURCE_PATH
+    )
+    if not csv_path.is_file():
+        return
+    session = SessionLocal()
+    try:
+        calendar_service.import_bundled_holidays_if_needed(session, csv_path.read_bytes())
+        session.commit()
+    finally:
+        session.close()
+
+
 def run_ai_startup_tasks() -> None:
     """起動時のAI連携タスク（週次要約の遡及生成、ロジック・プロンプト編15.2）。
 
@@ -335,6 +368,7 @@ def main() -> int:
 
     try:
         port = resolve_startup_port()
+        import_bundled_holidays_if_needed()
         # 週次要約の遡及生成はAI基盤への通信を伴い、応答待ちで数秒〜数十秒かかることがある。
         # 画面が開くまで待たせないよう別スレッドで走らせる（失敗が起動を止めないことは
         # weekly_summary_service.run_retroactive_generation側が保証する）。

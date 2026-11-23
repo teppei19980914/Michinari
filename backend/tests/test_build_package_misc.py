@@ -28,6 +28,7 @@ from app.constants.bundle import (
     ASSETS_DIR_NAME,
     EXAM_TEMPLATES_DIR_NAME,
     FRONTEND_DIST_DIR_NAME,
+    HOLIDAY_DIR_NAME,
     LOCALES_DIR_NAME,
 )
 
@@ -318,6 +319,26 @@ class TestThirdPartyLicenses:
         )
         assert expected in args
         assert build_package.HELP_CONTENT_SOURCE_PATH.is_file()
+
+    def test_bundles_the_holiday_csv_and_metadata_where_the_runtime_reads_them(self) -> None:
+        """祝日CSV・メタデータ（開発Todo_スケジュール・ガントチャート_v1.1.md D-43）を同梱する。
+
+        `app/main.py`の`import_bundled_holidays_if_needed`は
+        `{HOLIDAY_DIR_NAME}/{HOLIDAY_CSV_FILE_NAME}`を`resolve_bundled_path`で解決する。
+        同梱先がずれると配布版だけ祝日データが取り込まれなくなるため、同梱の指定を固定する。
+        """
+        args = build_package.pyinstaller_args()
+
+        expected_csv = (
+            f"{build_package.HOLIDAY_CSV_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}"
+        )
+        expected_metadata = (
+            f"{build_package.HOLIDAY_METADATA_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}"
+        )
+        assert expected_csv in args
+        assert expected_metadata in args
+        assert build_package.HOLIDAY_CSV_SOURCE_PATH.is_file()
+        assert build_package.HOLIDAY_METADATA_SOURCE_PATH.is_file()
 
     def test_keeps_the_dependency_that_only_pystray_pulls_in(self) -> None:
         """除外した pystray からしか辿られない依存を明示すること（無いと起動時に落ちる）。"""

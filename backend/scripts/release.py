@@ -32,6 +32,7 @@ from pathlib import Path
 
 import build_package
 import publish_release
+import update_holiday_csv
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = BACKEND_DIR.parent
@@ -252,6 +253,8 @@ def build(version: str, *, skip_tests: bool = False) -> Path:
     build_package.cleanup_stale_previous_packages(build_package.DIST_DIR)
     build_package.archive_previous_distributions(build_package.DIST_DIR, build_package.ARCHIVE_DIR)
     build_package.discard_previous_package(build_package.OUTPUT_DIR)
+    print("  → 祝日CSVを取得・検証しています…")
+    update_holiday_csv.update_bundled_holiday_csv()
     build_package.generate_build_info(REPO_ROOT, build_package.BUILD_INFO_PATH)
     build_package.build_frontend()
     build_package.build_backend()
