@@ -216,6 +216,128 @@ def test_finalize_endpoint_rejects_update_after_reported(client):
     assert response.json()["error"]["code"] == "IMMUTABLE_RECORD"
 
 
+# --- schedule_item_updates（開発Todo_スケジュール・ガントチャート_v1.1 D-32〜D-39、単位4） ---
+
+
+def _create_schedule_item(client, goal_id, **overrides):
+    payload = {
+        "title": "作業A",
+        "planned_start_date": "2026-01-01",
+        "planned_end_date": "2026-01-10",
+        "status": "NOT_STARTED",
+    }
+    payload.update(overrides)
+    response = client.put(
+        f"/api/v1/goals/{goal_id}/schedule", json={"revision": 0, "items": [payload]}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["items"][0]["id"]
+
+
+def test_finalize_endpoint_applies_schedule_item_updates_and_bumps_revision(client):
+    goal, _material = _make_active_goal_with_material(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [],
+            "diary_entries": [],
+            "schedule_item_updates": [
+                {
+                    "schedule_item_id": item_id,
+                    "status": "IN_PROGRESS",
+                    "actual_start_date": target,
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    schedule = client.get(f"/api/v1/goals/{goal['id']}/schedule").json()
+    assert schedule["items"][0]["status"] == "IN_PROGRESS"
+    assert schedule["items"][0]["actual_start_date"] == target
+    assert schedule["revision"] == 2  # 作成時に1、本更新で2
+
+
+def test_finalize_endpoint_rejects_schedule_item_from_different_category(client):
+    goal, _material = _make_active_goal_with_material(client)
+    reading_goal = client.post(
+        "/api/v1/goals",
+        json={"category": "READING", "name": "読書目標A", "start_date": "2026-01-01"},
+    ).json()
+    other_item_id = _create_schedule_item(client, reading_goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [],
+            "diary_entries": [],
+            "schedule_item_updates": [
+                {"schedule_item_id": other_item_id, "status": "NOT_STARTED"}
+            ],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    # 他目標の行は拒否されても無傷のまま（本体の確定にも巻き添えが無いことを確認する）。
+    other_schedule = client.get(f"/api/v1/goals/{reading_goal['id']}/schedule").json()
+    assert other_schedule["items"][0]["status"] == "NOT_STARTED"
+    assert other_schedule["revision"] == 1
+
+
+def test_finalize_endpoint_rejects_schedule_item_of_paused_goal(client):
+    goal, _material = _make_active_goal_with_material(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    paused = client.post(f"/api/v1/goals/{goal['id']}/pause")
+    assert paused.status_code == 200, paused.text
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [],
+            "diary_entries": [],
+            "schedule_item_updates": [
+                {"schedule_item_id": item_id, "status": "NOT_STARTED"}
+            ],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_finalize_endpoint_rejects_study_logs_together_with_invalid_schedule_item_update(client):
+    """作業項目の更新が検証で失敗した場合は、実績の保存もまとめて失敗する（重点確認事項）。"""
+    goal, material = _make_active_goal_with_material(client)
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/finalize",
+        json={
+            "study_logs": [
+                {
+                    "material_id": material["id"],
+                    "slot_minutes": api_allocation_helpers.slot_minutes_payload(client, 30),
+                    "amount_completed": 10,
+                }
+            ],
+            "diary_entries": [],
+            "schedule_item_updates": [{"schedule_item_id": 9999, "status": "NOT_STARTED"}],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    record = client.get(f"/api/v1/records/{target}").json()
+    assert record["exam_record_state"] is None
+    assert record["study_logs"] == []
+
+
 def test_progress_endpoint_rejects_update_after_reported(client):
     _goal, material = _make_active_goal_with_material(client)
     target = dt.date.today().isoformat()

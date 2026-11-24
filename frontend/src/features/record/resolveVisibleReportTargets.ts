@@ -5,7 +5,7 @@ import type {
   GoalRead,
   WorkAssignmentRead,
 } from '../../api/goals'
-import type { QuotaItemRead } from '../../api/records'
+import type { GoalScheduleItemsForReportRead, QuotaItemRead } from '../../api/records'
 import type { CategoryPresence } from './categoryCompletion'
 import { isSectionVisible } from './sectionVisibility'
 
@@ -19,6 +19,9 @@ export type VisibleReportTargetsInput = {
   quotaItems: QuotaItemRead[]
   readingBooks: ActiveReadingBook[]
   workAssignments: ActiveWorkAssignment[]
+  /** 「今日の作業項目」欄の対象（開発Todo_スケジュール・ガントチャート_v1.1 第4章、単位4）。
+   * GET /records/{date}/schedule-items の応答（3種別が混在）。 */
+  scheduleItems: GoalScheduleItemsForReportRead[]
 }
 
 export type VisibleReportTargets = {
@@ -28,6 +31,9 @@ export type VisibleReportTargets = {
   diaryGoals: GoalRead[]
   books: BookRead[]
   workAssignments: WorkAssignmentRead[]
+  examScheduleItemGoals: GoalScheduleItemsForReportRead[]
+  readingScheduleItemGoals: GoalScheduleItemsForReportRead[]
+  workScheduleItemGoals: GoalScheduleItemsForReportRead[]
   showExamSection: boolean
   showReadingSection: boolean
   showWorkSection: boolean
@@ -88,6 +94,24 @@ export function resolveVisibleReportTargets(
       .map((entry) => entry.workAssignment),
   )
 
+  // 「今日の作業項目」欄の対象（単位4）。scheduleItemsは3種別が混在するため、
+  // selectForCategoryへ渡す前にカテゴリで絞り込む。
+  const examScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'EXAM')
+  const readingScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'READING')
+  const workScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'WORK')
+  const examScheduleItemGoals = selectForCategory(input, 'EXAM', examScheduleItemsAll, (goal) =>
+    examScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+  )
+  const readingScheduleItemGoals = selectForCategory(
+    input,
+    'READING',
+    readingScheduleItemsAll,
+    (goal) => readingScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+  )
+  const workScheduleItemGoals = selectForCategory(input, 'WORK', workScheduleItemsAll, (goal) =>
+    workScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+  )
+
   return {
     // 「表示中か」ではなく「対象の目標があるか」で判定する。選択中でないタブのカテゴリを
     // 「対象なし」と誤判定すると、1カテゴリ確定しただけで全確定とみなしてしまう。
@@ -100,6 +124,9 @@ export function resolveVisibleReportTargets(
     diaryGoals,
     books,
     workAssignments,
+    examScheduleItemGoals,
+    readingScheduleItemGoals,
+    workScheduleItemGoals,
     // 資格試験は教材（ノルマ）が無くても日記を書けるため、表示対象の有無ではなく目標の有無で
     // 判定する。読書・仕事は対象（書籍・案件）が無ければ入力も確定もできないため中身で判定する。
     showExamSection: isSectionVisible(input, 'EXAM', activeGoals.length > 0),

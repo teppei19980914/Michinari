@@ -125,6 +125,7 @@ function setupQueries(options: { record?: DailyRecordRead; goals?: GoalRead[] } 
 
   vi.mocked(recordsApi.getRecord).mockResolvedValue(options.record ?? buildRecord())
   vi.mocked(recordsApi.getQuota).mockResolvedValue(hasCategory('EXAM') ? [QUOTA_ITEM] : [])
+  vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
   vi.mocked(recordsApi.getToday).mockResolvedValue({
     logical_date: LOGICAL_DATE,
     record_state: null,
@@ -357,6 +358,7 @@ describe('ProgressOnlyPage（読書・仕事の目標）', () => {
         study_logs: [],
         reading_logs: [expect.objectContaining({ recall_body: 'recall' })],
         work_logs: [],
+        schedule_item_updates: [],
       }),
     )
   })

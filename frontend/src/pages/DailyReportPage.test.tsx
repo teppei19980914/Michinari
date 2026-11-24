@@ -167,6 +167,7 @@ function setupQueries({ goals = [EXAM_GOAL, READING_GOAL, WORK_GOAL], record }: 
   )
   vi.mocked(recordsApi.getRecord).mockResolvedValue(record ?? buildRecord())
   vi.mocked(recordsApi.getQuota).mockResolvedValue([QUOTA_ITEM])
+  vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
   vi.mocked(recordsApi.getToday).mockResolvedValue({
     logical_date: LOGICAL_DATE,
     record_state: null,

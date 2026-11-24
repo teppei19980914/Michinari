@@ -23,7 +23,13 @@ describe('invalidateDailyRecordCaches', () => {
     expect(keys).toContainEqual(['calendar'])
   })
 
+  it('refreshes the schedule item report widget (単位4)', () => {
+    expect(invalidate()).toContainEqual(['scheduleItemsForReport', TARGET_DATE])
+  })
+
   it('does not invalidate anything else', () => {
-    expect(invalidate()).toHaveLength(4)
+    // 開発Todo_スケジュール・ガントチャート_v1.1 D-32（単位4）でscheduleItemsForReportを
+    // 追加し、4件から5件になった（意図した変更、15.1手順10）。
+    expect(invalidate()).toHaveLength(5)
   })
 })

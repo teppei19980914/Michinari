@@ -18,16 +18,21 @@ import { hasAnyWorkLogInput, initWorkLogFormValues, type WorkLogFormValue } from
 import { hasAnyDiaryInput, initDiaryFormValues, type DiaryFormValue } from './diaryForm'
 import type { MoodValue } from './moodStamps'
 import { resolveInitialRecordInputMode, type RecordInputMode } from './recordInputMode'
+import {
+  initScheduleItemDraftValues,
+  type ScheduleItemDraftValue,
+} from './scheduleItemsDraft'
 
 type IncomingDraftValues = {
   studyLogValues: Record<number, StudyLogFormValue>
   readingLogValues: Record<number, ReadingLogFormValue>
   workLogValues: Record<number, WorkLogFormValue>
   diaryValues: Record<number, DiaryFormValue>
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
 }
 
-/** 取得結果から4カテゴリ分の初期値を組み立てる。hydrate（初回）とマージ（hydrate後の
- * 差分反映）の両方が同じ組み立て方を必要とするため、ここへ集約する
+/** 取得結果から4カテゴリ分＋「今日の作業項目」欄の初期値を組み立てる。hydrate（初回）と
+ * マージ（hydrate後の差分反映）の両方が同じ組み立て方を必要とするため、ここへ集約する
  * （CODING_RULES.md「①DRYの原則」）。 */
 function computeIncomingDraftValues(queries: DailyRecordQueries): IncomingDraftValues | null {
   const recordData = queries.record.data
@@ -35,7 +40,15 @@ function computeIncomingDraftValues(queries: DailyRecordQueries): IncomingDraftV
   const readingBooksData = queries.readingBooks.data
   const workAssignmentsData = queries.workAssignments.data
   const goalsData = queries.goals.data
-  if (!recordData || !quotaData || !readingBooksData || !workAssignmentsData || !goalsData) {
+  const scheduleItemsData = queries.scheduleItems.data
+  if (
+    !recordData ||
+    !quotaData ||
+    !readingBooksData ||
+    !workAssignmentsData ||
+    !goalsData ||
+    !scheduleItemsData
+  ) {
     return null
   }
   return {
@@ -52,6 +65,7 @@ function computeIncomingDraftValues(queries: DailyRecordQueries): IncomingDraftV
       goalsData.filter((goal) => goal.status === 'ACTIVE' && goal.category === 'EXAM'),
       recordData.diary_entries,
     ),
+    scheduleItemValues: initScheduleItemDraftValues(scheduleItemsData),
   }
 }
 
@@ -86,6 +100,7 @@ function useHydrateDraftOnce(
   const readingBooksData = queries.readingBooks.data
   const workAssignmentsData = queries.workAssignments.data
   const goalsData = queries.goals.data
+  const scheduleItemsData = queries.scheduleItems.data
 
   useEffect(() => {
     if (hydrated || !recordData) {
@@ -102,7 +117,16 @@ function useHydrateDraftOnce(
       chatMessages: recordData.chat_messages,
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, recordData, quotaData, readingBooksData, workAssignmentsData, goalsData, storeKey])
+  }, [
+    hydrated,
+    recordData,
+    quotaData,
+    readingBooksData,
+    workAssignmentsData,
+    goalsData,
+    scheduleItemsData,
+    storeKey,
+  ])
 }
 
 /** hydrate後に新規作成された教材・書籍・案件・目標のidを下書きへ補う
@@ -121,6 +145,7 @@ function useMergeNewlyCreatedEntries(
   const readingBooksData = queries.readingBooks.data
   const workAssignmentsData = queries.workAssignments.data
   const goalsData = queries.goals.data
+  const scheduleItemsData = queries.scheduleItems.data
 
   useEffect(() => {
     if (!draftState.hydrated) {
@@ -130,7 +155,7 @@ function useMergeNewlyCreatedEntries(
     if (!incoming) {
       return
     }
-    // 事前にdraftState基準でmergeNewEntriesを試算し、4カテゴリとも変化が無ければ
+    // 事前にdraftState基準でmergeNewEntriesを試算し、5カテゴリとも変化が無ければ
     // setDraft自体を呼ばずに抜ける（再取得のたびにProvider配下を無駄に再描画しない
     // ため）。変化がある場合の実際の更新は、setDraftの関数形（current引数）を使って
     // 改めて計算し直す。ここでの`draftState`はレンダー時点のスナップショットであり、
@@ -141,11 +166,16 @@ function useMergeNewlyCreatedEntries(
     const readingLogValues = mergeNewEntries(draftState.readingLogValues, incoming.readingLogValues)
     const workLogValues = mergeNewEntries(draftState.workLogValues, incoming.workLogValues)
     const diaryValues = mergeNewEntries(draftState.diaryValues, incoming.diaryValues)
+    const scheduleItemValues = mergeNewEntries(
+      draftState.scheduleItemValues,
+      incoming.scheduleItemValues,
+    )
     if (
       studyLogValues === draftState.studyLogValues &&
       readingLogValues === draftState.readingLogValues &&
       workLogValues === draftState.workLogValues &&
-      diaryValues === draftState.diaryValues
+      diaryValues === draftState.diaryValues &&
+      scheduleItemValues === draftState.scheduleItemValues
     ) {
       return
     }
@@ -155,6 +185,7 @@ function useMergeNewlyCreatedEntries(
       readingLogValues: mergeNewEntries(current.readingLogValues, incoming.readingLogValues),
       workLogValues: mergeNewEntries(current.workLogValues, incoming.workLogValues),
       diaryValues: mergeNewEntries(current.diaryValues, incoming.diaryValues),
+      scheduleItemValues: mergeNewEntries(current.scheduleItemValues, incoming.scheduleItemValues),
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -164,6 +195,7 @@ function useMergeNewlyCreatedEntries(
     readingBooksData,
     workAssignmentsData,
     goalsData,
+    scheduleItemsData,
     storeKey,
   ])
 }
@@ -274,6 +306,8 @@ export type DailyReportDraft = {
   setWorkLogValues: Dispatch<SetStateAction<Record<number, WorkLogFormValue>>>
   diaryValues: Record<number, DiaryFormValue>
   setDiaryValues: Dispatch<SetStateAction<Record<number, DiaryFormValue>>>
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
+  setScheduleItemValues: Dispatch<SetStateAction<Record<number, ScheduleItemDraftValue>>>
   chatMessages: ChatMessageRead[]
   setChatMessages: Dispatch<SetStateAction<ChatMessageRead[]>>
   /** 未確定カテゴリに入力が残っているか（離脱警告の判定に使う）。 */
@@ -388,6 +422,13 @@ export function useDailyReportDraft(
       ...current,
       diaryValues: applySetStateAction(action, current.diaryValues),
     }))
+  const setScheduleItemValues: Dispatch<SetStateAction<Record<number, ScheduleItemDraftValue>>> = (
+    action,
+  ) =>
+    store.setDraft(storeKey, (current) => ({
+      ...current,
+      scheduleItemValues: applySetStateAction(action, current.scheduleItemValues),
+    }))
   const setChatMessages: Dispatch<SetStateAction<ChatMessageRead[]>> = (action) =>
     store.setDraft(storeKey, (current) => ({
       ...current,
@@ -405,6 +446,8 @@ export function useDailyReportDraft(
     setWorkLogValues,
     diaryValues: draftState.diaryValues,
     setDiaryValues,
+    scheduleItemValues: draftState.scheduleItemValues,
+    setScheduleItemValues,
     chatMessages: draftState.chatMessages,
     setChatMessages,
     hasUnsavedInput,

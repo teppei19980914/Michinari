@@ -50,6 +50,8 @@ export const QUERY_KEYS = {
   // --- 日次記録 ---
   record: (targetDate: string) => ['record', targetDate] as const,
   quota: (targetDate: string) => ['quota', targetDate] as const,
+  scheduleItemsForReport: (targetDate: string) =>
+    ['scheduleItemsForReport', targetDate] as const,
   today: () => ['today'] as const,
   dashboard: () => ['dashboard'] as const,
   dailyMessage: () => ['daily-message'] as const,

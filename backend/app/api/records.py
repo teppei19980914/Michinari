@@ -41,6 +41,7 @@ from app.schemas.record import (
     WorkLogInput,
     WorkLogRead,
 )
+from app.schemas.schedule import GoalScheduleItemsForReportRead, ScheduleItemForReportRead
 from app.services import (
     daily_feedback_service,
     goal_service,
@@ -50,6 +51,7 @@ from app.services import (
     record_service_exam,
     record_service_reading,
     record_service_work,
+    schedule_service,
     work_feedback_service,
 )
 from app.services.record_service_exam import DiaryEntryItem, StudyLogItem
@@ -226,6 +228,38 @@ def get_record(target_date: dt.date, session: Session = Depends(get_db)) -> Dail
     return _serialize_record(session, target_date, record)
 
 
+@router.get(
+    "/records/{target_date}/schedule-items", response_model=list[GoalScheduleItemsForReportRead]
+)
+def get_schedule_items_for_report(
+    target_date: dt.date, session: Session = Depends(get_db)
+) -> list[GoalScheduleItemsForReportRead]:
+    """日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート
+    _v1.1 第4章・D-32・D-33、単位4）。"""
+    goals = schedule_service.list_schedule_items_for_report(session, target_date)
+    return [
+        GoalScheduleItemsForReportRead(
+            goal_id=goal.goal_id,
+            goal_name=goal.goal_name,
+            goal_category=goal.goal_category,
+            items=[
+                ScheduleItemForReportRead(
+                    id=item.id,
+                    title=item.title,
+                    planned_start_date=item.planned_start_date,
+                    planned_end_date=item.planned_end_date,
+                    status=item.status,
+                    actual_start_date=item.actual_start_date,
+                    actual_end_date=item.actual_end_date,
+                    default_visible=item.default_visible,
+                )
+                for item in goal.items
+            ],
+        )
+        for goal in goals
+    ]
+
+
 @router.post("/records/{target_date}/progress", response_model=DailyRecordRead)
 def register_progress(
     target_date: dt.date, payload: ProgressRegisterRequest, session: Session = Depends(get_db)
@@ -238,6 +272,7 @@ def register_progress(
         today,
         _to_reading_log_items(payload.reading_logs),
         _to_work_log_items(payload.work_logs),
+        payload.schedule_item_updates,
     )
     session.commit()
     return _serialize_record(session, target_date, record)
@@ -258,6 +293,7 @@ def finalize_record(
         _to_diary_entry_items(payload.diary_entries),
         today,
         mood=payload.mood,
+        schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.EXAM, today)
     session.commit()
@@ -273,7 +309,12 @@ def finalize_reading_record(
     """
     today = goal_service.resolve_today(session)
     record = record_service_reading.finalize_reading_record(
-        session, target_date, _to_reading_log_items(payload.reading_logs), today, mood=payload.mood
+        session,
+        target_date,
+        _to_reading_log_items(payload.reading_logs),
+        today,
+        mood=payload.mood,
+        schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.READING, today)
     session.commit()
@@ -287,7 +328,12 @@ def finalize_work_record(
     """仕事の報告を確定する。資格勉強・読書の確定状態には影響しない。"""
     today = goal_service.resolve_today(session)
     record = record_service_work.finalize_work_record(
-        session, target_date, _to_work_log_items(payload.work_logs), today, mood=payload.mood
+        session,
+        target_date,
+        _to_work_log_items(payload.work_logs),
+        today,
+        mood=payload.mood,
+        schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.WORK, today)
     session.commit()
