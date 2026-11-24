@@ -8,11 +8,12 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from app.constants.enums import GoalCategory, RecordState
+from app.constants.enums import GoalCategory, RecordState, ScheduleUpdateSource
 from app.constants.goal_transitions import GoalOperation
 from app.models.book import Book
 from app.models.record import DailyRecord, ReadingLog, ReadingLogSlotTime
-from app.services import goal_service
+from app.schemas.schedule import ScheduleItemUpdateInput
+from app.services import goal_service, schedule_service
 from app.services.exceptions import CurrentPageExceedsTotalPagesError, NotFoundError
 from app.services.record_service_common import (
     PreviousEntry,
@@ -141,16 +142,26 @@ def finalize_reading_record(
     items: list[ReadingLogItem],
     today: dt.date,
     mood: int | None = None,
+    schedule_item_updates: list[ScheduleItemUpdateInput] | None = None,
 ) -> DailyRecord:
     """読書の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
     資格勉強・仕事の確定状態には影響しない（仕様変更2026-09-05）。`mood`はひとこと記録
     モードの気分スタンプ（開発Todo「ひとこと記録」v1.0、record_service_common.
-    upsert_mood参照）。
+    upsert_mood参照）。`schedule_item_updates`はREADING目標に属する行だけを受け付ける
+    （開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.READING)
     _ensure_finalizable_date(target_date, today)
+    schedule_service.apply_report_schedule_item_updates(
+        session,
+        schedule_item_updates or [],
+        category=GoalCategory.READING,
+        target_date=target_date,
+        today=today,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
 
     record = record or _create_record(session, target_date)
     _apply_reading_logs(session, record, items)

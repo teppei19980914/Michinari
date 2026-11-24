@@ -4,6 +4,7 @@ import type { ActiveWorkAssignment } from '../../api/goals'
 import { CategoryReportSection } from './CategoryReportSection'
 import { WorkLogFields } from './WorkLogFields'
 import { WorkLogSummaryList } from './WorkLogSummaryList'
+import { ScheduleItemsField } from './ScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildWorkAssignmentLabels } from './summaryLabels'
@@ -58,10 +59,19 @@ export function WorkReportSection({
       }}
       isReported={isReported}
       summary={
-        <WorkLogSummaryList
-          workLogs={record.work_logs}
-          workAssignmentLabels={buildWorkAssignmentLabels(workAssignments)}
-        />
+        <>
+          <WorkLogSummaryList
+            workLogs={record.work_logs}
+            workAssignmentLabels={buildWorkAssignmentLabels(workAssignments)}
+          />
+          <ScheduleItemsField
+            goals={targets.workScheduleItemGoals}
+            targetDate={targetDate}
+            readOnly
+            values={draft.scheduleItemValues}
+            onChange={draft.setScheduleItemValues}
+          />
+        </>
       }
       editor={
         <>
@@ -94,6 +104,13 @@ export function WorkReportSection({
                 patchFormValue(current, workAssignmentId, field, value),
               )
             }
+          />
+          <ScheduleItemsField
+            goals={targets.workScheduleItemGoals}
+            targetDate={targetDate}
+            readOnly={false}
+            values={draft.scheduleItemValues}
+            onChange={draft.setScheduleItemValues}
           />
         </>
       }

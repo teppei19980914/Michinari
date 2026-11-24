@@ -62,6 +62,7 @@ export function DailyReportPage() {
     quotaItems: queries.quota.data ?? [],
     readingBooks: queries.readingBooks.data ?? [],
     workAssignments: queries.workAssignments.data ?? [],
+    scheduleItems: queries.scheduleItems.data ?? [],
   })
   const actions = useDailyReportActions({
     targetDate,

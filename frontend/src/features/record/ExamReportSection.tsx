@@ -7,6 +7,7 @@ import { DiaryFields } from './DiaryFields'
 import { DiaryEntrySummaryList } from './DiaryEntrySummaryList'
 import { TodayVocabSuggestionsCard } from '../vocab/TodayVocabSuggestionsCard'
 import { selectDiaryEntriesEligibleForVocabSuggestions } from '../vocab/vocabSuggestionEligibility'
+import { ScheduleItemsField } from './ScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildMaterialLabels } from './summaryLabels'
@@ -85,64 +86,107 @@ export function ExamReportSection({
               recordDate={targetDate}
             />
           ))}
+          <ScheduleItemsField
+            goals={targets.examScheduleItemGoals}
+            targetDate={targetDate}
+            readOnly
+            values={draft.scheduleItemValues}
+            onChange={draft.setScheduleItemValues}
+          />
         </>
       }
       editor={
-        <>
-          <RecordModeToggle mode={draft.examMode} onChange={draft.setExamMode} />
-          {/* v8 ignore next -- quickNoteGoalIdがnullになる分岐は上記と同じ理由で到達しない */}
-          {draft.examMode === 'QUICK' && quickNoteGoalId !== null ? (
-            <QuickRecordFields
-              // diaryValues[quickNoteGoalId]も、useDailyReportDraftのhydrateが着手中の
-              // 全EXAM目標分を必ず作る（diaryForm.initDiaryFormValues）ため、
-              // quickNoteGoalIdが着手中の目標IDである限り未定義にはならない（同じ理由で
-              // 到達しない防御的分岐）。
-              /* v8 ignore next */
-              note={draft.diaryValues[quickNoteGoalId]?.diaryLearned ?? ''}
-              onChangeNote={(value) =>
-                draft.setDiaryValues((current) =>
-                  patchFormValue(current, quickNoteGoalId, 'diaryLearned', value),
-                )
-              }
-              mood={draft.examMood}
-              onChangeMood={draft.setExamMood}
-              maxChars={quickNoteMaxChars}
-              showNumbersSkippedNotice
-            />
-          ) : (
-            <>
-              <StudyLogFields
-                quotaItems={targets.quotaItems}
-                values={draft.studyLogValues}
-                slotNames={slotNames}
-                onChangeField={(materialId, field, value) =>
-                  draft.setStudyLogValues((current) =>
-                    patchFormValue(current, materialId, field, value),
-                  )
-                }
-                onChangeSlotMinutes={(materialId, slotMinutes) =>
-                  draft.setStudyLogValues((current) =>
-                    patchFormValue(current, materialId, 'slotMinutes', slotMinutes),
-                  )
-                }
-              />
-              <DiaryFields
-                targetDate={targetDate}
-                activeGoals={targets.diaryGoals}
-                values={draft.diaryValues}
-                onChangeLearned={(goalId, value) =>
-                  draft.setDiaryValues((current) =>
-                    patchFormValue(current, goalId, 'diaryLearned', value),
-                  )
-                }
-              />
-            </>
-          )}
-        </>
+        <ExamReportEditor
+          targetDate={targetDate}
+          targets={targets}
+          draft={draft}
+          slotNames={slotNames}
+          quickNoteGoalId={quickNoteGoalId}
+          quickNoteMaxChars={quickNoteMaxChars}
+        />
       }
       messages={actions.messages}
       chat={actions.chat}
       finalize={actions.finalize}
     />
+  )
+}
+
+/** 未確定時の入力欄（ExamReportSection本体が100行制限に収まるよう分割。ロジック自体は
+ * 変えていない）。 */
+function ExamReportEditor({
+  targetDate,
+  targets,
+  draft,
+  slotNames,
+  quickNoteGoalId,
+  quickNoteMaxChars,
+}: {
+  targetDate: string
+  targets: VisibleReportTargets
+  draft: DailyReportDraft
+  slotNames: Map<number, string>
+  quickNoteGoalId: number | null
+  quickNoteMaxChars: number
+}) {
+  return (
+    <>
+      <RecordModeToggle mode={draft.examMode} onChange={draft.setExamMode} />
+      {/* v8 ignore next -- quickNoteGoalIdがnullになる分岐は呼び出し元と同じ理由で到達しない */}
+      {draft.examMode === 'QUICK' && quickNoteGoalId !== null ? (
+        <QuickRecordFields
+          // diaryValues[quickNoteGoalId]も、useDailyReportDraftのhydrateが着手中の
+          // 全EXAM目標分を必ず作る（diaryForm.initDiaryFormValues）ため、
+          // quickNoteGoalIdが着手中の目標IDである限り未定義にはならない（同じ理由で
+          // 到達しない防御的分岐）。
+          /* v8 ignore next */
+          note={draft.diaryValues[quickNoteGoalId]?.diaryLearned ?? ''}
+          onChangeNote={(value) =>
+            draft.setDiaryValues((current) =>
+              patchFormValue(current, quickNoteGoalId, 'diaryLearned', value),
+            )
+          }
+          mood={draft.examMood}
+          onChangeMood={draft.setExamMood}
+          maxChars={quickNoteMaxChars}
+          showNumbersSkippedNotice
+        />
+      ) : (
+        <>
+          <StudyLogFields
+            quotaItems={targets.quotaItems}
+            values={draft.studyLogValues}
+            slotNames={slotNames}
+            onChangeField={(materialId, field, value) =>
+              draft.setStudyLogValues((current) =>
+                patchFormValue(current, materialId, field, value),
+              )
+            }
+            onChangeSlotMinutes={(materialId, slotMinutes) =>
+              draft.setStudyLogValues((current) =>
+                patchFormValue(current, materialId, 'slotMinutes', slotMinutes),
+              )
+            }
+          />
+          <DiaryFields
+            targetDate={targetDate}
+            activeGoals={targets.diaryGoals}
+            values={draft.diaryValues}
+            onChangeLearned={(goalId, value) =>
+              draft.setDiaryValues((current) =>
+                patchFormValue(current, goalId, 'diaryLearned', value),
+              )
+            }
+          />
+        </>
+      )}
+      <ScheduleItemsField
+        goals={targets.examScheduleItemGoals}
+        targetDate={targetDate}
+        readOnly={false}
+        values={draft.scheduleItemValues}
+        onChange={draft.setScheduleItemValues}
+      />
+    </>
   )
 }

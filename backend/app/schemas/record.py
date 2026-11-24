@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.domain import MOOD_MAX_VALUE, MOOD_MIN_VALUE
 from app.constants.enums import AiPurpose, ChatRole, QualityMetricType, RecordState
+from app.schemas.schedule import ScheduleItemUpdateInput
 
 
 class SlotMinutesInput(BaseModel):
@@ -177,13 +178,17 @@ class DailyRecordRead(BaseModel):
 
 
 class ProgressRegisterRequest(BaseModel):
-    """study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_service_common
-    （register_progress）で検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行
-    しうるため、schema側では特定の1つのみのmin_length指定はできない）。"""
+    """study_logs・reading_logs・work_logs・schedule_item_updatesのいずれかを1件以上含むことを
+    record_service_common（register_progress）で検証する（すべて空の入力を拒否。複数カテゴリの
+    目標が同時進行しうるため、schema側では特定の1つのみのmin_length指定はできない）。
+    schedule_item_updatesのみの場合はDailyRecordを作らない（開発Todo_スケジュール・
+    ガントチャート_v1.1 D-36、単位4）。
+    """
 
     study_logs: list[StudyLogInput] = Field(default_factory=list)
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
     work_logs: list[WorkLogInput] = Field(default_factory=list)
+    schedule_item_updates: list[ScheduleItemUpdateInput] = Field(default_factory=list)
 
 
 class FinalizeRequest(BaseModel):
@@ -198,6 +203,9 @@ class FinalizeRequest(BaseModel):
     #: D1）。通常モードではNone。範囲検証はrecord_service_common.upsert_mood（サーバ側の
     #: 最終判定）と同じ1〜5。
     mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
+    #: 「今日の作業項目」欄の更新（開発Todo_スケジュール・ガントチャート_v1.1 D-32・D-35、
+    #: 単位4）。EXAM目標に属する行だけを受け付ける（schedule_serviceが検証する）。
+    schedule_item_updates: list[ScheduleItemUpdateInput] = Field(default_factory=list)
 
 
 class ReadingFinalizeRequest(BaseModel):
@@ -207,6 +215,8 @@ class ReadingFinalizeRequest(BaseModel):
 
     reading_logs: list[ReadingLogInput] = Field(default_factory=list)
     mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
+    #: FinalizeRequest.schedule_item_updates参照。READING目標に属する行だけを受け付ける。
+    schedule_item_updates: list[ScheduleItemUpdateInput] = Field(default_factory=list)
 
 
 class WorkFinalizeRequest(BaseModel):
@@ -216,6 +226,8 @@ class WorkFinalizeRequest(BaseModel):
 
     work_logs: list[WorkLogInput] = Field(default_factory=list)
     mood: int | None = Field(default=None, ge=MOOD_MIN_VALUE, le=MOOD_MAX_VALUE)
+    #: FinalizeRequest.schedule_item_updates参照。WORK目標に属する行だけを受け付ける。
+    schedule_item_updates: list[ScheduleItemUpdateInput] = Field(default_factory=list)
 
 
 class PreviousEntryRead(BaseModel):

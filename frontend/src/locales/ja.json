@@ -2063,6 +2063,12 @@
         "actual": "実績: {{start}}〜{{end}}",
         "noActual": "実績: なし"
       }
+    },
+    "dailyReportSection": {
+      "title": "今日の作業項目",
+      "showAll": "すべて表示",
+      "collapse": "表示を絞り込む",
+      "noRows": "表示する作業項目がありません"
     }
   },
   "summaryCard": {

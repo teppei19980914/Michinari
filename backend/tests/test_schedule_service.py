@@ -19,12 +19,19 @@ from app.constants.app_setting_keys import (
     SCHEDULE_MAX_CUSTOM_COLUMNS,
     SCHEDULE_MAX_ITEMS,
 )
-from app.constants.enums import GoalStatus, ScheduleItemStatus
-from app.models.schedule import ScheduleCell, ScheduleColumn, ScheduleItem, ScheduleItemHistory
+from app.constants.enums import GoalCategory, GoalStatus, ScheduleItemStatus, ScheduleUpdateSource
+from app.models.schedule import (
+    GoalSchedule,
+    ScheduleCell,
+    ScheduleColumn,
+    ScheduleItem,
+    ScheduleItemHistory,
+)
 from app.schemas.schedule import (
     ScheduleCellInput,
     ScheduleColumnInput,
     ScheduleItemInput,
+    ScheduleItemUpdateInput,
     ScheduleSaveRequest,
 )
 from app.services import schedule_service
@@ -857,3 +864,411 @@ def test_update_view_setting_rejects_closed_goal(seeded_session):
     goal = schedule_helpers.make_goal(seeded_session, status=GoalStatus.CLOSED_WITH_RESULT)
     with pytest.raises(InvalidStateTransitionError):
         schedule_service.update_view_setting(seeded_session, goal, 0, 1)
+
+
+# --- list_schedule_items_for_report / apply_report_schedule_item_updates（単位4） ---
+
+
+def _save_item(
+    session,
+    goal,
+    *,
+    title: str = "第1章",
+    planned_start_date: dt.date = dt.date(2026, 6, 1),
+    planned_end_date: dt.date = dt.date(2026, 6, 10),
+    status: ScheduleItemStatus = ScheduleItemStatus.NOT_STARTED,
+    actual_start_date: dt.date | None = None,
+    actual_end_date: dt.date | None = None,
+):
+    view = schedule_service.save_schedule(
+        session,
+        goal,
+        ScheduleSaveRequest(
+            revision=0,
+            items=[
+                _item(
+                    title=title,
+                    planned_start_date=planned_start_date,
+                    planned_end_date=planned_end_date,
+                    status=status,
+                    actual_start_date=actual_start_date,
+                    actual_end_date=actual_end_date,
+                )
+            ],
+        ),
+        _TODAY,
+    )
+    return view.items[0].id
+
+
+def test_list_schedule_items_for_report_returns_empty_when_no_active_goals(seeded_session):
+    schedule_helpers.make_goal(seeded_session, status=GoalStatus.DRAFT)
+    assert schedule_service.list_schedule_items_for_report(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_for_report_excludes_inactive_goal(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session, status=GoalStatus.PAUSED)
+    _save_item(
+        seeded_session, goal, status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=_TODAY
+    )
+
+    assert schedule_service.list_schedule_items_for_report(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_for_report_excludes_done_and_cancelled_items(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    _save_item(
+        seeded_session,
+        goal,
+        title="完了行",
+        status=ScheduleItemStatus.DONE,
+        actual_start_date=dt.date(2026, 6, 1),
+        actual_end_date=dt.date(2026, 6, 2),
+    )
+
+    assert schedule_service.list_schedule_items_for_report(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_for_report_excludes_goal_with_no_eligible_items(seeded_session):
+    """ACTIVEな目標でも、対象になる行が1件も無ければ応答に含めない（D-38）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    _save_item(seeded_session, goal, status=ScheduleItemStatus.CANCELLED)
+
+    assert schedule_service.list_schedule_items_for_report(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_for_report_includes_goal_metadata_and_multiple_categories(
+    seeded_session,
+):
+    exam_goal = schedule_helpers.make_goal(seeded_session, "資格目標", category=GoalCategory.EXAM)
+    reading_goal = schedule_helpers.make_goal(
+        seeded_session, "読書目標", category=GoalCategory.READING
+    )
+    _save_item(
+        seeded_session, exam_goal, status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=_TODAY
+    )
+    _save_item(
+        seeded_session,
+        reading_goal,
+        status=ScheduleItemStatus.IN_PROGRESS,
+        actual_start_date=_TODAY,
+    )
+
+    result = schedule_service.list_schedule_items_for_report(seeded_session, _TODAY)
+
+    assert {goal.goal_id: goal.goal_category for goal in result} == {
+        exam_goal.id: GoalCategory.EXAM,
+        reading_goal.id: GoalCategory.READING,
+    }
+    assert {goal.goal_id: goal.goal_name for goal in result} == {
+        exam_goal.id: "資格目標",
+        reading_goal.id: "読書目標",
+    }
+
+
+@pytest.mark.parametrize(
+    ("status", "planned_start_date", "planned_end_date", "expected"),
+    [
+        # 報告対象日が予定期間内（D-33条件1）。
+        (ScheduleItemStatus.NOT_STARTED, dt.date(2026, 6, 10), dt.date(2026, 6, 20), True),
+        # 進行中（D-33条件2、予定期間外でも表示する）。
+        (ScheduleItemStatus.IN_PROGRESS, dt.date(2026, 1, 1), dt.date(2026, 1, 5), True),
+        # 未着手で予定終了日を過ぎている（D-33条件3）。
+        (ScheduleItemStatus.NOT_STARTED, dt.date(2026, 1, 1), dt.date(2026, 1, 5), True),
+        # 未着手で予定期間がまだ先（いずれにも当たらない）。
+        (ScheduleItemStatus.NOT_STARTED, dt.date(2026, 7, 1), dt.date(2026, 7, 10), False),
+    ],
+)
+def test_list_schedule_items_for_report_default_visible_follows_d33(
+    seeded_session, status, planned_start_date, planned_end_date, expected
+):
+    goal = schedule_helpers.make_goal(seeded_session)
+    actual_start = _TODAY if status == ScheduleItemStatus.IN_PROGRESS else None
+    _save_item(
+        seeded_session,
+        goal,
+        status=status,
+        planned_start_date=planned_start_date,
+        planned_end_date=planned_end_date,
+        actual_start_date=actual_start,
+    )
+
+    result = schedule_service.list_schedule_items_for_report(seeded_session, _TODAY)
+
+    assert result[0].items[0].default_visible is expected
+
+
+def test_apply_report_schedule_item_updates_noop_when_empty(seeded_session):
+    # 例外を投げず、問い合わせも行わないことを確認する（空配列の早期return）。
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+
+def test_apply_report_schedule_item_updates_rejects_duplicate_ids(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+
+    with pytest.raises(ValidationError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id,
+                    status=ScheduleItemStatus.IN_PROGRESS,
+                    actual_start_date=_TODAY,
+                ),
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
+                ),
+            ],
+            category=None,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.PROGRESS_ONLY,
+        )
+
+
+def test_apply_report_schedule_item_updates_rejects_unknown_id(seeded_session):
+    with pytest.raises(ValidationError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=9999, status=ScheduleItemStatus.NOT_STARTED
+                )
+            ],
+            category=None,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.PROGRESS_ONLY,
+        )
+
+
+def test_apply_report_schedule_item_updates_rejects_item_from_different_category(seeded_session):
+    reading_goal = schedule_helpers.make_goal(seeded_session, category=GoalCategory.READING)
+    item_id = _save_item(seeded_session, reading_goal)
+
+    with pytest.raises(ValidationError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
+                )
+            ],
+            category=GoalCategory.EXAM,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.DAILY_REPORT,
+        )
+
+
+def test_apply_report_schedule_item_updates_accepts_any_category_when_none(seeded_session):
+    """progress API（category=None）はEXAM以外の行も受け付ける（D-36）。"""
+    work_goal = schedule_helpers.make_goal(seeded_session, category=GoalCategory.WORK)
+    item_id = _save_item(seeded_session, work_goal)
+
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=_TODAY,
+            )
+        ],
+        category=None,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.PROGRESS_ONLY,
+    )
+
+    assert seeded_session.get(ScheduleItem, item_id).status == ScheduleItemStatus.IN_PROGRESS
+
+
+def test_apply_report_schedule_item_updates_rejects_item_of_inactive_goal(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    goal.status = GoalStatus.PAUSED
+    seeded_session.flush()
+
+    with pytest.raises(InvalidStateTransitionError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
+                )
+            ],
+            category=GoalCategory.EXAM,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.DAILY_REPORT,
+        )
+
+
+def test_apply_report_schedule_item_updates_rejects_invalid_field_combination(seeded_session):
+    """6.2の検証（validate_item_fields）をそのまま再利用していることの確認
+    （IN_PROGRESSはactual_start_date必須）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+
+    with pytest.raises(ValidationError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id, status=ScheduleItemStatus.IN_PROGRESS
+                )
+            ],
+            category=GoalCategory.EXAM,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.DAILY_REPORT,
+        )
+
+
+def test_apply_report_schedule_item_updates_applies_values_adds_history_and_creates_schedule_row(
+    seeded_session,
+):
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    history_count_before = seeded_session.query(ScheduleItemHistory).count()
+
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.DONE,
+                actual_start_date=dt.date(2026, 6, 1),
+                actual_end_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    item = seeded_session.get(ScheduleItem, item_id)
+    assert item.status == ScheduleItemStatus.DONE
+    assert item.actual_end_date == _TODAY
+    histories = (
+        seeded_session.query(ScheduleItemHistory)
+        .filter(ScheduleItemHistory.schedule_item_id == item_id)
+        .order_by(ScheduleItemHistory.id)
+        .all()
+    )
+    assert len(histories) == history_count_before + 1
+    assert histories[-1].source == ScheduleUpdateSource.DAILY_REPORT
+    assert histories[-1].record_date == _TODAY
+    # _save_item経由の作成時にGoalScheduleは既にrevision=1で存在するため、本更新で2へ進む。
+    schedule = seeded_session.query(GoalSchedule).filter(GoalSchedule.goal_id == goal.id).one()
+    assert schedule.revision == 2
+
+
+def test_apply_report_schedule_item_updates_creates_goal_schedule_row_when_absent(seeded_session):
+    """スケジュール画面を一度も保存していない目標（GoalSchedule行が無い）に対しても、
+    revision=1で新規作成する（save_scheduleの初期化と同じ、単位4開発Todo2章補足3）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    seeded_session.query(GoalSchedule).filter(GoalSchedule.goal_id == goal.id).delete()
+    seeded_session.flush()
+
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    schedule = seeded_session.query(GoalSchedule).filter(GoalSchedule.goal_id == goal.id).one()
+    assert schedule.revision == 1
+
+
+def test_apply_report_schedule_item_updates_skips_history_and_revision_when_unchanged(
+    seeded_session,
+):
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal, status=ScheduleItemStatus.NOT_STARTED)
+    schedule_before = seeded_session.query(GoalSchedule).filter(
+        GoalSchedule.goal_id == goal.id
+    ).one()
+    revision_before = schedule_before.revision
+    history_count_before = seeded_session.query(ScheduleItemHistory).count()
+
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    assert seeded_session.query(ScheduleItemHistory).count() == history_count_before
+    schedule_after = seeded_session.query(GoalSchedule).filter(
+        GoalSchedule.goal_id == goal.id
+    ).one()
+    assert schedule_after.revision == revision_before
+
+
+def test_apply_report_schedule_item_updates_overwrites_with_latest_input_when_called_twice(
+    seeded_session,
+):
+    """同じ日に繰り返し更新した場合は、最新の入力で上書きする（D-37）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=_TODAY,
+            )
+        ],
+        category=None,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.PROGRESS_ONLY,
+    )
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.DONE,
+                actual_start_date=_TODAY,
+                actual_end_date=_TODAY,
+            )
+        ],
+        category=None,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.PROGRESS_ONLY,
+    )
+
+    item = seeded_session.get(ScheduleItem, item_id)
+    assert item.status == ScheduleItemStatus.DONE
+    assert item.actual_end_date == _TODAY

@@ -38,6 +38,7 @@ import { buildStudyLogPayload } from './studyLogForm'
 import { buildReadingLogPayload } from './readingLogForm'
 import { buildWorkLogPayload } from './workLogForm'
 import { buildDiaryEntriesPayload } from './diaryForm'
+import { buildScheduleItemUpdatesPayload, selectScheduleItemIdsForGoals } from './scheduleItemsDraft'
 import type { RecordInputMode } from './recordInputMode'
 
 /** 1カテゴリ分の操作（AI対話・確定）と、そのカテゴリに属する対話履歴。 */
@@ -80,6 +81,10 @@ type CategoryOptions = {
   targetDate: string
   draft: DailyReportDraft
   goalId: number | null
+  /** このカテゴリに属する作業項目id（開発Todo_スケジュール・ガントチャート_v1.1 D-35、
+   * 単位4）。確定APIはその種別の目標に属する行だけを受け付けるため、下書き全体
+   * （全カテゴリ分）からここで渡された範囲だけを送信対象に絞り込む。 */
+  scheduleItemIds: ReadonlySet<number>
   onFinalized: (record: DailyRecordRead) => void
   onError: (error: unknown) => void
 }
@@ -133,6 +138,7 @@ function useExamActions({
   targetDate,
   draft,
   goalId,
+  scheduleItemIds,
   onFinalized,
   onError,
 }: CategoryOptions): CategoryActions {
@@ -157,6 +163,10 @@ function useExamActions({
         study_logs: buildStudyLogPayload(draft.studyLogValues),
         diary_entries: buildDiaryEntriesPayload(draft.diaryValues),
         mood: draft.examMode === 'QUICK' ? draft.examMood : null,
+        schedule_item_updates: buildScheduleItemUpdatesPayload(
+          draft.scheduleItemValues,
+          scheduleItemIds,
+        ),
       })
       persistExamLastMode(draft.examMode)
       return record
@@ -176,6 +186,7 @@ function useReadingActions({
   targetDate,
   draft,
   goalId,
+  scheduleItemIds,
   onFinalized,
   onError,
 }: CategoryOptions): CategoryActions {
@@ -198,6 +209,10 @@ function useReadingActions({
       const record = await finalizeReadingRecord(targetDate, {
         reading_logs: buildReadingLogPayload(draft.readingLogValues),
         mood: draft.readingMode === 'QUICK' ? draft.readingMood : null,
+        schedule_item_updates: buildScheduleItemUpdatesPayload(
+          draft.scheduleItemValues,
+          scheduleItemIds,
+        ),
       })
       persistReadingLastMode(draft.readingMode)
       return record
@@ -217,6 +232,7 @@ function useWorkActions({
   targetDate,
   draft,
   goalId,
+  scheduleItemIds,
   onFinalized,
   onError,
 }: CategoryOptions): CategoryActions {
@@ -239,6 +255,10 @@ function useWorkActions({
       const record = await finalizeWorkRecord(targetDate, {
         work_logs: buildWorkLogPayload(draft.workLogValues),
         mood: draft.workMode === 'QUICK' ? draft.workMood : null,
+        schedule_item_updates: buildScheduleItemUpdatesPayload(
+          draft.scheduleItemValues,
+          scheduleItemIds,
+        ),
       })
       persistWorkLastMode(draft.workMode)
       return record
@@ -295,6 +315,24 @@ export function useDailyReportActions({
     queries.workAssignments.data?.[0]?.goal.id ?? null,
   )
 
+  // 「今日の作業項目」欄の送信対象（開発Todo_スケジュール・ガントチャート_v1.1 D-35、
+  // 単位4）。確定APIはその種別の目標に属する行だけを受け付けるため、下書き全体から
+  // カテゴリごとに対象idを絞り込む（studyLogValues等と同様、タブ選択に関わらず
+  // 全ACTIVE目標分を送る、仕様変更2026-09-05と同じ方針）。
+  const activeReadingGoalIds = new Set(
+    (queries.readingBooks.data ?? []).map((entry) => entry.goal.id),
+  )
+  const activeWorkGoalIds = new Set(
+    (queries.workAssignments.data ?? []).map((entry) => entry.goal.id),
+  )
+  const scheduleItemsData = queries.scheduleItems.data ?? []
+  const examScheduleItemIds = selectScheduleItemIdsForGoals(scheduleItemsData, activeExamGoalIds)
+  const readingScheduleItemIds = selectScheduleItemIdsForGoals(
+    scheduleItemsData,
+    activeReadingGoalIds,
+  )
+  const workScheduleItemIds = selectScheduleItemIdsForGoals(scheduleItemsData, activeWorkGoalIds)
+
   /** 確定後の共通処理。関連キャッシュを無効化し、表示対象の全カテゴリが確定済みになった場合のみ
    * ダッシュボードへ遷移する。1カテゴリのみの確定では画面に留まり、該当セクションだけが
    * 読み取り専用に切り替わる（仕様変更2026-09-05）。 */
@@ -310,6 +348,7 @@ export function useDailyReportActions({
     exam: useExamActions({
       ...shared,
       goalId: examGoalId,
+      scheduleItemIds: examScheduleItemIds,
       onFinalized: (record) => {
         onFinalized(record)
         milestoneQueue.checkGoal(examGoalId, 'EXAM')
@@ -325,6 +364,7 @@ export function useDailyReportActions({
     reading: useReadingActions({
       ...shared,
       goalId: readingGoalId,
+      scheduleItemIds: readingScheduleItemIds,
       onFinalized: (record) => {
         onFinalized(record)
         milestoneQueue.checkGoal(readingGoalId, 'READING')
@@ -333,6 +373,7 @@ export function useDailyReportActions({
     work: useWorkActions({
       ...shared,
       goalId: workGoalId,
+      scheduleItemIds: workScheduleItemIds,
       onFinalized: (record) => {
         onFinalized(record)
         milestoneQueue.checkGoal(workGoalId, 'WORK')

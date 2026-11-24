@@ -2168,6 +2168,12 @@
         "actual": "Actual: {{start}} - {{end}}",
         "noActual": "Actual: none"
       }
+    },
+    "dailyReportSection": {
+      "title": "Today's work items",
+      "showAll": "Show all",
+      "collapse": "Narrow down",
+      "noRows": "No work items to show"
     }
   },
   "summaryCard": {

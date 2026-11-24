@@ -15,7 +15,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.constants.app_setting_keys import (
     SCHEDULE_CELL_VALUE_MAX_CHARS,
@@ -25,7 +25,8 @@ from app.constants.app_setting_keys import (
     SCHEDULE_MAX_CUSTOM_COLUMNS,
     SCHEDULE_MAX_ITEMS,
 )
-from app.constants.enums import ScheduleItemStatus, ScheduleUpdateSource
+from app.constants.enums import GoalCategory, GoalStatus, ScheduleItemStatus, ScheduleUpdateSource
+from app.constants.goal_transitions import GoalOperation
 from app.models.base import utcnow
 from app.models.goal import Goal
 from app.models.schedule import (
@@ -35,7 +36,12 @@ from app.models.schedule import (
     ScheduleItem,
     ScheduleItemHistory,
 )
-from app.schemas.schedule import ScheduleColumnInput, ScheduleItemInput, ScheduleSaveRequest
+from app.schemas.schedule import (
+    ScheduleColumnInput,
+    ScheduleItemInput,
+    ScheduleItemUpdateInput,
+    ScheduleSaveRequest,
+)
 from app.services import goal_service, setting_reader
 from app.services.exceptions import ScheduleRevisionConflictError, ValidationError
 
@@ -469,3 +475,189 @@ def update_view_setting(
 
     session.flush()
     return schedule
+
+
+@dataclass(frozen=True)
+class ScheduleItemForReport:
+    """`GET /records/{target_date}/schedule-items`の1行分（本書4章・D-32・D-33、単位4）。"""
+
+    id: int
+    title: str
+    planned_start_date: dt.date
+    planned_end_date: dt.date
+    status: ScheduleItemStatus
+    actual_start_date: dt.date | None
+    actual_end_date: dt.date | None
+    default_visible: bool
+
+
+@dataclass(frozen=True)
+class GoalScheduleItemsForReport:
+    """`GET /records/{target_date}/schedule-items`の1目標分（本書4章、単位4）。"""
+
+    goal_id: int
+    goal_name: str
+    goal_category: GoalCategory
+    items: list[ScheduleItemForReport]
+
+
+def _is_default_visible_for_report(item: ScheduleItem, target_date: dt.date) -> bool:
+    """D-33の3条件（報告対象日が予定期間内／進行中／予定終了日を過ぎた未完了）のいずれかに
+    該当するかを返す。該当しない行は「すべて表示」でのみ表示する。"""
+    if item.planned_start_date <= target_date <= item.planned_end_date:
+        return True
+    if item.status == ScheduleItemStatus.IN_PROGRESS:
+        return True
+    if item.status == ScheduleItemStatus.NOT_STARTED and target_date > item.planned_end_date:
+        return True
+    return False
+
+
+def list_schedule_items_for_report(
+    session: Session, target_date: dt.date
+) -> list[GoalScheduleItemsForReport]:
+    """`GET /records/{target_date}/schedule-items`（本書4章、単位4）。
+
+    対象はACTIVEな目標のみ（既存のノルマ・日記・読書書籍・業務案件と同じ絞り込み、
+    単位4開発Todo2章補足1）。完了・中止の行はそもそも応答に含めない（12章補足7、
+    「すべて表示」でも表示されないため）。作業項目が1件も対象にならない目標は
+    応答に含めない（D-38）。
+    """
+    goals = list(session.execute(select(Goal).where(Goal.status == GoalStatus.ACTIVE)).scalars())
+    if not goals:
+        return []
+
+    items = session.execute(
+        select(ScheduleItem)
+        .where(
+            ScheduleItem.goal_id.in_([goal.id for goal in goals]),
+            ScheduleItem.status.not_in([ScheduleItemStatus.DONE, ScheduleItemStatus.CANCELLED]),
+        )
+        .order_by(ScheduleItem.goal_id, ScheduleItem.display_order)
+    ).scalars()
+
+    items_by_goal: dict[int, list[ScheduleItemForReport]] = defaultdict(list)
+    for item in items:
+        items_by_goal[item.goal_id].append(
+            ScheduleItemForReport(
+                id=item.id,
+                title=item.title,
+                planned_start_date=item.planned_start_date,
+                planned_end_date=item.planned_end_date,
+                status=item.status,
+                actual_start_date=item.actual_start_date,
+                actual_end_date=item.actual_end_date,
+                default_visible=_is_default_visible_for_report(item, target_date),
+            )
+        )
+
+    return [
+        GoalScheduleItemsForReport(
+            goal_id=goal.id,
+            goal_name=goal.name,
+            goal_category=goal.category,
+            items=items_by_goal[goal.id],
+        )
+        for goal in goals
+        if goal.id in items_by_goal
+    ]
+
+
+def apply_report_schedule_item_updates(
+    session: Session,
+    updates: list[ScheduleItemUpdateInput],
+    *,
+    category: GoalCategory | None,
+    target_date: dt.date,
+    today: dt.date,
+    source: ScheduleUpdateSource,
+) -> None:
+    """日次報告・進捗のみ登録からの作業項目の更新（本書4章・第8章、単位4）。
+
+    実績と同じトランザクションで適用する（呼び出し側が本関数の後にcommitする）。
+    `save_schedule`と同じ「検証を適用より先にすべて終える」方針（8.1）とし、1件でも
+    不正な更新があれば何も適用せずに例外を投げる（呼び出し元のcommit前のため、実績の
+    保存もまとめてロールバックされる）。`category`を指定した場合（確定API3本）は、
+    その種別の目標に属する行だけを受け付ける（D-35）。Noneの場合（progress API）は
+    ACTIVEな目標であれば種別を問わない（D-36）。行の所有者検証は単位2の
+    `_check_owned_by_goal`と同じく、存在しないIDと他の目標に属するIDを区別しない。
+    """
+    if not updates:
+        return
+
+    ids = [update.schedule_item_id for update in updates]
+    if len(set(ids)) != len(ids):
+        raise ValidationError("Duplicate schedule item id in request")
+
+    items = {
+        item.id: item
+        for item in session.execute(
+            select(ScheduleItem)
+            .options(joinedload(ScheduleItem.goal))
+            .where(ScheduleItem.id.in_(ids))
+        ).scalars()
+    }
+
+    for update in updates:
+        item = items.get(update.schedule_item_id)
+        if item is None or (category is not None and item.goal.category != category):
+            raise ValidationError(
+                f"Cannot update schedule item(id={update.schedule_item_id}) "
+                "that belongs to a different goal"
+            )
+        goal_service.ensure_operation_allowed(item.goal, GoalOperation.RECORD)
+        validate_item_fields(
+            title=item.title,
+            planned_start_date=item.planned_start_date,
+            planned_end_date=item.planned_end_date,
+            status=update.status,
+            actual_start_date=update.actual_start_date,
+            actual_end_date=update.actual_end_date,
+            today=today,
+        )
+
+    now = utcnow()
+    touched_goal_ids: set[int] = set()
+    for update in updates:
+        item = items[update.schedule_item_id]
+        previous = (item.status, item.actual_start_date, item.actual_end_date)
+        item.status = update.status
+        item.actual_start_date = update.actual_start_date
+        item.actual_end_date = update.actual_end_date
+        if previous != (item.status, item.actual_start_date, item.actual_end_date):
+            session.add(
+                ScheduleItemHistory(
+                    schedule_item_id=item.id,
+                    source=source,
+                    record_date=target_date,
+                    status=item.status,
+                    actual_start_date=item.actual_start_date,
+                    actual_end_date=item.actual_end_date,
+                    changed_at=now,
+                )
+            )
+            touched_goal_ids.add(item.goal_id)
+
+    session.flush()
+    _bump_schedule_revisions(session, touched_goal_ids)
+
+
+def _bump_schedule_revisions(session: Session, goal_ids: set[int]) -> None:
+    """対象の目標ごとにrevisionを1増やす（7.1「更新元を問わない」、単位4開発Todo2章補足3）。
+    `GoalSchedule`が存在しない目標はrevision=1で新規作成する（`save_schedule`の初期化と同じ）。
+    """
+    if not goal_ids:
+        return
+    schedules = {
+        schedule.goal_id: schedule
+        for schedule in session.execute(
+            select(GoalSchedule).where(GoalSchedule.goal_id.in_(goal_ids))
+        ).scalars()
+    }
+    for goal_id in goal_ids:
+        schedule = schedules.get(goal_id)
+        if schedule is None:
+            session.add(GoalSchedule(goal_id=goal_id, revision=1))
+        else:
+            schedule.revision += 1
+    session.flush()

@@ -1,5 +1,12 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query'
-import { getQuota, getRecord, type DailyRecordRead, type QuotaItemRead } from '../../api/records'
+import {
+  getQuota,
+  getRecord,
+  getScheduleItemsForReport,
+  type DailyRecordRead,
+  type GoalScheduleItemsForReportRead,
+  type QuotaItemRead,
+} from '../../api/records'
 import {
   listActiveReadingBooks,
   listActiveWorkAssignments,
@@ -16,6 +23,11 @@ export type DailyRecordQueries = {
   readingBooks: UseQueryResult<ActiveReadingBook[]>
   workAssignments: UseQueryResult<ActiveWorkAssignment[]>
   goals: UseQueryResult<GoalRead[]>
+  /** 「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1 D-32、単位4）。
+   * SC-06・SC-07が使う。閲覧専用のSC-08（DailyReportViewPage）では取得するが描画には
+   * 使わない（単位4開発Todo2章補足6、下書きhydrate/マージの既存の仕組みをそのまま
+   * 再利用する利点を優先した判断）。 */
+  scheduleItems: UseQueryResult<GoalScheduleItemsForReportRead[]>
 }
 
 /**
@@ -48,6 +60,10 @@ export function useDailyRecordQueries(targetDate: string): DailyRecordQueries {
     queryKey: QUERY_KEYS.goals(),
     queryFn: () => listGoals(),
   })
+  const scheduleItems = useQuery({
+    queryKey: QUERY_KEYS.scheduleItemsForReport(targetDate),
+    queryFn: () => getScheduleItemsForReport(targetDate),
+  })
 
-  return { record, quota, readingBooks, workAssignments, goals }
+  return { record, quota, readingBooks, workAssignments, goals, scheduleItems }
 }
