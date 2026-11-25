@@ -288,3 +288,27 @@ class ScheduleRevisionConflictError(DomainError):
             f"Goal(id={goal_id}) schedule revision mismatch "
             f"(expected={expected_revision}, actual={actual_revision})"
         )
+
+
+class ScheduleRevisionProposalNotPendingError(DomainError):
+    """修正案（schedule_revision_proposal）が既にRESOLVED・SUPERSEDEDになっている状態で
+    判断APIを呼んだ場合（開発Todo_スケジュール・ガントチャート_v1.1 13.7、単位5）。
+
+    ScheduleRevisionConflictError（スケジュール一括保存の楽観ロック）と同じ「他の操作で
+    状態が変わっていた」という考え方の409だが、対象がschedule_item_idではなく修正案自体
+    のため別クラスとする。
+    """
+
+    def __init__(self, proposal_id: int) -> None:
+        self.proposal_id = proposal_id
+        super().__init__(f"ScheduleRevisionProposal(id={proposal_id}) is not PENDING")
+
+
+class ScheduleRevisionPromptTooLongError(DomainError):
+    """スケジュール修正案のプロンプトが、縮退可能な記録を全て削っても上限文字数を超える場合
+    （`RecapPromptTooLongError`・`DailyFeedbackPromptTooLongError`と同じ考え方）。
+
+    `schedule_rows`（スケジュールの全行）・出力形式の指示は縮退させない固定変数のため、
+    末尾切り詰めフォールバックに頼ると出力形式の指示が欠落しうる。そのため切り詰めずに
+    中止する。
+    """
