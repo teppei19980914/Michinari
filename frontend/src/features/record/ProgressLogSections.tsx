@@ -3,6 +3,7 @@ import type { QuotaItemRead } from '../../api/records'
 import { StudyLogFields } from './StudyLogFields'
 import { ReadingLogFields } from './ReadingLogFields'
 import { WorkLogFields } from './WorkLogFields'
+import { ScheduleItemsField } from './ScheduleItemsField'
 import { patchFormValue } from './formValues'
 import type { DailyReportDraft } from './useDailyReportDraft'
 import type { ProgressOnlyInput } from './resolveProgressOnlyInput'
@@ -91,6 +92,22 @@ export function ProgressLogSections({
           />
         </section>
       )}
+
+      {/* 「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1 D-32・D-36、単位4）。
+       * 確定状態（input.showXSection）に関わらず表示する。progress APIはカテゴリの確定状態と
+       * 独立して作業項目の更新を受け付けるため（D-36）、他2欄のような確定済みでの非表示は
+       * 適用しない。 */}
+      <ScheduleItemsField
+        goals={[
+          ...targets.examScheduleItemGoals,
+          ...targets.readingScheduleItemGoals,
+          ...targets.workScheduleItemGoals,
+        ]}
+        targetDate={targetDate}
+        readOnly={false}
+        values={draft.scheduleItemValues}
+        onChange={draft.setScheduleItemValues}
+      />
     </>
   )
 }

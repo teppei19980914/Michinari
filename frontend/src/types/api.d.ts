@@ -910,6 +910,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/records/{target_date}/schedule-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Schedule Items For Report
+         * @description 日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート
+         *     _v1.1 第4章・D-32・D-33、単位4）。
+         */
+        get: operations["get_schedule_items_for_report_api_v1_records__target_date__schedule_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records/{target_date}/progress": {
         parameters: {
             query?: never;
@@ -3380,6 +3401,8 @@ export interface components {
             diary_entries?: components["schemas"]["DiaryEntryInput"][];
             /** Mood */
             mood?: number | null;
+            /** Schedule Item Updates */
+            schedule_item_updates?: components["schemas"]["ScheduleItemUpdateInput"][];
         };
         /**
          * ForecastAnalyticsRead
@@ -3800,6 +3823,22 @@ export interface components {
             /** Overrun Days */
             overrun_days: number | null;
             vocab_mastery: components["schemas"]["RoadmapVocabMasteryRead"] | null;
+        };
+        /**
+         * GoalScheduleItemsForReportRead
+         * @description `GET /records/{target_date}/schedule-items`の1目標分（本書4章）。
+         *
+         *     作業項目が1件も対象にならない目標は応答に含めない（D-38「作業項目がない目標では
+         *     欄ごと表示しない」）。
+         */
+        GoalScheduleItemsForReportRead: {
+            /** Goal Id */
+            goal_id: number;
+            /** Goal Name */
+            goal_name: string;
+            goal_category: components["schemas"]["GoalCategory"];
+            /** Items */
+            items: components["schemas"]["ScheduleItemForReportRead"][];
         };
         /**
          * GoalStatsRead
@@ -4519,9 +4558,11 @@ export interface components {
         };
         /**
          * ProgressRegisterRequest
-         * @description study_logs・reading_logs・work_logsのいずれかを1件以上含むことをrecord_service_common
-         *     （register_progress）で検証する（すべて空の入力を拒否。複数カテゴリの目標が同時進行
-         *     しうるため、schema側では特定の1つのみのmin_length指定はできない）。
+         * @description study_logs・reading_logs・work_logs・schedule_item_updatesのいずれかを1件以上含むことを
+         *     record_service_common（register_progress）で検証する（すべて空の入力を拒否。複数カテゴリの
+         *     目標が同時進行しうるため、schema側では特定の1つのみのmin_length指定はできない）。
+         *     schedule_item_updatesのみの場合はDailyRecordを作らない（開発Todo_スケジュール・
+         *     ガントチャート_v1.1 D-36、単位4）。
          */
         ProgressRegisterRequest: {
             /** Study Logs */
@@ -4530,6 +4571,8 @@ export interface components {
             reading_logs?: components["schemas"]["ReadingLogInput"][];
             /** Work Logs */
             work_logs?: components["schemas"]["WorkLogInput"][];
+            /** Schedule Item Updates */
+            schedule_item_updates?: components["schemas"]["ScheduleItemUpdateInput"][];
         };
         /** PromptDegradationSettingsRead */
         PromptDegradationSettingsRead: {
@@ -4795,6 +4838,8 @@ export interface components {
             reading_logs?: components["schemas"]["ReadingLogInput"][];
             /** Mood */
             mood?: number | null;
+            /** Schedule Item Updates */
+            schedule_item_updates?: components["schemas"]["ScheduleItemUpdateInput"][];
         };
         /**
          * ReadingLogEntryRead
@@ -5097,6 +5142,37 @@ export interface components {
             display_order: number;
         };
         /**
+         * ScheduleItemForReportRead
+         * @description `GET /records/{target_date}/schedule-items`の1行分（本書4章・D-33）。
+         *
+         *     default_visible は本書D-33の3条件（報告対象日が予定期間内／進行中／予定終了日を
+         *     過ぎた未完了）に該当するかを表す。falseの行は「すべて表示」でのみ表示する
+         *     （完了・中止の行はそもそも応答に含めない、本書12章補足7）。
+         */
+        ScheduleItemForReportRead: {
+            /** Id */
+            id: number;
+            /** Title */
+            title: string;
+            /**
+             * Planned Start Date
+             * Format: date
+             */
+            planned_start_date: string;
+            /**
+             * Planned End Date
+             * Format: date
+             */
+            planned_end_date: string;
+            status: components["schemas"]["ScheduleItemStatus"];
+            /** Actual Start Date */
+            actual_start_date: string | null;
+            /** Actual End Date */
+            actual_end_date: string | null;
+            /** Default Visible */
+            default_visible: boolean;
+        };
+        /**
          * ScheduleItemInput
          * @description 作業項目1行分（PUT /goals/{goal_id}/schedule）。idが無ければ新規作成する。
          */
@@ -5162,6 +5238,21 @@ export interface components {
          * @enum {string}
          */
         ScheduleItemStatus: "NOT_STARTED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+        /**
+         * ScheduleItemUpdateInput
+         * @description 日次報告・進捗のみ登録からの作業項目1行分の更新（開発Todo_スケジュール・ガントチャート
+         *     _v1.1 第4章・第8章、単位4）。行の追加・削除は行わないため、既存の`ScheduleItemInput`とは
+         *     別の小さなスキーマとする（作業項目・作業内容・予定日は変更しない）。
+         */
+        ScheduleItemUpdateInput: {
+            /** Schedule Item Id */
+            schedule_item_id: number;
+            status: components["schemas"]["ScheduleItemStatus"];
+            /** Actual Start Date */
+            actual_start_date?: string | null;
+            /** Actual End Date */
+            actual_end_date?: string | null;
+        };
         /**
          * ScheduleRead
          * @description GET /goals/{goal_id}/schedule の応答（本書8章）。
@@ -6089,6 +6180,8 @@ export interface components {
             work_logs?: components["schemas"]["WorkLogInput"][];
             /** Mood */
             mood?: number | null;
+            /** Schedule Item Updates */
+            schedule_item_updates?: components["schemas"]["ScheduleItemUpdateInput"][];
         };
         /**
          * WorkLogEntryRead
@@ -8274,6 +8367,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DailyRecordRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_items_for_report_api_v1_records__target_date__schedule_items_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalScheduleItemsForReportRead"][];
                 };
             };
             /** @description Validation Error */

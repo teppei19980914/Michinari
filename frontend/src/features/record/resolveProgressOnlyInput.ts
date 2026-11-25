@@ -3,13 +3,15 @@ import type { CategoryReportedState } from './categoryCompletion'
 import { buildStudyLogPayload, type StudyLogFormValue } from './studyLogForm'
 import { buildReadingLogPayload, type ReadingLogFormValue } from './readingLogForm'
 import { buildWorkLogPayload, type WorkLogFormValue } from './workLogForm'
+import { buildScheduleItemUpdatesPayload, type ScheduleItemDraftValue } from './scheduleItemsDraft'
 
-/** 進捗のみ登録で保持する下書き（実績のみ。日記・AI対話は持たない。仕様書6.6）。
- * useDailyReportDraftの戻り値がそのまま渡せる形にしている。 */
+/** 進捗のみ登録で保持する下書き（実績＋「今日の作業項目」欄。日記・AI対話は持たない。
+ * 仕様書6.6）。useDailyReportDraftの戻り値がそのまま渡せる形にしている。 */
 export type ProgressOnlyDraftValues = {
   studyLogValues: Record<number, StudyLogFormValue>
   readingLogValues: Record<number, ReadingLogFormValue>
   workLogValues: Record<number, WorkLogFormValue>
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
 }
 
 /** そのカテゴリに入力対象（教材・書籍・案件）があるか。
@@ -58,8 +60,12 @@ export function resolveProgressOnlyInput(source: {
   sections: ProgressOnlyTargetSections
   reported: CategoryReportedState
   draft: ProgressOnlyDraftValues
+  /** 「今日の作業項目」欄の対象行id（開発Todo_スケジュール・ガントチャート_v1.1 D-36、
+   * 単位4）。確定状態に関わらずどの種別の行も送信対象にできる（progress APIは
+   * カテゴリを問わず受け付ける）ため、studyLogs等と違いshowXSectionでは絞り込まない。 */
+  scheduleItemIds: ReadonlySet<number>
 }): ProgressOnlyInput {
-  const { sections, reported, draft } = source
+  const { sections, reported, draft, scheduleItemIds } = source
 
   // 確定済みのカテゴリは変更できない（仕様書7.2）。対象があっても入力欄を出さない。
   const showExamSection = sections.showExamSection && !reported.isExamReported
@@ -69,14 +75,25 @@ export function resolveProgressOnlyInput(source: {
   const studyLogs = showExamSection ? buildStudyLogPayload(draft.studyLogValues) : []
   const readingLogs = showReadingSection ? buildReadingLogPayload(draft.readingLogValues) : []
   const workLogs = showWorkSection ? buildWorkLogPayload(draft.workLogValues) : []
+  const scheduleItemUpdates = buildScheduleItemUpdatesPayload(
+    draft.scheduleItemValues,
+    scheduleItemIds,
+  )
 
   return {
     showExamSection,
     showReadingSection,
     showWorkSection,
-    payload: { study_logs: studyLogs, reading_logs: readingLogs, work_logs: workLogs },
-    // サーバは3カテゴリのいずれも空の登録を拒否する（record_service.register_progress）。
-    // 押してからエラーになるより、押せない状態で示すほうが操作が分かりやすい。
-    canRegister: studyLogs.length + readingLogs.length + workLogs.length > 0,
+    payload: {
+      study_logs: studyLogs,
+      reading_logs: readingLogs,
+      work_logs: workLogs,
+      schedule_item_updates: scheduleItemUpdates,
+    },
+    // サーバは実績・作業項目の更新のいずれも空の登録を拒否する（D-36、
+    // record_service_common.register_progress）。押してからエラーになるより、
+    // 押せない状態で示すほうが操作が分かりやすい。
+    canRegister:
+      studyLogs.length + readingLogs.length + workLogs.length + scheduleItemUpdates.length > 0,
   }
 }

@@ -9,6 +9,7 @@ import type { CategoryReportedState } from './categoryCompletion'
 const MATERIAL_ID = 30
 const BOOK_ID = 40
 const WORK_ASSIGNMENT_ID = 50
+const SCHEDULE_ITEM_ID = 60
 
 /** 3カテゴリすべてに入力があり、いずれも未確定の状態。各テストで必要な分だけ差し替える。 */
 const FILLED_DRAFT: ProgressOnlyDraftValues = {
@@ -21,12 +22,21 @@ const FILLED_DRAFT: ProgressOnlyDraftValues = {
   workLogValues: {
     [WORK_ASSIGNMENT_ID]: { questionAnswers: ['', ''], freeText: 'work' },
   },
+  scheduleItemValues: {
+    [SCHEDULE_ITEM_ID]: {
+      status: 'IN_PROGRESS',
+      actualStartDate: '2026-11-20',
+      actualEndDate: null,
+      touched: true,
+    },
+  },
 }
 
 const EMPTY_DRAFT: ProgressOnlyDraftValues = {
   studyLogValues: {},
   readingLogValues: {},
   workLogValues: {},
+  scheduleItemValues: {},
 }
 
 const ALL_SECTIONS: ProgressOnlyTargetSections = {
@@ -46,12 +56,14 @@ function resolve(
     sections?: Partial<ProgressOnlyTargetSections>
     reported?: Partial<CategoryReportedState>
     draft?: ProgressOnlyDraftValues
+    scheduleItemIds?: ReadonlySet<number>
   } = {},
 ) {
   return resolveProgressOnlyInput({
     sections: { ...ALL_SECTIONS, ...overrides.sections },
     reported: { ...NOTHING_REPORTED, ...overrides.reported },
     draft: overrides.draft ?? FILLED_DRAFT,
+    scheduleItemIds: overrides.scheduleItemIds ?? new Set([SCHEDULE_ITEM_ID]),
   })
 }
 
@@ -112,6 +124,31 @@ describe('resolveProgressOnlyInput', () => {
 
       expect(payload.reading_logs).toEqual([])
     })
+
+    it('変更した作業項目を送る（単位4）', () => {
+      const { payload } = resolve()
+
+      expect(payload.schedule_item_updates).toEqual([
+        expect.objectContaining({
+          schedule_item_id: SCHEDULE_ITEM_ID,
+          status: 'IN_PROGRESS',
+          actual_start_date: '2026-11-20',
+        }),
+      ])
+    })
+
+    it('全カテゴリが確定済みでも作業項目は送る（D-36、確定状態と独立している）', () => {
+      const reported = { isExamReported: true, isReadingReported: true, isWorkReported: true }
+      const { payload } = resolve({ reported })
+
+      expect(payload.schedule_item_updates).toHaveLength(1)
+    })
+
+    it('対象の作業項目id集合に含まれない行は送らない', () => {
+      const { payload } = resolve({ scheduleItemIds: new Set() })
+
+      expect(payload.schedule_item_updates).toEqual([])
+    })
   })
 
   describe('登録ボタンの可否', () => {
@@ -127,9 +164,24 @@ describe('resolveProgressOnlyInput', () => {
       expect(resolve({ draft: EMPTY_DRAFT }).canRegister).toBe(false)
     })
 
-    it('入力があっても全カテゴリが確定済みなら登録できない', () => {
+    it('作業項目の変更だけでも登録できる（D-36）', () => {
+      const draft = { ...EMPTY_DRAFT, scheduleItemValues: FILLED_DRAFT.scheduleItemValues }
+      expect(resolve({ draft }).canRegister).toBe(true)
+    })
+
+    it('実績の入力があっても全カテゴリが確定済みなら登録できない', () => {
+      // FILLED_DRAFTのうち実績3種のみを使う（作業項目は別の観点、直後のテスト参照）。
+      // 単位4でscheduleItemValuesに常時touched=trueの行を積んだため、ここでそれだけを
+      // 空にして「実績だけでは確定済みカテゴリの登録ができない」という元の意図を保つ
+      // （開発Todo_スケジュール・ガントチャート_単位4_v1.0 15.1手順10、意図した変更）。
+      const draft = { ...FILLED_DRAFT, scheduleItemValues: {} }
       const reported = { isExamReported: true, isReadingReported: true, isWorkReported: true }
-      expect(resolve({ reported }).canRegister).toBe(false)
+      expect(resolve({ draft, reported }).canRegister).toBe(false)
+    })
+
+    it('全カテゴリが確定済みでも作業項目の変更だけなら登録できる（D-36）', () => {
+      const reported = { isExamReported: true, isReadingReported: true, isWorkReported: true }
+      expect(resolve({ reported }).canRegister).toBe(true)
     })
   })
 })

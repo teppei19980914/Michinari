@@ -15,11 +15,13 @@ from app.models.goal import Goal
 from app.models.material import Material
 from app.models.record import DailyRecord, RecordComment
 from app.models.work import WorkAssignment
+from app.schemas.schedule import ScheduleItemInput, ScheduleItemUpdateInput, ScheduleSaveRequest
 from app.services import (
     record_service_common,
     record_service_exam,
     record_service_reading,
     record_service_work,
+    schedule_service,
 )
 from app.services.exceptions import ImmutableRecordError, NotFoundError, ValidationError
 from app.services.record_service_exam import StudyLogItem
@@ -155,6 +157,44 @@ def test_register_progress_rejects_when_all_lists_empty(seeded_session):
 
     with pytest.raises(ValidationError):
         record_service_common.register_progress(seeded_session, today, [], today)
+
+
+def test_register_progress_accepts_schedule_item_updates_only_without_creating_record(
+    seeded_session,
+):
+    """作業項目の更新だけでも登録できる。DailyRecordを作らず報告状態も変えない
+    （開発Todo_スケジュール・ガントチャート_v1.1 D-36、単位4）。"""
+    goal = _make_goal(seeded_session)
+    today = dt.date(2026, 3, 10)
+    view = schedule_service.save_schedule(
+        seeded_session,
+        goal,
+        ScheduleSaveRequest(
+            revision=0,
+            items=[
+                ScheduleItemInput(title="第1章", planned_start_date=today, planned_end_date=today)
+            ],
+        ),
+        today,
+    )
+    item_id = view.items[0].id
+
+    record = record_service_common.register_progress(
+        seeded_session,
+        today,
+        [],
+        today,
+        schedule_item_updates=[
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id, status="IN_PROGRESS", actual_start_date=today
+            )
+        ],
+    )
+
+    assert record is None
+    assert (
+        seeded_session.query(DailyRecord).filter(DailyRecord.record_date == today).first() is None
+    )
 
 
 # --- register_progress（カテゴリ横断の相互独立性、仕様変更2026-09-05） ---

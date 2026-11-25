@@ -18,4 +18,7 @@ export function invalidateDailyRecordCaches(queryClient: QueryClient, targetDate
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.today() })
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard() })
   queryClient.invalidateQueries({ queryKey: QUERY_KEYS.calendar() })
+  // 「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1 D-32、単位4）。
+  // 確定・登録のたびにschedule_item_updatesで状況・実績日が変わりうる。
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduleItemsForReport(targetDate) })
 }

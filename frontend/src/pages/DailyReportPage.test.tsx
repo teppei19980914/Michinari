@@ -167,6 +167,7 @@ function setupQueries({ goals = [EXAM_GOAL, READING_GOAL, WORK_GOAL], record }: 
   )
   vi.mocked(recordsApi.getRecord).mockResolvedValue(record ?? buildRecord())
   vi.mocked(recordsApi.getQuota).mockResolvedValue([QUOTA_ITEM])
+  vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
   vi.mocked(recordsApi.getToday).mockResolvedValue({
     logical_date: LOGICAL_DATE,
     record_state: null,
@@ -728,6 +729,7 @@ describe('DailyReportPage', () => {
     expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
       study_logs: [],
       diary_entries: [],
+      schedule_item_updates: [],
     })
     // 選択していない読書・仕事タブは確定されない（不具合の再発防止の核）。
     expect(recordsApi.finalizeReadingRecord).not.toHaveBeenCalled()
@@ -762,14 +764,20 @@ describe('DailyReportPage', () => {
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
     await waitFor(() => expect(recordsApi.finalizeReadingRecord).toHaveBeenCalled())
-    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, { reading_logs: [] })
+    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      reading_logs: [],
+      schedule_item_updates: [],
+    })
     expect(screen.queryByText(DASHBOARD_MARKER)).toBe(null)
 
     await user.click(getGoalTab(WORK_GOAL_NAME))
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
     await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
     await waitFor(() => expect(recordsApi.finalizeWorkRecord).toHaveBeenCalled())
-    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, { work_logs: [] })
+    expect(recordsApi.finalizeWorkRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
+      work_logs: [],
+      schedule_item_updates: [],
+    })
 
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })
@@ -792,6 +800,7 @@ describe('DailyReportPage', () => {
     expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(LOGICAL_DATE, {
       study_logs: [],
       diary_entries: [],
+      schedule_item_updates: [],
     })
     expect(await screen.findByText(DASHBOARD_MARKER)).toBeTruthy()
   })

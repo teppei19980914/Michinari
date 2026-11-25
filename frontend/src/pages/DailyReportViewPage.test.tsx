@@ -164,6 +164,10 @@ function setupQueries(goals: GoalRead[], record: DailyRecordRead) {
   )
   vi.mocked(recordsApi.getRecord).mockResolvedValue(record)
   vi.mocked(recordsApi.getQuota).mockResolvedValue([QUOTA_ITEM])
+  // SC-08は閲覧専用で本クエリの結果を描画に使わないが、共有フック
+  // （useDailyRecordQueries）経由で取得自体は行われるため既定値を与える
+  // （DailyReportPage.test.tsxと同じ対応、下書き保持不具合と同種の警告を防ぐ）。
+  vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
 }
 
 function renderPage() {

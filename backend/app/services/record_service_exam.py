@@ -8,7 +8,13 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.constants.enums import GoalCategory, GoalStatus, QualityMetricType, RecordState
+from app.constants.enums import (
+    GoalCategory,
+    GoalStatus,
+    QualityMetricType,
+    RecordState,
+    ScheduleUpdateSource,
+)
 from app.constants.goal_transitions import GoalOperation
 from app.models.goal import Goal
 from app.models.material import Material
@@ -19,11 +25,13 @@ from app.models.record import (
     StudyLogSlotTime,
     diary_text_expr,
 )
+from app.schemas.schedule import ScheduleItemUpdateInput
 from app.services import (
     allocation_service,
     cycle_service,
     goal_service,
     quota_service,
+    schedule_service,
     slot_service,
     speed_service,
 )
@@ -249,6 +257,7 @@ def finalize_record(
     diary_entries: list[DiaryEntryItem],
     today: dt.date,
     mood: int | None = None,
+    schedule_item_updates: list[ScheduleItemUpdateInput] | None = None,
 ) -> DailyRecord:
     """資格勉強（EXAM）の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
@@ -256,10 +265,20 @@ def finalize_record(
     確定できるようにする）。`items`が空でも成立する（ひとこと記録モード、開発Todo
     「ひとこと記録」v1.0 Q1。従来の「ゼロ記録」ボタンと同じ経路）。`mood`はひとこと記録
     モードの気分スタンプ（Q1〜Q7の決定事項、record_service_common.upsert_mood参照）。
+    `schedule_item_updates`はEXAM目標に属する行だけを受け付ける（開発Todo_スケジュール・
+    ガントチャート_v1.1 D-35、単位4）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.EXAM)
     _ensure_finalizable_date(target_date, today)
+    schedule_service.apply_report_schedule_item_updates(
+        session,
+        schedule_item_updates or [],
+        category=GoalCategory.EXAM,
+        target_date=target_date,
+        today=today,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
 
     record = record or _create_record(session, target_date)
     _apply_study_logs(session, record, items)

@@ -6,6 +6,7 @@ import type { WorkLogFormValue } from './workLogForm'
 import type { DiaryFormValue } from './diaryForm'
 import type { MoodValue } from './moodStamps'
 import type { RecordInputMode } from './recordInputMode'
+import type { ScheduleItemDraftValue } from './scheduleItemsDraft'
 
 /** 日次報告の下書きの状態・文脈・フック（dailyReportDraftStore.tsx の Provider から使う）。
  * コンポーネントと分けてあるのは、React Fast Refresh が「コンポーネントだけを export する
@@ -17,6 +18,10 @@ export type CategoryDraftState = {
   readingLogValues: Record<number, ReadingLogFormValue>
   workLogValues: Record<number, WorkLogFormValue>
   diaryValues: Record<number, DiaryFormValue>
+  /** 「今日の作業項目」欄の下書き（開発Todo_スケジュール・ガントチャート_v1.1 第4章、
+   * 単位4）。schedule_item_idをキーとし、全カテゴリ分をまとめて持つ（studyLogValues等と
+   * 同じ方針。送信時に対象カテゴリの行だけへ絞り込む、scheduleItemsDraft.ts参照）。 */
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
   chatMessages: ChatMessageRead[]
   /** 取得完了後の初期化（hydrate）が済んだか。画面を再訪問した際に、残っている下書きへ
    * 初期値を上書きしないための判定に使う（旧hydratedRefのグローバル版）。 */
@@ -45,6 +50,7 @@ export const EMPTY_DRAFT_STATE: CategoryDraftState = {
   readingLogValues: {},
   workLogValues: {},
   diaryValues: {},
+  scheduleItemValues: {},
   chatMessages: [],
   hydrated: false,
   examModeHydrated: false,

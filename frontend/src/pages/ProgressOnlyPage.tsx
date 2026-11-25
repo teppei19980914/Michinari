@@ -16,6 +16,7 @@ import { useDailyRecordQueries } from '../features/record/useDailyRecordQueries'
 import { useDailyReportDraft } from '../features/record/useDailyReportDraft'
 import { useSlotNames } from '../features/record/useSlotNames'
 import { invalidateDailyRecordCaches } from '../features/record/invalidateDailyRecordCaches'
+import { collectAllScheduleItemIds } from '../features/record/scheduleItemsDraft'
 
 /** SC-07 進捗のみ登録（仕様書6.6）。実績入力領域のみを持ち、日記記述・AI対話領域は持たない。
  *
@@ -54,11 +55,13 @@ export function ProgressOnlyPage() {
     quotaItems: queries.quota.data ?? [],
     readingBooks: queries.readingBooks.data ?? [],
     workAssignments: queries.workAssignments.data ?? [],
+    scheduleItems: queries.scheduleItems.data ?? [],
   })
   const input = resolveProgressOnlyInput({
     sections: targets,
     reported: toCategoryReportedState(queries.record.data),
     draft,
+    scheduleItemIds: collectAllScheduleItemIds(queries.scheduleItems.data ?? []),
   })
 
   const registerMutation = useMutation({
