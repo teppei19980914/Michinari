@@ -8,6 +8,7 @@ import { resolveZeroRecordMessage } from './zeroRecordMessage'
 import type { CategoryPresence } from './categoryCompletion'
 import type { ZeroRecordCategory } from './resolveZeroRecordCategories'
 import type { GoalCategory } from '../../api/goals'
+import type { ScheduleItemDraftValue } from './scheduleItemsDraft'
 
 export type ZeroRecordButtonProps = {
   targetDate: string
@@ -18,6 +19,9 @@ export type ZeroRecordButtonProps = {
   goalIdsByCategory: Record<GoalCategory, number | null>
   /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0 §4）。 */
   checkMilestones?: (goalId: number | null, category: GoalCategory) => void
+  /** useZeroRecordActionのJSDoc参照（開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）。 */
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
+  scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
 }
 
 /**
@@ -33,6 +37,8 @@ export function ZeroRecordButton({
   presence,
   goalIdsByCategory,
   checkMilestones,
+  scheduleItemValues,
+  scheduleItemIdsByCategory,
 }: ZeroRecordButtonProps) {
   const [open, setOpen] = useState(false)
   const dayTypeQuery = useDayType(targetDate)
@@ -44,6 +50,8 @@ export function ZeroRecordButton({
     message,
     goalIdsByCategory,
     checkMilestones,
+    scheduleItemValues,
+    scheduleItemIdsByCategory,
   })
 
   if (categories.length === 0) {

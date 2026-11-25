@@ -4,7 +4,7 @@ import type { ActiveWorkAssignment } from '../../api/goals'
 import { CategoryReportSection } from './CategoryReportSection'
 import { WorkLogFields } from './WorkLogFields'
 import { WorkLogSummaryList } from './WorkLogSummaryList'
-import { ScheduleItemsField } from './ScheduleItemsField'
+import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildWorkAssignmentLabels } from './summaryLabels'
@@ -64,12 +64,12 @@ export function WorkReportSection({
             workLogs={record.work_logs}
             workAssignmentLabels={buildWorkAssignmentLabels(workAssignments)}
           />
-          <ScheduleItemsField
-            goals={targets.workScheduleItemGoals}
+          <CategoryScheduleItemsField
+            category="WORK"
+            targets={targets}
             targetDate={targetDate}
             readOnly
-            values={draft.scheduleItemValues}
-            onChange={draft.setScheduleItemValues}
+            draft={draft}
           />
         </>
       }
@@ -105,12 +105,12 @@ export function WorkReportSection({
               )
             }
           />
-          <ScheduleItemsField
-            goals={targets.workScheduleItemGoals}
+          <CategoryScheduleItemsField
+            category="WORK"
+            targets={targets}
             targetDate={targetDate}
             readOnly={false}
-            values={draft.scheduleItemValues}
-            onChange={draft.setScheduleItemValues}
+            draft={draft}
           />
         </>
       }

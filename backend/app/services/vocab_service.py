@@ -618,9 +618,7 @@ def compute_goal_vocab_mastery(
     mastered = compute_mastered_card_ids(session, card_ids, mastery_streak)
     term_total = sum(1 for t in card_type_by_id.values() if t == VocabCardType.TERM)
     situation_total = len(card_ids) - term_total
-    term_mastered = sum(
-        1 for card_id in mastered if card_type_by_id[card_id] == VocabCardType.TERM
-    )
+    term_mastered = sum(1 for card_id in mastered if card_type_by_id[card_id] == VocabCardType.TERM)
     situation_mastered = len(mastered) - term_mastered
     return VocabMasteryTotals(
         total_cards=len(card_ids),
@@ -645,9 +643,7 @@ def compute_mastered_card_counts_by_deck(
         select(VocabCard.id, VocabCard.deck_id).where(VocabCard.deck_id.in_(deck_ids))
     ).all()
     deck_id_by_card_id = dict(rows)
-    mastered_card_ids = compute_mastered_card_ids(
-        session, list(deck_id_by_card_id), mastery_streak
-    )
+    mastered_card_ids = compute_mastered_card_ids(session, list(deck_id_by_card_id), mastery_streak)
     counts: dict[int, int] = defaultdict(int)
     for card_id in mastered_card_ids:
         counts[deck_id_by_card_id[card_id]] += 1
@@ -917,9 +913,7 @@ def export_deck(
     """
     buffer = io.StringIO()
     writer = csv.writer(buffer, delimiter="\t", lineterminator="\n")
-    cards = [
-        card for card in list_cards_for_deck(session, deck.id) if card.card_type == card_type
-    ]
+    cards = [card for card in list_cards_for_deck(session, deck.id) if card.card_type == card_type]
     for card in cards:
         if card_type == VocabCardType.TERM:
             writer.writerow([card.term, card.meaning, card.aliases or "", card.note or ""])

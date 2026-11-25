@@ -63,6 +63,10 @@ export type DailyReportActions = {
   /** 確定対象の目標ID（カテゴリ別）。ZeroRecordButton（複数カテゴリを一括確定）が
    * 確定後の節目チェックに使う（開発Todo_節目のお祝い_v1.0 §4）。 */
   goalIdsByCategory: Record<GoalCategory, number | null>
+  /** カテゴリ別の作業項目id（開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）。
+   * ZeroRecordButton（「今日は何もしていない」）も、下書きで変更された作業項目があれば
+   * そのカテゴリの確定APIへ含めて送るために使う（2026-11-24、利用者の判断）。 */
+  scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
   milestoneCelebration: MilestoneCelebrationForPage
 }
 
@@ -380,6 +384,11 @@ export function useDailyReportActions({
       },
     }),
     goalIdsByCategory: { EXAM: examGoalId, READING: readingGoalId, WORK: workGoalId },
+    scheduleItemIdsByCategory: {
+      EXAM: examScheduleItemIds,
+      READING: readingScheduleItemIds,
+      WORK: workScheduleItemIds,
+    },
     milestoneCelebration: {
       current: milestoneQueue.current,
       checkGoal: milestoneQueue.checkGoal,

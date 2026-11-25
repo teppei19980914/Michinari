@@ -4,6 +4,7 @@ import { ZeroRecordButton } from './ZeroRecordButton'
 import type { ZeroRecordCategory } from './resolveZeroRecordCategories'
 import type { CategoryPresence } from './categoryCompletion'
 import type { GoalCategory } from '../../api/goals'
+import type { ScheduleItemDraftValue } from './scheduleItemsDraft'
 
 type RecordConfirmationExtrasProps = {
   targetDate: string
@@ -11,6 +12,9 @@ type RecordConfirmationExtrasProps = {
   presence: CategoryPresence
   goalIdsByCategory: Record<GoalCategory, number | null>
   milestoneCelebration: MilestoneCelebrationForPage
+  /** ZeroRecordButton（開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）のJSDoc参照。 */
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
+  scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
 }
 
 /** 「何もしていない」ボタンと節目のお祝いモーダルをまとめる（DailyReportPageの行数を
@@ -22,6 +26,8 @@ export function RecordConfirmationExtras({
   presence,
   goalIdsByCategory,
   milestoneCelebration,
+  scheduleItemValues,
+  scheduleItemIdsByCategory,
 }: RecordConfirmationExtrasProps) {
   return (
     <>
@@ -31,6 +37,8 @@ export function RecordConfirmationExtras({
         presence={presence}
         goalIdsByCategory={goalIdsByCategory}
         checkMilestones={milestoneCelebration.checkGoal}
+        scheduleItemValues={scheduleItemValues}
+        scheduleItemIdsByCategory={scheduleItemIdsByCategory}
       />
       <MilestoneCelebrationModal
         milestone={milestoneCelebration.current}

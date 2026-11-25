@@ -192,6 +192,7 @@
 | POST | /records/{date}/reading-finalize | 読書の報告確定（1.1（改16）） |
 | POST | /records/{date}/work-finalize | 仕事の報告確定（1.1（改16）） |
 | GET | /records/{date}/quota | 指定日の日次ノルマ取得 |
+| GET | /records/{date}/schedule-items | 「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1 D-32・D-33、単位4、1.1（改79））。ACTIVEな目標ごとに、報告対象日が予定期間内／進行中／予定終了日を過ぎた未着手の行かを示す`default_visible`付きで作業項目を返す。完了・中止の行、作業項目が1件も対象にならない目標は応答に含めない |
 | GET | /records/{date}/previous-diary | 「前回はこう書いていました」ヒント用、goal_id指定（1.1（改22）） |
 | GET | /records/{date}/previous-reading-log | 同上、book_id指定（1.1（改22）） |
 | GET | /records/{date}/previous-work-log | 同上、work_assignment_id指定（1.1（改22）） |
@@ -204,6 +205,8 @@
 `POST /records/{date}/progress`（進捗のみ登録）は、`study_log`（教材別実績）・`reading_log`（書籍別の想起記録）・`work_log`（案件別の業務記録）の配列をまとめて受け付ける。入力があったカテゴリのみ確定済みガード・状態更新の対象になるため、他カテゴリが確定済みでも影響しない。
 
 報告確定は`/finalize`（資格試験、`study_log`＋日記）・`/reading-finalize`（読書、`reading_log`）・`/work-finalize`（仕事、`work_log`）にカテゴリごとに分離する（1.1（改16）。AI対話エンドポイントの`/chat`・`/reading-chat`・`/work-chat`分離と同じ設計方針）。従来は`/finalize`が3カテゴリの実績を一括で受け取り単一の記録状態を更新していたため、1カテゴリの確定が他カテゴリの確定状態まで変えてしまっていた。書籍・案件ごとの個別エンドポイントは設けない（`study_log`と同様、配列で複数件をまとめて受け付ける）。`study_log`/`reading_log`/`work_log`のいずれも配列が空（0件）の状態で`/finalize`系を呼ぶことを禁止していない。これを利用し、「今日は何もしていない」ボタン（1.1（改28）、記録画面改善タスク）は空配列でカテゴリを確定する（実績行を作らずカテゴリの確定状態のみREPORTEDにする）。
+
+**「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1 第4章・D-32〜D-39、単位4、1.1（改79））**：`POST /records/{date}/finalize`・`/reading-finalize`・`/work-finalize`・`/progress`は、任意の`schedule_item_updates`（行ID・状況・実績開始日・実績終了日の配列）を受け付ける。確定API3本はその種別の目標に属する行だけを受け付け（他の目標・他の種別・終了/非ACTIVEな目標の行は`VALIDATION_ERROR`／`INVALID_STATE_TRANSITION`）、`/progress`は種別を問わず受け付ける。検証は単位2の`schedule_service.validate_item_fields`をそのまま再利用し、実績と同じトランザクションで適用する（検証に失敗した場合は実績の保存も含めて何も反映しない）。状況・実績日が変わった行だけ`schedule_item_history`へ履歴（`source=DAILY_REPORT`または`PROGRESS_ONLY`、`record_date`＝対象日）を追加し、目標ごとに`goal_schedule.revision`を1増やす。`/progress`は`study_logs`・`reading_logs`・`work_logs`のいずれかに加えて`schedule_item_updates`の有無でも「1件以上必須」を満たせるよう緩和し、`schedule_item_updates`のみの登録では`DailyRecord`を作らず、どの種別の報告状態（報告率・連続報告日数を含む）も変えない。「今日は何もしていない」ボタンによる確定でも、作業項目の変更があればあわせて送信する。
 
 `GET /records/{date}/previous-diary`・`/previous-reading-log`・`/previous-work-log`（1.1（改22））は、記述欄の「前回はこう書いていました」ヒント表示専用の読み取りAPIである。それぞれ対象（goal_id／book_id／work_assignment_id）を必須クエリパラメータとして受け取り、対象日より前で本文のある直近1件の`record_date`・本文を返す（該当が無ければ`null`。存在確認をエラーにしない設計は、フロントの「前回の記録が無い場合は表示しない」という任意表示の性質に合わせたもの）。空文字/NULLの本文（`daily_goal_diary.diary_body`は任意入力のため空文字の行がありうる）は「前回」として提示する意味がないため対象から除く。
 

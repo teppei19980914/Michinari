@@ -53,6 +53,8 @@ function renderButton(props: Partial<ZeroRecordButtonProps> = {}) {
             categories={['EXAM']}
             presence={presence}
             goalIdsByCategory={{ EXAM: 1, READING: null, WORK: null }}
+            scheduleItemValues={{}}
+            scheduleItemIdsByCategory={{ EXAM: new Set(), READING: new Set(), WORK: new Set() }}
             {...props}
           />
         }
@@ -90,6 +92,8 @@ describe('ZeroRecordButton', () => {
         categories={[]}
         presence={{ hasExamCategory: false, hasReadingCategory: false, hasWorkCategory: false }}
         goalIdsByCategory={{ EXAM: null, READING: null, WORK: null }}
+        scheduleItemValues={{}}
+        scheduleItemIdsByCategory={{ EXAM: new Set(), READING: new Set(), WORK: new Set() }}
       />,
     )
     expect(screen.queryByRole('button')).toBe(null)
@@ -142,10 +146,42 @@ describe('ZeroRecordButton', () => {
     expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(TARGET_DATE, {
       study_logs: [],
       diary_entries: [],
+      schedule_item_updates: [],
     })
-    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(TARGET_DATE, { reading_logs: [] })
+    expect(recordsApi.finalizeReadingRecord).toHaveBeenCalledWith(TARGET_DATE, {
+      reading_logs: [],
+      schedule_item_updates: [],
+    })
     expect(recordsApi.finalizeWorkRecord).not.toHaveBeenCalled()
     expect(await screen.findByText(t('dailyReport.zeroRecord.planDayMessage'))).toBeTruthy()
+  })
+
+  it('includes a touched schedule item in the zero-record finalize call for its category (単位4, D-35)', async () => {
+    const user = userEvent.setup()
+    renderButton({
+      categories: ['EXAM'],
+      scheduleItemValues: {
+        99: { status: 'DONE', actualStartDate: '2026-09-01', actualEndDate: '2026-09-17', touched: true },
+      },
+      scheduleItemIdsByCategory: { EXAM: new Set([99]), READING: new Set(), WORK: new Set() },
+    })
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() => expect(recordsApi.finalizeRecord).toHaveBeenCalled())
+    expect(recordsApi.finalizeRecord).toHaveBeenCalledWith(TARGET_DATE, {
+      study_logs: [],
+      diary_entries: [],
+      schedule_item_updates: [
+        {
+          schedule_item_id: 99,
+          status: 'DONE',
+          actual_start_date: '2026-09-01',
+          actual_end_date: '2026-09-17',
+        },
+      ],
+    })
   })
 
   it('shows the rest-day message on a BUFFER day', async () => {

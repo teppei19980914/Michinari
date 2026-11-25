@@ -187,9 +187,7 @@ def test_register_progress_endpoint_rejects_schedule_item_of_paused_goal(client)
 
     response = client.post(
         f"/api/v1/records/{target}/progress",
-        json={
-            "schedule_item_updates": [{"schedule_item_id": item_id, "status": "NOT_STARTED"}]
-        },
+        json={"schedule_item_updates": [{"schedule_item_id": item_id, "status": "NOT_STARTED"}]},
     )
 
     assert response.status_code == 409
@@ -209,8 +207,11 @@ def test_get_schedule_items_endpoint_returns_eligible_items_grouped_by_goal(clie
         actual_start_date=dt.date.today().isoformat(),
     )
     _create_schedule_item(
-        client, reading_goal["id"], status="DONE",
-        actual_start_date="2026-01-01", actual_end_date="2026-01-02",
+        client,
+        reading_goal["id"],
+        status="DONE",
+        actual_start_date="2026-01-01",
+        actual_end_date="2026-01-02",
     )
     target = dt.date.today().isoformat()
 

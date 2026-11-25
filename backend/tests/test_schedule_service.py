@@ -1038,11 +1038,7 @@ def test_apply_report_schedule_item_updates_rejects_unknown_id(seeded_session):
     with pytest.raises(ValidationError):
         schedule_service.apply_report_schedule_item_updates(
             seeded_session,
-            [
-                ScheduleItemUpdateInput(
-                    schedule_item_id=9999, status=ScheduleItemStatus.NOT_STARTED
-                )
-            ],
+            [ScheduleItemUpdateInput(schedule_item_id=9999, status=ScheduleItemStatus.NOT_STARTED)],
             category=None,
             target_date=_TODAY,
             today=_TODAY,
@@ -1096,6 +1092,29 @@ def test_apply_report_schedule_item_updates_rejects_item_of_inactive_goal(seeded
     goal = schedule_helpers.make_goal(seeded_session)
     item_id = _save_item(seeded_session, goal)
     goal.status = GoalStatus.PAUSED
+    seeded_session.flush()
+
+    with pytest.raises(InvalidStateTransitionError):
+        schedule_service.apply_report_schedule_item_updates(
+            seeded_session,
+            [
+                ScheduleItemUpdateInput(
+                    schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
+                )
+            ],
+            category=GoalCategory.EXAM,
+            target_date=_TODAY,
+            today=_TODAY,
+            source=ScheduleUpdateSource.DAILY_REPORT,
+        )
+
+
+def test_apply_report_schedule_item_updates_rejects_item_of_closed_goal(seeded_session):
+    """D-04「終了した目標」（CLOSED_WITH_RESULT/CLOSED_WITHOUT_RESULT）の行を拒否する
+    （独立レビューで、PAUSEDのみでCLOSED系を明示確認していないと指摘されたため追加）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    goal.status = GoalStatus.CLOSED_WITH_RESULT
     seeded_session.flush()
 
     with pytest.raises(InvalidStateTransitionError):
@@ -1206,19 +1225,15 @@ def test_apply_report_schedule_item_updates_skips_history_and_revision_when_unch
 ):
     goal = schedule_helpers.make_goal(seeded_session)
     item_id = _save_item(seeded_session, goal, status=ScheduleItemStatus.NOT_STARTED)
-    schedule_before = seeded_session.query(GoalSchedule).filter(
-        GoalSchedule.goal_id == goal.id
-    ).one()
+    schedule_before = (
+        seeded_session.query(GoalSchedule).filter(GoalSchedule.goal_id == goal.id).one()
+    )
     revision_before = schedule_before.revision
     history_count_before = seeded_session.query(ScheduleItemHistory).count()
 
     schedule_service.apply_report_schedule_item_updates(
         seeded_session,
-        [
-            ScheduleItemUpdateInput(
-                schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED
-            )
-        ],
+        [ScheduleItemUpdateInput(schedule_item_id=item_id, status=ScheduleItemStatus.NOT_STARTED)],
         category=GoalCategory.EXAM,
         target_date=_TODAY,
         today=_TODAY,
@@ -1226,9 +1241,9 @@ def test_apply_report_schedule_item_updates_skips_history_and_revision_when_unch
     )
 
     assert seeded_session.query(ScheduleItemHistory).count() == history_count_before
-    schedule_after = seeded_session.query(GoalSchedule).filter(
-        GoalSchedule.goal_id == goal.id
-    ).one()
+    schedule_after = (
+        seeded_session.query(GoalSchedule).filter(GoalSchedule.goal_id == goal.id).one()
+    )
     assert schedule_after.revision == revision_before
 
 

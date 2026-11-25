@@ -347,9 +347,7 @@ def test_vocab_card_content_changed_false_when_note_only_or_unchanged(seeded_ses
     deck = make_deck(seeded_session, goal)
     card = make_card(seeded_session, deck, term="用語", meaning="意味", aliases="別名")
 
-    assert not vocab_service.vocab_card_content_changed(
-        card, term=None, meaning=None, aliases=None
-    )
+    assert not vocab_service.vocab_card_content_changed(card, term=None, meaning=None, aliases=None)
     assert not vocab_service.vocab_card_content_changed(
         card, term="用語", meaning="意味", aliases="別名"
     )
@@ -476,9 +474,7 @@ def test_create_situation_card_rejects_missing_required_fields(seeded_session, k
     base.update(kwargs)
 
     with pytest.raises(ValidationError):
-        vocab_service.create_card(
-            seeded_session, deck, card_type=VocabCardType.SITUATION, **base
-        )
+        vocab_service.create_card(seeded_session, deck, card_type=VocabCardType.SITUATION, **base)
 
 
 def test_create_situation_card_rejects_aliases(seeded_session):
@@ -528,9 +524,7 @@ def test_create_situation_card_rejects_one_field_over_its_own_max_chars(
     base[field_kwarg] = "12345"
 
     with pytest.raises(ValidationError):
-        vocab_service.create_card(
-            seeded_session, deck, card_type=VocabCardType.SITUATION, **base
-        )
+        vocab_service.create_card(seeded_session, deck, card_type=VocabCardType.SITUATION, **base)
 
 
 def test_create_term_card_rejects_note_over_max_chars(seeded_session):
@@ -590,9 +584,7 @@ def test_vocab_card_content_changed_for_situation_checks_situation_fields(seeded
     assert vocab_service.vocab_card_content_changed(
         card, term=None, meaning=None, aliases=None, note="新しい解説"
     )
-    assert not vocab_service.vocab_card_content_changed(
-        card, term=None, meaning=None, aliases=None
-    )
+    assert not vocab_service.vocab_card_content_changed(card, term=None, meaning=None, aliases=None)
     assert not vocab_service.vocab_card_content_changed(
         card,
         term="見出し",
@@ -2093,9 +2085,7 @@ def test_build_glossary_reference_excludes_situation_card_containing_forbidden_t
     seeded_session.flush()
     goal = make_exam_goal(seeded_session)
     deck = make_deck(seeded_session, goal)
-    make_situation_card(
-        seeded_session, deck, term="見出し", situation_text="きんし語を含む状況"
-    )
+    make_situation_card(seeded_session, deck, term="見出し", situation_text="きんし語を含む状況")
 
     result = vocab_service.build_glossary_reference(
         seeded_session, goal, ["今日は見出しという事例を学んだ"], max_chars=2000

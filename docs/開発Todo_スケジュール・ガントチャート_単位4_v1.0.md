@@ -113,42 +113,54 @@
 
 ## 6. チェックリスト（実装）
 
-- [ ] D-32,D-33: `GET /records/{date}/schedule-items`・スキーマ・サービス関数・テスト
-- [ ] D-32,D-35: 確定API3本への`schedule_item_updates`追加・サービス層の委譲・テスト
-- [ ] D-36,D-37: progress APIの緩和（作業項目のみでの登録、DailyRecord非作成）・テスト
-- [ ] D-39: `schedule_item_history`への記録（source別）
-- [ ] 8.1系の所有者検証・認可境界テスト（他目標・他カテゴリ・終了/非ACTIVE目標のID）
-- [ ] 4章の特性テスト（既存挙動の固定、変更前に合格確認）
-- [ ] フロントエンド：`scheduleItemsDraft.ts`・`ScheduleItemsField.tsx`・`useScheduleItemsForReport.ts`
-- [ ] フロントエンド：`useDailyReportDraft.ts`への配線（下書き保持、hydrate/マージ）
-- [ ] フロントエンド：3カテゴリ分のReportSectionへの組み込み・ProgressOnlyPageへの組み込み
-- [ ] D-48: ja.json/en.json・help_content.json
-- [ ] D-49: 仕様書6.5・6.6、設計書データ構造編6.API設計
+- [x] D-32,D-33: `GET /records/{date}/schedule-items`・スキーマ・サービス関数・テスト
+- [x] D-32,D-35: 確定API3本への`schedule_item_updates`追加・サービス層の委譲・テスト
+- [x] D-36,D-37: progress APIの緩和（作業項目のみでの登録、DailyRecord非作成）・テスト
+- [x] D-39: `schedule_item_history`への記録（source別）
+- [x] 8.1系の所有者検証・認可境界テスト（他目標・他カテゴリ・終了/非ACTIVE目標のID）
+- [x] 4章の特性テスト（既存挙動の固定、変更前に合格確認）
+- [x] フロントエンド：`scheduleItemsDraft.ts`・`ScheduleItemsField.tsx`・`ScheduleItemsGoalGroup.tsx`・`ScheduleItemRow.tsx`（`useDailyRecordQueries.ts`に直接`useQuery`を組み込み、薄いラッパーhookは不要と判断、2章補足6参照）
+- [x] フロントエンド：`useDailyReportDraft.ts`への配線（下書き保持、hydrate/マージ）
+- [x] フロントエンド：3カテゴリ分のReportSection・ProgressLogSections（SC-07）への組み込み
+- [x] フロントエンド：「今日は何もしていない」（`useZeroRecordAction.ts`）経路への組み込み（15.1手順5で発見・利用者確認済み、2章補足7参照）
+- [x] D-48: ja.json/en.json・help_content.json
+- [x] D-49: 仕様書6.5・6.6、設計書データ構造編6.API設計（改79）
 
 ## 7. 追跡表
 
-（実装完了後に実装箇所・テスト名を記入する）
-
 | D-ID | 実装箇所 | テスト名 |
 | --- | --- | --- |
-| D-32 | `api/records.py`の`GET /records/{date}/schedule-items`、`schedule_service.list_schedule_items_for_report` | — |
-| D-33 | `schedule_service.list_schedule_items_for_report`（default_visible判定） | — |
-| D-34 | `ScheduleItemsField.tsx`・`scheduleStatusAutoFill.applyScheduleStatusAutoFill`（報告対象日基準） | — |
-| D-35 | `record_service_exam/reading/work.finalize_*`・`schedule_service.apply_report_schedule_item_updates` | — |
-| D-36 | `record_service_common.register_progress` | — |
-| D-37 | `schedule_service.apply_report_schedule_item_updates`（upsert、履歴は変化時のみ） | — |
-| D-38 | `ExamReportSection.tsx`等の配置、`ScheduleItemsField`の0件非表示 | — |
-| D-39 | `schedule_service.apply_report_schedule_item_updates`（`ScheduleItemHistory`追加） | — |
-| 8.1所有者検証・認可境界 | `schedule_service.apply_report_schedule_item_updates`（category不一致・`ensure_operation_allowed`） | — |
-| D-48 | ja.json/en.json・help_content.json | `test_help_content.py`・`localeKeyUsage.test.ts` |
+| D-32 | `api/records.py::get_schedule_items_for_report`、`schedule_service.list_schedule_items_for_report`、frontend`useDailyRecordQueries.ts`（scheduleItems）・`ScheduleItemsField.tsx` | `test_api_records_common.py::test_get_schedule_items_endpoint_returns_eligible_items_grouped_by_goal`・`::test_get_schedule_items_endpoint_excludes_goal_with_no_eligible_items`、`ScheduleItemsField.test.tsx`（4件） |
+| D-33 | `schedule_service._is_default_visible_for_report`・`list_schedule_items_for_report` | `test_schedule_service.py::test_list_schedule_items_for_report_default_visible_follows_d33`（4分岐）・`::test_list_schedule_items_for_report_excludes_*`（3件） |
+| D-34 | `ScheduleItemRow.tsx`（`applyScheduleStatusAutoFill`を報告対象日基準で呼ぶ） | `ScheduleItemRow.test.tsx::applies the status auto-fill...` |
+| D-35 | `record_service_exam.finalize_record`・`record_service_reading.finalize_reading_record`・`record_service_work.finalize_work_record`、`schedule_service.apply_report_schedule_item_updates`（category指定） | `test_api_records_exam.py::test_finalize_endpoint_applies_schedule_item_updates_and_bumps_revision`・`::test_finalize_endpoint_rejects_schedule_item_from_different_category`・`::test_finalize_endpoint_rejects_schedule_item_of_paused_goal`・`::test_finalize_endpoint_rejects_study_logs_together_with_invalid_schedule_item_update`、`test_api_records_reading.py`・`test_api_records_work.py`の同種テスト |
+| D-36 | `record_service_common.register_progress`（schedule_item_updatesのみでDailyRecordを作らない分岐） | `test_api_records_common.py::test_register_progress_endpoint_accepts_schedule_item_updates_only_without_creating_record`、`test_record_service_common.py::test_register_progress_accepts_schedule_item_updates_only_without_creating_record`、`resolveProgressOnlyInput.test.ts`（3件） |
+| D-37 | `schedule_service.apply_report_schedule_item_updates`（upsert、最新値で上書き） | `test_schedule_service.py::test_apply_report_schedule_item_updates_overwrites_with_latest_input_when_called_twice` |
+| D-38 | `ExamReportSection.tsx`・`ReadingReportSection.tsx`・`WorkReportSection.tsx`・`ProgressLogSections.tsx`への配置、`ScheduleItemsField`の0件非表示 | `ScheduleItemsField.test.tsx::renders nothing when there are no eligible goals` |
+| D-39 | `schedule_service.apply_report_schedule_item_updates`（`ScheduleItemHistory`追加、変化時のみ） | `test_schedule_service.py::test_apply_report_schedule_item_updates_applies_values_adds_history_and_creates_schedule_row`・`::test_apply_report_schedule_item_updates_skips_history_and_revision_when_unchanged` |
+| 8.1所有者検証・認可境界 | `schedule_service.apply_report_schedule_item_updates`（category不一致・`ensure_operation_allowed`・重複ID拒否） | `test_schedule_service.py::test_apply_report_schedule_item_updates_rejects_*`（5件）、`test_api_records_exam/reading/work.py`の`rejects_schedule_item_from_different_category`系 |
+| 実績との同一トランザクション（重点確認） | `record_service_common.register_progress`・各`finalize_*`（スケジュール更新を実績適用より前に実行） | `test_api_records_exam.py::test_finalize_endpoint_rejects_study_logs_together_with_invalid_schedule_item_update`（検証失敗時に実績も保存されないことを確認） |
+| D-48 | `ja.json`/`en.json`（`schedule.dailyReportSection.*`4キー、`help.sections.dailyReport.p7`）・`help_content.json` | `test_help_content.py`・`localeKeyUsage.test.ts` |
+| D-49 | 仕様書6.5・6.6、設計書データ構造編6.API設計（改79） | — |
 
 ## 8. 次の単位への引き継ぎ事項
 
-（実装完了後に記載する）
+単位5（AIによるスケジュール修正案）は本書前提（単位1〜4完了）を満たす。
+
+- 単位4で追加した`schedule_service.apply_report_schedule_item_updates`は、確定API・progress API専用（行の追加・削除を行わない1行更新）であり、単位5の承認API（13.7 decisions）は別の専用ロジックとして実装すること（本関数の転用はしない。対象行の集合・検証ルール・revision加算の単位が異なる）。
+- `schedule_service.list_schedule_items_for_report`はACTIVE目標のみを対象とする。単位5の13.2「遅れの判定」もACTIVE目標限定（終了した目標は対象外）という条件が共通するため、本関数のACTIVE絞り込みロジック（`select(Goal).where(Goal.status == GoalStatus.ACTIVE)`）はそのまま参考にできる。
+- 日次報告・progress APIからのスケジュール更新は`source=DAILY_REPORT`／`PROGRESS_ONLY`で`schedule_item_history`に記録済み。単位5の「予定日の変更履歴は`schedule_revision_proposal`テーブルが兼ねる」（13.6）という設計は、本単位の`schedule_item_history`（状況・実績日のみ）とは別テーブル・別関心事であり競合しない。
+- ゼロ記録（「今日は何もしていない」、`useZeroRecordAction.ts`）は、確定の自動生成（13.1「確定APIの応答にschedule_revision_candidatesを含める」）の対象から外れていない点に注意。ゼロ記録も`finalize_record`等を実際に呼ぶため、単位5が確定APIの応答へ`schedule_revision_candidates`を追加する際は、ゼロ記録経由の呼び出しでも同じ応答が返ることを確認すること（14章補足2「ひとこと記録モードで確定した場合も対象とする」と同種の考慮）。
+- `frontend/src/features/record/scheduleItemsDraft.ts`の`ScheduleItemDraftValue`・`selectScheduleItemIdsForGoals`・`collectAllScheduleItemIds`は日次報告専用の下書き型である。単位5のガントへの点線重ね表示・承認パネルは別の型（`schedule_revision_proposal`由来）を使うため、本ファイルの型を拡張して転用しないこと。
 
 ## 9. 報告が必要な食い違い・範囲外の不具合
 
-2章に記載（判断を仰ぐために実装を止めるべきものは無し）。
+**食い違い（2章に記載、判断を仰ぐために実装を止めるべきものは無し）**：2章の6点（D-33応答粒度・認可境界の基準・revision加算の単位・重複ID拒否・送信対象の絞り込み・共有フックへの追加）はいずれも実装の詳細として対応済み。
+
+**15.1手順5で発見し、利用者に確認した食い違い（1件）**：
+「今日は何もしていない」ボタン（ゼロ記録、`useZeroRecordAction.ts`）は、study_logs等を下書きの内容に関わらず常に空配列で確定する既存の専用処理であり、確定API3本を呼ぶが、本書は「作業項目の更新は確定時に保存する」としか書いておらず、この経路での`schedule_item_updates`の扱いが明記されていなかった。利用者に確認し、「作業項目の変更は含めて送る」という回答を得たため、`useZeroRecordAction.ts`の`FINALIZE_AS_ZERO`に`scheduleItemIdsByCategory`・`scheduleItemValues`を渡し、変更があればそのカテゴリの確定APIへ含めて送るよう実装した（`ZeroRecordButton.test.tsx::includes a touched schedule item in the zero-record finalize call for its category`で固定）。
+
+**範囲外の不具合**：発見なし。
 
 ## 10. コミット前チェック（15.1手順13・14・16）の結果と対応
 

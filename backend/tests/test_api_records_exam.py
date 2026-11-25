@@ -275,9 +275,7 @@ def test_finalize_endpoint_rejects_schedule_item_from_different_category(client)
         json={
             "study_logs": [],
             "diary_entries": [],
-            "schedule_item_updates": [
-                {"schedule_item_id": other_item_id, "status": "NOT_STARTED"}
-            ],
+            "schedule_item_updates": [{"schedule_item_id": other_item_id, "status": "NOT_STARTED"}],
         },
     )
 
@@ -301,9 +299,7 @@ def test_finalize_endpoint_rejects_schedule_item_of_paused_goal(client):
         json={
             "study_logs": [],
             "diary_entries": [],
-            "schedule_item_updates": [
-                {"schedule_item_id": item_id, "status": "NOT_STARTED"}
-            ],
+            "schedule_item_updates": [{"schedule_item_id": item_id, "status": "NOT_STARTED"}],
         },
     )
 
