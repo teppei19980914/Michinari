@@ -18,6 +18,7 @@ function makeCard(
     book: null,
     work_assignment: null,
     roadmap_is_achieved: false,
+    has_pending_schedule_revision: false,
   }
 }
 

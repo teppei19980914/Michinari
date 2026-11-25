@@ -55,6 +55,7 @@ function makeAiConnection(
     assistant_uid_daily_feedback_reading_brief: '',
     assistant_uid_daily_feedback_work_brief: '',
     assistant_uid_summary_card: '',
+    assistant_uid_schedule_revision: '',
     folder_prefix: 'michinari',
     timeout_seconds: 60,
     min_interval_seconds: 3,

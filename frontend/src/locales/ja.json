@@ -707,6 +707,7 @@
         "dailyFeedbackReadingBrief": "日次報告フィードバック用アシスタント（ひとこと記録・読書）",
         "dailyFeedbackWorkBrief": "日次報告フィードバック用アシスタント（ひとこと記録・仕事）",
         "summaryCard": "ふりかえりまとめ一文用アシスタント",
+        "scheduleRevision": "スケジュール修正案用アシスタント",
         "loading": "アシスタント一覧を取得しています…",
         "loadFailed": "アシスタント一覧を取得できませんでした"
       },

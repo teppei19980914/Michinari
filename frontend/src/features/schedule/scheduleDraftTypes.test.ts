@@ -27,6 +27,7 @@ function sampleScheduleRead(): ScheduleRead {
         cells: [{ column_id: 5, value: '値1' }],
       },
     ],
+    pending_revision_proposal: null,
   }
 }
 
