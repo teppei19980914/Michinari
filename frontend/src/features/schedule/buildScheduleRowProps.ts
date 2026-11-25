@@ -19,6 +19,8 @@ export function buildScheduleRowProps(params: {
   dayWidthRem: number
   ganttWidthRem: number
   today: string
+  //: schedule_item_id（ScheduleDraftItem.id）→ 未判断の修正案の日付（単位5・D-57）。
+  proposedBandByItemId: Record<number, { start: string; end: string }>
   onMoveRow: (itemKey: string, offset: number) => void
   onInsertRowBelow: (itemKey: string) => void
   onRemoveRow: (itemKey: string) => void
@@ -40,6 +42,7 @@ export function buildScheduleRowProps(params: {
     dayWidthRem: params.dayWidthRem,
     ganttWidthRem: params.ganttWidthRem,
     today: params.today,
+    proposedBand: item.id !== null ? params.proposedBandByItemId[item.id] ?? null : null,
     onMoveUp: () => params.onMoveRow(item.key, -1),
     onMoveDown: () => params.onMoveRow(item.key, 1),
     onInsertBelow: () => params.onInsertRowBelow(item.key),

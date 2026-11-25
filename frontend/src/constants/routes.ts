@@ -39,6 +39,9 @@ export const ROUTES = {
   goals: ROUTE_PATTERNS.goals,
   goalNewExam: ROUTE_PATTERNS.goalNewExam,
   goalDetail: (goalId: number) => `/goals/${goalId}`,
+  //: スケジュールタブへの直接リンク（日次報告・ダッシュボードの修正案の案内、
+  //: 開発Todo_スケジュール・ガントチャート_v1.1 13.8、単位5）。
+  goalScheduleTab: (goalId: number) => `/goals/${goalId}?tab=schedule`,
   goalExport: (goalId: number) => `/goals/${goalId}/export`,
   goalResult: (goalId: number) => `/goals/${goalId}/result`,
   attachments: ROUTE_PATTERNS.attachments,

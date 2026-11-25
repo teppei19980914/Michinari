@@ -99,6 +99,9 @@
       "warning": "ノルマが計画基準を上回っています。目標の見直しをご検討ください。",
       "forcedReplan": "計画との乖離が大きくなっています。目標の見直しが必要です。"
     },
+    "scheduleRevisionBanner": {
+      "message": "スケジュールの修正案があります（スケジュールタブで確認）"
+    },
     "todayQuota": {
       "title": "本日のノルマ",
       "empty": "本日予定されている教材はありません",
@@ -2004,7 +2007,8 @@
       "save": "保存",
       "discardConfirm": "保存していない変更を破棄しますか？",
       "rowLimitReached": "行数が上限（{{max}}行）に達しています",
-      "columnLimitReached": "列数が上限（{{max}}列）に達しています"
+      "columnLimitReached": "列数が上限（{{max}}列）に達しています",
+      "requestRevision": "AIに修正案を依頼"
     },
     "columns": {
       "title": "作業項目",
@@ -2063,6 +2067,7 @@
     "gantt": {
       "uncoveredYearNotice": "{{year}}年の祝日データは未収録です",
       "delayDays": "予定より{{days}}日遅れ",
+      "notStartedDelayDays": "予定開始から{{days}}日遅れ（未着手）",
       "tooltip": {
         "planned": "予定: {{start}}〜{{end}}",
         "actual": "実績: {{start}}〜{{end}}",
@@ -2074,6 +2079,20 @@
       "showAll": "すべて表示",
       "collapse": "表示を絞り込む",
       "noRows": "表示する作業項目がありません"
+    },
+    "revision": {
+      "title": "修正案があります",
+      "saveOrDiscardFirst": "保存または破棄してから判断してください",
+      "before": "変更前: {{start}}〜{{end}}",
+      "proposedStartDate": "変更後の予定開始日",
+      "proposedEndDate": "変更後の予定終了日",
+      "approve": "承認",
+      "reject": "却下",
+      "rejectReasonPlaceholder": "却下の理由（任意）",
+      "acknowledge": "確認しました",
+      "approveAll": "すべて承認",
+      "rejectAll": "すべて却下",
+      "staleBeforeValue": "変更されたため承認できません"
     }
   },
   "summaryCard": {

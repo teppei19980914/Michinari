@@ -258,6 +258,23 @@ describe('GoalDetailPage の種別ごとのタブ構成', () => {
     expect(getSchedule).toHaveBeenCalledWith(GOAL_ID)
   })
 
+  it('opens directly on the schedule tab when linked with ?tab=schedule (13.8, unit 5)', async () => {
+    // 日次報告・ダッシュボードの「修正案があります」案内リンク（ROUTES.goalScheduleTab）
+    // が実際にスケジュールタブへ直接遷移できることを確認する。
+    renderWithProviders(<GoalDetailPage />, { initialEntries: ['/goals/1?tab=schedule'] })
+
+    await screen.findByText('目標A')
+    expect(await screen.findByText(t('schedule.intro'))).toBeDefined()
+  })
+
+  it('falls back to the basic info tab for an unknown ?tab value', async () => {
+    renderWithProviders(<GoalDetailPage />, { initialEntries: ['/goals/1?tab=unknown'] })
+
+    await screen.findByText('目標A')
+    expect(tabButton('goals.detail.tabs.basicInfo')).not.toBeNull()
+    expect(screen.queryByText(t('schedule.intro'))).toBe(null)
+  })
+
   it('renders the schedule tab content for a reading goal and a work goal', async () => {
     const user = userEvent.setup()
     for (const category of ['READING', 'WORK'] as const) {
