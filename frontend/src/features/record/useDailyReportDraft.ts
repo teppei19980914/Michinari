@@ -155,7 +155,8 @@ function useMergeNewlyCreatedEntries(
     if (!incoming) {
       return
     }
-    // 事前にdraftState基準でmergeNewEntriesを試算し、5カテゴリとも変化が無ければ
+    // 事前にdraftState基準でmergeNewEntriesを試算し、study/reading/work/diary/
+    // scheduleItemの5フィールドとも変化が無ければ
     // setDraft自体を呼ばずに抜ける（再取得のたびにProvider配下を無駄に再描画しない
     // ため）。変化がある場合の実際の更新は、setDraftの関数形（current引数）を使って
     // 改めて計算し直す。ここでの`draftState`はレンダー時点のスナップショットであり、

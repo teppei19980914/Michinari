@@ -96,20 +96,26 @@ export function resolveVisibleReportTargets(
 
   // 「今日の作業項目」欄の対象（単位4）。scheduleItemsは3種別が混在するため、
   // selectForCategoryへ渡す前にカテゴリで絞り込む。
-  const examScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'EXAM')
-  const readingScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'READING')
-  const workScheduleItemsAll = input.scheduleItems.filter((g) => g.goal_category === 'WORK')
+  const examScheduleItemsAll = input.scheduleItems.filter(
+    (goalItems) => goalItems.goal_category === 'EXAM',
+  )
+  const readingScheduleItemsAll = input.scheduleItems.filter(
+    (goalItems) => goalItems.goal_category === 'READING',
+  )
+  const workScheduleItemsAll = input.scheduleItems.filter(
+    (goalItems) => goalItems.goal_category === 'WORK',
+  )
   const examScheduleItemGoals = selectForCategory(input, 'EXAM', examScheduleItemsAll, (goal) =>
-    examScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+    examScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
   )
   const readingScheduleItemGoals = selectForCategory(
     input,
     'READING',
     readingScheduleItemsAll,
-    (goal) => readingScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+    (goal) => readingScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
   )
   const workScheduleItemGoals = selectForCategory(input, 'WORK', workScheduleItemsAll, (goal) =>
-    workScheduleItemsAll.filter((g) => g.goal_id === goal.id),
+    workScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
   )
 
   return {

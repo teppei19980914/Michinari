@@ -335,7 +335,8 @@ class ScheduleItemStatus(enum.StrEnum):
 class ScheduleUpdateSource(enum.StrEnum):
     """schedule_item_historyの更新元（開発Todo_スケジュール・ガントチャート_v1.1 D-39）。
 
-    DAILY_REPORT・PROGRESS_ONLYは単位4で追加するAPIが使う（本単位では定義のみ）。
+    DAILY_REPORT・PROGRESS_ONLYは単位4の`schedule_service.apply_report_schedule_item_updates`
+    が使う（確定API3本・progress APIからの更新、本書4章）。
     """
 
     SCHEDULE_SCREEN = "SCHEDULE_SCREEN"
