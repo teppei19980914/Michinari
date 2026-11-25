@@ -484,11 +484,13 @@ class TestGenerateProposal:
         )
         FakeAi(monkeypatch, (_change_block(item.id, "2026-11-26", "2026-12-01"),))
 
+        # 行自体は（未来の予定日のため）遅れていないので、MANUALで強制的にAIを呼ぶ
+        # （AUTOだと遅れ無しでAI自体を呼ばず、差分チェックへ到達しないため）。
         proposal = service.generate_proposal(
             seeded_session,
             goal,
-            trigger=ScheduleRevisionTrigger.AUTO,
-            record_date=TODAY,
+            trigger=ScheduleRevisionTrigger.MANUAL,
+            record_date=None,
             today=TODAY,
         )
 
