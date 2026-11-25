@@ -758,6 +758,7 @@
         "dailyFeedbackReadingBrief": "Daily report feedback assistant (quick record, reading)",
         "dailyFeedbackWorkBrief": "Daily report feedback assistant (quick record, work)",
         "summaryCard": "Summary card sentence assistant",
+        "scheduleRevision": "Schedule revision proposal assistant",
         "loading": "Fetching assistant list…",
         "loadFailed": "Could not fetch the assistant list"
       },

@@ -235,6 +235,7 @@ export function makeGoalCard(
     roadmap_progress_ratio: 0.3,
     roadmap_is_achieved: false,
     roadmap_overrun_days: 0,
+    has_pending_schedule_revision: false,
     ...overrides,
   }
 }

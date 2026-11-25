@@ -10,6 +10,19 @@ export type ScheduleColumnRead = components['schemas']['ScheduleColumnRead']
 export type ScheduleItemStatus = components['schemas']['ScheduleItemStatus']
 export type ScheduleViewSettingUpdate = components['schemas']['ScheduleViewSettingUpdate']
 export type ScheduleViewSettingRead = components['schemas']['ScheduleViewSettingRead']
+export type ScheduleRevisionTrigger = components['schemas']['ScheduleRevisionTrigger']
+export type ScheduleRevisionGenerateRequest = components['schemas']['ScheduleRevisionGenerateRequest']
+export type ScheduleRevisionGenerateResult = components['schemas']['ScheduleRevisionGenerateResult']
+export type ScheduleRevisionProposalRead = components['schemas']['ScheduleRevisionProposalRead']
+export type ScheduleRevisionProposalItemRead =
+  components['schemas']['ScheduleRevisionProposalItemRead']
+export type ScheduleRevisionItemKind = components['schemas']['ScheduleRevisionItemKind']
+export type ScheduleRevisionDecision = components['schemas']['ScheduleRevisionDecision']
+export type ScheduleRevisionDecisionInput = components['schemas']['ScheduleRevisionDecisionInput']
+export type ScheduleRevisionDecisionsRequest =
+  components['schemas']['ScheduleRevisionDecisionsRequest']
+export type ScheduleRevisionDecisionsResponse =
+  components['schemas']['ScheduleRevisionDecisionsResponse']
 
 export function getSchedule(goalId: number): Promise<ScheduleRead> {
   return apiClient.get<ScheduleRead>(`/goals/${goalId}/schedule`)
