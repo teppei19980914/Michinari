@@ -1,10 +1,34 @@
 import { describe, expect, it } from 'vitest'
 import type { BookRead, GoalRead, WorkAssignmentRead } from '../../api/goals'
-import type { QuotaItemRead } from '../../api/records'
+import type { GoalScheduleItemsForReportRead, QuotaItemRead } from '../../api/records'
 import {
   resolveVisibleReportTargets,
   type VisibleReportTargetsInput,
 } from './resolveVisibleReportTargets'
+
+function buildScheduleItemGoal(
+  goal: GoalRead,
+  overrides: Partial<GoalScheduleItemsForReportRead> = {},
+): GoalScheduleItemsForReportRead {
+  return {
+    goal_id: goal.id,
+    goal_name: goal.name,
+    goal_category: goal.category,
+    items: [
+      {
+        id: goal.id * 100,
+        title: '作業A',
+        planned_start_date: '2026-01-01',
+        planned_end_date: '2026-01-10',
+        status: 'NOT_STARTED',
+        actual_start_date: null,
+        actual_end_date: null,
+        default_visible: true,
+      },
+    ],
+    ...overrides,
+  }
+}
 
 function buildGoal(id: number, category: GoalRead['category']): GoalRead {
   return { id, category, name: `goal-${id}`, status: 'ACTIVE' } as GoalRead
@@ -28,6 +52,7 @@ function buildInput(overrides: Partial<VisibleReportTargetsInput> = {}): Visible
     quotaItems: [EXAM_QUOTA],
     readingBooks: [{ goal: READING_GOAL, book: BOOK }],
     workAssignments: [{ goal: WORK_GOAL, workAssignment: WORK_ASSIGNMENT }],
+    scheduleItems: [],
     ...overrides,
   }
 }
@@ -62,6 +87,19 @@ describe('resolveVisibleReportTargets', () => {
 
       expect(result.showExamSection).toBe(true)
       expect(result.quotaItems).toEqual([])
+    })
+
+    it('splits scheduleItems by category without filtering by goal (単位4)', () => {
+      const examSchedule = buildScheduleItemGoal(EXAM_GOAL)
+      const readingSchedule = buildScheduleItemGoal(READING_GOAL)
+      const workSchedule = buildScheduleItemGoal(WORK_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({ scheduleItems: [examSchedule, readingSchedule, workSchedule] }),
+      )
+
+      expect(result.examScheduleItemGoals).toEqual([examSchedule])
+      expect(result.readingScheduleItemGoals).toEqual([readingSchedule])
+      expect(result.workScheduleItemGoals).toEqual([workSchedule])
     })
   })
 
@@ -148,6 +186,65 @@ describe('resolveVisibleReportTargets', () => {
       )
 
       expect(result.books).toEqual([BOOK])
+    })
+
+    it('narrows examScheduleItemGoals to the selected goal (単位4)', () => {
+      const examSchedule = buildScheduleItemGoal(EXAM_GOAL)
+      const otherExamSchedule = buildScheduleItemGoal(OTHER_EXAM_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: EXAM_GOAL,
+          goals: [EXAM_GOAL, OTHER_EXAM_GOAL],
+          scheduleItems: [examSchedule, otherExamSchedule],
+        }),
+      )
+
+      expect(result.examScheduleItemGoals).toEqual([examSchedule])
+    })
+
+    it('narrows readingScheduleItemGoals to the selected goal (単位4)', () => {
+      const readingSchedule = buildScheduleItemGoal(READING_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: READING_GOAL,
+          scheduleItems: [readingSchedule],
+        }),
+      )
+
+      expect(result.readingScheduleItemGoals).toEqual([readingSchedule])
+    })
+
+    it('narrows workScheduleItemGoals to the selected goal (単位4)', () => {
+      const workSchedule = buildScheduleItemGoal(WORK_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: WORK_GOAL,
+          scheduleItems: [workSchedule],
+        }),
+      )
+
+      expect(result.workScheduleItemGoals).toEqual([workSchedule])
+    })
+
+    it('shows no scheduleItems for any category while no tab is selected yet (単位4)', () => {
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: undefined,
+          scheduleItems: [
+            buildScheduleItemGoal(EXAM_GOAL),
+            buildScheduleItemGoal(READING_GOAL),
+            buildScheduleItemGoal(WORK_GOAL),
+          ],
+        }),
+      )
+
+      expect(result.examScheduleItemGoals).toEqual([])
+      expect(result.readingScheduleItemGoals).toEqual([])
+      expect(result.workScheduleItemGoals).toEqual([])
     })
   })
 })

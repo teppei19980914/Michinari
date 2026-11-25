@@ -50,9 +50,7 @@ def test_fetch_holiday_csv_tries_the_new_url_first(monkeypatch):
         _make_urlopen({update_holiday_csv.HOLIDAY_CSV_URL_NEW: content}),
     )
 
-    result, url = update_holiday_csv.fetch_holiday_csv(
-        (update_holiday_csv.HOLIDAY_CSV_URL_NEW,)
-    )
+    result, url = update_holiday_csv.fetch_holiday_csv((update_holiday_csv.HOLIDAY_CSV_URL_NEW,))
 
     assert result == content
     assert url == update_holiday_csv.HOLIDAY_CSV_URL_NEW
@@ -163,9 +161,7 @@ def test_update_bundled_holiday_csv_aborts_the_release_when_fetch_fails(monkeypa
     assert not (tmp_path / "holidays.csv").exists()
 
 
-def test_update_bundled_holiday_csv_does_not_regress_using_existing_metadata(
-    monkeypatch, tmp_path
-):
+def test_update_bundled_holiday_csv_does_not_regress_using_existing_metadata(monkeypatch, tmp_path):
     metadata_path = tmp_path / "holidays_metadata.json"
     metadata_path.write_text(
         json.dumps({"year_to": 2030}),

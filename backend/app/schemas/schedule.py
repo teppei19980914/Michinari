@@ -8,7 +8,7 @@ import datetime as dt
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.constants.enums import ScheduleItemStatus
+from app.constants.enums import GoalCategory, ScheduleItemStatus
 
 
 class ScheduleCellInput(BaseModel):
@@ -124,3 +124,46 @@ class ScheduleViewSettingUpdate(BaseModel):
 class ScheduleViewSettingRead(BaseModel):
     frozen_row_count: int
     frozen_column_count: int
+
+
+class ScheduleItemUpdateInput(BaseModel):
+    """日次報告・進捗のみ登録からの作業項目1行分の更新（開発Todo_スケジュール・ガントチャート
+    _v1.1 第4章・第8章、単位4）。行の追加・削除は行わないため、既存の`ScheduleItemInput`とは
+    別の小さなスキーマとする（作業項目・作業内容・予定日は変更しない）。
+    """
+
+    schedule_item_id: int
+    status: ScheduleItemStatus
+    actual_start_date: dt.date | None = None
+    actual_end_date: dt.date | None = None
+
+
+class ScheduleItemForReportRead(BaseModel):
+    """`GET /records/{target_date}/schedule-items`の1行分（本書4章・D-33）。
+
+    default_visible は本書D-33の3条件（報告対象日が予定期間内／進行中／予定終了日を
+    過ぎた未完了）に該当するかを表す。falseの行は「すべて表示」でのみ表示する
+    （完了・中止の行はそもそも応答に含めない、本書12章補足7）。
+    """
+
+    id: int
+    title: str
+    planned_start_date: dt.date
+    planned_end_date: dt.date
+    status: ScheduleItemStatus
+    actual_start_date: dt.date | None
+    actual_end_date: dt.date | None
+    default_visible: bool
+
+
+class GoalScheduleItemsForReportRead(BaseModel):
+    """`GET /records/{target_date}/schedule-items`の1目標分（本書4章）。
+
+    作業項目が1件も対象にならない目標は応答に含めない（D-38「作業項目がない目標では
+    欄ごと表示しない」）。
+    """
+
+    goal_id: int
+    goal_name: str
+    goal_category: GoalCategory
+    items: list[ScheduleItemForReportRead]

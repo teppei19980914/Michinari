@@ -8,11 +8,12 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.constants.enums import GoalCategory, RecordState
+from app.constants.enums import GoalCategory, RecordState, ScheduleUpdateSource
 from app.constants.goal_transitions import GoalOperation
 from app.models.record import DailyRecord, WorkLog
 from app.models.work import WorkAssignment
-from app.services import goal_service
+from app.schemas.schedule import ScheduleItemUpdateInput
+from app.services import goal_service, schedule_service
 from app.services.exceptions import NotFoundError
 from app.services.record_service_common import (
     PreviousEntry,
@@ -114,16 +115,26 @@ def finalize_work_record(
     items: list[WorkLogItem],
     today: dt.date,
     mood: int | None = None,
+    schedule_item_updates: list[ScheduleItemUpdateInput] | None = None,
 ) -> DailyRecord:
     """仕事の報告を確定する（未入力/進捗のみ登録済 → 報告済）。
 
     資格勉強・読書の確定状態には影響しない（仕様変更2026-09-05）。`mood`はひとこと記録
     モードの気分スタンプ（開発Todo「ひとこと記録」v1.0、record_service_common.
-    upsert_mood参照）。
+    upsert_mood参照）。`schedule_item_updates`はWORK目標に属する行だけを受け付ける
+    （開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）。
     """
     record = get_daily_record(session, target_date)
     _ensure_category_not_reported(record, target_date, GoalCategory.WORK)
     _ensure_finalizable_date(target_date, today)
+    schedule_service.apply_report_schedule_item_updates(
+        session,
+        schedule_item_updates or [],
+        category=GoalCategory.WORK,
+        target_date=target_date,
+        today=today,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
 
     record = record or _create_record(session, target_date)
     _apply_work_logs(session, record, items)

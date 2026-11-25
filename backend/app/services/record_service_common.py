@@ -25,7 +25,14 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.ai import prompt_builder
 from app.constants.domain import MOOD_MAX_VALUE, MOOD_MIN_VALUE
-from app.constants.enums import AiPurpose, ChatRole, DayType, GoalCategory, RecordState
+from app.constants.enums import (
+    AiPurpose,
+    ChatRole,
+    DayType,
+    GoalCategory,
+    RecordState,
+    ScheduleUpdateSource,
+)
 from app.models.attachment import ChatMessageAttachment
 from app.models.base import utcnow
 from app.models.record import (
@@ -40,7 +47,8 @@ from app.models.record import (
     WorkLog,
 )
 from app.models.resource import ResourceSlot
-from app.services import calendar_service, goal_service
+from app.schemas.schedule import ScheduleItemUpdateInput
+from app.services import calendar_service, goal_service, schedule_service
 from app.services.exceptions import (
     BackdateLimitExceededError,
     ImmutableRecordError,
@@ -375,14 +383,23 @@ def register_progress(
     today: dt.date,
     reading_items: "list[ReadingLogItem] | None" = None,
     work_items: "list[WorkLogItem] | None" = None,
-) -> DailyRecord:
+    schedule_item_updates: list[ScheduleItemUpdateInput] | None = None,
+) -> DailyRecord | None:
     """進捗のみ登録する（未入力→進捗のみ登録済、または既存の進捗のみ登録済の更新）。
 
     入力可能期間は「対象日が当日または前日以前」（仕様書7.2）であり、未来日は拒否する。
-    study_logs・reading_logs・work_logsの少なくとも1つに1件以上の入力を要求する
-    （いずれも空の登録は無意味なため。特定の1つのみ必須にできないのは、資格試験・読書・
-    仕事の目標が同時進行しうるため）。ガード・状態更新は入力があったカテゴリのみに適用する
-    （他カテゴリが確定済みでも、そのカテゴリに入力が無ければ影響しない。仕様変更2026-09-05）。
+    study_logs・reading_logs・work_logs・schedule_item_updatesの少なくとも1つに1件以上の
+    入力を要求する（いずれも空の登録は無意味なため。特定の1つのみ必須にできないのは、
+    資格試験・読書・仕事の目標が同時進行しうるため）。ガード・状態更新は入力があった
+    カテゴリのみに適用する（他カテゴリが確定済みでも、そのカテゴリに入力が無ければ
+    影響しない。仕様変更2026-09-05）。
+
+    `schedule_item_updates`は種別を問わず受け付ける（開発Todo_スケジュール・ガントチャート
+    _v1.1 D-36、単位4）。作業項目の更新だけの場合はDailyRecordを作らず、どのカテゴリの
+    報告状態も変えない（D-36。戻り値がNoneになりうる。呼び出し元の`_serialize_record`は
+    None対応済み）。schedule_item_updatesはstudy_logs等と異なりDailyRecordに紐づかない
+    （schedule_item_historyはschedule_item_id起点でFKを持つ、データ構造編7.1）ため、
+    DailyRecordの作成有無に関わらず適用できる。
 
     カテゴリ別の実際の適用（ログの反映＋状態更新）は`record_service_exam`/
     `record_service_reading`/`record_service_work`の`apply_progress`へ委譲する。
@@ -395,10 +412,11 @@ def register_progress(
 
     reading_items = reading_items or []
     work_items = work_items or []
+    schedule_item_updates = schedule_item_updates or []
     if target_date > today:
         raise ValidationError("Cannot register progress for a future date")
-    if not items and not reading_items and not work_items:
-        raise ValidationError("Enter at least one progress record")
+    if not items and not reading_items and not work_items and not schedule_item_updates:
+        raise ValidationError("Enter at least one progress record or schedule item update")
 
     record = get_daily_record(session, target_date)
     if items:
@@ -408,10 +426,20 @@ def register_progress(
     if work_items:
         _ensure_category_not_reported(record, target_date, GoalCategory.WORK)
 
-    record = record or _create_record(session, target_date)
-    record_service_exam.apply_progress(session, record, items)
-    record_service_reading.apply_progress(session, record, reading_items)
-    record_service_work.apply_progress(session, record, work_items)
+    schedule_service.apply_report_schedule_item_updates(
+        session,
+        schedule_item_updates,
+        category=None,
+        target_date=target_date,
+        today=today,
+        source=ScheduleUpdateSource.PROGRESS_ONLY,
+    )
+
+    if items or reading_items or work_items:
+        record = record or _create_record(session, target_date)
+        record_service_exam.apply_progress(session, record, items)
+        record_service_reading.apply_progress(session, record, reading_items)
+        record_service_work.apply_progress(session, record, work_items)
     session.flush()
     return record
 

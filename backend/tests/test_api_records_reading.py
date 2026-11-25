@@ -115,6 +115,68 @@ def test_finalize_reading_endpoint_accepts_mood(client):
     assert body["exam_mood"] is None
 
 
+def _create_schedule_item(client, goal_id, **overrides):
+    payload = {
+        "title": "作業A",
+        "planned_start_date": "2026-01-01",
+        "planned_end_date": "2026-01-10",
+        "status": "NOT_STARTED",
+    }
+    payload.update(overrides)
+    response = client.put(
+        f"/api/v1/goals/{goal_id}/schedule", json={"revision": 0, "items": [payload]}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["items"][0]["id"]
+
+
+def test_reading_finalize_endpoint_applies_schedule_item_updates(client):
+    """開発Todo_スケジュール・ガントチャート_v1.1 D-32・D-35（単位4）。READING目標に属する
+    行だけを受け付けることをEXAM版（test_api_records_exam.py）に加えてREADINGでも確認する。"""
+    goal, _book = _make_active_reading_goal_with_book(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/reading-finalize",
+        json={
+            "reading_logs": [],
+            "schedule_item_updates": [
+                {
+                    "schedule_item_id": item_id,
+                    "status": "DONE",
+                    "actual_start_date": target,
+                    "actual_end_date": target,
+                },
+            ],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    schedule = client.get(f"/api/v1/goals/{goal['id']}/schedule").json()
+    assert schedule["items"][0]["status"] == "DONE"
+
+
+def test_reading_finalize_endpoint_rejects_schedule_item_from_different_category(client):
+    goal, _book = _make_active_reading_goal_with_book(client)
+    exam_goal = client.post(
+        "/api/v1/goals", json={"name": "資格目標", "start_date": "2026-01-01"}
+    ).json()
+    other_item_id = _create_schedule_item(client, exam_goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/reading-finalize",
+        json={
+            "reading_logs": [],
+            "schedule_item_updates": [{"schedule_item_id": other_item_id, "status": "NOT_STARTED"}],
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 def test_register_progress_endpoint_rejects_unknown_book(client):
     target = dt.date.today().isoformat()
 

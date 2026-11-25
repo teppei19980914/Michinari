@@ -128,6 +128,115 @@ def test_register_progress_endpoint_rejects_both_lists_empty(client):
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
 
 
+# --- schedule_item_updates（開発Todo_スケジュール・ガントチャート_v1.1 D-32〜D-39、単位4） ---
+
+
+def _create_schedule_item(client, goal_id, **overrides):
+    payload = {
+        "title": "作業A",
+        "planned_start_date": "2026-01-01",
+        "planned_end_date": "2026-01-10",
+        "status": "NOT_STARTED",
+    }
+    payload.update(overrides)
+    response = client.put(
+        f"/api/v1/goals/{goal_id}/schedule", json={"revision": 0, "items": [payload]}
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["items"][0]["id"]
+
+
+def test_register_progress_endpoint_accepts_schedule_item_updates_only_without_creating_record(
+    client,
+):
+    """作業項目の更新だけでも登録できる。この場合、DailyRecordを作らず報告状態も変えない
+    （D-36、重点確認事項）。"""
+    goal, _material = _make_active_goal_with_material(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "schedule_item_updates": [
+                {
+                    "schedule_item_id": item_id,
+                    "status": "IN_PROGRESS",
+                    "actual_start_date": target,
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["exam_record_state"] is None
+    assert body["study_logs"] == []
+    today_response = client.get("/api/v1/records/today").json()
+    assert today_response["record_state"] is None
+    schedule = client.get(f"/api/v1/goals/{goal['id']}/schedule").json()
+    assert schedule["items"][0]["status"] == "IN_PROGRESS"
+
+
+def test_register_progress_endpoint_rejects_schedule_item_of_paused_goal(client):
+    goal, _material = _make_active_goal_with_material(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    paused = client.post(f"/api/v1/goals/{goal['id']}/pause")
+    assert paused.status_code == 200, paused.text
+    target = dt.date.today().isoformat()
+
+    response = client.post(
+        f"/api/v1/records/{target}/progress",
+        json={"schedule_item_updates": [{"schedule_item_id": item_id, "status": "NOT_STARTED"}]},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+# --- GET /records/{date}/schedule-items（D-32・D-33・D-38） ---
+
+
+def test_get_schedule_items_endpoint_returns_eligible_items_grouped_by_goal(client):
+    exam_goal, _material = _make_active_goal_with_material(client, goal_name="資格目標")
+    reading_goal, _book = _make_active_reading_goal_with_book(client)
+    exam_item_id = _create_schedule_item(
+        client,
+        exam_goal["id"],
+        status="IN_PROGRESS",
+        actual_start_date=dt.date.today().isoformat(),
+    )
+    _create_schedule_item(
+        client,
+        reading_goal["id"],
+        status="DONE",
+        actual_start_date="2026-01-01",
+        actual_end_date="2026-01-02",
+    )
+    target = dt.date.today().isoformat()
+
+    response = client.get(f"/api/v1/records/{target}/schedule-items")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    # 読書目標は唯一の行がDONEのため、作業項目が1件も対象にならず応答に含めない（D-38）。
+    assert [goal["goal_id"] for goal in body] == [exam_goal["id"]]
+    assert body[0]["goal_category"] == "EXAM"
+    assert body[0]["items"][0]["id"] == exam_item_id
+    assert body[0]["items"][0]["default_visible"] is True
+
+
+def test_get_schedule_items_endpoint_excludes_goal_with_no_eligible_items(client):
+    goal, _material = _make_active_goal_with_material(client)
+    _create_schedule_item(client, goal["id"], status="CANCELLED")
+    target = dt.date.today().isoformat()
+
+    response = client.get(f"/api/v1/records/{target}/schedule-items")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 # --- カテゴリ横断の相互独立性（仕様変更2026-09-05） ---
 
 

@@ -1623,7 +1623,8 @@
         "p3": "\"View daily report\" shows a finalized past report read-only, letting you check your results, diary, and AI dialogue history, and add comments only.",
         "p4": "If you have an active reading goal, the same screen shows a separate \"Today's reading recall\" field and AI dialogue, apart from the certification exam ones (only the recall text is required; numeric results are optional). The only page field is \"Current page\" — you don't need to enter how many pages you read that day. Current page is used only for the on-screen progress display and isn't evaluated by the AI. Reading's AI dialogue is saved as a separate conversation from the certification exam's.",
         "p5": "If you have an active work goal, the same screen shows separate work record fields and AI dialogue, apart from certification exam and reading. Enter today's work record text per project (there are no fields for time spent or daily quota), then finalize after the AI dialogue. The list of registered team members is also shown on the same screen (view only; add/edit from the \"Project info\" tab on the goal details screen).",
-        "p6": "For certification exam AI dialogue, terms you've registered in vocabulary decks (the ones with \"Use in today's review and AI feedback\" turned on), along with their accuracy, are also passed as reference information. Expanding \"What the AI used\" shows a \"Registered terms\" entry (shown for every certification exam report, even if you haven't registered any vocabulary terms)."
+        "p6": "For certification exam AI dialogue, terms you've registered in vocabulary decks (the ones with \"Use in today's review and AI feedback\" turned on), along with their accuracy, are also passed as reference information. Expanding \"What the AI used\" shows a \"Registered terms\" entry (shown for every certification exam report, even if you haven't registered any vocabulary terms).",
+        "p7": "If a goal has a schedule (work items created on the \"Schedule\" tab of the goal details screen), a \"Today's work items\" field appears directly below each category's results input. Rows are shown by default when the report date falls within the planned period, the row is in progress, or the row is not started and past its planned end date; \"Show all\" expands to every row except done and cancelled ones. Changing the status automatically fills in the actual dates (you can edit the filled-in values). Changes are saved when you \"Finalize report\" or \"Register,\" and a category that's already been finalized shows this field read-only. Finalizing with \"I did nothing today\" still saves any changes you made in this field."
       },
       "analytics": {
         "title": "Analytics",
@@ -2168,6 +2169,12 @@
         "actual": "Actual: {{start}} - {{end}}",
         "noActual": "Actual: none"
       }
+    },
+    "dailyReportSection": {
+      "title": "Today's work items",
+      "showAll": "Show all",
+      "collapse": "Narrow down",
+      "noRows": "No work items to show"
     }
   },
   "summaryCard": {

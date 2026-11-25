@@ -23,6 +23,9 @@ export type ChatMessageRead = components['schemas']['ChatMessageRead']
 export type DiaryEntryInput = components['schemas']['DiaryEntryInput']
 export type DiaryEntryRead = components['schemas']['DiaryEntryRead']
 export type PreviousEntryRead = components['schemas']['PreviousEntryRead']
+export type ScheduleItemUpdateInput = components['schemas']['ScheduleItemUpdateInput']
+export type ScheduleItemForReportRead = components['schemas']['ScheduleItemForReportRead']
+export type GoalScheduleItemsForReportRead = components['schemas']['GoalScheduleItemsForReportRead']
 
 /** 今日の一言を目標ごとに取得する（生成に時間がかかる場合があるため非同期・遅延表示
  * とする）。ACTIVEな目標が無い日はgoal_id=NULLの1件が返る（未決事項L-04）。 */
@@ -44,6 +47,16 @@ export function getRecord(targetDate: string): Promise<DailyRecordRead> {
 /** 指定日の教材別日次ノルマを取得する（SC-06/SC-07の実績入力行、仕様書6.5）。 */
 export function getQuota(targetDate: string): Promise<QuotaItemRead[]> {
   return apiClient.get<QuotaItemRead[]>(`/records/${targetDate}/quota`)
+}
+
+/** 日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート_v1.1
+ * 第4章・D-32・D-33、単位4）。目標ごとに表示対象の行をまとめて返す。 */
+export function getScheduleItemsForReport(
+  targetDate: string,
+): Promise<GoalScheduleItemsForReportRead[]> {
+  return apiClient.get<GoalScheduleItemsForReportRead[]>(
+    `/records/${targetDate}/schedule-items`,
+  )
 }
 
 /** 進捗のみ登録する（SC-07）。 */

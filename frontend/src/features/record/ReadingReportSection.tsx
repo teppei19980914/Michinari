@@ -4,6 +4,7 @@ import type { ActiveReadingBook } from '../../api/goals'
 import { CategoryReportSection } from './CategoryReportSection'
 import { ReadingLogFields } from './ReadingLogFields'
 import { ReadingLogSummaryList } from './ReadingLogSummaryList'
+import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildBookLabels } from './summaryLabels'
@@ -58,10 +59,19 @@ export function ReadingReportSection({
       }}
       isReported={isReported}
       summary={
-        <ReadingLogSummaryList
-          readingLogs={record.reading_logs}
-          bookLabels={buildBookLabels(readingBooks)}
-        />
+        <>
+          <ReadingLogSummaryList
+            readingLogs={record.reading_logs}
+            bookLabels={buildBookLabels(readingBooks)}
+          />
+          <CategoryScheduleItemsField
+            category="READING"
+            targets={targets}
+            targetDate={targetDate}
+            readOnly
+            draft={draft}
+          />
+        </>
       }
       editor={
         <>
@@ -98,6 +108,13 @@ export function ReadingReportSection({
                 patchFormValue(current, bookId, 'slotMinutes', slotMinutes),
               )
             }
+          />
+          <CategoryScheduleItemsField
+            category="READING"
+            targets={targets}
+            targetDate={targetDate}
+            readOnly={false}
+            draft={draft}
           />
         </>
       }

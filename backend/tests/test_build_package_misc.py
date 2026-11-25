@@ -329,9 +329,7 @@ class TestThirdPartyLicenses:
         """
         args = build_package.pyinstaller_args()
 
-        expected_csv = (
-            f"{build_package.HOLIDAY_CSV_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}"
-        )
+        expected_csv = f"{build_package.HOLIDAY_CSV_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}"
         expected_metadata = (
             f"{build_package.HOLIDAY_METADATA_SOURCE_PATH}{os.pathsep}{HOLIDAY_DIR_NAME}"
         )
