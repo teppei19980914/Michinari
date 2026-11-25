@@ -48,7 +48,9 @@
 | `backend/app/services/record_service_common.py` | `register_progress`に`schedule_item_updates`引数を追加。「実績または作業項目の更新が1件以上必須」へ緩和。`schedule_item_updates`のみの場合はDailyRecordを作らない（D-36）。戻り値の型ヒントを`DailyRecord \| None`に修正（既存の`_serialize_record`はNone対応済みのため呼び出し側の変更は不要） | 8章 | D-36,D-37 |
 | `backend/tests/test_api_records_common.py` | `GET /records/{date}/schedule-items`の表示条件・ACTIVE限定・空目標の非表示のテストを追加（既存の`_make_active_*`ヘルパー3種がこのファイルに既にあり、カテゴリを問わないエンドポイントのため同ファイルの既存スコープに合致、新規ファイルは作らない）。progress APIのD-36テストも同ファイルに追加 | D-33,D-38,D-36 | D-32,D-33,D-36 |
 | `backend/tests/test_api_records_exam.py`・`test_api_records_reading.py`・`test_api_records_work.py` | 確定API3本の`schedule_item_updates`の検証・認可境界・historyのテストを追加（各ファイルの既存ヘルパーを再利用） | D-35,D-39,8.1 | D-35,D-39 |
-| `backend/tests/test_schedule_service.py` | `apply_report_schedule_item_updates`・`list_schedule_items_for_report`の単体テスト（重複ID・revision加算・D-37の上書き） | 第9章「テスト」 | D-33,D-37 |
+| `backend/tests/test_schedule_service.py` | `apply_report_schedule_item_updates`・`list_schedule_items_for_report`の単体テスト（重複ID・revision加算・D-37の上書き・終了した目標〈CLOSED_WITH_RESULT〉の拒否） | 第9章「テスト」 | D-33,D-37 |
+| `backend/tests/test_record_service_common.py` | `register_progress`のサービス層単体テスト（D-36、schedule_item_updatesのみでDailyRecordを作らない） | D-36 | D-36 |
+| `backend/app/constants/enums.py` | `ScheduleUpdateSource`のdocstringを実際の使用箇所（本単位の`apply_report_schedule_item_updates`）を指すよう更新（コミット前チェックのstyle-reviewerで指摘） | — | — |
 | `frontend/src/types/api.d.ts` | `npm run generate:api-types`で再生成 | 手書き禁止 | 8章 |
 | `docs/仕様書_ミチナリ_v1.1/06_画面仕様/6.5_SC-06_日次報告.md`・`6.6_SC-07_進捗のみ登録.md` | 「今日の作業項目」欄の仕様を追記 | D-49 | — |
 | `docs/設計書_データ構造編_ミチナリ_v1.1.md` 6.API設計 | 新規API・リクエスト拡張を追記、改訂履歴に追加 | D-49 | — |
@@ -58,9 +60,13 @@
 | ファイル | 内容 | 理由 | D-ID |
 | --- | --- | --- | --- |
 | `frontend/src/api/records.ts` | `getScheduleItemsForReport(targetDate)`を追加。`FinalizeRequest`等の型に`schedule_item_updates`を追加（自動生成の型をそのまま使用） | 8章 | — |
-| `frontend/src/features/record/scheduleItemsDraft.ts`＋test | 1行分のドラフト値（status・actualStartDate・actualEndDate・touched）の初期化・パッチ・ペイロード組み立て（`studyLogForm.ts`と同型。「変更しなかった行は送信しない」ため`touched`フラグを持つ） | D-35 | — |
-| `frontend/src/features/record/ScheduleItemsField.tsx`＋test | 「今日の作業項目」欄本体。目標ごとに行一覧（既定表示＋「すべて表示」切替）、状況選択（`ScheduleStatusSelect`を再利用）、実績日表示・入力、確定済みは読み取り専用表示。`scheduleStatusAutoFill.applyScheduleStatusAutoFill`（単位3、報告対象日を基準日として渡す）をそのまま再利用 | D-32〜D-34,D-38,12章補足6 | D-32 |
-| `frontend/src/features/record/useScheduleItemsForReport.ts`＋test | `GET /records/{date}/schedule-items`のuseQuery薄いラッパー | — | — |
+| `frontend/src/features/record/scheduleItemsDraft.ts`＋test | 1行分のドラフト値（status・actualStartDate・actualEndDate・touched）の初期化・パッチ・ペイロード組み立て（`studyLogForm.ts`と同型。「変更しなかった行は送信しない」ため`touched`フラグを持つ）、`selectScheduleItemIdsForGoals`・`collectAllScheduleItemIds`（送信対象の絞り込み） | D-35,D-36 | — |
+| `frontend/src/features/record/ScheduleItemsField.tsx`＋test | 「今日の作業項目」欄の最上位（目標ごとに`ScheduleItemsGoalGroup`を並べる、0件なら非表示） | D-32,D-38 | D-32 |
+| `frontend/src/features/record/ScheduleItemsGoalGroup.tsx`＋test | 1目標分（既定表示＋「すべて表示」切替、0件時の案内） | D-33,12章補足7 | D-33 |
+| `frontend/src/features/record/ScheduleItemRow.tsx`＋test | 1行分（状況選択・実績日入力、`scheduleStatusAutoFill.applyScheduleStatusAutoFill`〈単位3、報告対象日を基準日として渡す〉・`scheduleValidation.validateScheduleItemFields`〈単位3〉をそのまま再利用、確定済みは取得結果を読み取り専用表示） | D-32〜D-34,12章補足6 | D-34 |
+| `frontend/src/features/record/CategoryScheduleItemsField.tsx`＋test | カテゴリ別ReportSection用の束ね（カテゴリから`targets.examScheduleItemGoals`等を選ぶだけの薄いラッパー、コミット前チェックのdry-reviewerで6箇所の複製を指摘され追加） | D-38 | D-38 |
+
+`useScheduleItemsForReport.ts`（薄いuseQueryラッパー）は設けず、`useDailyRecordQueries.ts`へ直接`useQuery`を組み込んだ（既存の`quota`・`record`等と同じ配線方法、2章補足6参照）。
 
 ### 3.3 frontend（既存ファイルの変更）
 
@@ -68,11 +74,14 @@
 | --- | --- | --- | --- |
 | `frontend/src/features/record/useDailyRecordQueries.ts` | `scheduleItems: UseQueryResult<GoalScheduleItemsForReportRead[]>`を追加（2章補足6） | D-32 | — |
 | `frontend/src/features/record/useDailyReportDraft.ts` | `scheduleItemValues: Record<number, ScheduleItemDraftValue>`を追加。`computeIncomingDraftValues`・`useHydrateDraftOnce`・`useMergeNewlyCreatedEntries`に同じパターンで配線（下書き保持不具合と同種の不具合を防ぐため、既存の「hydrate後に新規作成されたIDだけを補う」設計を踏襲、4章参照） | D-35 | — |
-| `frontend/src/features/record/ExamReportSection.tsx`・`ReadingReportSection.tsx`・`WorkReportSection.tsx` | 各カテゴリの実績入力の直下（editor）と確定済み表示（summary）に`ScheduleItemsField`を追加 | D-38 | D-38 |
-| `frontend/src/features/record/useDailyReportActions.ts` | `finalizeRequest`で`schedule_item_updates: buildScheduleItemUpdatesPayload(draft.scheduleItemValues, <カテゴリのgoal id集合>)`を送信 | D-35 | — |
+| `frontend/src/features/record/ExamReportSection.tsx`・`ReadingReportSection.tsx`・`WorkReportSection.tsx` | 各カテゴリの実績入力の直下（editor）と確定済み表示（summary）に`CategoryScheduleItemsField`を追加 | D-38 | D-38 |
+| `frontend/src/features/record/ProgressLogSections.tsx` | SC-07の末尾（確定状態に関わらず）に`ScheduleItemsField`（3カテゴリ分のgoalsを連結）を追加 | D-32,D-36,D-38 | — |
+| `frontend/src/features/record/useDailyReportActions.ts` | `scheduleItemIdsByCategory`（カテゴリ別の対象行id）を算出し`DailyReportActions`へ追加。`finalizeRequest`で`schedule_item_updates: buildScheduleItemUpdatesPayload(draft.scheduleItemValues, scheduleItemIds)`を送信 | D-35 | — |
+| `frontend/src/features/record/useZeroRecordAction.ts`・`ZeroRecordButton.tsx`・`RecordConfirmationExtras.tsx` | 「今日は何もしていない」確定にも`schedule_item_updates`を含める（2章補足7、利用者確認済みの食い違い対応） | D-35 | — |
+| `frontend/src/features/record/resolveVisibleReportTargets.ts` | `examScheduleItemGoals`・`readingScheduleItemGoals`・`workScheduleItemGoals`を追加（既存の`selectForCategory`を再利用） | D-38 | — |
 | `frontend/src/features/record/resolveProgressOnlyInput.ts` | `canRegister`の判定式に「スケジュール行の変更が1件以上」を追加。`payload.schedule_item_updates`を積む | D-36 | D-36 |
-| `frontend/src/pages/ProgressOnlyPage.tsx` | `ScheduleItemsField`をカテゴリに関わらず1箇所（全ACTIVE目標分）表示 | D-32,D-38 | — |
-| `frontend/src/locales/ja.json`・`en.json` | `schedule.dailyReportSection.*`（タイトル・すべて表示・実績開始日・実績終了日・確定済み表示の文言等） | D-48,ゼロハードコーディング | D-48 |
+| `frontend/src/pages/ProgressOnlyPage.tsx` | `collectAllScheduleItemIds`で送信対象idを算出し`resolveProgressOnlyInput`へ渡す | D-36 | — |
+| `frontend/src/locales/ja.json`・`en.json` | `schedule.dailyReportSection.*`（タイトル・すべて表示・絞り込む・0件案内の4キー）、`help.sections.dailyReport.p7`（「今日の作業項目」欄のヘルプ本文） | D-48,ゼロハードコーディング | D-48 |
 | `backend/app/content/help_content.json` | `export_help_content.py`で再生成 | ja.json由来のため手書き禁止 | D-48 |
 
 ### 3.4 文書（D-49）
@@ -164,4 +173,16 @@
 
 ## 10. コミット前チェック（15.1手順13・14・16）の結果と対応
 
-（実装完了後に記載する）
+CLAUDE.md「コミット前チェック」の該当する観点別レビューエージェント6件（dry-reviewer・style-reviewer・label-checker・auth-reviewer・xss-reviewer・performance-reviewer）と、手順16の独立レビュー（経緯を知らない別セッション）を並列実行した。レビュー前後とも、backend全体のpytest（2838 passed、coverage100%）・`ruff check .`、frontend全体のvitest（266ファイル/2100件、coverage100%）・`tsc -b`・`oxlint`は全合格を確認している。
+
+| レビュー | 結果 | 対応 |
+| --- | --- | --- |
+| dry-reviewer | important1件：`ExamReportSection`・`ReadingReportSection`・`WorkReportSection`の summary/editor計6箇所で「今日の作業項目」欄の呼び出し（`targetDate`・`values`・`onChange`は完全同一、差分は`goals`と`readOnly`のみ）が複製されており、`CategoryReportSection.tsx`自身が持つ「3回複製されたら共通化する」という先例の閾値に達している。nit2件（`apply_report_schedule_item_updates`のエラーメッセージが`_check_owned_by_goal`と重複、backend3ファイルでの呼び出しパターンの繰り返し＝カテゴリ別分割構造上許容範囲）。pre_existing2件（テストヘルパー`_create_schedule_item`の4ファイル重複＝既存の`_make_active_goal_with_material`と同じ前例に従うもの、`resolveVisibleReportTargets.ts`のカテゴリ別3連続処理＝既存パターンの継承） | important1件は対応済み：新規`CategoryScheduleItemsField.tsx`（category・targets・draft・targetDate・readOnlyを受け取り内部で`targets.examScheduleItemGoals`等を選択する束ね）を追加し、6箇所すべてを1行呼び出しに置き換えた（テスト追加、`CategoryScheduleItemsField.test.tsx`3件）。nit・pre_existingは対応不要と判断 |
+| style-reviewer | MEDIUM1件：`app/constants/enums.py`の`ScheduleUpdateSource`docstringが「本単位（単位3時点）では定義のみ」という単位4着手前の前提を指したまま残っていた。LOW2件：`resolveVisibleReportTargets.ts`の新規filterコールバックで単一文字`g`を使用、`useDailyReportDraft.ts`のコメント「5カテゴリ」が実態（study/reading/work/diary/scheduleItemの5フィールド）と厳密には合わない表現 | 3件とも対応済み：enums.pyのdocstringを実際の使用箇所（`apply_report_schedule_item_updates`）を指すよう更新、`g`を`goalItems`へ変更、コメントを「study/reading/work/diary/scheduleItemの5フィールド」に修正 |
+| label-checker | ハードコーディングは検出なし。参考指摘1件：新設した`schedule.dailyReportSection.noRows`キーがja.json/en.jsonに追加済みだが、どのコンポーネントからも参照されていなかった（既定非表示行が1件も無い目標では見出し＋「すべて表示」ボタンのみが表示され空状態メッセージが無い分岐の見落とし） | 対応済み：`ScheduleItemsGoalGroup.tsx`に`visibleItems.length === 0`の分岐を追加し`noRows`を表示するようにした（テスト追加） |
+| auth-reviewer | CRITICAL/HIGHの指摘なし。カテゴリ境界・ACTIVEチェック・検証と適用の分離（部分適用防止）・アトミック性（API層のcommit位置）・`GET /records/{date}/schedule-items`のACTIVE限定・フロント側の絞り込みが認可の迂回経路にならないことを確認し、いずれも設計意図どおりと確認（CONFIRMED）。nit2件：①finalize系で「他カテゴリ/不存在ID」(400)と「正しいカテゴリだが非ACTIVE」(409)のエラー種別が異なる点（単一ユーザーのローカルアプリの前提では実害なしと判断）、②複数行更新で「1件目正当・2件目不正」の明示的な単体テストが無い（API層の統合テストで実質カバー済み） | 対応不要と判断（nit2件とも、現状のテスト・設計で実害が無いことを確認済みのため） |
+| xss-reviewer | 指摘なし。生HTML描画用の危険API（CLAUDE.md10章で使用禁止と明記されているもの）の使用はゼロ、利用者入力（作業項目名・目標名）はJSX標準のテキスト描画経由でエスケープされていることを確認 | 対応不要 |
+| performance-reviewer | backend（`list_schedule_items_for_report`・`apply_report_schedule_item_updates`）はN+1なし（`joinedload`使用、IN句での一括取得）と確認。MEDIUM1件：「今日の作業項目」欄の3コンポーネントがメモ化されておらず、1目標あたり最大100行×複数目標（SC-07）の構成で1行編集ごとに全体が再描画される設計。LOW〜MEDIUM1件：`useDailyReportActions.ts`の`selectScheduleItemIdsForGoals`3呼び出しが毎レンダリング再計算（ただし同ファイル既存コードも同じ「メモ化しない」方針） | 両方とも対応不要と判断（単位3の独立レビュー対応時の前例「行コンポーネントのメモ化は任意の改善提案として見送った（現状の規模〈最大100行〉では実害が無いと判断）」と同じ理由。単一ユーザーのローカルデスクトップアプリという前提では実害が無いと判断し、将来の改善提案として本節に記録のみとする） |
+| 独立レビュー（手順16） | 総合判定「重大な不具合・仕様漏れなし」。D-32〜D-39・D-48が4画面（Exam/Reading/Work/ProgressLogSections）すべてに反映され、ゼロ記録への送信漏れは実装者自身が発見・修正済みであることを確認。軽微2件：①第9章「終了した目標の行の拒否」テストがPAUSEDのみでCLOSED系を明示確認していない、②本単位と無関係なroadmap_service.py等にruff format起因の行折り返しのみの変更が混入（挙動変化なし） | ①対応済み：`test_apply_report_schedule_item_updates_rejects_item_of_closed_goal`（`GoalStatus.CLOSED_WITH_RESULT`）を追加。②対応不要と判断：本セッションの作業に起因しない環境側のフォーマッタ（IDEの保存時整形等と推定）による純粋な行折り返しのみの変更であり、ruff checkは前後とも全合格、ロジック変更は皆無であることを確認済み（15.1手順11「単位の範囲外は変更しない」の趣旨である「意図しない挙動変更を混入させない」は満たされている） |
+
+対応後、backend全体のpytestを再実行し2838 passed・coverage100%・`ruff check .`全合格、frontend全体のvitestを再実行し266ファイル/2100件・coverage100%・`tsc -b`/`oxlint`0件を確認した（0章末のベースライン比較と対比）。
