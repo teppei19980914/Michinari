@@ -46,6 +46,7 @@ from app.services import (
     record_service_common,
     record_service_exam,
     roadmap_service,
+    schedule_revision_service,
     setting_reader,
     settings_service,
     slot_service,
@@ -255,6 +256,9 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
     today_record = record_service_common.get_daily_record(session, today)
 
     active_goals = ai_context_common.list_active_goals(session)
+    goal_ids_with_pending_revision = schedule_revision_service.list_goal_ids_with_pending_proposal(
+        session, [goal.id for goal in active_goals]
+    )
     effective_speed_by_material: dict[int, EffectiveSpeed | None] = {}
     materials_by_id: dict[int, Material] = {}
 
@@ -300,6 +304,7 @@ def get_dashboard(session: Session = Depends(get_db)) -> DashboardRead:
             update={
                 "roadmap_progress_ratio": roadmap_progress_ratio,
                 "roadmap_is_achieved": roadmap_is_achieved,
+                "has_pending_schedule_revision": goal.id in goal_ids_with_pending_revision,
             }
         )
         goal_cards.append(card)

@@ -853,7 +853,8 @@
         "DAILY_FEEDBACK_WORK_BRIEF": "日次報告フィードバック（ひとこと記録・仕事）",
         "SUMMARY_CARD_SENTENCE": "ふりかえりまとめ一文生成（資格）",
         "SUMMARY_CARD_SENTENCE_READING": "ふりかえりまとめ一文生成（読書）",
-        "SUMMARY_CARD_SENTENCE_WORK": "ふりかえりまとめ一文生成（仕事）"
+        "SUMMARY_CARD_SENTENCE_WORK": "ふりかえりまとめ一文生成（仕事）",
+        "SCHEDULE_REVISION": "スケジュール修正案生成"
       }
     },
     "log": {
@@ -1802,6 +1803,8 @@
     "IMMUTABLE_RECORD": "確定済みの記録は変更できません。確定前の内容に戻す機能はありません",
     "RECAP_THEME_NAME_CONFLICT": "同じ名前のテーマが既にあります。別の名前を指定してください",
     "SCHEDULE_REVISION_CONFLICT": "他の画面で更新されました。最新の内容を読み込んでから、もう一度お試しください",
+    "SCHEDULE_REVISION_PROPOSAL_NOT_PENDING": "この修正案は既に判断済みです。最新の内容を読み込んでから、もう一度お試しください",
+    "SCHEDULE_REVISION_PROMPT_TOO_LONG": "記録が多すぎるため、スケジュールの修正案を作成できませんでした",
     "RECAP_BODY_REJECTED": "振り返りの本文を更新できませんでした。内容は失われていません。しばらくしてから再度お試しください",
     "RECAP_PROMPT_TOO_LONG": "報告が多すぎるため、振り返りを作成できませんでした",
     "DAILY_FEEDBACK_PROMPT_TOO_LONG": "本日の入力が上限文字数を超えているため、送信できませんでした。入力を短くしてから、もう一度お試しください",

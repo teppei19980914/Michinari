@@ -59,15 +59,15 @@ def test_initial_prompt_templates_content_is_unchanged_by_the_file_split():
     （決定事項S10）。個々の文面を本テストへ複製せず、ハッシュ値との比較で検知する。
 
     ハッシュ値は意図した文面変更のたびに更新する（転記ミスではなく正規の改修であることを
-    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-23で
-    `VOCAB_SITUATION_QUIZ_GENERATE`（シチュエーションカード由来の誤答生成、開発Todo_単語帳_v1.0
-    要件F）を新設したことに伴う。
+    確認したうえで、本テスト実行時の実際の値へ置き換える）。直近の更新：2026-11-25で
+    `SCHEDULE_REVISION`（AIによるスケジュール修正案、開発Todo_スケジュール・ガントチャート
+    _v1.1 第13章、単位5）を新設したことに伴う。
     """
     concatenated = "".join(
         INITIAL_PROMPT_TEMPLATES[purpose] for purpose in sorted(INITIAL_PROMPT_TEMPLATES, key=str)
     )
     digest = hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
-    assert digest == "2cfa73d9913fda1dbbe6e74861577629818d15fcc22b841a588a6ac612a0e30a"
+    assert digest == "9d2d1d52e9b818341b6048ae467647b91fb38f8ec032fe2512b2df85b67d4075"
 
 
 def test_run_all_is_idempotent_and_does_not_overwrite_customization(db_session):

@@ -56,6 +56,8 @@ class GoalCardRead(BaseModel):
     roadmap_progress_ratio: float | None = None
     roadmap_is_achieved: bool = False
     roadmap_overrun_days: float | None = None
+    #: 未判断のAI修正案がある目標（開発Todo_スケジュール・ガントチャート_v1.1 13.8、単位5）。
+    has_pending_schedule_revision: bool = False
 
 
 class GoalStatsRead(BaseModel):

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import enum
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -55,6 +56,32 @@ _DEFAULT_COLUMN_COUNT = 7
 
 #: 列・セルの参照キー（既存列はid、新規列はtemp_keyで対応付ける、本書8.1）。
 _ColumnKey = tuple[str, int] | tuple[str, str]
+
+
+class ScheduleDelayKind(enum.StrEnum):
+    """遅れの種類（本書13.2、単位5）。DB・APIには永続化しない内部専用の値。
+
+    ガントの遅れの印（D-18）と、13.2のAI呼び出しの契機判定（遅れのある目標だけを対象とする）
+    の両方がこの関数の結果を共有する（CLAUDE.md DRYの原則、単位3引き継ぎ事項）。
+    """
+
+    #: 状況が未着手または進行中で、本日が予定終了日を過ぎている（13.2「終了の遅れ」）。
+    END_DELAY = "END_DELAY"
+    #: 状況が未着手で、本日が予定開始日を過ぎている（13.2「開始の遅れ」）。
+    #: 終了の遅れの条件も満たす場合はEND_DELAYを優先する（予定終了日を過ぎていれば予定開始日も
+    #: 必ず過ぎているため、END_DELAYの方が実情を表す、本書14章補足4）。
+    START_DELAY = "START_DELAY"
+
+
+def compute_delay_kind(item: ScheduleItem, today: dt.date) -> ScheduleDelayKind | None:
+    """1行分の遅れの種類を判定する（本書13.2、終了した行〈DONE・CANCELLED〉は対象外）。"""
+    if item.status not in (ScheduleItemStatus.NOT_STARTED, ScheduleItemStatus.IN_PROGRESS):
+        return None
+    if today > item.planned_end_date:
+        return ScheduleDelayKind.END_DELAY
+    if item.status == ScheduleItemStatus.NOT_STARTED and today > item.planned_start_date:
+        return ScheduleDelayKind.START_DELAY
+    return None
 
 
 @dataclass(frozen=True)
@@ -640,6 +667,13 @@ def apply_report_schedule_item_updates(
 
     session.flush()
     _bump_schedule_revisions(session, touched_goal_ids)
+
+
+def bump_schedule_revision(session: Session, goal_id: int) -> None:
+    """目標1件分のrevisionを1増やす（公開版、単位5の判断API〈承認でrevisionが変わる、13.7〉
+    から呼ぶ。実装は`_bump_schedule_revisions`に集約する、CLAUDE.md DRYの原則）。
+    """
+    _bump_schedule_revisions(session, {goal_id})
 
 
 def _bump_schedule_revisions(session: Session, goal_ids: set[int]) -> None:

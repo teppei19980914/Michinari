@@ -38,6 +38,7 @@ from app.models.schedule import (
     ScheduleItem,
     ScheduleItemHistory,
 )
+from app.models.schedule_revision import ScheduleRevisionProposal, ScheduleRevisionProposalItem
 from app.models.setting import (
     AppSetting,
     CalendarDayOverride,
@@ -101,4 +102,6 @@ __all__ = [
     "ScheduleColumn",
     "ScheduleCell",
     "ScheduleItemHistory",
+    "ScheduleRevisionProposal",
+    "ScheduleRevisionProposalItem",
 ]

@@ -51,6 +51,7 @@ from app.services import (
     record_service_exam,
     record_service_reading,
     record_service_work,
+    schedule_revision_service,
     schedule_service,
     work_feedback_service,
 )
@@ -146,12 +147,17 @@ def _to_diary_entry_items(inputs: list[DiaryEntryInput]) -> list[DiaryEntryItem]
 
 
 def _serialize_record(
-    session: Session, target_date: dt.date, record: DailyRecord | None
+    session: Session,
+    target_date: dt.date,
+    record: DailyRecord | None,
+    *,
+    schedule_revision_candidates: list[int] = (),
 ) -> DailyRecordRead:
     """未入力の日は record=None として、空の構造を返す（CLAUDE.md: 未入力は例外ではない）。
 
     record is None の分岐を先頭で確定させ、以降のフィールド構築から`if record else ...`の
     三項演算子を無くすことで複雑度を下げる（決定事項S8、実装フェーズ分割計画書S02）。
+    `schedule_revision_candidates`は確定3エンドポイントだけが実際の値を渡す（13.7、単位5）。
     """
     if record is None:
         return DailyRecordRead(
@@ -171,6 +177,7 @@ def _serialize_record(
             work_logs=[],
             comments=[],
             chat_messages=[],
+            schedule_revision_candidates=list(schedule_revision_candidates),
         )
 
     diary_entries = record_service_exam.get_diary_entries(session, record)
@@ -205,6 +212,7 @@ def _serialize_record(
                 record.chat_messages, key=lambda chat_message: chat_message.sequence
             )
         ],
+        schedule_revision_candidates=list(schedule_revision_candidates),
     )
 
 
@@ -296,8 +304,11 @@ def finalize_record(
         schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.EXAM, today)
+    candidates = schedule_revision_service.list_revision_candidate_goal_ids(
+        session, GoalCategory.EXAM, target_date, today
+    )
     session.commit()
-    return _serialize_record(session, target_date, record)
+    return _serialize_record(session, target_date, record, schedule_revision_candidates=candidates)
 
 
 @router.post("/records/{target_date}/reading-finalize", response_model=DailyRecordRead)
@@ -317,8 +328,11 @@ def finalize_reading_record(
         schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.READING, today)
+    candidates = schedule_revision_service.list_revision_candidate_goal_ids(
+        session, GoalCategory.READING, target_date, today
+    )
     session.commit()
-    return _serialize_record(session, target_date, record)
+    return _serialize_record(session, target_date, record, schedule_revision_candidates=candidates)
 
 
 @router.post("/records/{target_date}/work-finalize", response_model=DailyRecordRead)
@@ -336,8 +350,11 @@ def finalize_work_record(
         schedule_item_updates=payload.schedule_item_updates,
     )
     milestone_service_common.detect_and_record_for_category(session, GoalCategory.WORK, today)
+    candidates = schedule_revision_service.list_revision_candidate_goal_ids(
+        session, GoalCategory.WORK, target_date, today
+    )
     session.commit()
-    return _serialize_record(session, target_date, record)
+    return _serialize_record(session, target_date, record, schedule_revision_candidates=candidates)
 
 
 @router.post("/records/{target_date}/chat", response_model=ChatResponse)
