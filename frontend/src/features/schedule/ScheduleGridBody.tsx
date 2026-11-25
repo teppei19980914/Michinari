@@ -32,6 +32,7 @@ type ScheduleGridBodyProps = {
   columnErrorsByKey: Record<string, 'NAME_REQUIRED' | 'DUPLICATE_NAME'>
   columnHasAnyValue: (columnKey: string) => boolean
   today: string
+  proposedBandByItemId: Record<number, { start: string; end: string }>
   onMoveRow: (itemKey: string, offset: number) => void
   onInsertRowBelow: (itemKey: string) => void
   onRemoveRow: (itemKey: string) => void
@@ -64,6 +65,7 @@ export function ScheduleGridBody({
   columnErrorsByKey,
   columnHasAnyValue,
   today,
+  proposedBandByItemId,
   onMoveRow,
   onInsertRowBelow,
   onRemoveRow,
@@ -91,6 +93,7 @@ export function ScheduleGridBody({
       dayWidthRem,
       ganttWidthRem,
       today,
+      proposedBandByItemId,
       onMoveRow,
       onInsertRowBelow,
       onRemoveRow,

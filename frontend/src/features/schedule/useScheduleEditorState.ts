@@ -155,6 +155,7 @@ export function useScheduleEditorState(goalId: number, readOnly: boolean) {
     maxCustomColumns: scheduleQuery.data?.max_custom_columns ?? null,
     ganttDayWidthMinRem: scheduleQuery.data?.gantt_day_width_min_rem ?? null,
     ganttDayWidthMaxRem: scheduleQuery.data?.gantt_day_width_max_rem ?? null,
+    pendingRevisionProposal: scheduleQuery.data?.pending_revision_proposal ?? null,
     draft,
     readOnly,
     frozenRowCount,

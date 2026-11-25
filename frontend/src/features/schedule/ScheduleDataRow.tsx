@@ -1,6 +1,7 @@
 import { ScheduleCustomValueCells } from './ScheduleCustomValueCells'
 import { ScheduleDefaultCells } from './ScheduleDefaultCells'
 import { ScheduleRowActionsCell } from './ScheduleRowActionsCell'
+import { ScheduleGanttProposedBand } from './ScheduleGanttProposedBand'
 import { ScheduleGanttRow } from './ScheduleGanttRow'
 import { ROW_ACTIONS_WIDTH_REM, stickyStyle } from './scheduleColumnLayout'
 import type { ScheduleDraftColumn, ScheduleDraftItem } from './scheduleDraftTypes'
@@ -25,6 +26,7 @@ export function ScheduleDataRow({
   dayWidthRem,
   ganttWidthRem,
   today,
+  proposedBand,
   onMoveUp,
   onMoveDown,
   onInsertBelow,
@@ -45,6 +47,8 @@ export function ScheduleDataRow({
   dayWidthRem: number
   ganttWidthRem: number
   today: string
+  //: 未判断の修正案（単位5・D-57）。対象の行が無ければnull。
+  proposedBand: { start: string; end: string } | null
   onMoveUp: () => void
   onMoveDown: () => void
   onInsertBelow: () => void
@@ -105,6 +109,14 @@ export function ScheduleDataRow({
           dayWidthRem={dayWidthRem}
           today={today}
         />
+        {proposedBand && (
+          <ScheduleGanttProposedBand
+            rangeStartIso={rangeStartIso}
+            dayWidthRem={dayWidthRem}
+            plannedStartDate={proposedBand.start}
+            plannedEndDate={proposedBand.end}
+          />
+        )}
       </div>
     </div>
   )

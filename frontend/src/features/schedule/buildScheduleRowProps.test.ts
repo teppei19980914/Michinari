@@ -30,6 +30,7 @@ function baseParams(overrides: Partial<Parameters<typeof buildScheduleRowProps>[
     dayWidthRem: 2,
     ganttWidthRem: 40,
     today: '2026-11-23',
+    proposedBandByItemId: {},
     onMoveRow: vi.fn(),
     onInsertRowBelow: vi.fn(),
     onRemoveRow: vi.fn(),
@@ -93,5 +94,25 @@ describe('buildScheduleRowProps', () => {
       baseParams({ fieldErrorsByItemKey: { 'id:1': { title: 'TITLE_REQUIRED' } } }),
     )
     expect(props.fieldErrors).toEqual({ title: 'TITLE_REQUIRED' })
+  })
+
+  it('item.idに対応する修正案があればproposedBandとして渡す（単位5・D-57）', () => {
+    const props = buildScheduleRowProps(
+      baseParams({
+        proposedBandByItemId: { 1: { start: '2026-11-20', end: '2026-11-25' } },
+      }),
+    )
+    expect(props.proposedBand).toEqual({ start: '2026-11-20', end: '2026-11-25' })
+  })
+
+  it('未保存の新規行（item.idがnull）はproposedBandが常にnull', () => {
+    const newItem: ScheduleDraftItem = { ...item, id: null, key: 'temp:1', tempKey: 'temp:1' }
+    const props = buildScheduleRowProps(
+      baseParams({
+        item: newItem,
+        proposedBandByItemId: { 1: { start: '2026-11-20', end: '2026-11-25' } },
+      }),
+    )
+    expect(props.proposedBand).toBeNull()
   })
 })

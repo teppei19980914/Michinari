@@ -46,6 +46,7 @@ export type ScheduleGridProps = {
   columnErrorsByKey: Record<string, 'NAME_REQUIRED' | 'DUPLICATE_NAME'>
   columnHasAnyValue: (columnKey: string) => boolean
   goToTodaySignal: number
+  proposedBandByItemId: Record<number, { start: string; end: string }>
   onMoveRow: (itemKey: string, offset: number) => void
   onInsertRowBelow: (itemKey: string) => void
   onRemoveRow: (itemKey: string) => void
@@ -80,6 +81,7 @@ export function ScheduleGrid({
   columnErrorsByKey,
   columnHasAnyValue,
   goToTodaySignal,
+  proposedBandByItemId,
   onMoveRow,
   onInsertRowBelow,
   onRemoveRow,
@@ -144,6 +146,7 @@ export function ScheduleGrid({
       columnErrorsByKey={columnErrorsByKey}
       columnHasAnyValue={columnHasAnyValue}
       today={today}
+      proposedBandByItemId={proposedBandByItemId}
       onMoveRow={onMoveRow}
       onInsertRowBelow={onInsertRowBelow}
       onRemoveRow={onRemoveRow}

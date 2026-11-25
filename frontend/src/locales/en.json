@@ -99,6 +99,9 @@
       "warning": "Your quota exceeds the plan baseline. Consider reviewing your goal.",
       "forcedReplan": "The gap with your plan has grown large. Your goal needs to be reviewed."
     },
+    "scheduleRevisionBanner": {
+      "message": "There is a schedule revision proposal (check the Schedule tab)"
+    },
     "todayQuota": {
       "title": "Today's quota",
       "empty": "No materials are scheduled for today",
@@ -2103,7 +2106,8 @@
       "save": "Save",
       "discardConfirm": "Discard the unsaved changes?",
       "rowLimitReached": "You've reached the row limit ({{max}} rows)",
-      "columnLimitReached": "You've reached the column limit ({{max}} columns)"
+      "columnLimitReached": "You've reached the column limit ({{max}} columns)",
+      "requestRevision": "Ask AI for a revision"
     },
     "columns": {
       "title": "Work item",
@@ -2168,6 +2172,10 @@
         "one": "{{days}} day behind schedule",
         "other": "{{days}} days behind schedule"
       },
+      "notStartedDelayDays": {
+        "one": "{{days}} day behind the planned start (not started)",
+        "other": "{{days}} days behind the planned start (not started)"
+      },
       "tooltip": {
         "planned": "Planned: {{start}} - {{end}}",
         "actual": "Actual: {{start}} - {{end}}",
@@ -2179,6 +2187,20 @@
       "showAll": "Show all",
       "collapse": "Narrow down",
       "noRows": "No work items to show"
+    },
+    "revision": {
+      "title": "There is a revision proposal",
+      "saveOrDiscardFirst": "Save or discard your changes before deciding",
+      "before": "Before: {{start}} - {{end}}",
+      "proposedStartDate": "New planned start date",
+      "proposedEndDate": "New planned end date",
+      "approve": "Approve",
+      "reject": "Reject",
+      "rejectReasonPlaceholder": "Reason for rejecting (optional)",
+      "acknowledge": "Acknowledged",
+      "approveAll": "Approve all",
+      "rejectAll": "Reject all",
+      "staleBeforeValue": "This can no longer be approved because it changed"
     }
   },
   "summaryCard": {

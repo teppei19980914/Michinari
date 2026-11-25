@@ -13,6 +13,8 @@ export type ScheduleToolbarProps = {
   isSaving: boolean
   maxItems: number
   maxCustomColumns: number
+  //: 「AIに修正案を依頼」ボタン（D-58、単位5）。生成中は無効化、終了した目標では非表示。
+  isRequestingRevision: boolean
   onChangeFrozenRowCount: (count: number) => void
   onChangeFrozenColumnCount: (count: number) => void
   onGoToToday: () => void
@@ -20,6 +22,7 @@ export type ScheduleToolbarProps = {
   onAddColumn: () => void
   onDiscard: () => void
   onSave: () => void
+  onRequestRevision: () => void
 }
 
 function frozenCountOptions(max: number): number[] {
@@ -39,6 +42,7 @@ export function ScheduleToolbar({
   isSaving,
   maxItems,
   maxCustomColumns,
+  isRequestingRevision,
   onChangeFrozenRowCount,
   onChangeFrozenColumnCount,
   onGoToToday,
@@ -46,6 +50,7 @@ export function ScheduleToolbar({
   onAddColumn,
   onDiscard,
   onSave,
+  onRequestRevision,
 }: ScheduleToolbarProps) {
   function handleDiscard() {
     if (window.confirm(t('schedule.toolbar.discardConfirm'))) {
@@ -111,6 +116,9 @@ export function ScheduleToolbar({
           )}
           <Button variant="secondary" disabled={!hasUnsavedChanges} onClick={handleDiscard}>
             {t('schedule.toolbar.discardChanges')}
+          </Button>
+          <Button variant="secondary" disabled={isRequestingRevision} onClick={onRequestRevision}>
+            {t('schedule.toolbar.requestRevision')}
           </Button>
           <Button variant="primary" disabled={!hasUnsavedChanges || isSaving} onClick={onSave}>
             {t('schedule.toolbar.save')}

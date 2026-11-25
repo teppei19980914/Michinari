@@ -11,6 +11,7 @@ const onAddRow = vi.fn()
 const onAddColumn = vi.fn()
 const onDiscard = vi.fn()
 const onSave = vi.fn()
+const onRequestRevision = vi.fn()
 
 function renderToolbar(overrides: Partial<ScheduleToolbarProps> = {}) {
   return render(
@@ -26,6 +27,7 @@ function renderToolbar(overrides: Partial<ScheduleToolbarProps> = {}) {
       isSaving={false}
       maxItems={100}
       maxCustomColumns={10}
+      isRequestingRevision={false}
       onChangeFrozenRowCount={onChangeFrozenRowCount}
       onChangeFrozenColumnCount={onChangeFrozenColumnCount}
       onGoToToday={onGoToToday}
@@ -33,6 +35,7 @@ function renderToolbar(overrides: Partial<ScheduleToolbarProps> = {}) {
       onAddColumn={onAddColumn}
       onDiscard={onDiscard}
       onSave={onSave}
+      onRequestRevision={onRequestRevision}
       {...overrides}
     />,
   )
@@ -127,5 +130,31 @@ describe('ScheduleToolbar', () => {
       '3',
     )
     expect(onChangeFrozenColumnCount).toHaveBeenCalledWith(3)
+  })
+
+  it('「AIに修正案を依頼」ボタンを押すとonRequestRevisionが呼ばれる（D-58）', async () => {
+    renderToolbar()
+    await userEvent.click(
+      screen.getByRole('button', { name: t('schedule.toolbar.requestRevision') }),
+    )
+    expect(onRequestRevision).toHaveBeenCalledTimes(1)
+  })
+
+  it('生成中は「AIに修正案を依頼」ボタンを無効化する', () => {
+    renderToolbar({ isRequestingRevision: true })
+    expect(
+      (
+        screen.getByRole('button', {
+          name: t('schedule.toolbar.requestRevision'),
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+  })
+
+  it('閲覧のみの目標では「AIに修正案を依頼」ボタンを表示しない（13.8）', () => {
+    renderToolbar({ readOnly: true })
+    expect(screen.queryByRole('button', { name: t('schedule.toolbar.requestRevision') })).toBe(
+      null,
+    )
   })
 })

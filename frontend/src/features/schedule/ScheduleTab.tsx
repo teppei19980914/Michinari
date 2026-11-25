@@ -6,9 +6,12 @@ import { useUnsavedChangesWarning } from '../record/useUnsavedChangesWarning'
 import { ScheduleConflictDialog } from './ScheduleConflictDialog'
 import { ScheduleEmptyState } from './ScheduleEmptyState'
 import { ScheduleGrid } from './ScheduleGrid'
+import { ScheduleRevisionPanel } from './ScheduleRevisionPanel'
 import { ScheduleToolbar } from './ScheduleToolbar'
 import { useScheduleEditorState } from './useScheduleEditorState'
 import { useScheduleHolidays } from './useScheduleHolidays'
+import { useScheduleRevision } from './useScheduleRevision'
+import { useScheduleRevisionEditedDates } from './useScheduleRevisionEditedDates'
 import { useScheduleSaveClick } from './useScheduleSaveClick'
 
 /** スケジュールタブのエントリ（D-01・3.1）。`goalId`のみを受け取り自前で取得する
@@ -17,6 +20,8 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
   const editor = useScheduleEditorState(goalId, readOnly)
   const { showApiError } = useToast()
   const [goToTodaySignal, setGoToTodaySignal] = useState(0)
+  const revision = useScheduleRevision(goalId)
+  const { datesFor, setDates } = useScheduleRevisionEditedDates()
 
   const { holidayIsoDates, holidayYearFrom, holidayYearTo } = useScheduleHolidays(
     editor.draft?.items ?? [],
@@ -33,6 +38,20 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor.saveError, editor.conflict])
+
+  useEffect(() => {
+    if (revision.requestError) {
+      showApiError(revision.requestError)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision.requestError])
+
+  useEffect(() => {
+    if (revision.decideError) {
+      showApiError(revision.decideError)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision.decideError])
 
   if (editor.isLoading) {
     return <p className="text-sm text-text-faint">{t('common.loading')}</p>
@@ -53,6 +72,26 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
   const canAddRow = editor.draft.items.length < maxItems
   const canAddColumn = editor.draft.columns.length < maxCustomColumns
 
+  const proposal = editor.pendingRevisionProposal
+  const itemTitleById: Record<number, string> = {}
+  for (const item of editor.draft.items) {
+    if (item.id !== null) itemTitleById[item.id] = item.title
+  }
+  // 未判断の変更行（stale除く）だけをガントへ点線で重ねる（D-57）。日付を手で修正した
+  // 場合は`datesFor`（ScheduleRevisionPanelと共有）の編集後の値を使う。
+  const proposedBandByItemId: Record<number, { start: string; end: string }> = {}
+  if (proposal) {
+    for (const proposalItem of proposal.items) {
+      if (
+        proposalItem.kind === 'CHANGE' &&
+        proposalItem.decision === 'PENDING' &&
+        !proposalItem.is_stale
+      ) {
+        proposedBandByItemId[proposalItem.schedule_item_id] = datesFor(proposalItem)
+      }
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-text-muted">{t('schedule.intro')}</p>
@@ -68,6 +107,7 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
         isSaving={editor.isSaving}
         maxItems={maxItems}
         maxCustomColumns={maxCustomColumns}
+        isRequestingRevision={revision.isRequesting}
         onChangeFrozenRowCount={(count) => editor.updateFrozenCounts(count, editor.frozenColumnCount)}
         onChangeFrozenColumnCount={(count) => editor.updateFrozenCounts(editor.frozenRowCount, count)}
         onGoToToday={() => setGoToTodaySignal((signal) => signal + 1)}
@@ -75,7 +115,20 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
         onAddColumn={editor.addColumn}
         onDiscard={editor.discard}
         onSave={handleSaveClick}
+        onRequestRevision={revision.requestRevision}
       />
+
+      {proposal && (
+        <ScheduleRevisionPanel
+          proposal={proposal}
+          itemTitleById={itemTitleById}
+          canDecide={!editor.hasUnsavedChanges}
+          isDeciding={revision.isDeciding}
+          datesFor={datesFor}
+          setDates={setDates}
+          onDecide={(decisions) => revision.decide(proposal.id, decisions)}
+        />
+      )}
 
       {editor.draft.items.length === 0 ? (
         <ScheduleEmptyState readOnly={readOnly} onAddRow={editor.addRow} />
@@ -95,6 +148,7 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
           columnErrorsByKey={editor.columnErrorsByKey}
           columnHasAnyValue={editor.columnHasAnyValue}
           goToTodaySignal={goToTodaySignal}
+          proposedBandByItemId={proposedBandByItemId}
           onMoveRow={editor.moveRow}
           onInsertRowBelow={editor.insertRowBelow}
           onRemoveRow={editor.removeRow}

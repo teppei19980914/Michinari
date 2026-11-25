@@ -44,6 +44,7 @@ function renderRow(overrides: Partial<Parameters<typeof ScheduleDataRow>[0]> = {
       dayWidthRem={2}
       ganttWidthRem={40}
       today="2026-11-23"
+      proposedBand={null}
       onMoveUp={onMoveUp}
       onMoveDown={onMoveDown}
       onInsertBelow={onInsertBelow}
@@ -85,5 +86,15 @@ describe('ScheduleDataRow', () => {
   it('閲覧のみの目標では行操作列が表示されない', () => {
     renderRow({ readOnly: true })
     expect(screen.queryByRole('button', { name: t('schedule.rowActions.moveUp') })).toBe(null)
+  })
+
+  it('未判断の修正案がある行は点線の帯を重ねて表示する（単位5・D-57）', () => {
+    renderRow({ proposedBand: { start: '2026-11-15', end: '2026-11-20' } })
+    expect(screen.getByTestId('proposed-band')).not.toBe(null)
+  })
+
+  it('修正案が無い行には点線の帯を表示しない', () => {
+    renderRow({ proposedBand: null })
+    expect(screen.queryByTestId('proposed-band')).toBe(null)
   })
 })
