@@ -303,9 +303,7 @@ def test_list_holidays_filters_by_date_range_in_ascending_order(db_session):
     db_session.add(Holiday(holiday_date=dt.date(2025, 12, 31), name="対象外"))
     db_session.flush()
 
-    result = calendar_service.list_holidays(
-        db_session, dt.date(2026, 1, 1), dt.date(2026, 1, 31)
-    )
+    result = calendar_service.list_holidays(db_session, dt.date(2026, 1, 1), dt.date(2026, 1, 31))
 
     assert [h.holiday_date for h in result] == [dt.date(2026, 1, 1), dt.date(2026, 1, 12)]
 

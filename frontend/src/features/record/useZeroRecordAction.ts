@@ -17,6 +17,7 @@ import {
   type CategoryPresence,
 } from './categoryCompletion'
 import type { ZeroRecordCategory } from './resolveZeroRecordCategories'
+import { buildScheduleItemUpdatesPayload, type ScheduleItemDraftValue } from './scheduleItemsDraft'
 
 /** カテゴリ別の「空の実績で確定する」呼び出し（記録画面改善タスク2026-09-17）。
  * finalize系のAPIは0件の配列を渡しても正常に完了し、そのカテゴリの状態を直接REPORTEDに
@@ -63,6 +64,11 @@ export type ZeroRecordActionOptions = {
   /** 確定の直後に、そのカテゴリの目標に新しい節目が無いか確認する（開発Todo_節目のお祝い_v1.0
    * §4）。モーダル表示自体は呼び出し元（DailyReportPage）が持つキューが行う。 */
   checkMilestones?: (goalId: number | null, category: GoalCategory) => void
+  /** 「今日の作業項目」欄の下書き（開発Todo_スケジュール・ガントチャート_v1.1 D-35、
+   * 単位4）。カテゴリ別の対象行id（useDailyReportActionsのscheduleItemIdsByCategory）と
+   * 合わせて、変更されていればそのカテゴリの確定APIへ含める。 */
+  scheduleItemValues: Record<number, ScheduleItemDraftValue>
+  scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
 }
 
 /**
@@ -80,6 +86,8 @@ export function useZeroRecordAction({
   message,
   goalIdsByCategory,
   checkMilestones,
+  scheduleItemValues,
+  scheduleItemIdsByCategory,
 }: ZeroRecordActionOptions): ZeroRecordAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -89,7 +97,11 @@ export function useZeroRecordAction({
     mutationFn: async () => {
       let lastRecord: DailyRecordRead | undefined
       for (const category of categories) {
-        lastRecord = await FINALIZE_AS_ZERO[category](targetDate)
+        const scheduleItemUpdates = buildScheduleItemUpdatesPayload(
+          scheduleItemValues,
+          scheduleItemIdsByCategory[category],
+        )
+        lastRecord = await FINALIZE_AS_ZERO[category](targetDate, scheduleItemUpdates)
       }
       return lastRecord
     },

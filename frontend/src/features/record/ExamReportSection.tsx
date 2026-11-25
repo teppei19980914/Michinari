@@ -7,7 +7,7 @@ import { DiaryFields } from './DiaryFields'
 import { DiaryEntrySummaryList } from './DiaryEntrySummaryList'
 import { TodayVocabSuggestionsCard } from '../vocab/TodayVocabSuggestionsCard'
 import { selectDiaryEntriesEligibleForVocabSuggestions } from '../vocab/vocabSuggestionEligibility'
-import { ScheduleItemsField } from './ScheduleItemsField'
+import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildMaterialLabels } from './summaryLabels'
@@ -86,12 +86,12 @@ export function ExamReportSection({
               recordDate={targetDate}
             />
           ))}
-          <ScheduleItemsField
-            goals={targets.examScheduleItemGoals}
+          <CategoryScheduleItemsField
+            category="EXAM"
+            targets={targets}
             targetDate={targetDate}
             readOnly
-            values={draft.scheduleItemValues}
-            onChange={draft.setScheduleItemValues}
+            draft={draft}
           />
         </>
       }
@@ -180,12 +180,12 @@ function ExamReportEditor({
           />
         </>
       )}
-      <ScheduleItemsField
-        goals={targets.examScheduleItemGoals}
+      <CategoryScheduleItemsField
+        category="EXAM"
+        targets={targets}
         targetDate={targetDate}
         readOnly={false}
-        values={draft.scheduleItemValues}
-        onChange={draft.setScheduleItemValues}
+        draft={draft}
       />
     </>
   )

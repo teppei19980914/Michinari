@@ -103,6 +103,8 @@ export function DailyReportPage() {
         presence={targets.presence}
         goalIdsByCategory={actions.goalIdsByCategory}
         milestoneCelebration={actions.milestoneCelebration}
+        scheduleItemValues={draft.scheduleItemValues}
+        scheduleItemIdsByCategory={actions.scheduleItemIdsByCategory}
       />
 
       {showGoalSelector && (

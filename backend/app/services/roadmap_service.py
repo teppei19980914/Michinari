@@ -135,9 +135,7 @@ def _vocab_mastery(session: Session, goal: Goal) -> RoadmapVocabMastery | None:
     totals = vocab_service.compute_goal_vocab_mastery(session, goal.id, mastery_streak, deck_ids)
     thresholds = setting_reader.get_int_list(session, MILESTONE_VOCAB_MASTERED_TERMS_THRESHOLDS)
     next_threshold = next((t for t in thresholds if t > totals.mastered_cards), None)
-    remaining = (
-        next_threshold - totals.mastered_cards if next_threshold is not None else None
-    )
+    remaining = next_threshold - totals.mastered_cards if next_threshold is not None else None
     return RoadmapVocabMastery(
         mastered_count=totals.mastered_cards,
         total_count=totals.total_cards,

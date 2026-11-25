@@ -40,6 +40,9 @@ export function ScheduleItemsGoalGroup({
           </Button>
         )}
       </div>
+      {visibleItems.length === 0 && (
+        <p className="text-xs text-text-faint">{t('schedule.dailyReportSection.noRows')}</p>
+      )}
       {visibleItems.map((item) => {
         // readOnlyの場合は取得結果（確定済みの最新値）をそのまま使う。下書きは編集時のみ
         // 参照する（ScheduleItemRowのJSDoc参照）。未hydrate等でvaluesに無い場合も

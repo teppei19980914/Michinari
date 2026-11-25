@@ -142,8 +142,12 @@ def test_reading_finalize_endpoint_applies_schedule_item_updates(client):
         json={
             "reading_logs": [],
             "schedule_item_updates": [
-                {"schedule_item_id": item_id, "status": "DONE", "actual_start_date": target,
-                 "actual_end_date": target},
+                {
+                    "schedule_item_id": item_id,
+                    "status": "DONE",
+                    "actual_start_date": target,
+                    "actual_end_date": target,
+                },
             ],
         },
     )

@@ -203,6 +203,32 @@ describe('resolveVisibleReportTargets', () => {
       expect(result.examScheduleItemGoals).toEqual([examSchedule])
     })
 
+    it('narrows readingScheduleItemGoals to the selected goal (単位4)', () => {
+      const readingSchedule = buildScheduleItemGoal(READING_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: READING_GOAL,
+          scheduleItems: [readingSchedule],
+        }),
+      )
+
+      expect(result.readingScheduleItemGoals).toEqual([readingSchedule])
+    })
+
+    it('narrows workScheduleItemGoals to the selected goal (単位4)', () => {
+      const workSchedule = buildScheduleItemGoal(WORK_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          showGoalSelector: true,
+          selectedGoal: WORK_GOAL,
+          scheduleItems: [workSchedule],
+        }),
+      )
+
+      expect(result.workScheduleItemGoals).toEqual([workSchedule])
+    })
+
     it('shows no scheduleItems for any category while no tab is selected yet (単位4)', () => {
       const result = resolveVisibleReportTargets(
         buildInput({

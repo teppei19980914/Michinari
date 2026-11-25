@@ -115,11 +115,7 @@ def _extract_candidates(
         if not term_key or vocab_key in seen_vocab_keys:
             continue
         source_sentence = next(
-            (
-                original
-                for original, normalized in normalized_sentences
-                if term_key in normalized
-            ),
+            (original for original, normalized in normalized_sentences if term_key in normalized),
             None,
         )
         if source_sentence is None:

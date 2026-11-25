@@ -294,9 +294,7 @@ def test_list_vocab_cards_filter_unmastered_excludes_mastered_cards(seeded_sessi
         seeded_session, mastered_card, is_correct=True, answered_at=dt.datetime(2026, 1, 1)
     )
 
-    response = client.get(
-        f"/api/v1/vocab-decks/{deck.id}/cards", params={"filter": "UNMASTERED"}
-    )
+    response = client.get(f"/api/v1/vocab-decks/{deck.id}/cards", params={"filter": "UNMASTERED"})
 
     assert response.status_code == 200
     terms = [card["term"] for card in response.json()]
@@ -1086,9 +1084,7 @@ def test_accept_vocab_term_suggestion_unknown_id_returns_404(seeded_session, cli
     assert response.status_code == 404
 
 
-def test_accept_vocab_term_suggestion_rejects_other_goals_deck(
-    seeded_session, client, monkeypatch
-):
+def test_accept_vocab_term_suggestion_rejects_other_goals_deck(seeded_session, client, monkeypatch):
     """他の目標の単語帳を追加先に指定できないこと（goal_idの不一致を拒否、開発Todo §0.8 D-U）。"""
     goal = make_exam_goal(seeded_session)
     other_goal = make_exam_goal(seeded_session, name="別の資格目標")
@@ -1137,9 +1133,7 @@ def test_dismiss_vocab_term_suggestion_marks_dismissed(seeded_session, client, m
         f"/api/v1/goals/{goal.id}/vocab-suggestions", json={"record_date": RECORD_DATE}
     ).json()["suggestions"][0]["id"]
 
-    response = client.post(
-        f"/api/v1/goals/{goal.id}/vocab-suggestions/{suggestion_id}/dismiss"
-    )
+    response = client.post(f"/api/v1/goals/{goal.id}/vocab-suggestions/{suggestion_id}/dismiss")
 
     assert response.status_code == 200, response.text
     assert (
@@ -1258,9 +1252,7 @@ def test_update_vocab_card_situation_change_deletes_quiz_questions(seeded_sessio
     )
     seeded_session.commit()
 
-    response = client.patch(
-        f"/api/v1/vocab-cards/{card.id}", json={"situation_text": "新しい状況"}
-    )
+    response = client.patch(f"/api/v1/vocab-cards/{card.id}", json={"situation_text": "新しい状況"})
 
     assert response.status_code == 200, response.text
     assert seeded_session.query(QuizQuestion).count() == 0
@@ -1297,9 +1289,7 @@ def test_list_vocab_cards_filters_by_card_type(seeded_session, client):
     assert situation_card.id not in returned_ids
 
 
-def test_start_quiz_session_situation_card_always_uses_flash_situation_mode(
-    seeded_session, client
-):
+def test_start_quiz_session_situation_card_always_uses_flash_situation_mode(seeded_session, client):
     """「両方」選択時、シチュエーションカードは選んだ形式に関わらずFLASH_SITUATIONで
     出題されること（F-U3・F-D8）。"""
     goal = make_exam_goal(seeded_session)

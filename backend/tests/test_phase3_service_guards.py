@@ -431,21 +431,15 @@ def test_update_holiday_treat_as_buffer_missing_setting_raises_app_setting_not_f
 def test_import_bundled_holidays_if_needed_missing_setting_raises_app_setting_not_found(
     seeded_session,
 ):
-    seeded_session.query(AppSetting).filter(
-        AppSetting.key == HOLIDAY_BUNDLED_CSV_SHA256
-    ).delete()
+    seeded_session.query(AppSetting).filter(AppSetting.key == HOLIDAY_BUNDLED_CSV_SHA256).delete()
     seeded_session.flush()
-    content = (
-        "国民の祝日・休日月日,国民の祝日・休日名称\r\n2026/1/1,元日\r\n"
-    ).encode("cp932")
+    content = ("国民の祝日・休日月日,国民の祝日・休日名称\r\n2026/1/1,元日\r\n").encode("cp932")
     with pytest.raises(AppSettingNotFoundError):
         calendar_service.import_bundled_holidays_if_needed(seeded_session, content)
 
 
 def test_mark_manual_holiday_import_missing_setting_raises_app_setting_not_found(seeded_session):
-    seeded_session.query(AppSetting).filter(
-        AppSetting.key == HOLIDAY_IMPORTED_VIA_MANUAL
-    ).delete()
+    seeded_session.query(AppSetting).filter(AppSetting.key == HOLIDAY_IMPORTED_VIA_MANUAL).delete()
     seeded_session.flush()
     with pytest.raises(AppSettingNotFoundError):
         calendar_service.mark_manual_holiday_import(seeded_session)

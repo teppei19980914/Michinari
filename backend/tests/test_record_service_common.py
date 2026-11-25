@@ -172,9 +172,7 @@ def test_register_progress_accepts_schedule_item_updates_only_without_creating_r
         ScheduleSaveRequest(
             revision=0,
             items=[
-                ScheduleItemInput(
-                    title="第1章", planned_start_date=today, planned_end_date=today
-                )
+                ScheduleItemInput(title="第1章", planned_start_date=today, planned_end_date=today)
             ],
         ),
         today,
@@ -195,8 +193,7 @@ def test_register_progress_accepts_schedule_item_updates_only_without_creating_r
 
     assert record is None
     assert (
-        seeded_session.query(DailyRecord).filter(DailyRecord.record_date == today).first()
-        is None
+        seeded_session.query(DailyRecord).filter(DailyRecord.record_date == today).first() is None
     )
 
 

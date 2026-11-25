@@ -4,7 +4,7 @@ import type { ActiveReadingBook } from '../../api/goals'
 import { CategoryReportSection } from './CategoryReportSection'
 import { ReadingLogFields } from './ReadingLogFields'
 import { ReadingLogSummaryList } from './ReadingLogSummaryList'
-import { ScheduleItemsField } from './ScheduleItemsField'
+import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildBookLabels } from './summaryLabels'
@@ -64,12 +64,12 @@ export function ReadingReportSection({
             readingLogs={record.reading_logs}
             bookLabels={buildBookLabels(readingBooks)}
           />
-          <ScheduleItemsField
-            goals={targets.readingScheduleItemGoals}
+          <CategoryScheduleItemsField
+            category="READING"
+            targets={targets}
             targetDate={targetDate}
             readOnly
-            values={draft.scheduleItemValues}
-            onChange={draft.setScheduleItemValues}
+            draft={draft}
           />
         </>
       }
@@ -109,12 +109,12 @@ export function ReadingReportSection({
               )
             }
           />
-          <ScheduleItemsField
-            goals={targets.readingScheduleItemGoals}
+          <CategoryScheduleItemsField
+            category="READING"
+            targets={targets}
             targetDate={targetDate}
             readOnly={false}
-            values={draft.scheduleItemValues}
-            onChange={draft.setScheduleItemValues}
+            draft={draft}
           />
         </>
       }

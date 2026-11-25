@@ -99,6 +99,10 @@ function ScheduleItemReadOnlyStatus({ item }: { item: ScheduleItemForReportRead 
       <span>
         {item.actual_start_date || item.actual_end_date
           ? t('schedule.gantt.tooltip.actual', {
+              // 実績終了日のみが入力された状態は6.2の検証（validate_item_fields）が
+              // 拒否するため、actual_start_date側の`?? '—'`は到達しない防御的分岐
+              // （OPERATIONS.md「到達不能な防御的分岐」）。
+              /* v8 ignore next */
               start: item.actual_start_date ?? '—',
               end: item.actual_end_date ?? '—',
             })
