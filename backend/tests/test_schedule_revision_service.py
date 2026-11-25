@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.ai import client as ai_client
 from app.ai import rate_limiter
+from app.ai.exceptions import AiAuthRequiredError
 from app.constants.enums import (
     GoalStatus,
     ScheduleItemStatus,
@@ -27,6 +28,7 @@ from app.schemas.schedule_revision import ScheduleRevisionDecisionInput
 from app.services import schedule_revision_service as service
 from app.services.exceptions import (
     NotFoundError,
+    ScheduleRevisionPromptTooLongError,
     ScheduleRevisionProposalNotPendingError,
     ValidationError,
 )
@@ -424,7 +426,10 @@ class TestGenerateProposal:
 
         assert proposal is None
 
-    def test_discards_a_change_identical_to_the_current_value(self, seeded_session, monkeypatch):
+    def test_discards_a_not_started_change_whose_new_start_is_before_today(
+        self, seeded_session, monkeypatch
+    ):
+        """未着手の行で新しい予定終了日は本日以降だが、新しい予定開始日が本日より前の場合。"""
         goal = make_exam_goal(seeded_session)
         item = make_item(
             seeded_session,
@@ -432,7 +437,52 @@ class TestGenerateProposal:
             planned_start_date=dt.date(2026, 11, 1),
             planned_end_date=dt.date(2026, 11, 20),
         )
-        FakeAi(monkeypatch, (_change_block(item.id, "2026-11-01", "2026-11-20"),))
+        FakeAi(monkeypatch, (_change_block(item.id, "2026-11-20", "2026-11-30"),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is None
+
+    def test_discards_a_change_with_a_blank_reason(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        blank_reason_block = (
+            f"種類: 変更\n行ID: {item.id}\n予定開始日: 2026-11-26\n予定終了日: 2026-12-01\n理由: "
+        )
+        FakeAi(monkeypatch, (blank_reason_block,))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is None
+
+    def test_discards_a_change_identical_to_the_current_value(self, seeded_session, monkeypatch):
+        # new_start>=today（開始の遅れチェックに先に拾われないよう未来日にする）で、
+        # 差分チェック自体（397行目）に到達させる。
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 26),
+            planned_end_date=dt.date(2026, 12, 1),
+        )
+        FakeAi(monkeypatch, (_change_block(item.id, "2026-11-26", "2026-12-01"),))
 
         proposal = service.generate_proposal(
             seeded_session,
@@ -991,6 +1041,593 @@ class TestDecide:
                         proposal_item_id=proposal_item.id,
                         decision=ScheduleRevisionDecision.APPROVED,
                         planned_start_date=dt.date(2026, 11, 5),
+                    )
+                ],
+                TODAY,
+            )
+
+
+class TestGetProposalOrRaise:
+    def test_returns_the_proposal_when_found(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal = ScheduleRevisionProposal(
+            goal_id=goal.id,
+            trigger=ScheduleRevisionTrigger.MANUAL,
+            status=ScheduleRevisionProposalStatus.PENDING,
+        )
+        seeded_session.add(proposal)
+        seeded_session.flush()
+
+        found = service.get_proposal_or_raise(seeded_session, proposal.id)
+
+        assert found.id == proposal.id
+
+    def test_raises_not_found_for_an_unknown_id(self, seeded_session):
+        with pytest.raises(NotFoundError):
+            service.get_proposal_or_raise(seeded_session, 999999)
+
+
+class TestGenerateProposalContextAndErrors:
+    def test_zero_items_uses_the_placeholder_text_and_still_calls_ai(
+        self, seeded_session, monkeypatch
+    ):
+        goal = make_exam_goal(seeded_session)
+        fake = FakeAi(monkeypatch, ("総評: 作業項目がありません",))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.MANUAL,
+            record_date=None,
+            today=TODAY,
+        )
+
+        assert proposal is None
+        assert "作業項目がありません" in fake.sent[0]
+
+    def test_includes_recent_rejections_in_the_prompt(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        old_proposal = ScheduleRevisionProposal(
+            goal_id=goal.id,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            status=ScheduleRevisionProposalStatus.RESOLVED,
+        )
+        seeded_session.add(old_proposal)
+        seeded_session.flush()
+        seeded_session.add(
+            ScheduleRevisionProposalItem(
+                proposal_id=old_proposal.id,
+                schedule_item_id=item.id,
+                kind=ScheduleRevisionItemKind.CHANGE,
+                before_planned_start_date=item.planned_start_date,
+                before_planned_end_date=item.planned_end_date,
+                before_status=item.status,
+                proposed_planned_start_date=dt.date(2026, 11, 22),
+                proposed_planned_end_date=dt.date(2026, 11, 23),
+                reason="以前の提案",
+                decision=ScheduleRevisionDecision.REJECTED,
+                reject_reason="まだ早い",
+                decided_at=dt.datetime(2026, 11, 24, 0, 0, 0),
+            )
+        )
+        seeded_session.flush()
+        fake = FakeAi(monkeypatch, ("総評: 特になし",))
+
+        service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert "まだ早い" in fake.sent[0]
+
+    def test_reading_goal_builds_the_reading_context_stage(self, seeded_session, monkeypatch):
+        goal = make_reading_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        FakeAi(monkeypatch, (_change_block(item.id, "2026-11-26", "2026-12-01"),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is not None
+
+    def test_work_goal_builds_the_work_context_stage(self, seeded_session, monkeypatch):
+        goal = make_work_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        FakeAi(monkeypatch, (_change_block(item.id, "2026-11-26", "2026-12-01"),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is not None
+
+    def test_raises_ai_auth_required_when_not_authenticated(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        monkeypatch.setattr(ai_client, "is_authenticated", lambda session: False)
+
+        with pytest.raises(AiAuthRequiredError):
+            service.generate_proposal(
+                seeded_session,
+                goal,
+                trigger=ScheduleRevisionTrigger.AUTO,
+                record_date=TODAY,
+                today=TODAY,
+            )
+
+    def test_raises_prompt_too_long_when_it_cannot_fit_even_with_entries_emptied(
+        self, seeded_session, monkeypatch
+    ):
+        from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
+        from tests.schedule_helpers import set_setting
+
+        goal = make_exam_goal(seeded_session)
+        make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        set_setting(seeded_session, AI_MAX_PROMPT_CHARS, "1")
+        FakeAi(monkeypatch, ("総評: 特になし",))
+
+        with pytest.raises(ScheduleRevisionPromptTooLongError):
+            service.generate_proposal(
+                seeded_session,
+                goal,
+                trigger=ScheduleRevisionTrigger.AUTO,
+                record_date=TODAY,
+                today=TODAY,
+            )
+
+    def test_superseding_skips_items_that_are_already_decided(self, seeded_session, monkeypatch):
+        """D-65の置き換えは未判断（PENDING）の行だけを対象とする。"""
+        goal = make_exam_goal(seeded_session)
+        item_a = make_item(
+            seeded_session,
+            goal,
+            title="行A",
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        item_b = make_item(
+            seeded_session,
+            goal,
+            title="行B",
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+            display_order=1,
+        )
+        response = "\n===\n".join(
+            [
+                _change_block(item_a.id, "2026-11-26", "2026-12-01"),
+                _change_block(item_b.id, "2026-11-27", "2026-12-02"),
+            ]
+        )
+        FakeAi(monkeypatch, (response,))
+        first = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+        first_id = first.id
+        item_a_row = next(i for i in first.items if i.schedule_item_id == item_a.id)
+        item_b_row = next(i for i in first.items if i.schedule_item_id == item_b.id)
+        service.decide(
+            seeded_session,
+            goal,
+            first,
+            [
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=item_a_row.id, decision=ScheduleRevisionDecision.REJECTED
+                )
+            ],
+            TODAY,
+        )
+        seeded_session.flush()
+
+        FakeAi(monkeypatch, (_change_block(item_b.id, "2026-11-28", "2026-12-03"),))
+        service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.MANUAL,
+            record_date=None,
+            today=TODAY,
+        )
+
+        seeded_session.flush()
+        refreshed_a_row = seeded_session.get(ScheduleRevisionProposalItem, item_a_row.id)
+        refreshed_b_row = seeded_session.get(ScheduleRevisionProposalItem, item_b_row.id)
+        refreshed_first = seeded_session.get(ScheduleRevisionProposal, first_id)
+        assert refreshed_a_row.decision == ScheduleRevisionDecision.REJECTED
+        assert refreshed_b_row.decision == ScheduleRevisionDecision.SUPERSEDED
+        assert refreshed_first.status == ScheduleRevisionProposalStatus.SUPERSEDED
+
+
+class TestValidateChangesAndWarningsEdgeCases:
+    def test_discards_a_change_where_start_is_after_end(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        FakeAi(monkeypatch, (_change_block(item.id, "2026-12-05", "2026-11-30"),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is None
+
+    def test_discards_a_warning_for_another_goals_row(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session, name="目標A")
+        other_goal = make_exam_goal(seeded_session, name="目標B")
+        make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        other_item = make_item(
+            seeded_session,
+            other_goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        FakeAi(monkeypatch, (_warning_block(other_item.id),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is None
+
+    def test_duplicate_warning_blocks_use_only_the_first(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        response = "\n===\n".join(
+            [_warning_block(item.id, "最初の理由"), _warning_block(item.id, "2番目の理由")]
+        )
+        FakeAi(monkeypatch, (response,))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert len(proposal.items) == 1
+        assert proposal.items[0].reason == "最初の理由"
+
+    def test_discards_a_warning_with_a_blank_reason(self, seeded_session, monkeypatch):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        FakeAi(monkeypatch, (f"種類: 注意\n行ID: {item.id}\n理由: ",))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is None
+
+
+class TestDecideValidationErrors:
+    def _make_pending_change_proposal(self, session, goal, item, *, proposed_start, proposed_end):
+        proposal = ScheduleRevisionProposal(
+            goal_id=goal.id,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            status=ScheduleRevisionProposalStatus.PENDING,
+        )
+        session.add(proposal)
+        session.flush()
+        proposal_item = ScheduleRevisionProposalItem(
+            proposal_id=proposal.id,
+            schedule_item_id=item.id,
+            kind=ScheduleRevisionItemKind.CHANGE,
+            before_planned_start_date=item.planned_start_date,
+            before_planned_end_date=item.planned_end_date,
+            before_status=item.status,
+            proposed_planned_start_date=proposed_start,
+            proposed_planned_end_date=proposed_end,
+            reason="遅れています",
+            decision=ScheduleRevisionDecision.PENDING,
+        )
+        session.add(proposal_item)
+        session.flush()
+        session.refresh(proposal)
+        return proposal, proposal_item
+
+    def test_raises_for_an_unknown_proposal_item_id(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, _proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=999999, decision=ScheduleRevisionDecision.APPROVED
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_when_the_row_is_already_decided(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+        proposal_item.decision = ScheduleRevisionDecision.REJECTED
+        seeded_session.flush()
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.APPROVED,
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_when_acknowledging_a_change_row(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.ACKNOWLEDGED,
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_when_approving_a_warning_row(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal = ScheduleRevisionProposal(
+            goal_id=goal.id,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            status=ScheduleRevisionProposalStatus.PENDING,
+        )
+        seeded_session.add(proposal)
+        seeded_session.flush()
+        proposal_item = ScheduleRevisionProposalItem(
+            proposal_id=proposal.id,
+            schedule_item_id=item.id,
+            kind=ScheduleRevisionItemKind.WARNING,
+            before_planned_start_date=item.planned_start_date,
+            before_planned_end_date=item.planned_end_date,
+            before_status=item.status,
+            reason="注意",
+            decision=ScheduleRevisionDecision.PENDING,
+        )
+        seeded_session.add(proposal_item)
+        seeded_session.flush()
+        seeded_session.refresh(proposal)
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.APPROVED,
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_for_an_unsupported_decision_value(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id, decision=ScheduleRevisionDecision.PENDING
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_when_the_override_start_is_after_the_override_end(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.APPROVED,
+                        planned_start_date=dt.date(2026, 12, 5),
+                        planned_end_date=dt.date(2026, 12, 1),
+                    )
+                ],
+                TODAY,
+            )
+
+    def test_raises_when_the_override_end_is_before_today(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.APPROVED,
+                        planned_start_date=dt.date(2026, 11, 10),
+                        planned_end_date=dt.date(2026, 11, 20),
                     )
                 ],
                 TODAY,

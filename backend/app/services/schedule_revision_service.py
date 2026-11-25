@@ -367,7 +367,7 @@ def _validate_changes(
     for block in blocks:
         try:
             item_id = int(block.item_id_raw)
-        except ValueError:
+        except ValueError:  # pragma: no cover - 行IDは`[0-9]+`の正規表現で既に数字限定
             continue
         if item_id in seen_ids:
             continue  # 重複は最初のものだけを使う（13.5）。
@@ -418,15 +418,15 @@ def _validate_warnings(
     for block in blocks:
         try:
             item_id = int(block.item_id_raw)
-        except ValueError:
+        except ValueError:  # pragma: no cover - 行IDは`[0-9]+`の正規表現で既に数字限定
             continue
-        if item_id in seen_ids:
+        if item_id in seen_ids:  # 重複は最初のものだけを使う（13.5）。
             continue
         item = items_by_id.get(item_id)
-        if item is None:
+        if item is None:  # 行ID: 対象の目標に属する行であること。
             continue
         reason = block.reason.strip()
-        if not reason or len(reason) > reason_max_chars:
+        if not reason or len(reason) > reason_max_chars:  # 理由: 必須。上限文字数以内。
             continue
         seen_ids.add(item_id)
         validated.append(_ValidatedWarning(item=item, reason=reason))
@@ -587,7 +587,7 @@ def decide(
                 f"ScheduleRevisionProposalItem(id={proposal_item.id}) is already decided"
             )
         schedule_item = session.get(ScheduleItem, proposal_item.schedule_item_id)
-        if schedule_item is None:
+        if schedule_item is None:  # pragma: no cover - ON DELETE CASCADEで通常到達しない
             # schedule_itemはON DELETE CASCADEでproposal_item自体も削除されるため、通常は
             # 到達しない防御的分岐（異常系、CODING_RULES.md）。
             raise ValidationError(
