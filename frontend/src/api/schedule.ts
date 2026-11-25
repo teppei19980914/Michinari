@@ -41,3 +41,26 @@ export function updateScheduleViewSetting(
 ): Promise<ScheduleViewSettingRead> {
   return apiClient.put<ScheduleViewSettingRead>(`/goals/${goalId}/schedule/view-setting`, payload)
 }
+
+/** AIによるスケジュール修正案の生成（開発Todo_スケジュール・ガントチャート_v1.1 13.7、単位5）。 */
+export function generateScheduleRevisionProposal(
+  goalId: number,
+  payload: ScheduleRevisionGenerateRequest,
+): Promise<ScheduleRevisionGenerateResult> {
+  return apiClient.post<ScheduleRevisionGenerateResult>(
+    `/goals/${goalId}/schedule/revision-proposals`,
+    payload,
+  )
+}
+
+/** 修正案の行ごとの判断（承認・却下・確認済み、13.7）。 */
+export function decideScheduleRevisionProposal(
+  goalId: number,
+  proposalId: number,
+  payload: ScheduleRevisionDecisionsRequest,
+): Promise<ScheduleRevisionDecisionsResponse> {
+  return apiClient.post<ScheduleRevisionDecisionsResponse>(
+    `/goals/${goalId}/schedule/revision-proposals/${proposalId}/decisions`,
+    payload,
+  )
+}
