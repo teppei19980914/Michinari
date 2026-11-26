@@ -1,7 +1,7 @@
 import { ScheduleCustomValueCells } from './ScheduleCustomValueCells'
 import { ScheduleDefaultCells } from './ScheduleDefaultCells'
 import { ScheduleRowActionsCell } from './ScheduleRowActionsCell'
-import { ScheduleGanttRow } from './ScheduleGanttRow'
+import { ScheduleRowGanttCell } from './ScheduleRowGanttCell'
 import { ROW_ACTIONS_WIDTH_REM, stickyStyle } from './scheduleColumnLayout'
 import type { ScheduleDraftColumn, ScheduleDraftItem } from './scheduleDraftTypes'
 import type { ScheduleItemFieldErrors } from './scheduleValidation'
@@ -25,6 +25,7 @@ export function ScheduleDataRow({
   dayWidthRem,
   ganttWidthRem,
   today,
+  proposedBand,
   onMoveUp,
   onMoveDown,
   onInsertBelow,
@@ -45,6 +46,8 @@ export function ScheduleDataRow({
   dayWidthRem: number
   ganttWidthRem: number
   today: string
+  //: 未判断の修正案（単位5・D-57）。対象の行が無ければnull。
+  proposedBand: { start: string; end: string } | null
   onMoveUp: () => void
   onMoveDown: () => void
   onInsertBelow: () => void
@@ -91,21 +94,14 @@ export function ScheduleDataRow({
         onCellChange={onCellChange}
       />
 
-      <div className="relative shrink-0 bg-surface" style={{ width: `${ganttWidthRem}rem` }}>
-        <ScheduleGanttRow
-          title={item.title}
-          item={{
-            status: item.status,
-            planned_start_date: item.plannedStartDate,
-            planned_end_date: item.plannedEndDate,
-            actual_start_date: item.actualStartDate,
-            actual_end_date: item.actualEndDate,
-          }}
-          rangeStartIso={rangeStartIso}
-          dayWidthRem={dayWidthRem}
-          today={today}
-        />
-      </div>
+      <ScheduleRowGanttCell
+        item={item}
+        rangeStartIso={rangeStartIso}
+        dayWidthRem={dayWidthRem}
+        ganttWidthRem={ganttWidthRem}
+        today={today}
+        proposedBand={proposedBand}
+      />
     </div>
   )
 }

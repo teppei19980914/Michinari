@@ -262,3 +262,19 @@ SCHEDULE_ITEM_DESCRIPTION_MAX_CHARS = "schedule.item_description_max_chars"
 SCHEDULE_COLUMN_NAME_MAX_CHARS = "schedule.column_name_max_chars"
 #: 追加列の値（セル）の最大文字数。内部パラメータ。
 SCHEDULE_CELL_VALUE_MAX_CHARS = "schedule.cell_value_max_chars"
+#: AIによるスケジュール修正案（開発Todo_スケジュール・ガントチャート_v1.1 第13章、単位5）。
+#: 専用アシスタント（既存のUIDの初期値の方針に合わせる、13.9）。設定画面のAI設定に表示する。
+AI_ASSISTANT_UID_SCHEDULE_REVISION = "ai.assistant_uid.schedule_revision"
+#: 使い捨て会話（13.3「1回ごとに完結、会話は継続しない」）の専用フォルダ名。内部パラメータ
+#: （AI_SUMMARY_CARD_FOLDER_NAME等と同じく設定画面には出さない）。
+AI_SCHEDULE_REVISION_FOLDER_NAME = "ai.schedule_revision_folder_name"
+#: 直近に却下した内容をAIへ渡す件数（D-64）。内部パラメータ。
+SCHEDULE_REVISION_RECENT_REJECTIONS_COUNT = "schedule.revision.recent_rejections_count"
+#: 修正案の行の理由（変更・注意）の最大文字数。内部パラメータ。
+SCHEDULE_REVISION_REASON_MAX_CHARS = "schedule.revision.reason_max_chars"
+#: プロンプトへ渡す作業内容（description）の最大文字数（13.3）。内部パラメータ。
+SCHEDULE_REVISION_DESCRIPTION_MAX_CHARS_IN_PROMPT = (
+    "schedule.revision.description_max_chars_in_prompt"
+)
+#: AI応答の1ブロックの最大文字数（13.4、ReDoS対策の多層防御）。内部パラメータ。
+SCHEDULE_REVISION_MAX_BLOCK_CHARS = "schedule.revision.max_block_chars"

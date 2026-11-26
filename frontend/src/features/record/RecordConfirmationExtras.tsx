@@ -15,6 +15,8 @@ type RecordConfirmationExtrasProps = {
   /** ZeroRecordButton（開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）のJSDoc参照。 */
   scheduleItemValues: Record<number, ScheduleItemDraftValue>
   scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
+  /** ZeroRecordButtonのJSDoc参照（単位5）。 */
+  generateScheduleRevisionForGoals: (goalIds: number[], recordDate: string) => void
 }
 
 /** 「何もしていない」ボタンと節目のお祝いモーダルをまとめる（DailyReportPageの行数を
@@ -28,6 +30,7 @@ export function RecordConfirmationExtras({
   milestoneCelebration,
   scheduleItemValues,
   scheduleItemIdsByCategory,
+  generateScheduleRevisionForGoals,
 }: RecordConfirmationExtrasProps) {
   return (
     <>
@@ -39,6 +42,7 @@ export function RecordConfirmationExtras({
         checkMilestones={milestoneCelebration.checkGoal}
         scheduleItemValues={scheduleItemValues}
         scheduleItemIdsByCategory={scheduleItemIdsByCategory}
+        generateScheduleRevisionForGoals={generateScheduleRevisionForGoals}
       />
       <MilestoneCelebrationModal
         milestone={milestoneCelebration.current}

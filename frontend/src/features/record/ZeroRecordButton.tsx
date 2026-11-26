@@ -22,6 +22,8 @@ export type ZeroRecordButtonProps = {
   /** useZeroRecordActionのJSDoc参照（開発Todo_スケジュール・ガントチャート_v1.1 D-35、単位4）。 */
   scheduleItemValues: Record<number, ScheduleItemDraftValue>
   scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
+  /** useZeroRecordActionのJSDoc参照（単位5）。 */
+  generateScheduleRevisionForGoals: (goalIds: number[], recordDate: string) => void
 }
 
 /**
@@ -39,6 +41,7 @@ export function ZeroRecordButton({
   checkMilestones,
   scheduleItemValues,
   scheduleItemIdsByCategory,
+  generateScheduleRevisionForGoals,
 }: ZeroRecordButtonProps) {
   const [open, setOpen] = useState(false)
   const dayTypeQuery = useDayType(targetDate)
@@ -52,6 +55,7 @@ export function ZeroRecordButton({
     checkMilestones,
     scheduleItemValues,
     scheduleItemIdsByCategory,
+    generateScheduleRevisionForGoals,
   })
 
   if (categories.length === 0) {

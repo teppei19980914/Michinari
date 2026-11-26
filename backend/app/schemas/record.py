@@ -175,6 +175,10 @@ class DailyRecordRead(BaseModel):
     work_logs: list[WorkLogRead]
     comments: list[CommentRead]
     chat_messages: list[ChatMessageRead]
+    #: 遅れのある目標ID一覧（確定APIのみ値を持つ、他は常に空、開発Todo_スケジュール・
+    #: ガントチャート_v1.1 13.7、単位5）。確定した種別のうち、13.2の1日1回の判定で
+    #: 自動生成済みでないものだけを含む。
+    schedule_revision_candidates: list[int] = Field(default_factory=list)
 
 
 class ProgressRegisterRequest(BaseModel):

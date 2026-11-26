@@ -53,6 +53,7 @@ function renderGrid(overrides: Partial<Parameters<typeof ScheduleGrid>[0]> = {})
       columnErrorsByKey={{}}
       columnHasAnyValue={columnHasAnyValue}
       goToTodaySignal={0}
+      proposedBandByItemId={{}}
       onMoveRow={onMoveRow}
       onInsertRowBelow={onInsertRowBelow}
       onRemoveRow={onRemoveRow}

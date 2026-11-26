@@ -870,6 +870,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/goals/{goal_id}/schedule/revision-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Revision Proposal */
+        post: operations["generate_revision_proposal_api_v1_goals__goal_id__schedule_revision_proposals_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/goals/{goal_id}/schedule/revision-proposals/{proposal_id}/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decide Revision Proposal */
+        post: operations["decide_revision_proposal_api_v1_goals__goal_id__schedule_revision_proposals__proposal_id__decisions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/records/today": {
         parameters: {
             query?: never;
@@ -2658,6 +2692,8 @@ export interface components {
             assistant_uid_daily_feedback_work_brief: string;
             /** Assistant Uid Summary Card */
             assistant_uid_summary_card: string;
+            /** Assistant Uid Schedule Revision */
+            assistant_uid_schedule_revision: string;
             /** Folder Prefix */
             folder_prefix: string;
             /** Timeout Seconds */
@@ -2711,6 +2747,8 @@ export interface components {
             assistant_uid_daily_feedback_work_brief?: string | null;
             /** Assistant Uid Summary Card */
             assistant_uid_summary_card?: string | null;
+            /** Assistant Uid Schedule Revision */
+            assistant_uid_schedule_revision?: string | null;
             /** Folder Prefix */
             folder_prefix?: string | null;
             /** Timeout Seconds */
@@ -2740,7 +2778,7 @@ export interface components {
          * AiPurpose
          * @enum {string}
          */
-        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "VOCAB_SITUATION_QUIZ_GENERATE" | "VOCAB_TERM_EXTRACT" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK";
+        AiPurpose: "DAILY_FEEDBACK" | "WEEKLY_SUMMARY" | "DAILY_MESSAGE" | "GOAL_RETROSPECTIVE" | "DAILY_FEEDBACK_READING" | "GOAL_RETROSPECTIVE_READING" | "WEEKLY_SUMMARY_READING" | "DAILY_FEEDBACK_WORK" | "GOAL_RETROSPECTIVE_WORK_MONTHLY" | "GOAL_RETROSPECTIVE_WORK_SEMIANNUAL" | "WEEKLY_SUMMARY_WORK" | "EVALUATION_REPORT_WORK" | "RECAP_CLASSIFY" | "RECAP_THEME_BODY" | "HELP_ASSISTANT" | "GOAL_CONSULTATION" | "GOAL_CONSULTATION_READING" | "GOAL_CONSULTATION_WORK" | "QUIZ_GENERATE" | "VOCAB_QUIZ_GENERATE" | "VOCAB_SITUATION_QUIZ_GENERATE" | "VOCAB_TERM_EXTRACT" | "DAILY_FEEDBACK_BRIEF" | "DAILY_FEEDBACK_READING_BRIEF" | "DAILY_FEEDBACK_WORK_BRIEF" | "SUMMARY_CARD_SENTENCE" | "SUMMARY_CARD_SENTENCE_READING" | "SUMMARY_CARD_SENTENCE_WORK" | "SCHEDULE_REVISION";
         /**
          * AiStatusRead
          * @description GET /ai/status: 認証状態とAI基盤の稼働状況。
@@ -3119,6 +3157,8 @@ export interface components {
             comments: components["schemas"]["CommentRead"][];
             /** Chat Messages */
             chat_messages: components["schemas"]["ChatMessageRead"][];
+            /** Schedule Revision Candidates */
+            schedule_revision_candidates?: number[];
         };
         /**
          * DashboardRead
@@ -3527,6 +3567,11 @@ export interface components {
             roadmap_is_achieved: boolean;
             /** Roadmap Overrun Days */
             roadmap_overrun_days?: number | null;
+            /**
+             * Has Pending Schedule Revision
+             * @default false
+             */
+            has_pending_schedule_revision: boolean;
         };
         /**
          * GoalCategory
@@ -5286,7 +5331,158 @@ export interface components {
             columns: components["schemas"]["ScheduleColumnRead"][];
             /** Items */
             items: components["schemas"]["ScheduleItemRead"][];
+            pending_revision_proposal: components["schemas"]["ScheduleRevisionProposalRead"] | null;
         };
+        /**
+         * ScheduleRevisionDecision
+         * @description 修正案の行に対する利用者の判断（本書13.6・13.7）。
+         *
+         *     ACKNOWLEDGEDはWARNING行の「確認しました」。SUPERSEDEDはD-65で古い修正案の未判断行が
+         *     置き換えられた場合。
+         * @enum {string}
+         */
+        ScheduleRevisionDecision: "PENDING" | "APPROVED" | "REJECTED" | "ACKNOWLEDGED" | "SUPERSEDED";
+        /**
+         * ScheduleRevisionDecisionInput
+         * @description 判断1件分（本書13.7）。CHANGE行はAPPROVED/REJECTED、WARNING行はACKNOWLEDGEDのみ
+         *     受け付ける（組み合わせの検証はサービス層、本書6.1と同じ方針）。
+         */
+        ScheduleRevisionDecisionInput: {
+            /** Proposal Item Id */
+            proposal_item_id: number;
+            decision: components["schemas"]["ScheduleRevisionDecision"];
+            /** Planned Start Date */
+            planned_start_date?: string | null;
+            /** Planned End Date */
+            planned_end_date?: string | null;
+            /** Reject Reason */
+            reject_reason?: string | null;
+        };
+        /**
+         * ScheduleRevisionDecisionOutcome
+         * @description 判断1件分の処理結果（単位5開発Todo2章補足6）。
+         *
+         *     変更前の値が現在の値と一致せず適用できなかった行は`applied=False`・
+         *     `blocked_reason="STALE_BEFORE_VALUE"`とし、他の行の処理は継続する（本書13.7）。
+         */
+        ScheduleRevisionDecisionOutcome: {
+            /** Proposal Item Id */
+            proposal_item_id: number;
+            /** Applied */
+            applied: boolean;
+            /** Blocked Reason */
+            blocked_reason?: string | null;
+        };
+        /** ScheduleRevisionDecisionsRequest */
+        ScheduleRevisionDecisionsRequest: {
+            /** Decisions */
+            decisions: components["schemas"]["ScheduleRevisionDecisionInput"][];
+        };
+        /** ScheduleRevisionDecisionsResponse */
+        ScheduleRevisionDecisionsResponse: {
+            proposal: components["schemas"]["ScheduleRevisionProposalRead"];
+            /** Outcomes */
+            outcomes: components["schemas"]["ScheduleRevisionDecisionOutcome"][];
+        };
+        /**
+         * ScheduleRevisionGenerateRequest
+         * @description `POST /goals/{goal_id}/schedule/revision-proposals` のリクエスト（13.7）。
+         *
+         *     AUTOの場合は`record_date`（自動生成のきっかけとなった報告対象日）を必須とする
+         *     （13.2の1日1回の判定に使う）。MANUALでは使わないため常にNone。
+         */
+        ScheduleRevisionGenerateRequest: {
+            trigger: components["schemas"]["ScheduleRevisionTrigger"];
+            /** Record Date */
+            record_date?: string | null;
+        };
+        /**
+         * ScheduleRevisionGenerateResult
+         * @description 生成APIの応答（13.7）。有効な変更・注意のいずれも無い場合、またはAUTOで対象の遅れが
+         *     無い場合は`proposal`をNoneとする（「対象なし」「修正が必要な行はありませんでした」）。
+         */
+        ScheduleRevisionGenerateResult: {
+            proposal: components["schemas"]["ScheduleRevisionProposalRead"] | null;
+        };
+        /**
+         * ScheduleRevisionItemKind
+         * @description 修正案の行の種類（本書13.6）。CHANGEは予定日の変更案、WARNINGは期限内に収まらない等の注意。
+         * @enum {string}
+         */
+        ScheduleRevisionItemKind: "CHANGE" | "WARNING";
+        /**
+         * ScheduleRevisionProposalItemRead
+         * @description 修正案の行（本書13.6）。
+         */
+        ScheduleRevisionProposalItemRead: {
+            /** Id */
+            id: number;
+            /** Schedule Item Id */
+            schedule_item_id: number;
+            kind: components["schemas"]["ScheduleRevisionItemKind"];
+            /**
+             * Before Planned Start Date
+             * Format: date
+             */
+            before_planned_start_date: string;
+            /**
+             * Before Planned End Date
+             * Format: date
+             */
+            before_planned_end_date: string;
+            before_status: components["schemas"]["ScheduleItemStatus"];
+            /** Proposed Planned Start Date */
+            proposed_planned_start_date: string | null;
+            /** Proposed Planned End Date */
+            proposed_planned_end_date: string | null;
+            /** Reason */
+            reason: string;
+            decision: components["schemas"]["ScheduleRevisionDecision"];
+            /** Applied Planned Start Date */
+            applied_planned_start_date: string | null;
+            /** Applied Planned End Date */
+            applied_planned_end_date: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Is Stale */
+            is_stale: boolean;
+        };
+        /**
+         * ScheduleRevisionProposalRead
+         * @description 修正案1件（本書13.6）。`GET /goals/{goal_id}/schedule`が未判断の修正案として
+         *     埋め込む形・生成API・判断APIの応答のいずれも、本スキーマで統一する。
+         */
+        ScheduleRevisionProposalRead: {
+            /** Id */
+            id: number;
+            /** Goal Id */
+            goal_id: number;
+            trigger: components["schemas"]["ScheduleRevisionTrigger"];
+            /** Record Date */
+            record_date: string | null;
+            /** Summary */
+            summary: string | null;
+            status: components["schemas"]["ScheduleRevisionProposalStatus"];
+            /** Items */
+            items: components["schemas"]["ScheduleRevisionProposalItemRead"][];
+        };
+        /**
+         * ScheduleRevisionProposalStatus
+         * @description 修正案（schedule_revision_proposal）の状態（本書13.6）。
+         *
+         *     PENDINGは未判断の行が残っている、RESOLVEDは全行判断済み、SUPERSEDEDは新しい修正案に
+         *     置き換えられて終了（D-65、目標ごとに未判断の修正案は常に1つ）。
+         * @enum {string}
+         */
+        ScheduleRevisionProposalStatus: "PENDING" | "RESOLVED" | "SUPERSEDED";
+        /**
+         * ScheduleRevisionTrigger
+         * @description AIによるスケジュール修正案の生成きっかけ（開発Todo_スケジュール・ガントチャート_v1.1
+         *     13.1・13.7、単位5）。AUTOは日次報告の確定後の自動生成、MANUALはスケジュールタブの
+         *     「AIに修正案を依頼」ボタン。
+         * @enum {string}
+         */
+        ScheduleRevisionTrigger: "AUTO" | "MANUAL";
         /**
          * ScheduleSaveRequest
          * @description PUT /goals/{goal_id}/schedule のリクエスト本体（本書8.1）。
@@ -8316,6 +8512,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduleViewSettingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_revision_proposal_api_v1_goals__goal_id__schedule_revision_proposals_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleRevisionGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRevisionGenerateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decide_revision_proposal_api_v1_goals__goal_id__schedule_revision_proposals__proposal_id__decisions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                goal_id: number;
+                proposal_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleRevisionDecisionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRevisionDecisionsResponse"];
                 };
             };
             /** @description Validation Error */

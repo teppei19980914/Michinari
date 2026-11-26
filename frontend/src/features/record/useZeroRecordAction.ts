@@ -69,6 +69,9 @@ export type ZeroRecordActionOptions = {
    * 合わせて、変更されていればそのカテゴリの確定APIへ含める。 */
   scheduleItemValues: Record<number, ScheduleItemDraftValue>
   scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
+  /** 確定後の修正案の生成依頼（単位5・14章補足2「ひとこと記録モードの確定も対象とする」）。
+   * ゼロ記録（本フック）はひとこと記録モードと同じ確定処理を経るため対象に含める。 */
+  generateScheduleRevisionForGoals: (goalIds: number[], recordDate: string) => void
 }
 
 /**
@@ -88,6 +91,7 @@ export function useZeroRecordAction({
   checkMilestones,
   scheduleItemValues,
   scheduleItemIdsByCategory,
+  generateScheduleRevisionForGoals,
 }: ZeroRecordActionOptions): ZeroRecordAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -96,22 +100,25 @@ export function useZeroRecordAction({
   const mutation = useMutation({
     mutationFn: async () => {
       let lastRecord: DailyRecordRead | undefined
+      const scheduleRevisionCandidateIds: number[] = []
       for (const category of categories) {
         const scheduleItemUpdates = buildScheduleItemUpdatesPayload(
           scheduleItemValues,
           scheduleItemIdsByCategory[category],
         )
         lastRecord = await FINALIZE_AS_ZERO[category](targetDate, scheduleItemUpdates)
+        scheduleRevisionCandidateIds.push(...(lastRecord.schedule_revision_candidates ?? []))
       }
-      return lastRecord
+      return { lastRecord, scheduleRevisionCandidateIds }
     },
     meta: { overlay: 'saving' },
-    onSuccess: (record) => {
+    onSuccess: ({ lastRecord: record, scheduleRevisionCandidateIds }) => {
       invalidateDailyRecordCaches(queryClient, targetDate)
       showToast(message)
       for (const category of categories) {
         checkMilestones?.(goalIdsByCategory[category], category)
       }
+      generateScheduleRevisionForGoals(scheduleRevisionCandidateIds, targetDate)
       if (record && isAllCategoriesReported(presence, toCategoryReportedState(record))) {
         navigate(ROUTES.dashboard)
       }

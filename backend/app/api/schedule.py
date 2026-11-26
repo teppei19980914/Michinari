@@ -10,6 +10,7 @@ import datetime as dt
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.schedule_revision import serialize_proposal
 from app.constants.app_setting_keys import (
     SCHEDULE_GANTT_DAY_WIDTH_MAX_REM,
     SCHEDULE_GANTT_DAY_WIDTH_MIN_REM,
@@ -26,13 +27,16 @@ from app.schemas.schedule import (
     ScheduleViewSettingRead,
     ScheduleViewSettingUpdate,
 )
-from app.services import goal_service, schedule_service, setting_reader
+from app.services import goal_service, schedule_revision_service, schedule_service, setting_reader
 from app.services.schedule_service import ScheduleView
 
 router = APIRouter(tags=["schedule"])
 
 
-def _serialize_view(session: Session, view: ScheduleView, today: dt.date) -> ScheduleRead:
+def _serialize_view(
+    session: Session, goal_id: int, view: ScheduleView, today: dt.date
+) -> ScheduleRead:
+    pending_proposal = schedule_revision_service.get_pending_proposal(session, goal_id)
     return ScheduleRead(
         revision=view.revision,
         frozen_row_count=view.frozen_row_count,
@@ -64,6 +68,9 @@ def _serialize_view(session: Session, view: ScheduleView, today: dt.date) -> Sch
             )
             for item in view.items
         ],
+        pending_revision_proposal=(
+            serialize_proposal(session, pending_proposal) if pending_proposal is not None else None
+        ),
     )
 
 
@@ -72,7 +79,7 @@ def get_schedule(goal_id: int, session: Session = Depends(get_db)) -> ScheduleRe
     goal = goal_service.get_goal(session, goal_id)
     today = goal_service.resolve_today(session)
     view = schedule_service.get_schedule_view(session, goal)
-    return _serialize_view(session, view, today)
+    return _serialize_view(session, goal_id, view, today)
 
 
 @router.put("/goals/{goal_id}/schedule", response_model=ScheduleRead)
@@ -83,7 +90,7 @@ def save_schedule(
     today = goal_service.resolve_today(session)
     view = schedule_service.save_schedule(session, goal, payload, today)
     session.commit()
-    return _serialize_view(session, view, today)
+    return _serialize_view(session, goal_id, view, today)
 
 
 @router.put("/goals/{goal_id}/schedule/view-setting", response_model=ScheduleViewSettingRead)

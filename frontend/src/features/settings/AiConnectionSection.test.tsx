@@ -55,6 +55,7 @@ function makeAiConnection(
     assistant_uid_daily_feedback_reading_brief: '',
     assistant_uid_daily_feedback_work_brief: '',
     assistant_uid_summary_card: '',
+    assistant_uid_schedule_revision: '',
     folder_prefix: 'michinari',
     timeout_seconds: 60,
     min_interval_seconds: 3,
@@ -226,15 +227,16 @@ describe('AiConnectionSection のアシスタント選択', () => {
   it('offers every assistant for every purpose', async () => {
     await renderSection()
     await screen.findByText(t('settings.aiConnection.authStatus.authenticated'))
-    // 18用途（ひとこと記録モードのBRIEF系3種・まとめと共有カードを追加） × (未設定 + アシスタント2件)。
-    expect(screen.getAllByRole('option').length).toBe(18 * 3)
+    // 19用途（ひとこと記録モードのBRIEF系3種・まとめと共有カード・スケジュール修正案を追加）
+    // × (未設定 + アシスタント2件)。
+    expect(screen.getAllByRole('option').length).toBe(19 * 3)
   })
 
   it('drops the unset placeholder once a purpose has an assistant', async () => {
     await renderSection({ assistant_uid_daily_feedback: ASSISTANT_A.uid })
     await screen.findByText(t('settings.aiConnection.authStatus.authenticated'))
-    // 設定済みの1用途だけ「未設定」が消える（18用途中17用途が未設定のまま）。
-    expect(screen.getAllByText(t('common.unset')).length).toBe(17)
+    // 設定済みの1用途だけ「未設定」が消える（19用途中18用途が未設定のまま）。
+    expect(screen.getAllByText(t('common.unset')).length).toBe(18)
   })
 
   it('saves the assistant against the purpose it was chosen for', async () => {
