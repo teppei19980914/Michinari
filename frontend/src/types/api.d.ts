@@ -6104,7 +6104,7 @@ export interface components {
          *     （サーバー側で判定）、`CHOICE_*`は4択（誤答選択肢は同じ単語帳の他カードから生成）。
          * @enum {string}
          */
-        VocabQuizMode: "FLASH_TERM_TO_MEANING" | "FLASH_MEANING_TO_TERM" | "TYPED_MEANING_TO_TERM" | "CHOICE_TERM_TO_MEANING" | "CHOICE_MEANING_TO_TERM" | "FLASH_SITUATION";
+        VocabQuizMode: "FLASH_TERM_TO_MEANING" | "FLASH_MEANING_TO_TERM" | "TYPED_MEANING_TO_TERM" | "CHOICE_TERM_TO_MEANING" | "CHOICE_MEANING_TO_TERM" | "FLASH_SITUATION" | "FLASH_RANDOM" | "CHOICE_RANDOM";
         /** VocabQuizOptionRead */
         VocabQuizOptionRead: {
             /** Card Id */

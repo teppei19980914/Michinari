@@ -62,6 +62,21 @@ router = APIRouter(tags=["vocab"])
 _CHOICE_MODES = (VocabQuizMode.CHOICE_TERM_TO_MEANING, VocabQuizMode.CHOICE_MEANING_TO_TERM)
 #: 4択に最低限必要なカード数（対象カード本体＋誤答3件）。
 _MIN_CARDS_FOR_CHOICE = 4
+#: 設定画面で選べる「4択モード相当」（`CHOICE_RANDOM`は抽選後に`_CHOICE_MODES`のいずれかへ
+#: 解決されるが、抽選前の`payload.mode`段階でも4択の最低カード数チェックを効かせる必要がある
+#: ため、ここに含める。開発Todo_単語帳_出題導線改修_v1.0 D4）。
+_CHOICE_LIKE_MODES = (*_CHOICE_MODES, VocabQuizMode.CHOICE_RANDOM)
+#: ランダム方向モード→抽選候補（開発Todo_単語帳_出題導線改修_v1.0 D4）。
+_RANDOM_MODE_CHOICES: dict[VocabQuizMode, tuple[VocabQuizMode, VocabQuizMode]] = {
+    VocabQuizMode.FLASH_RANDOM: (
+        VocabQuizMode.FLASH_TERM_TO_MEANING,
+        VocabQuizMode.FLASH_MEANING_TO_TERM,
+    ),
+    VocabQuizMode.CHOICE_RANDOM: (
+        VocabQuizMode.CHOICE_TERM_TO_MEANING,
+        VocabQuizMode.CHOICE_MEANING_TO_TERM,
+    ),
+}
 
 
 #: カードが1枚も無いデッキの種類別内訳（開発Todo_単語帳_v1.0 要件F F-D19）。
@@ -386,11 +401,16 @@ def _choice_field(mode: VocabQuizMode) -> str:
     return "meaning" if mode == VocabQuizMode.CHOICE_TERM_TO_MEANING else "term"
 
 
-def _effective_mode(mode: VocabQuizMode, card: VocabCard) -> VocabQuizMode:
+def _effective_mode(mode: VocabQuizMode, card: VocabCard, rng: random.Random) -> VocabQuizMode:
     """そのカードの実際の出題形式を決める（開発Todo_単語帳_v1.0 要件F F-D8）。
     SITUATIONカードは常にFLASH_SITUATION（F-U4、選んだ形式に関わらない）。
+    TERMカードで`FLASH_RANDOM`/`CHOICE_RANDOM`が選ばれている場合は、カードごとに方向を
+    抽選して具体モードへ解決する（開発Todo_単語帳_出題導線改修_v1.0 D4）。
     """
-    return mode if card.card_type == VocabCardType.TERM else VocabQuizMode.FLASH_SITUATION
+    if card.card_type != VocabCardType.TERM:
+        return VocabQuizMode.FLASH_SITUATION
+    random_choices = _RANDOM_MODE_CHOICES.get(mode)
+    return rng.choice(random_choices) if random_choices is not None else mode
 
 
 @router.post("/vocab-decks/{deck_id}/quiz-sessions", response_model=VocabQuizSessionRead)
@@ -405,7 +425,7 @@ def start_vocab_quiz_session(
     #: 入力式・4択の対象、4択可否判定、誤答候補プールはTERMカードのみで数える
     #: （開発Todo_単語帳_v1.0 要件F F-U3・F-D6・F-D8）。
     term_cards_in_deck = [card for card in deck_cards if card.card_type == VocabCardType.TERM]
-    if payload.mode in _CHOICE_MODES and len(term_cards_in_deck) < _MIN_CARDS_FOR_CHOICE:
+    if payload.mode in _CHOICE_LIKE_MODES and len(term_cards_in_deck) < _MIN_CARDS_FOR_CHOICE:
         raise ValidationError(
             f"CHOICE modes require at least {_MIN_CARDS_FOR_CHOICE} term cards in the deck"
         )
@@ -434,7 +454,7 @@ def start_vocab_quiz_session(
     for card in candidates:
         if len(questions) >= payload.question_count:
             break
-        effective_mode = _effective_mode(payload.mode, card)
+        effective_mode = _effective_mode(payload.mode, card, rng)
         prompt, reveal, explanation = _prompt_and_reveal(effective_mode, card)
         if effective_mode in _CHOICE_MODES:
             option_ids = vocab_service.build_choice_option_ids(

@@ -483,6 +483,50 @@ def test_start_quiz_session_flash_meaning_to_term_reveals_term(seeded_session, c
     assert question["reveal"] == cards[0].term
 
 
+def test_start_quiz_session_flash_random_mode_produces_both_directions(seeded_session, client):
+    """FLASH_RANDOM（開発Todo_単語帳_出題導線改修_v1.0 U5・D4）は1問ごとに方向を抽選する
+    ため、カード数が十分に多ければ両方向（FLASH_TERM_TO_MEANING/FLASH_MEANING_TO_TERM）が
+    混在すること。全問が同じ方向になる確率は2^-39でテストの不安定要因にならない。"""
+    deck, cards = _make_deck_with_cards(seeded_session, 40)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "FLASH_RANDOM", "question_count": 40},
+    )
+
+    assert response.status_code == 200, response.text
+    modes = {q["mode"] for q in response.json()["questions"]}
+    assert modes == {"FLASH_TERM_TO_MEANING", "FLASH_MEANING_TO_TERM"}
+
+
+def test_start_quiz_session_choice_random_mode_produces_both_directions(seeded_session, client):
+    """CHOICE_RANDOM（開発Todo_単語帳_出題導線改修_v1.0 U5・D4）も同様に方向が混在すること。"""
+    deck, cards = _make_deck_with_cards(seeded_session, 40)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "CHOICE_RANDOM", "question_count": 40},
+    )
+
+    assert response.status_code == 200, response.text
+    modes = {q["mode"] for q in response.json()["questions"]}
+    assert modes == {"CHOICE_TERM_TO_MEANING", "CHOICE_MEANING_TO_TERM"}
+
+
+def test_start_quiz_session_choice_random_mode_rejects_deck_with_fewer_than_four_cards(
+    seeded_session, client
+):
+    """CHOICE_RANDOMも4択相当のため、既存のCHOICE_*と同じ最低カード数チェックを受けること。"""
+    deck, cards = _make_deck_with_cards(seeded_session, 3)
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "CHOICE_RANDOM", "question_count": 1},
+    )
+
+    assert response.status_code == 400
+
+
 def test_start_quiz_session_unmastered_filter_excludes_mastered_cards(seeded_session, client):
     """filter=UNMASTERED で出題を開始したとき、習得済み（直近`vocab.mastery_streak`回正解）
     のカードが出題されないこと（不具合1の再現テスト。`start_vocab_quiz_session`が
@@ -1309,6 +1353,26 @@ def test_start_quiz_session_situation_card_always_uses_flash_situation_mode(seed
     assert question["mode"] == "FLASH_SITUATION"
     assert question["prompt"] == "状況\n\n問い"
     assert question["reveal"] == "最善の対応"
+
+
+def test_start_quiz_session_situation_card_ignores_flash_random_mode(seeded_session, client):
+    """FLASH_RANDOM選択時も、シチュエーションカードは常にFLASH_SITUATIONで出題されること
+    （開発Todo_単語帳_出題導線改修_v1.0 D5）。"""
+    goal = make_exam_goal(seeded_session)
+    deck = make_deck(seeded_session, goal)
+    card = make_situation_card(
+        seeded_session, deck, situation_text="状況", question_text="問い", meaning="最善の対応"
+    )
+
+    response = client.post(
+        f"/api/v1/vocab-decks/{deck.id}/quiz-sessions",
+        json={"mode": "FLASH_RANDOM", "card_type": "ALL", "question_count": 1},
+    )
+
+    assert response.status_code == 200, response.text
+    question = response.json()["questions"][0]
+    assert question["card_id"] == card.id
+    assert question["mode"] == "FLASH_SITUATION"
 
 
 def test_start_quiz_session_card_type_filter_situation_only(seeded_session, client):

@@ -21,7 +21,7 @@ import { SubjectsTab } from '../features/goal/SubjectsTab'
 import { MaterialsTab } from '../features/goal/MaterialsTab'
 import { ResourceAllocationTab } from '../features/goal/ResourceAllocationTab'
 import { LoadProfileTab } from '../features/goal/LoadProfileTab'
-import { VocabDeckListTab } from '../features/vocab/VocabDeckListTab'
+import { VocabDeckWordsTab } from '../features/vocab/VocabDeckWordsTab'
 import { GoalConsultationTab } from '../features/goalConsultation/GoalConsultationTab'
 import { BookTab } from '../features/goal/BookTab'
 import { WorkAssignmentTab } from '../features/goal/WorkAssignmentTab'
@@ -461,7 +461,7 @@ function GoalDetailTabContent({
           {activeTab === 'loadProfile' && <LoadProfileTab goal={goal} readOnly={isReadOnly} />}
           {/* 単語帳は目標の状態に関わらず常に編集・出題できるため、他タブと異なり
               isReadOnlyを渡さない（開発Todo_単語帳_v1.0 §0 U1）。 */}
-          {activeTab === 'vocab' && <VocabDeckListTab goalId={goal.id} />}
+          {activeTab === 'vocab' && <VocabDeckWordsTab goalId={goal.id} />}
         </>
       )}
       {/* スケジュールタブは資格・読書・仕事の3種別で共通のため（D-01、開発Todo_スケジュール・

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen } from '@testing-library/react'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
+import { ROUTES } from '../constants/routes'
 import { renderWithProviders } from '../test/renderWithProviders'
 import { VocabHomePage } from './VocabHomePage'
 
@@ -48,5 +49,16 @@ describe('VocabHomePage', () => {
 
     expect(await screen.findByText('資格目標')).toBeDefined()
     expect(screen.queryByText('読書目標')).toBeNull()
+  })
+
+  it('links a goal directly to its quiz setup screen, not the goal detail page', async () => {
+    /** 開発Todo_単語帳_出題導線改修_v1.0 U6：目標詳細を経由せず問題出題内容設定画面
+     * （中継ページ経由）へ直接遷移すること。 */
+    listGoals.mockResolvedValue([{ id: 1, name: '資格目標', category: 'EXAM' }])
+    renderWithProviders(<VocabHomePage />)
+
+    const link = (await screen.findByText('資格目標')).closest('a')
+
+    expect(link?.getAttribute('href')).toBe(ROUTES.vocabGoalQuiz(1))
   })
 })

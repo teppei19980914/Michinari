@@ -30,6 +30,10 @@ export const ROUTE_PATTERNS = {
   vocab: '/vocab',
   vocabDeck: '/vocab/:deckId',
   vocabQuiz: '/vocab/:deckId/quiz',
+  //: 全画面ヘッダーの単語帳タブ→目標クリックの直接遷移先（開発Todo_単語帳_出題導線改修
+  //: _v1.0 U6・D6）。1目標1デッキのため、ここでgoalIdからdeckIdを解決してvocabQuizへ
+  //: 中継する。
+  vocabGoalQuiz: '/vocab/by-goal/:goalId/quiz',
   help: '/help',
 } as const
 
@@ -61,5 +65,6 @@ export const ROUTES = {
   vocab: ROUTE_PATTERNS.vocab,
   vocabDeck: (deckId: number) => `/vocab/${deckId}`,
   vocabQuiz: (deckId: number) => `/vocab/${deckId}/quiz`,
+  vocabGoalQuiz: (goalId: number) => `/vocab/by-goal/${goalId}/quiz`,
   help: ROUTE_PATTERNS.help,
 } as const
