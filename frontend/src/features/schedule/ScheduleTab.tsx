@@ -7,6 +7,7 @@ import { ScheduleConflictDialog } from './ScheduleConflictDialog'
 import { ScheduleEmptyState } from './ScheduleEmptyState'
 import { ScheduleGrid } from './ScheduleGrid'
 import { ScheduleRevisionPanel } from './ScheduleRevisionPanel'
+import { buildItemTitleById, buildProposedBandByItemId } from './scheduleRevisionBandMapping'
 import { ScheduleToolbar } from './ScheduleToolbar'
 import { useScheduleEditorState } from './useScheduleEditorState'
 import { useScheduleHolidays } from './useScheduleHolidays'
@@ -73,24 +74,8 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
   const canAddColumn = editor.draft.columns.length < maxCustomColumns
 
   const proposal = editor.pendingRevisionProposal
-  const itemTitleById: Record<number, string> = {}
-  for (const item of editor.draft.items) {
-    if (item.id !== null) itemTitleById[item.id] = item.title
-  }
-  // 未判断の変更行（stale除く）だけをガントへ点線で重ねる（D-57）。日付を手で修正した
-  // 場合は`datesFor`（ScheduleRevisionPanelと共有）の編集後の値を使う。
-  const proposedBandByItemId: Record<number, { start: string; end: string }> = {}
-  if (proposal) {
-    for (const proposalItem of proposal.items) {
-      if (
-        proposalItem.kind === 'CHANGE' &&
-        proposalItem.decision === 'PENDING' &&
-        !proposalItem.is_stale
-      ) {
-        proposedBandByItemId[proposalItem.schedule_item_id] = datesFor(proposalItem)
-      }
-    }
-  }
+  const itemTitleById = buildItemTitleById(editor.draft.items)
+  const proposedBandByItemId = buildProposedBandByItemId(proposal, datesFor)
 
   return (
     <div className="flex flex-col gap-3">
