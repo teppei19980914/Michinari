@@ -601,6 +601,17 @@ def decide(
         raise ScheduleRevisionProposalNotPendingError(proposal.id)
 
     items_by_id = {item.id: item for item in proposal.items}
+    # decisionsの件数分session.get()を呼ぶとN+1になるため、対象のScheduleItemを1クエリで
+    # 一括取得する（schedule_service.apply_report_schedule_item_updatesと同じ方針。
+    # コミット前チェックのperformance-reviewerで検出・修正）。
+    schedule_items_by_id = {
+        item.id: item
+        for item in session.scalars(
+            select(ScheduleItem).where(
+                ScheduleItem.id.in_([pi.schedule_item_id for pi in proposal.items])
+            )
+        )
+    }
     resolved: list[tuple[ScheduleRevisionProposalItem, ScheduleItem, dict]] = []
     seen_proposal_item_ids: set[int] = set()
 
@@ -623,7 +634,7 @@ def decide(
             raise ValidationError(
                 f"ScheduleRevisionProposalItem(id={proposal_item.id}) is already decided"
             )
-        schedule_item = session.get(ScheduleItem, proposal_item.schedule_item_id)
+        schedule_item = schedule_items_by_id.get(proposal_item.schedule_item_id)
         if schedule_item is None:  # pragma: no cover - ON DELETE CASCADEで通常到達しない
             # schedule_itemはON DELETE CASCADEでproposal_item自体も削除されるため、通常は
             # 到達しない防御的分岐（異常系、CODING_RULES.md）。
