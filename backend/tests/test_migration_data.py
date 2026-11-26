@@ -1033,6 +1033,48 @@ def test_vocab_deck_consolidation_migration_merges_multiple_decks_into_one(tmp_p
     assert answer_log_count == 1
 
 
+def test_vocab_deck_consolidation_migration_merges_three_or_more_decks(tmp_path, monkeypatch):
+    """3件以上のデッキが対象でも、IN句のプレースホルダが正しく複数生成され全件が統合される
+    こと（injection-reviewerレビューで指摘。2件のケースのみでは、プレースホルダを複数件
+    生成するコード経路の回帰を検知できないため追加、開発Todo_単語帳_出題導線改修_v1.0 U9）。"""
+    db_path = tmp_path / "vocab_deck_consolidation_merge_three.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("68a52f450ee0")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        for deck_id, display_order in ((10, 0), (20, 1), (30, 2)):
+            connection.execute(
+                "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, "
+                "display_order, updated_at, created_at) "
+                f"VALUES ({deck_id}, 1, '単語帳{deck_id}', NULL, 1, {display_order}, "
+                "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+            )
+            connection.execute(
+                "INSERT INTO vocab_card (id, deck_id, card_type, term, meaning, aliases, note, "
+                "situation_text, question_text, is_checked, display_order, updated_at, "
+                "created_at) "
+                f"VALUES ({deck_id * 10}, {deck_id}, 'TERM', '用語{deck_id}', '意味{deck_id}', "
+                "NULL, NULL, NULL, NULL, 0, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+            )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        decks = connection.execute(
+            "SELECT id FROM vocab_deck WHERE goal_id = 1 ORDER BY id"
+        ).fetchall()
+        cards = connection.execute("SELECT id, deck_id FROM vocab_card ORDER BY id").fetchall()
+
+    assert decks == [(10,)]
+    assert cards == [(100, 10), (200, 10), (300, 10)]
+
+
 def test_vocab_deck_consolidation_migration_creates_deck_for_exam_goal_without_one(
     tmp_path, monkeypatch
 ):

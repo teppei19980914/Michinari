@@ -10,8 +10,9 @@ import { QUERY_KEYS } from '../constants/queryKeys'
  * （デッキ）はユーザーに見せないため、デッキ自体の詳細画面は廃止し、そのデッキが属する
  * 目標の詳細画面（単語帳タブ）へ案内するだけにする。`QuizSession.tsx`の「単語帳で確認する」
  * リンク・`VocabQuizPage`/`VocabQuizSummaryView`の「戻る」リンクがこのルートを参照し続け
- * ているため、ルート自体（`ROUTES.vocabDeck`）は変更しない。 */
-export function VocabDeckDetailPage() {
+ * ているため、ルート自体（`ROUTES.vocabDeck`）は変更しない（style-reviewer指摘によりファイル
+ * 名・コンポーネント名のみ実態＝中継専用に合わせて`VocabDeckDetailPage`から改名、2026-11-27）。 */
+export function VocabDeckRedirectPage() {
   const { deckId: deckIdParam } = useParams<{ deckId: string }>()
   const deckId = Number(deckIdParam)
 

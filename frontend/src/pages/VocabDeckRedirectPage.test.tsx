@@ -5,7 +5,7 @@ import { Route, RouterProvider, createMemoryRouter, createRoutesFromElements } f
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
 import { ROUTE_PATTERNS } from '../constants/routes'
-import { VocabDeckDetailPage } from './VocabDeckDetailPage'
+import { VocabDeckRedirectPage } from './VocabDeckRedirectPage'
 import type { VocabDeck } from '../api/vocab'
 
 const getVocabDeck = vi.hoisted(() => vi.fn())
@@ -33,7 +33,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
   }
 }
 
-/** `VocabDeckDetailPage`はdeckIdから遷移先（目標詳細）を決めるため、実際のルーティングで
+/** `VocabDeckRedirectPage`はdeckIdから遷移先（目標詳細）を決めるため、実際のルーティングで
  * 検証する（`DailyReportPage.test.tsx`と同じ理由。`MemoryRouter`単体では`<Navigate>`の
  * 遷移先に何が描画されるか確認できない）。 */
 function renderAtDeckRoute(deckId: number) {
@@ -43,7 +43,7 @@ function renderAtDeckRoute(deckId: number) {
   const router = createMemoryRouter(
     createRoutesFromElements(
       <>
-        <Route path={ROUTE_PATTERNS.vocabDeck} element={<VocabDeckDetailPage />} />
+        <Route path={ROUTE_PATTERNS.vocabDeck} element={<VocabDeckRedirectPage />} />
         <Route path={ROUTE_PATTERNS.goalDetail} element={<p>{GOAL_DETAIL_MARKER}</p>} />
       </>,
     ),
@@ -64,7 +64,7 @@ afterEach(() => {
   cleanup()
 })
 
-describe('VocabDeckDetailPage', () => {
+describe('VocabDeckRedirectPage', () => {
   it('shows the loading text while fetching', () => {
     getVocabDeck.mockReturnValue(new Promise(() => {}))
     renderAtDeckRoute(5)

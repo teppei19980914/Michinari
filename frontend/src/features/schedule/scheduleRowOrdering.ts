@@ -1,7 +1,7 @@
 /**
  * 行・列の並べ替え（上下・左右のボタン、D-13）。ドラッグ操作は対象外。
- * `vocabDeckOrder.ts`と同型の純粋関数（CODING_RULES.md DRYの原則）。行（上下）・追加列
- * （左右）の両方から使える汎用実装にする。
+ * 配列の要素を1つ分前後へ入れ替えるだけの純粋関数。行（上下）・追加列（左右）の両方から
+ * 使える汎用実装にする。
  */
 export function moveByOffset<T>(items: T[], index: number, offset: number): T[] {
   const target = index + offset
