@@ -105,6 +105,7 @@ export function DailyReportPage() {
         milestoneCelebration={actions.milestoneCelebration}
         scheduleItemValues={draft.scheduleItemValues}
         scheduleItemIdsByCategory={actions.scheduleItemIdsByCategory}
+        generateScheduleRevisionForGoals={actions.generateScheduleRevisionForGoals}
       />
 
       {showGoalSelector && (
@@ -172,6 +173,7 @@ function DailyReportSections({
           actions={actions.exam}
           isReported={reported.isExamReported}
           quickNoteMaxChars={quickNoteMaxChars}
+          scheduleRevisionStatusByGoalId={actions.scheduleRevisionStatusByGoalId}
         />
       )}
 
@@ -186,6 +188,7 @@ function DailyReportSections({
           actions={actions.reading}
           isReported={reported.isReadingReported}
           quickNoteMaxChars={quickNoteMaxChars}
+          scheduleRevisionStatusByGoalId={actions.scheduleRevisionStatusByGoalId}
         />
       )}
 
@@ -199,6 +202,7 @@ function DailyReportSections({
           actions={actions.work}
           isReported={reported.isWorkReported}
           quickNoteMaxChars={quickNoteMaxChars}
+          scheduleRevisionStatusByGoalId={actions.scheduleRevisionStatusByGoalId}
         />
       )}
 

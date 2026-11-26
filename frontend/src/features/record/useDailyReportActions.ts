@@ -40,6 +40,10 @@ import { buildWorkLogPayload } from './workLogForm'
 import { buildDiaryEntriesPayload } from './diaryForm'
 import { buildScheduleItemUpdatesPayload, selectScheduleItemIdsForGoals } from './scheduleItemsDraft'
 import type { RecordInputMode } from './recordInputMode'
+import {
+  useScheduleRevisionBanner,
+  type ScheduleRevisionBannerStatus,
+} from './useScheduleRevisionBanner'
 
 /** 1カテゴリ分の操作（AI対話・確定）と、そのカテゴリに属する対話履歴。 */
 export type CategoryActions = {
@@ -68,6 +72,12 @@ export type DailyReportActions = {
    * そのカテゴリの確定APIへ含めて送るために使う（2026-11-24、利用者の判断）。 */
   scheduleItemIdsByCategory: Record<GoalCategory, ReadonlySet<number>>
   milestoneCelebration: MilestoneCelebrationForPage
+  /** 確定後に自動生成した修正案の状態（開発Todo_スケジュール・ガントチャート_v1.1
+   * 13.1・13.8、単位5）。目標IDごとに持つ（カテゴリ内に複数の目標がありうるため）。 */
+  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
+  /** ZeroRecordButton（「今日は何もしていない」）等、本フック以外の経路で確定した場合に
+   * 同じ生成依頼を行うための窓口（単位5、14章補足2「ひとこと記録モードの確定も対象」）。 */
+  generateScheduleRevisionForGoals: (goalIds: number[], recordDate: string) => void
 }
 
 export type DailyReportActionsOptions = {
@@ -300,6 +310,7 @@ export function useDailyReportActions({
   const { showApiError } = useToast()
   const milestoneQueue = useMilestoneCelebrationQueue()
   const aiConfigured = useAiConfigured()
+  const scheduleRevisionBanner = useScheduleRevisionBanner()
 
   // 対話・確定の対象goal_id。日次フィードバックを目標単位の会話へ分離したため（Phase26、
   // 未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を指しているかを解決する。
@@ -342,6 +353,9 @@ export function useDailyReportActions({
    * 読み取り専用に切り替わる（仕様変更2026-09-05）。 */
   const onFinalized = (record: DailyRecordRead) => {
     invalidateDailyRecordCaches(queryClient, targetDate)
+    // 確定した種別のうち遅れのある目標ごとに、画面から修正案の生成を依頼する
+    // （新しい常駐処理を増やさない、13.1）。
+    scheduleRevisionBanner.generateForGoals(record.schedule_revision_candidates, targetDate)
     if (isAllCategoriesReported(presence, toCategoryReportedState(record))) {
       navigate(ROUTES.dashboard)
     }
@@ -394,5 +408,7 @@ export function useDailyReportActions({
       checkGoal: milestoneQueue.checkGoal,
       onDismiss: () => milestoneQueue.dismissCurrent(showApiError),
     },
+    scheduleRevisionStatusByGoalId: scheduleRevisionBanner.statusByGoalId,
+    generateScheduleRevisionForGoals: scheduleRevisionBanner.generateForGoals,
   }
 }

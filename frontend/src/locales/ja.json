@@ -1103,6 +1103,11 @@
       "expand": "全文を表示",
       "collapse": "閉じる"
     },
+    "scheduleRevision": {
+      "generating": "スケジュールの修正案を作成中…",
+      "succeeded": "修正案があります（スケジュールタブで確認）",
+      "failed": "修正案を作成できませんでした（スケジュールタブから作り直せます）"
+    },
     "studyLog": {
       "title": "実績入力",
       "empty": "本日対象の教材はありません",
