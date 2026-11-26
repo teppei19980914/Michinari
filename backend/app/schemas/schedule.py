@@ -9,6 +9,7 @@ import datetime as dt
 from pydantic import BaseModel, Field, model_validator
 
 from app.constants.enums import GoalCategory, ScheduleItemStatus
+from app.schemas.schedule_revision import ScheduleRevisionProposalRead
 
 
 class ScheduleCellInput(BaseModel):
@@ -108,6 +109,8 @@ class ScheduleRead(BaseModel):
     gantt_day_width_max_rem: float
     columns: list[ScheduleColumnRead]
     items: list[ScheduleItemRead]
+    #: 未判断のAI修正案（あれば1件、単位5・13.7）。無ければNone。
+    pending_revision_proposal: ScheduleRevisionProposalRead | None
 
 
 class ScheduleViewSettingUpdate(BaseModel):

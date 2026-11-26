@@ -123,6 +123,7 @@ function renderSection(overrides: Partial<ExamReportSectionProps> = {}) {
       actions={buildActions()}
       isReported
       quickNoteMaxChars={200}
+      scheduleRevisionStatusByGoalId={{}}
       {...overrides}
     />,
   )

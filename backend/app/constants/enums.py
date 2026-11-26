@@ -134,6 +134,10 @@ class AiPurpose(enum.StrEnum):
     SUMMARY_CARD_SENTENCE = "SUMMARY_CARD_SENTENCE"
     SUMMARY_CARD_SENTENCE_READING = "SUMMARY_CARD_SENTENCE_READING"
     SUMMARY_CARD_SENTENCE_WORK = "SUMMARY_CARD_SENTENCE_WORK"
+    #: AIによるスケジュール修正案の生成（開発Todo_スケジュール・ガントチャート_v1.1
+    #: 第13章、単位5）。1回ごとに完結する呼び出しで会話は継続しない（13.3）。
+    #: 3カテゴリ共通の1用途（D-52、日次フィードバックのプロンプト・品質には影響させない）。
+    SCHEDULE_REVISION = "SCHEDULE_REVISION"
 
 
 class ConversationScope(enum.StrEnum):
@@ -169,6 +173,8 @@ class ConversationScope(enum.StrEnum):
     SUMMARY_CARD_SENTENCE = "SUMMARY_CARD_SENTENCE"
     SUMMARY_CARD_SENTENCE_READING = "SUMMARY_CARD_SENTENCE_READING"
     SUMMARY_CARD_SENTENCE_WORK = "SUMMARY_CARD_SENTENCE_WORK"
+    #: AiPurposeの同名定数と対になるスケジュール修正案生成用の会話スコープ。
+    SCHEDULE_REVISION = "SCHEDULE_REVISION"
 
 
 class WorkMemberGender(enum.StrEnum):
@@ -351,6 +357,49 @@ class ScheduleColumnType(enum.StrEnum):
     """
 
     TEXT = "TEXT"
+
+
+class ScheduleRevisionTrigger(enum.StrEnum):
+    """AIによるスケジュール修正案の生成きっかけ（開発Todo_スケジュール・ガントチャート_v1.1
+    13.1・13.7、単位5）。AUTOは日次報告の確定後の自動生成、MANUALはスケジュールタブの
+    「AIに修正案を依頼」ボタン。
+    """
+
+    AUTO = "AUTO"
+    MANUAL = "MANUAL"
+
+
+class ScheduleRevisionProposalStatus(enum.StrEnum):
+    """修正案（schedule_revision_proposal）の状態（本書13.6）。
+
+    PENDINGは未判断の行が残っている、RESOLVEDは全行判断済み、SUPERSEDEDは新しい修正案に
+    置き換えられて終了（D-65、目標ごとに未判断の修正案は常に1つ）。
+    """
+
+    PENDING = "PENDING"
+    RESOLVED = "RESOLVED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class ScheduleRevisionItemKind(enum.StrEnum):
+    """修正案の行の種類（本書13.6）。CHANGEは予定日の変更案、WARNINGは期限内に収まらない等の注意。"""
+
+    CHANGE = "CHANGE"
+    WARNING = "WARNING"
+
+
+class ScheduleRevisionDecision(enum.StrEnum):
+    """修正案の行に対する利用者の判断（本書13.6・13.7）。
+
+    ACKNOWLEDGEDはWARNING行の「確認しました」。SUPERSEDEDはD-65で古い修正案の未判断行が
+    置き換えられた場合。
+    """
+
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    ACKNOWLEDGED = "ACKNOWLEDGED"
+    SUPERSEDED = "SUPERSEDED"
 
 
 class VocabTermSuggestionStatus(enum.StrEnum):

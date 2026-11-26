@@ -7,6 +7,7 @@ import { apiErrorMessage } from '../api/client'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
 import { TodayMessage } from '../features/dashboard/TodayMessage'
+import { ScheduleRevisionBanner } from '../features/dashboard/ScheduleRevisionBanner'
 import { WarningBanner } from '../features/dashboard/WarningBanner'
 import { TodayStatusSection } from '../features/dashboard/TodayStatusSection'
 import { TodayQuotaSection } from '../features/dashboard/TodayQuotaSection'
@@ -104,6 +105,7 @@ export function DashboardPage() {
 
       <TodayMessage goalId={targetGoalId} />
       <WarningBanner goalCards={goalCards} />
+      <ScheduleRevisionBanner goalCards={goalCards} />
       <TodayStatusSection logicalDate={dashboard.logical_date} recordState={dashboard.record_state} />
       <TodayQuotaSection
         todayQuota={todayQuota}

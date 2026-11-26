@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
@@ -330,7 +330,11 @@ function GoalStatusActions({ goal }: { goal: GoalDetailRead }) {
 export function GoalDetailPage() {
   const { goalId: goalIdParam } = useParams<{ goalId: string }>()
   const goalId = Number(goalIdParam)
-  const [tab, setTab] = useState<TabKey>('basicInfo')
+  // 日次報告・ダッシュボードからのスケジュール修正案の案内リンク（13.8、単位5）が
+  // `?tab=schedule`で直接スケジュールタブを開けるようにする。クエリが無い・無効な値の
+  // 場合は後段の`activeTab`が基本情報タブへ読み替える。
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState<TabKey>((searchParams.get('tab') as TabKey) ?? 'basicInfo')
 
   const goalQuery = useQuery({ queryKey: QUERY_KEYS.goal(goalId), queryFn: () => getGoal(goalId) })
 

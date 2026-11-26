@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeDelayDays, isDelayed } from './scheduleDelay'
+import { computeDelayDays, computeDelayInfo, isDelayed } from './scheduleDelay'
 
 describe('computeDelayDays', () => {
   it('未着手で本日が予定終了日と同じ日は遅れていない（境界値）', () => {
@@ -78,5 +78,56 @@ describe('computeDelayDays', () => {
     }
     expect(isDelayed(delayed, '2026-11-23')).toBe(true)
     expect(isDelayed(onTime, '2026-11-23')).toBe(false)
+  })
+})
+
+describe('computeDelayInfo（開始の遅れ、単位5・13.2・14章補足4）', () => {
+  it('未着手で本日が予定開始日と同じ日は開始の遅れではない（境界値）', () => {
+    const item = {
+      status: 'NOT_STARTED' as const,
+      planned_start_date: '2026-11-10',
+      planned_end_date: '2026-12-31',
+      actual_end_date: null,
+    }
+    expect(computeDelayInfo(item, '2026-11-10')).toBeNull()
+  })
+
+  it('未着手で本日が予定開始日の翌日なら開始の遅れ1日（境界値）', () => {
+    const item = {
+      status: 'NOT_STARTED' as const,
+      planned_start_date: '2026-11-10',
+      planned_end_date: '2026-12-31',
+      actual_end_date: null,
+    }
+    expect(computeDelayInfo(item, '2026-11-11')).toEqual({ kind: 'START_DELAY', days: 1 })
+  })
+
+  it('予定終了日も過ぎている場合は終了の遅れを優先する', () => {
+    const item = {
+      status: 'NOT_STARTED' as const,
+      planned_start_date: '2026-11-10',
+      planned_end_date: '2026-11-20',
+      actual_end_date: null,
+    }
+    expect(computeDelayInfo(item, '2026-12-01')).toEqual({ kind: 'END_DELAY', days: 11 })
+  })
+
+  it('進行中の行は開始の遅れの対象外（既に着手済み）', () => {
+    const item = {
+      status: 'IN_PROGRESS' as const,
+      planned_start_date: '2026-11-10',
+      planned_end_date: '2026-12-31',
+      actual_end_date: null,
+    }
+    expect(computeDelayInfo(item, '2026-11-15')).toBeNull()
+  })
+
+  it('planned_start_dateを省略した場合は開始の遅れを判定しない（既存の呼び出し元向けの後方互換）', () => {
+    const item = {
+      status: 'NOT_STARTED' as const,
+      planned_end_date: '2026-12-31',
+      actual_end_date: null,
+    }
+    expect(computeDelayInfo(item, '2026-11-15')).toBeNull()
   })
 })

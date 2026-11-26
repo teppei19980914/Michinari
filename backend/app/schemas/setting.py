@@ -36,6 +36,7 @@ class AiConnectionSettingsRead(BaseModel):
     assistant_uid_daily_feedback_reading_brief: str
     assistant_uid_daily_feedback_work_brief: str
     assistant_uid_summary_card: str
+    assistant_uid_schedule_revision: str
     folder_prefix: str
     timeout_seconds: int
     min_interval_seconds: int
@@ -64,6 +65,7 @@ class AiConnectionSettingsUpdate(BaseModel):
     assistant_uid_daily_feedback_reading_brief: str | None = None
     assistant_uid_daily_feedback_work_brief: str | None = None
     assistant_uid_summary_card: str | None = None
+    assistant_uid_schedule_revision: str | None = None
     folder_prefix: str | None = Field(default=None, min_length=1)
     timeout_seconds: int | None = Field(default=None, ge=1)
     min_interval_seconds: int | None = Field(default=None, ge=0)

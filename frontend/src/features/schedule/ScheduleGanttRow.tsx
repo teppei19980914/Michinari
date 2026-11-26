@@ -7,7 +7,7 @@ import {
   computeBandRem,
   type ScheduleGanttItemInput,
 } from './scheduleGanttGeometry'
-import { computeDelayDays } from './scheduleDelay'
+import { computeDelayInfo } from './scheduleDelay'
 
 //: 実績帯の色（D-18：進行中はアクセント色、完了は成功を表す緑、中止はグレー）。
 //: 未着手は実績帯を持たない（computeActualBandRangeが常にnullを返すため使われない）。
@@ -22,7 +22,7 @@ function buildTooltipLabel(
   title: string,
   item: ScheduleGanttItemInput,
   actualRange: { startIso: string; endIso: string } | null,
-  delayDays: number | null,
+  delayInfo: { kind: 'END_DELAY' | 'START_DELAY'; days: number } | null,
 ): string {
   const lines = [
     title,
@@ -37,8 +37,10 @@ function buildTooltipLabel(
         })
       : t('schedule.gantt.tooltip.noActual'),
   ]
-  if (delayDays !== null) {
-    lines.push(t('schedule.gantt.delayDays', { days: delayDays, count: delayDays }))
+  if (delayInfo !== null) {
+    const key =
+      delayInfo.kind === 'START_DELAY' ? 'schedule.gantt.notStartedDelayDays' : 'schedule.gantt.delayDays'
+    lines.push(t(key, { days: delayInfo.days, count: delayInfo.days }))
   }
   return lines.join(' / ')
 }
@@ -70,12 +72,12 @@ export function ScheduleGanttRow({
   const actualBand = actualRange
     ? computeBandRem(rangeStartIso, actualRange.startIso, actualRange.endIso, dayWidthRem)
     : null
-  const delayDays = computeDelayDays(item, today)
+  const delayInfo = computeDelayInfo(item, today)
   const delayMarkLeftRem = (actualBand ?? plannedBand).leftRem + (actualBand ?? plannedBand).widthRem
 
   return (
     <Tooltip
-      label={buildTooltipLabel(title, item, actualRange, delayDays)}
+      label={buildTooltipLabel(title, item, actualRange, delayInfo)}
       position="below"
       // Tooltip本体の既定クラスに`relative`が含まれるため、`absolute`を追加指定しても
       // CSSの詳細度が同じ`relative`に負けて無効化される（独立レビュー指摘、コンパイル済み
@@ -96,7 +98,7 @@ export function ScheduleGanttRow({
             style={{ left: `${actualBand.leftRem}rem`, width: `${actualBand.widthRem}rem` }}
           />
         )}
-        {delayDays !== null && (
+        {delayInfo !== null && (
           <div
             data-testid="delay-mark"
             className="absolute top-0 h-full w-0.5 bg-schedule-delay-mark"

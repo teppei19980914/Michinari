@@ -40,6 +40,7 @@ function sampleScheduleRead(overrides: Partial<ScheduleRead> = {}): ScheduleRead
         cells: [],
       },
     ],
+    pending_revision_proposal: null,
     ...overrides,
   }
 }

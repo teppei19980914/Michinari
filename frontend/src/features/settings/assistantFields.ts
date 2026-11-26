@@ -79,6 +79,10 @@ export const ASSISTANT_FIELDS = [
     field: 'assistant_uid_summary_card',
     labelKey: 'settings.aiConnection.assistant.summaryCard',
   },
+  {
+    field: 'assistant_uid_schedule_revision',
+    labelKey: 'settings.aiConnection.assistant.scheduleRevision',
+  },
 ] as const
 
 export type AssistantUidField = Extract<keyof AiConnection, `assistant_uid_${string}`>

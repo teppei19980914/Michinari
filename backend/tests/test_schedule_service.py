@@ -1287,3 +1287,94 @@ def test_apply_report_schedule_item_updates_overwrites_with_latest_input_when_ca
     item = seeded_session.get(ScheduleItem, item_id)
     assert item.status == ScheduleItemStatus.DONE
     assert item.actual_end_date == _TODAY
+
+
+class TestComputeDelayKind:
+    """13.2の遅れの判定（単位5、ガントの遅れの印D-18もこの関数の結果を使う）。
+    2種類の条件の境界（本日＝予定日、本日＝予定日＋1日）を検証する（13.10）。
+    """
+
+    def _item(self, **kwargs) -> ScheduleItem:
+        defaults = dict(
+            id=1,
+            goal_id=1,
+            title="作業項目A",
+            planned_start_date=dt.date(2026, 11, 10),
+            planned_end_date=dt.date(2026, 11, 20),
+            status=ScheduleItemStatus.NOT_STARTED,
+            actual_start_date=None,
+            actual_end_date=None,
+            display_order=0,
+        )
+        defaults.update(kwargs)
+        return ScheduleItem(**defaults)
+
+    def test_not_started_is_not_delayed_on_the_planned_end_date(self):
+        """開始の遅れの影響を避けるため、予定開始日=予定終了日の単日タスクで終了日単体の
+        境界を検証する。"""
+        item = self._item(
+            planned_start_date=dt.date(2026, 11, 20), planned_end_date=dt.date(2026, 11, 20)
+        )
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 11, 20)) is None
+
+    def test_not_started_has_end_delay_the_day_after_the_planned_end_date(self):
+        item = self._item(
+            planned_start_date=dt.date(2026, 11, 20), planned_end_date=dt.date(2026, 11, 20)
+        )
+        assert (
+            schedule_service.compute_delay_kind(item, dt.date(2026, 11, 21))
+            == schedule_service.ScheduleDelayKind.END_DELAY
+        )
+
+    def test_not_started_is_not_delayed_on_the_planned_start_date(self):
+        item = self._item(planned_end_date=dt.date(2026, 12, 31))
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 11, 10)) is None
+
+    def test_not_started_has_start_delay_the_day_after_the_planned_start_date(self):
+        item = self._item(planned_end_date=dt.date(2026, 12, 31))
+        assert (
+            schedule_service.compute_delay_kind(item, dt.date(2026, 11, 11))
+            == schedule_service.ScheduleDelayKind.START_DELAY
+        )
+
+    def test_end_delay_takes_priority_over_start_delay(self):
+        """予定終了日も過ぎている場合はEND_DELAYを優先する（本書14章補足4）。"""
+        item = self._item()
+        assert (
+            schedule_service.compute_delay_kind(item, dt.date(2026, 12, 1))
+            == schedule_service.ScheduleDelayKind.END_DELAY
+        )
+
+    def test_in_progress_is_not_delayed_on_the_planned_end_date(self):
+        item = self._item(
+            status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=dt.date(2026, 11, 10)
+        )
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 11, 20)) is None
+
+    def test_in_progress_has_end_delay_the_day_after_the_planned_end_date(self):
+        item = self._item(
+            status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=dt.date(2026, 11, 10)
+        )
+        assert (
+            schedule_service.compute_delay_kind(item, dt.date(2026, 11, 21))
+            == schedule_service.ScheduleDelayKind.END_DELAY
+        )
+
+    def test_in_progress_never_has_start_delay(self):
+        """進行中の行は既に着手済みのため開始の遅れは対象外（13.2は未着手のみ）。"""
+        item = self._item(
+            status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=dt.date(2026, 11, 15)
+        )
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 11, 15)) is None
+
+    def test_done_item_is_never_delayed(self):
+        item = self._item(
+            status=ScheduleItemStatus.DONE,
+            actual_start_date=dt.date(2026, 11, 10),
+            actual_end_date=dt.date(2026, 11, 25),
+        )
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 12, 1)) is None
+
+    def test_cancelled_item_is_never_delayed(self):
+        item = self._item(status=ScheduleItemStatus.CANCELLED)
+        assert schedule_service.compute_delay_kind(item, dt.date(2026, 12, 1)) is None

@@ -55,6 +55,7 @@ function renderButton(props: Partial<ZeroRecordButtonProps> = {}) {
             goalIdsByCategory={{ EXAM: 1, READING: null, WORK: null }}
             scheduleItemValues={{}}
             scheduleItemIdsByCategory={{ EXAM: new Set(), READING: new Set(), WORK: new Set() }}
+            generateScheduleRevisionForGoals={vi.fn()}
             {...props}
           />
         }
@@ -94,6 +95,7 @@ describe('ZeroRecordButton', () => {
         goalIdsByCategory={{ EXAM: null, READING: null, WORK: null }}
         scheduleItemValues={{}}
         scheduleItemIdsByCategory={{ EXAM: new Set(), READING: new Set(), WORK: new Set() }}
+        generateScheduleRevisionForGoals={vi.fn()}
       />,
     )
     expect(screen.queryByRole('button')).toBe(null)
@@ -154,6 +156,34 @@ describe('ZeroRecordButton', () => {
     })
     expect(recordsApi.finalizeWorkRecord).not.toHaveBeenCalled()
     expect(await screen.findByText(t('dailyReport.zeroRecord.planDayMessage'))).toBeTruthy()
+  })
+
+  it('requests a schedule revision for every category that reports delayed goals (単位5, 14章補足2)', async () => {
+    const user = userEvent.setup()
+    const presence: CategoryPresence = {
+      hasExamCategory: true,
+      hasReadingCategory: true,
+      hasWorkCategory: false,
+    }
+    vi.mocked(recordsApi.finalizeRecord).mockResolvedValue(
+      buildRecord({ exam_record_state: 'REPORTED', schedule_revision_candidates: [1] }),
+    )
+    vi.mocked(recordsApi.finalizeReadingRecord).mockResolvedValue(
+      buildRecord({ reading_record_state: 'REPORTED', schedule_revision_candidates: [2] }),
+    )
+    const generateScheduleRevisionForGoals = vi.fn()
+    renderButton({
+      categories: ['EXAM', 'READING'],
+      presence,
+      generateScheduleRevisionForGoals,
+    })
+
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.button') }))
+    await user.click(screen.getByRole('button', { name: t('dailyReport.zeroRecord.confirmSubmit') }))
+
+    await waitFor(() =>
+      expect(generateScheduleRevisionForGoals).toHaveBeenCalledWith([1, 2], TARGET_DATE),
+    )
   })
 
   it('includes a touched schedule item in the zero-record finalize call for its category (単位4, D-35)', async () => {

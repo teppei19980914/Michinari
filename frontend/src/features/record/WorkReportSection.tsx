@@ -6,6 +6,8 @@ import { WorkLogFields } from './WorkLogFields'
 import { WorkLogSummaryList } from './WorkLogSummaryList'
 import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
+import { DailyReportScheduleRevisionBanner } from './DailyReportScheduleRevisionBanner'
+import type { DailyReportScheduleRevisionBannerStatus } from './useDailyReportScheduleRevisionBanner'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildWorkAssignmentLabels } from './summaryLabels'
 import { patchFormValue } from './formValues'
@@ -25,6 +27,8 @@ export type WorkReportSectionProps = {
   isReported: boolean
   /** 1行メモの最大文字数（`quick_record.note_max_chars`、開発Todo「ひとこと記録」v1.0）。 */
   quickNoteMaxChars: number
+  /** 確定後の修正案の案内（開発Todo_スケジュール・ガントチャート_v1.1 13.1・13.8、単位5）。 */
+  scheduleRevisionStatusByGoalId: Record<number, DailyReportScheduleRevisionBannerStatus>
 }
 
 /** 仕事カテゴリの業務記録入力とAI対話・確定（仕様書6.5「仕事目標の実績入力」、要件定義書R-75）。
@@ -42,6 +46,7 @@ export function WorkReportSection({
   actions,
   isReported,
   quickNoteMaxChars,
+  scheduleRevisionStatusByGoalId,
 }: WorkReportSectionProps) {
   // 呼び出し元（DailyReportPage）はtargets.showWorkSection（workAssignmentsが1件以上ある
   // ことが前提）のときのみ本コンポーネントを描画するため、workAssignmentsが空になる分岐は
@@ -49,6 +54,7 @@ export function WorkReportSection({
   // 同じ方針）。
   /* v8 ignore next */
   const quickNoteAssignmentId = targets.workAssignments[0]?.id ?? null
+  const workGoalIds = new Set(targets.workAssignments.map((assignment) => assignment.goal_id))
   return (
     <CategoryReportSection
       labels={{
@@ -71,6 +77,13 @@ export function WorkReportSection({
             readOnly
             draft={draft}
           />
+          {[...workGoalIds].map((goalId) => (
+            <DailyReportScheduleRevisionBanner
+              key={goalId}
+              goalId={goalId}
+              status={scheduleRevisionStatusByGoalId[goalId]}
+            />
+          ))}
         </>
       }
       editor={
