@@ -1,7 +1,6 @@
 import type { RefObject } from 'react'
 import { ScheduleDataRow } from './ScheduleDataRow'
-import { ScheduleFixedColumnsHeader } from './ScheduleFixedColumnsHeader'
-import { ScheduleGanttHeader } from './ScheduleGanttHeader'
+import { ScheduleGridHeaderRow } from './ScheduleGridHeaderRow'
 import { ScheduleOverlaidRows } from './ScheduleOverlaidRows'
 import { buildScheduleRowProps } from './buildScheduleRowProps'
 import type { DateRangeIso, DayTypeRun } from './scheduleGanttGeometry'
@@ -105,27 +104,22 @@ export function ScheduleGridBody({
   return (
     <div ref={scrollRef} className="overflow-x-auto" data-testid="schedule-grid-scroll">
       <div className="sticky top-0 z-20 bg-surface">
-        <div className="flex">
-          <ScheduleFixedColumnsHeader
-            customColumns={draft.columns}
-            readOnly={readOnly}
-            rowActionsLeftRem={rowActionsLeftRem}
-            columnLeftOffsetsRem={columnLeftOffsetsRem}
-            columnErrorsByKey={columnErrorsByKey}
-            columnHasAnyValue={columnHasAnyValue}
-            onRenameColumn={onRenameColumn}
-            onMoveColumn={onMoveColumn}
-            onRemoveColumn={onRemoveColumn}
-          />
-          <ScheduleGanttHeader
-            rangeStartIso={range.startIso}
-            rangeEndIso={range.endIso}
-            dayWidthRem={dayWidthRem}
-            holidayIsoDates={holidayIsoDates}
-            holidayYearFrom={holidayYearFrom}
-            holidayYearTo={holidayYearTo}
-          />
-        </div>
+        <ScheduleGridHeaderRow
+          customColumns={draft.columns}
+          readOnly={readOnly}
+          rowActionsLeftRem={rowActionsLeftRem}
+          columnLeftOffsetsRem={columnLeftOffsetsRem}
+          columnErrorsByKey={columnErrorsByKey}
+          columnHasAnyValue={columnHasAnyValue}
+          range={range}
+          dayWidthRem={dayWidthRem}
+          holidayIsoDates={holidayIsoDates}
+          holidayYearFrom={holidayYearFrom}
+          holidayYearTo={holidayYearTo}
+          onRenameColumn={onRenameColumn}
+          onMoveColumn={onMoveColumn}
+          onRemoveColumn={onRemoveColumn}
+        />
         <ScheduleOverlaidRows
           fixedAreaWidthRem={fixedAreaWidthRem}
           dayTypeRuns={dayTypeRuns}

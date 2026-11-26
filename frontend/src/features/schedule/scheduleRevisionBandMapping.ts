@@ -1,5 +1,6 @@
 import type { ScheduleRevisionProposalItemRead, ScheduleRevisionProposalRead } from '../../api/schedule'
-import type { ScheduleDraftItem } from './scheduleDraftTypes'
+import type { ScheduleDraft, ScheduleDraftItem } from './scheduleDraftTypes'
+import type { useScheduleEditorState } from './useScheduleEditorState'
 import type { EditedDates } from './useScheduleRevisionEditedDates'
 
 /** 作業項目id→作業項目名の対応表（修正案パネルの行の表題に使う、単位5・13.8）。
@@ -32,4 +33,26 @@ export function buildProposedBandByItemId(
     }
   }
   return result
+}
+
+/** `ScheduleTab`の行・列の上限・追加可否の算出（D-04・D-05等）。`ScheduleTab`を1関数
+ * 100行以内に収めるための分離（CODING_RULES.md「保守性（複雑度）」）。 */
+export function buildScheduleTabLayout(
+  editor: ReturnType<typeof useScheduleEditorState>,
+  draft: ScheduleDraft,
+) {
+  const maxItems = editor.maxItems as number
+  const maxCustomColumns = editor.maxCustomColumns as number
+  const ganttDayWidthMinRem = editor.ganttDayWidthMinRem as number
+  const ganttDayWidthMaxRem = editor.ganttDayWidthMaxRem as number
+  return {
+    maxItems,
+    maxCustomColumns,
+    ganttDayWidthMinRem,
+    ganttDayWidthMaxRem,
+    maxFrozenRowCount: draft.items.length,
+    maxFrozenColumnCount: 7 + draft.columns.length,
+    canAddRow: draft.items.length < maxItems,
+    canAddColumn: draft.columns.length < maxCustomColumns,
+  }
 }

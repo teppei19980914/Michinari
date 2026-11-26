@@ -6,8 +6,8 @@ import { ReadingLogFields } from './ReadingLogFields'
 import { ReadingLogSummaryList } from './ReadingLogSummaryList'
 import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
-import { ScheduleRevisionBanner } from './ScheduleRevisionBanner'
-import type { ScheduleRevisionBannerStatus } from './useScheduleRevisionBanner'
+import { DailyReportScheduleRevisionBanner } from './DailyReportScheduleRevisionBanner'
+import type { DailyReportScheduleRevisionBannerStatus } from './useDailyReportScheduleRevisionBanner'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildBookLabels } from './summaryLabels'
 import { patchFormValue } from './formValues'
@@ -29,7 +29,7 @@ export type ReadingReportSectionProps = {
   /** 1行メモの最大文字数（`quick_record.note_max_chars`、開発Todo「ひとこと記録」v1.0）。 */
   quickNoteMaxChars: number
   /** 確定後の修正案の案内（開発Todo_スケジュール・ガントチャート_v1.1 13.1・13.8、単位5）。 */
-  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
+  scheduleRevisionStatusByGoalId: Record<number, DailyReportScheduleRevisionBannerStatus>
 }
 
 /** 読書カテゴリの想起入力とAI対話・確定（仕様書6.5「読書目標の実績入力」、要件定義書R-65）。
@@ -78,7 +78,7 @@ export function ReadingReportSection({
             draft={draft}
           />
           {[...readingGoalIds].map((goalId) => (
-            <ScheduleRevisionBanner
+            <DailyReportScheduleRevisionBanner
               key={goalId}
               goalId={goalId}
               status={scheduleRevisionStatusByGoalId[goalId]}

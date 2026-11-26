@@ -9,6 +9,9 @@
 import pytest
 
 from app.ai import rate_limiter
+from app.constants.enums import GoalStatus
+from app.models.goal import Goal
+from tests import schedule_helpers
 from tests.ai_chat_fakes import FakeAi
 
 _TODAY_ISO = "2026-11-25"
@@ -90,6 +93,43 @@ def test_generate_endpoint_returns_null_proposal_when_auto_has_no_delay(client, 
     assert response.status_code == 200, response.text
     assert response.json()["proposal"] is None
     assert fake.sent == []
+
+
+def test_generate_endpoint_rejects_closed_goal(seeded_session, client):
+    goal = schedule_helpers.make_goal(seeded_session, status=GoalStatus.CLOSED_WITH_RESULT)
+
+    response = client.post(
+        f"/api/v1/goals/{goal.id}/schedule/revision-proposals",
+        json={"trigger": "MANUAL"},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+
+
+def test_decide_endpoint_rejects_closed_goal(seeded_session, client, monkeypatch):
+    goal = _create_goal(client)
+    item = _create_item(client, goal["id"], start="2026-12-01", end="2026-12-10")
+    FakeAi(monkeypatch, (_change_block(item["id"], "2026-12-05", "2026-12-15"),))
+    generated = client.post(
+        f"/api/v1/goals/{goal['id']}/schedule/revision-proposals",
+        json={"trigger": "MANUAL"},
+    ).json()
+    proposal_id = generated["proposal"]["id"]
+    proposal_item_id = generated["proposal"]["items"][0]["id"]
+
+    # 修正案の生成後に目標がクローズされた場合（D-54/D-58のガードは生成時点のみ、13.7）。
+    goal_row = seeded_session.get(Goal, goal["id"])
+    goal_row.status = GoalStatus.CLOSED_WITH_RESULT
+    seeded_session.flush()
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/schedule/revision-proposals/{proposal_id}/decisions",
+        json={"decisions": [{"proposal_item_id": proposal_item_id, "decision": "APPROVED"}]},
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
 
 
 def test_decide_endpoint_approves_a_change_and_bumps_the_revision(client, monkeypatch):

@@ -9,8 +9,8 @@ import { TodayVocabSuggestionsCard } from '../vocab/TodayVocabSuggestionsCard'
 import { selectDiaryEntriesEligibleForVocabSuggestions } from '../vocab/vocabSuggestionEligibility'
 import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
-import { ScheduleRevisionBanner } from './ScheduleRevisionBanner'
-import type { ScheduleRevisionBannerStatus } from './useScheduleRevisionBanner'
+import { DailyReportScheduleRevisionBanner } from './DailyReportScheduleRevisionBanner'
+import type { DailyReportScheduleRevisionBannerStatus } from './useDailyReportScheduleRevisionBanner'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildMaterialLabels } from './summaryLabels'
 import { filterWrittenDiaryEntries } from './diaryForm'
@@ -33,7 +33,7 @@ export type ExamReportSectionProps = {
   /** 1行メモの最大文字数（`quick_record.note_max_chars`、開発Todo「ひとこと記録」v1.0）。 */
   quickNoteMaxChars: number
   /** 確定後の修正案の案内（開発Todo_スケジュール・ガントチャート_v1.1 13.1・13.8、単位5）。 */
-  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
+  scheduleRevisionStatusByGoalId: Record<number, DailyReportScheduleRevisionBannerStatus>
 }
 
 /** 資格試験カテゴリの実績入力（学習実績＋日記）とAI対話・確定。
@@ -99,7 +99,7 @@ export function ExamReportSection({
             draft={draft}
           />
           {[...examGoalIds].map((goalId) => (
-            <ScheduleRevisionBanner
+            <DailyReportScheduleRevisionBanner
               key={goalId}
               goalId={goalId}
               status={scheduleRevisionStatusByGoalId[goalId]}

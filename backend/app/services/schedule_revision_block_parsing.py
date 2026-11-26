@@ -18,8 +18,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-#: ブロックの区切り（プロンプトで固定文字列として指定、quiz_block_parsingと同じ正規表現）。
-_BLOCK_SEPARATOR = re.compile(r"^\s*===\s*$", re.MULTILINE)
+from app.services.ai_block_parsing_common import split_blocks
 
 #: CHANGE（変更）ブロック：種類・行ID・予定開始日・予定終了日・理由の5フィールド。
 _CHANGE_BLOCK_PATTERN = re.compile(
@@ -37,9 +36,6 @@ _WARNING_BLOCK_PATTERN = re.compile(
 )
 #: 総評（任意、1行）。CHANGE/WARNINGどちらにも一致しなかったブロックの中から探す。
 _SUMMARY_PATTERN = re.compile(r"総評:[ \t]*(?P<summary>[^\n]+?)[ \t]*$", re.MULTILINE)
-
-#: 1ブロックとして非現実的な長さのブロックは正規表現に通さず破棄する（ReDoS対策の多層防御。
-#: quiz_block_parsingと同じ考え方、値は`schedule.revision.max_block_chars`で呼び出し側が渡す）。
 
 
 @dataclass(frozen=True)
@@ -74,10 +70,7 @@ def parse_response(response_text: str, *, max_block_chars: int) -> ParsedSchedul
     warnings: list[ParsedWarningBlock] = []
     summary: str | None = None
 
-    for block in _BLOCK_SEPARATOR.split(response_text):
-        if len(block) > max_block_chars:
-            continue
-
+    for block in split_blocks(response_text, max_block_chars=max_block_chars):
         change_match = _CHANGE_BLOCK_PATTERN.search(block)
         if change_match is not None:
             changes.append(
