@@ -1154,6 +1154,11 @@
       "expand": "Show full text",
       "collapse": "Collapse"
     },
+    "scheduleRevision": {
+      "generating": "Creating a schedule revision proposal…",
+      "succeeded": "There is a revision proposal (check the Schedule tab)",
+      "failed": "Could not create a proposal (you can retry from the Schedule tab)"
+    },
     "studyLog": {
       "title": "Enter results",
       "empty": "No materials are scheduled for today",
