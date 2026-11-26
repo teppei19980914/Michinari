@@ -107,7 +107,7 @@ export function useZeroRecordAction({
           scheduleItemIdsByCategory[category],
         )
         lastRecord = await FINALIZE_AS_ZERO[category](targetDate, scheduleItemUpdates)
-        scheduleRevisionCandidateIds.push(...lastRecord.schedule_revision_candidates)
+        scheduleRevisionCandidateIds.push(...(lastRecord.schedule_revision_candidates ?? []))
       }
       return { lastRecord, scheduleRevisionCandidateIds }
     },

@@ -355,7 +355,7 @@ export function useDailyReportActions({
     invalidateDailyRecordCaches(queryClient, targetDate)
     // 確定した種別のうち遅れのある目標ごとに、画面から修正案の生成を依頼する
     // （新しい常駐処理を増やさない、13.1）。
-    scheduleRevisionBanner.generateForGoals(record.schedule_revision_candidates, targetDate)
+    scheduleRevisionBanner.generateForGoals(record.schedule_revision_candidates ?? [], targetDate)
     if (isAllCategoriesReported(presence, toCategoryReportedState(record))) {
       navigate(ROUTES.dashboard)
     }
