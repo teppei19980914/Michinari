@@ -1,17 +1,16 @@
-import { Link, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { t } from '../locales/t'
 import { ROUTES } from '../constants/routes'
-import { Button } from '../components/Button'
 import { apiErrorMessage } from '../api/client'
 import { getVocabDeck } from '../api/vocab'
-import { VocabDeckHeader } from '../features/vocab/VocabDeckHeader'
-import { VocabCardList } from '../features/vocab/VocabCardList'
-import { VocabImportExportPanel } from '../features/vocab/VocabImportExportPanel'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
-/** 単語帳詳細（開発Todo_単語帳_v1.0 要件A）。カードのCRUD・一括登録・書き出し・
- * 出題セッションへの入口をまとめる。 */
+/** `/vocab/:deckId` の中継ページ（開発Todo_単語帳_出題導線改修_v1.0 D8）。単語帳
+ * （デッキ）はユーザーに見せないため、デッキ自体の詳細画面は廃止し、そのデッキが属する
+ * 目標の詳細画面（単語帳タブ）へ案内するだけにする。`QuizSession.tsx`の「単語帳で確認する」
+ * リンク・`VocabQuizPage`/`VocabQuizSummaryView`の「戻る」リンクがこのルートを参照し続け
+ * ているため、ルート自体（`ROUTES.vocabDeck`）は変更しない。 */
 export function VocabDeckDetailPage() {
   const { deckId: deckIdParam } = useParams<{ deckId: string }>()
   const deckId = Number(deckIdParam)
@@ -28,23 +27,5 @@ export function VocabDeckDetailPage() {
     return <p className="p-6 text-sm text-danger-text">{apiErrorMessage(deckQuery.error)}</p>
   }
 
-  const deck = deckQuery.data
-
-  return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4">
-      <Link to={ROUTES.goalDetail(deck.goal_id)} className="text-sm text-accent hover:underline">
-        {t('vocab.deckDetail.backToGoal')}
-      </Link>
-
-      <VocabDeckHeader deck={deck} />
-
-      <Link to={ROUTES.vocabQuiz(deck.id)}>
-        <Button disabled={deck.card_count === 0}>{t('vocab.deckDetail.startQuizButton')}</Button>
-      </Link>
-
-      <VocabImportExportPanel deckId={deck.id} deckName={deck.name} />
-
-      <VocabCardList deckId={deck.id} />
-    </div>
-  )
+  return <Navigate to={ROUTES.goalDetail(deckQuery.data.goal_id)} replace />
 }

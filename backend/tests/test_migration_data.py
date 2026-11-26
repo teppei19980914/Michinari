@@ -973,6 +973,136 @@ def test_vocab_card_situation_fields_migration_downgrade_drops_new_columns_only(
     assert "question_text" not in card_columns
 
 
+def test_vocab_deck_consolidation_migration_merges_multiple_decks_into_one(tmp_path, monkeypatch):
+    """複数の単語帳（デッキ）を持つEXAM目標は、display_order最小の1件へカードを統合し、
+    他のデッキは削除すること（開発Todo_単語帳_出題導線改修_v1.0 U9・D3）。カード・解答履歴は
+    削除されないこと。"""
+    db_path = tmp_path / "vocab_deck_consolidation_merge.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("68a52f450ee0")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (10, 1, '単語帳A', NULL, 1, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (20, 1, '単語帳B', NULL, 1, 1, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_card (id, deck_id, card_type, term, meaning, aliases, note, "
+            "situation_text, question_text, is_checked, display_order, updated_at, created_at) "
+            "VALUES (100, 10, 'TERM', '用語A', '意味A', NULL, NULL, NULL, NULL, 0, 0, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_card (id, deck_id, card_type, term, meaning, aliases, note, "
+            "situation_text, question_text, is_checked, display_order, updated_at, created_at) "
+            "VALUES (200, 20, 'TERM', '用語B', '意味B', NULL, NULL, NULL, NULL, 0, 0, "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_answer_log (id, card_id, mode, is_correct, answered_at, "
+            "created_at) "
+            "VALUES (1000, 200, 'FLASH_TERM_TO_MEANING', 1, '2026-01-01T00:00:00', "
+            "'2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        decks = connection.execute(
+            "SELECT id FROM vocab_deck WHERE goal_id = 1 ORDER BY id"
+        ).fetchall()
+        cards = connection.execute("SELECT id, deck_id FROM vocab_card ORDER BY id").fetchall()
+        answer_log_count = connection.execute(
+            "SELECT COUNT(*) FROM vocab_answer_log WHERE card_id = 200"
+        ).fetchone()[0]
+
+    assert decks == [(10,)]
+    assert cards == [(100, 10), (200, 10)]
+    assert answer_log_count == 1
+
+
+def test_vocab_deck_consolidation_migration_creates_deck_for_exam_goal_without_one(
+    tmp_path, monkeypatch
+):
+    """単語帳が1件も無いEXAM目標には、目標名をそのままデッキ名として1件自動生成すること
+    （開発Todo_単語帳_出題導線改修_v1.0 U10・D3）。"""
+    db_path = tmp_path / "vocab_deck_consolidation_create.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("68a52f450ee0")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        decks = connection.execute(
+            "SELECT name, use_in_ai FROM vocab_deck WHERE goal_id = 1"
+        ).fetchall()
+
+    assert decks == [("資格目標A", 1)]
+
+
+def test_vocab_deck_consolidation_migration_leaves_single_deck_and_other_goals_untouched(
+    tmp_path, monkeypatch
+):
+    """既に単語帳が1件だけのEXAM目標はそのまま、単語帳を持ちえない読書目標には何も
+    作成しないこと（開発Todo_単語帳_出題導線改修_v1.0 §2 脅威モデルのMitigate項目：
+    対象外データへ影響しないことの確認）。"""
+    db_path = tmp_path / "vocab_deck_consolidation_untouched.db"
+    monkeypatch.setenv("MICHINARI_DATABASE_URL", f"sqlite:///{db_path}")
+
+    migration_helpers.upgrade_to("68a52f450ee0")  # 本マイグレーション（head）の1つ前
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (1, 'EXAM', '資格目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO vocab_deck (id, goal_id, name, description, use_in_ai, display_order, "
+            "updated_at, created_at) "
+            "VALUES (10, 1, '単語帳A', NULL, 0, 0, '2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+        connection.execute(
+            "INSERT INTO goal (id, category, name, start_date, status, updated_at, created_at) "
+            "VALUES (2, 'READING', '読書目標A', '2026-01-01', 'ACTIVE', "
+            "'2026-01-01T00:00:00', '2026-01-01T00:00:00')"
+        )
+
+    migration_helpers.upgrade_to("head")
+
+    with migration_helpers.sqlite_connection(db_path) as connection:
+        goal_1_decks = connection.execute(
+            "SELECT id, name, use_in_ai FROM vocab_deck WHERE goal_id = 1"
+        ).fetchall()
+        goal_2_deck_count = connection.execute(
+            "SELECT COUNT(*) FROM vocab_deck WHERE goal_id = 2"
+        ).fetchone()[0]
+
+    # use_in_ai=0のまま（移行が勝手に値を書き換えない）ことも確認する。
+    assert goal_1_decks == [(10, "単語帳A", 0)]
+    assert goal_2_deck_count == 0
+
+
 def test_schedule_tables_migration_upgrade_preserves_existing_goal_rows(tmp_path, monkeypatch):
     """新規create_tableのみのマイグレーション（b4bff554312c）でも、既存の他テーブルの行
     （目標）が保持され、新テーブルへ目標IDで行を追加できることを確認する

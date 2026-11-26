@@ -1972,26 +1972,10 @@
   "vocab": {
     "home": {
       "title": "Vocabulary",
-      "description": "Vocabulary decks belong to exam goals. Pick a goal to go to its Vocabulary tab.",
+      "description": "Vocabulary decks belong to exam goals. Pick a goal to start a quiz from its words. Add, edit, or delete words from the goal detail page's Vocabulary tab.",
       "empty": "You don't have any exam goals yet. Create one from the goals list."
     },
-    "deckList": {
-      "nameLabel": "Deck name",
-      "descriptionLabel": "Description (optional)",
-      "empty": "No vocabulary decks yet",
-      "cardCount": {
-        "one": "{{count}} card",
-        "other": "{{count}} cards"
-      },
-      "masteredCount": "{{mastered}} / {{total}} mastered",
-      "useInAiOffBadge": "Not used by AI",
-      "moveUp": "Move up",
-      "moveDown": "Move down",
-      "addTitle": "Add a vocabulary deck"
-    },
     "deckDetail": {
-      "backToGoal": "Back to goal detail",
-      "startQuizButton": "Start quiz",
       "masteredCount": "{{mastered}} / {{total}} mastered",
       "masteredBadge": "Mastered",
       "useInAiLabel": "Use in today's review and AI feedback",
@@ -2059,9 +2043,11 @@
       "modeOptions": {
         "FLASH_TERM_TO_MEANING": "Flip cards (term → meaning)",
         "FLASH_MEANING_TO_TERM": "Flip cards (meaning → term)",
+        "FLASH_RANDOM": "Flip cards (random direction)",
         "TYPED_MEANING_TO_TERM": "Typed answer (meaning → term)",
         "CHOICE_TERM_TO_MEANING": "4-choice (term → meaning)",
-        "CHOICE_MEANING_TO_TERM": "4-choice (meaning → term)"
+        "CHOICE_MEANING_TO_TERM": "4-choice (meaning → term)",
+        "CHOICE_RANDOM": "4-choice (random direction)"
       },
       "choiceUnavailableNotice": "4-choice is only available when the deck has 4 or more cards",
       "orderLabel": "Order",

@@ -313,6 +313,11 @@ class VocabQuizMode(enum.StrEnum):
     #: シチュエーションカード専用（開発Todo_単語帳_v1.0 要件F F-U4）。状況・問いを表示し、
     #: めくると最善の対応・解説を表示して自己採点する（FLASH_*と同じ自己判定方式）。
     FLASH_SITUATION = "FLASH_SITUATION"
+    #: 方向（用語→意味／意味→用語）を1問ごとにランダムに決める（開発Todo_単語帳_出題導線改修
+    #: _v1.0 U5・D4）。TERMカード専用。SITUATIONカードに当たった場合は他のモードと同じく
+    #: FLASH_SITUATIONへ差し替わる（`_effective_mode`）。
+    FLASH_RANDOM = "FLASH_RANDOM"
+    CHOICE_RANDOM = "CHOICE_RANDOM"
 
 
 class VocabCardType(enum.StrEnum):

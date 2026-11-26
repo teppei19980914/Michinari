@@ -8,8 +8,10 @@ import { listGoals } from '../api/goals'
 import { QUERY_KEYS } from '../constants/queryKeys'
 
 /** グローバルナビ「単語帳」の入口（開発Todo_単語帳_v1.0 要件A §0 D8）。単語帳は資格試験の
- * 目標にのみ紐づくため、まず資格試験の目標を選ばせ、各目標詳細の「単語帳」タブへ誘導する
- * （目標の状態に関わらず表示する、§0 U1）。 */
+ * 目標にのみ紐づくため、まず資格試験の目標を選ばせる（目標の状態に関わらず表示する、
+ * §0 U1）。目標をクリックすると、目標詳細を経由せず問題出題内容設定画面へ直接遷移する
+ * （開発Todo_単語帳_出題導線改修_v1.0 U6）。単語の追加・編集・削除は目標詳細の「単語帳」
+ * タブで行う。 */
 export function VocabHomePage() {
   const goalsQuery = useQuery({ queryKey: QUERY_KEYS.goals(), queryFn: listGoals })
 
@@ -30,7 +32,7 @@ export function VocabHomePage() {
       {examGoals.length === 0 && <p className="text-sm text-text-faint">{t('vocab.home.empty')}</p>}
 
       {examGoals.map((goal) => (
-        <Link key={goal.id} to={ROUTES.goalDetail(goal.id)}>
+        <Link key={goal.id} to={ROUTES.vocabGoalQuiz(goal.id)}>
           <Card className="hover:bg-surface-muted">
             <p className="text-sm font-medium text-text-primary">{goal.name}</p>
           </Card>

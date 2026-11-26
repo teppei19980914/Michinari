@@ -18,6 +18,7 @@ import { RecapThemeDetailPage } from './pages/RecapThemeDetailPage'
 import { QuizPage } from './pages/QuizPage'
 import { VocabHomePage } from './pages/VocabHomePage'
 import { VocabDeckDetailPage } from './pages/VocabDeckDetailPage'
+import { VocabGoalQuizRedirectPage } from './pages/VocabGoalQuizRedirectPage'
 import { VocabQuizPage } from './pages/VocabQuizPage'
 import { ExamResultPage } from './pages/ExamResultPage'
 import { KnowledgeExportPage } from './pages/KnowledgeExportPage'
@@ -73,6 +74,7 @@ const router = createBrowserRouter(
       <Route path={ROUTE_PATTERNS.quiz} element={<QuizPage />} />
       <Route path={ROUTE_PATTERNS.vocab} element={<VocabHomePage />} />
       <Route path={ROUTE_PATTERNS.vocabDeck} element={<VocabDeckDetailPage />} />
+      <Route path={ROUTE_PATTERNS.vocabGoalQuiz} element={<VocabGoalQuizRedirectPage />} />
       <Route path={ROUTE_PATTERNS.vocabQuiz} element={<VocabQuizPage />} />
       <Route path={ROUTE_PATTERNS.goalExport} element={<KnowledgeExportPage />} />
       <Route path={ROUTE_PATTERNS.goalResult} element={<ExamResultPage />} />

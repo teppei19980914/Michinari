@@ -1,22 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Route, RouterProvider, createMemoryRouter, createRoutesFromElements } from 'react-router-dom'
 import { t } from '../locales/t'
 import { apiErrorMessage } from '../api/client'
-import { renderWithProviders } from '../test/renderWithProviders'
+import { ROUTE_PATTERNS } from '../constants/routes'
 import { VocabDeckDetailPage } from './VocabDeckDetailPage'
 import type { VocabDeck } from '../api/vocab'
 
 const getVocabDeck = vi.hoisted(() => vi.fn())
-const getVocabCards = vi.hoisted(() => vi.fn())
-vi.mock('../api/vocab', () => ({
-  getVocabDeck,
-  getVocabCards,
-  updateVocabDeck: vi.fn(),
-  deleteVocabDeck: vi.fn(),
-  previewVocabImport: vi.fn(),
-  confirmVocabImport: vi.fn(),
-  exportVocabDeck: vi.fn(),
-}))
+vi.mock('../api/vocab', () => ({ getVocabDeck }))
+
+const GOAL_DETAIL_MARKER = '目標詳細に到達した'
 
 function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
   return {
@@ -38,9 +33,31 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
   }
 }
 
+/** `VocabDeckDetailPage`はdeckIdから遷移先（目標詳細）を決めるため、実際のルーティングで
+ * 検証する（`DailyReportPage.test.tsx`と同じ理由。`MemoryRouter`単体では`<Navigate>`の
+ * 遷移先に何が描画されるか確認できない）。 */
+function renderAtDeckRoute(deckId: number) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  const router = createMemoryRouter(
+    createRoutesFromElements(
+      <>
+        <Route path={ROUTE_PATTERNS.vocabDeck} element={<VocabDeckDetailPage />} />
+        <Route path={ROUTE_PATTERNS.goalDetail} element={<p>{GOAL_DETAIL_MARKER}</p>} />
+      </>,
+    ),
+    { initialEntries: [`/vocab/${deckId}`] },
+  )
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
-  getVocabCards.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -50,7 +67,7 @@ afterEach(() => {
 describe('VocabDeckDetailPage', () => {
   it('shows the loading text while fetching', () => {
     getVocabDeck.mockReturnValue(new Promise(() => {}))
-    renderWithProviders(<VocabDeckDetailPage />, { initialEntries: ['/vocab/5'] })
+    renderAtDeckRoute(5)
 
     expect(screen.getByText(t('common.loading'))).toBeDefined()
   })
@@ -58,30 +75,16 @@ describe('VocabDeckDetailPage', () => {
   it('shows an error message when fetching fails', async () => {
     const error = new Error('取得失敗')
     getVocabDeck.mockRejectedValue(error)
-    renderWithProviders(<VocabDeckDetailPage />, { initialEntries: ['/vocab/5'] })
+    renderAtDeckRoute(5)
 
     expect(await screen.findByText(apiErrorMessage(error))).toBeDefined()
   })
 
-  it('shows the deck name and disables the start-quiz button when there are no cards', async () => {
-    getVocabDeck.mockResolvedValue(makeDeck({ card_count: 0 }))
-    renderWithProviders(<VocabDeckDetailPage />, { initialEntries: ['/vocab/5'] })
+  it('redirects to the deck owner goal detail page once the deck loads', async () => {
+    getVocabDeck.mockResolvedValue(makeDeck({ goal_id: 42 }))
+    renderAtDeckRoute(5)
 
-    expect(await screen.findByText('資格デッキ')).toBeDefined()
-    expect(
-      (screen.getByRole('button', { name: t('vocab.deckDetail.startQuizButton') }) as HTMLButtonElement)
-        .disabled,
-    ).toBe(true)
-  })
-
-  it('enables the start-quiz button when there are cards', async () => {
-    getVocabDeck.mockResolvedValue(makeDeck({ card_count: 3 }))
-    renderWithProviders(<VocabDeckDetailPage />, { initialEntries: ['/vocab/5'] })
-
-    expect(
-      (
-        await screen.findByRole('button', { name: t('vocab.deckDetail.startQuizButton') })
-      ).hasAttribute('disabled'),
-    ).toBe(false)
+    expect(await screen.findByText(GOAL_DETAIL_MARKER)).toBeDefined()
+    expect(getVocabDeck).toHaveBeenCalledWith(5)
   })
 })

@@ -43,6 +43,7 @@ from app.services import (
     cycle_service,
     quota_service,
     setting_reader,
+    vocab_service,
 )
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError
 
@@ -204,6 +205,10 @@ def create_goal(
     session.add(goal)
     session.flush()
     _append_status_history(session, goal, from_status=None, to_status=GoalStatus.DRAFT)
+    if category == GoalCategory.EXAM:
+        #: 単語帳（デッキ）はユーザーに見せず、1目標につき常に1件を自動生成する
+        #: （開発Todo_単語帳_出題導線改修_v1.0 U1・U10・D1）。
+        vocab_service.create_deck(session, goal, name=goal.name, description=None)
     return goal
 
 
