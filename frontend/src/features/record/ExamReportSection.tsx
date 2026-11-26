@@ -32,6 +32,8 @@ export type ExamReportSectionProps = {
   isReported: boolean
   /** 1行メモの最大文字数（`quick_record.note_max_chars`、開発Todo「ひとこと記録」v1.0）。 */
   quickNoteMaxChars: number
+  /** 確定後の修正案の案内（開発Todo_スケジュール・ガントチャート_v1.1 13.1・13.8、単位5）。 */
+  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
 }
 
 /** 資格試験カテゴリの実績入力（学習実績＋日記）とAI対話・確定。
@@ -52,6 +54,7 @@ export function ExamReportSection({
   actions,
   isReported,
   quickNoteMaxChars,
+  scheduleRevisionStatusByGoalId,
 }: ExamReportSectionProps) {
   // 呼び出し元（DailyReportPage）はtargets.showExamSection（diaryGoalsが1件以上あること
   // が前提）のときのみ本コンポーネントを描画するため、diaryGoalsが空になる分岐は
@@ -95,6 +98,13 @@ export function ExamReportSection({
             readOnly
             draft={draft}
           />
+          {[...examGoalIds].map((goalId) => (
+            <ScheduleRevisionBanner
+              key={goalId}
+              goalId={goalId}
+              status={scheduleRevisionStatusByGoalId[goalId]}
+            />
+          ))}
         </>
       }
       editor={

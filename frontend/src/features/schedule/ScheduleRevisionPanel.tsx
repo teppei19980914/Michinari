@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Button } from '../../components/Button'
 import { t } from '../../locales/t'
 import type {
@@ -8,6 +7,7 @@ import type {
 } from '../../api/schedule'
 import { ScheduleRevisionChangeRow } from './ScheduleRevisionChangeRow'
 import { ScheduleRevisionWarningRow } from './ScheduleRevisionWarningRow'
+import { useScheduleRevisionPanelActions } from './useScheduleRevisionPanelActions'
 import type { EditedDates } from './useScheduleRevisionEditedDates'
 
 /**
@@ -17,6 +17,7 @@ import type { EditedDates } from './useScheduleRevisionEditedDates'
  * 承認・却下・確認済みのボタンをすべて無効化する（承認でrevisionが変わり、未保存の編集が
  * 409になるのを防ぐ、13.8）。承認前の日付修正（D-56）は`ScheduleTab`と共有する
  * `useScheduleRevisionEditedDates`で保持し、ガントの点線重ね表示（D-57）にも同じ値を渡す。
+ * 判断ハンドラ自体は`useScheduleRevisionPanelActions`へ分離している（複雑度対策）。
  */
 export function ScheduleRevisionPanel({
   proposal,
@@ -35,72 +36,20 @@ export function ScheduleRevisionPanel({
   setDates: (itemId: number, dates: EditedDates) => void
   onDecide: (decisions: ScheduleRevisionDecisionInput[]) => void
 }) {
-  const [rejectReasons, setRejectReasons] = useState<Record<number, string>>({})
-
   const pendingChangeItems = proposal.items.filter(
     (item) => item.kind === 'CHANGE' && item.decision === 'PENDING',
   )
   const pendingWarningItems = proposal.items.filter(
     (item) => item.kind === 'WARNING' && item.decision === 'PENDING',
   )
+  const { rejectReasons, setRejectReason, approve, reject, acknowledge, approveAll, rejectAll } =
+    useScheduleRevisionPanelActions(pendingChangeItems, datesFor, onDecide)
 
   if (pendingChangeItems.length === 0 && pendingWarningItems.length === 0) {
     return null
   }
 
   const disabled = !canDecide || isDeciding
-
-  function approve(item: ScheduleRevisionProposalItemRead) {
-    const dates = datesFor(item)
-    onDecide([
-      {
-        proposal_item_id: item.id,
-        decision: 'APPROVED',
-        planned_start_date: dates.start,
-        planned_end_date: dates.end,
-      },
-    ])
-  }
-
-  function reject(item: ScheduleRevisionProposalItemRead) {
-    onDecide([
-      {
-        proposal_item_id: item.id,
-        decision: 'REJECTED',
-        reject_reason: rejectReasons[item.id] || null,
-      },
-    ])
-  }
-
-  function acknowledge(item: ScheduleRevisionProposalItemRead) {
-    onDecide([{ proposal_item_id: item.id, decision: 'ACKNOWLEDGED' }])
-  }
-
-  function approveAll() {
-    const decisions: ScheduleRevisionDecisionInput[] = pendingChangeItems
-      .filter((item) => !item.is_stale)
-      .map((item) => {
-        const dates = datesFor(item)
-        return {
-          proposal_item_id: item.id,
-          decision: 'APPROVED',
-          planned_start_date: dates.start,
-          planned_end_date: dates.end,
-        }
-      })
-    if (decisions.length > 0) onDecide(decisions)
-  }
-
-  function rejectAll() {
-    const decisions: ScheduleRevisionDecisionInput[] = pendingChangeItems
-      .filter((item) => !item.is_stale)
-      .map((item) => ({
-        proposal_item_id: item.id,
-        decision: 'REJECTED',
-        reject_reason: rejectReasons[item.id] || null,
-      }))
-    if (decisions.length > 0) onDecide(decisions)
-  }
 
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-muted p-3">
@@ -120,9 +69,7 @@ export function ScheduleRevisionPanel({
               dates={datesFor(item)}
               rejectReason={rejectReasons[item.id] ?? ''}
               onChangeDates={(dates) => setDates(item.id, dates)}
-              onChangeRejectReason={(reason) =>
-                setRejectReasons((prev) => ({ ...prev, [item.id]: reason }))
-              }
+              onChangeRejectReason={(reason) => setRejectReason(item.id, reason)}
               onApprove={() => approve(item)}
               onReject={() => reject(item)}
             />

@@ -6,6 +6,8 @@ import { ReadingLogFields } from './ReadingLogFields'
 import { ReadingLogSummaryList } from './ReadingLogSummaryList'
 import { CategoryScheduleItemsField } from './CategoryScheduleItemsField'
 import { RecordModeToggle } from './RecordModeToggle'
+import { ScheduleRevisionBanner } from './ScheduleRevisionBanner'
+import type { ScheduleRevisionBannerStatus } from './useScheduleRevisionBanner'
 import { QuickRecordFields } from './QuickRecordFields'
 import { buildBookLabels } from './summaryLabels'
 import { patchFormValue } from './formValues'
@@ -26,6 +28,8 @@ export type ReadingReportSectionProps = {
   isReported: boolean
   /** 1行メモの最大文字数（`quick_record.note_max_chars`、開発Todo「ひとこと記録」v1.0）。 */
   quickNoteMaxChars: number
+  /** 確定後の修正案の案内（開発Todo_スケジュール・ガントチャート_v1.1 13.1・13.8、単位5）。 */
+  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
 }
 
 /** 読書カテゴリの想起入力とAI対話・確定（仕様書6.5「読書目標の実績入力」、要件定義書R-65）。
@@ -43,12 +47,14 @@ export function ReadingReportSection({
   actions,
   isReported,
   quickNoteMaxChars,
+  scheduleRevisionStatusByGoalId,
 }: ReadingReportSectionProps) {
   // 呼び出し元（DailyReportPage）はtargets.showReadingSection（booksが1件以上あることが
   // 前提）のときのみ本コンポーネントを描画するため、booksが空になる分岐は到達しない
   // 防御的分岐（OPERATIONS.md「到達不能な防御的分岐」、WorkMemberSection.tsxと同じ方針）。
   /* v8 ignore next */
   const quickNoteBookId = targets.books[0]?.id ?? null
+  const readingGoalIds = new Set(targets.books.map((book) => book.goal_id))
   return (
     <CategoryReportSection
       labels={{
@@ -71,6 +77,13 @@ export function ReadingReportSection({
             readOnly
             draft={draft}
           />
+          {[...readingGoalIds].map((goalId) => (
+            <ScheduleRevisionBanner
+              key={goalId}
+              goalId={goalId}
+              status={scheduleRevisionStatusByGoalId[goalId]}
+            />
+          ))}
         </>
       }
       editor={
