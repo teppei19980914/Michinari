@@ -41,9 +41,9 @@ import { buildDiaryEntriesPayload } from './diaryForm'
 import { buildScheduleItemUpdatesPayload, selectScheduleItemIdsForGoals } from './scheduleItemsDraft'
 import type { RecordInputMode } from './recordInputMode'
 import {
-  useScheduleRevisionBanner,
-  type ScheduleRevisionBannerStatus,
-} from './useScheduleRevisionBanner'
+  useDailyReportScheduleRevisionBanner,
+  type DailyReportScheduleRevisionBannerStatus,
+} from './useDailyReportScheduleRevisionBanner'
 
 /** 1カテゴリ分の操作（AI対話・確定）と、そのカテゴリに属する対話履歴。 */
 export type CategoryActions = {
@@ -74,7 +74,7 @@ export type DailyReportActions = {
   milestoneCelebration: MilestoneCelebrationForPage
   /** 確定後に自動生成した修正案の状態（開発Todo_スケジュール・ガントチャート_v1.1
    * 13.1・13.8、単位5）。目標IDごとに持つ（カテゴリ内に複数の目標がありうるため）。 */
-  scheduleRevisionStatusByGoalId: Record<number, ScheduleRevisionBannerStatus>
+  scheduleRevisionStatusByGoalId: Record<number, DailyReportScheduleRevisionBannerStatus>
   /** ZeroRecordButton（「今日は何もしていない」）等、本フック以外の経路で確定した場合に
    * 同じ生成依頼を行うための窓口（単位5、14章補足2「ひとこと記録モードの確定も対象」）。 */
   generateScheduleRevisionForGoals: (goalIds: number[], recordDate: string) => void
@@ -310,7 +310,7 @@ export function useDailyReportActions({
   const { showApiError } = useToast()
   const milestoneQueue = useMilestoneCelebrationQueue()
   const aiConfigured = useAiConfigured()
-  const scheduleRevisionBanner = useScheduleRevisionBanner()
+  const scheduleRevisionBanner = useDailyReportScheduleRevisionBanner()
 
   // 対話・確定の対象goal_id。日次フィードバックを目標単位の会話へ分離したため（Phase26、
   // 未決事項L-07の解消方針転換）、表示中のカテゴリセクションがどの1目標を指しているかを解決する。

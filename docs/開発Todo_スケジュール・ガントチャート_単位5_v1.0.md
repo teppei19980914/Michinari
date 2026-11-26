@@ -147,31 +147,76 @@
 
 ## 6. チェックリスト（実装）
 
-- [ ] 13.2: `schedule_service.compute_delay_kind`・`ScheduleDelayKind`、既存`computeDelayDays`のガント連携確認
-- [ ] 13.3: `AiPurpose.SCHEDULE_REVISION`・`ConversationScope.SCHEDULE_REVISION`、`app_setting`6キー、`seed_data.py`のprompt_template投入
-- [ ] 13.3: `schedule_revision_service`のAI呼び出し（ensure_conversation→send_and_log→discard_conversation、使い捨て会話）
-- [ ] 13.4: `schedule_revision_block_parsing`（CHANGE/WARNING/総評、ReDoS対策）
-- [ ] 13.5: 検証（所有者・状況・日付・期限・差分・理由・重複・注意ブロック）
-- [ ] 13.6: モデル2件・Alembicマイグレーション・`DATA_SCHEMA_VERSION`更新
-- [ ] 13.7: 確定3API応答への`schedule_revision_candidates`追加、生成API（AUTO/MANUAL、1日1回）、判断API（承認/却下/確認済み、stale検知、RESOLVED遷移）、`GET /goals/{goal_id}/schedule`への未判断修正案の埋め込み、`GET /dashboard`への案内追加
-- [ ] 13.8: スケジュールタブ（ボタン・パネル・点線重ね・未保存時の無効化）、SC-06の案内、ダッシュボードの案内
-- [ ] D-62: 目標の期限解決（EXAM/READING/WORK）
-- [ ] D-65: 古い修正案の置き換え（SUPERSEDED）
-- [ ] D-48: ja.json/en.json・help_content.json
-- [ ] D-49: 仕様書・設計書（ロジック・プロンプト編・データ構造編）
+- [x] 13.2: `schedule_service.compute_delay_kind`・`ScheduleDelayKind`、既存`computeDelayDays`のガント連携確認
+- [x] 13.3: `AiPurpose.SCHEDULE_REVISION`・`ConversationScope.SCHEDULE_REVISION`、`app_setting`6キー、`seed_data.py`のprompt_template投入
+- [x] 13.3: `schedule_revision_service`のAI呼び出し（ensure_conversation→send_and_log→discard_conversation、使い捨て会話）
+- [x] 13.4: `schedule_revision_block_parsing`（CHANGE/WARNING/総評、ReDoS対策）
+- [x] 13.5: 検証（所有者・状況・日付・期限・差分・理由・重複・注意ブロック）
+- [x] 13.6: モデル2件・Alembicマイグレーション・`DATA_SCHEMA_VERSION`更新
+- [x] 13.7: 確定3API応答への`schedule_revision_candidates`追加、生成API（AUTO/MANUAL、1日1回）、判断API（承認/却下/確認済み、stale検知、RESOLVED遷移）、`GET /goals/{goal_id}/schedule`への未判断修正案の埋め込み、`GET /dashboard`への案内追加
+- [x] 13.8: スケジュールタブ（ボタン・パネル・点線重ね・未保存時の無効化）、SC-06の案内、ダッシュボードの案内
+- [x] D-62: 目標の期限解決（EXAM/READING/WORK）
+- [x] D-65: 古い修正案の置き換え（SUPERSEDED）
+- [x] D-48: ja.json/en.json・help_content.json
+- [x] D-49: 仕様書・設計書（ロジック・プロンプト編・データ構造編）
 
 ## 7. 追跡表
 
-（実装完了後に実装箇所・テスト名を記入する）
+| D-ID | 内容 | 実装箇所 | テスト |
+| --- | --- | --- | --- |
+| D-41（改訂） | 本機能のデータは既存のAIプロンプト・ナレッジエクスポートに含めず、スケジュール修正案の生成時のみAIへ渡す | `AiPurpose.SCHEDULE_REVISION`を既存purposeと独立に新設（`enums.py`既存値は無変更）。`schedule_revision_service._build_daily_report_stages`等の文脈組み立てはこのサービス内のみで使用 | 回帰の網（4章）：既存の`test_daily_feedback_service.py`等を無変更のまま実行し基準2838件→2922件（新規84件は本単位関連のみ）で全合格を確認 |
+| D-51 | 単位5として単位1〜4完了後に開発する | （本単位の前提そのもの） | 0章のベースライン確認（単位1〜4のmainマージ・PR#145〜148確認） |
+| D-52 | 日次フィードバックとは別のAI呼び出しで生成し、既存フィードバックに影響させない | `schedule_revision_service._call_ai`（専用の`ensure_conversation`/`send_and_log`/`discard_conversation`） | `TestGenerateProposal`内のAI呼び出しテスト群、D-41と同じ回帰の網 |
+| D-53 | 生成のきっかけは確定後。確定応答は待たせない | `api/records.py`の確定3エンドポイントは`schedule_revision_candidates`のみ返す（AI呼び出しなし）。生成は画面側（`useDailyReportScheduleRevisionBanner.generateForGoals`）から確定後に別途呼ぶ | `test_api_records_exam.py`等の既存テスト（応答が無変更のまま通ること）、`useDailyReportScheduleRevisionBanner.test.ts` |
+| D-54 | 遅れはAIを使わずシステムが判定。遅れがなければAUTOはAIを呼ばない | `schedule_service.compute_delay_kind`、`schedule_revision_service.list_revision_candidate_goal_ids`・`generate_proposal`のAUTO分岐 | `TestComputeDelayKind`（`test_schedule_service.py`）、`test_auto_trigger_without_any_delay_returns_none_and_does_not_call_ai` |
+| D-55 | AIが変更できるのは未完了行の予定開始日・予定終了日のみ | `_validate_changes`の状況フィルタ、`ParsedChangeBlock`が予定日・理由のみを持つ | `test_discards_a_change_for_a_done_item` |
+| D-56 | 行ごとに承認・却下。承認前に日付を手で修正可。全承認・全却下 | `useScheduleRevisionEditedDates`・`useScheduleRevisionPanelActions`・`ScheduleRevisionChangeRow.tsx` | `ScheduleRevisionPanel.test.tsx`（「承認ボタンは編集後の日付を添えてonDecideを呼ぶ（D-56）」「開始日・終了日を入力し直すと...」） |
+| D-57 | 承認はスケジュールタブで行い、ガントに点線で重ねる。日次報告・ダッシュボードに案内とリンク | `ScheduleGanttProposedBand.tsx`・`scheduleRevisionBandMapping.buildProposedBandByItemId`、`DailyReportScheduleRevisionBanner.tsx`、`features/dashboard/ScheduleRevisionBanner.tsx`、`ROUTES.goalScheduleTab` | `ScheduleTab.test.tsx`（帯の表示）、`DailyReportScheduleRevisionBanner.test.tsx`、`features/dashboard/ScheduleRevisionBanner.test.tsx`、`GoalDetailPage.test.tsx`（deep link） |
+| D-58 | 「AIに修正案を依頼」ボタンで遅れがなくても依頼できる | `ScheduleToolbar.tsx`のボタン、`generate_proposal`のMANUAL分岐（遅れゲートを適用しない） | `test_manual_trigger_without_any_delay_still_calls_ai`、`ScheduleToolbar.test.tsx` |
+| D-59 | 変更前の値が一致する行だけ承認できる。不一致行は他行に影響させず保留 | `decide()`の`is_stale`判定・`blocked_reason="STALE_BEFORE_VALUE"` | `test_approving_a_stale_row_is_skipped_without_blocking_other_rows`、`test_decide_endpoint_marks_a_stale_row_without_applying_it` |
+| D-60 | 前後関係列は作らない。AIが行の並び順等から推測し理由に書く | プロンプト本文（`prompt_texts_common.SCHEDULE_REVISION`）の指示のみ。`ScheduleRevisionProposalItem`に順序/依存関係の列を追加していないことをモデル定義で確認 | `backend/app/models/schedule_revision.py`のフィールド一覧（順序列が存在しないこと） |
+| D-61 | 制約（進行中は終了日のみ・未着手は両方・本日以降・開始≦終了・理由必須・期限超え不可）に反する行は捨てる | `_invalid_planned_date_reason`（`_validate_changes`・`decide`共有、本単位コミット前チェックで抽出） | `TestGenerateProposal`の`test_discards_a_change_*`群、`TestDecideValidationErrors` |
+| D-62 | 目標の期限は既存仕様（資格=`compute_due_date`転用、読書=`book.due_date`、仕事=なし）に合わせる | `schedule_revision_service.resolve_goal_due_date` | `TestResolveGoalDueDate`（EXAM固定/範囲/複数科目/科目無し、READING、WORK） |
+| D-63 | 期限内に収まらない行は注意（WARNING）として理由付きで出す | `_validate_warnings`、プロンプトの「種類: 注意」指示 | `test_valid_warning_block_creates_a_warning_item`、`ScheduleRevisionPanel.test.tsx`（注意行表示） |
+| D-64 | 直近の却下内容を次回生成時にAIへ渡す。却下理由は任意 | `_format_recent_rejections`、`schedule.revision.recent_rejections_count` | `test_includes_recent_rejections_in_the_prompt` |
+| D-65 | 未承認の修正案がある状態で新しい修正案ができたら古い方の未判断行を置き換え済みとする | `_supersede_pending_proposal` | `test_a_new_proposal_supersedes_the_old_pending_one`、`test_superseding_skips_items_that_are_already_decided` |
+| D-66 | AIの応答は信頼しない入力として扱い、区切りブロック形式で検証、不正は個別に捨てる | `schedule_revision_block_parsing.py`（`ai_block_parsing_common.split_blocks`を共有、本単位コミット前チェックで抽出）、`_validate_changes`/`_validate_warnings`の所有者・状況・日付チェック | `test_schedule_revision_block_parsing.py`（ReDoS耐性含む）、`test_discards_a_change_block_for_another_goals_row`、`test_discards_a_warning_for_another_goals_row` |
+| D-18（拡張） | ガントの「開始の遅れ」の印をフロントエンドでも判定する | `scheduleDelay.computeDelayInfo`、`ScheduleGanttRow.tsx`のTooltip文言分岐 | `scheduleDelay.test.ts`（START_DELAY境界値群）、統合経路は`ScheduleGrid.test.tsx`（NOT_STARTED・today=開始日の4日後の固定値でカバー、独立レビューで確認） |
+| D-48 | ゼロハードコーディング（文言・設定値の外部化） | `ja.json`/`en.json`の`schedule.revision.*`等、`app_setting`6キー、`help_content.json`再生成 | `label-checker`エージェントでの横断確認（違反なし）、`test_help_content.py` |
+| D-49 | 仕様書・設計書の更新 | 6.2/6.1/6.5/10/08（AI-28追加）、設計書データ構造編5.1/5.2/5.4/5.6/06、設計書ロジック・プロンプト編31章新設 | （文書更新のため自動テスト対象外。更新箇所は本章末尾の10章・引き継ぎ事項に記載） |
 
 ## 8. 次の単位への引き継ぎ事項
 
-（本単位が最終単位のため、将来の拡張時の留意事項を記載する）
+本単位が本機能（開発Todo_スケジュール・ガントチャート_v1.1）の最終単位のため、将来このAI用途・画面へ手を入れる際の留意事項を記載する。
+
+1. **区切りブロック形式のAI応答解析を新設する場合は`backend/app/services/ai_block_parsing_common.py`の`split_blocks`を再利用すること。** 本単位のコミット前チェックで、`quiz_block_parsing.py`と`schedule_revision_block_parsing.py`が区切り正規表現・文字数上限ガードを逐語重複させていたことが判明し、この共通モジュールへ集約した（DRYの原則）。次に同系統のAI用途（区切りブロック形式）を追加する場合も、フィールド抽出の正規表現だけを専用に書き、ブロック分割自体は共有する。
+2. **同じ日付制約を生成時検証・承認時再検証の両方に課す場合は、両者で検証ロジックを共有すること。** `_invalid_planned_date_reason`（`schedule_revision_service.py`）がこの前例。片方だけ仕様変更すると他方が追従し忘れるリスクがあるため、将来13.5の制約（進行中の行の扱い等）を変更する際は、この共有関数越しに両経路が更新されることを確認する。
+3. **同じ役割（案内バナー等）を複数の画面に置く場合、コンポーネント名に画面名を冠して区別すること。** 本単位のコミット前チェックで、ダッシュボードと日次報告の両方に`ScheduleRevisionBanner`という同名だが別実装のコンポーネントが存在し、import時にファイルパスを見ないと区別できない状態になっていたため、日次報告側を`DailyReportScheduleRevisionBanner`（フックも`useDailyReportScheduleRevisionBanner`）へ改名した。ダッシュボード側は文脈上の曖昧さが小さいため改名を見送ったが、今後similar banner/hookを追加する際は最初から用途を冠した名前にする。
+4. **応答全体（ブロック分割前）には文字数上限が無い（既存の`quiz_block_parsing.py`と同じ設計、injection-reviewerが指摘・対応不要と判断）。** 1ブロックあたりの上限（`schedule.revision.max_block_chars`）はあるが、応答全体のサイズには上限がない。新規のDoS経路ではなく既存設計の横展開のため本単位では対応しないが、気になる場合は`quiz_block_parsing.py`側と合わせて別Issue化を検討する。
+5. **設定画面に出さない内部パラメータ（`schedule.revision.*`、フォルダ名）の一覧は`settings_service.py`のコメントに集約されている。** 単位2・AI-18・AI-25と同じ「設定画面からは変更できない内部パラメータ」の扱いを継続している。将来これらを設定画面へ出す場合は、この一覧コメントと`AiConnectionSection.tsx`側のテスト（購入数チェック）の両方を更新すること。
+6. **仕様書8章（AI連携仕様）のAI-NN表は、新規AI用途を追加するたびに本単位のように番号を振って追記する必要がある。** 本単位では当初この表への追記が漏れていたが、独立した文書更新エージェントのレビューで発見し、AI-28として追記して解消した。次回以降も新規AI用途の追加時はこの表（8.1節）と該当する詳細段落の両方を更新すること。
 
 ## 9. 報告が必要な食い違い・範囲外の不具合
 
-（実装完了時に記入する）
+2章で報告した2件（D-62の目標期限の補足実装、D-54/D-58のAUTO/MANUAL遅れゲートの適用範囲）は、いずれも実装を止めるべき食い違いではなく、本書の意図のとおり実装詳細で吸収できると判断して対応済み（詳細は2章参照）。
+
+実装完了後のコミット前チェック（10章）で新たに見つかった食い違い・不具合は無かった。独立レビュー（10章の8エージェント＋独立サブエージェントによる文書レビュー）で見つかった指摘はいずれも本単位の範囲内で修正済みであり、範囲外の既存不具合の発見も無かった。
 
 ## 10. コミット前チェック（15.1手順13・14・16）の結果と対応
 
-（実装完了時に記入する）
+CLAUDE.md「コミット前チェック」・15.1手順13に基づき、該当する観点別レビューエージェント8種（dry-reviewer・style-reviewer・label-checker・auth-reviewer・injection-reviewer・xss-reviewer・secret-reviewer・test-coverage-reviewer）を本単位のdiff（`96cac54..HEAD`、単位4のmainマージ直後からの差分）に対して並列実行した。performance-reviewerはN+1・再描画・非同期並列化の観点で該当する変更（ダッシュボードの1クエリ化等）が実装時点で既に対策済みのため個別起動は見送り、他エージェントの指摘にも性能面の指摘は無かった。
+
+| 観点 | 結果 | 対応 |
+| --- | --- | --- |
+| DRY/複雑度 | MEDIUM×2：①`schedule_revision_block_parsing.py`が`quiz_block_parsing.py`と区切り正規表現・サイズガードを逐語重複、②`_validate_changes`と`decide()`のAPPROVED分岐が同じ日付制約を別実装。LOW×1：`useScheduleTabErrorToasts`の3つの同型`useEffect` | ①`ai_block_parsing_common.py`を新設し両ファイルから共有、②`_invalid_planned_date_reason`を新設し両経路から共有。LOWは軽微と判断し見送り（3つで増殖が止まっており、増える兆候があれば次回対応） |
+| 命名・コメント | LOW×2：①`api/schedule_revision.py`の`_is_stale`第一引数`item`に型注釈が無い、②`ScheduleRevisionBanner`がdashboard/recordの2箇所で同名・別実装 | ①`ScheduleRevisionProposalItem`型を明示、②record側を`DailyReportScheduleRevisionBanner`（フックも`useDailyReportScheduleRevisionBanner`）へ改名。dashboard側は文脈上の曖昧さが小さいため維持 |
+| ハードコード文言 | 違反なし（画面文言は全て`t()`経由、閾値は全て`app_setting`経由であることを確認） | 対応不要 |
+| 認証・認可 | LOW×2：①`decide()`の検証ループが同一`proposal_item_id`の重複を明示的に拒否せずstale判定の副作用に依存、②CLOSED目標での生成・判断ブロックのAPI層回帰テストが無い | ①`decide()`冒頭で`seen_proposal_item_ids`による明示的な重複拒否を追加（`_validate_changes`等と同じ`seen_ids`パターン）、②`test_generate_endpoint_rejects_closed_goal`・`test_decide_endpoint_rejects_closed_goal`を追加 |
+| インジェクション（ReDoS・間接プロンプトインジェクション） | 重大な指摘なし。LOW×1：応答全体（分割前）に文字数上限が無い（既存`quiz_block_parsing.py`と同一方針） | 既存設計の横展開のため対応不要と判断（8章「引き継ぎ事項」4に記録） |
+| XSS | 指摘なし（AI生成文面は全てJSXのプレーン補間で表示、HTML直接挿入系APIを使っていないことを確認） | 対応不要 |
+| 機密情報 | 指摘なし（アシスタントUIDは既存の使い回しパターン、AI通信ログは既存のDBログ基盤のみ、ブラウザ記憶領域への保持なし） | 対応不要 |
+| テストカバレッジ | MEDIUM×2（`ScheduleGanttRow.tsx`のSTART_DELAY分岐、`scheduleRevisionBandMapping.ts`の未テスト分岐、との指摘） | 実測の`coverage-summary.json`で両ファイルとも実際には100%（branch含む）であることを確認。前者は`ScheduleGrid.test.tsx`の統合テスト（NOT_STARTED・today=開始日+4日の固定値）が間接的にカバーしており、後者も`ScheduleTab.test.tsx`経由で分岐を踏んでいることを確認。指摘は静的解析（専用テストファイルが無いこと）に基づく誤検知と判断し、追加テストは不要 |
+
+**独立レビュー（15.1手順16）**：上記8エージェントはいずれも実装の文脈を持たない新規サブエージェントとして起動し、diffのみから指摘を行った（実装時の意図を共有していない独立レビューの条件を満たす）。加えて文書更新（仕様書・設計書）も実装から独立した新規サブエージェントへ依頼し、既存記法との整合・抜け漏れ（8章AI-NN表への追記漏れ）を検出・報告させ、報告を受けて追記した。
+
+対応後、backend・frontendとも全テスト再実行済み（2章の比較を参照）。

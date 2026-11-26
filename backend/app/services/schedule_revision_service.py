@@ -353,6 +353,32 @@ class _ValidatedWarning:
     reason: str
 
 
+def _invalid_planned_date_reason(
+    *,
+    item_status: ScheduleItemStatus,
+    current_start: dt.date,
+    new_start: dt.date,
+    new_end: dt.date,
+    today: dt.date,
+) -> str | None:
+    """新しい予定日が13.5「新しい予定日」「進行中の行」の制約を満たすか判定する。
+
+    CHANGEブロックの生成時検証（`_validate_changes`）と承認時の再検証（`decide`のAPPROVED
+    分岐）の両方が同じルールを課すため、ここへ集約する（CLAUDE.md DRYの原則）。期限
+    （D-62）はここでは扱わない（生成時のみ適用し、承認時は利用者の判断を優先するため13.7の
+    仕様上も別扱い）。満たせば`None`、満たさなければ理由を返す。
+    """
+    if item_status == ScheduleItemStatus.IN_PROGRESS and new_start != current_start:
+        return "IN_PROGRESS items cannot change planned_start_date"
+    if new_start > new_end:
+        return "planned_start_date must not be after planned_end_date"
+    if new_end < today:
+        return "planned dates must not be before today"
+    if item_status == ScheduleItemStatus.NOT_STARTED and new_start < today:
+        return "planned dates must not be before today"
+    return None
+
+
 def _validate_changes(
     blocks: list[schedule_revision_block_parsing.ParsedChangeBlock],
     items_by_id: dict[int, ScheduleItem],
@@ -380,14 +406,17 @@ def _validate_changes(
         new_end = _parse_date(block.planned_end_date_raw)
         if new_start is None or new_end is None:
             continue
-        if item.status == ScheduleItemStatus.IN_PROGRESS and new_start != item.planned_start_date:
-            continue  # 進行中の行: 予定開始日は現在の値と同じであること（変更不可）。
-        if new_start > new_end:
-            continue
-        if new_end < today:
-            continue  # 新しい予定日: 本日以降。
-        if item.status == ScheduleItemStatus.NOT_STARTED and new_start < today:
-            continue
+        if (
+            _invalid_planned_date_reason(
+                item_status=item.status,
+                current_start=item.planned_start_date,
+                new_start=new_start,
+                new_end=new_end,
+                today=today,
+            )
+            is not None
+        ):
+            continue  # 13.5「新しい予定日」「進行中の行」の制約（_invalid_planned_date_reason）。
         if deadline is not None and new_end > deadline:
             continue  # 期限: 目標に期限がある場合、新しい予定終了日 ≦ 期限。
         reason = block.reason.strip()
@@ -573,9 +602,17 @@ def decide(
 
     items_by_id = {item.id: item for item in proposal.items}
     resolved: list[tuple[ScheduleRevisionProposalItem, ScheduleItem, dict]] = []
+    seen_proposal_item_ids: set[int] = set()
 
     # --- 検証（適用より先にすべて終える） ---
     for decision_input in decisions:
+        if decision_input.proposal_item_id in seen_proposal_item_ids:
+            # 同一行への二重判断を明示的に拒否する（stale判定の副作用に頼らない、_validate_
+            # changes/_validate_warningsのseen_idsと同じ方針、CLAUDE.md DRYの原則）。
+            raise ValidationError(
+                f"Duplicate proposal_item_id in request: {decision_input.proposal_item_id}"
+            )
+        seen_proposal_item_ids.add(decision_input.proposal_item_id)
         proposal_item = items_by_id.get(decision_input.proposal_item_id)
         if proposal_item is None:
             raise ValidationError(
@@ -618,19 +655,17 @@ def decide(
 
         new_start = decision_input.planned_start_date or proposal_item.proposed_planned_start_date
         new_end = decision_input.planned_end_date or proposal_item.proposed_planned_end_date
-        # 第6章の検証ルール＋13.5「新しい予定日」「進行中の行」を適用する。期限（D-62）は
-        # 利用者の判断を優先して適用しない（13.7）。
-        if (
-            schedule_item.status == ScheduleItemStatus.IN_PROGRESS
-            and new_start != schedule_item.planned_start_date
-        ):
-            raise ValidationError("IN_PROGRESS items cannot change planned_start_date")
-        if new_start > new_end:
-            raise ValidationError("planned_start_date must not be after planned_end_date")
-        if new_end < today or (
-            schedule_item.status == ScheduleItemStatus.NOT_STARTED and new_start < today
-        ):
-            raise ValidationError("planned dates must not be before today")
+        # 13.5「新しい予定日」「進行中の行」を適用する（_invalid_planned_date_reason、
+        # _validate_changesと共有）。期限（D-62）は利用者の判断を優先して適用しない（13.7）。
+        invalid_reason = _invalid_planned_date_reason(
+            item_status=schedule_item.status,
+            current_start=schedule_item.planned_start_date,
+            new_start=new_start,
+            new_end=new_end,
+            today=today,
+        )
+        if invalid_reason is not None:
+            raise ValidationError(invalid_reason)
         resolved.append(
             (
                 proposal_item,

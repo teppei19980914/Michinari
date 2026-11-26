@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.schedule import ScheduleItem
-from app.models.schedule_revision import ScheduleRevisionProposal
+from app.models.schedule_revision import ScheduleRevisionProposal, ScheduleRevisionProposalItem
 from app.schemas.schedule_revision import (
     ScheduleRevisionDecisionOutcome,
     ScheduleRevisionDecisionsRequest,
@@ -65,7 +65,7 @@ def serialize_proposal(
     )
 
 
-def _is_stale(item, current: ScheduleItem | None) -> bool:
+def _is_stale(item: ScheduleRevisionProposalItem, current: ScheduleItem | None) -> bool:
     if current is None:  # pragma: no cover - ON DELETE CASCADEで本行自体も削除されるため到達しない
         return True
     return (

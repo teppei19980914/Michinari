@@ -6,39 +6,39 @@ import { t } from '../../locales/t'
 import { ROUTES } from '../../constants/routes'
 import { renderWithProviders } from '../../test/renderWithProviders'
 import { GOAL_ID } from '../../test/fixtures'
-import { ScheduleRevisionBanner } from './ScheduleRevisionBanner'
+import { DailyReportScheduleRevisionBanner } from './DailyReportScheduleRevisionBanner'
 
 afterEach(() => {
   cleanup()
 })
 
-describe('ScheduleRevisionBanner', () => {
+describe('DailyReportScheduleRevisionBanner', () => {
   it('renders nothing when there is no status (not a candidate goal)', () => {
     const { container } = renderWithProviders(
-      <ScheduleRevisionBanner goalId={GOAL_ID} status={undefined} />,
+      <DailyReportScheduleRevisionBanner goalId={GOAL_ID} status={undefined} />,
     )
     expect(container.textContent).toBe('')
   })
 
   it('renders nothing when no revision was needed', () => {
     const { container } = renderWithProviders(
-      <ScheduleRevisionBanner goalId={GOAL_ID} status="no_proposal" />,
+      <DailyReportScheduleRevisionBanner goalId={GOAL_ID} status="no_proposal" />,
     )
     expect(container.textContent).toBe('')
   })
 
   it('shows the generating message', () => {
-    renderWithProviders(<ScheduleRevisionBanner goalId={GOAL_ID} status="generating" />)
+    renderWithProviders(<DailyReportScheduleRevisionBanner goalId={GOAL_ID} status="generating" />)
     expect(screen.getByText(t('dailyReport.scheduleRevision.generating'))).not.toBe(null)
   })
 
   it('shows the failure message', () => {
-    renderWithProviders(<ScheduleRevisionBanner goalId={GOAL_ID} status="failed" />)
+    renderWithProviders(<DailyReportScheduleRevisionBanner goalId={GOAL_ID} status="failed" />)
     expect(screen.getByText(t('dailyReport.scheduleRevision.failed'))).not.toBe(null)
   })
 
   it('links to the schedule tab when a proposal was created', () => {
-    renderWithProviders(<ScheduleRevisionBanner goalId={GOAL_ID} status="succeeded" />)
+    renderWithProviders(<DailyReportScheduleRevisionBanner goalId={GOAL_ID} status="succeeded" />)
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toBe(ROUTES.goalScheduleTab(GOAL_ID))
     expect(link.textContent).toContain(t('dailyReport.scheduleRevision.succeeded'))

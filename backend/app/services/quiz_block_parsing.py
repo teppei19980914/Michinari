@@ -16,8 +16,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-#: 問題と問題の間の区切り（プロンプトで固定文字列として指定）。
-_BLOCK_SEPARATOR = re.compile(r"^\s*===\s*$", re.MULTILINE)
+from app.services.ai_block_parsing_common import split_blocks
+
 #: 1ブロック分（問題文〜出典まで）を一括でマッチする正規表現。各フィールドは1行想定の
 #: ため`[^\n]+?`（改行を跨がない非貪欲）で区切り、`re.DOTALL`は使わない。`.+?`を
 #: `re.DOTALL`配下で連鎖させると、区切りリテラルと同じ文字列が入力中に繰り返し出現した
@@ -78,9 +78,7 @@ def parse_distractor_blocks(response_text: str) -> list[ParsedDistractorBlock]:
     （F-D11）。形式に合わないブロックは個別に無視する。
     """
     parsed: list[ParsedDistractorBlock] = []
-    for block in _BLOCK_SEPARATOR.split(response_text):
-        if len(block) > _MAX_BLOCK_CHARS:
-            continue
+    for block in split_blocks(response_text, max_block_chars=_MAX_BLOCK_CHARS):
         match = _DISTRACTOR_BLOCK_PATTERN.search(block)
         if match is None:
             continue
@@ -104,9 +102,7 @@ def parse_question_blocks(response_text: str) -> list[ParsedQuestionBlock]:
     出典の実在検証（日付・カードIDの集合照合）は行わない（呼び出し側の責務）。
     """
     parsed: list[ParsedQuestionBlock] = []
-    for block in _BLOCK_SEPARATOR.split(response_text):
-        if len(block) > _MAX_BLOCK_CHARS:
-            continue
+    for block in split_blocks(response_text, max_block_chars=_MAX_BLOCK_CHARS):
         match = _QUESTION_BLOCK_PATTERN.search(block)
         if match is None:
             continue

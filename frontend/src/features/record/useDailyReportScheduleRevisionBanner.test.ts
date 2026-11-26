@@ -3,7 +3,7 @@
  * と同じ方針、OPERATIONS.md「フロントエンドのテストとカバレッジ」）。 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { useScheduleRevisionBanner } from './useScheduleRevisionBanner'
+import { useDailyReportScheduleRevisionBanner } from './useDailyReportScheduleRevisionBanner'
 
 const generateScheduleRevisionProposal = vi.hoisted(() => vi.fn())
 vi.mock('../../api/schedule', () => ({ generateScheduleRevisionProposal }))
@@ -16,10 +16,10 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('useScheduleRevisionBanner', () => {
+describe('useDailyReportScheduleRevisionBanner', () => {
   it('marks a goal as generating immediately, then succeeded once a proposal is created', async () => {
     generateScheduleRevisionProposal.mockResolvedValue({ proposal: { id: 1 } })
-    const { result } = renderHook(() => useScheduleRevisionBanner())
+    const { result } = renderHook(() => useDailyReportScheduleRevisionBanner())
 
     act(() => {
       result.current.generateForGoals([10], '2026-11-25')
@@ -35,7 +35,7 @@ describe('useScheduleRevisionBanner', () => {
 
   it('marks a goal as no_proposal when nothing needed to change', async () => {
     generateScheduleRevisionProposal.mockResolvedValue({ proposal: null })
-    const { result } = renderHook(() => useScheduleRevisionBanner())
+    const { result } = renderHook(() => useDailyReportScheduleRevisionBanner())
 
     act(() => {
       result.current.generateForGoals([10], '2026-11-25')
@@ -46,7 +46,7 @@ describe('useScheduleRevisionBanner', () => {
 
   it('marks a goal as failed when the generation call rejects', async () => {
     generateScheduleRevisionProposal.mockRejectedValue(new Error('boom'))
-    const { result } = renderHook(() => useScheduleRevisionBanner())
+    const { result } = renderHook(() => useDailyReportScheduleRevisionBanner())
 
     act(() => {
       result.current.generateForGoals([10], '2026-11-25')
@@ -59,7 +59,7 @@ describe('useScheduleRevisionBanner', () => {
     generateScheduleRevisionProposal.mockImplementation((goalId: number) =>
       Promise.resolve({ proposal: goalId === 10 ? { id: 1 } : null }),
     )
-    const { result } = renderHook(() => useScheduleRevisionBanner())
+    const { result } = renderHook(() => useDailyReportScheduleRevisionBanner())
 
     act(() => {
       result.current.generateForGoals([10, 20], '2026-11-25')

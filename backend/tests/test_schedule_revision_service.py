@@ -1468,6 +1468,40 @@ class TestDecideValidationErrors:
                 TODAY,
             )
 
+    def test_raises_for_a_duplicate_proposal_item_id_in_the_same_request(self, seeded_session):
+        goal = make_exam_goal(seeded_session)
+        item = make_item(
+            seeded_session,
+            goal,
+            planned_start_date=dt.date(2026, 11, 1),
+            planned_end_date=dt.date(2026, 11, 20),
+        )
+        proposal, proposal_item = self._make_pending_change_proposal(
+            seeded_session,
+            goal,
+            item,
+            proposed_start=dt.date(2026, 11, 26),
+            proposed_end=dt.date(2026, 12, 1),
+        )
+
+        with pytest.raises(ValidationError):
+            service.decide(
+                seeded_session,
+                goal,
+                proposal,
+                [
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.APPROVED,
+                    ),
+                    ScheduleRevisionDecisionInput(
+                        proposal_item_id=proposal_item.id,
+                        decision=ScheduleRevisionDecision.REJECTED,
+                    ),
+                ],
+                TODAY,
+            )
+
     def test_raises_when_acknowledging_a_change_row(self, seeded_session):
         goal = make_exam_goal(seeded_session)
         item = make_item(

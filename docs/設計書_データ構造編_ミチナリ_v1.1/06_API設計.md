@@ -305,11 +305,15 @@
 
 | メソッド | パス | 概要 |
 | --- | --- | --- |
-| GET | /goals/{goal_id}/schedule | 行・追加列・セル・固定の設定・revision・本日（サーバーの論理日）を返す。行が存在しない目標は既定値（固定は作業項目列のみ、revision=0）を返す。画面側が必要とする内部パラメータ（`schedule.max_items`・`max_custom_columns`・`gantt_day_width_min/max_rem`、単位3で追加・1.1改78）も読み取り専用で含める |
+| GET | /goals/{goal_id}/schedule | 行・追加列・セル・固定の設定・revision・本日（サーバーの論理日）を返す。行が存在しない目標は既定値（固定は作業項目列のみ、revision=0）を返す。画面側が必要とする内部パラメータ（`schedule.max_items`・`max_custom_columns`・`gantt_day_width_min/max_rem`、単位3で追加・1.1改78）も読み取り専用で含める。未判断のAI修正案があれば`pending_revision_proposal`に埋め込む（目標ごとに最大1件、単位5） |
 | PUT | /goals/{goal_id}/schedule | 一括保存。行IDを維持する差分更新（IDがあれば更新、なければ新規作成、送られてこなかった既存のものは削除）。新規列はクライアントが振った仮キー（`temp_key`）で対応付ける。`revision`が現在値と一致しなければ`SCHEDULE_REVISION_CONFLICT`（409）、他の目標に属する行・列IDを送った場合は`VALIDATION_ERROR`（400、存在しないIDと区別しない）。状況・実績日が変わった行は`source=SCHEDULE_SCREEN`で履歴（`schedule_item_history`）を追加する |
 | PUT | /goals/{goal_id}/schedule/view-setting | 固定する行数・列数を即時に保存する（`revision`は変えない）。現在の行数・既定7列+追加列数を超える値は範囲内へ収める |
+| POST | /goals/{goal_id}/schedule/revision-proposals | AIによるスケジュール修正案の生成（開発Todo_スケジュール・ガントチャート_v1.1 13.7、単位5）。`trigger`（AUTO／MANUAL）・`record_date`（AUTOのみ必須）を受け取る。AUTOで遅れのある行が1件も無い場合、または有効な変更・注意のいずれも無かった場合は`proposal=null`を返す（AIは呼ぶが保存する内容が無い場合を含む）。AI未接続は`AI_AUTH_REQUIRED`、プロンプトが上限を超える場合は`SCHEDULE_REVISION_PROMPT_TOO_LONG`（409） |
+| POST | /goals/{goal_id}/schedule/revision-proposals/{proposal_id}/decisions | 修正案の行ごとの判断（承認／却下／確認しました）。対象の修正案が既に`PENDING`でない場合は`SCHEDULE_REVISION_PROPOSAL_NOT_PENDING`（409）。判断対象の行の`decision`が既に未判断でない、またはWARNING/CHANGEの組み合わせ違反は`VALIDATION_ERROR`（400）。承認時に変更前の値が現在のスケジュール行の値と一致しない行は、その行だけ`applied=false`・`blocked_reason="STALE_BEFORE_VALUE"`として結果に返し、他の行は処理を継続する（D-59） |
 
 検証ルール（必須・日付整合・状況に応じた実績日の条件付き必須等）はサービス層の1か所（`schedule_service.validate_item_fields`）に集約し、本APIの一括保存と、単位4で追加する日次報告・SC-07からの更新で共通に使う。詳細は仕様書10章参照。
+
+**AIによるスケジュール修正案の応答への反映（単位5）**：`POST /records/{date}/finalize`・`/reading-finalize`・`/work-finalize`は、応答（`DailyRecordRead`）へ`schedule_revision_candidates`（遅れのある行を1件以上持ち、同じ報告対象日にまだAUTO生成していないACTIVE目標のID一覧）を追加する。`/progress`は確定（報告済への遷移）を伴わないため対象外。`GET /dashboard`の目標カード（`GoalCardRead`）には`has_pending_schedule_revision`を追加し、未判断の修正案がある目標かを示す（1クエリで一括取得、N+1禁止）。
 
 **その他**
 
@@ -341,6 +345,8 @@
 | VOCAB_IMPORT_TOO_MANY_ROWS | 400 | 単語帳の一括登録が`vocab.import_max_rows`を超える行数を送った |
 | VOCAB_DECK_CARD_LIMIT_EXCEEDED | 400 | 単語帳のカード数が`vocab.deck_max_cards`を超える |
 | SCHEDULE_REVISION_CONFLICT | 409 | スケジュールの一括保存時に、送信された`revision`が現在値と一致しない（他の画面での同時更新、開発Todo_スケジュール・ガントチャート_v1.1 D-07） |
+| SCHEDULE_REVISION_PROPOSAL_NOT_PENDING | 409 | AIによるスケジュール修正案（単位5）の判断APIで、対象の修正案が既に`PENDING`でない（判断済み・置き換え済み）。名称が似る`SCHEDULE_REVISION_CONFLICT`とは別のコード（前者は一括保存のrevision競合、本コードは修正案の判断対象） |
+| SCHEDULE_REVISION_PROMPT_TOO_LONG | 409 | AIによるスケジュール修正案の生成で、固定変数（当日の記録を含む）だけでプロンプトが`ai.max_prompt_chars`を超える（24章の目標相談チャット等と同じフェイルセーフ） |
 | NOT_FOUND | 404 | 対象が存在しない |
 | AI_AUTH_REQUIRED | 401 | AI基盤の認証が必要 |
 | AI_CONFIG_ERROR | 400 | AI連携の設定不備 |
