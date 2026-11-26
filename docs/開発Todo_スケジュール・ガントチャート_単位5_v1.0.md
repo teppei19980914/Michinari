@@ -204,7 +204,7 @@
 
 ## 10. コミット前チェック（15.1手順13・14・16）の結果と対応
 
-CLAUDE.md「コミット前チェック」・15.1手順13に基づき、該当する観点別レビューエージェント8種（dry-reviewer・style-reviewer・label-checker・auth-reviewer・injection-reviewer・xss-reviewer・secret-reviewer・test-coverage-reviewer）を本単位のdiff（`96cac54..HEAD`、単位4のmainマージ直後からの差分）に対して並列実行した。performance-reviewerはN+1・再描画・非同期並列化の観点で該当する変更（ダッシュボードの1クエリ化等）が実装時点で既に対策済みのため個別起動は見送り、他エージェントの指摘にも性能面の指摘は無かった。
+CLAUDE.md「コミット前チェック」・15.1手順13に基づき、該当する観点別レビューエージェント8種（dry-reviewer・style-reviewer・label-checker・auth-reviewer・injection-reviewer・xss-reviewer・secret-reviewer・test-coverage-reviewer）を本単位のdiff（`96cac54..HEAD`、単位4のmainマージ直後からの差分）に対して並列実行し、その後利用者からの指示でperformance-reviewerも追加実行した（全9観点）。
 
 | 観点 | 結果 | 対応 |
 | --- | --- | --- |
@@ -216,6 +216,7 @@ CLAUDE.md「コミット前チェック」・15.1手順13に基づき、該当�
 | XSS | 指摘なし（AI生成文面は全てJSXのプレーン補間で表示、HTML直接挿入系APIを使っていないことを確認） | 対応不要 |
 | 機密情報 | 指摘なし（アシスタントUIDは既存の使い回しパターン、AI通信ログは既存のDBログ基盤のみ、ブラウザ記憶領域への保持なし） | 対応不要 |
 | テストカバレッジ | MEDIUM×2（`ScheduleGanttRow.tsx`のSTART_DELAY分岐、`scheduleRevisionBandMapping.ts`の未テスト分岐、との指摘） | 実測の`coverage-summary.json`で両ファイルとも実際には100%（branch含む）であることを確認。前者は`ScheduleGrid.test.tsx`の統合テスト（NOT_STARTED・today=開始日+4日の固定値）が間接的にカバーしており、後者も`ScheduleTab.test.tsx`経由で分岐を踏んでいることを確認。指摘は静的解析（専用テストファイルが無いこと）に基づく誤検知と判断し、追加テストは不要 |
+| パフォーマンス（利用者指示による追加実行） | HIGH×1：`decide()`の検証ループが`session.get(ScheduleItem, ...)`を判断対象行の件数分、個別に呼ぶN+1（`schedule.max_items`既定100、「すべて承認」で最大100回程度の個別SELECTが発生しうる）。LOW×1：同リクエスト内で`serialize_proposal()`が同じScheduleItemを再取得する二重ロード（上記修正で実害は軽減、対応は見送り） | HIGH：`decide()`冒頭で対象の`ScheduleItem`を`id.in_(...)`で1クエリに一括取得する辞書へ変更（`schedule_service.apply_report_schedule_item_updates`と同じ方式）。LOWは優先度が低いとレビューで判断されたため見送り |
 
 **独立レビュー（15.1手順16）**：上記8エージェントはいずれも実装の文脈を持たない新規サブエージェントとして起動し、diffのみから指摘を行った（実装時の意図を共有していない独立レビューの条件を満たす）。加えて文書更新（仕様書・設計書）も実装から独立した新規サブエージェントへ依頼し、既存記法との整合・抜け漏れ（8章AI-NN表への追記漏れ）を検出・報告させ、報告を受けて追記した。
 
