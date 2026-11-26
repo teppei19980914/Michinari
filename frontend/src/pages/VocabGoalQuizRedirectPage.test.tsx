@@ -34,7 +34,7 @@ function makeDeck(overrides: Partial<VocabDeck> = {}): VocabDeck {
 }
 
 /** goalIdからdeckIdを解決して遷移するため、実際のルーティングで検証する
- * （`VocabDeckDetailPage.test.tsx`と同じ理由）。 */
+ * （`VocabDeckRedirectPage.test.tsx`と同じ理由）。 */
 function renderAtGoalRoute(goalId: number) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
