@@ -950,6 +950,94 @@ class TestDecide:
         # 行Aが未判断のまま残るため、修正案全体はまだRESOLVEDにならない。
         assert proposal.status == ScheduleRevisionProposalStatus.PENDING
 
+    def test_approving_rows_with_one_invalid_planned_date_does_not_block_other_rows(
+        self, seeded_session
+    ):
+        """開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1の再現テスト。
+
+        生成日（TODAY）を予定開始日とする行Aと、日付変更の無い正常な行Bを、TODAY+1日に
+        まとめて承認すると、行Aは翌日には13.5「新しい予定日は本日以降」に反するため
+        ブロックされるが、行Bはその影響を受けずに適用されること（D-56・D-59と同じ
+        「行単位の結果で返し、他の行は処理を続ける」方針）。
+        """
+        goal = make_exam_goal(seeded_session)
+        item_a = make_item(
+            seeded_session,
+            goal,
+            title="行A",
+            planned_start_date=TODAY,
+            planned_end_date=TODAY + dt.timedelta(days=10),
+        )
+        item_b = make_item(
+            seeded_session,
+            goal,
+            title="行B",
+            planned_start_date=TODAY + dt.timedelta(days=1),
+            planned_end_date=TODAY + dt.timedelta(days=20),
+            display_order=1,
+        )
+        proposal = ScheduleRevisionProposal(
+            goal_id=goal.id,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            status=ScheduleRevisionProposalStatus.PENDING,
+        )
+        seeded_session.add(proposal)
+        seeded_session.flush()
+        item_a_row = ScheduleRevisionProposalItem(
+            proposal_id=proposal.id,
+            schedule_item_id=item_a.id,
+            kind=ScheduleRevisionItemKind.CHANGE,
+            before_planned_start_date=item_a.planned_start_date,
+            before_planned_end_date=item_a.planned_end_date,
+            before_status=item_a.status,
+            proposed_planned_start_date=TODAY,
+            proposed_planned_end_date=TODAY + dt.timedelta(days=12),
+            reason="遅れています",
+            decision=ScheduleRevisionDecision.PENDING,
+        )
+        item_b_row = ScheduleRevisionProposalItem(
+            proposal_id=proposal.id,
+            schedule_item_id=item_b.id,
+            kind=ScheduleRevisionItemKind.CHANGE,
+            before_planned_start_date=item_b.planned_start_date,
+            before_planned_end_date=item_b.planned_end_date,
+            before_status=item_b.status,
+            proposed_planned_start_date=TODAY + dt.timedelta(days=2),
+            proposed_planned_end_date=TODAY + dt.timedelta(days=22),
+            reason="遅れています",
+            decision=ScheduleRevisionDecision.PENDING,
+        )
+        seeded_session.add_all([item_a_row, item_b_row])
+        seeded_session.flush()
+        seeded_session.refresh(proposal)
+
+        tomorrow = TODAY + dt.timedelta(days=1)
+        outcomes = service.decide(
+            seeded_session,
+            goal,
+            proposal,
+            [
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=item_a_row.id, decision=ScheduleRevisionDecision.APPROVED
+                ),
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=item_b_row.id, decision=ScheduleRevisionDecision.APPROVED
+                ),
+            ],
+            tomorrow,
+        )
+
+        outcomes_by_id = {o.proposal_item_id: o for o in outcomes}
+        assert outcomes_by_id[item_a_row.id].applied is False
+        assert outcomes_by_id[item_a_row.id].blocked_reason == "INVALID_PLANNED_DATE"
+        assert outcomes_by_id[item_b_row.id].applied is True
+        assert item_b.planned_start_date == TODAY + dt.timedelta(days=2)
+        assert item_a_row.decision == ScheduleRevisionDecision.PENDING
+        assert item_b_row.decision == ScheduleRevisionDecision.APPROVED
+        # 行Aが未判断のまま残るため、修正案全体はまだRESOLVEDにならない。
+        assert proposal.status == ScheduleRevisionProposalStatus.PENDING
+
     def test_raises_when_the_proposal_is_not_pending(self, seeded_session):
         goal = make_exam_goal(seeded_session)
         item = make_item(
@@ -1013,9 +1101,12 @@ class TestDecide:
                 TODAY,
             )
 
-    def test_raises_when_moving_the_start_date_of_an_in_progress_item_via_override(
+    def test_moving_the_start_date_of_an_in_progress_item_via_override_is_blocked_per_row(
         self, seeded_session
     ):
+        """開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1：13.5の制約に反する
+        行は例外ではなく行単位の結果（`INVALID_PLANNED_DATE`）で返り、未判断のまま残る。
+        """
         goal = make_exam_goal(seeded_session)
         item = make_item(
             seeded_session,
@@ -1033,20 +1124,24 @@ class TestDecide:
             proposed_end=dt.date(2026, 12, 1),
         )
 
-        with pytest.raises(ValidationError):
-            service.decide(
-                seeded_session,
-                goal,
-                proposal,
-                [
-                    ScheduleRevisionDecisionInput(
-                        proposal_item_id=proposal_item.id,
-                        decision=ScheduleRevisionDecision.APPROVED,
-                        planned_start_date=dt.date(2026, 11, 5),
-                    )
-                ],
-                TODAY,
-            )
+        outcomes = service.decide(
+            seeded_session,
+            goal,
+            proposal,
+            [
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=proposal_item.id,
+                    decision=ScheduleRevisionDecision.APPROVED,
+                    planned_start_date=dt.date(2026, 11, 5),
+                )
+            ],
+            TODAY,
+        )
+
+        assert outcomes[0].applied is False
+        assert outcomes[0].blocked_reason == "INVALID_PLANNED_DATE"
+        assert proposal_item.decision == ScheduleRevisionDecision.PENDING
+        assert item.planned_start_date == dt.date(2026, 11, 1)
 
 
 class TestGetProposalOrRaise:
@@ -1605,7 +1700,8 @@ class TestDecideValidationErrors:
                 TODAY,
             )
 
-    def test_raises_when_the_override_start_is_after_the_override_end(self, seeded_session):
+    def test_the_override_start_after_the_override_end_is_blocked_per_row(self, seeded_session):
+        """修正1：13.5の制約に反する行は例外ではなく行単位の結果で返る（他の節と同様）。"""
         goal = make_exam_goal(seeded_session)
         item = make_item(
             seeded_session,
@@ -1621,23 +1717,27 @@ class TestDecideValidationErrors:
             proposed_end=dt.date(2026, 12, 1),
         )
 
-        with pytest.raises(ValidationError):
-            service.decide(
-                seeded_session,
-                goal,
-                proposal,
-                [
-                    ScheduleRevisionDecisionInput(
-                        proposal_item_id=proposal_item.id,
-                        decision=ScheduleRevisionDecision.APPROVED,
-                        planned_start_date=dt.date(2026, 12, 5),
-                        planned_end_date=dt.date(2026, 12, 1),
-                    )
-                ],
-                TODAY,
-            )
+        outcomes = service.decide(
+            seeded_session,
+            goal,
+            proposal,
+            [
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=proposal_item.id,
+                    decision=ScheduleRevisionDecision.APPROVED,
+                    planned_start_date=dt.date(2026, 12, 5),
+                    planned_end_date=dt.date(2026, 12, 1),
+                )
+            ],
+            TODAY,
+        )
 
-    def test_raises_when_the_override_end_is_before_today(self, seeded_session):
+        assert outcomes[0].applied is False
+        assert outcomes[0].blocked_reason == "INVALID_PLANNED_DATE"
+        assert proposal_item.decision == ScheduleRevisionDecision.PENDING
+
+    def test_the_override_end_before_today_is_blocked_per_row(self, seeded_session):
+        """修正1：13.5の制約に反する行は例外ではなく行単位の結果で返る（他の節と同様）。"""
         goal = make_exam_goal(seeded_session)
         item = make_item(
             seeded_session,
@@ -1653,18 +1753,21 @@ class TestDecideValidationErrors:
             proposed_end=dt.date(2026, 12, 1),
         )
 
-        with pytest.raises(ValidationError):
-            service.decide(
-                seeded_session,
-                goal,
-                proposal,
-                [
-                    ScheduleRevisionDecisionInput(
-                        proposal_item_id=proposal_item.id,
-                        decision=ScheduleRevisionDecision.APPROVED,
-                        planned_start_date=dt.date(2026, 11, 10),
-                        planned_end_date=dt.date(2026, 11, 20),
-                    )
-                ],
-                TODAY,
-            )
+        outcomes = service.decide(
+            seeded_session,
+            goal,
+            proposal,
+            [
+                ScheduleRevisionDecisionInput(
+                    proposal_item_id=proposal_item.id,
+                    decision=ScheduleRevisionDecision.APPROVED,
+                    planned_start_date=dt.date(2026, 11, 10),
+                    planned_end_date=dt.date(2026, 11, 20),
+                )
+            ],
+            TODAY,
+        )
+
+        assert outcomes[0].applied is False
+        assert outcomes[0].blocked_reason == "INVALID_PLANNED_DATE"
+        assert proposal_item.decision == ScheduleRevisionDecision.PENDING

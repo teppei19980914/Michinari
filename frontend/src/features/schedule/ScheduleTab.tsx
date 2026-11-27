@@ -15,7 +15,7 @@ import { ScheduleToolbar } from './ScheduleToolbar'
 import { useScheduleEditorState } from './useScheduleEditorState'
 import { useScheduleHolidays } from './useScheduleHolidays'
 import { useScheduleRevision } from './useScheduleRevision'
-import { useScheduleRevisionEditedDates } from './useScheduleRevisionEditedDates'
+import { useScheduleRevisionDecisionAids } from './useScheduleRevisionDecisionAids'
 import { useScheduleSaveClick } from './useScheduleSaveClick'
 import { useScheduleTabErrorToasts } from './useScheduleTabErrorToasts'
 
@@ -25,7 +25,7 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
   const editor = useScheduleEditorState(goalId, readOnly)
   const [goToTodaySignal, setGoToTodaySignal] = useState(0)
   const revision = useScheduleRevision(goalId)
-  const { datesFor, setDates } = useScheduleRevisionEditedDates()
+  const { datesFor, setDates, blockedReasonFor } = useScheduleRevisionDecisionAids(revision.decideOutcomes)
 
   const { holidayIsoDates, holidayYearFrom, holidayYearTo } = useScheduleHolidays(
     editor.draft?.items ?? [],
@@ -87,6 +87,7 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
           datesFor={datesFor}
           setDates={setDates}
           onDecide={(decisions) => revision.decide(proposal.id, decisions)}
+          blockedReasonFor={blockedReasonFor}
         />
       )}
 

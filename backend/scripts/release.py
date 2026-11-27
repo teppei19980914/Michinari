@@ -7,6 +7,11 @@
 - マージ後に`main`が進んでからビルドすると、配布物とタグが食い違う
 - 公開前にローカルへ古い同名タグがあると、ghがそれを押し出して`--target`を無視する
   （2026-09-12のv1.2.1で実際に発生）
+- 祝日CSV（D-43）の取得・書き込みを未コミット検出（`verify_workspace`）より後で行うと、
+  書き込んだ差分が次回実行時の未コミット検出に引っかかり、かつ配布物とタグを付けた
+  コミットの内容が食い違う（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md
+  修正2、2026-11発覚）。本スクリプトは取得・検証を未コミット検出より前に行い、内容が
+  変わった場合はそこで中止してコミットを促す（`sync_holiday_csv`）
 
 各工程の実体は既存スクリプト（`build_package.py` / `publish_release.py`）に置いたまま、
 本スクリプトは順序と事前検証だけを担う（CLAUDE.md DRYの原則）。
@@ -55,6 +60,35 @@ def current_branch() -> str:
 
 def has_uncommitted_changes() -> bool:
     return bool(run_git("status", "--porcelain").stdout.strip())
+
+
+def _holiday_dir_has_uncommitted_changes() -> bool:
+    status = run_git(
+        "status", "--porcelain", "--", str(update_holiday_csv.HOLIDAY_SOURCE_DIR)
+    ).stdout.strip()
+    return bool(status)
+
+
+def sync_holiday_csv() -> None:
+    """祝日CSV（D-43）を取得・検証し、`verify_workspace`（未コミット検出）より前に
+    作業ツリーへ反映する（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2）。
+
+    `update_holiday_csv.update_bundled_holiday_csv`は、内容が前回のコミットと同じ場合は
+    何も書き込まない（`fetched_at`だけが変わる無意味な差分で毎回この関数が中止するのを
+    避けるため）。内容が実際に変わった場合だけここで中止し、差分を確認してコミットして
+    から再実行するよう促す。これにより、配布物に同梱される祝日データと、タグを付ける
+    コミットの内容が常に一致する（以前はこの取得・書き込みが`build()`の中、つまり
+    `verify_workspace`より後で行われていたため、書き込んだ差分が次回実行時の未コミット
+    検出に引っかかり、かつ今回の配布物とタグを付けたコミットの内容が食い違っていた）。
+    """
+    print("祝日CSVを取得・検証しています…")
+    update_holiday_csv.update_bundled_holiday_csv()
+    if _holiday_dir_has_uncommitted_changes():
+        raise SystemExit(
+            "エラー: 祝日CSV（backend/app/content/holidays/）の内容が内閣府の最新データへ"
+            "更新されました。差分を確認してコミットしてから再実行してください"
+            "（配布物と公開されるソースを一致させるため）。"
+        )
 
 
 def verify_workspace() -> None:
@@ -239,6 +273,10 @@ def build(version: str, *, skip_tests: bool = False) -> Path:
 
     `skip_tests=True`は、バージョン入力より前に既にテストを通してある場合に使う
     （同じテストを二度流さないため）。テスト自体を省く手段としては使わない。
+
+    祝日CSV（D-43）の取得・検証は`main`側の`sync_holiday_csv`が`verify_workspace`より前に
+    済ませているため、ここでは呼ばない（修正2、以前はここで呼んでいたため、書き込んだ
+    差分が未コミット検出より後に残り、次回実行時の`verify_workspace`で止まっていた）。
     """
     print(f"[2/4] バージョン {version} でパッケージをビルドしています…")
     if not skip_tests:
@@ -253,8 +291,6 @@ def build(version: str, *, skip_tests: bool = False) -> Path:
     build_package.cleanup_stale_previous_packages(build_package.DIST_DIR)
     build_package.archive_previous_distributions(build_package.DIST_DIR, build_package.ARCHIVE_DIR)
     build_package.discard_previous_package(build_package.OUTPUT_DIR)
-    print("  → 祝日CSVを取得・検証しています…")
-    update_holiday_csv.update_bundled_holiday_csv()
     build_package.generate_build_info(REPO_ROOT, build_package.BUILD_INFO_PATH)
     build_package.build_frontend()
     build_package.build_backend()
@@ -341,6 +377,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    sync_holiday_csv()
     verify_workspace()
 
     # マージしない実行では、mainを最新の状態にしてから始める。テスト（数分かかる）と

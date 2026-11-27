@@ -2088,7 +2088,8 @@
       "acknowledge": "確認しました",
       "approveAll": "すべて承認",
       "rejectAll": "すべて却下",
-      "staleBeforeValue": "変更されたため承認できません"
+      "staleBeforeValue": "変更されたため承認できません",
+      "invalidPlannedDate": "日付を修正すると承認できます"
     }
   },
   "summaryCard": {

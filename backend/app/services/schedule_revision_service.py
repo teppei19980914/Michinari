@@ -590,9 +590,15 @@ def decide(
     decisions: list[ScheduleRevisionDecisionInput],
     today: dt.date,
 ) -> list[DecisionOutcome]:
-    """判断API（13.7）。検証を適用より先にすべて終え（単位2`save_schedule`と同じ方針）、
-    「変更前の値が現在の値と一致しない」行（D-59）だけは適用の段階で検知し、その行だけを
-    結果へ返して他の行の処理は継続する。
+    """判断API（13.7）。リクエストの形式検証（存在しない行ID・二重判断・種類の不整合等）は
+    適用より先にすべて終え（単位2`save_schedule`と同じ方針）、その他の入力は不正な
+    リクエストとして例外を送出する。一方、「変更前の値が現在の値と一致しない」行（D-59、
+    `STALE_BEFORE_VALUE`）と「新しい予定日が13.5の制約に反する」行（開発Todo_
+    スケジュール・ガントチャート_検証修正_v1.0.md 修正1、`INVALID_PLANNED_DATE`）は、
+    承認時点の状態やタイミングに依存して初めて分かる問題であり、他の行まで失敗させるべき
+    ではないため、適用の段階で検知し、その行だけを結果へ返して他の行の処理は継続する。
+    ブロックされた行の`decision`は`PENDING`のまま残り、利用者は日付を修正するなどして
+    再度判断できる。
     """
     goal_service.ensure_goal_editable(goal)
     if proposal.goal_id != goal.id:
@@ -666,17 +672,6 @@ def decide(
 
         new_start = decision_input.planned_start_date or proposal_item.proposed_planned_start_date
         new_end = decision_input.planned_end_date or proposal_item.proposed_planned_end_date
-        # 13.5「新しい予定日」「進行中の行」を適用する（_invalid_planned_date_reason、
-        # _validate_changesと共有）。期限（D-62）は利用者の判断を優先して適用しない（13.7）。
-        invalid_reason = _invalid_planned_date_reason(
-            item_status=schedule_item.status,
-            current_start=schedule_item.planned_start_date,
-            new_start=new_start,
-            new_end=new_end,
-            today=today,
-        )
-        if invalid_reason is not None:
-            raise ValidationError(invalid_reason)
         resolved.append(
             (
                 proposal_item,
@@ -702,6 +697,21 @@ def decide(
             )
             if is_stale:
                 outcomes.append(DecisionOutcome(proposal_item.id, False, "STALE_BEFORE_VALUE"))
+                continue
+            # 13.5「新しい予定日」「進行中の行」を適用する（_invalid_planned_date_reason、
+            # _validate_changesと共有）。期限（D-62）は利用者の判断を優先して適用しない
+            # （13.7）。STALEと同じく行単位の結果として返し、他の行の処理には影響させない
+            # （開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1。以前は例外を
+            # 送出しリクエスト全体を失敗させていたため、無関係な他の行も適用されなかった）。
+            invalid_reason = _invalid_planned_date_reason(
+                item_status=schedule_item.status,
+                current_start=schedule_item.planned_start_date,
+                new_start=action["planned_start_date"],
+                new_end=action["planned_end_date"],
+                today=today,
+            )
+            if invalid_reason is not None:
+                outcomes.append(DecisionOutcome(proposal_item.id, False, "INVALID_PLANNED_DATE"))
                 continue
             schedule_item.planned_start_date = action["planned_start_date"]
             schedule_item.planned_end_date = action["planned_end_date"]

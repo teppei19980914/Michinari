@@ -1,0 +1,7 @@
+# 内閣府の祝日CSV・メタデータ（backend/scripts/update_holiday_csv.py が更新する、D-43）。
+# メタデータの sha256 は取得した生バイト列に対する値であり、Git の改行変換（autocrlf 等）で
+# 書き換えられると取り出した環境ごとに値が変わってしまう（開発Todo_スケジュール・
+# ガントチャート_検証修正_v1.0.md 修正2、2026-11発覚）。-text でコミット・チェックアウトの
+# 両方向の改行変換を止め、どの環境でも同じバイト列になるよう固定する。
+backend/app/content/holidays/holidays.csv -text
+backend/app/content/holidays/holidays_metadata.json -text

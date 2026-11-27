@@ -14,6 +14,7 @@ export function useScheduleRevisionPanelActions(
   pendingChangeItems: ScheduleRevisionProposalItemRead[],
   datesFor: (item: ScheduleRevisionProposalItemRead) => EditedDates,
   onDecide: (decisions: ScheduleRevisionDecisionInput[]) => void,
+  blockedReasonFor: (itemId: number) => string | null = () => null,
 ) {
   const [rejectReasons, setRejectReasons] = useState<Record<number, string>>({})
 
@@ -48,8 +49,9 @@ export function useScheduleRevisionPanelActions(
   }
 
   function approveAll() {
+    // 直前の承認が13.5の制約でブロックされた行（修正1）も、stale行と同様に対象から除く。
     const decisions: ScheduleRevisionDecisionInput[] = pendingChangeItems
-      .filter((item) => !item.is_stale)
+      .filter((item) => !item.is_stale && !blockedReasonFor(item.id))
       .map((item) => {
         const dates = datesFor(item)
         return {

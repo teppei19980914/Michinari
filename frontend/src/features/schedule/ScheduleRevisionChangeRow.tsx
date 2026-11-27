@@ -8,6 +8,10 @@ import type { ScheduleRevisionProposalItemRead } from '../../api/schedule'
  *
  * 承認前に日付を手で修正できる（D-56）。変更前の値が現在のスケジュールと一致しない行
  * （`is_stale`、D-59）はボタンを押せないようにし、専用の文言を表示する。
+ *
+ * `blockedReason`（修正1、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）は
+ * 直前の承認が13.5の制約（新しい予定日は本日以降等）に反してブロックされたことを示す。
+ * `is_stale`と異なりボタンは無効化しない。利用者が日付を修正して再度承認できるようにする。
  */
 export function ScheduleRevisionChangeRow({
   item,
@@ -15,6 +19,7 @@ export function ScheduleRevisionChangeRow({
   disabled,
   dates,
   rejectReason,
+  blockedReason,
   onChangeDates,
   onChangeRejectReason,
   onApprove,
@@ -25,6 +30,7 @@ export function ScheduleRevisionChangeRow({
   disabled: boolean
   dates: { start: string; end: string }
   rejectReason: string
+  blockedReason?: string | null
   onChangeDates: (dates: { start: string; end: string }) => void
   onChangeRejectReason: (reason: string) => void
   onApprove: () => void
@@ -62,23 +68,28 @@ export function ScheduleRevisionChangeRow({
       {item.is_stale ? (
         <p className="text-xs text-danger-text">{t('schedule.revision.staleBeforeValue')}</p>
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="primary" disabled={disabled} onClick={onApprove}>
-            {t('schedule.revision.approve')}
-          </Button>
-          <Input
-            type="text"
-            placeholder={t('schedule.revision.rejectReasonPlaceholder')}
-            aria-label={t('schedule.revision.rejectReasonPlaceholder')}
-            value={rejectReason}
-            disabled={disabled}
-            onChange={(event) => onChangeRejectReason(event.target.value)}
-            className="text-xs"
-          />
-          <Button variant="secondary" disabled={disabled} onClick={onReject}>
-            {t('schedule.revision.reject')}
-          </Button>
-        </div>
+        <>
+          {blockedReason && (
+            <p className="text-xs text-danger-text">{t('schedule.revision.invalidPlannedDate')}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary" disabled={disabled} onClick={onApprove}>
+              {t('schedule.revision.approve')}
+            </Button>
+            <Input
+              type="text"
+              placeholder={t('schedule.revision.rejectReasonPlaceholder')}
+              aria-label={t('schedule.revision.rejectReasonPlaceholder')}
+              value={rejectReason}
+              disabled={disabled}
+              onChange={(event) => onChangeRejectReason(event.target.value)}
+              className="text-xs"
+            />
+            <Button variant="secondary" disabled={disabled} onClick={onReject}>
+              {t('schedule.revision.reject')}
+            </Button>
+          </div>
+        </>
       )}
     </div>
   )

@@ -248,6 +248,7 @@ def test_prompt_version_shows_the_current_version_in_the_message() -> None:
 
 def _stub_main_steps(monkeypatch, tmp_path: Path, order: list[str]) -> None:
     """`main`の各工程を記録用のスタブへ差し替える（順序と省略の検証用）。"""
+    monkeypatch.setattr(release, "sync_holiday_csv", lambda: order.append("holiday"))
     monkeypatch.setattr(release, "verify_workspace", lambda: order.append("workspace"))
     monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: order.append("verify"))
     monkeypatch.setattr(release, "merge_to_base", lambda v: (order.append("merge"), _COMMIT)[1])
@@ -259,13 +260,13 @@ def _stub_main_steps(monkeypatch, tmp_path: Path, order: list[str]) -> None:
 
 
 def test_main_runs_merge_build_publish_verify_in_order(monkeypatch, tmp_path: Path) -> None:
-    """検証→マージ→ビルド→公開→公開後検証の順で、いずれも省略されないこと。"""
+    """祝日CSV同期→検証→マージ→ビルド→公開→公開後検証の順で、いずれも省略されないこと。"""
     order: list[str] = []
     _stub_main_steps(monkeypatch, tmp_path, order)
     monkeypatch.setattr("sys.argv", ["release.py", "1.2.3"])
 
     assert release.main() == 0
-    assert order == ["workspace", "verify", "merge", "build", "publish", "verified"]
+    assert order == ["holiday", "workspace", "verify", "merge", "build", "publish", "verified"]
 
 
 def test_main_can_skip_merge_but_still_verifies(monkeypatch, tmp_path: Path) -> None:
@@ -280,7 +281,7 @@ def test_main_can_skip_merge_but_still_verifies(monkeypatch, tmp_path: Path) -> 
 
     assert release.main() == 0
     # mainとの一致確認は、時間のかかるテストより前に行う。
-    assert order == ["workspace", "base", "verify", "build", "publish", "verified"]
+    assert order == ["holiday", "workspace", "base", "verify", "build", "publish", "verified"]
 
 
 def test_main_checks_the_base_branch_before_running_tests(monkeypatch, tmp_path: Path) -> None:
@@ -336,6 +337,7 @@ def test_main_prompts_for_the_version_only_after_tests_pass(monkeypatch, tmp_pat
 def test_main_does_not_run_the_tests_twice(monkeypatch, tmp_path: Path) -> None:
     """バージョン入力前にテスト済みなら、ビルド側で再実行しないこと。"""
     captured: dict = {}
+    monkeypatch.setattr(release, "sync_holiday_csv", lambda: None)
     monkeypatch.setattr(release, "verify_workspace", lambda: None)
     monkeypatch.setattr(release, "verify_preconditions", lambda v, **k: None)
     monkeypatch.setattr(release, "ensure_base_is_checked_out", lambda: _COMMIT)
@@ -403,11 +405,6 @@ def test_build_cleans_up_stale_leftovers_before_archiving_and_discarding(
     monkeypatch.setattr(build_package, "read_git_commit", lambda _root: _COMMIT)
     monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.3")
     monkeypatch.setattr(
-        update_holiday_csv,
-        "update_bundled_holiday_csv",
-        lambda: order.append("holiday_csv"),
-    )
-    monkeypatch.setattr(
         build_package,
         "write_version",
         lambda _p, _v: pytest.fail("バージョンが一致していれば書き換えない"),
@@ -442,44 +439,48 @@ def test_build_cleans_up_stale_leftovers_before_archiving_and_discarding(
     result = release.build("1.2.3")
 
     assert result == zip_path
-    assert order == ["cleanup_stale", "archive", "discard", "holiday_csv", "generate_build_info"]
+    assert order == ["cleanup_stale", "archive", "discard", "generate_build_info"]
 
 
-def test_build_stops_before_packaging_when_the_holiday_csv_update_fails(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """D-43: 祝日CSVの取得・検証に失敗した場合はリリースを中止し、以降の工程を進めない。
+# --- 祝日CSVの同期（修正2、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md） ---
+
+
+def test_sync_holiday_csv_stops_the_release_when_fetch_fails(monkeypatch) -> None:
+    """D-43: 祝日CSVの取得・検証に失敗した場合はリリースを中止する。
 
     `update_bundled_holiday_csv`は失敗時に`SystemExit`を送出する
-    （`scripts/update_holiday_csv.py`参照）。
+    （`scripts/update_holiday_csv.py`参照）。`verify_workspace`より前に呼ばれるため、
+    ここで中止すればマージ・ビルドのいずれにも進まない。
     """
-    monkeypatch.setattr(build_package, "run_tests", lambda: None)
-    monkeypatch.setattr(build_package, "has_uncommitted_changes", lambda _root: False)
-    monkeypatch.setattr(build_package, "read_git_commit", lambda _root: _COMMIT)
-    monkeypatch.setattr(build_package, "read_current_version", lambda _p: "1.2.3")
-    monkeypatch.setattr(build_package, "cleanup_stale_previous_packages", lambda _dist_dir: [])
-    monkeypatch.setattr(
-        build_package, "archive_previous_distributions", lambda _dist_dir, _archive_dir: []
-    )
-    monkeypatch.setattr(build_package, "discard_previous_package", lambda _output_dir: None)
 
     def fail_update() -> None:
         raise SystemExit("エラー: 祝日CSVの取得に失敗しました")
 
     monkeypatch.setattr(update_holiday_csv, "update_bundled_holiday_csv", fail_update)
-    monkeypatch.setattr(
-        build_package,
-        "generate_build_info",
-        lambda _root, _path: pytest.fail("祝日CSV更新の失敗後に進んではならない"),
-    )
-    monkeypatch.setattr(
-        build_package,
-        "build_frontend",
-        lambda: pytest.fail("祝日CSV更新の失敗後に進んではならない"),
-    )
 
     with pytest.raises(SystemExit):
-        release.build("1.2.3")
+        release.sync_holiday_csv()
+
+
+def test_sync_holiday_csv_aborts_when_the_content_changed(monkeypatch, tmp_path: Path) -> None:
+    """修正2: 祝日CSVの内容が変わった場合は中止し、コミットを促す（次回実行で止まる
+    問題は、変わっていない限り何も書き込まれないこと自体で防ぐ、別途ユニットテストで
+    検証済み。ここでは「変わった場合にverify_workspaceより前で止まる」ことを確認する）。
+    """
+    monkeypatch.setattr(release, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(update_holiday_csv, "update_bundled_holiday_csv", lambda: None)
+    monkeypatch.setattr(release, "_holiday_dir_has_uncommitted_changes", lambda: True)
+
+    with pytest.raises(SystemExit, match="コミットしてから再実行"):
+        release.sync_holiday_csv()
+
+
+def test_sync_holiday_csv_proceeds_silently_when_unchanged(monkeypatch) -> None:
+    """修正2: 内容が変わっていなければ中止せず、何も特別な出力もせずに進む。"""
+    monkeypatch.setattr(update_holiday_csv, "update_bundled_holiday_csv", lambda: None)
+    monkeypatch.setattr(release, "_holiday_dir_has_uncommitted_changes", lambda: False)
+
+    release.sync_holiday_csv()
 
 
 # --- 公開処理への引数の受け渡し ---

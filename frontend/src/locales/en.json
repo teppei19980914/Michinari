@@ -2193,7 +2193,8 @@
       "acknowledge": "Acknowledged",
       "approveAll": "Approve all",
       "rejectAll": "Reject all",
-      "staleBeforeValue": "This can no longer be approved because it changed"
+      "staleBeforeValue": "This can no longer be approved because it changed",
+      "invalidPlannedDate": "Fix the date to approve this"
     }
   },
   "summaryCard": {
