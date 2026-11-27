@@ -237,6 +237,48 @@ def test_get_schedule_items_endpoint_excludes_goal_with_no_eligible_items(client
     assert response.json() == []
 
 
+# --- GET /records/{date}/schedule-items-history（確定済みの種別向け、軽微な修正3） ---
+
+
+def test_get_schedule_items_history_endpoint_returns_items_updated_that_day(client):
+    goal, _material = _make_active_goal_with_material(client)
+    item_id = _create_schedule_item(client, goal["id"])
+    target = dt.date.today().isoformat()
+    client.post(
+        f"/api/v1/records/{target}/progress",
+        json={
+            "schedule_item_updates": [
+                {
+                    "schedule_item_id": item_id,
+                    "status": "DONE",
+                    "actual_start_date": target,
+                    "actual_end_date": target,
+                }
+            ]
+        },
+    )
+
+    response = client.get(f"/api/v1/records/{target}/schedule-items-history")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert [goal_items["goal_id"] for goal_items in body] == [goal["id"]]
+    # ライブ表示（schedule-items）では完了行は除外されるが、本エンドポイントは含める。
+    assert body[0]["items"][0]["id"] == item_id
+    assert body[0]["items"][0]["status"] == "DONE"
+
+
+def test_get_schedule_items_history_endpoint_returns_empty_when_nothing_recorded(client):
+    goal, _material = _make_active_goal_with_material(client)
+    _create_schedule_item(client, goal["id"])
+    target = dt.date.today().isoformat()
+
+    response = client.get(f"/api/v1/records/{target}/schedule-items-history")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 # --- カテゴリ横断の相互独立性（仕様変更2026-09-05） ---
 
 

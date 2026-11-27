@@ -954,9 +954,32 @@ export interface paths {
         /**
          * Get Schedule Items For Report
          * @description 日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート
-         *     _v1.1 第4章・D-32・D-33、単位4）。
+         *     _v1.1 第4章・D-32・D-33、単位4）。未確定（入力中）の種別向け。
          */
         get: operations["get_schedule_items_for_report_api_v1_records__target_date__schedule_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/records/{target_date}/schedule-items-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Schedule Items History For Report
+         * @description 確定済みの種別向け「今日の作業項目」欄の読み取り専用表示（本書4章「確定済みの種別：
+         *     入力欄を出さず、その日に更新した内容を読み取り専用で表示する」、軽微な修正3
+         *     開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）。完了・中止にした行も
+         *     `schedule_item_history`に記録が残っていれば含まれる。
+         */
+        get: operations["get_schedule_items_history_for_report_api_v1_records__target_date__schedule_items_history_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5364,6 +5387,9 @@ export interface components {
          *
          *     変更前の値が現在の値と一致せず適用できなかった行は`applied=False`・
          *     `blocked_reason="STALE_BEFORE_VALUE"`とし、他の行の処理は継続する（本書13.7）。
+         *     新しい予定日が13.5の制約に反する行（翌日以降に承認した場合等）も同様に
+         *     `applied=False`・`blocked_reason="INVALID_PLANNED_DATE"`とし、他の行の処理へ
+         *     影響させない（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1）。
          */
         ScheduleRevisionDecisionOutcome: {
             /** Proposal Item Id */
@@ -8648,6 +8674,37 @@ export interface operations {
         };
     };
     get_schedule_items_for_report_api_v1_records__target_date__schedule_items_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                target_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoalScheduleItemsForReportRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_schedule_items_history_for_report_api_v1_records__target_date__schedule_items_history_get: {
         parameters: {
             query?: never;
             header?: never;

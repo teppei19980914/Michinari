@@ -590,6 +590,78 @@ def list_schedule_items_for_report(
     ]
 
 
+def list_schedule_items_updated_on(
+    session: Session, target_date: dt.date
+) -> list[GoalScheduleItemsForReport]:
+    """`GET /records/{target_date}/schedule-items-history`（本書4章「確定済みの種別：
+    入力欄を出さず、その日に更新した内容を読み取り専用で表示する」、軽微な修正3
+    開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）。
+
+    `apply_report_schedule_item_updates`が値の変化があった場合だけ書く
+    `schedule_item_history`（record_date=報告対象日）から、その日に実際に更新された行を
+    返す。`list_schedule_items_for_report`（ライブの現在値、ACTIVEな目標のみ、完了・中止は
+    除外）とは異なり、完了・中止になった行や、現在はACTIVEでない目標の行も含める
+    （過去に確定した内容をそのまま示すため）。同じ行が同日に複数回更新された場合は、
+    最後に記録された値のみを使う。表示・絞り込みの区別が無いため`default_visible`は常に
+    `True`とする（呼び出し元はこの値でフィルタしない）。
+    """
+    history_rows = list(
+        session.execute(
+            select(ScheduleItemHistory).where(ScheduleItemHistory.record_date == target_date)
+        ).scalars()
+    )
+    if not history_rows:
+        return []
+
+    latest_by_item_id: dict[int, ScheduleItemHistory] = {}
+    for row in history_rows:
+        current = latest_by_item_id.get(row.schedule_item_id)
+        if current is None or (row.changed_at, row.id) > (current.changed_at, current.id):
+            latest_by_item_id[row.schedule_item_id] = row
+
+    items = {
+        item.id: item
+        for item in session.execute(
+            select(ScheduleItem)
+            .options(joinedload(ScheduleItem.goal))
+            .where(ScheduleItem.id.in_(latest_by_item_id.keys()))
+        ).scalars()
+    }
+
+    goal_by_id: dict[int, Goal] = {}
+    ordered_items_by_goal: dict[int, list[tuple[int, ScheduleItemForReport]]] = defaultdict(list)
+    for schedule_item_id, history in latest_by_item_id.items():
+        item = items.get(schedule_item_id)
+        if item is None:  # pragma: no cover - ON DELETE CASCADEで通常到達しない
+            continue
+        goal_by_id[item.goal_id] = item.goal
+        ordered_items_by_goal[item.goal_id].append(
+            (
+                item.display_order,
+                ScheduleItemForReport(
+                    id=item.id,
+                    title=item.title,
+                    planned_start_date=item.planned_start_date,
+                    planned_end_date=item.planned_end_date,
+                    status=history.status,
+                    actual_start_date=history.actual_start_date,
+                    actual_end_date=history.actual_end_date,
+                    default_visible=True,
+                ),
+            )
+        )
+
+    return [
+        GoalScheduleItemsForReport(
+            goal_id=goal.id,
+            goal_name=goal.name,
+            goal_category=goal.category,
+            items=[entry for _order, entry in sorted(ordered_items_by_goal[goal.id])],
+        )
+        for goal in sorted(goal_by_id.values(), key=lambda g: g.id)
+    ]
+
+
 def apply_report_schedule_item_updates(
     session: Session,
     updates: list[ScheduleItemUpdateInput],

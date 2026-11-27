@@ -115,6 +115,7 @@ function buildQueries(overrides: QueriesOverrides = {}): DailyRecordQueries {
     workAssignments: fakeQuery(overrides.workAssignments ?? []),
     goals: fakeQuery(overrides.goals ?? []),
     scheduleItems: fakeQuery(overrides.scheduleItems ?? []),
+    scheduleItemsHistory: fakeQuery([]),
   }
 }
 

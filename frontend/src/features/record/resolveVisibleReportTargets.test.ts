@@ -53,6 +53,7 @@ function buildInput(overrides: Partial<VisibleReportTargetsInput> = {}): Visible
     readingBooks: [{ goal: READING_GOAL, book: BOOK }],
     workAssignments: [{ goal: WORK_GOAL, workAssignment: WORK_ASSIGNMENT }],
     scheduleItems: [],
+    scheduleItemsHistory: [],
     ...overrides,
   }
 }
@@ -100,6 +101,36 @@ describe('resolveVisibleReportTargets', () => {
       expect(result.examScheduleItemGoals).toEqual([examSchedule])
       expect(result.readingScheduleItemGoals).toEqual([readingSchedule])
       expect(result.workScheduleItemGoals).toEqual([workSchedule])
+    })
+
+    it('splits scheduleItemsHistory by category independently of scheduleItems（軽微な修正3）', () => {
+      const liveExam = buildScheduleItemGoal(EXAM_GOAL)
+      const historyExam = buildScheduleItemGoal(EXAM_GOAL, {
+        items: [
+          {
+            id: 999,
+            title: '完了した作業',
+            planned_start_date: '2026-01-01',
+            planned_end_date: '2026-01-05',
+            status: 'DONE',
+            actual_start_date: '2026-01-01',
+            actual_end_date: '2026-01-02',
+            default_visible: true,
+          },
+        ],
+      })
+      const historyReading = buildScheduleItemGoal(READING_GOAL)
+      const result = resolveVisibleReportTargets(
+        buildInput({
+          scheduleItems: [liveExam],
+          scheduleItemsHistory: [historyExam, historyReading],
+        }),
+      )
+
+      expect(result.examScheduleItemGoals).toEqual([liveExam])
+      expect(result.examScheduleItemHistoryGoals).toEqual([historyExam])
+      expect(result.readingScheduleItemHistoryGoals).toEqual([historyReading])
+      expect(result.workScheduleItemHistoryGoals).toEqual([])
     })
   })
 

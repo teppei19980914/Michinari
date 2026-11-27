@@ -2026,7 +2026,7 @@
       "moveDown": "下へ",
       "insertBelow": "下に挿入",
       "delete": "削除",
-      "deleteConfirm": "この行を削除しますか？"
+      "deleteConfirm": "この行を削除します。更新履歴とAIの修正案もあわせて削除されます。よろしいですか？"
     },
     "customColumn": {
       "namePlaceholder": "列名",
@@ -2089,7 +2089,8 @@
       "approveAll": "すべて承認",
       "rejectAll": "すべて却下",
       "staleBeforeValue": "変更されたため承認できません",
-      "invalidPlannedDate": "日付を修正すると承認できます"
+      "invalidPlannedDate": "日付を修正すると承認できます",
+      "proposedRange": "{{start}}〜{{end}}"
     }
   },
   "summaryCard": {
