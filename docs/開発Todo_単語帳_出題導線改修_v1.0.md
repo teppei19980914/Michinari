@@ -57,7 +57,7 @@
 | 脅威 | カテゴリ | 判定 | 対策・理由 |
 | --- | --- | --- | --- |
 | 新規認証/認可フローなし | S | Accept | 既存の開発キット認証をそのまま利用、新規の経路を追加しない |
-| URLのdeckIdを書き換えて別目標のデッキへ到達 | T/E | Accept | 単一ユーザーローカルアプリのため「他ユーザーのデータ」に該当しない（自分自身の別目標データに過ぎない）。既存の`VocabDeckDetailPage`等も同様にdeckIdを直接受け取る設計であり、本改修が新たに権限境界を弱めるものではない |
+| URLのdeckIdを書き換えて別目標のデッキへ到達 | T/E | Accept | 単一ユーザーローカルアプリのため「他ユーザーのデータ」に該当しない（自分自身の別目標データに過ぎない）。既存の`VocabDeckRedirectPage`（旧`VocabDeckDetailPage`）等も同様にdeckIdを直接受け取る設計であり、本改修が新たに権限境界を弱めるものではない |
 | マイグレーションのUPDATE/DELETEが対象外のデッキ・カードへ影響する | T | **Mitigate** | 対象を`WHERE goal_id IN (...)`等の明示的な絞り込みで限定し、複数目標・複数デッキが混在する状態でのテストケース（対象外データが影響を受けないことの確認）を追加する（§3完了条件に反映） |
 | マイグレーション失敗時のエラーに内部情報が漏洩 | I | Accept | Alembicログはローカル実行時のみに出力され、既存の運用（他マイグレーションと同様）と同じ |
 | マイグレーションのUPDATE/DELETEが大量データで長時間化 | D | Accept | ローカルSQLite・単語帳の登録規模（通常数百〜数千行）では問題にならない想定。レート制限等の追加実装は不要 |
@@ -67,17 +67,20 @@
 
 - **deckIdのURL直書きによる他目標データへのアクセス可能性**：単一ユーザーローカルアプリのため、別ユーザーとの権限分離は設計上のスコープ外。承認者：利用者（本セッションでの合意、2026-11-26）
 
-## 3. 完了条件（ドラフト）
+## 3. 完了条件
 
-- [ ] `pytest`（backend）・カバレッジ100%（例外処理を除く）
-- [ ] 移行マイグレーションが、複数デッキ所持・デッキ0件・単一デッキの3パターンそれぞれで意図通り動作することをテストで確認
-- [ ] 移行マイグレーションが、対象外の目標・デッキ・カード（他のEXAM目標、READING/WORK目標）に影響しないことをテストで確認（脅威モデル§2のMitigate項目）
-- [ ] `vitest`（frontend）・カバレッジ100%
-- [ ] 旧ルート（`/vocab/:deckId`）・旧コンポーネント（`VocabDeckListTab`等）の参照が残っていないことをgrepで確認（横展開チェック）
-- [ ] `ruff check .` / `tsc -b` / lint 0件
-- [ ] `docs/CODING_RULES.md`に抵触する文言直書き・重複がないこと
-- [ ] `REQUIREMENTS.md`・`SPECIFICATION.md`・`DESIGN.md`（該当箇所）・本書の更新
+- [x] `pytest`（backend）・カバレッジ100%（例外処理を除く）：2936件合格、文・分岐とも100%
+- [x] 移行マイグレーションが、複数デッキ所持（2件・3件以上）・デッキ0件・単一デッキの4パターンそれぞれで意図通り動作することをテストで確認
+- [x] 移行マイグレーションが、対象外の目標・デッキ・カード（他のEXAM目標、READING/WORK目標）に影響しないことをテストで確認（脅威モデル§2のMitigate項目）
+- [x] `vitest`（frontend）・カバレッジ100%：269ファイル・2136件合格、Statements/Branches/Functions/Lines全て100%
+- [x] 旧ルート（`/vocab/:deckId`はVocabDeckRedirectPageへ中身差し替え）・旧コンポーネント（`VocabDeckListTab`等）の参照が残っていないことをgrepで確認（横展開チェック。dry-reviewer/style-reviewerレビューで検出した2件の古いコメント参照も修正済み）
+- [x] `ruff check .` / `tsc -b` / lint 0件
+- [x] `docs/CODING_RULES.md`に抵触する文言直書き・重複がないこと（label-checker・dry-reviewerで確認、違反なし）
+- [x] OSV依存脆弱性スキャン：0件
+- [x] `仕様書_ミチナリ_v1.1`（6.20_SC-22、1.1改80）・`設計書_データ構造編_ミチナリ_v1.1`（5.1・5.4・6.API設計、1.1改80）・本書の更新
 
 ## 4. 進捗ログ
 
 - 2026-11-26: 本書作成。利用者との対話で0.1節の決定事項を確定。`/threat-model`スキルに基づく脅威分析（§2）を実施し、マイグレーションの絞り込み検証を完了条件へ追加。実装に着手する。
+- 2026-11-26〜27: 実装完了。backend（`VocabQuizMode`へ`FLASH_RANDOM`/`CHOICE_RANDOM`追加、`_effective_mode`のランダム方向解決、`goal_service.create_goal`でのEXAM目標デッキ自動生成、移行マイグレーション`f9acb1463cf0`）・frontend（`VocabDeckWordsTab`新設、`VocabGoalQuizRedirectPage`新設、`VocabDeckDetailPage`を`VocabDeckRedirectPage`へ改名し中継専用化、`VocabDeckListTab`/`VocabDeckHeader`/`VocabDeckNameSection`等を削除）を実装。
+- 2026-11-27: 観点別レビュー5件（dry-reviewer・style-reviewer・label-checker・test-coverage-reviewer・injection-reviewer）を並列実行。指摘事項（`VocabDeckDetailPage`の命名と実態の不一致、削除済みコンポーネントを指す古いコメント2箇所、`goal_service.create_goal`のdocstring欠如、`VocabQuizSetupForm`の新モードに対するテスト不足、`vite.config.ts`の死んだincludeエントリ、3デッキ以上のマイグレーションテスト不足）をすべて修正。backend 2936件・frontend 2136件、両方カバレッジ100%で再確認。OSVスキャン0件。`仕様書`・`設計書_データ構造編`を更新し完了。
