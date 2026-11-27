@@ -168,6 +168,7 @@ function setupQueries(goals: GoalRead[], record: DailyRecordRead) {
   // （useDailyRecordQueries）経由で取得自体は行われるため既定値を与える
   // （DailyReportPage.test.tsxと同じ対応、下書き保持不具合と同種の警告を防ぐ）。
   vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
+  vi.mocked(recordsApi.getScheduleItemsHistoryForReport).mockResolvedValue([])
 }
 
 function renderPage() {

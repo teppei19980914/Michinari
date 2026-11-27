@@ -28,11 +28,15 @@ function buildGoal(id: number, name: string): GoalScheduleItemsForReportRead {
 const EXAM_GOAL = buildGoal(1, '資格目標')
 const READING_GOAL = buildGoal(2, '読書目標')
 const WORK_GOAL = buildGoal(3, '仕事目標')
+const EXAM_GOAL_HISTORY = buildGoal(11, '確定済みの資格目標')
 
 const TARGETS = {
   examScheduleItemGoals: [EXAM_GOAL],
   readingScheduleItemGoals: [READING_GOAL],
   workScheduleItemGoals: [WORK_GOAL],
+  examScheduleItemHistoryGoals: [EXAM_GOAL_HISTORY],
+  readingScheduleItemHistoryGoals: [],
+  workScheduleItemHistoryGoals: [],
 } as unknown as VisibleReportTargets
 
 const DRAFT = {
@@ -87,5 +91,19 @@ describe('CategoryScheduleItemsField', () => {
       />,
     )
     expect(screen.getByText('仕事目標')).toBeTruthy()
+  })
+
+  it('readOnly時はexamScheduleItemHistoryGoalsを使う（軽微な修正3）', () => {
+    render(
+      <CategoryScheduleItemsField
+        category="EXAM"
+        targets={TARGETS}
+        targetDate="2026-11-05"
+        readOnly={true}
+        draft={DRAFT}
+      />,
+    )
+    expect(screen.getByText('確定済みの資格目標')).toBeTruthy()
+    expect(screen.queryByText('資格目標')).toBe(null)
   })
 })

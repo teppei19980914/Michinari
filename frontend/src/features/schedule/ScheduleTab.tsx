@@ -84,6 +84,7 @@ export function ScheduleTab({ goalId, readOnly }: { goalId: number; readOnly: bo
           itemTitleById={itemTitleById}
           canDecide={!editor.hasUnsavedChanges}
           isDeciding={revision.isDeciding}
+          readOnly={readOnly}
           datesFor={datesFor}
           setDates={setDates}
           onDecide={(decisions) => revision.decide(proposal.id, decisions)}

@@ -406,4 +406,15 @@ describe('ScheduleTab', () => {
 
     expect(screen.queryByText(t('schedule.revision.invalidPlannedDate'))).toBe(null)
   })
+
+  it('終了した目標（readOnly）では修正案パネルのボタンを表示しない（軽微な修正1）', async () => {
+    getSchedule.mockResolvedValue(
+      sampleScheduleRead({ pending_revision_proposal: sampleProposal() }),
+    )
+    renderWithProviders(<ScheduleTab goalId={1} readOnly={true} />)
+
+    expect(await screen.findByText('少し遅れています')).not.toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.approve') })).toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.reject') })).toBe(null)
+  })
 })

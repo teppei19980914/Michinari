@@ -56,6 +56,7 @@ export function ProgressOnlyPage() {
     readingBooks: queries.readingBooks.data ?? [],
     workAssignments: queries.workAssignments.data ?? [],
     scheduleItems: queries.scheduleItems.data ?? [],
+    scheduleItemsHistory: queries.scheduleItemsHistory.data ?? [],
   })
   const input = resolveProgressOnlyInput({
     sections: targets,

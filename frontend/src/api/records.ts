@@ -59,6 +59,17 @@ export function getScheduleItemsForReport(
   )
 }
 
+/** 確定済みの種別向け「今日の作業項目」欄の読み取り専用表示（本書4章「確定済みの種別：
+ * 入力欄を出さず、その日に更新した内容を読み取り専用で表示する」、軽微な修正3
+ * 開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）。完了・中止にした行も含む。 */
+export function getScheduleItemsHistoryForReport(
+  targetDate: string,
+): Promise<GoalScheduleItemsForReportRead[]> {
+  return apiClient.get<GoalScheduleItemsForReportRead[]>(
+    `/records/${targetDate}/schedule-items-history`,
+  )
+}
+
 /** 進捗のみ登録する（SC-07）。 */
 export function registerProgress(
   targetDate: string,

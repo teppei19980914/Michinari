@@ -12,11 +12,15 @@ import type { ScheduleRevisionProposalItemRead } from '../../api/schedule'
  * `blockedReason`（修正1、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）は
  * 直前の承認が13.5の制約（新しい予定日は本日以降等）に反してブロックされたことを示す。
  * `is_stale`と異なりボタンは無効化しない。利用者が日付を修正して再度承認できるようにする。
+ *
+ * `readOnly`（終了した目標。軽微な修正1、開発Todo_スケジュール・ガントチャート_検証修正_
+ * v1.0.md）が真のときは、日付入力・承認・却下を一切表示しない（閲覧のみ）。
  */
 export function ScheduleRevisionChangeRow({
   item,
   title,
   disabled,
+  readOnly = false,
   dates,
   rejectReason,
   blockedReason,
@@ -28,6 +32,7 @@ export function ScheduleRevisionChangeRow({
   item: ScheduleRevisionProposalItemRead
   title: string
   disabled: boolean
+  readOnly?: boolean
   dates: { start: string; end: string }
   rejectReason: string
   blockedReason?: string | null
@@ -47,27 +52,33 @@ export function ScheduleRevisionChangeRow({
           })}
         </span>
         <span aria-hidden="true">→</span>
-        <Input
-          type="date"
-          aria-label={t('schedule.revision.proposedStartDate')}
-          value={dates.start}
-          disabled={disabled}
-          onChange={(event) => onChangeDates({ ...dates, start: event.target.value })}
-          className="text-xs"
-        />
-        <Input
-          type="date"
-          aria-label={t('schedule.revision.proposedEndDate')}
-          value={dates.end}
-          disabled={disabled}
-          onChange={(event) => onChangeDates({ ...dates, end: event.target.value })}
-          className="text-xs"
-        />
+        {readOnly ? (
+          <span>{t('schedule.revision.proposedRange', { start: dates.start, end: dates.end })}</span>
+        ) : (
+          <>
+            <Input
+              type="date"
+              aria-label={t('schedule.revision.proposedStartDate')}
+              value={dates.start}
+              disabled={disabled}
+              onChange={(event) => onChangeDates({ ...dates, start: event.target.value })}
+              className="text-xs"
+            />
+            <Input
+              type="date"
+              aria-label={t('schedule.revision.proposedEndDate')}
+              value={dates.end}
+              disabled={disabled}
+              onChange={(event) => onChangeDates({ ...dates, end: event.target.value })}
+              className="text-xs"
+            />
+          </>
+        )}
       </div>
       <p className="text-xs text-text-muted">{item.reason}</p>
       {item.is_stale ? (
         <p className="text-xs text-danger-text">{t('schedule.revision.staleBeforeValue')}</p>
-      ) : (
+      ) : readOnly ? null : (
         <>
           {blockedReason && (
             <p className="text-xs text-danger-text">{t('schedule.revision.invalidPlannedDate')}</p>

@@ -126,6 +126,7 @@ function setupQueries(options: { record?: DailyRecordRead; goals?: GoalRead[] } 
   vi.mocked(recordsApi.getRecord).mockResolvedValue(options.record ?? buildRecord())
   vi.mocked(recordsApi.getQuota).mockResolvedValue(hasCategory('EXAM') ? [QUOTA_ITEM] : [])
   vi.mocked(recordsApi.getScheduleItemsForReport).mockResolvedValue([])
+  vi.mocked(recordsApi.getScheduleItemsHistoryForReport).mockResolvedValue([])
   vi.mocked(recordsApi.getToday).mockResolvedValue({
     logical_date: LOGICAL_DATE,
     record_state: null,

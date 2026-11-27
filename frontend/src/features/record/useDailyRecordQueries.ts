@@ -3,6 +3,7 @@ import {
   getQuota,
   getRecord,
   getScheduleItemsForReport,
+  getScheduleItemsHistoryForReport,
   type DailyRecordRead,
   type GoalScheduleItemsForReportRead,
   type QuotaItemRead,
@@ -28,6 +29,9 @@ export type DailyRecordQueries = {
    * 使わない（単位4開発Todo2章補足6、下書きhydrate/マージの既存の仕組みをそのまま
    * 再利用する利点を優先した判断）。 */
   scheduleItems: UseQueryResult<GoalScheduleItemsForReportRead[]>
+  /** 確定済みの種別の読み取り専用表示用（軽微な修正3、開発Todo_スケジュール・ガントチャート_
+   * 検証修正_v1.0.md）。その日に更新した行（完了・中止を含む）のみを返す。 */
+  scheduleItemsHistory: UseQueryResult<GoalScheduleItemsForReportRead[]>
 }
 
 /**
@@ -64,6 +68,18 @@ export function useDailyRecordQueries(targetDate: string): DailyRecordQueries {
     queryKey: QUERY_KEYS.scheduleItemsForReport(targetDate),
     queryFn: () => getScheduleItemsForReport(targetDate),
   })
+  const scheduleItemsHistory = useQuery({
+    queryKey: QUERY_KEYS.scheduleItemsHistoryForReport(targetDate),
+    queryFn: () => getScheduleItemsHistoryForReport(targetDate),
+  })
 
-  return { record, quota, readingBooks, workAssignments, goals, scheduleItems }
+  return {
+    record,
+    quota,
+    readingBooks,
+    workAssignments,
+    goals,
+    scheduleItems,
+    scheduleItemsHistory,
+  }
 }

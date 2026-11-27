@@ -20,12 +20,17 @@ import type { EditedDates } from './useScheduleRevisionEditedDates'
  * 判断ハンドラ自体は`useScheduleRevisionPanelActions`へ分離している（複雑度対策）。
  * `blockedReasonFor`（省略時は常に`null`）は、直前の承認が13.5の制約でブロックされた行
  * （修正1、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）の理由を返す。
+ *
+ * `readOnly`（終了した目標、`isClosedGoalStatus`。軽微な修正1、開発Todo_スケジュール・
+ * ガントチャート_検証修正_v1.0.md）が真のときは、承認・却下・確認済みのボタンを一切
+ * 表示しない（閲覧のみ）。`canDecide=false`時の無効化（表示はするが押せない）とは異なる。
  */
 export function ScheduleRevisionPanel({
   proposal,
   itemTitleById,
   canDecide,
   isDeciding,
+  readOnly = false,
   datesFor,
   setDates,
   onDecide,
@@ -35,6 +40,7 @@ export function ScheduleRevisionPanel({
   itemTitleById: Record<number, string>
   canDecide: boolean
   isDeciding: boolean
+  readOnly?: boolean
   datesFor: (item: ScheduleRevisionProposalItemRead) => EditedDates
   setDates: (itemId: number, dates: EditedDates) => void
   onDecide: (decisions: ScheduleRevisionDecisionInput[]) => void
@@ -59,7 +65,7 @@ export function ScheduleRevisionPanel({
     <div className="flex flex-col gap-3 rounded-md border border-border bg-surface-muted p-3">
       <p className="text-sm font-medium text-text-primary">{t('schedule.revision.title')}</p>
       {proposal.summary && <p className="text-sm text-text-secondary">{proposal.summary}</p>}
-      {!canDecide && (
+      {!canDecide && !readOnly && (
         <p className="text-xs text-warning-text">{t('schedule.revision.saveOrDiscardFirst')}</p>
       )}
       {pendingChangeItems.length > 0 && (
@@ -70,6 +76,7 @@ export function ScheduleRevisionPanel({
               item={item}
               title={itemTitleById[item.schedule_item_id] ?? ''}
               disabled={disabled || item.is_stale}
+              readOnly={readOnly}
               dates={datesFor(item)}
               rejectReason={rejectReasons[item.id] ?? ''}
               blockedReason={blockedReasonFor(item.id)}
@@ -79,14 +86,16 @@ export function ScheduleRevisionPanel({
               onReject={() => reject(item)}
             />
           ))}
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={disabled} onClick={approveAll}>
-              {t('schedule.revision.approveAll')}
-            </Button>
-            <Button variant="secondary" disabled={disabled} onClick={rejectAll}>
-              {t('schedule.revision.rejectAll')}
-            </Button>
-          </div>
+          {!readOnly && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" disabled={disabled} onClick={approveAll}>
+                {t('schedule.revision.approveAll')}
+              </Button>
+              <Button variant="secondary" disabled={disabled} onClick={rejectAll}>
+                {t('schedule.revision.rejectAll')}
+              </Button>
+            </div>
+          )}
         </div>
       )}
       {pendingWarningItems.length > 0 && (
@@ -97,6 +106,7 @@ export function ScheduleRevisionPanel({
               item={item}
               title={itemTitleById[item.schedule_item_id] ?? ''}
               disabled={disabled}
+              readOnly={readOnly}
               onAcknowledge={() => acknowledge(item)}
             />
           ))}

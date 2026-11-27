@@ -364,6 +364,29 @@ describe('ScheduleRevisionPanel', () => {
     ])
   })
 
+  it('readOnly時は承認・却下・確認のボタンを一切表示しない（軽微な修正1）', () => {
+    render(
+      <ScheduleRevisionPanel
+        proposal={proposal({ summary: '全体的に遅れています', items: [changeItem(), warningItem()] })}
+        itemTitleById={{ 10: '作業A', 20: '作業B' }}
+        canDecide={true}
+        isDeciding={false}
+        readOnly={true}
+        datesFor={datesFor}
+        setDates={vi.fn()}
+        onDecide={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('全体的に遅れています')).not.toBe(null)
+    expect(screen.getByText('遅れているため')).not.toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.approve') })).toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.reject') })).toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.approveAll') })).toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.rejectAll') })).toBe(null)
+    expect(screen.queryByRole('button', { name: t('schedule.revision.acknowledge') })).toBe(null)
+  })
+
   it('作業項目名が見つからない行は空文字で表示する（データ不整合に対する防御）', () => {
     render(
       <ScheduleRevisionPanel

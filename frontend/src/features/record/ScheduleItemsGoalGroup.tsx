@@ -8,10 +8,15 @@ import type { ScheduleItemDraftValue } from './scheduleItemsDraft'
 /**
  * 「今日の作業項目」欄の1目標分（開発Todo_スケジュール・ガントチャート_v1.1 第4章、単位4）。
  *
- * 既定ではD-33の3条件（報告対象日が予定期間内／進行中／予定終了日を過ぎた未完了）に該当する
- * 行（`default_visible`）のみを表示し、「すべて表示」で完了・中止以外の全行へ展開する
- * （12章補足7。完了・中止の行はGET /records/{date}/schedule-itemsの応答にそもそも
- * 含まれないため、ここでは絞り込みのみを行う）。
+ * 入力中（`readOnly=false`）は、既定でD-33の3条件（報告対象日が予定期間内／進行中／
+ * 予定終了日を過ぎた未完了）に該当する行（`default_visible`）のみを表示し、「すべて表示」
+ * で完了・中止以外の全行へ展開する（12章補足7。完了・中止の行はGET /records/{date}/
+ * schedule-itemsの応答にそもそも含まれないため、ここでは絞り込みのみを行う）。
+ *
+ * 確定済み（`readOnly=true`）は`CategoryScheduleItemsField`がGET /records/{date}/
+ * schedule-items-historyの応答（その日に更新した行。完了・中止を含む）を渡す。この応答は
+ * 全行`default_visible=true`のため、本関数の絞り込みは素通りし「すべて表示」も出ない
+ * （軽微な修正3、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）。
  */
 export function ScheduleItemsGoalGroup({
   goal,
