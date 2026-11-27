@@ -18,6 +18,8 @@ import type { EditedDates } from './useScheduleRevisionEditedDates'
  * 409になるのを防ぐ、13.8）。承認前の日付修正（D-56）は`ScheduleTab`と共有する
  * `useScheduleRevisionEditedDates`で保持し、ガントの点線重ね表示（D-57）にも同じ値を渡す。
  * 判断ハンドラ自体は`useScheduleRevisionPanelActions`へ分離している（複雑度対策）。
+ * `blockedReasonFor`（省略時は常に`null`）は、直前の承認が13.5の制約でブロックされた行
+ * （修正1、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）の理由を返す。
  */
 export function ScheduleRevisionPanel({
   proposal,
@@ -27,6 +29,7 @@ export function ScheduleRevisionPanel({
   datesFor,
   setDates,
   onDecide,
+  blockedReasonFor = () => null,
 }: {
   proposal: ScheduleRevisionProposalRead
   itemTitleById: Record<number, string>
@@ -35,6 +38,7 @@ export function ScheduleRevisionPanel({
   datesFor: (item: ScheduleRevisionProposalItemRead) => EditedDates
   setDates: (itemId: number, dates: EditedDates) => void
   onDecide: (decisions: ScheduleRevisionDecisionInput[]) => void
+  blockedReasonFor?: (itemId: number) => string | null
 }) {
   const pendingChangeItems = proposal.items.filter(
     (item) => item.kind === 'CHANGE' && item.decision === 'PENDING',
@@ -43,7 +47,7 @@ export function ScheduleRevisionPanel({
     (item) => item.kind === 'WARNING' && item.decision === 'PENDING',
   )
   const { rejectReasons, setRejectReason, approve, reject, acknowledge, approveAll, rejectAll } =
-    useScheduleRevisionPanelActions(pendingChangeItems, datesFor, onDecide)
+    useScheduleRevisionPanelActions(pendingChangeItems, datesFor, onDecide, blockedReasonFor)
 
   if (pendingChangeItems.length === 0 && pendingWarningItems.length === 0) {
     return null
@@ -68,6 +72,7 @@ export function ScheduleRevisionPanel({
               disabled={disabled || item.is_stale}
               dates={datesFor(item)}
               rejectReason={rejectReasons[item.id] ?? ''}
+              blockedReason={blockedReasonFor(item.id)}
               onChangeDates={(dates) => setDates(item.id, dates)}
               onChangeRejectReason={(reason) => setRejectReason(item.id, reason)}
               onApprove={() => approve(item)}

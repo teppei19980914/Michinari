@@ -309,6 +309,61 @@ describe('ScheduleRevisionPanel', () => {
     expect(setDates).toHaveBeenCalled()
   })
 
+  it('ブロックされた行は理由を表示するがボタンは無効化しない（修正1）', async () => {
+    const onDecide = vi.fn()
+    render(
+      <ScheduleRevisionPanel
+        proposal={proposal({ items: [changeItem({ id: 1 })] })}
+        itemTitleById={{ 10: '作業A' }}
+        canDecide={true}
+        isDeciding={false}
+        datesFor={datesFor}
+        setDates={vi.fn()}
+        onDecide={onDecide}
+        blockedReasonFor={(itemId) => (itemId === 1 ? 'INVALID_PLANNED_DATE' : null)}
+      />,
+    )
+
+    expect(screen.getByText(t('schedule.revision.invalidPlannedDate'))).not.toBe(null)
+    const approveButton = screen.getByRole('button', {
+      name: t('schedule.revision.approve'),
+    }) as HTMLButtonElement
+    expect(approveButton.disabled).toBe(false)
+
+    await userEvent.click(approveButton)
+
+    expect(onDecide).toHaveBeenCalled()
+  })
+
+  it('ブロックされた行は「すべて承認」の対象から除く（修正1）', async () => {
+    const onDecide = vi.fn()
+    render(
+      <ScheduleRevisionPanel
+        proposal={proposal({
+          items: [changeItem({ id: 1 }), changeItem({ id: 3 })],
+        })}
+        itemTitleById={{ 10: '作業A' }}
+        canDecide={true}
+        isDeciding={false}
+        datesFor={datesFor}
+        setDates={vi.fn()}
+        onDecide={onDecide}
+        blockedReasonFor={(itemId) => (itemId === 3 ? 'INVALID_PLANNED_DATE' : null)}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('button', { name: t('schedule.revision.approveAll') }))
+
+    expect(onDecide).toHaveBeenCalledWith([
+      {
+        proposal_item_id: 1,
+        decision: 'APPROVED',
+        planned_start_date: '2026-11-15',
+        planned_end_date: '2026-11-20',
+      },
+    ])
+  })
+
   it('作業項目名が見つからない行は空文字で表示する（データ不整合に対する防御）', () => {
     render(
       <ScheduleRevisionPanel

@@ -145,6 +145,64 @@ def test_update_bundled_holiday_csv_writes_the_csv_and_metadata(monkeypatch, tmp
     assert len(metadata["sha256"]) == 64
 
 
+def test_update_bundled_holiday_csv_skips_writing_when_content_is_unchanged(monkeypatch, tmp_path):
+    """開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2：内容が前回と同じ場合
+    は書き込まない（`fetched_at`だけの無意味な差分で`release.py`が毎回止まるのを防ぐ）。
+    """
+    content = _csv_bytes([("2026/1/1", "元日")])
+    monkeypatch.setattr(
+        update_holiday_csv.urllib.request,
+        "urlopen",
+        _make_urlopen({update_holiday_csv.HOLIDAY_CSV_URL_NEW: content}),
+    )
+    csv_path = tmp_path / "holidays.csv"
+    metadata_path = tmp_path / "holidays_metadata.json"
+    csv_path.write_bytes(content)
+    metadata_path.write_text(
+        json.dumps({"fetched_at": "2020-01-01T00:00:00+00:00", "year_to": 2026}),
+        encoding="utf-8",
+    )
+    original_metadata_mtime = metadata_path.stat().st_mtime_ns
+
+    update_holiday_csv.update_bundled_holiday_csv(
+        urls=(update_holiday_csv.HOLIDAY_CSV_URL_NEW,),
+        csv_path=csv_path,
+        metadata_path=metadata_path,
+    )
+
+    assert csv_path.read_bytes() == content
+    # メタデータは書き換えられない（mtimeが変わっていないことで確認する）。
+    assert metadata_path.stat().st_mtime_ns == original_metadata_mtime
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["fetched_at"] == "2020-01-01T00:00:00+00:00"
+
+
+def test_update_bundled_holiday_csv_writes_when_content_differs_from_the_committed_file(
+    monkeypatch, tmp_path
+):
+    """内容が実際に変わっていれば、前回と同じ内容でなくても通常どおり書き込む。"""
+    old_content = _csv_bytes([("2026/1/1", "元日")])
+    new_content = _csv_bytes([("2026/1/1", "元日"), ("2026/11/23", "勤労感謝の日")])
+    monkeypatch.setattr(
+        update_holiday_csv.urllib.request,
+        "urlopen",
+        _make_urlopen({update_holiday_csv.HOLIDAY_CSV_URL_NEW: new_content}),
+    )
+    csv_path = tmp_path / "holidays.csv"
+    metadata_path = tmp_path / "holidays_metadata.json"
+    csv_path.write_bytes(old_content)
+
+    update_holiday_csv.update_bundled_holiday_csv(
+        urls=(update_holiday_csv.HOLIDAY_CSV_URL_NEW,),
+        csv_path=csv_path,
+        metadata_path=metadata_path,
+    )
+
+    assert csv_path.read_bytes() == new_content
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["year_to"] == 2026
+
+
 def test_update_bundled_holiday_csv_aborts_the_release_when_fetch_fails(monkeypatch, tmp_path):
     monkeypatch.setattr(
         update_holiday_csv.urllib.request,

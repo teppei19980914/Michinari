@@ -208,6 +208,63 @@ def test_decide_endpoint_marks_a_stale_row_without_applying_it(client, monkeypat
     assert body["proposal"]["status"] == "PENDING"
 
 
+def test_decide_endpoint_marks_an_invalid_override_without_applying_it(client, monkeypatch):
+    """開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1：13.5の制約に反する
+    上書き（進行中の行の予定開始日変更）は、STALEと同じく行単位の結果
+    （`INVALID_PLANNED_DATE`）で返り、未判断のまま残る。
+    """
+    goal = _create_goal(client)
+    put_response = client.put(
+        f"/api/v1/goals/{goal['id']}/schedule",
+        json={
+            "revision": 0,
+            "items": [
+                {
+                    "title": "作業項目A",
+                    "planned_start_date": "2026-11-10",
+                    "planned_end_date": "2026-11-20",
+                    "status": "IN_PROGRESS",
+                    "actual_start_date": "2026-11-10",
+                }
+            ],
+        },
+    )
+    assert put_response.status_code == 200, put_response.text
+    item = put_response.json()["items"][0]
+    FakeAi(monkeypatch, (_change_block(item["id"], "2026-11-10", "2026-12-15"),))
+    generated = client.post(
+        f"/api/v1/goals/{goal['id']}/schedule/revision-proposals",
+        json={"trigger": "MANUAL"},
+    ).json()
+    proposal_id = generated["proposal"]["id"]
+    proposal_item_id = generated["proposal"]["items"][0]["id"]
+
+    response = client.post(
+        f"/api/v1/goals/{goal['id']}/schedule/revision-proposals/{proposal_id}/decisions",
+        json={
+            "decisions": [
+                {
+                    "proposal_item_id": proposal_item_id,
+                    "decision": "APPROVED",
+                    "planned_start_date": "2026-11-15",
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["outcomes"] == [
+        {
+            "proposal_item_id": proposal_item_id,
+            "applied": False,
+            "blocked_reason": "INVALID_PLANNED_DATE",
+        }
+    ]
+    assert body["proposal"]["items"][0]["decision"] == "PENDING"
+    assert body["proposal"]["status"] == "PENDING"
+
+
 def test_decide_endpoint_rejects_a_proposal_that_is_not_pending(client, monkeypatch):
     goal = _create_goal(client)
     item = _create_item(client, goal["id"], start="2026-12-01", end="2026-12-10")

@@ -365,4 +365,45 @@ describe('ScheduleTab', () => {
     expect(await screen.findByText(t('schedule.revision.staleBeforeValue'))).not.toBe(null)
     expect(screen.queryByRole('button', { name: t('schedule.revision.approve') })).toBe(null)
   })
+
+  it('13.5の制約でブロックされた行は理由を表示しても承認ボタンは押せる（修正1）', async () => {
+    getSchedule.mockResolvedValue(
+      sampleScheduleRead({ pending_revision_proposal: sampleProposal() }),
+    )
+    decideScheduleRevisionProposal.mockResolvedValue({
+      proposal: sampleProposal(),
+      outcomes: [{ proposal_item_id: 200, applied: false, blocked_reason: 'INVALID_PLANNED_DATE' }],
+    })
+    renderWithProviders(<ScheduleTab goalId={1} readOnly={false} />)
+    await screen.findByText('少し遅れています')
+
+    await userEvent.click(screen.getByRole('button', { name: t('schedule.revision.approve') }))
+
+    expect(await screen.findByText(t('schedule.revision.invalidPlannedDate'))).not.toBe(null)
+    expect(
+      (
+        screen.getByRole('button', { name: t('schedule.revision.approve') }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false)
+  })
+
+  it('ブロックされた行でも日付を直せば理由が消える（修正1）', async () => {
+    getSchedule.mockResolvedValue(
+      sampleScheduleRead({ pending_revision_proposal: sampleProposal() }),
+    )
+    decideScheduleRevisionProposal.mockResolvedValue({
+      proposal: sampleProposal(),
+      outcomes: [{ proposal_item_id: 200, applied: false, blocked_reason: 'INVALID_PLANNED_DATE' }],
+    })
+    renderWithProviders(<ScheduleTab goalId={1} readOnly={false} />)
+    await screen.findByText('少し遅れています')
+    await userEvent.click(screen.getByRole('button', { name: t('schedule.revision.approve') }))
+    await screen.findByText(t('schedule.revision.invalidPlannedDate'))
+
+    const startInput = screen.getByLabelText(t('schedule.revision.proposedStartDate'))
+    await userEvent.clear(startInput)
+    await userEvent.type(startInput, '2026-11-18')
+
+    expect(screen.queryByText(t('schedule.revision.invalidPlannedDate'))).toBe(null)
+  })
 })
