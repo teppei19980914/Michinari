@@ -1879,23 +1879,10 @@
   "vocab": {
     "home": {
       "title": "単語帳",
-      "description": "単語帳は資格試験の目標に紐づきます。目標を選ぶと、その目標の「単語帳」タブへ移動します。",
+      "description": "単語帳は資格試験の目標に紐づきます。目標を選ぶと、その目標の単語で問題を解く画面へ移動します。単語の追加・編集・削除は目標詳細の「単語帳」タブで行います。",
       "empty": "資格試験の目標がまだありません。目標一覧から作成してください。"
     },
-    "deckList": {
-      "nameLabel": "単語帳の名前",
-      "descriptionLabel": "説明（任意）",
-      "empty": "単語帳はまだありません",
-      "cardCount": "{{count}}枚",
-      "masteredCount": "習得 {{mastered}}/{{total}}",
-      "useInAiOffBadge": "AIで使わない",
-      "moveUp": "上へ移動",
-      "moveDown": "下へ移動",
-      "addTitle": "単語帳を追加"
-    },
     "deckDetail": {
-      "backToGoal": "目標詳細へ戻る",
-      "startQuizButton": "出題する",
       "masteredCount": "習得済み {{mastered}}/{{total}}",
       "masteredBadge": "習得済み",
       "useInAiLabel": "今日の復習とAIフィードバックで使う",
@@ -1960,9 +1947,11 @@
       "modeOptions": {
         "FLASH_TERM_TO_MEANING": "カードをめくる（用語→意味）",
         "FLASH_MEANING_TO_TERM": "カードをめくる（意味→用語）",
+        "FLASH_RANDOM": "カードをめくる（ランダム）",
         "TYPED_MEANING_TO_TERM": "入力式（意味→用語）",
         "CHOICE_TERM_TO_MEANING": "4択（用語→意味）",
-        "CHOICE_MEANING_TO_TERM": "4択（意味→用語）"
+        "CHOICE_MEANING_TO_TERM": "4択（意味→用語）",
+        "CHOICE_RANDOM": "4択（ランダム）"
       },
       "choiceUnavailableNotice": "4択は、単語帳に4枚以上のカードが登録されている場合に選べます",
       "orderLabel": "並び順",

@@ -43,6 +43,7 @@ from app.services import (
     cycle_service,
     quota_service,
     setting_reader,
+    vocab_service,
 )
 from app.services.exceptions import InvalidStateTransitionError, NotFoundError
 
@@ -194,6 +195,13 @@ def create_goal(
     memo: str | None,
     category: GoalCategory = GoalCategory.EXAM,
 ) -> Goal:
+    """目標を作成する（DRAFT状態、状態履歴に1行追加）。
+
+    `category=EXAM`のときは、単語帳（デッキ）をユーザーに見せず1目標につき常に1件
+    存在させる方針（開発Todo_単語帳_出題導線改修_v1.0 U1・U10）に従い、副作用として
+    `vocab_service.create_deck`で単語帳を1件自動生成する（D1）。呼び出し側はこの副作用を
+    意識する必要はないが、テストでEXAM目標を作るたびに`vocab_deck`が1行増える点に注意。
+    """
     goal = Goal(
         category=category,
         name=name,
@@ -204,6 +212,10 @@ def create_goal(
     session.add(goal)
     session.flush()
     _append_status_history(session, goal, from_status=None, to_status=GoalStatus.DRAFT)
+    if category == GoalCategory.EXAM:
+        #: 単語帳（デッキ）はユーザーに見せず、1目標につき常に1件を自動生成する
+        #: （開発Todo_単語帳_出題導線改修_v1.0 U1・U10・D1）。
+        vocab_service.create_deck(session, goal, name=goal.name, description=None)
     return goal
 
 

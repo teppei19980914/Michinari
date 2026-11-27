@@ -644,3 +644,32 @@ def test_delete_goal_cascades_removes_vocab_deck_card_and_quiz_rows(db_session):
     assert db_session.query(VocabCard).count() == 0
     assert db_session.query(QuizQuestion).count() == 0
     assert db_session.query(QuizAnswerLog).count() == 0
+
+
+def test_create_goal_exam_auto_creates_single_vocab_deck(db_session):
+    """単語帳（デッキ）はユーザーに見せず、資格試験の目標作成時に1件だけ自動生成する
+    （開発Todo_単語帳_出題導線改修_v1.0 U1・U10・D1）。"""
+    goal = goal_service.create_goal(
+        db_session,
+        name="資格目標A",
+        start_date=dt.date(2026, 1, 1),
+        memo=None,
+        category=GoalCategory.EXAM,
+    )
+
+    decks = db_session.query(VocabDeck).filter(VocabDeck.goal_id == goal.id).all()
+
+    assert len(decks) == 1
+    assert decks[0].name == "資格目標A"
+    assert decks[0].use_in_ai is True
+
+
+@pytest.mark.parametrize("category", [GoalCategory.READING, GoalCategory.WORK])
+def test_create_goal_non_exam_does_not_create_vocab_deck(db_session, category):
+    """単語帳は資格試験専用のため、読書・仕事の目標作成ではデッキを作らない
+    （開発Todo_単語帳_出題導線改修_v1.0 U1）。"""
+    goal = goal_service.create_goal(
+        db_session, name="目標B", start_date=dt.date(2026, 1, 1), memo=None, category=category
+    )
+
+    assert db_session.query(VocabDeck).filter(VocabDeck.goal_id == goal.id).count() == 0

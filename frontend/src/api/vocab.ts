@@ -24,31 +24,16 @@ export function getVocabDecks(goalId: number): Promise<VocabDeck[]> {
   return apiClient.get<VocabDeck[]>(`/goals/${goalId}/vocab-decks`)
 }
 
-/** 単語帳を作成する（対象の目標が資格試験以外だと400が返る）。 */
-export function createVocabDeck(
-  goalId: number,
-  payload: { name: string; description?: string | null },
-): Promise<VocabDeck> {
-  return apiClient.post<VocabDeck>(`/goals/${goalId}/vocab-decks`, payload)
-}
-
-export function reorderVocabDecks(goalId: number, orderedDeckIds: number[]): Promise<void> {
-  return apiClient.put(`/goals/${goalId}/vocab-decks/order`, { ordered_deck_ids: orderedDeckIds })
-}
-
 export function getVocabDeck(deckId: number): Promise<VocabDeck> {
   return apiClient.get<VocabDeck>(`/vocab-decks/${deckId}`)
 }
 
-export function updateVocabDeck(
-  deckId: number,
-  payload: { name?: string; description?: string | null; use_in_ai?: boolean },
-): Promise<VocabDeck> {
+/** 単語帳（デッキ）はユーザーに見せないため、フロントエンドから変更できるのは
+ * `use_in_ai`（今日の復習・AIフィードバックでの利用）のみ（開発Todo_単語帳_出題導線改修
+ * _v1.0 U1・U7）。デッキの作成・名前編集・並び替え・削除のAPI呼び出しは廃止した
+ * （バックエンドのAPI自体は維持する）。 */
+export function updateVocabDeck(deckId: number, payload: { use_in_ai: boolean }): Promise<VocabDeck> {
   return apiClient.patch<VocabDeck>(`/vocab-decks/${deckId}`, payload)
-}
-
-export function deleteVocabDeck(deckId: number): Promise<void> {
-  return apiClient.delete(`/vocab-decks/${deckId}`)
 }
 
 /** カード一覧。`filter`・`sort`は画面の絞り込み・並び替えキー（省略時はALL・REGISTERED）。

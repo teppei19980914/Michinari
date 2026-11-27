@@ -43,6 +43,38 @@ describe('VocabQuizSetupForm の4択の可否', () => {
     }) as HTMLOptionElement
     expect(option.disabled).toBe(false)
   })
+
+  it('disables CHOICE_RANDOM too when fewer than 4 cards (開発Todo_単語帳_出題導線改修_v1.0 D4)', () => {
+    renderWithProviders(
+      <VocabQuizSetupForm
+        termCardCount={3}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={vi.fn()}
+      />,
+    )
+
+    const option = screen.getByRole('option', {
+      name: t('vocab.quiz.modeOptions.CHOICE_RANDOM'),
+    }) as HTMLOptionElement
+    expect(option.disabled).toBe(true)
+  })
+
+  it('enables CHOICE_RANDOM with 4 or more cards', () => {
+    renderWithProviders(
+      <VocabQuizSetupForm
+        termCardCount={4}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={vi.fn()}
+      />,
+    )
+
+    const option = screen.getByRole('option', {
+      name: t('vocab.quiz.modeOptions.CHOICE_RANDOM'),
+    }) as HTMLOptionElement
+    expect(option.disabled).toBe(false)
+  })
 })
 
 describe('VocabQuizSetupForm の問題数の初期値・上限（軽微1の修正、2026-11-22）', () => {
@@ -161,5 +193,47 @@ describe('VocabQuizSetupForm の開始', () => {
     await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
 
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ card_type: 'SITUATION' }))
+  })
+
+  it('starts with FLASH_RANDOM when selected (開発Todo_単語帳_出題導線改修_v1.0 U5)', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    renderWithProviders(
+      <VocabQuizSetupForm
+        termCardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.quiz.modeLabel')),
+      t('vocab.quiz.modeOptions.FLASH_RANDOM'),
+    )
+    await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
+
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ mode: 'FLASH_RANDOM' }))
+  })
+
+  it('starts with CHOICE_RANDOM when selected', async () => {
+    const user = userEvent.setup()
+    const onStart = vi.fn()
+    renderWithProviders(
+      <VocabQuizSetupForm
+        termCardCount={10}
+        defaultQuestionCount={10}
+        maxQuestionCount={100}
+        onStart={onStart}
+      />,
+    )
+
+    await user.selectOptions(
+      screen.getByLabelText(t('vocab.quiz.modeLabel')),
+      t('vocab.quiz.modeOptions.CHOICE_RANDOM'),
+    )
+    await user.click(screen.getByRole('button', { name: t('vocab.quiz.startButton') }))
+
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({ mode: 'CHOICE_RANDOM' }))
   })
 })

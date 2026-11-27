@@ -10,11 +10,17 @@ import { VOCAB_CARD_FILTER_KEYS, type VocabCardFilterKey, type VocabCardTypeKey 
 const MODES: VocabQuizMode[] = [
   'FLASH_TERM_TO_MEANING',
   'FLASH_MEANING_TO_TERM',
+  'FLASH_RANDOM',
   'TYPED_MEANING_TO_TERM',
   'CHOICE_TERM_TO_MEANING',
   'CHOICE_MEANING_TO_TERM',
+  'CHOICE_RANDOM',
 ]
-const CHOICE_MODES: VocabQuizMode[] = ['CHOICE_TERM_TO_MEANING', 'CHOICE_MEANING_TO_TERM']
+const CHOICE_MODES: VocabQuizMode[] = [
+  'CHOICE_TERM_TO_MEANING',
+  'CHOICE_MEANING_TO_TERM',
+  'CHOICE_RANDOM',
+]
 const ORDERS = ['RANDOM', 'WEAK_ORDER', 'REGISTERED'] as const
 
 export type VocabQuizSessionParams = {

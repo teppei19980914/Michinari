@@ -275,16 +275,18 @@
 
 各リクエストには相関ID（`X-Request-Id`ヘッダ、12桁の16進数）を発行し、同一リクエストで出力される全てのログ行（アクセスログ・業務エラー・未分類例外）へ自動的に付与する（`logging.setLogRecordFactory`によるプロセス全体への注入、ハンドラ単位の`logging.Filter`では`caplog`等の別ハンドラに乗らないため採用しない）。フロントはレスポンスの`X-Request-Id`ヘッダを`ApiError.requestId`として保持し、エラー表示の詳細欄に「エラーID」として表示する。
 
-**単語帳（SC-22、開発Todo_単語帳_v1.0 要件A・要件B）**
+**単語帳（SC-22、開発Todo_単語帳_v1.0 要件A・要件B、開発Todo_単語帳_出題導線改修_v1.0）**
+
+1目標（EXAM）＝1単語帳に統一して以降（1.1改80）、デッキの作成・表示順更新・削除・名前/説明編集はフロントエンドから呼ばれない（デッキはユーザーに見せない内部概念のため）。これらのエンドポイント自体はAPIとして維持する（後方互換・内部整合性のため）。フロントエンドが実際に呼ぶのは一覧取得（デッキID解決用）・詳細取得・`use_in_ai`のみの更新である。
 
 | メソッド | パス | 概要 |
 | --- | --- | --- |
-| GET | /goals/{goal_id}/vocab-decks | 目標に紐づく単語帳一覧（表示順） |
-| POST | /goals/{goal_id}/vocab-decks | 単語帳を作成する。対象goalが資格試験（EXAM）以外なら`VOCAB_DECK_GOAL_CATEGORY`（400） |
-| PUT | /goals/{goal_id}/vocab-decks/order | 単語帳の表示順を一括更新する |
+| GET | /goals/{goal_id}/vocab-decks | 目標に紐づく単語帳一覧（表示順）。1目標1件運用後は専らデッキID解決に使う |
+| POST | /goals/{goal_id}/vocab-decks | 単語帳を作成する。対象goalが資格試験（EXAM）以外なら`VOCAB_DECK_GOAL_CATEGORY`（400）。1.1改80以降はフロントエンドから呼ばれない（`goal_service.create_goal`が内部で呼ぶ） |
+| PUT | /goals/{goal_id}/vocab-decks/order | 単語帳の表示順を一括更新する。1.1改80以降はフロントエンドから呼ばれない |
 | GET | /vocab-decks/{deck_id} | 単語帳詳細 |
-| PATCH | /vocab-decks/{deck_id} | 単語帳の名前・説明・`use_in_ai`を更新する |
-| DELETE | /vocab-decks/{deck_id} | 単語帳を削除する（カード・解答履歴もCASCADEで削除） |
+| PATCH | /vocab-decks/{deck_id} | 単語帳の`use_in_ai`を更新する（1.1改80以降、フロントエンドは名前・説明を送らない） |
+| DELETE | /vocab-decks/{deck_id} | 単語帳を削除する（カード・解答履歴もCASCADEで削除）。1.1改80以降はフロントエンドから呼ばれない |
 | GET | /vocab-decks/{deck_id}/cards | カード一覧。`filter`・`sort`クエリパラメータで絞り込み・並び替え |
 | POST | /vocab-decks/{deck_id}/cards | カードを追加する。デッキの上限超過は`VOCAB_DECK_CARD_LIMIT_EXCEEDED`（400） |
 | PATCH | /vocab-cards/{card_id} | カードの用語・意味・別名・補足を更新する |
@@ -295,7 +297,7 @@
 | GET | /vocab-decks/{deck_id}/export | 単語帳をタブ区切りテキストで書き出す |
 | POST | /vocab-decks/{deck_id}/quiz-sessions | 出題セッションを開始する（サーバーにセッション自体は保存しない） |
 | POST | /vocab-cards/{card_id}/answer | 単語帳の問題集での解答を記録する（`vocab_answer_log`へ追加。今日の復習の解答履歴とは別） |
-| POST | /vocab-decks/{deck_id}/quiz/generate | 単語帳詳細の「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B）。その単語帳の、まだ問題を持たないカードの分だけ作る（AI呼び出し） |
+| POST | /vocab-decks/{deck_id}/quiz/generate | 目標詳細「単語帳」タブの「今日の復習の問題を作る」ボタン（開発Todo_単語帳_v1.0 要件B）。その単語帳の、まだ問題を持たないカードの分だけ作る（AI呼び出し） |
 | POST | /goals/{goal_id}/vocab-suggestions | 日次報告の確定成功後に呼ぶ（開発Todo_単語帳_v1.0 要件D）。`record_date`を指定し、その日の日記からAIが用語候補を抜き出しPENDINGの提案一覧を返す（AI呼び出し。既に同日の提案があれば呼び出さず既存を返す） |
 | GET | /goals/{goal_id}/vocab-suggestions | その日（`record_date`必須）のPENDINGの提案一覧を返す |
 | POST | /goals/{goal_id}/vocab-suggestions/{suggestion_id}/accept | 提案を採用し、指定の単語帳へカードを追加してADDEDにする。他目標の提案・単語帳は404 |
