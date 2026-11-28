@@ -65,3 +65,8 @@ backend/build_info.json
 # Office（PowerPoint/Word/Excel）がファイルを開いている間だけ生成するロックファイル。
 # 編集者の環境依存の一時ファイルであり、コミット対象ではない
 ~$*
+
+# NewtonX ADK（設計・内部ロジックを外部公開しないため、2026-11-28に履歴からも除去済み。
+# backend/pyproject.toml の path依存先。配布パッケージはPyInstallerでmyvenvの
+# インストール済みコードを同梱するため、ここを追跡しなくても配布物には影響しない）
+newtonx_adk/
