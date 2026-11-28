@@ -74,11 +74,16 @@ def vocab_payload(deck_name: str = "英単語") -> dict:
     }
 
 
-def quiz_payload(local_question_id: int = 1, correct_choice_index: int = 0) -> dict:
+def quiz_payload(
+    local_question_id: int = 1, correct_choice_index: int = 0, local_card_id: int = 1
+) -> dict:
+    """`local_card_id`の既定値（1）は`vocab_payload()`のカード（`local_card_id=1`）に合わせる
+    （`replace_quiz_questions`の出所検証、D-03・STRIDE対策）。"""
     return {
         "questions": [
             {
                 "local_question_id": local_question_id,
+                "local_card_id": local_card_id,
                 "question_text": "appleの意味は？",
                 "choice_1": "りんご",
                 "choice_2": "バナナ",

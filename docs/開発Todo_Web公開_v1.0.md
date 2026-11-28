@@ -254,7 +254,7 @@
 ### 単位2：公開API・閲覧/回答API
 
 **状況（2026-11-28 実装完了）**：下記の変更ファイル一覧どおり実装済み。`publish_server/`配下で
-`uv run pytest --cov-fail-under=100`が142件全テスト合格・カバレッジ100%（行・分岐とも）、
+`uv run pytest --cov-fail-under=100`が144件全テスト合格・カバレッジ100%（行・分岐とも）、
 `ruff format --check`／`ruff check`も通過。既存`backend/`は無変更（本単位の変更対象外）。
 
 **概要**：スナップショットの受信・差し替え・公開停止と、閲覧・回答API（ガント・単語帳・問題）、サーバ側正誤判定、回答履歴記録。
@@ -281,6 +281,13 @@
   試みたがFastAPI本体の例外変換と衝突したため撤回した経緯は`app/middleware/
   body_size_limit.py`のdocstring参照）。正確な上限判定・専用エラーコードは依然サービス層の
   `_check_snapshot_size`が担う
+- 問題のアップロード（`QuizQuestionIn`）には`local_card_id`（ローカル側`quiz_question.
+  vocab_card_id`）を必須フィールドとして追加し、サーバ側で同じ単語帳デッキのカード一覧
+  （`cards_json`）に実在するかを検証する（D-03・STRIDE分析5章「ローカル→公開API」I:情報漏洩
+  「D-03のフィルタをクライアントだけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」
+  への対応。実装レビュー完了後、ユーザーへの最終確認時に当初の実装で欠落していたことが
+  判明し、マージ前に追加した）。1件でも不一致なら既存の削除処理に進む前に全体を拒否し、
+  一部のみの保存はしない（`QuestionNotFromVocabCardError`、400・QUESTION_NOT_FROM_VOCAB_CARD）
 
 **観点別レビュー（auth/injection/secret/dependency/dry/style/test-coverage-reviewer、2026-11-28
 並列実行）の結果と対応**：
@@ -303,6 +310,7 @@
 | label-checker | — | ハードコーディング（ゼロハードコーディング違反）は検出されず | 対応不要 |
 | test-coverage-reviewer（`body_size_limit`最終設計の再レビュー） | MEDIUM | `compute_max_body_size()`のHTTP経由テストが閾値自身を使ってペイロードを組み立てるため、`OVERHEAD_FACTOR`（×2倍）の値そのものの変更を検知できないトートロジーになっていた | 修正済み：`test_compute_max_body_size_applies_overhead_factor`を追加（期待値に定数名ではなく数値`2`を直接書き、定数の書き換えミスを検知できるようにした） |
 | test-coverage-reviewer | LOW-MEDIUM | 境界値（ちょうど閾値）が拒否されないことを確認するテストが無かった（Starletteの判定は厳密な`>`、off-by-one回帰を検知できない） | 修正済み：`test_body_exactly_at_threshold_is_not_rejected_with_413`を追加 |
+| （マージ前の利用者確認時の指示再読により発覚、観点別レビューの対象外） | HIGH | 本書5章STRIDE分析「ローカル→公開API」I:情報漏洩の対策「D-03のフィルタをクライアントだけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」が未実装だった。利用者指示「公開データに、単語帳由来以外の問題や、日次報告などの対象外データが混ざった場合は拒否する」に対応する要件であり、当初の実装では`QuizQuestionIn`に出所（`local_card_id`）を示すフィールド自体が無く、サーバ側は受け取った問題をそのまま信用していた | 修正済み：`QuizQuestionIn.local_card_id`を必須フィールドとして追加し、`replace_quiz_questions`で同じ単語帳デッキのカード一覧と照合、不一致は`QuestionNotFromVocabCardError`（400・QUESTION_NOT_FROM_VOCAB_CARD）で拒否（1件でも不一致なら既存データの削除前に全体を拒否、部分保存なし）。テスト2件追加 |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）
@@ -325,10 +333,12 @@
 - **情報漏洩チェック（D-07必須）**：回答前レスポンスに`correct_choice_index`・`explanation`が含まれないことを固定するテスト
 - 公開停止後に取得・回答できないこと（ガント・単語帳〈問題へのカスケードを含む〉・問題単独）
 - 差し替え後に古い版の問題へ回答できないこと（かつ新しい版には正しく回答できること）
+- 単語帳由来以外の問題（`local_card_id`がデッキのカード一覧に実在しない）の拒否、1件でも
+  不一致なら既存の公開済み問題を残したまま全体を拒否すること（部分保存なし）
 
-**完了条件**：上記テスト全通過（142件）、カバレッジ100%、`ruff check`／`ruff format --check`通過
+**完了条件**：上記テスト全通過（144件）、カバレッジ100%、`ruff check`／`ruff format --check`通過
 
-**デグレ確認項目**：既存`backend/`に対する変更が無いこと（本単位は`publish_server/`のみ変更）。単位1のログイン・トークン機構に影響が無いこと（既存82件のテストを含め全142件が通過）
+**デグレ確認項目**：既存`backend/`に対する変更が無いこと（本単位は`publish_server/`のみ変更）。単位1のログイン・トークン機構に影響が無いこと（既存82件のテストを含め全144件が通過）
 
 ---
 

@@ -101,6 +101,24 @@ class VocabDeckNotPublishedError(DomainError):
         super().__init__(f"Vocab deck (local_deck_id={local_deck_id}) is not published")
 
 
+class QuestionNotFromVocabCardError(DomainError):
+    """問題のアップロード時、`local_card_id`が同じ単語帳デッキのカード一覧に存在しない場合
+    （D-03・STRIDE分析5章「ローカル→公開API」I:情報漏洩対策「D-03のフィルタをクライアント
+    だけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」）。
+
+    ローカル側のフィルタ（`vocab_card_id IS NOT NULL`）はアップロード元の責務だが、テーマ
+    （`theme_id`）由来等の対象外データが誤って（あるいはクライアント側の不具合で）混入した
+    場合に、サーバ側でも拒否する。
+    """
+
+    def __init__(self, local_card_id: int) -> None:
+        self.local_card_id = local_card_id
+        super().__init__(
+            f"Quiz question references local_card_id={local_card_id}, which is not part of "
+            "the published vocab deck"
+        )
+
+
 class SnapshotNotFoundError(DomainError):
     """指定された公開物IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。"""
 

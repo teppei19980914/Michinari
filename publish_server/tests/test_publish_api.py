@@ -189,6 +189,48 @@ def test_upload_quiz_without_published_vocab_deck_is_rejected(client):
     assert response.json()["error"]["code"] == "VOCAB_DECK_NOT_PUBLISHED"
 
 
+def test_upload_quiz_with_local_card_id_not_in_published_deck_is_rejected(client):
+    """D-03・STRIDE分析5章「サーバ側でも二重検証（`vocab_card_id`必須チェック）」：
+    テーマ由来等、単語帳由来以外の問題が混入した場合（`local_card_id`がデッキのカード一覧に
+    存在しない）はサーバ側で拒否する。"""
+    csrf = create_and_login(client, "quinn")
+    token = issue_api_token(client, csrf)
+    headers = bearer_header(token)
+    client.put("/api/v1/publish/vocab/1", json=vocab_payload(), headers=headers)
+    payload = quiz_payload(local_card_id=999)
+
+    response = client.put("/api/v1/publish/quiz/1", json=payload, headers=headers)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "QUESTION_NOT_FROM_VOCAB_CARD"
+
+
+def test_upload_quiz_partially_invalid_source_rejects_entire_batch_without_touching_existing(
+    client,
+):
+    """1件でも出所不明の問題が混ざっていれば全体を拒否し、既存の公開済み問題も
+    削除・差し替えされず残ることを確認する（検証が削除処理より前に行われるため）。"""
+    csrf = create_and_login(client, "quinn2")
+    token = issue_api_token(client, csrf)
+    headers = bearer_header(token)
+    client.put("/api/v1/publish/vocab/1", json=vocab_payload(), headers=headers)
+    client.put("/api/v1/publish/quiz/1", json=quiz_payload(), headers=headers)
+    deck_id = client.get("/api/v1/view/vocab-decks").json()[0]["id"]
+    existing_question_id = client.get(f"/api/v1/view/vocab/{deck_id}/quiz").json()[0]["id"]
+
+    mixed_payload = quiz_payload()
+    mixed_payload["questions"].append(
+        dict(mixed_payload["questions"][0], local_question_id=2, local_card_id=999)
+    )
+    response = client.put("/api/v1/publish/quiz/1", json=mixed_payload, headers=headers)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "QUESTION_NOT_FROM_VOCAB_CARD"
+    questions_after = client.get(f"/api/v1/view/vocab/{deck_id}/quiz").json()
+    assert len(questions_after) == 1
+    assert questions_after[0]["id"] == existing_question_id
+
+
 # ---- 不正入力 ----------------------------------------------------------------
 
 

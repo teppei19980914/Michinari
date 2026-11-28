@@ -2,6 +2,13 @@
 
 `QuizQuestionPreview`は回答前に返すスキーマで、`correct_choice_index`・`explanation`を
 意図的に含めない（D-07必須）。回答後の結果は`QuizAnswerResult`で別途返す。
+
+`QuizQuestionIn.local_card_id`は、D-03・STRIDE分析5章「ローカル→公開API」I:情報漏洩
+「`theme_id`由来の問題や機微な学習記録が誤って送信される」への対策（「D-03のフィルタを
+クライアントだけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」）に使う。
+ローカル側のフィルタ（`vocab_card_id IS NOT NULL`）はアップロード元の責務だが、サーバ側でも
+`app/services/publish_service.py`の`replace_quiz_questions`がこの値を同じ単語帳デッキの
+カード一覧（`published_vocab_deck.cards_json`）と照合し、一致しない場合は拒否する。
 """
 
 from pydantic import BaseModel, Field
@@ -16,6 +23,9 @@ _MAX_CHOICE_INDEX = 3
 class QuizQuestionIn(BaseModel):
     #: ローカル側`quiz_question.id`（D-23により外部キー制約は張らない）。
     local_question_id: int
+    #: ローカル側`quiz_question.vocab_card_id`（出所検証用、D-03・STRIDE対策。本モジュールの
+    #: docstring参照）。
+    local_card_id: int
     question_text: str = Field(max_length=_MAX_FIELD_CHARS)
     choice_1: str = Field(max_length=_MAX_FIELD_CHARS)
     choice_2: str = Field(max_length=_MAX_FIELD_CHARS)

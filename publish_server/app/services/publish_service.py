@@ -25,6 +25,7 @@ from app.schemas.gantt import GanttSnapshotUploadRequest
 from app.schemas.quiz import QuizQuestionIn
 from app.schemas.vocab import VocabDeckUploadRequest
 from app.services.exceptions import (
+    QuestionNotFromVocabCardError,
     SnapshotTooLargeError,
     TooManyItemsError,
     VocabDeckNotPublishedError,
@@ -146,6 +147,11 @@ def replace_quiz_questions(
 
     対応する単語帳デッキが未公開の場合は`VocabDeckNotPublishedError`を送出する
     （問題は単語帳デッキのスナップショットに従属するため、先に単語帳を公開する必要がある）。
+
+    各問題の`local_card_id`が、同じデッキのカード一覧（`cards_json`）に実在することを
+    検証する（D-03・STRIDE分析5章「サーバ側でも二重検証（`vocab_card_id`必須チェック）」）。
+    一致しなければ`QuestionNotFromVocabCardError`を送出する（テーマ由来等の対象外データが
+    混入している可能性があるため、1件でも不一致なら全体を拒否し、一部のみの保存はしない）。
     """
     settings = get_settings()
     _check_item_count(questions, "quiz questions", settings.max_quiz_questions)
@@ -155,6 +161,11 @@ def replace_quiz_questions(
     deck = _find_vocab_deck(db, account, local_deck_id)
     if deck is None:
         raise VocabDeckNotPublishedError(local_deck_id)
+
+    published_card_ids = {card["local_card_id"] for card in json.loads(deck.cards_json)}
+    for question in questions:
+        if question.local_card_id not in published_card_ids:
+            raise QuestionNotFromVocabCardError(question.local_card_id)
 
     db.query(PublishedQuizQuestion).filter(
         PublishedQuizQuestion.vocab_deck_snapshot_id == deck.id
