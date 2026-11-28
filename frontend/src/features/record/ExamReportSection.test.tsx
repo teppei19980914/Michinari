@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, screen, waitFor } from '@testing-library/react'
 import { t } from '../../locales/t'
 import { renderWithProviders } from '../../test/renderWithProviders'
-import type { DailyRecordRead } from '../../api/records'
+import type { DailyRecordRead, GoalScheduleItemsForReportRead } from '../../api/records'
 import type { DailyReportDraft } from './useDailyReportDraft'
 import type { VisibleReportTargets } from './resolveVisibleReportTargets'
 import type { CategoryActions } from './useDailyReportActions'
@@ -97,6 +97,9 @@ function buildTargets(): VisibleReportTargets {
     examScheduleItemGoals: [],
     readingScheduleItemGoals: [],
     workScheduleItemGoals: [],
+    examScheduleItemHistoryGoals: [],
+    readingScheduleItemHistoryGoals: [],
+    workScheduleItemHistoryGoals: [],
     showExamSection: true,
     showReadingSection: false,
     showWorkSection: false,
@@ -142,6 +145,59 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+})
+
+describe('ExamReportSectionの確定済み表示（軽微な修正3）', () => {
+  function buildGoalItems(
+    overrides: Partial<GoalScheduleItemsForReportRead> & {
+      items: GoalScheduleItemsForReportRead['items']
+    },
+  ): GoalScheduleItemsForReportRead {
+    return { goal_id: EXAM_GOAL_ID, goal_name: '資格目標', goal_category: 'EXAM', ...overrides }
+  }
+
+  it('確定済み（isReported）では、その日に更新した内容（schedule-items-history由来）を表示し、完了にした行も含める', () => {
+    const liveGoalItems = buildGoalItems({
+      items: [
+        {
+          id: 1,
+          title: '未確定の行',
+          planned_start_date: '2026-09-01',
+          planned_end_date: '2026-09-10',
+          status: 'NOT_STARTED',
+          actual_start_date: null,
+          actual_end_date: null,
+          default_visible: true,
+        },
+      ],
+    })
+    const historyGoalItems = buildGoalItems({
+      items: [
+        {
+          id: 2,
+          title: '完了した行',
+          planned_start_date: '2026-09-01',
+          planned_end_date: '2026-09-10',
+          status: 'DONE',
+          actual_start_date: '2026-09-01',
+          actual_end_date: '2026-09-02',
+          default_visible: true,
+        },
+      ],
+    })
+
+    renderSection({
+      targets: {
+        ...buildTargets(),
+        examScheduleItemGoals: [liveGoalItems],
+        examScheduleItemHistoryGoals: [historyGoalItems],
+      },
+    })
+
+    expect(screen.getByText('完了した行')).toBeTruthy()
+    expect(screen.getByText(t('schedule.status.DONE'))).toBeTruthy()
+    expect(screen.queryByText('未確定の行')).toBe(null)
+  })
 })
 
 describe('ExamReportSectionの用語提案カード', () => {

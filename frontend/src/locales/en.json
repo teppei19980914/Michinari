@@ -2122,7 +2122,7 @@
       "moveDown": "Move down",
       "insertBelow": "Insert below",
       "delete": "Delete",
-      "deleteConfirm": "Delete this row?"
+      "deleteConfirm": "This will delete this row, along with its update history and AI revision proposals. Continue?"
     },
     "customColumn": {
       "namePlaceholder": "Column name",
@@ -2193,7 +2193,9 @@
       "acknowledge": "Acknowledged",
       "approveAll": "Approve all",
       "rejectAll": "Reject all",
-      "staleBeforeValue": "This can no longer be approved because it changed"
+      "staleBeforeValue": "This can no longer be approved because it changed",
+      "invalidPlannedDate": "Fix the date to approve this",
+      "proposedRange": "{{start}} - {{end}}"
     }
   },
   "summaryCard": {

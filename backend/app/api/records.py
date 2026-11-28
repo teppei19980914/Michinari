@@ -236,15 +236,11 @@ def get_record(target_date: dt.date, session: Session = Depends(get_db)) -> Dail
     return _serialize_record(session, target_date, record)
 
 
-@router.get(
-    "/records/{target_date}/schedule-items", response_model=list[GoalScheduleItemsForReportRead]
-)
-def get_schedule_items_for_report(
-    target_date: dt.date, session: Session = Depends(get_db)
+def _serialize_schedule_items_for_report(
+    goals: list[schedule_service.GoalScheduleItemsForReport],
 ) -> list[GoalScheduleItemsForReportRead]:
-    """日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート
-    _v1.1 第4章・D-32・D-33、単位4）。"""
-    goals = schedule_service.list_schedule_items_for_report(session, target_date)
+    """`list_schedule_items_for_report`・`list_schedule_items_updated_on`共通の
+    シリアライズ（CLAUDE.md DRYの原則）。"""
     return [
         GoalScheduleItemsForReportRead(
             goal_id=goal.goal_id,
@@ -266,6 +262,33 @@ def get_schedule_items_for_report(
         )
         for goal in goals
     ]
+
+
+@router.get(
+    "/records/{target_date}/schedule-items", response_model=list[GoalScheduleItemsForReportRead]
+)
+def get_schedule_items_for_report(
+    target_date: dt.date, session: Session = Depends(get_db)
+) -> list[GoalScheduleItemsForReportRead]:
+    """日次報告・進捗のみ登録の「今日の作業項目」欄（開発Todo_スケジュール・ガントチャート
+    _v1.1 第4章・D-32・D-33、単位4）。未確定（入力中）の種別向け。"""
+    goals = schedule_service.list_schedule_items_for_report(session, target_date)
+    return _serialize_schedule_items_for_report(goals)
+
+
+@router.get(
+    "/records/{target_date}/schedule-items-history",
+    response_model=list[GoalScheduleItemsForReportRead],
+)
+def get_schedule_items_history_for_report(
+    target_date: dt.date, session: Session = Depends(get_db)
+) -> list[GoalScheduleItemsForReportRead]:
+    """確定済みの種別向け「今日の作業項目」欄の読み取り専用表示（本書4章「確定済みの種別：
+    入力欄を出さず、その日に更新した内容を読み取り専用で表示する」、軽微な修正3
+    開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）。完了・中止にした行も
+    `schedule_item_history`に記録が残っていれば含まれる。"""
+    goals = schedule_service.list_schedule_items_updated_on(session, target_date)
+    return _serialize_schedule_items_for_report(goals)
 
 
 @router.post("/records/{target_date}/progress", response_model=DailyRecordRead)

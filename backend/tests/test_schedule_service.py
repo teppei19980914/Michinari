@@ -998,6 +998,178 @@ def test_list_schedule_items_for_report_default_visible_follows_d33(
     assert result[0].items[0].default_visible is expected
 
 
+# --- list_schedule_items_updated_on（確定済みの種別向け、軽微な修正3） ---
+
+
+def test_list_schedule_items_updated_on_returns_empty_when_nothing_recorded(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    _save_item(seeded_session, goal)
+
+    assert schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_updated_on_ignores_schedule_screen_edits(seeded_session):
+    """スケジュール画面での編集はrecord_date=NULLのため対象にならない（本書7.1）。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    _save_item(
+        seeded_session, goal, status=ScheduleItemStatus.IN_PROGRESS, actual_start_date=_TODAY
+    )
+
+    assert schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY) == []
+
+
+def test_list_schedule_items_updated_on_includes_completed_items(seeded_session):
+    """軽微な修正3：ライブ表示（list_schedule_items_for_report）と異なり、完了にした行も
+    その日に更新していれば表示される。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.DONE,
+                actual_start_date=dt.date(2026, 6, 1),
+                actual_end_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    result = schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY)
+
+    assert len(result) == 1
+    assert result[0].goal_id == goal.id
+    assert result[0].items[0].status == ScheduleItemStatus.DONE
+    assert result[0].items[0].actual_end_date == _TODAY
+    assert result[0].items[0].default_visible is True
+
+
+def test_list_schedule_items_updated_on_includes_items_of_an_inactive_goal(seeded_session):
+    """ライブ表示はACTIVEな目標のみだが、本関数は過去の確定内容をそのまま示すため
+    現在PAUSED・CLOSEDな目標の行も含める。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+    goal.status = GoalStatus.PAUSED
+    seeded_session.flush()
+
+    result = schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY)
+
+    assert [goal_items.goal_id for goal_items in result] == [goal.id]
+
+
+def test_list_schedule_items_updated_on_uses_the_latest_value_for_the_same_day(seeded_session):
+    """同じ行が同日に複数回更新された場合は、最後に記録された値のみを使う。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.PROGRESS_ONLY,
+    )
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.DONE,
+                actual_start_date=_TODAY,
+                actual_end_date=_TODAY,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=_TODAY,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    result = schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY)
+
+    assert len(result[0].items) == 1
+    assert result[0].items[0].status == ScheduleItemStatus.DONE
+
+
+def test_list_schedule_items_updated_on_keeps_the_row_with_the_latest_changed_at(seeded_session):
+    """「最後に記録された値」はchanged_atで判定する。先に挿入された行の方がchanged_atが
+    新しい場合（通常は起こらないが、挿入順とchanged_atの順が食い違う場合の判定を固定する）、
+    後から読み取った行で上書きしない。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    newer = ScheduleItemHistory(
+        schedule_item_id=item_id,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+        record_date=_TODAY,
+        status=ScheduleItemStatus.DONE,
+        actual_start_date=_TODAY,
+        actual_end_date=_TODAY,
+        changed_at=dt.datetime(2026, 6, 15, 12, 0, tzinfo=dt.UTC),
+    )
+    older = ScheduleItemHistory(
+        schedule_item_id=item_id,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+        record_date=_TODAY,
+        status=ScheduleItemStatus.IN_PROGRESS,
+        actual_start_date=_TODAY,
+        changed_at=dt.datetime(2026, 6, 15, 9, 0, tzinfo=dt.UTC),
+    )
+    seeded_session.add_all([newer, older])
+    seeded_session.flush()
+
+    result = schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY)
+
+    assert len(result[0].items) == 1
+    assert result[0].items[0].status == ScheduleItemStatus.DONE
+
+
+def test_list_schedule_items_updated_on_ignores_other_dates(seeded_session):
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    other_date = _TODAY - dt.timedelta(days=1)
+    schedule_service.apply_report_schedule_item_updates(
+        seeded_session,
+        [
+            ScheduleItemUpdateInput(
+                schedule_item_id=item_id,
+                status=ScheduleItemStatus.IN_PROGRESS,
+                actual_start_date=other_date,
+            )
+        ],
+        category=GoalCategory.EXAM,
+        target_date=other_date,
+        today=_TODAY,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+    )
+
+    assert schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY) == []
+    assert len(schedule_service.list_schedule_items_updated_on(seeded_session, other_date)) == 1
+
+
 def test_apply_report_schedule_item_updates_noop_when_empty(seeded_session):
     # 例外を投げず、問い合わせも行わないことを確認する（空配列の早期return）。
     schedule_service.apply_report_schedule_item_updates(

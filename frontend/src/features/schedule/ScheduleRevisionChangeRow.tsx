@@ -8,13 +8,22 @@ import type { ScheduleRevisionProposalItemRead } from '../../api/schedule'
  *
  * 承認前に日付を手で修正できる（D-56）。変更前の値が現在のスケジュールと一致しない行
  * （`is_stale`、D-59）はボタンを押せないようにし、専用の文言を表示する。
+ *
+ * `blockedReason`（修正1、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）は
+ * 直前の承認が13.5の制約（新しい予定日は本日以降等）に反してブロックされたことを示す。
+ * `is_stale`と異なりボタンは無効化しない。利用者が日付を修正して再度承認できるようにする。
+ *
+ * `readOnly`（終了した目標。軽微な修正1、開発Todo_スケジュール・ガントチャート_検証修正_
+ * v1.0.md）が真のときは、日付入力・承認・却下を一切表示しない（閲覧のみ）。
  */
 export function ScheduleRevisionChangeRow({
   item,
   title,
   disabled,
+  readOnly = false,
   dates,
   rejectReason,
+  blockedReason,
   onChangeDates,
   onChangeRejectReason,
   onApprove,
@@ -23,8 +32,10 @@ export function ScheduleRevisionChangeRow({
   item: ScheduleRevisionProposalItemRead
   title: string
   disabled: boolean
+  readOnly?: boolean
   dates: { start: string; end: string }
   rejectReason: string
+  blockedReason?: string | null
   onChangeDates: (dates: { start: string; end: string }) => void
   onChangeRejectReason: (reason: string) => void
   onApprove: () => void
@@ -41,44 +52,55 @@ export function ScheduleRevisionChangeRow({
           })}
         </span>
         <span aria-hidden="true">→</span>
-        <Input
-          type="date"
-          aria-label={t('schedule.revision.proposedStartDate')}
-          value={dates.start}
-          disabled={disabled}
-          onChange={(event) => onChangeDates({ ...dates, start: event.target.value })}
-          className="text-xs"
-        />
-        <Input
-          type="date"
-          aria-label={t('schedule.revision.proposedEndDate')}
-          value={dates.end}
-          disabled={disabled}
-          onChange={(event) => onChangeDates({ ...dates, end: event.target.value })}
-          className="text-xs"
-        />
+        {readOnly ? (
+          <span>{t('schedule.revision.proposedRange', { start: dates.start, end: dates.end })}</span>
+        ) : (
+          <>
+            <Input
+              type="date"
+              aria-label={t('schedule.revision.proposedStartDate')}
+              value={dates.start}
+              disabled={disabled}
+              onChange={(event) => onChangeDates({ ...dates, start: event.target.value })}
+              className="text-xs"
+            />
+            <Input
+              type="date"
+              aria-label={t('schedule.revision.proposedEndDate')}
+              value={dates.end}
+              disabled={disabled}
+              onChange={(event) => onChangeDates({ ...dates, end: event.target.value })}
+              className="text-xs"
+            />
+          </>
+        )}
       </div>
       <p className="text-xs text-text-muted">{item.reason}</p>
       {item.is_stale ? (
         <p className="text-xs text-danger-text">{t('schedule.revision.staleBeforeValue')}</p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="primary" disabled={disabled} onClick={onApprove}>
-            {t('schedule.revision.approve')}
-          </Button>
-          <Input
-            type="text"
-            placeholder={t('schedule.revision.rejectReasonPlaceholder')}
-            aria-label={t('schedule.revision.rejectReasonPlaceholder')}
-            value={rejectReason}
-            disabled={disabled}
-            onChange={(event) => onChangeRejectReason(event.target.value)}
-            className="text-xs"
-          />
-          <Button variant="secondary" disabled={disabled} onClick={onReject}>
-            {t('schedule.revision.reject')}
-          </Button>
-        </div>
+      ) : readOnly ? null : (
+        <>
+          {blockedReason && (
+            <p className="text-xs text-danger-text">{t('schedule.revision.invalidPlannedDate')}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="primary" disabled={disabled} onClick={onApprove}>
+              {t('schedule.revision.approve')}
+            </Button>
+            <Input
+              type="text"
+              placeholder={t('schedule.revision.rejectReasonPlaceholder')}
+              aria-label={t('schedule.revision.rejectReasonPlaceholder')}
+              value={rejectReason}
+              disabled={disabled}
+              onChange={(event) => onChangeRejectReason(event.target.value)}
+              className="text-xs"
+            />
+            <Button variant="secondary" disabled={disabled} onClick={onReject}>
+              {t('schedule.revision.reject')}
+            </Button>
+          </div>
+        </>
       )}
     </div>
   )

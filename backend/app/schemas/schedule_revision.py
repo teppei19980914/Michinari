@@ -101,6 +101,9 @@ class ScheduleRevisionDecisionOutcome(BaseModel):
 
     変更前の値が現在の値と一致せず適用できなかった行は`applied=False`・
     `blocked_reason="STALE_BEFORE_VALUE"`とし、他の行の処理は継続する（本書13.7）。
+    新しい予定日が13.5の制約に反する行（翌日以降に承認した場合等）も同様に
+    `applied=False`・`blocked_reason="INVALID_PLANNED_DATE"`とし、他の行の処理へ
+    影響させない（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1）。
     """
 
     proposal_item_id: int

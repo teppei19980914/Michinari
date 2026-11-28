@@ -71,26 +71,26 @@
 
 ## 6. チェックリスト（実装）
 
-- [ ] D-43: `calendar_service.parse_holiday_csv` を抽出し `import_holidays` から利用（既存テスト無変更で通ること）
-- [ ] D-43: `backend/app/content/holidays/holidays.csv`・`holidays_metadata.json` を追加（初回は実データ）
-- [ ] D-43: `backend/scripts/update_holiday_csv.py`（新旧URL・検証・書き込み、ネットワーク未接続でのテストはモック）
-- [ ] D-43: `release.py`の`build()`に組み込み、失敗時`SystemExit`
-- [ ] D-43: `build_package.py`の`add_data`・`tests/test_build_package_misc.py`
-- [ ] D-44: `app_setting`キー追加・`seed_data.py`
-- [ ] D-44: `app/main.py`に起動時取込み関数を追加（`bootstrap_database`に含めない、冪等性のテスト、手動取込みより古いデータでの上書き防止のテスト）
-- [ ] D-47: 特性テスト追加（第4節）→祝日データ投入後の挙動変化を確認するテストを追加
-- [ ] 第8章: `GET /holidays`・スキーマ・サービス関数・テスト（認可境界は既存の仕組みに準拠)
-- [ ] D-46: フロントエンド（年範囲表示・CSVアップロードUI・API型再生成）
-- [ ] D-48: ロケール・help_content.json
-- [ ] D-49: 技術選定書6.2/6.3/6.5・OPERATIONS.md・仕様書
-- [ ] リリースノート下書き（D-47）
+- [x] D-43: `calendar_service.parse_holiday_csv` を抽出し `import_holidays` から利用（既存テスト無変更で通ること）
+- [x] D-43: `backend/app/content/holidays/holidays.csv`・`holidays_metadata.json` を追加（初回は実データ）
+- [x] D-43: `backend/scripts/update_holiday_csv.py`（新旧URL・検証・書き込み、ネットワーク未接続でのテストはモック）
+- [x] D-43: `release.py`に組み込み、失敗時`SystemExit`（実装当初は`build()`内だったが、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2で`main()`の`sync_holiday_csv`へ移動済み。2026-11実態反映）
+- [x] D-43: `build_package.py`の`add_data`・`tests/test_build_package_misc.py`
+- [x] D-44: `app_setting`キー追加・`seed_data.py`
+- [x] D-44: `app/main.py`に起動時取込み関数を追加（`bootstrap_database`に含めない、冪等性のテスト、手動取込みより古いデータでの上書き防止のテスト）
+- [x] D-47: 特性テスト追加（第4節）→祝日データ投入後の挙動変化を確認するテストを追加
+- [x] 第8章: `GET /holidays`・スキーマ・サービス関数・テスト（認可境界は既存の仕組みに準拠)
+- [x] D-46: フロントエンド（年範囲表示・CSVアップロードUI・API型再生成）
+- [x] D-48: ロケール・help_content.json
+- [x] D-49: 技術選定書6.2/6.3/6.5・OPERATIONS.md・仕様書
+- [x] リリースノート下書き（D-47）
 
 ## 7. 追跡表
 
 | D-ID | 実装箇所 | テスト名 |
 | --- | --- | --- |
 | D-42 | `calendar_service.parse_holiday_csv`（内閣府CSVが正であることは変更なし） | `test_calendar_service.py`（既存） |
-| D-43（取得・検証・更新） | `backend/scripts/update_holiday_csv.py`（`fetch_holiday_csv`・`validate_holiday_csv`・`update_bundled_holiday_csv`）、`release.py`の`build()` | `tests/test_update_holiday_csv.py`、`tests/test_release.py::test_build_cleans_up_stale_leftovers_before_archiving_and_discarding` |
+| D-43（取得・検証・更新） | `backend/scripts/update_holiday_csv.py`（`fetch_holiday_csv`・`validate_holiday_csv`・`update_bundled_holiday_csv`）、`release.py`の`sync_holiday_csv`（実装当初は`build()`内だったが、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2で`main()`側へ移動済み。2026-11実態反映） | `tests/test_update_holiday_csv.py`、`tests/test_release.py::test_sync_holiday_csv_*`（3件）、`tests/test_release.py::test_build_cleans_up_stale_leftovers_before_archiving_and_discarding`（`build()`自体の退避・掃除順の検証、祝日CSVは含まない） |
 | D-43（配布物への同梱） | `app/constants/bundle.py`（`HOLIDAY_*`）、`scripts/build_package.py`の`pyinstaller_args` | `tests/test_build_package_misc.py::...test_bundles_the_holiday_csv_and_metadata_where_the_runtime_reads_them` |
 | D-43（アプリは外部通信しない） | `backend/app/`配下に`urllib`/`requests`呼び出しを追加していないこと（検証: 横展開チェックリスト） | （grepで確認、専用テストなし） |
 | D-44（起動時取込み・冪等性・新しい手動データを上書きしない） | `calendar_service.import_bundled_holidays_if_needed`・`mark_manual_holiday_import`、`HOLIDAY_IMPORTED_VIA_MANUAL`（app_setting）、`app/api/calendar.py`の手動インポートエンドポイント、`app/main.py`の`import_bundled_holidays_if_needed`（`bootstrap_database`に含めない） | `tests/test_calendar_service.py::test_import_bundled_holidays_if_needed_*`（7件）・`test_mark_manual_holiday_import_sets_the_flag`、`tests/test_bootstrap.py::test_import_bundled_holidays_if_needed_*`（3件）、`tests/test_phase3_service_guards.py`（2件）、`tests/test_desktop_runner.py`（呼び出し確認付きスタブ）、`tests/test_api_calendar.py::test_import_holidays_endpoint_marks_manual_import` |

@@ -41,5 +41,8 @@ export function useScheduleRevision(goalId: number) {
       decideMutation.mutate({ proposalId, decisions }),
     isDeciding: decideMutation.isPending,
     decideError: decideMutation.error,
+    //: 直近の判断APIの行ごとの結果（修正1、開発Todo_スケジュール・ガントチャート_検証修正_
+    //: v1.0.md）。`INVALID_PLANNED_DATE`の行は`ScheduleRevisionPanel`が理由を表示する。
+    decideOutcomes: decideMutation.data?.outcomes,
   }
 }

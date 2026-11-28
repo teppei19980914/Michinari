@@ -199,6 +199,19 @@ def _format_schedule_rows(
     return "\n".join(lines)
 
 
+def _active_items_for_prompt(items: list[ScheduleItem]) -> list[ScheduleItem]:
+    """修正4（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）：プロンプトが上限
+    文字数に収まらない場合に、`schedule_rows`から先に落とす行を選ぶ。AIのCHANGE判定は
+    未着手・進行中の行にしか適用されない（13.5）ため、完了・中止の行を落としても生成結果
+    への影響が最も小さい。
+    """
+    return [
+        item
+        for item in items
+        if item.status not in (ScheduleItemStatus.DONE, ScheduleItemStatus.CANCELLED)
+    ]
+
+
 def _format_recent_rejections(session: Session, goal: Goal, limit: int) -> str:
     """直近に却下した内容（D-64）。同じ目標の過去のすべての修正案を通じて、却下された
     変更行を却下日時の新しい順に`limit`件まで渡す。
@@ -305,7 +318,16 @@ def _call_ai(
     template_body = ai_orchestration.load_template_body(session, AiPurpose.SCHEDULE_REVISION)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
-        raise ScheduleRevisionPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
+        # 修正4：既存の段階的縮退（週次要約→直近記録）を使い切っても収まらない場合、
+        # schedule_rowsから完了・中止の行を落として再試行する（_active_items_for_prompt）。
+        # それでも収まらない場合のみ中止する。
+        active_items = _active_items_for_prompt(items)
+        if len(active_items) < len(items):
+            context.fixed_variables["schedule_rows"] = _format_schedule_rows(
+                active_items, today, description_max_chars
+            )
+        if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
+            raise ScheduleRevisionPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
     build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     folder_name = setting_reader.get_str(session, AI_SCHEDULE_REVISION_FOLDER_NAME)
@@ -590,9 +612,15 @@ def decide(
     decisions: list[ScheduleRevisionDecisionInput],
     today: dt.date,
 ) -> list[DecisionOutcome]:
-    """判断API（13.7）。検証を適用より先にすべて終え（単位2`save_schedule`と同じ方針）、
-    「変更前の値が現在の値と一致しない」行（D-59）だけは適用の段階で検知し、その行だけを
-    結果へ返して他の行の処理は継続する。
+    """判断API（13.7）。リクエストの形式検証（存在しない行ID・二重判断・種類の不整合等）は
+    適用より先にすべて終え（単位2`save_schedule`と同じ方針）、その他の入力は不正な
+    リクエストとして例外を送出する。一方、「変更前の値が現在の値と一致しない」行（D-59、
+    `STALE_BEFORE_VALUE`）と「新しい予定日が13.5の制約に反する」行（開発Todo_
+    スケジュール・ガントチャート_検証修正_v1.0.md 修正1、`INVALID_PLANNED_DATE`）は、
+    承認時点の状態やタイミングに依存して初めて分かる問題であり、他の行まで失敗させるべき
+    ではないため、適用の段階で検知し、その行だけを結果へ返して他の行の処理は継続する。
+    ブロックされた行の`decision`は`PENDING`のまま残り、利用者は日付を修正するなどして
+    再度判断できる。
     """
     goal_service.ensure_goal_editable(goal)
     if proposal.goal_id != goal.id:
@@ -666,17 +694,6 @@ def decide(
 
         new_start = decision_input.planned_start_date or proposal_item.proposed_planned_start_date
         new_end = decision_input.planned_end_date or proposal_item.proposed_planned_end_date
-        # 13.5「新しい予定日」「進行中の行」を適用する（_invalid_planned_date_reason、
-        # _validate_changesと共有）。期限（D-62）は利用者の判断を優先して適用しない（13.7）。
-        invalid_reason = _invalid_planned_date_reason(
-            item_status=schedule_item.status,
-            current_start=schedule_item.planned_start_date,
-            new_start=new_start,
-            new_end=new_end,
-            today=today,
-        )
-        if invalid_reason is not None:
-            raise ValidationError(invalid_reason)
         resolved.append(
             (
                 proposal_item,
@@ -702,6 +719,21 @@ def decide(
             )
             if is_stale:
                 outcomes.append(DecisionOutcome(proposal_item.id, False, "STALE_BEFORE_VALUE"))
+                continue
+            # 13.5「新しい予定日」「進行中の行」を適用する（_invalid_planned_date_reason、
+            # _validate_changesと共有）。期限（D-62）は利用者の判断を優先して適用しない
+            # （13.7）。STALEと同じく行単位の結果として返し、他の行の処理には影響させない
+            # （開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正1。以前は例外を
+            # 送出しリクエスト全体を失敗させていたため、無関係な他の行も適用されなかった）。
+            invalid_reason = _invalid_planned_date_reason(
+                item_status=schedule_item.status,
+                current_start=schedule_item.planned_start_date,
+                new_start=action["planned_start_date"],
+                new_end=action["planned_end_date"],
+                today=today,
+            )
+            if invalid_reason is not None:
+                outcomes.append(DecisionOutcome(proposal_item.id, False, "INVALID_PLANNED_DATE"))
                 continue
             schedule_item.planned_start_date = action["planned_start_date"]
             schedule_item.planned_end_date = action["planned_end_date"]

@@ -1,7 +1,7 @@
 """内閣府「国民の祝日」CSVを取得・検証し、リポジトリ内のCSV・メタデータを更新する。
 
-`release.py`の`build()`からのみ呼ぶ（開発Todo_スケジュール・ガントチャート_v1.1.md
-D-43）。アプリ自体は外部通信しない方針（技術選定書6.2改訂後）を維持するため、
+`release.py`の`sync_holiday_csv`からのみ呼ぶ（開発Todo_スケジュール・ガントチャート_
+v1.1.md D-43）。アプリ自体は外部通信しない方針（技術選定書6.2改訂後）を維持するため、
 取得はリリース時の本スクリプトに限定する。`backend/scripts/build_package.py`単体の
 実行（`uv run python scripts/build_package.py`）では呼ばれない。
 
@@ -9,10 +9,16 @@ D-43）。アプリ自体は外部通信しない方針（技術選定書6.2改�
 `app.services.calendar_service.parse_holiday_csv`が担う、CLAUDE.md DRYの原則）、
 収録範囲の最終年が前回以上であること。いずれかに失敗した場合はリリースを中止する。
 
-書き込んだCSV・メタデータはgit commitしない。`release.py`の`write_version`
-（バージョン確定）と同じく、`build()`内で作業ツリーへ直接書き込むだけにする
-（`has_uncommitted_changes`による`dirty`判定は`write_version`より前に行われるため、
-この書き込みは公開の妨げにならない）。
+取得した内容が現在コミットされているCSVと完全に一致する場合は何も書き込まない
+（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2）。`fetched_at`は
+取得を試みた時刻ではなく「最後に内容が変わった時刻」を表す。これが無いと、内閣府の
+データが変わっていなくても`fetched_at`だけが毎回更新されて作業ツリーが汚れ、
+`release.py`の`verify_workspace`（未コミット検出）が次回実行のたびに止まってしまう。
+内容が実際に変わった場合は書き込んだうえで呼び出し元に委ね、`release.py`側の
+`sync_holiday_csv`が`verify_workspace`（未コミット検出）より前にこれを呼ぶことで、
+差分をそこで検出させてコミットを促す（以前は`release.py`の`build()`内、つまり
+`verify_workspace`より後で呼んでいたため、書き込んだ差分が次回実行時の未コミット検出に
+引っかかり、かつ配布物とタグを付けたコミットの内容が食い違っていた）。
 """
 
 from __future__ import annotations
@@ -108,13 +114,19 @@ def update_bundled_holiday_csv(
     csv_path: Path = HOLIDAY_CSV_PATH,
     metadata_path: Path = HOLIDAY_METADATA_PATH,
 ) -> None:
-    """`release.py`の`build()`から呼ぶ本体。取得・検証に失敗した場合はリリースを中止する。"""
+    """`release.py`の`sync_holiday_csv`から呼ぶ本体。取得・検証に失敗した場合はリリースを
+    中止する。内容が変わっていない場合は何も書き込まない（モジュールdocstring参照）。
+    """
     previous_year_to = _read_previous_year_to(metadata_path)
     try:
         csv_bytes, source_url = fetch_holiday_csv(urls)
         year_from, year_to = validate_holiday_csv(csv_bytes, previous_year_to)
     except HolidayCsvUpdateError as exc:
         raise SystemExit(f"エラー: {exc}") from exc
+
+    if csv_path.is_file() and csv_path.read_bytes() == csv_bytes:
+        print(f"  → 祝日CSVは前回と同じ内容のため更新しません（{year_from}〜{year_to}年）")
+        return
 
     csv_path.write_bytes(csv_bytes)
     metadata = {

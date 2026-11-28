@@ -22,6 +22,9 @@ export type VisibleReportTargetsInput = {
   /** 「今日の作業項目」欄の対象（開発Todo_スケジュール・ガントチャート_v1.1 第4章、単位4）。
    * GET /records/{date}/schedule-items の応答（3種別が混在）。 */
   scheduleItems: GoalScheduleItemsForReportRead[]
+  /** 確定済みの種別向け「今日の作業項目」欄（軽微な修正3、開発Todo_スケジュール・
+   * ガントチャート_検証修正_v1.0.md）。GET /records/{date}/schedule-items-history の応答。 */
+  scheduleItemsHistory: GoalScheduleItemsForReportRead[]
 }
 
 export type VisibleReportTargets = {
@@ -34,6 +37,9 @@ export type VisibleReportTargets = {
   examScheduleItemGoals: GoalScheduleItemsForReportRead[]
   readingScheduleItemGoals: GoalScheduleItemsForReportRead[]
   workScheduleItemGoals: GoalScheduleItemsForReportRead[]
+  examScheduleItemHistoryGoals: GoalScheduleItemsForReportRead[]
+  readingScheduleItemHistoryGoals: GoalScheduleItemsForReportRead[]
+  workScheduleItemHistoryGoals: GoalScheduleItemsForReportRead[]
   showExamSection: boolean
   showReadingSection: boolean
   showWorkSection: boolean
@@ -55,6 +61,35 @@ function selectForCategory<T>(
     return []
   }
   return pickForGoal(input.selectedGoal)
+}
+
+/** 「今日の作業項目」欄の対象をカテゴリごとに絞り込む（単位4、軽微な修正3）。
+ * `scheduleItems`（ライブ）・`scheduleItemsHistory`（確定済みの種別向け）のいずれも
+ * 3種別混在の同じ形で返るため、絞り込みロジックを共通化する（CLAUDE.md DRYの原則）。 */
+function selectScheduleItemGoalsByCategory(
+  input: Pick<VisibleReportTargetsInput, 'showGoalSelector' | 'selectedGoal'>,
+  allGoalItems: GoalScheduleItemsForReportRead[],
+): {
+  exam: GoalScheduleItemsForReportRead[]
+  reading: GoalScheduleItemsForReportRead[]
+  work: GoalScheduleItemsForReportRead[]
+} {
+  const byCategory = (category: GoalRead['category']) =>
+    allGoalItems.filter((goalItems) => goalItems.goal_category === category)
+  const examAll = byCategory('EXAM')
+  const readingAll = byCategory('READING')
+  const workAll = byCategory('WORK')
+  return {
+    exam: selectForCategory(input, 'EXAM', examAll, (goal) =>
+      examAll.filter((goalItems) => goalItems.goal_id === goal.id),
+    ),
+    reading: selectForCategory(input, 'READING', readingAll, (goal) =>
+      readingAll.filter((goalItems) => goalItems.goal_id === goal.id),
+    ),
+    work: selectForCategory(input, 'WORK', workAll, (goal) =>
+      workAll.filter((goalItems) => goalItems.goal_id === goal.id),
+    ),
+  }
 }
 
 /**
@@ -94,28 +129,12 @@ export function resolveVisibleReportTargets(
       .map((entry) => entry.workAssignment),
   )
 
-  // 「今日の作業項目」欄の対象（単位4）。scheduleItemsは3種別が混在するため、
-  // selectForCategoryへ渡す前にカテゴリで絞り込む。
-  const examScheduleItemsAll = input.scheduleItems.filter(
-    (goalItems) => goalItems.goal_category === 'EXAM',
-  )
-  const readingScheduleItemsAll = input.scheduleItems.filter(
-    (goalItems) => goalItems.goal_category === 'READING',
-  )
-  const workScheduleItemsAll = input.scheduleItems.filter(
-    (goalItems) => goalItems.goal_category === 'WORK',
-  )
-  const examScheduleItemGoals = selectForCategory(input, 'EXAM', examScheduleItemsAll, (goal) =>
-    examScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
-  )
-  const readingScheduleItemGoals = selectForCategory(
+  // 「今日の作業項目」欄の対象（単位4、軽微な修正3）。ライブ・確定済み向けの両方を
+  // 同じ絞り込みロジックで処理する。
+  const scheduleItemGoals = selectScheduleItemGoalsByCategory(input, input.scheduleItems)
+  const scheduleItemHistoryGoals = selectScheduleItemGoalsByCategory(
     input,
-    'READING',
-    readingScheduleItemsAll,
-    (goal) => readingScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
-  )
-  const workScheduleItemGoals = selectForCategory(input, 'WORK', workScheduleItemsAll, (goal) =>
-    workScheduleItemsAll.filter((goalItems) => goalItems.goal_id === goal.id),
+    input.scheduleItemsHistory,
   )
 
   return {
@@ -130,9 +149,12 @@ export function resolveVisibleReportTargets(
     diaryGoals,
     books,
     workAssignments,
-    examScheduleItemGoals,
-    readingScheduleItemGoals,
-    workScheduleItemGoals,
+    examScheduleItemGoals: scheduleItemGoals.exam,
+    readingScheduleItemGoals: scheduleItemGoals.reading,
+    workScheduleItemGoals: scheduleItemGoals.work,
+    examScheduleItemHistoryGoals: scheduleItemHistoryGoals.exam,
+    readingScheduleItemHistoryGoals: scheduleItemHistoryGoals.reading,
+    workScheduleItemHistoryGoals: scheduleItemHistoryGoals.work,
     // 資格試験は教材（ノルマ）が無くても日記を書けるため、表示対象の有無ではなく目標の有無で
     // 判定する。読書・仕事は対象（書籍・案件）が無ければ入力も確定もできないため中身で判定する。
     showExamSection: isSectionVisible(input, 'EXAM', activeGoals.length > 0),
