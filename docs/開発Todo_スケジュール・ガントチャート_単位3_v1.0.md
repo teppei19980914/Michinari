@@ -125,18 +125,18 @@
 
 ## 6. チェックリスト（実装）
 
-- [ ] 2章食い違い2：`ScheduleRead`へ4フィールド追加・テスト・型再生成
-- [ ] 3.2：`utils/dateRange.ts`抽出・`ganttGeometry.ts`更新・既存テスト無変更で合格確認
-- [ ] 3.3：`features/schedule/`配下の純粋関数群（`scheduleColumnLayout`・`scheduleGanttGeometry`・`scheduleDelay`・`scheduleValidation`・`scheduleStatusAutoFill`・`scheduleRowOrdering`）とテスト
-- [ ] 3.3：`useScheduleEditorState`（差分編集・保存・409・破棄・未保存判定）とテスト
-- [ ] 3.3：`ScheduleTab`・`ScheduleToolbar`・`ScheduleGrid`・`ScheduleRowActionsCell`・`ScheduleStatusSelect`・`ScheduleCustomColumnHeaderCell`・`ScheduleGanttRow`・`ScheduleGanttOverlay`・`ScheduleGanttHeader`・`ScheduleEmptyState`・`ScheduleConflictDialog`とテスト
-- [ ] 3.4：`api/schedule.ts`・`resources.ts`拡張・`queryKeys.ts`拡張・`Tooltip.tsx`拡張・`GoalDetailPage.tsx`（タブ追加・幅拡張・描画分岐）・`index.css`トークン追加
-- [ ] D-45：祝日未収録年の注記（`ScheduleGanttHeader`）
-- [ ] D-48：ja.json/en.json・help_content.json
-- [ ] D-49：技術選定書4.3・仕様書6.2
-- [ ] 性能確認：100行×365日相当のフィクスチャでの描画・スクロールの手動確認（DOM要素数が行数×日数に比例しないことをコードレビューで確認）
-- [ ] fontScale確認：`data-font-scale='small'/'large'`切替時に1日分の幅・固定列位置が崩れないことを手動確認
-- [ ] ライト/ダーク確認：新規トークンの両モードでの見た目を手動確認
+- [x] 2章食い違い2：`ScheduleRead`へ4フィールド追加・テスト・型再生成
+- [x] 3.2：`utils/dateRange.ts`抽出・`ganttGeometry.ts`更新・既存テスト無変更で合格確認
+- [x] 3.3：`features/schedule/`配下の純粋関数群（`scheduleColumnLayout`・`scheduleGanttGeometry`・`scheduleDelay`・`scheduleValidation`・`scheduleStatusAutoFill`・`scheduleRowOrdering`）とテスト
+- [x] 3.3：`useScheduleEditorState`（差分編集・保存・409・破棄・未保存判定）とテスト
+- [x] 3.3：`ScheduleTab`・`ScheduleToolbar`・`ScheduleGrid`・`ScheduleRowActionsCell`・`ScheduleStatusSelect`・`ScheduleCustomColumnHeaderCell`・`ScheduleGanttRow`・`ScheduleGanttOverlay`・`ScheduleGanttHeader`・`ScheduleEmptyState`・`ScheduleConflictDialog`とテスト
+- [x] 3.4：`api/schedule.ts`・`resources.ts`拡張・`queryKeys.ts`拡張・`Tooltip.tsx`拡張・`GoalDetailPage.tsx`（タブ追加・幅拡張・描画分岐）・`index.css`トークン追加
+- [x] D-45：祝日未収録年の注記（`ScheduleGanttHeader`）
+- [x] D-48：ja.json/en.json・help_content.json
+- [x] D-49：技術選定書4.3・仕様書6.2
+- [ ] 性能確認：100行×365日相当のフィクスチャでの描画・スクロールの手動確認（DOM要素数が行数×日数に比例しないことをコードレビューで確認）（未実施：コード上はDOM要素数が行数×日数に比例しない構造だが、実機でのスクロール確認は未実施。2026-11の検証修正作業では対象外）
+- [ ] fontScale確認：`data-font-scale='small'/'large'`切替時に1日分の幅・固定列位置が崩れないことを手動確認（未実施、同上）
+- [ ] ライト/ダーク確認：新規トークンの両モードでの見た目を手動確認（未実施、同上）
 
 ## 7. 追跡表
 

@@ -71,19 +71,19 @@
 
 ## 6. チェックリスト（実装）
 
-- [ ] D-43: `calendar_service.parse_holiday_csv` を抽出し `import_holidays` から利用（既存テスト無変更で通ること）
-- [ ] D-43: `backend/app/content/holidays/holidays.csv`・`holidays_metadata.json` を追加（初回は実データ）
-- [ ] D-43: `backend/scripts/update_holiday_csv.py`（新旧URL・検証・書き込み、ネットワーク未接続でのテストはモック）
-- [ ] D-43: `release.py`の`build()`に組み込み、失敗時`SystemExit`
-- [ ] D-43: `build_package.py`の`add_data`・`tests/test_build_package_misc.py`
-- [ ] D-44: `app_setting`キー追加・`seed_data.py`
-- [ ] D-44: `app/main.py`に起動時取込み関数を追加（`bootstrap_database`に含めない、冪等性のテスト、手動取込みより古いデータでの上書き防止のテスト）
-- [ ] D-47: 特性テスト追加（第4節）→祝日データ投入後の挙動変化を確認するテストを追加
-- [ ] 第8章: `GET /holidays`・スキーマ・サービス関数・テスト（認可境界は既存の仕組みに準拠)
-- [ ] D-46: フロントエンド（年範囲表示・CSVアップロードUI・API型再生成）
-- [ ] D-48: ロケール・help_content.json
-- [ ] D-49: 技術選定書6.2/6.3/6.5・OPERATIONS.md・仕様書
-- [ ] リリースノート下書き（D-47）
+- [x] D-43: `calendar_service.parse_holiday_csv` を抽出し `import_holidays` から利用（既存テスト無変更で通ること）
+- [x] D-43: `backend/app/content/holidays/holidays.csv`・`holidays_metadata.json` を追加（初回は実データ）
+- [x] D-43: `backend/scripts/update_holiday_csv.py`（新旧URL・検証・書き込み、ネットワーク未接続でのテストはモック）
+- [x] D-43: `release.py`に組み込み、失敗時`SystemExit`（実装当初は`build()`内だったが、開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正2で`main()`の`sync_holiday_csv`へ移動済み。2026-11実態反映）
+- [x] D-43: `build_package.py`の`add_data`・`tests/test_build_package_misc.py`
+- [x] D-44: `app_setting`キー追加・`seed_data.py`
+- [x] D-44: `app/main.py`に起動時取込み関数を追加（`bootstrap_database`に含めない、冪等性のテスト、手動取込みより古いデータでの上書き防止のテスト）
+- [x] D-47: 特性テスト追加（第4節）→祝日データ投入後の挙動変化を確認するテストを追加
+- [x] 第8章: `GET /holidays`・スキーマ・サービス関数・テスト（認可境界は既存の仕組みに準拠)
+- [x] D-46: フロントエンド（年範囲表示・CSVアップロードUI・API型再生成）
+- [x] D-48: ロケール・help_content.json
+- [x] D-49: 技術選定書6.2/6.3/6.5・OPERATIONS.md・仕様書
+- [x] リリースノート下書き（D-47）
 
 ## 7. 追跡表
 

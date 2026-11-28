@@ -199,6 +199,19 @@ def _format_schedule_rows(
     return "\n".join(lines)
 
 
+def _active_items_for_prompt(items: list[ScheduleItem]) -> list[ScheduleItem]:
+    """修正4（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md）：プロンプトが上限
+    文字数に収まらない場合に、`schedule_rows`から先に落とす行を選ぶ。AIのCHANGE判定は
+    未着手・進行中の行にしか適用されない（13.5）ため、完了・中止の行を落としても生成結果
+    への影響が最も小さい。
+    """
+    return [
+        item
+        for item in items
+        if item.status not in (ScheduleItemStatus.DONE, ScheduleItemStatus.CANCELLED)
+    ]
+
+
 def _format_recent_rejections(session: Session, goal: Goal, limit: int) -> str:
     """直近に却下した内容（D-64）。同じ目標の過去のすべての修正案を通じて、却下された
     変更行を却下日時の新しい順に`limit`件まで渡す。
@@ -305,7 +318,16 @@ def _call_ai(
     template_body = ai_orchestration.load_template_body(session, AiPurpose.SCHEDULE_REVISION)
     max_chars = ai_orchestration.get_max_prompt_chars(session)
     if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
-        raise ScheduleRevisionPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
+        # 修正4：既存の段階的縮退（週次要約→直近記録）を使い切っても収まらない場合、
+        # schedule_rowsから完了・中止の行を落として再試行する（_active_items_for_prompt）。
+        # それでも収まらない場合のみ中止する。
+        active_items = _active_items_for_prompt(items)
+        if len(active_items) < len(items):
+            context.fixed_variables["schedule_rows"] = _format_schedule_rows(
+                active_items, today, description_max_chars
+            )
+        if prompt_builder.exceeds_with_entries_emptied(template_body, context, max_chars):
+            raise ScheduleRevisionPromptTooLongError(f"prompt exceeds the limit: goal_id={goal.id}")
     build_result = prompt_builder.build_with_degradable_entries(template_body, context, max_chars)
 
     folder_name = setting_reader.get_str(session, AI_SCHEDULE_REVISION_FOLDER_NAME)
