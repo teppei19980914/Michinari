@@ -3,6 +3,7 @@
 | 版 | 日付 | 内容 |
 | --- | --- | --- |
 | v1.0 | 2026-11-28 | 初版（調査・設計・開発Todo作成のみ。ソースコード変更なし） |
+| v1.1 | 2026-11-28 | 単位1・単位2のソースコード実装を反映（状況・観点別レビュー結果・変更ファイル一覧を各単位の節に記載。本書自体の決定事項・データモデル・STRIDE分析は変更なし） |
 
 本書はミチナリ v3.0.0「Web公開機能（MVP）」の実装前調査・設計・開発Todoである。本セッションでは
 ソースコード・依存パッケージ・移行ファイルの変更は一切行っていない（調査結果とドキュメント作成のみ）。
@@ -273,10 +274,13 @@
 - 「今日」（D-09）はpublish_server側で新規に`PUBLISH_TODAY_BOUNDARY_HOUR`（既定0、UTC）を
   設定可能にした。ローカル側`app_setting`の境界時刻設定とは別管理（別プロセス・複数利用者
   共有のため）
-- リクエストボディサイズの粗い事前防御（413、`Content-Length`ヘッダ判定）をミドルウェアで
-  追加。`Transfer-Encoding: chunked`では迂回されうる既知の限界があり、正確な上限判定は
-  サービス層の`_check_snapshot_size`に委ねる設計（本番はRenderのリバースプロキシ層が実効的な
-  防御、`docs/INFRASTRUCTURE.md`）
+- リクエストボディサイズの事前防御（413）は、FastAPI/Starlette一次サポートの`max_body_size`
+  機構（`starlette.middleware.body_limit.RequestBodyLimitMiddleware`、`app/main.py`の
+  `FastAPI(max_body_size=...)`）を使う。実際の受信バイト数で判定するため`Content-Length`
+  ヘッダに依存せず、`Transfer-Encoding: chunked`でも迂回できない（自前のASGI実装を最初に
+  試みたがFastAPI本体の例外変換と衝突したため撤回した経緯は`app/middleware/
+  body_size_limit.py`のdocstring参照）。正確な上限判定・専用エラーコードは依然サービス層の
+  `_check_snapshot_size`が担う
 
 **観点別レビュー（auth/injection/secret/dependency/dry/style/test-coverage-reviewer、2026-11-28
 並列実行）の結果と対応**：
@@ -291,9 +295,10 @@
 | style-reviewer | LOW | `_check_size`という関数名が「何のサイズか」を名前から読み取れない、コメント中の「同一goal_idで上書き」が実カラム名`local_goal_id`と表記不一致 | 修正済み：`_check_snapshot_size`に改名、コメント表記を`local_goal_id`に統一 |
 | test-coverage-reviewer | MEDIUM | 単語帳の公開停止→問題へのカスケード削除を、サービス層の実経路（`publish_service.delete_vocab_deck`）を通してAPIレベルで検証するテストが無かった（既存はORM直接削除のカスケード検証のみ） | 修正済み：`test_answering_question_after_unpublish_vocab_cascades_to_quiz_is_rejected`を追加 |
 | test-coverage-reviewer | LOW | 差し替え後の「旧問題ID無効化」のみ検証し、「新しい問題に正しく回答できる」ことの検証が無かった | 修正済み：`test_answering_newly_published_question_after_replace_succeeds`を追加 |
-| injection-reviewer | （参考、対応せず） | body_size_limit.pyの`Content-Length`前提チェックは`Transfer-Encoding: chunked`で迂回可能 | **対応せず・文書化**：正確な上限判定はサービス層`_check_snapshot_size`が担保済み、本番の実効防御はリバースプロキシ層（付録A）が前提。ミドルウェアのdocstringに既知の限界として明記 |
+| injection-reviewer | MEDIUM | body_size_limit.pyの`Content-Length`前提チェックは`Transfer-Encoding: chunked`で迂回可能 | **修正済み**：自前のASGI `receive()`ラップ実装を撤回し、FastAPI/Starlette一次サポートの`max_body_size`機構（`starlette.middleware.body_limit.RequestBodyLimitMiddleware`、インストール済みパッケージのソースで確認済み一次情報源）へ切り替えた。実受信バイト数で判定するため`Content-Length`ヘッダに依存せず、迂回できない設計になる。（補足：自前実装を`HTTPException`サブクラス化して413を試みたが、FastAPI本体のボディ読込処理〈`fastapi/routing.py`〉が例外を一律400へ変換してしまい解消しなかったため、公式機構へ切り替えた経緯を`app/middleware/body_size_limit.py`のdocstringに記録） |
 | auth-reviewer | HIGH（受容） | アカウント作成APIのユーザー名列挙オラクル（単位1で受容済み事項の再確認） | 単位1と同じ理由で対応せず（変更なし） |
-| dependency-reviewer | — | 新規サードパーティ依存の追加なし（`pyproject.toml`/`uv.lock`はunit1から無変更） | 対応不要 |
+| dependency-reviewer | — | 新規サードパーティ依存の追加なし（`pyproject.toml`/`uv.lock`はunit1から無変更） | 対応不要（OSVスキャンもCRITICAL/HIGH無しを確認済み、45パッケージ） |
+| performance-reviewer | LOW | `view_service.py`の`_list_by_account`が`account_id`単独インデックスのみで`(account_id, updated_at, id)`の複合インデックスが無い | **対応せず・記録のみ**：1アカウントあたりの公開物は数十件程度想定（想定利用規模、開発Todo8章）のため現状無害。将来的な複合インデックス追加は任意検討事項とする |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）
