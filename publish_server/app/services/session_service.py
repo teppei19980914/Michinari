@@ -8,7 +8,6 @@ DB保存値を照合する（Cookieには入れない。double-submit cookie方�
 不要）。
 """
 
-import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -21,6 +20,7 @@ from app.models.account import PublishAccount
 from app.models.base import ensure_utc, utcnow
 from app.models.session import PublishSession
 from app.services.exceptions import SessionRequiredError
+from app.services.token_hashing import hash_token
 
 
 @dataclass(frozen=True)
@@ -30,11 +30,15 @@ class IssuedSession:
     expires_at: datetime
 
 
-def _hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-
-
 def create_session(db: Session, account: PublishAccount) -> IssuedSession:
+    """ログイン成功時に新規セッションを発行する（常に新しいセッションIDを生成する。
+
+    クライアント指定のセッションIDを引き継ぐ経路は無いため、セッション固定
+    （session fixation）攻撃の余地が無い）。
+
+    戻り値の`raw_token`はCookieへ、`csrf_token`はレスポンス本文へ、それぞれ一度だけ
+    平文で渡す（以後はDB側のハッシュ・保存値と照合するのみ）。
+    """
     settings = get_settings()
     raw_token = secrets.token_urlsafe(SESSION_TOKEN_BYTES)
     csrf_token = secrets.token_urlsafe(CSRF_TOKEN_BYTES)
@@ -42,7 +46,7 @@ def create_session(db: Session, account: PublishAccount) -> IssuedSession:
 
     db.add(
         PublishSession(
-            id=_hash_token(raw_token),
+            id=hash_token(raw_token),
             account_id=account.id,
             csrf_token=csrf_token,
             expires_at=expires_at,
@@ -54,7 +58,7 @@ def create_session(db: Session, account: PublishAccount) -> IssuedSession:
 
 def get_valid_session(db: Session, raw_token: str) -> PublishSession:
     """有効なセッションを取得する。無い・期限切れの場合は`SessionRequiredError`を送出する。"""
-    row = db.get(PublishSession, _hash_token(raw_token))
+    row = db.get(PublishSession, hash_token(raw_token))
     if row is None or ensure_utc(row.expires_at) <= utcnow():
         raise SessionRequiredError()
     row.last_seen_at = utcnow()
@@ -64,7 +68,7 @@ def get_valid_session(db: Session, raw_token: str) -> PublishSession:
 
 def delete_session(db: Session, raw_token: str) -> None:
     """ログアウト。存在しない・既に失効済みのトークンに対しても冪等に成功する。"""
-    row = db.get(PublishSession, _hash_token(raw_token))
+    row = db.get(PublishSession, hash_token(raw_token))
     if row is not None:
         db.delete(row)
         db.commit()

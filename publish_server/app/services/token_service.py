@@ -7,7 +7,6 @@
 ここで実装する（単位2側のAPI連携自体は単位1では行わない＝単位2以降の先取り実装はしない）。
 """
 
-import hashlib
 import secrets
 
 from sqlalchemy.orm import Session
@@ -17,16 +16,13 @@ from app.models.account import PublishAccount
 from app.models.base import utcnow
 from app.models.token import PublishApiToken
 from app.services.exceptions import TokenNotFoundError
-
-
-def _hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+from app.services.token_hashing import hash_token
 
 
 def issue_token(db: Session, account: PublishAccount) -> tuple[str, PublishApiToken]:
     """新しいAPIトークンを発行する。戻り値の平文トークンは呼び出し元がこの時点でのみ扱える。"""
     raw_token = secrets.token_urlsafe(API_TOKEN_BYTES)
-    token = PublishApiToken(account_id=account.id, token_hash=_hash_token(raw_token))
+    token = PublishApiToken(account_id=account.id, token_hash=hash_token(raw_token))
     db.add(token)
     db.commit()
     db.refresh(token)
@@ -65,7 +61,7 @@ def verify_token(db: Session, raw_token: str) -> PublishAccount | None:
     """
     token = (
         db.query(PublishApiToken)
-        .filter(PublishApiToken.token_hash == _hash_token(raw_token))
+        .filter(PublishApiToken.token_hash == hash_token(raw_token))
         .first()
     )
     if token is None or token.revoked_at is not None:

@@ -23,7 +23,6 @@ Render・Supabaseの無料/低コスト枠の条件は変わりやすいため�
 | 変数名 | 用途 | 既定値（開発用） |
 | --- | --- | --- |
 | `PUBLISH_DATABASE_URL` | DB接続文字列。本番はSupabaseの`postgresql+psycopg://...`を設定する | `sqlite:///./publish_server.db` |
-| `PUBLISH_SESSION_SECRET` | セッション関連の秘密鍵（将来の署名用途に予約。現状はDB側セッションテーブルが主、D-18） | 開発用の固定値（本番投入不可） |
 | `PUBLISH_CORS_ALLOWED_ORIGINS` | 公開ビューア（単位3）のオリジン（カンマ区切り、複数可） | 空（CORS無効） |
 | `PUBLISH_LOGIN_MAX_ATTEMPTS` | ログイン試行回数制限（D-17） | `5` |
 | `PUBLISH_LOGIN_LOCKOUT_MINUTES` | ロック時間（分） | `15` |
@@ -32,9 +31,19 @@ Render・Supabaseの無料/低コスト枠の条件は変わりやすいため�
 
 単位2で追加予定（未実装、本書は骨子のみ）: `MAX_SNAPSHOT_BYTES`／`MAX_SNAPSHOT_ITEMS`／`MAX_FIELD_CHARS`（D-20）。
 
+開発Todo_Web公開_v1.0.md 付録Aの計画段階では`SESSION_SECRET`（セッション署名・CSRFトークン
+生成用の秘密鍵）も環境変数として想定していたが、単位1の実装ではセッション・CSRFトークンとも
+`secrets.token_urlsafe`による乱数（署名なし、DB側で都度ハッシュ照合）とする設計を採用したため
+不要になり、実装していない（2026-11-28、secret-reviewerレビューで未使用の既定値であることが
+判明し削除）。
+
 ## 3. DB
 
 PostgreSQL（Supabase）。Alembicでマイグレーション管理する（`publish_server/alembic/`）。
+接続ドライバ`psycopg`／`psycopg-binary`はLGPL-3.0-onlyライセンス（dist-info METADATAで確認済み、
+dependency-reviewerレビュー2026-11-28）。publish_serverは自社運用のSaaSとして動かす前提（第三者への
+ソース・バイナリ配布は行わない）であればLGPLv3の頒布条項には該当しない。将来、配布形態を変える
+場合（セルフホスト向け配布等）は要再確認。
 開発・テストはSQLite（既定値）で動作する（`publish_server/app/database.py`、`tests/conftest.py`）。
 
 ## 4. TLS

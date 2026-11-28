@@ -157,14 +157,14 @@ def test_username_with_sqli_payload_is_rejected_by_charset_validation(client):
 
 
 def test_password_with_xss_payload_is_stored_as_plain_text_not_executed(client):
-    xss_password = "<script>alert('xss')</script>"
+    xss_payload_value = "<script>alert('xss')</script>"
     response = client.post(
-        "/api/v1/auth/account", json={"username": "judy", "password": xss_password}
+        "/api/v1/auth/account", json={"username": "judy", "password": xss_payload_value}
     )
     assert response.status_code == 201
 
     login_response = client.post(
-        "/api/v1/auth/login", json={"username": "judy", "password": xss_password}
+        "/api/v1/auth/login", json={"username": "judy", "password": xss_payload_value}
     )
     assert login_response.status_code == 200
 
@@ -186,7 +186,13 @@ def test_oversized_password_is_rejected(client):
 # ---- 認証突破試行 -----------------------------------------------------------
 
 
-def test_login_lockout_after_max_attempts_and_rejects_during_lock(client, monkeypatch):
+def test_login_lockout_after_max_attempts_rejects_even_correct_password_with_same_code(
+    client, monkeypatch
+):
+    """ロック中は、正しいパスワードでも「不在ユーザー」と同じ401/INVALID_CREDENTIALSで
+    拒否する（専用のACCOUNT_LOCKEDコードは使わない。理由はtest_account_service.pyの
+    同種テストのdocstring参照、auth-reviewerレビュー2026-11-28 CRITICAL指摘）。
+    """
     monkeypatch.setenv("PUBLISH_LOGIN_MAX_ATTEMPTS", "2")
     client.post(
         "/api/v1/auth/account", json={"username": "leo", "password": "correct-horse-battery"}
@@ -201,8 +207,38 @@ def test_login_lockout_after_max_attempts_and_rejects_during_lock(client, monkey
     locked_response = client.post(
         "/api/v1/auth/login", json={"username": "leo", "password": "correct-horse-battery"}
     )
-    assert locked_response.status_code == 423
-    assert locked_response.json()["error"]["code"] == "ACCOUNT_LOCKED"
+    assert locked_response.status_code == 401
+    assert locked_response.json()["error"]["code"] == "INVALID_CREDENTIALS"
+
+
+def test_login_succeeds_via_api_after_lock_naturally_expires(client, monkeypatch):
+    """ロック解除後は、同じAPI経由で正しいパスワードのログインがCookie発行まで含めて
+    成功すること（サービス層のみでなくAPI層でも確認、test-coverage-reviewerレビュー
+    2026-11-28 LOW指摘）。"""
+    monkeypatch.setenv("PUBLISH_LOGIN_MAX_ATTEMPTS", "1")
+    client.post(
+        "/api/v1/auth/account", json={"username": "nina", "password": "correct-horse-battery"}
+    )
+    locked_response = client.post(
+        "/api/v1/auth/login", json={"username": "nina", "password": "wrong-password"}
+    )
+    assert locked_response.status_code == 401
+
+    from datetime import timedelta
+
+    from app.database import session_scope
+    from app.models.account import PublishAccount
+    from app.models.base import utcnow
+
+    with session_scope() as session:
+        account = session.query(PublishAccount).filter_by(username="nina").first()
+        account.locked_until = utcnow() - timedelta(seconds=1)
+
+    response = client.post(
+        "/api/v1/auth/login", json={"username": "nina", "password": "correct-horse-battery"}
+    )
+    assert response.status_code == 200
+    assert "csrf_token" in response.json()
 
 
 def test_logout_without_session_cookie_is_rejected(client):

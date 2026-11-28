@@ -7,8 +7,11 @@
 環境変数でテスト用DBパスを確定させる。
 """
 
+import contextlib
+import logging
 import os
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 TESTS_DIR = Path(__file__).resolve().parent
@@ -21,9 +24,7 @@ TEST_DB_PATH = Path(_test_db_dir.name) / "_test.db"
 
 os.environ["PUBLISH_DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH.as_posix()}"
 # セッションCookieのSecure属性（D-18）をテストでも検証するため、TestClientはHTTPS相当の
-# base_urlで動かす（tests/test_auth_api.pyのclientフィクスチャ参照）。ここでは
-# session_secretのみ固定し、本番既定値の警告対象から外す。
-os.environ.setdefault("PUBLISH_SESSION_SECRET", "test-session-secret")
+# base_urlで動かす（tests/test_auth_api.pyのclientフィクスチャ参照）。
 os.environ.setdefault("PUBLISH_LOGIN_MAX_ATTEMPTS", "5")
 os.environ.setdefault("PUBLISH_LOGIN_LOCKOUT_MINUTES", "15")
 
@@ -44,10 +45,37 @@ def alembic_config() -> Config:
     return config
 
 
+@contextlib.contextmanager
+def _preserve_logging_state() -> Iterator[None]:
+    """alembicの`fileConfig()`（`disable_existing_loggers`既定True）から既存ロガーを守る。
+
+    `fileConfig()`は呼び出し時点で存在する非alembicロガー（`app.api.errors`等、テスト
+    モジュールのimport時点で生成済み）を標準ライブラリの仕様で全て`disabled = True`にする。
+    これを退避しないと、このフィクスチャ（セッション単位で最初に1回だけ実行）以降、
+    テスト全体で`caplog`が何も捕捉できなくなる（backend/app/desktop/logging_setup.py
+    の`preserve_logging_state`と同じ問題・同じ対策。publish_serverはbackendとは別実装の
+    ため、テスト専用としてここに複製する）。
+    """
+    root_logger = logging.getLogger()
+    disabled_snapshot = {
+        name: logger_obj.disabled
+        for name, logger_obj in root_logger.manager.loggerDict.items()
+        if isinstance(logger_obj, logging.Logger)
+    }
+    try:
+        yield
+    finally:
+        for name, was_disabled in disabled_snapshot.items():
+            logger_obj = root_logger.manager.loggerDict.get(name)
+            if isinstance(logger_obj, logging.Logger):
+                logger_obj.disabled = was_disabled
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _migrated_database(alembic_config: Config):
     """完了条件『alembic upgrade headでデータベースが構築される』を実際に検証する。"""
-    command.upgrade(alembic_config, "head")
+    with _preserve_logging_state():
+        command.upgrade(alembic_config, "head")
     yield
     engine.dispose()
     _test_db_dir.cleanup()

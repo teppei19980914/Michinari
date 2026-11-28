@@ -29,20 +29,14 @@ class InvalidCredentialsError(DomainError):
     """ユーザー名またはパスワードが誤っている場合。
 
     STRIDE分析（開発Todo_Web公開_v1.0 5章）「エラーメッセージからユーザー存在有無が
-    判別可能」を避けるため、ユーザー名不存在・パスワード不一致のいずれでも同じ例外・
-    同じメッセージにする。
+    判別可能」を避けるため、ユーザー名不存在・パスワード不一致・ログイン試行回数制限に
+    よる一時ロック中（D-17）のいずれでも同じ例外・同じメッセージにする（専用の
+    ACCOUNT_LOCKEDコードは意図的に設けない。ロック状態だけが別コードで判別できると、
+    総当たりで対象ユーザー名の存在有無が分かってしまうため）。
     """
 
     def __init__(self) -> None:
         super().__init__("Username or password is incorrect")
-
-
-class AccountLockedError(DomainError):
-    """ログイン失敗回数の上限に達し、一時ロック中の場合（D-17）。"""
-
-    def __init__(self, locked_until) -> None:  # noqa: ANN001 (date型はAPI層でのみ使用)
-        self.locked_until = locked_until
-        super().__init__("Account is temporarily locked due to too many failed login attempts")
 
 
 class SessionRequiredError(DomainError):

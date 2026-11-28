@@ -5,6 +5,7 @@ import pytest
 from app.models.account import PublishAccount
 from app.services import token_service
 from app.services.exceptions import TokenNotFoundError
+from app.services.token_hashing import hash_token
 
 
 @pytest.fixture
@@ -27,7 +28,7 @@ def test_issue_token_returns_plaintext_once_and_stores_only_hash(db_session, acc
     raw_token, token = token_service.issue_token(db_session, account)
 
     assert raw_token != token.token_hash
-    assert token.token_hash == token_service._hash_token(raw_token)
+    assert token.token_hash == hash_token(raw_token)
     assert token.revoked_at is None
 
 

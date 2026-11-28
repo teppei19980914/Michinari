@@ -9,9 +9,9 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.services.exceptions import (
-    AccountLockedError,
     CsrfTokenInvalidError,
     DomainError,
     InvalidCredentialsError,
@@ -26,7 +26,6 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     UsernameAlreadyExistsError: (status.HTTP_400_BAD_REQUEST, "USERNAME_ALREADY_EXISTS"),
     InvalidCredentialsError: (status.HTTP_401_UNAUTHORIZED, "INVALID_CREDENTIALS"),
     SessionRequiredError: (status.HTTP_401_UNAUTHORIZED, "SESSION_REQUIRED"),
-    AccountLockedError: (status.HTTP_423_LOCKED, "ACCOUNT_LOCKED"),
     CsrfTokenInvalidError: (status.HTTP_403_FORBIDDEN, "CSRF_TOKEN_INVALID"),
     TokenNotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
 }
@@ -59,6 +58,21 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content=_error_body("VALIDATION_ERROR", "Invalid input"),
+        )
+
+    @app.exception_handler(SQLAlchemyError)
+    async def handle_database_error(_request: Request, exc: SQLAlchemyError) -> JSONResponse:
+        """DB関連の例外は型名のみをログに残す（secret-reviewerレビュー2026-11-28指摘）。
+
+        本番の`PUBLISH_DATABASE_URL`はSupabaseの認証情報を含む接続文字列であり、DBドライバ
+        （psycopg等）の例外メッセージに接続情報が含まれないことを一次ソースで確認できて
+        いない。`logger.exception`（`exc_info=True`）はトレースバック内に例外の文字列表現
+        （接続情報を含みうる）をそのまま埋め込むため使わず、型名のみを`logger.error`で残す。
+        """
+        _logger.error("データベース関連の例外を捕捉しました: %s", type(exc).__name__)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=_error_body("INTERNAL_ERROR", "An unexpected error occurred"),
         )
 
     @app.exception_handler(Exception)

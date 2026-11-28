@@ -9,6 +9,7 @@ from app.models.base import utcnow
 from app.models.session import PublishSession
 from app.services import session_service
 from app.services.exceptions import SessionRequiredError
+from app.services.token_hashing import hash_token
 
 
 @pytest.fixture
@@ -24,7 +25,7 @@ def test_create_session_returns_distinct_raw_token_and_csrf_token(db_session, ac
     assert issued.raw_token != issued.csrf_token
     assert len(issued.raw_token) > 20
 
-    row = db_session.get(PublishSession, session_service._hash_token(issued.raw_token))
+    row = db_session.get(PublishSession, hash_token(issued.raw_token))
     assert row is not None
     assert row.account_id == account.id
     assert row.csrf_token == issued.csrf_token
@@ -46,7 +47,7 @@ def test_get_valid_session_rejects_unknown_token(db_session):
 
 def test_get_valid_session_rejects_expired_session(db_session, account):
     issued = session_service.create_session(db_session, account)
-    row = db_session.get(PublishSession, session_service._hash_token(issued.raw_token))
+    row = db_session.get(PublishSession, hash_token(issued.raw_token))
     row.expires_at = utcnow() - timedelta(seconds=1)
     db_session.commit()
 
@@ -59,7 +60,7 @@ def test_delete_session_removes_row(db_session, account):
 
     session_service.delete_session(db_session, issued.raw_token)
 
-    assert db_session.get(PublishSession, session_service._hash_token(issued.raw_token)) is None
+    assert db_session.get(PublishSession, hash_token(issued.raw_token)) is None
 
 
 def test_delete_session_is_idempotent_for_unknown_token(db_session):

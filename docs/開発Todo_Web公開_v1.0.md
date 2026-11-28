@@ -199,12 +199,29 @@
 ### 単位1：Web公開サービスの基盤
 
 **状況（2026-11-28 実装完了）**：下記の変更ファイル一覧どおり実装済み。`publish_server/`配下で
-`uv run pytest --cov-fail-under=100`が72件全テスト合格・カバレッジ100%（行・分岐とも）、
+`uv run pytest --cov-fail-under=100`が82件全テスト合格・カバレッジ100%（行・分岐とも）、
 `ruff format --check`／`ruff check`も通過。既存`backend/`は無変更で、`uv run pytest`が
 2951件合格（既知の`test_desktop_tray`断続フレーク1件を除く、記憶`test_desktop_tray_intermittent_flake`
-参照、本変更とは無関係）。観点別レビュー（auth/injection/secret/dependency/dry/style/
-test-coverage-reviewer）を並列実行中（結果は追って本節へ反映）。単位2以降（公開API・閲覧/回答API等）は
-未着手。
+参照、本変更とは無関係）。単位2以降（公開API・閲覧/回答API等）は未着手。
+
+**観点別レビュー（auth/injection/secret/dependency/dry/style/test-coverage-reviewer、2026-11-28
+並列実行）の結果と対応**：
+
+| 指摘元 | 重大度 | 内容 | 対応 |
+| --- | --- | --- | --- |
+| auth-reviewer | CRITICAL | ログインロック中（423 ACCOUNT_LOCKED）と不在ユーザー（401）で応答が区別でき、ユーザー名列挙のオラクルになっていた | 修正済み：ロック中も`InvalidCredentialsError`（401・INVALID_CREDENTIALS）に統一し、`AccountLockedError`自体を削除した |
+| auth-reviewer | HIGH | ロック解除後も`failed_login_count`がリセットされず、15分おきに1回失敗を送るだけで対象アカウントを恒久的にロックし続けられた（永続DoS） | 修正済み：ロック期間が過ぎた時点でカウンタも解除する（`_release_expired_lock`） |
+| auth-reviewer / secret-reviewer / test-coverage-reviewer | MEDIUM | CSRFトークンの比較が非定数時間（`!=`） | 修正済み：`secrets.compare_digest`に変更 |
+| auth-reviewer | HIGH（受容） | アカウント作成APIがユーザー名重複を400で直接返すため列挙オラクルになる | **対応せず受容**：STRIDE分析5章「アカウント作成」の対策はタイミング平準化のみと明記されており、実装はこれに合致する。D-16によりこのAPIは主にローカルアプリ（単位4）から呼ばれる想定 |
+| auth-reviewer | HIGH（保留） | ログイン・登録ともIPベースのレート制限が無い（アカウント単位ロックのみ） | **単位1では対応せず**：付録A・INFRASTRUCTURE.mdの前提どおり、Render等のリバースプロキシ層でのレート制限に委ねる方針とする。アプリ層追加（`slowapi`等）が必要か単位2着手前に要確認 |
+| secret-reviewer | HIGH | `session_secret`が未使用の死んだ設定値で、存在しない`validate_for_production`をdocstringが参照 | 修正済み：セッション・CSRFとも署名不要（DB側ハッシュ照合のみ）な設計のため`session_secret`・`is_production_like`を削除。INFRASTRUCTURE.mdから該当環境変数を削除 |
+| secret-reviewer | MEDIUM | 未分類例外ハンドラがDB接続例外の生メッセージ（接続情報を含みうる）をログに残す可能性 | 修正済み：`SQLAlchemyError`専用ハンドラを追加し、型名のみをログに残す（`exc_info`を使わない） |
+| dry-reviewer | HIGH | `_hash_token`が`session_service.py`と`token_service.py`に同一実装で重複 | 修正済み：`app/services/token_hashing.py`へ共通化 |
+| style-reviewer | MEDIUM | `validate_username`/`validate_password`/`create_session`にdocstringが無い、`_ph`という省略名 | 修正済み：docstring追加、`_ph`→`_password_hasher`に改名 |
+| test-coverage-reviewer | HIGH | Unicode正規化（NFC/NFD）の相互変換が実際に同一パスワードとして扱われることが未検証 | 修正済み：NFC作成→NFDログイン・NFD作成→NFCログインの両方向テストを追加 |
+| test-coverage-reviewer | MEDIUM | `ensure_utc`のaware分岐が統合テスト経由では実質到達しない可能性 | 修正済み：`ensure_utc`の両分岐を直接検証する単体テストを追加 |
+| test-coverage-reviewer | LOW | ロック解除後の再試行許可がAPI層（Cookie発行まで）で未検証 | 修正済み：API経由のロック解除テストを追加 |
+| （副次的発見） | — | テスト用DBのAlembic移行（`fileConfig`の`disable_existing_loggers`既定True）が全ロガーを無効化し、以後`caplog`が何も捕捉できなくなっていた（backend/app/desktop/logging_setup.pyの`preserve_logging_state`と同根の問題） | 修正済み：`tests/conftest.py`に同趣旨の退避処理を追加（テスト専用、publish_server独自実装） |
 
 **概要**：構成、DB設計、移行、アカウント作成・ログイン・ログアウト、APIトークン、ヘルスチェック、セキュリティヘッダ。
 

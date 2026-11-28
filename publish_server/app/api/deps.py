@@ -1,5 +1,6 @@
 """APIルーター共通の依存関係（DB接続・セッション認証・CSRF検証）。"""
 
+import secrets
 from collections.abc import Generator
 
 from fastapi import Depends, Request
@@ -39,7 +40,13 @@ def get_current_account(
 
 
 def require_csrf(request: Request, session: PublishSession = Depends(get_current_session)) -> None:
-    """状態変更リクエストに必須のCSRFトークン検証（D-18）。`get_current_account`と併用する。"""
+    """状態変更リクエストに必須のCSRFトークン検証（D-18）。`get_current_account`と併用する。
+
+    比較には`secrets.compare_digest`（定数時間比較）を使う。通常の`!=`はPython実装上、
+    先頭からの不一致位置によって比較時間が変わり得るため（Python公式`secrets`モジュールの
+    ドキュメントが推奨、タイミング攻撃対策、auth-reviewer/secret-reviewerレビュー
+    2026-11-28指摘）。
+    """
     header_value = request.headers.get(CSRF_HEADER_NAME)
-    if not header_value or header_value != session.csrf_token:
+    if not header_value or not secrets.compare_digest(header_value, session.csrf_token):
         raise CsrfTokenInvalidError()

@@ -4,6 +4,14 @@ version = "0.1.0"
 description = "ミチナリ Web公開サービス（publish_server）。backendとは別プロセス・別DB（開発Todo_Web公開_v1.0 D-12・D-23）"
 requires-python = ">=3.12"
 dependencies = [
+    # extraを付けない（bareの"fastapi"）こと。dependency-reviewerレビュー（2026-11-28）で、
+    # インストール済み fastapi==0.165.0 のdist-info METADATAにおける`standard` extraの
+    # Requires-Distに、FastAPI公式ドキュメントの標準extra内容（fastapi-cli[standard]・
+    # httpx・jinja2等）には存在しない`fastar`（Rust tarクレートのバインディング）・
+    # `httpx2`という素性不明の依存が記載されていることが判明した（一次ソース未検証、
+    # サプライチェーン要確認）。現状は`[standard]`等のextraを使っていないため実害は無いが、
+    # 将来`fastapi[standard]`へ変更する場合は、変更前に必ずPyPI公式でこれらパッケージの
+    # 実体を再確認すること。
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "sqlalchemy>=2.0",

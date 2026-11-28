@@ -19,11 +19,6 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./publish_server.db"
 
-    #: セッションID・CSRFトークンの生成に使う秘密鍵（D-18）。本番では必ず環境変数で
-    #: 十分なランダム値を設定する。未設定時のこの既定値は開発用であり、本番投入は
-    #: 認めない（下記 validate_for_production 参照）。
-    session_secret: str = "dev-only-insecure-session-secret"
-
     #: 公開ビューア（単位3）のオリジン。CORSの許可元に使う（D-18）。未設定時は空（CORS無効）。
     cors_allowed_origins: str = ""
 
@@ -37,10 +32,6 @@ class Settings(BaseSettings):
     session_lifetime_hours: int = 24
 
     log_level: str = "INFO"
-
-    def is_production_like(self) -> bool:
-        """SQLite既定値のまま本番相当のデータを扱っていないかの簡易判定（起動時警告用）。"""
-        return not self.database_url.startswith("sqlite")
 
 
 def get_settings() -> Settings:
