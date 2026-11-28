@@ -299,6 +299,8 @@
 | auth-reviewer | HIGH（受容） | アカウント作成APIのユーザー名列挙オラクル（単位1で受容済み事項の再確認） | 単位1と同じ理由で対応せず（変更なし） |
 | dependency-reviewer | — | 新規サードパーティ依存の追加なし（`pyproject.toml`/`uv.lock`はunit1から無変更） | 対応不要（OSVスキャンもCRITICAL/HIGH無しを確認済み、45パッケージ） |
 | performance-reviewer | LOW | `view_service.py`の`_list_by_account`が`account_id`単独インデックスのみで`(account_id, updated_at, id)`の複合インデックスが無い | **対応せず・記録のみ**：1アカウントあたりの公開物は数十件程度想定（想定利用規模、開発Todo8章）のため現状無害。将来的な複合インデックス追加は任意検討事項とする |
+| auth-reviewer（`max_body_size`切り替え後の再レビュー） | LOW | 413応答（ボディサイズ超過）がCORS・セキュリティヘッダ（CSP等）ミドルウェアをバイパスする（`FastAPI(max_body_size=...)`の実装が`app.add_middleware`登録群より外側で直接レスポンスを送るため、ライブラリのミドルウェアスタック構造上の仕様）。本文は固定文字列のみで攻撃者制御の内容を反映しないため、CSP欠落等がXSSに直結する経路は無い | **対応せず・文書化**：`app/middleware/body_size_limit.py`のdocstringに実機確認済みの挙動として明記。実害がLOWのため単位2では対応しない |
+| label-checker | — | ハードコーディング（ゼロハードコーディング違反）は検出されず | 対応不要 |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）

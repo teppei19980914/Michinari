@@ -18,12 +18,18 @@ body_limit.py`・`fastapi/_body_limit.py`で確認済み、バージョン25.11�
 サポート機能を`FastAPI(max_body_size=...)`として使う（本モジュールは閾値の算出のみ担う）。
 
 閾値は`create_app()`実行時に1回だけ評価する（Starletteの`max_body_size`はASGIアプリ構築時に
-固定される設計のため、同ファイルのCORS許可オリジンと同じ扱い）。超過時のレスポンス本文は
-FastAPI既定の`{"detail": "Content Too Large"}`（413）になる（この一次サポート機能は内部で
-`fastapi.exception_handlers.http_exception_handler`を直接呼ぶため、アプリ独自のエラー形式
-`{"error": {"code": ..., "message": ...}}`へは揃えられない。D-20の正確な上限判定・専用エラー
-コード〈SNAPSHOT_TOO_LARGE等〉は依然として`app/services/publish_service.py`の
-`_check_snapshot_size`が担う。本モジュールはJSONパース前の粗い事前防御に過ぎない）。
+固定される設計のため、同ファイルのCORS許可オリジンと同じ扱い）。
+
+超過時の実際のレスポンス（実機確認済み、auth-reviewerレビュー2026-11-28）：
+`Content-Type: text/plain`・本文`Content Too Large`（413）。アプリ独自のJSONエラー形式
+`{"error": {"code": ..., "message": ...}}`にはならず、`register_security_headers_middleware`
+（CSP等）・CORSMiddlewareも付与されない（`RequestBodyLimitMiddleware`が`app.add_middleware`で
+登録したミドルウェア群よりも外側で直接レスポンスを送るため、FastAPI/Starletteのミドルウェア
+スタック構造上の仕様であり本コードの配線ミスではない）。本文が固定文字列のみで攻撃者制御の
+内容を反映しないため、CSP・X-Frame-Options等の欠落がXSS等に直結する経路は無い（LOW、
+対応は見送り。D-20の正確な上限判定・専用エラーコード〈SNAPSHOT_TOO_LARGE等〉は依然として
+`app/services/publish_service.py`の`_check_snapshot_size`が担う。本モジュールはJSONパース前の
+粗い事前防御に過ぎない）。
 """
 
 from app.config import get_settings
