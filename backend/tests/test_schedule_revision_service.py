@@ -1316,6 +1316,70 @@ class TestGenerateProposalContextAndErrors:
                 today=TODAY,
             )
 
+    def test_drops_completed_items_from_the_prompt_when_it_would_otherwise_be_too_long(
+        self, seeded_session, monkeypatch
+    ):
+        """修正1-4（開発Todo_スケジュール・ガントチャート_検証修正_v1.0.md 修正4）：既存の
+        段階的縮退を使い切っても収まらない場合は、schedule_rowsから完了・中止の行を先に
+        落として再試行する。
+
+        文字数の正確な境界はテンプレート本文に依存するため、まず完了行を含まない場合の
+        実際のプロンプト長を測り、それより少し大きい上限で本番の2行構成（完了1行＋
+        未着手1行）を生成させる（境界値を決め打ちしない）。
+        """
+        from app.constants.app_setting_keys import AI_MAX_PROMPT_CHARS
+        from tests.schedule_helpers import set_setting
+
+        active_item_kwargs = dict(
+            title="行B",
+            planned_start_date=dt.date(2026, 10, 1),
+            planned_end_date=dt.date(2026, 10, 20),
+        )
+
+        # 完了行を含まない場合の実際のプロンプト長を測る（他の固定変数は本番と同一条件）。
+        calibration_goal = make_exam_goal(seeded_session, name="計測用目標")
+        make_item(seeded_session, calibration_goal, **active_item_kwargs)
+        set_setting(seeded_session, AI_MAX_PROMPT_CHARS, "1000000")
+        calibration_fake = FakeAi(monkeypatch, ("総評: 特になし",))
+        service.generate_proposal(
+            seeded_session,
+            calibration_goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+        reduced_prompt_chars = len(calibration_fake.sent[-1])
+
+        goal = make_exam_goal(seeded_session, name="資格目標A")
+        make_item(
+            seeded_session,
+            goal,
+            title="完了済みの作業項目（これが落とされる想定）",
+            display_order=0,
+            planned_start_date=dt.date(2026, 9, 1),
+            planned_end_date=dt.date(2026, 9, 10),
+            status=ScheduleItemStatus.DONE,
+            actual_start_date=dt.date(2026, 9, 1),
+            actual_end_date=dt.date(2026, 9, 10),
+        )
+        active_item = make_item(seeded_session, goal, display_order=1, **active_item_kwargs)
+        # 完了行を含めると測定値を超えるが、落とせば収まる上限に設定する。
+        set_setting(seeded_session, AI_MAX_PROMPT_CHARS, str(reduced_prompt_chars + 2))
+        fake = FakeAi(monkeypatch, (_change_block(active_item.id, "2026-11-26", "2026-12-01"),))
+
+        proposal = service.generate_proposal(
+            seeded_session,
+            goal,
+            trigger=ScheduleRevisionTrigger.AUTO,
+            record_date=TODAY,
+            today=TODAY,
+        )
+
+        assert proposal is not None
+        sent_prompt = fake.sent[-1]
+        assert "行B" in sent_prompt
+        assert "完了済みの作業項目" not in sent_prompt
+
     def test_superseding_skips_items_that_are_already_decided(self, seeded_session, monkeypatch):
         """D-65の置き換えは未判断（PENDING）の行だけを対象とする。"""
         goal = make_exam_goal(seeded_session)

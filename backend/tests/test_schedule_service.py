@@ -1115,6 +1115,38 @@ def test_list_schedule_items_updated_on_uses_the_latest_value_for_the_same_day(s
     assert result[0].items[0].status == ScheduleItemStatus.DONE
 
 
+def test_list_schedule_items_updated_on_keeps_the_row_with_the_latest_changed_at(seeded_session):
+    """「最後に記録された値」はchanged_atで判定する。先に挿入された行の方がchanged_atが
+    新しい場合（通常は起こらないが、挿入順とchanged_atの順が食い違う場合の判定を固定する）、
+    後から読み取った行で上書きしない。"""
+    goal = schedule_helpers.make_goal(seeded_session)
+    item_id = _save_item(seeded_session, goal)
+    newer = ScheduleItemHistory(
+        schedule_item_id=item_id,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+        record_date=_TODAY,
+        status=ScheduleItemStatus.DONE,
+        actual_start_date=_TODAY,
+        actual_end_date=_TODAY,
+        changed_at=dt.datetime(2026, 6, 15, 12, 0, tzinfo=dt.UTC),
+    )
+    older = ScheduleItemHistory(
+        schedule_item_id=item_id,
+        source=ScheduleUpdateSource.DAILY_REPORT,
+        record_date=_TODAY,
+        status=ScheduleItemStatus.IN_PROGRESS,
+        actual_start_date=_TODAY,
+        changed_at=dt.datetime(2026, 6, 15, 9, 0, tzinfo=dt.UTC),
+    )
+    seeded_session.add_all([newer, older])
+    seeded_session.flush()
+
+    result = schedule_service.list_schedule_items_updated_on(seeded_session, _TODAY)
+
+    assert len(result[0].items) == 1
+    assert result[0].items[0].status == ScheduleItemStatus.DONE
+
+
 def test_list_schedule_items_updated_on_ignores_other_dates(seeded_session):
     goal = schedule_helpers.make_goal(seeded_session)
     item_id = _save_item(seeded_session, goal)
