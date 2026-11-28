@@ -36,14 +36,6 @@ engine = create_db_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
-def get_db() -> Generator[Session, None, None]:
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 @contextmanager
 def session_scope() -> Generator[Session, None, None]:
     """コミット/ロールバックまでを呼び出し側で意識させたくない短い処理向け（起動時シード等）。"""

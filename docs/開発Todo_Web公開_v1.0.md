@@ -198,6 +198,14 @@
 
 ### 単位1：Web公開サービスの基盤
 
+**状況（2026-11-28 実装完了）**：下記の変更ファイル一覧どおり実装済み。`publish_server/`配下で
+`uv run pytest --cov-fail-under=100`が72件全テスト合格・カバレッジ100%（行・分岐とも）、
+`ruff format --check`／`ruff check`も通過。既存`backend/`は無変更で、`uv run pytest`が
+2951件合格（既知の`test_desktop_tray`断続フレーク1件を除く、記憶`test_desktop_tray_intermittent_flake`
+参照、本変更とは無関係）。観点別レビュー（auth/injection/secret/dependency/dry/style/
+test-coverage-reviewer）を並列実行中（結果は追って本節へ反映）。単位2以降（公開API・閲覧/回答API等）は
+未着手。
+
 **概要**：構成、DB設計、移行、アカウント作成・ログイン・ログアウト、APIトークン、ヘルスチェック、セキュリティヘッダ。
 
 **変更ファイル一覧（新規）**

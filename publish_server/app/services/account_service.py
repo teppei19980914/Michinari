@@ -25,7 +25,7 @@ from app.constants.validation import (
     USERNAME_PATTERN,
 )
 from app.models.account import PublishAccount
-from app.models.base import utcnow
+from app.models.base import ensure_utc, utcnow
 from app.services.exceptions import (
     AccountLockedError,
     InvalidCredentialsError,
@@ -87,7 +87,7 @@ def create_account(db: Session, username: str, password: str) -> PublishAccount:
 
 
 def _is_locked(account: PublishAccount) -> bool:
-    return account.locked_until is not None and account.locked_until > utcnow()
+    return account.locked_until is not None and ensure_utc(account.locked_until) > utcnow()
 
 
 def _record_failed_attempt(db: Session, account: PublishAccount) -> None:

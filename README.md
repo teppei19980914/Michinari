@@ -203,5 +203,6 @@
 | [docs/OPERATIONS.md](docs/OPERATIONS.md) | 開発環境セットアップ・ビルド・リリース・運用手順 |
 | [docs/release-notes/](docs/release-notes/) | バージョンごとの詳細リリースノート |
 | [docs/CODING_RULES.md](docs/CODING_RULES.md) | コーディング規約 |
+| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Web公開サービス（`publish_server/`）のインフラ構成・環境変数（開発中、単位6で最終化） |
 
 開発環境の構築、ビルド、配布パッケージの作成手順は [docs/OPERATIONS.md](docs/OPERATIONS.md) を参照してください。

@@ -7,7 +7,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.constants.validation import (
     PASSWORD_MAX_LENGTH,
@@ -23,6 +23,12 @@ class AccountCreateRequest(BaseModel):
 
 
 class AccountResponse(BaseModel):
+    # `LoginResponse`組み立て時に`PublishAccount`ORMインスタンスをそのまま渡すため必要
+    # （FastAPIがresponse_modelとして直接返す場合はfrom_attributes=Trueを内部で付与するが、
+    # ここは`app/api/auth.py`のlogin()がPythonコードで明示的に`LoginResponse(...)`を
+    # 構築するため、モデル自身の設定が必要）。
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     username: str
     created_at: datetime
@@ -47,6 +53,8 @@ class ApiTokenCreateResponse(BaseModel):
 
 
 class ApiTokenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     created_at: datetime
     revoked_at: datetime | None

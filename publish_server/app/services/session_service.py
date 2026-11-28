@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.constants.security import CSRF_TOKEN_BYTES, SESSION_TOKEN_BYTES
 from app.models.account import PublishAccount
-from app.models.base import utcnow
+from app.models.base import ensure_utc, utcnow
 from app.models.session import PublishSession
 from app.services.exceptions import SessionRequiredError
 
@@ -55,7 +55,7 @@ def create_session(db: Session, account: PublishAccount) -> IssuedSession:
 def get_valid_session(db: Session, raw_token: str) -> PublishSession:
     """有効なセッションを取得する。無い・期限切れの場合は`SessionRequiredError`を送出する。"""
     row = db.get(PublishSession, _hash_token(raw_token))
-    if row is None or row.expires_at <= utcnow():
+    if row is None or ensure_utc(row.expires_at) <= utcnow():
         raise SessionRequiredError()
     row.last_seen_at = utcnow()
     db.commit()

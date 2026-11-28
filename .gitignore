@@ -29,6 +29,12 @@ id_rsa.pub
 myvenv/
 backend/.venv/
 __pycache__/
+
+# Python (publish_server。backendとは別プロセス・別venv、開発Todo_Web公開_v1.0 D-12)
+publish_server/.venv/
+# 開発時の既定DB（app/config.py既定値、本番はDATABASE_URLでPostgreSQL/Supabaseを指定）。
+# テスト用DBはbackend/tests/conftest.pyと同じ方針でtempfile配下に作るため、ここには残らない。
+publish_server/publish_server.db
 *.pyc
 .pytest_cache/
 .ruff_cache/
