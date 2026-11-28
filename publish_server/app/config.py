@@ -31,6 +31,20 @@ class Settings(BaseSettings):
     #: 環境変数で上書き可能にする。
     session_lifetime_hours: int = 24
 
+    #: 公開APIで受け取るスナップショットの上限（D-20、開発Todo_Web公開_v1.0 10章6節で確定）。
+    #: 値はソースに直接書かず、ここ（publish_server側設定＝環境変数）へ外部化する
+    #: （ローカルの`app_setting`は別プロセスのため直接参照できない、D-20根拠）。
+    max_snapshot_bytes: int = 2 * 1024 * 1024
+    max_vocab_cards: int = 500
+    max_quiz_questions: int = 1000
+    max_field_chars: int = 2000
+
+    #: 「今日」の論理日の境界時刻（D-09、UTC・0〜23）。ローカル側`CALENDAR_DAY_BOUNDARY_HOUR`
+    #: （`app_setting`、利用者ごとに変更可能）とは異なり、publish_serverは複数利用者が
+    #: 同じプロセスを共有するため、サーバ全体で1つの値（環境変数）とする。既定値0
+    #: （UTC日付そのまま）はローカル側の既定値と同じ「境界で前日に戻さない」挙動。
+    today_boundary_hour: int = 0
+
     log_level: str = "INFO"
 
 

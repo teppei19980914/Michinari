@@ -10,8 +10,12 @@ from app.constants.security import CSRF_HEADER_NAME, SESSION_COOKIE_NAME
 from app.database import SessionLocal
 from app.models.account import PublishAccount
 from app.models.session import PublishSession
-from app.services import session_service
-from app.services.exceptions import CsrfTokenInvalidError, SessionRequiredError
+from app.services import session_service, token_service
+from app.services.exceptions import (
+    CsrfTokenInvalidError,
+    InvalidApiTokenError,
+    SessionRequiredError,
+)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -50,3 +54,25 @@ def require_csrf(request: Request, session: PublishSession = Depends(get_current
     header_value = request.headers.get(CSRF_HEADER_NAME)
     if not header_value or not secrets.compare_digest(header_value, session.csrf_token):
         raise CsrfTokenInvalidError()
+
+
+_BEARER_PREFIX = "Bearer "
+
+
+def get_account_from_api_token(request: Request, db: Session = Depends(get_db)) -> PublishAccount:
+    """ローカルアプリ（単位4）からの公開API呼び出しを認証する（D-19・D-21）。
+
+    `Authorization: Bearer <token>`ヘッダを使う。Cookieベースのセッションではないため
+    CSRF対策は不要（`require_csrf`とは独立の認証経路、STRIDE分析5章「ブラウザ→閲覧・
+    回答API」行のみがCSRF対象）。
+    """
+    header_value = request.headers.get("Authorization", "")
+    if not header_value.startswith(_BEARER_PREFIX):
+        raise InvalidApiTokenError()
+    raw_token = header_value[len(_BEARER_PREFIX) :].strip()
+    if not raw_token:
+        raise InvalidApiTokenError()
+    account = token_service.verify_token(db, raw_token)
+    if account is None:
+        raise InvalidApiTokenError()
+    return account

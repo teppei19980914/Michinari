@@ -59,3 +59,62 @@ class TokenNotFoundError(DomainError):
     def __init__(self, token_id: int) -> None:
         self.token_id = token_id
         super().__init__(f"PublishApiToken(id={token_id}) not found")
+
+
+class InvalidApiTokenError(DomainError):
+    """公開APIトークン（Bearer）が無い、または無効・失効済みの場合（単位2、D-19）。"""
+
+    def __init__(self) -> None:
+        super().__init__("API token is missing or invalid")
+
+
+class SnapshotTooLargeError(DomainError):
+    """スナップショットのJSON化後サイズが上限を超える場合（D-20、400系＋専用コード）。"""
+
+    def __init__(self, actual_bytes: int, max_bytes: int) -> None:
+        self.actual_bytes = actual_bytes
+        self.max_bytes = max_bytes
+        super().__init__(
+            f"Snapshot size {actual_bytes} bytes exceeds the limit of {max_bytes} bytes"
+        )
+
+
+class TooManyItemsError(DomainError):
+    """件数上限を超える場合（D-20：単語帳カード数・問題数）。"""
+
+    def __init__(self, item_name: str, actual_count: int, max_count: int) -> None:
+        self.item_name = item_name
+        self.actual_count = actual_count
+        self.max_count = max_count
+        super().__init__(f"Number of {item_name} ({actual_count}) exceeds the limit of {max_count}")
+
+
+class VocabDeckNotPublishedError(DomainError):
+    """問題のアップロード時、対応する単語帳デッキがまだ公開されていない場合（単位2設計）。
+
+    問題は単語帳デッキ（`published_vocab_deck`）に紐づくスナップショットのため、
+    先に単語帳を公開してから問題を公開する順序を前提とする。
+    """
+
+    def __init__(self, local_deck_id: int) -> None:
+        self.local_deck_id = local_deck_id
+        super().__init__(f"Vocab deck (local_deck_id={local_deck_id}) is not published")
+
+
+class SnapshotNotFoundError(DomainError):
+    """指定された公開物IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。"""
+
+    def __init__(self, snapshot_id: int) -> None:
+        self.snapshot_id = snapshot_id
+        super().__init__(f"Published snapshot (id={snapshot_id}) not found")
+
+
+class QuestionNotFoundError(DomainError):
+    """指定された問題IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。
+
+    差し替え（単位2テスト観点）で古い版の問題IDが無効化された場合もこの例外になる。
+    """
+
+    def __init__(self, question_id: int | None) -> None:
+        self.question_id = question_id
+        super().__init__(f"Published quiz question (id={question_id}) not found")
