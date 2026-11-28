@@ -301,6 +301,8 @@
 | performance-reviewer | LOW | `view_service.py`の`_list_by_account`が`account_id`単独インデックスのみで`(account_id, updated_at, id)`の複合インデックスが無い | **対応せず・記録のみ**：1アカウントあたりの公開物は数十件程度想定（想定利用規模、開発Todo8章）のため現状無害。将来的な複合インデックス追加は任意検討事項とする |
 | auth-reviewer（`max_body_size`切り替え後の再レビュー） | LOW | 413応答（ボディサイズ超過）がCORS・セキュリティヘッダ（CSP等）ミドルウェアをバイパスする（`FastAPI(max_body_size=...)`の実装が`app.add_middleware`登録群より外側で直接レスポンスを送るため、ライブラリのミドルウェアスタック構造上の仕様）。本文は固定文字列のみで攻撃者制御の内容を反映しないため、CSP欠落等がXSSに直結する経路は無い | **対応せず・文書化**：`app/middleware/body_size_limit.py`のdocstringに実機確認済みの挙動として明記。実害がLOWのため単位2では対応しない |
 | label-checker | — | ハードコーディング（ゼロハードコーディング違反）は検出されず | 対応不要 |
+| test-coverage-reviewer（`body_size_limit`最終設計の再レビュー） | MEDIUM | `compute_max_body_size()`のHTTP経由テストが閾値自身を使ってペイロードを組み立てるため、`OVERHEAD_FACTOR`（×2倍）の値そのものの変更を検知できないトートロジーになっていた | 修正済み：`test_compute_max_body_size_applies_overhead_factor`を追加（期待値に定数名ではなく数値`2`を直接書き、定数の書き換えミスを検知できるようにした） |
+| test-coverage-reviewer | LOW-MEDIUM | 境界値（ちょうど閾値）が拒否されないことを確認するテストが無かった（Starletteの判定は厳密な`>`、off-by-one回帰を検知できない） | 修正済み：`test_body_exactly_at_threshold_is_not_rejected_with_413`を追加 |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）

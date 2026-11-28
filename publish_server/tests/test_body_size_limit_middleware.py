@@ -12,8 +12,20 @@ FastAPI/Starlette一次サポートの`max_body_size`（`app/middleware/body_siz
 検証より前にASGI層で拒否されるため）。
 """
 
+from app.config import get_settings
 from app.middleware.body_size_limit import compute_max_body_size
 from tests.publish_helpers import bearer_header, create_and_login, gantt_payload, issue_api_token
+
+
+def test_compute_max_body_size_applies_overhead_factor():
+    """`OVERHEAD_FACTOR`（×2倍）自体の効果を検証する（test-coverage-reviewerレビュー
+    2026-11-28指摘：HTTP経由のテストだけでは`compute_max_body_size()`がテストデータ構築に
+    使われるだけでトートロジーになり、倍率の値そのものの変更を検知できない）。期待値は
+    定数名を参照せず数値`2`を直接書く（定数の書き換えミスを検知できるようにするため）。
+    """
+    settings = get_settings()
+
+    assert compute_max_body_size() == settings.max_snapshot_bytes * 2
 
 
 def test_oversized_raw_body_is_rejected_with_413_regardless_of_json_validity(client):
@@ -28,6 +40,25 @@ def test_oversized_raw_body_is_rejected_with_413_regardless_of_json_validity(cli
     )
 
     assert response.status_code == 413
+
+
+def test_body_exactly_at_threshold_is_not_rejected_with_413(client):
+    """境界値（ちょうど閾値）は拒否されないことを確認する（test-coverage-reviewerレビュー
+    2026-11-28指摘：Starletteの判定は厳密な`>`〈`.venv/Lib/site-packages/starlette/
+    middleware/body_limit.py`で確認済み〉のため、off-by-oneでの回帰〈`>=`化等〉を検知する）。
+    JSONとして妥当である必要はない（ASGI層での拒否はpydantic検証より前に行われるため）。
+    """
+    csrf = create_and_login(client, "alice2")
+    token = issue_api_token(client, csrf)
+    body_at_threshold = b"a" * compute_max_body_size()
+
+    response = client.put(
+        "/api/v1/publish/gantt/1",
+        content=body_at_threshold,
+        headers={**bearer_header(token), "content-type": "application/json"},
+    )
+
+    assert response.status_code != 413
 
 
 def test_normal_sized_request_passes_through(client):
