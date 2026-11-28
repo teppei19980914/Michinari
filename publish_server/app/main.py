@@ -12,8 +12,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.errors import register_exception_handlers
 from app.api.health import router as health_router
+from app.api.publish import router as publish_router
+from app.api.quiz_answer import router as quiz_answer_router
+from app.api.today import router as today_router
+from app.api.view import router as view_router
 from app.config import get_settings
 from app.constants.security import CSRF_HEADER_NAME
+from app.middleware.body_size_limit import compute_max_body_size
 from app.middleware.security_headers import register_security_headers_middleware
 
 API_V1_PREFIX = "/api/v1"
@@ -23,7 +28,9 @@ def create_app() -> FastAPI:
     settings = get_settings()
     logging.basicConfig(level=settings.log_level)
 
-    app = FastAPI(title="Michinari Publish Server")
+    #: D-20・STRIDE「巨大ペイロード送信によるリソース枯渇」対策。FastAPI/Starlette一次サポート
+    #: の仕組み（`app/middleware/body_size_limit.py`参照）を使う。
+    app = FastAPI(title="Michinari Publish Server", max_body_size=compute_max_body_size())
 
     register_security_headers_middleware(app)
 
@@ -35,14 +42,18 @@ def create_app() -> FastAPI:
             CORSMiddleware,
             allow_origins=allowed_origins,
             allow_credentials=True,
-            allow_methods=["GET", "POST", "DELETE"],
-            allow_headers=["Content-Type", CSRF_HEADER_NAME],
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_headers=["Content-Type", "Authorization", CSRF_HEADER_NAME],
         )
 
     register_exception_handlers(app)
 
     app.include_router(health_router)
     app.include_router(auth_router, prefix=API_V1_PREFIX)
+    app.include_router(publish_router, prefix=API_V1_PREFIX)
+    app.include_router(view_router, prefix=API_V1_PREFIX)
+    app.include_router(quiz_answer_router, prefix=API_V1_PREFIX)
+    app.include_router(today_router, prefix=API_V1_PREFIX)
 
     return app
 

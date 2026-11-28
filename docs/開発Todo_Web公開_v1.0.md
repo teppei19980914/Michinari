@@ -3,6 +3,7 @@
 | 版 | 日付 | 内容 |
 | --- | --- | --- |
 | v1.0 | 2026-11-28 | 初版（調査・設計・開発Todo作成のみ。ソースコード変更なし） |
+| v1.1 | 2026-11-28 | 単位1・単位2のソースコード実装を反映（状況・観点別レビュー結果・変更ファイル一覧を各単位の節に記載。本書自体の決定事項・データモデル・STRIDE分析は変更なし） |
 
 本書はミチナリ v3.0.0「Web公開機能（MVP）」の実装前調査・設計・開発Todoである。本セッションでは
 ソースコード・依存パッケージ・移行ファイルの変更は一切行っていない（調査結果とドキュメント作成のみ）。
@@ -252,26 +253,92 @@
 
 ### 単位2：公開API・閲覧/回答API
 
+**状況（2026-11-28 実装完了）**：下記の変更ファイル一覧どおり実装済み。`publish_server/`配下で
+`uv run pytest --cov-fail-under=100`が144件全テスト合格・カバレッジ100%（行・分岐とも）、
+`ruff format --check`／`ruff check`も通過。既存`backend/`は無変更（本単位の変更対象外）。
+
 **概要**：スナップショットの受信・差し替え・公開停止と、閲覧・回答API（ガント・単語帳・問題）、サーバ側正誤判定、回答履歴記録。
+
+**設計上の補足決定（本書の記述からの具体化）**
+- アップロードは種別ごとにローカル側ID単位の`PUT`（`/publish/gantt/{local_goal_id}`／
+  `/publish/vocab/{local_deck_id}`／`/publish/quiz/{local_deck_id}`）。ガント・単語帳は
+  upsert（同一local_goal_id／local_deck_idで上書き、行は維持）。問題のみ、差し替え時に
+  既存行を全削除してから再作成する（`published_quiz_question`は`sqlite_autoincrement=True`
+  でrowid再利用を防止し、差し替え後は旧IDが必ず無効化される）
+- 問題は単語帳デッキのスナップショット（`vocab_deck_snapshot_id`）に従属するため、単語帳が
+  未公開の状態で問題だけをアップロードすると`VOCAB_DECK_NOT_PUBLISHED`（400）
+- D-20の上限値（10章6節で確定済み）はpublish_server側設定として`PUBLISH_MAX_SNAPSHOT_BYTES`
+  ／`PUBLISH_MAX_VOCAB_CARDS`／`PUBLISH_MAX_QUIZ_QUESTIONS`／`PUBLISH_MAX_FIELD_CHARS`の
+  4環境変数に実装（`docs/INFRASTRUCTURE.md`反映済み）。文字数上限はpydantic
+  `Field(max_length=...)`、件数・バイト数上限はサービス層で検証し、いずれも400＋専用コード
+- 「今日」（D-09）はpublish_server側で新規に`PUBLISH_TODAY_BOUNDARY_HOUR`（既定0、UTC）を
+  設定可能にした。ローカル側`app_setting`の境界時刻設定とは別管理（別プロセス・複数利用者
+  共有のため）
+- リクエストボディサイズの事前防御（413）は、FastAPI/Starlette一次サポートの`max_body_size`
+  機構（`starlette.middleware.body_limit.RequestBodyLimitMiddleware`、`app/main.py`の
+  `FastAPI(max_body_size=...)`）を使う。実際の受信バイト数で判定するため`Content-Length`
+  ヘッダに依存せず、`Transfer-Encoding: chunked`でも迂回できない（自前のASGI実装を最初に
+  試みたがFastAPI本体の例外変換と衝突したため撤回した経緯は`app/middleware/
+  body_size_limit.py`のdocstring参照）。正確な上限判定・専用エラーコードは依然サービス層の
+  `_check_snapshot_size`が担う
+- 問題のアップロード（`QuizQuestionIn`）には`local_card_id`（ローカル側`quiz_question.
+  vocab_card_id`）を必須フィールドとして追加し、サーバ側で同じ単語帳デッキのカード一覧
+  （`cards_json`）に実在するかを検証する（D-03・STRIDE分析5章「ローカル→公開API」I:情報漏洩
+  「D-03のフィルタをクライアントだけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」
+  への対応。実装レビュー完了後、ユーザーへの最終確認時に当初の実装で欠落していたことが
+  判明し、マージ前に追加した）。1件でも不一致なら既存の削除処理に進む前に全体を拒否し、
+  一部のみの保存はしない（`QuestionNotFromVocabCardError`、400・QUESTION_NOT_FROM_VOCAB_CARD）
+
+**観点別レビュー（auth/injection/secret/dependency/dry/style/test-coverage-reviewer、2026-11-28
+並列実行）の結果と対応**：
+
+| 指摘元 | 重大度 | 内容 | 対応 |
+| --- | --- | --- | --- |
+| auth-reviewer / injection-reviewer（参考指摘として一致） | MEDIUM | 回答の冪等性チェック（`client_answer_uuid`検索）が`account_id`でフィルタされておらず、他アカウントの値を知っていれば再送で判定結果を取得できるIDOR的経路になっていた（直後の`get_quiz_question`のフィルタで実害は無かったが間接防御に依存していた） | 修正済み：検索条件に`account_id`を追加。これにより他アカウントが同じ`client_answer_uuid`で新規回答すると一意制約違反になるため、`IntegrityError`を捕捉し専用の`DuplicateClientAnswerUuidError`（400・DUPLICATE_CLIENT_ANSWER_UUID）へ変換するハンドリングも追加 |
+| dry-reviewer | HIGH | `upsert_vocab_deck`が既存の`_find_vocab_deck`ヘルパーを使わず同一クエリを重複記述（ヘルパー追加時の片手落ち） | 修正済み：`_find_vocab_deck`を使うよう統一 |
+| dry-reviewer | MEDIUM | ガント側に`_find_gantt_snapshot`が無くvocab側と非対称、`view_service.py`の「id+account_idで検索→404」が3関数で同形重複 | 修正済み：`_find_gantt_snapshot`を追加。`view_service.py`に`_get_or_404`（PEP 695ジェネリック）を追加し3関数から利用 |
+| dry-reviewer | LOW | 一覧取得2関数（ガント・単語帳）が同形重複、件数上限チェックが2箇所で同形 | 修正済み：`_list_by_account`／`_check_item_count`へ共通化 |
+| secret-reviewer | MEDIUM | 新規env var（`PUBLISH_MAX_SNAPSHOT_BYTES`等5件）が`docs/INFRASTRUCTURE.md`の環境変数表に未反映 | 修正済み：同ファイルへ追記（v0.2） |
+| style-reviewer | LOW | `_check_size`という関数名が「何のサイズか」を名前から読み取れない、コメント中の「同一goal_idで上書き」が実カラム名`local_goal_id`と表記不一致 | 修正済み：`_check_snapshot_size`に改名、コメント表記を`local_goal_id`に統一 |
+| test-coverage-reviewer | MEDIUM | 単語帳の公開停止→問題へのカスケード削除を、サービス層の実経路（`publish_service.delete_vocab_deck`）を通してAPIレベルで検証するテストが無かった（既存はORM直接削除のカスケード検証のみ） | 修正済み：`test_answering_question_after_unpublish_vocab_cascades_to_quiz_is_rejected`を追加 |
+| test-coverage-reviewer | LOW | 差し替え後の「旧問題ID無効化」のみ検証し、「新しい問題に正しく回答できる」ことの検証が無かった | 修正済み：`test_answering_newly_published_question_after_replace_succeeds`を追加 |
+| injection-reviewer | MEDIUM | body_size_limit.pyの`Content-Length`前提チェックは`Transfer-Encoding: chunked`で迂回可能 | **修正済み**：自前のASGI `receive()`ラップ実装を撤回し、FastAPI/Starlette一次サポートの`max_body_size`機構（`starlette.middleware.body_limit.RequestBodyLimitMiddleware`、インストール済みパッケージのソースで確認済み一次情報源）へ切り替えた。実受信バイト数で判定するため`Content-Length`ヘッダに依存せず、迂回できない設計になる。（補足：自前実装を`HTTPException`サブクラス化して413を試みたが、FastAPI本体のボディ読込処理〈`fastapi/routing.py`〉が例外を一律400へ変換してしまい解消しなかったため、公式機構へ切り替えた経緯を`app/middleware/body_size_limit.py`のdocstringに記録） |
+| auth-reviewer | HIGH（受容） | アカウント作成APIのユーザー名列挙オラクル（単位1で受容済み事項の再確認） | 単位1と同じ理由で対応せず（変更なし） |
+| dependency-reviewer | — | 新規サードパーティ依存の追加なし（`pyproject.toml`/`uv.lock`はunit1から無変更） | 対応不要（OSVスキャンもCRITICAL/HIGH無しを確認済み、45パッケージ） |
+| performance-reviewer | LOW | `view_service.py`の`_list_by_account`が`account_id`単独インデックスのみで`(account_id, updated_at, id)`の複合インデックスが無い | **対応せず・記録のみ**：1アカウントあたりの公開物は数十件程度想定（想定利用規模、開発Todo8章）のため現状無害。将来的な複合インデックス追加は任意検討事項とする |
+| auth-reviewer（`max_body_size`切り替え後の再レビュー） | LOW | 413応答（ボディサイズ超過）がCORS・セキュリティヘッダ（CSP等）ミドルウェアをバイパスする（`FastAPI(max_body_size=...)`の実装が`app.add_middleware`登録群より外側で直接レスポンスを送るため、ライブラリのミドルウェアスタック構造上の仕様）。本文は固定文字列のみで攻撃者制御の内容を反映しないため、CSP欠落等がXSSに直結する経路は無い | **対応せず・文書化**：`app/middleware/body_size_limit.py`のdocstringに実機確認済みの挙動として明記。実害がLOWのため単位2では対応しない |
+| label-checker | — | ハードコーディング（ゼロハードコーディング違反）は検出されず | 対応不要 |
+| test-coverage-reviewer（`body_size_limit`最終設計の再レビュー） | MEDIUM | `compute_max_body_size()`のHTTP経由テストが閾値自身を使ってペイロードを組み立てるため、`OVERHEAD_FACTOR`（×2倍）の値そのものの変更を検知できないトートロジーになっていた | 修正済み：`test_compute_max_body_size_applies_overhead_factor`を追加（期待値に定数名ではなく数値`2`を直接書き、定数の書き換えミスを検知できるようにした） |
+| test-coverage-reviewer | LOW-MEDIUM | 境界値（ちょうど閾値）が拒否されないことを確認するテストが無かった（Starletteの判定は厳密な`>`、off-by-one回帰を検知できない） | 修正済み：`test_body_exactly_at_threshold_is_not_rejected_with_413`を追加 |
+| （マージ前の利用者確認時の指示再読により発覚、観点別レビューの対象外） | HIGH | 本書5章STRIDE分析「ローカル→公開API」I:情報漏洩の対策「D-03のフィルタをクライアントだけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」が未実装だった。利用者指示「公開データに、単語帳由来以外の問題や、日次報告などの対象外データが混ざった場合は拒否する」に対応する要件であり、当初の実装では`QuizQuestionIn`に出所（`local_card_id`）を示すフィールド自体が無く、サーバ側は受け取った問題をそのまま信用していた | 修正済み：`QuizQuestionIn.local_card_id`を必須フィールドとして追加し、`replace_quiz_questions`で同じ単語帳デッキのカード一覧と照合、不一致は`QuestionNotFromVocabCardError`（400・QUESTION_NOT_FROM_VOCAB_CARD）で拒否（1件でも不一致なら既存データの削除前に全体を拒否、部分保存なし）。テスト2件追加 |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）
-- `publish_server/app/api/view.py`（閲覧）、`publish_server/app/api/quiz_answer.py`（回答）
+- `publish_server/app/api/view.py`（閲覧）、`publish_server/app/api/quiz_answer.py`（回答）、`publish_server/app/api/today.py`（D-09）
 - `publish_server/app/models/snapshot_gantt.py,snapshot_vocab.py,snapshot_quiz.py,quiz_answer_record.py`
-- `publish_server/app/services/publish_service.py,view_service.py,answer_service.py`
-- `publish_server/app/schemas/*`
+- `publish_server/app/services/publish_service.py,view_service.py,answer_service.py,calendar_service.py`
+- `publish_server/app/schemas/gantt.py,vocab.py,quiz.py`
+- `publish_server/app/middleware/body_size_limit.py`（D-20・STRIDE「巨大ペイロード」対策）
+- `publish_server/alembic/versions/93c2ed255fee_*.py`（4テーブル新規追加）
+- `publish_server/app/api/deps.py`（`get_account_from_api_token`追加）、`app/api/errors.py`・`app/services/exceptions.py`（新規ドメイン例外）、`app/config.py`（D-20・D-09の設定値）、`app/main.py`（ルーター登録）を変更
+- `publish_server/tests/`一式（新規テストファイル6本＋既存3本への追加）
+- `docs/INFRASTRUCTURE.md`（v0.2、D-20・D-09の環境変数を反映）
 
 **テスト観点**
-- 正常系：アップロード→差し替え（同一goal_idで上書き）→閲覧→回答→正誤返却
+- 正常系：アップロード→差し替え（同一local_goal_id／local_deck_idで上書き）→閲覧→回答→正誤返却
 - 異常系：不正なトークンでのアップロード拒否、サイズ/件数/文字数上限超過（D-20）、存在しない問題IDへの回答
 - 認可境界：他アカウントのスナップショットへの閲覧拒否、他アカウントのquestion_idへの回答拒否
 - 不正入力：JSON構造破損、選択肢インデックス範囲外値、SQLi/XSSペイロードを含む本文
 - 認証突破試行：失効済みトークンでのアップロード拒否、未ログインでの閲覧/回答拒否
 - **情報漏洩チェック（D-07必須）**：回答前レスポンスに`correct_choice_index`・`explanation`が含まれないことを固定するテスト
+- 公開停止後に取得・回答できないこと（ガント・単語帳〈問題へのカスケードを含む〉・問題単独）
+- 差し替え後に古い版の問題へ回答できないこと（かつ新しい版には正しく回答できること）
+- 単語帳由来以外の問題（`local_card_id`がデッキのカード一覧に実在しない）の拒否、1件でも
+  不一致なら既存の公開済み問題を残したまま全体を拒否すること（部分保存なし）
 
-**完了条件**：上記テスト全通過、カバレッジ100%
+**完了条件**：上記テスト全通過（144件）、カバレッジ100%、`ruff check`／`ruff format --check`通過
 
-**デグレ確認項目**：単位1のログイン・トークン機構に影響が無いこと
+**デグレ確認項目**：既存`backend/`に対する変更が無いこと（本単位は`publish_server/`のみ変更）。単位1のログイン・トークン機構に影響が無いこと（既存82件のテストを含め全144件が通過）
 
 ---
 

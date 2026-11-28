@@ -59,3 +59,91 @@ class TokenNotFoundError(DomainError):
     def __init__(self, token_id: int) -> None:
         self.token_id = token_id
         super().__init__(f"PublishApiToken(id={token_id}) not found")
+
+
+class InvalidApiTokenError(DomainError):
+    """公開APIトークン（Bearer）が無い、または無効・失効済みの場合（単位2、D-19）。"""
+
+    def __init__(self) -> None:
+        super().__init__("API token is missing or invalid")
+
+
+class SnapshotTooLargeError(DomainError):
+    """スナップショットのJSON化後サイズが上限を超える場合（D-20、400系＋専用コード）。"""
+
+    def __init__(self, actual_bytes: int, max_bytes: int) -> None:
+        self.actual_bytes = actual_bytes
+        self.max_bytes = max_bytes
+        super().__init__(
+            f"Snapshot size {actual_bytes} bytes exceeds the limit of {max_bytes} bytes"
+        )
+
+
+class TooManyItemsError(DomainError):
+    """件数上限を超える場合（D-20：単語帳カード数・問題数）。"""
+
+    def __init__(self, item_name: str, actual_count: int, max_count: int) -> None:
+        self.item_name = item_name
+        self.actual_count = actual_count
+        self.max_count = max_count
+        super().__init__(f"Number of {item_name} ({actual_count}) exceeds the limit of {max_count}")
+
+
+class VocabDeckNotPublishedError(DomainError):
+    """問題のアップロード時、対応する単語帳デッキがまだ公開されていない場合（単位2設計）。
+
+    問題は単語帳デッキ（`published_vocab_deck`）に紐づくスナップショットのため、
+    先に単語帳を公開してから問題を公開する順序を前提とする。
+    """
+
+    def __init__(self, local_deck_id: int) -> None:
+        self.local_deck_id = local_deck_id
+        super().__init__(f"Vocab deck (local_deck_id={local_deck_id}) is not published")
+
+
+class QuestionNotFromVocabCardError(DomainError):
+    """問題のアップロード時、`local_card_id`が同じ単語帳デッキのカード一覧に存在しない場合
+    （D-03・STRIDE分析5章「ローカル→公開API」I:情報漏洩対策「D-03のフィルタをクライアント
+    だけでなくサーバ側でも二重検証（`vocab_card_id`必須チェック）」）。
+
+    ローカル側のフィルタ（`vocab_card_id IS NOT NULL`）はアップロード元の責務だが、テーマ
+    （`theme_id`）由来等の対象外データが誤って（あるいはクライアント側の不具合で）混入した
+    場合に、サーバ側でも拒否する。
+    """
+
+    def __init__(self, local_card_id: int) -> None:
+        self.local_card_id = local_card_id
+        super().__init__(
+            f"Quiz question references local_card_id={local_card_id}, which is not part of "
+            "the published vocab deck"
+        )
+
+
+class SnapshotNotFoundError(DomainError):
+    """指定された公開物IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。"""
+
+    def __init__(self, snapshot_id: int) -> None:
+        self.snapshot_id = snapshot_id
+        super().__init__(f"Published snapshot (id={snapshot_id}) not found")
+
+
+class DuplicateClientAnswerUuidError(DomainError):
+    """`client_answer_uuid`が自分以外（他アカウントまたは別問題）の回答記録で既に使われて
+    いた場合（単位2設計、DB全体のUNIQUE制約違反。auth-reviewerレビュー2026-11-28指摘：
+    account_idを検索条件に加えた結果、他アカウントが同じ値を使うとINSERT時に一意制約違反
+    となるため、これを捕捉してドメイン例外へ変換する）。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("client_answer_uuid is already used")
+
+
+class QuestionNotFoundError(DomainError):
+    """指定された問題IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。
+
+    差し替え（単位2テスト観点）で古い版の問題IDが無効化された場合もこの例外になる。
+    """
+
+    def __init__(self, question_id: int | None) -> None:
+        self.question_id = question_id
+        super().__init__(f"Published quiz question (id={question_id}) not found")
