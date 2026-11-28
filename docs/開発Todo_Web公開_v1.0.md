@@ -252,26 +252,74 @@
 
 ### 単位2：公開API・閲覧/回答API
 
+**状況（2026-11-28 実装完了）**：下記の変更ファイル一覧どおり実装済み。`publish_server/`配下で
+`uv run pytest --cov-fail-under=100`が140件全テスト合格・カバレッジ100%（行・分岐とも）、
+`ruff format --check`／`ruff check`も通過。既存`backend/`は無変更（本単位の変更対象外）。
+
 **概要**：スナップショットの受信・差し替え・公開停止と、閲覧・回答API（ガント・単語帳・問題）、サーバ側正誤判定、回答履歴記録。
+
+**設計上の補足決定（本書の記述からの具体化）**
+- アップロードは種別ごとにローカル側ID単位の`PUT`（`/publish/gantt/{local_goal_id}`／
+  `/publish/vocab/{local_deck_id}`／`/publish/quiz/{local_deck_id}`）。ガント・単語帳は
+  upsert（同一local_goal_id／local_deck_idで上書き、行は維持）。問題のみ、差し替え時に
+  既存行を全削除してから再作成する（`published_quiz_question`は`sqlite_autoincrement=True`
+  でrowid再利用を防止し、差し替え後は旧IDが必ず無効化される）
+- 問題は単語帳デッキのスナップショット（`vocab_deck_snapshot_id`）に従属するため、単語帳が
+  未公開の状態で問題だけをアップロードすると`VOCAB_DECK_NOT_PUBLISHED`（400）
+- D-20の上限値（10章6節で確定済み）はpublish_server側設定として`PUBLISH_MAX_SNAPSHOT_BYTES`
+  ／`PUBLISH_MAX_VOCAB_CARDS`／`PUBLISH_MAX_QUIZ_QUESTIONS`／`PUBLISH_MAX_FIELD_CHARS`の
+  4環境変数に実装（`docs/INFRASTRUCTURE.md`反映済み）。文字数上限はpydantic
+  `Field(max_length=...)`、件数・バイト数上限はサービス層で検証し、いずれも400＋専用コード
+- 「今日」（D-09）はpublish_server側で新規に`PUBLISH_TODAY_BOUNDARY_HOUR`（既定0、UTC）を
+  設定可能にした。ローカル側`app_setting`の境界時刻設定とは別管理（別プロセス・複数利用者
+  共有のため）
+- リクエストボディサイズの粗い事前防御（413、`Content-Length`ヘッダ判定）をミドルウェアで
+  追加。`Transfer-Encoding: chunked`では迂回されうる既知の限界があり、正確な上限判定は
+  サービス層の`_check_snapshot_size`に委ねる設計（本番はRenderのリバースプロキシ層が実効的な
+  防御、`docs/INFRASTRUCTURE.md`）
+
+**観点別レビュー（auth/injection/secret/dependency/dry/style/test-coverage-reviewer、2026-11-28
+並列実行）の結果と対応**：
+
+| 指摘元 | 重大度 | 内容 | 対応 |
+| --- | --- | --- | --- |
+| auth-reviewer / injection-reviewer（参考指摘として一致） | MEDIUM | 回答の冪等性チェック（`client_answer_uuid`検索）が`account_id`でフィルタされておらず、他アカウントの値を知っていれば再送で判定結果を取得できるIDOR的経路になっていた（直後の`get_quiz_question`のフィルタで実害は無かったが間接防御に依存していた） | 修正済み：検索条件に`account_id`を追加。これにより他アカウントが同じ`client_answer_uuid`で新規回答すると一意制約違反になるため、`IntegrityError`を捕捉し専用の`DuplicateClientAnswerUuidError`（400・DUPLICATE_CLIENT_ANSWER_UUID）へ変換するハンドリングも追加 |
+| dry-reviewer | HIGH | `upsert_vocab_deck`が既存の`_find_vocab_deck`ヘルパーを使わず同一クエリを重複記述（ヘルパー追加時の片手落ち） | 修正済み：`_find_vocab_deck`を使うよう統一 |
+| dry-reviewer | MEDIUM | ガント側に`_find_gantt_snapshot`が無くvocab側と非対称、`view_service.py`の「id+account_idで検索→404」が3関数で同形重複 | 修正済み：`_find_gantt_snapshot`を追加。`view_service.py`に`_get_or_404`（PEP 695ジェネリック）を追加し3関数から利用 |
+| dry-reviewer | LOW | 一覧取得2関数（ガント・単語帳）が同形重複、件数上限チェックが2箇所で同形 | 修正済み：`_list_by_account`／`_check_item_count`へ共通化 |
+| secret-reviewer | MEDIUM | 新規env var（`PUBLISH_MAX_SNAPSHOT_BYTES`等5件）が`docs/INFRASTRUCTURE.md`の環境変数表に未反映 | 修正済み：同ファイルへ追記（v0.2） |
+| style-reviewer | LOW | `_check_size`という関数名が「何のサイズか」を名前から読み取れない、コメント中の「同一goal_idで上書き」が実カラム名`local_goal_id`と表記不一致 | 修正済み：`_check_snapshot_size`に改名、コメント表記を`local_goal_id`に統一 |
+| test-coverage-reviewer | MEDIUM | 単語帳の公開停止→問題へのカスケード削除を、サービス層の実経路（`publish_service.delete_vocab_deck`）を通してAPIレベルで検証するテストが無かった（既存はORM直接削除のカスケード検証のみ） | 修正済み：`test_answering_question_after_unpublish_vocab_cascades_to_quiz_is_rejected`を追加 |
+| test-coverage-reviewer | LOW | 差し替え後の「旧問題ID無効化」のみ検証し、「新しい問題に正しく回答できる」ことの検証が無かった | 修正済み：`test_answering_newly_published_question_after_replace_succeeds`を追加 |
+| injection-reviewer | （参考、対応せず） | body_size_limit.pyの`Content-Length`前提チェックは`Transfer-Encoding: chunked`で迂回可能 | **対応せず・文書化**：正確な上限判定はサービス層`_check_snapshot_size`が担保済み、本番の実効防御はリバースプロキシ層（付録A）が前提。ミドルウェアのdocstringに既知の限界として明記 |
+| auth-reviewer | HIGH（受容） | アカウント作成APIのユーザー名列挙オラクル（単位1で受容済み事項の再確認） | 単位1と同じ理由で対応せず（変更なし） |
+| dependency-reviewer | — | 新規サードパーティ依存の追加なし（`pyproject.toml`/`uv.lock`はunit1から無変更） | 対応不要 |
 
 **変更ファイル一覧（新規）**
 - `publish_server/app/api/publish.py`（アップロード/差し替え/停止、APIトークン必須）
-- `publish_server/app/api/view.py`（閲覧）、`publish_server/app/api/quiz_answer.py`（回答）
+- `publish_server/app/api/view.py`（閲覧）、`publish_server/app/api/quiz_answer.py`（回答）、`publish_server/app/api/today.py`（D-09）
 - `publish_server/app/models/snapshot_gantt.py,snapshot_vocab.py,snapshot_quiz.py,quiz_answer_record.py`
-- `publish_server/app/services/publish_service.py,view_service.py,answer_service.py`
-- `publish_server/app/schemas/*`
+- `publish_server/app/services/publish_service.py,view_service.py,answer_service.py,calendar_service.py`
+- `publish_server/app/schemas/gantt.py,vocab.py,quiz.py`
+- `publish_server/app/middleware/body_size_limit.py`（D-20・STRIDE「巨大ペイロード」対策）
+- `publish_server/alembic/versions/93c2ed255fee_*.py`（4テーブル新規追加）
+- `publish_server/app/api/deps.py`（`get_account_from_api_token`追加）、`app/api/errors.py`・`app/services/exceptions.py`（新規ドメイン例外）、`app/config.py`（D-20・D-09の設定値）、`app/main.py`（ルーター登録）を変更
+- `publish_server/tests/`一式（新規テストファイル6本＋既存3本への追加）
+- `docs/INFRASTRUCTURE.md`（v0.2、D-20・D-09の環境変数を反映）
 
 **テスト観点**
-- 正常系：アップロード→差し替え（同一goal_idで上書き）→閲覧→回答→正誤返却
+- 正常系：アップロード→差し替え（同一local_goal_id／local_deck_idで上書き）→閲覧→回答→正誤返却
 - 異常系：不正なトークンでのアップロード拒否、サイズ/件数/文字数上限超過（D-20）、存在しない問題IDへの回答
 - 認可境界：他アカウントのスナップショットへの閲覧拒否、他アカウントのquestion_idへの回答拒否
 - 不正入力：JSON構造破損、選択肢インデックス範囲外値、SQLi/XSSペイロードを含む本文
 - 認証突破試行：失効済みトークンでのアップロード拒否、未ログインでの閲覧/回答拒否
 - **情報漏洩チェック（D-07必須）**：回答前レスポンスに`correct_choice_index`・`explanation`が含まれないことを固定するテスト
+- 公開停止後に取得・回答できないこと（ガント・単語帳〈問題へのカスケードを含む〉・問題単独）
+- 差し替え後に古い版の問題へ回答できないこと（かつ新しい版には正しく回答できること）
 
-**完了条件**：上記テスト全通過、カバレッジ100%
+**完了条件**：上記テスト全通過（140件）、カバレッジ100%、`ruff check`／`ruff format --check`通過
 
-**デグレ確認項目**：単位1のログイン・トークン機構に影響が無いこと
+**デグレ確認項目**：既存`backend/`に対する変更が無いこと（本単位は`publish_server/`のみ変更）。単位1のログイン・トークン機構に影響が無いこと（既存82件のテストを含め全140件が通過）
 
 ---
 

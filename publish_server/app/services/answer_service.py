@@ -5,12 +5,14 @@
 対策）。
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.account import PublishAccount
 from app.models.base import utcnow
 from app.models.quiz_answer_record import QuizAnswerRecord
 from app.services import view_service
+from app.services.exceptions import DuplicateClientAnswerUuidError
 
 
 def answer_question(
@@ -25,10 +27,18 @@ def answer_question(
     `client_answer_uuid`が既存の回答と同じ場合は、新規作成せず当時の判定結果をそのまま返す。
     その問題行が既に差し替え等で削除されている極端な場合（`question_id`が`SET NULL`済み）は
     `QuestionNotFoundError`になる（単位2では未対応のレアケースとして受容する）。
+
+    検索は`account_id`も条件に含める（D-21）。`client_answer_uuid`はDB全体で一意だが、
+    account_idを条件から外すと「他アカウントの値を知っていれば再送で判定結果を取得できる」
+    というIDOR的な経路になる（直後の`get_quiz_question`のaccount_idフィルタで実害は無いが、
+    auth-reviewer・injection-reviewerレビュー2026-11-28指摘により、ここ自体でも防ぐ）。
     """
     existing = (
         db.query(QuizAnswerRecord)
-        .filter(QuizAnswerRecord.client_answer_uuid == client_answer_uuid)
+        .filter(
+            QuizAnswerRecord.client_answer_uuid == client_answer_uuid,
+            QuizAnswerRecord.account_id == account.id,
+        )
         .first()
     )
     if existing is not None:
@@ -48,5 +58,12 @@ def answer_question(
             client_answer_uuid=client_answer_uuid,
         )
     )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # `client_answer_uuid`はDB全体でUNIQUE（上記の検索はこのアカウントの行のみを見るため、
+        # 他アカウントが先に同じ値を使っていた場合はここで一意制約違反になる（auth-reviewer
+        # レビュー2026-11-28指摘）。
+        db.rollback()
+        raise DuplicateClientAnswerUuidError() from None
     return is_correct, question.correct_choice_index, question.explanation

@@ -109,6 +109,17 @@ class SnapshotNotFoundError(DomainError):
         super().__init__(f"Published snapshot (id={snapshot_id}) not found")
 
 
+class DuplicateClientAnswerUuidError(DomainError):
+    """`client_answer_uuid`が自分以外（他アカウントまたは別問題）の回答記録で既に使われて
+    いた場合（単位2設計、DB全体のUNIQUE制約違反。auth-reviewerレビュー2026-11-28指摘：
+    account_idを検索条件に加えた結果、他アカウントが同じ値を使うとINSERT時に一意制約違反
+    となるため、これを捕捉してドメイン例外へ変換する）。
+    """
+
+    def __init__(self) -> None:
+        super().__init__("client_answer_uuid is already used")
+
+
 class QuestionNotFoundError(DomainError):
     """指定された問題IDが、ログイン中のアカウントに属さない・存在しない場合（D-21、IDOR対策）。
 

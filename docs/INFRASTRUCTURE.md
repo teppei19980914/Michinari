@@ -3,6 +3,7 @@
 | 版 | 日付 | 内容 |
 | --- | --- | --- |
 | v0.1 | 2026-11-28 | 初版（骨子のみ、単位1）。開発Todo_Web公開_v1.0.md 付録Aを基に作成。最終化は単位6 |
+| v0.2 | 2026-11-28 | 単位2実装分の環境変数を追記（D-20の上限値4件・D-09の論理日境界時刻1件） |
 
 本ドキュメントは`publish_server/`（Web公開サービス、開発Todo_Web公開_v1.0 D-12）のサーバー構築者向け
 情報を記載する。既存のデスクトップアプリ（`backend/`）はローカル完結のため対象外（配布は
@@ -27,9 +28,17 @@ Render・Supabaseの無料/低コスト枠の条件は変わりやすいため�
 | `PUBLISH_LOGIN_MAX_ATTEMPTS` | ログイン試行回数制限（D-17） | `5` |
 | `PUBLISH_LOGIN_LOCKOUT_MINUTES` | ロック時間（分） | `15` |
 | `PUBLISH_SESSION_LIFETIME_HOURS` | セッションの有効期限（時間） | `24` |
+| `PUBLISH_MAX_SNAPSHOT_BYTES` | スナップショット1件あたりの最大サイズ（JSON化後、D-20） | `2097152`（2MB） |
+| `PUBLISH_MAX_VOCAB_CARDS` | 単語帳カード数上限（公開1件あたり、D-20） | `500` |
+| `PUBLISH_MAX_QUIZ_QUESTIONS` | 問題数上限（公開1件あたり、D-20） | `1000` |
+| `PUBLISH_MAX_FIELD_CHARS` | 1フィールドの文字数上限（D-20） | `2000` |
+| `PUBLISH_TODAY_BOUNDARY_HOUR` | 「今日」の論理日の境界時刻（UTC・0〜23、D-09）。ローカル側`CALENDAR_DAY_BOUNDARY_HOUR`とは異なり、複数利用者が同じプロセスを共有するためサーバ全体で1つの値とする | `0` |
 | `PUBLISH_LOG_LEVEL` | ログレベル | `INFO` |
 
-単位2で追加予定（未実装、本書は骨子のみ）: `MAX_SNAPSHOT_BYTES`／`MAX_SNAPSHOT_ITEMS`／`MAX_FIELD_CHARS`（D-20）。
+単位1計画時点の付録Aでは上記上限値を`MAX_SNAPSHOT_BYTES`／`MAX_SNAPSHOT_ITEMS`／`MAX_FIELD_CHARS`
+の3変数として想定していたが、単位2実装では既存の`PUBLISH_`プレフィックス（他の環境変数と同じ
+命名規則）に揃え、かつ単語帳カード数と問題数を別上限値として分離した（`MAX_SNAPSHOT_ITEMS`→
+`PUBLISH_MAX_VOCAB_CARDS`・`PUBLISH_MAX_QUIZ_QUESTIONS`の2変数）。
 
 開発Todo_Web公開_v1.0.md 付録Aの計画段階では`SESSION_SECRET`（セッション署名・CSRFトークン
 生成用の秘密鍵）も環境変数として想定していたが、単位1の実装ではセッション・CSRFトークンとも

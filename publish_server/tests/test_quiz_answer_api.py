@@ -111,6 +111,31 @@ def test_answering_question_invalidated_by_replace_is_rejected(client):
     assert response.json()["error"]["code"] == "NOT_FOUND"
 
 
+def test_answering_newly_published_question_after_replace_succeeds(client):
+    """差し替えで旧問題IDが無効化される一方、新しい問題には正しく回答できることを確認する
+    （test-coverage-reviewerレビュー2026-11-28指摘：旧ID無効化のみでは新IDの動作は未検証）。
+    """
+    csrf = create_and_login(client, "dave2")
+    token = issue_api_token(client, csrf)
+    publish_full_set(client, token)
+
+    client.put(
+        "/api/v1/publish/quiz/1",
+        json=quiz_payload(local_question_id=2, correct_choice_index=1),
+        headers=bearer_header(token),
+    )
+    new_question_id = _published_question_id(client)
+
+    response = client.post(
+        f"/api/v1/view/quiz/{new_question_id}/answer",
+        json={"chosen_index": 1, "client_answer_uuid": "uuid-new-question"},
+        headers={CSRF_HEADER_NAME: csrf},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_correct"] is True
+
+
 def test_answering_question_after_unpublish_quiz_is_rejected(client):
     csrf = create_and_login(client, "erin")
     token = issue_api_token(client, csrf)
@@ -121,6 +146,28 @@ def test_answering_question_after_unpublish_quiz_is_rejected(client):
     response = client.post(
         f"/api/v1/view/quiz/{question_id}/answer",
         json={"chosen_index": 0, "client_answer_uuid": "uuid-after-unpublish"},
+        headers={CSRF_HEADER_NAME: csrf},
+    )
+
+    assert response.status_code == 404
+
+
+def test_answering_question_after_unpublish_vocab_cascades_to_quiz_is_rejected(client):
+    """単語帳の公開停止が、API経由でも問題へのカスケード削除として伝わることを確認する
+    （test-coverage-reviewerレビュー2026-11-28指摘：ORM直接削除のカスケード検証
+    〈test_cascade_delete.py〉だけでは、publish_service.delete_vocab_deckの経路を通した
+    回帰を検知できない）。
+    """
+    csrf = create_and_login(client, "erin2")
+    token = issue_api_token(client, csrf)
+    publish_full_set(client, token)
+    question_id = _published_question_id(client)
+
+    client.delete("/api/v1/publish/vocab/1", headers=bearer_header(token))
+
+    response = client.post(
+        f"/api/v1/view/quiz/{question_id}/answer",
+        json={"chosen_index": 0, "client_answer_uuid": "uuid-after-unpublish-vocab"},
         headers={CSRF_HEADER_NAME: csrf},
     )
 
@@ -178,6 +225,36 @@ def test_answering_other_accounts_question_is_rejected(client):
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "NOT_FOUND"
+
+
+def test_answering_with_client_answer_uuid_already_used_by_other_account_is_rejected(client):
+    """`client_answer_uuid`の冪等性チェックはaccount_idも条件に含めるため（auth-reviewer
+    レビュー2026-11-28指摘）、他アカウントが先に使った値を新規回答で使うと一意制約違反を
+    専用のドメイン例外に変換して拒否する。
+    """
+    csrf_a = create_and_login(client, "heidi2")
+    token_a = issue_api_token(client, csrf_a)
+    publish_full_set(client, token_a)
+    question_id_a = _published_question_id(client)
+    client.post(
+        f"/api/v1/view/quiz/{question_id_a}/answer",
+        json={"chosen_index": 0, "client_answer_uuid": "uuid-shared-across-accounts"},
+        headers={CSRF_HEADER_NAME: csrf_a},
+    )
+
+    csrf_b = create_and_login(client, "ivan2")
+    token_b = issue_api_token(client, csrf_b)
+    publish_full_set(client, token_b)
+    question_id_b = _published_question_id(client)
+
+    response = client.post(
+        f"/api/v1/view/quiz/{question_id_b}/answer",
+        json={"chosen_index": 0, "client_answer_uuid": "uuid-shared-across-accounts"},
+        headers={CSRF_HEADER_NAME: csrf_b},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "DUPLICATE_CLIENT_ANSWER_UUID"
 
 
 # ---- 認証突破試行（セッション・CSRF） -----------------------------------------

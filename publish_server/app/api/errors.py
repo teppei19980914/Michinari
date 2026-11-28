@@ -14,6 +14,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.services.exceptions import (
     CsrfTokenInvalidError,
     DomainError,
+    DuplicateClientAnswerUuidError,
     InvalidApiTokenError,
     InvalidCredentialsError,
     QuestionNotFoundError,
@@ -40,6 +41,7 @@ _STATUS_AND_CODE: dict[type[DomainError], tuple[int, str]] = {
     VocabDeckNotPublishedError: (status.HTTP_400_BAD_REQUEST, "VOCAB_DECK_NOT_PUBLISHED"),
     SnapshotNotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
     QuestionNotFoundError: (status.HTTP_404_NOT_FOUND, "NOT_FOUND"),
+    DuplicateClientAnswerUuidError: (status.HTTP_400_BAD_REQUEST, "DUPLICATE_CLIENT_ANSWER_UUID"),
 }
 _FALLBACK = (status.HTTP_500_INTERNAL_SERVER_ERROR, "INTERNAL_ERROR")
 

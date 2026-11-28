@@ -6,7 +6,7 @@
 前提で設計する）。
 
 アップロード（`PUT /publish/gantt/{local_goal_id}`）は`(account_id, local_goal_id)`単位の
-upsert（同一goal_idで上書き、単位2テスト観点）。`published_at`は初回公開時刻のまま変えず、
+upsert（同一local_goal_idで上書き、単位2テスト観点）。`published_at`は初回公開時刻のまま変えず、
 `updated_at`のみ差し替えごとに更新する。
 """
 

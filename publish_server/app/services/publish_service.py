@@ -2,10 +2,10 @@
 公開停止（開発Todo_Web公開_v1.0 単位2、D-01・D-07・D-10・D-20）。
 
 アップロードは`(account_id, local_goal_id)`／`(account_id, local_deck_id)`単位のupsert
-（同一goal_idで上書き、単位2テスト観点）。問題のみ、差し替え時に既存行を全削除してから
-再作成する（更新ではなく削除＋再作成）。これにより差し替え後は古い版の問題IDが必ず無効化
-される（単位2テスト観点「差し替え後に古い版の問題へ回答できないこと」、設計根拠は
-`app/models/snapshot_quiz.py`参照）。
+（同一local_goal_id／同一local_deck_idで上書き、単位2テスト観点）。問題のみ、差し替え時に
+既存行を全削除してから再作成する（更新ではなく削除＋再作成）。これにより差し替え後は古い版
+の問題IDが必ず無効化される（単位2テスト観点「差し替え後に古い版の問題へ回答できないこと」、
+設計根拠は`app/models/snapshot_quiz.py`参照）。
 
 公開停止（`delete_*`）は、対象が存在しない場合も冪等に成功する（`session_service.
 delete_session`と同じ方針）。一方、問題のアップロードは単語帳デッキが未公開だと失敗する
@@ -31,12 +31,44 @@ from app.services.exceptions import (
 )
 
 
-def _check_size(serialized: str) -> None:
+def _check_snapshot_size(serialized: str) -> None:
     """D-20：スナップショット1件あたりの最大サイズ（JSON化後）を検証する。"""
     settings = get_settings()
     actual_bytes = len(serialized.encode("utf-8"))
     if actual_bytes > settings.max_snapshot_bytes:
         raise SnapshotTooLargeError(actual_bytes, settings.max_snapshot_bytes)
+
+
+def _check_item_count(items: list, item_name: str, max_count: int) -> None:
+    """D-20：単語帳カード数・問題数の上限を検証する。"""
+    if len(items) > max_count:
+        raise TooManyItemsError(item_name, len(items), max_count)
+
+
+def _find_gantt_snapshot(
+    db: Session, account: PublishAccount, local_goal_id: int
+) -> PublishedGanttSnapshot | None:
+    return (
+        db.query(PublishedGanttSnapshot)
+        .filter(
+            PublishedGanttSnapshot.account_id == account.id,
+            PublishedGanttSnapshot.local_goal_id == local_goal_id,
+        )
+        .first()
+    )
+
+
+def _find_vocab_deck(
+    db: Session, account: PublishAccount, local_deck_id: int
+) -> PublishedVocabDeck | None:
+    return (
+        db.query(PublishedVocabDeck)
+        .filter(
+            PublishedVocabDeck.account_id == account.id,
+            PublishedVocabDeck.local_deck_id == local_deck_id,
+        )
+        .first()
+    )
 
 
 def upsert_gantt_snapshot(
@@ -48,16 +80,9 @@ def upsert_gantt_snapshot(
     items_json = json.dumps([item.model_dump(mode="json") for item in body.items])
     columns_json = json.dumps([column.model_dump(mode="json") for column in body.columns])
     cells_json = json.dumps([cell.model_dump(mode="json") for cell in body.cells])
-    _check_size(items_json + columns_json + cells_json)
+    _check_snapshot_size(items_json + columns_json + cells_json)
 
-    snapshot = (
-        db.query(PublishedGanttSnapshot)
-        .filter(
-            PublishedGanttSnapshot.account_id == account.id,
-            PublishedGanttSnapshot.local_goal_id == local_goal_id,
-        )
-        .first()
-    )
+    snapshot = _find_gantt_snapshot(db, account, local_goal_id)
     if snapshot is None:
         snapshot = PublishedGanttSnapshot(account_id=account.id, local_goal_id=local_goal_id)
         db.add(snapshot)
@@ -85,19 +110,11 @@ def upsert_vocab_deck(
     body: VocabDeckUploadRequest,
 ) -> PublishedVocabDeck:
     settings = get_settings()
-    if len(body.cards) > settings.max_vocab_cards:
-        raise TooManyItemsError("vocab cards", len(body.cards), settings.max_vocab_cards)
+    _check_item_count(body.cards, "vocab cards", settings.max_vocab_cards)
     cards_json = json.dumps([card.model_dump(mode="json") for card in body.cards])
-    _check_size(cards_json)
+    _check_snapshot_size(cards_json)
 
-    deck = (
-        db.query(PublishedVocabDeck)
-        .filter(
-            PublishedVocabDeck.account_id == account.id,
-            PublishedVocabDeck.local_deck_id == local_deck_id,
-        )
-        .first()
-    )
+    deck = _find_vocab_deck(db, account, local_deck_id)
     if deck is None:
         deck = PublishedVocabDeck(account_id=account.id, local_deck_id=local_deck_id)
         db.add(deck)
@@ -119,19 +136,6 @@ def delete_vocab_deck(db: Session, account: PublishAccount, local_deck_id: int) 
     db.commit()
 
 
-def _find_vocab_deck(
-    db: Session, account: PublishAccount, local_deck_id: int
-) -> PublishedVocabDeck | None:
-    return (
-        db.query(PublishedVocabDeck)
-        .filter(
-            PublishedVocabDeck.account_id == account.id,
-            PublishedVocabDeck.local_deck_id == local_deck_id,
-        )
-        .first()
-    )
-
-
 def replace_quiz_questions(
     db: Session,
     account: PublishAccount,
@@ -144,10 +148,9 @@ def replace_quiz_questions(
     （問題は単語帳デッキのスナップショットに従属するため、先に単語帳を公開する必要がある）。
     """
     settings = get_settings()
-    if len(questions) > settings.max_quiz_questions:
-        raise TooManyItemsError("quiz questions", len(questions), settings.max_quiz_questions)
+    _check_item_count(questions, "quiz questions", settings.max_quiz_questions)
     serialized = json.dumps([question.model_dump(mode="json") for question in questions])
-    _check_size(serialized)
+    _check_snapshot_size(serialized)
 
     deck = _find_vocab_deck(db, account, local_deck_id)
     if deck is None:
