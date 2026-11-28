@@ -40,6 +40,7 @@ def get_gantt(
         items=json.loads(snapshot.items_json),
         columns=json.loads(snapshot.columns_json),
         cells=json.loads(snapshot.cells_json),
+        holidays=view_service.decode_holidays(snapshot.holidays_json),
         updated_at=snapshot.updated_at,
     )
 

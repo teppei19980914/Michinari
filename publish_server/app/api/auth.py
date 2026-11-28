@@ -49,6 +49,22 @@ def login(body: LoginRequest, response: Response, db=Depends(get_db)) -> LoginRe
     return LoginResponse(account=account, csrf_token=issued.csrf_token)
 
 
+@router.get("/session", response_model=LoginResponse)
+def get_session(
+    account: PublishAccount = Depends(get_current_account),
+    request_session: PublishSession = Depends(get_current_session),
+) -> LoginResponse:
+    """単位3：有効なセッションCookieからcsrf_tokenを再取得する（ページ再読み込み対応）。
+
+    CSRFトークンはログイン応答本文でのみ返す設計（Cookieには入れない）だが、ブラウザの
+    記憶領域への保存も禁止（CLAUDE.md）のためCSRFトークンはJSのメモリ（React state）にのみ
+    置く。ページ再読み込みでメモリが失われても、セッションCookie自体（HttpOnly）はまだ
+    有効な場合に再ログインを強制せず同じcsrf_tokenを再取得できるようにする。GETのため
+    CSRF検証（`require_csrf`）は不要（状態変更を行わない）。
+    """
+    return LoginResponse(account=account, csrf_token=request_session.csrf_token)
+
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(
     response: Response,

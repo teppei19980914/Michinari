@@ -48,6 +48,9 @@ class GanttSnapshotUploadRequest(BaseModel):
     items: list[GanttItemIn]
     columns: list[GanttColumnIn]
     cells: list[GanttCellIn]
+    #: 公開範囲に含まれる祝日の個別日付（単位3、`app/models/snapshot_gantt.py`docstring参照）。
+    #: 既定は空リストのため、単位4未実装の間もこのフィールドを省略したアップロードは成功する。
+    holidays: list[date] = Field(default_factory=list)
 
 
 class GanttSnapshotListItem(BaseModel):
@@ -66,4 +69,5 @@ class GanttSnapshotDetail(BaseModel):
     items: list[GanttItemIn]
     columns: list[GanttColumnIn]
     cells: list[GanttCellIn]
+    holidays: list[date]
     updated_at: datetime

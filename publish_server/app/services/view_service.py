@@ -58,6 +58,11 @@ def get_gantt_snapshot(
     return _get_or_404(db, PublishedGanttSnapshot, snapshot_id, account, SnapshotNotFoundError)
 
 
+def decode_holidays(holidays_json: str) -> list[str]:
+    """既定値`"[]"`（単位2時点の既存行・単位4未実装の間のアップロード）を含め、常にリストを返す。"""
+    return json.loads(holidays_json)
+
+
 def list_vocab_decks(db: Session, account: PublishAccount) -> list[PublishedVocabDeck]:
     return _list_by_account(db, PublishedVocabDeck, account)
 

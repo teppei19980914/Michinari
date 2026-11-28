@@ -81,7 +81,8 @@ def upsert_gantt_snapshot(
     items_json = json.dumps([item.model_dump(mode="json") for item in body.items])
     columns_json = json.dumps([column.model_dump(mode="json") for column in body.columns])
     cells_json = json.dumps([cell.model_dump(mode="json") for cell in body.cells])
-    _check_snapshot_size(items_json + columns_json + cells_json)
+    holidays_json = json.dumps([holiday.isoformat() for holiday in body.holidays])
+    _check_snapshot_size(items_json + columns_json + cells_json + holidays_json)
 
     snapshot = _find_gantt_snapshot(db, account, local_goal_id)
     if snapshot is None:
@@ -91,6 +92,7 @@ def upsert_gantt_snapshot(
     snapshot.items_json = items_json
     snapshot.columns_json = columns_json
     snapshot.cells_json = cells_json
+    snapshot.holidays_json = holidays_json
     db.commit()
     db.refresh(snapshot)
     return snapshot
